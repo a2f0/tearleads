@@ -24,4 +24,8 @@ pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
+mod postgres_repository_tests;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests;

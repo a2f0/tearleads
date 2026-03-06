@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+#[path = "admin_service_group_mutations/guards.rs"]
+mod guards;
 mod support;
 
 use support::admin_service::{
@@ -92,6 +94,47 @@ async fn create_group_rejects_scoped_admin_forbidden_organization() {
     assert_eq!(status.code(), Code::PermissionDenied);
     assert_eq!(status.message(), "forbidden organization scope");
     assert!(lock_or_recover(&create_group_calls).is_empty());
+}
+
+#[tokio::test]
+async fn create_group_trims_blank_description_to_none() {
+    let postgres_repo = FakePostgresRepository {
+        create_group_result: Ok(AdminGroupDetail {
+            id: String::from("group-created"),
+            organization_id: String::from("org-7"),
+            name: String::from("Created Group"),
+            description: None,
+            created_at: String::from("2026-01-10T00:00:00Z"),
+            updated_at: String::from("2026-01-10T00:00:00Z"),
+            members: vec![],
+        }),
+        ..Default::default()
+    };
+    let create_group_calls = Arc::clone(&postgres_repo.create_group_calls);
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_scoped(vec![String::from("org-7")]),
+    );
+
+    let _payload = into_inner_or_panic(
+        handler
+            .create_group(Request::new(AdminCreateGroupRequest {
+                organization_id: String::from("org-7"),
+                name: String::from("Created Group"),
+                description: Some(String::from("   ")),
+            }))
+            .await,
+    );
+
+    assert_eq!(
+        lock_or_recover(&create_group_calls).clone(),
+        vec![AdminCreateGroupInput {
+            organization_id: String::from("org-7"),
+            name: String::from("Created Group"),
+            description: None,
+        }]
+    );
 }
 
 #[tokio::test]

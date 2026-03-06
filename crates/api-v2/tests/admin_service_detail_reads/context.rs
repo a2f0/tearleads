@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-mod support;
+// support module provided by parent test crate
 
-use support::admin_service::{
+use super::support::admin_service::{
     FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
@@ -13,7 +13,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetContextRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::AdminScopeOrganization;
-use tonic::Request;
+use tonic::{Code, Request};
 
 #[tokio::test]
 async fn get_context_for_root_admin_uses_unfiltered_organizations() {
@@ -84,4 +84,27 @@ async fn get_context_for_scoped_admin_uses_filtered_organizations_and_default() 
         lock_or_recover(&scoped_calls).clone(),
         vec![vec![String::from("org-7"), String::from("org-9")]]
     );
+}
+
+#[tokio::test]
+async fn get_context_maps_authorizer_denials() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository::default(),
+        FakeRedisRepository::default(),
+        FakeAuthorizer::deny(
+            tearleads_api_v2::AdminAuthErrorKind::PermissionDenied,
+            "denied",
+        ),
+    );
+
+    let result = handler
+        .get_context(Request::new(AdminGetContextRequest {}))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("get_context should fail when authorizer denies access"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::PermissionDenied);
+    assert_eq!(status.message(), "denied");
 }

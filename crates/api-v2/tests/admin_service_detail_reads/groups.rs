@@ -2,20 +2,20 @@
 
 use std::sync::Arc;
 
-mod support;
+// support module provided by parent test crate
 
-use support::admin_service::{
+use super::support::admin_service::{
     FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
-use tearleads_api_v2::AdminServiceHandler;
+use tearleads_api_v2::{AdminAuthErrorKind, AdminServiceHandler};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetGroupRequest, AdminListGroupsRequest, AdminListOrganizationsRequest,
     AdminListUsersRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminUserAccountingSummary, AdminUserSummary,
+    AdminUserAccountingSummary, AdminUserSummary, DataAccessError, DataAccessErrorKind,
 };
 use tonic::{Code, Request};
 
@@ -193,6 +193,175 @@ async fn get_group_rejects_blank_id_before_repository_calls() {
     assert_eq!(status.code(), Code::InvalidArgument);
     assert_eq!(status.message(), "id must not be empty");
     assert!(lock_or_recover(&get_group_calls).is_empty());
+}
+
+#[tokio::test]
+async fn group_read_routes_map_authorizer_denials() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository::default(),
+        FakeRedisRepository::default(),
+        FakeAuthorizer::deny(AdminAuthErrorKind::PermissionDenied, "denied"),
+    );
+
+    let list_groups_status = match handler
+        .list_groups(Request::new(AdminListGroupsRequest {
+            organization_id: None,
+        }))
+        .await
+    {
+        Ok(_) => panic!("list_groups should fail when authorizer denies access"),
+        Err(error) => error,
+    };
+    assert_eq!(list_groups_status.code(), Code::PermissionDenied);
+    assert_eq!(list_groups_status.message(), "denied");
+
+    let get_group_status = match handler
+        .get_group(Request::new(AdminGetGroupRequest {
+            id: String::from("group-1"),
+        }))
+        .await
+    {
+        Ok(_) => panic!("get_group should fail when authorizer denies access"),
+        Err(error) => error,
+    };
+    assert_eq!(get_group_status.code(), Code::PermissionDenied);
+    assert_eq!(get_group_status.message(), "denied");
+
+    let list_organizations_status = match handler
+        .list_organizations(Request::new(AdminListOrganizationsRequest {
+            organization_id: None,
+        }))
+        .await
+    {
+        Ok(_) => panic!("list_organizations should fail when authorizer denies access"),
+        Err(error) => error,
+    };
+    assert_eq!(list_organizations_status.code(), Code::PermissionDenied);
+    assert_eq!(list_organizations_status.message(), "denied");
+
+    let list_users_status = match handler
+        .list_users(Request::new(AdminListUsersRequest {
+            organization_id: None,
+        }))
+        .await
+    {
+        Ok(_) => panic!("list_users should fail when authorizer denies access"),
+        Err(error) => error,
+    };
+    assert_eq!(list_users_status.code(), Code::PermissionDenied);
+    assert_eq!(list_users_status.message(), "denied");
+}
+
+#[tokio::test]
+async fn list_groups_maps_repository_errors() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository {
+            list_groups_result: Err(DataAccessError::new(
+                DataAccessErrorKind::NotFound,
+                "group storage unavailable",
+            )),
+            ..Default::default()
+        },
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
+
+    let result = handler
+        .list_groups(Request::new(AdminListGroupsRequest {
+            organization_id: None,
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("list_groups should map repository error"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::NotFound);
+    assert_eq!(status.message(), "group storage unavailable");
+}
+
+#[tokio::test]
+async fn get_group_maps_repository_errors() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository {
+            get_group_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "group lookup failed",
+            )),
+            ..Default::default()
+        },
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
+
+    let result = handler
+        .get_group(Request::new(AdminGetGroupRequest {
+            id: String::from("group-1"),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("get_group should map repository error"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::Internal);
+    assert_eq!(status.message(), "internal data access error");
+}
+
+#[tokio::test]
+async fn list_organizations_maps_repository_errors() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository {
+            list_organizations_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "organization query failed",
+            )),
+            ..Default::default()
+        },
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
+
+    let result = handler
+        .list_organizations(Request::new(AdminListOrganizationsRequest {
+            organization_id: None,
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("list_organizations should map repository error"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::Internal);
+    assert_eq!(status.message(), "internal data access error");
+}
+
+#[tokio::test]
+async fn list_users_maps_repository_errors() {
+    let handler = AdminServiceHandler::with_authorizer(
+        FakePostgresRepository {
+            list_users_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "user query failed",
+            )),
+            ..Default::default()
+        },
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_all(),
+    );
+
+    let result = handler
+        .list_users(Request::new(AdminListUsersRequest {
+            organization_id: None,
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("list_users should map repository error"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::Internal);
+    assert_eq!(status.message(), "internal data access error");
 }
 
 #[tokio::test]

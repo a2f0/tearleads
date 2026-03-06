@@ -2,6 +2,12 @@
 
 use std::sync::Arc;
 
+#[path = "admin_service_detail_reads/context.rs"]
+mod context;
+#[path = "admin_service_detail_reads/error_paths.rs"]
+mod error_paths;
+#[path = "admin_service_detail_reads/groups.rs"]
+mod groups;
 mod support;
 
 use support::admin_service::{
@@ -15,7 +21,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminOrganizationUserSummary, AdminUserAccountingSummary, AdminUserSummary,
+    AdminOrganizationUserSummary, AdminUserAccountingSummary, AdminUserSummary, DataAccessError,
+    DataAccessErrorKind,
 };
 use tonic::{Code, Request};
 
@@ -287,6 +294,42 @@ async fn get_org_users_returns_users_for_scoped_organization() {
         lock_or_recover(&get_organization_users_calls).clone(),
         vec![String::from("org-7")]
     );
+}
+
+#[tokio::test]
+async fn get_org_users_maps_repository_errors() {
+    let postgres_repo = FakePostgresRepository {
+        list_organizations_result: Ok(vec![AdminOrganizationSummary {
+            id: String::from("org-7"),
+            name: String::from("Scoped Org"),
+            description: None,
+            created_at: String::from("2026-01-01T00:00:00Z"),
+            updated_at: String::from("2026-01-01T00:00:00Z"),
+        }]),
+        organization_users_result: Err(DataAccessError::new(
+            DataAccessErrorKind::Internal,
+            "organization user query failed",
+        )),
+        ..Default::default()
+    };
+    let handler = AdminServiceHandler::with_authorizer(
+        postgres_repo,
+        FakeRedisRepository::default(),
+        FakeAuthorizer::allow_scoped(vec![String::from("org-7")]),
+    );
+
+    let result = handler
+        .get_org_users(Request::new(AdminGetOrgUsersRequest {
+            id: String::from("org-7"),
+        }))
+        .await;
+    let status = match result {
+        Ok(_) => panic!("get_org_users should map repository errors"),
+        Err(error) => error,
+    };
+
+    assert_eq!(status.code(), Code::Internal);
+    assert_eq!(status.message(), "internal data access error");
 }
 
 #[tokio::test]
