@@ -264,7 +264,7 @@ jobs:
         working-directory: packages/client
 
       - name: Run Playwright tests (shard ${{ matrix.shard }}/2)
-        run: sh ../../scripts/tooling/pm.sh run test:e2e --shard=${{ matrix.shard }}/2
+        run: sh ../../scripts/tooling/pm.sh exec playwright test --shard=${{ matrix.shard }}/2
         working-directory: packages/client
         env:
           BASE_URL: http://localhost:8080
