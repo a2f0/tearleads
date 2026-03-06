@@ -25,10 +25,16 @@ function createAsyncResponseStream(
 
 function createAsyncErrorStream(
   error: unknown
-): AsyncGenerator<MockStreamResponse> {
-  return (async function* () {
-    throw error;
-  })();
+): AsyncIterable<MockStreamResponse> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<MockStreamResponse> {
+      return {
+        next: async () => {
+          throw error;
+        }
+      };
+    }
+  };
 }
 
 describe('openNotificationEventStream', () => {

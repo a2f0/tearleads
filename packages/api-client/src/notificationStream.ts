@@ -1,7 +1,7 @@
 import {
+  type CallOptions,
   Code,
   ConnectError,
-  type CallOptions,
   createClient
 } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
