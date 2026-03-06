@@ -102,20 +102,21 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           });
         });
 
+        // Fire-and-forget: server registration is non-blocking
         if (
           auth.isLoggedIn() &&
           featureFlags.getFeatureFlagValue('vfsServerRegistration') &&
           encryptedSessionKey
         ) {
-          try {
-            await vfsApi.register({
+          vfsApi
+            .register({
               id,
               objectType: 'folder',
               encryptedSessionKey
+            })
+            .catch((err: unknown) => {
+              console.warn('Failed to register folder on server:', err);
             });
-          } catch (err) {
-            console.warn('Failed to register folder on server:', err);
-          }
         }
 
         return { id, name: trimmedName };

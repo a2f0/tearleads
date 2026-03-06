@@ -69,15 +69,16 @@ export function useCreateNote({
           encryptedSessionKey &&
           vfsApi
         ) {
-          try {
-            await vfsApi.register({
+          // Fire-and-forget: server registration is non-blocking
+          vfsApi
+            .register({
               id,
               objectType: 'note',
               encryptedSessionKey
+            })
+            .catch((err: unknown) => {
+              console.warn('Failed to register note on server:', err);
             });
-          } catch (err) {
-            console.warn('Failed to register note on server:', err);
-          }
         }
       }
 
