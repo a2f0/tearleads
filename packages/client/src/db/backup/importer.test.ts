@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
 import {
-  FORMAT_VERSION,
-  encode,
   type BackupDatabase,
-  type BackupManifest
+  type BackupManifest,
+  encode,
+  FORMAT_VERSION
 } from '@tearleads/backups/format';
+import { describe, expect, it } from 'vitest';
 import { getBackupInfo, validateBackupFile } from './importer';
 
 describe('importer', () => {

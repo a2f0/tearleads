@@ -1,6 +1,3 @@
-import { isRecord } from '@tearleads/shared';
-import { logStore } from '@/stores/logStore';
-import type { DatabaseAdapter } from '../adapters';
 import type { Migration } from '@tearleads/db/sqlite-migrations';
 import {
   v001,
@@ -33,6 +30,9 @@ import {
   v028,
   v029
 } from '@tearleads/db/sqlite-migrations';
+import { isRecord } from '@tearleads/shared';
+import { logStore } from '@/stores/logStore';
+import type { DatabaseAdapter } from '../adapters';
 
 /**
  * All migrations in order. Add new migrations to this array.
