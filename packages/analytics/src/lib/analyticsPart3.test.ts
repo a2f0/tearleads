@@ -15,6 +15,7 @@ vi.mock('./analyticsState', () => ({
   isDatabaseInitialized: vi.fn(() => true)
 }));
 
+import type { Database } from '@tearleads/db/sqlite';
 // Import after mocks
 import {
   clearEvents,
@@ -22,7 +23,6 @@ import {
   getEventCount,
   getEventStats
 } from './analytics';
-import type { Database } from '@tearleads/db/sqlite';
 
 // Create mock database
 const mockDb = {

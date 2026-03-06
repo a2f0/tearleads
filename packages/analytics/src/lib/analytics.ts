@@ -3,12 +3,14 @@
  */
 
 import type { Database } from '@tearleads/db/sqlite';
+import { analyticsEvents } from '@tearleads/db/sqlite';
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import type {
   AnalyticsEventDetail,
   AnalyticsEventSlug,
   EventDetailMap
 } from './analyticsEvents';
+import { getDatabaseAdapter, isDatabaseInitialized } from './analyticsState.js';
 import {
   type AnalyticsEvent,
   type DatabaseInsert,
@@ -21,8 +23,6 @@ import {
   SORT_COLUMN_MAP,
   STATS_SORT_COLUMN_MAP
 } from './analyticsTypes';
-import { analyticsEvents } from '@tearleads/db/sqlite';
-import { getDatabaseAdapter, isDatabaseInitialized } from './analyticsState.js';
 
 export type { AnalyticsEvent, DatabaseInsert } from './analyticsTypes';
 

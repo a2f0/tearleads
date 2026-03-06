@@ -1,3 +1,4 @@
+import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
@@ -5,7 +6,6 @@ import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore'
 import { logStore } from '@/stores/logStore';
 import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
-import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
 import { runMigrations } from './migrations';

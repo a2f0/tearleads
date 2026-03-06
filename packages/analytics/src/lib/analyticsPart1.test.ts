@@ -15,9 +15,9 @@ vi.mock('./analyticsState', () => ({
   isDatabaseInitialized: vi.fn(() => true)
 }));
 
+import type { Database } from '@tearleads/db/sqlite';
 // Import after mocks
 import { logApiEvent, logEvent, measureOperation } from './analytics';
-import type { Database } from '@tearleads/db/sqlite';
 import { isDatabaseInitialized } from './analyticsState';
 
 // Create mock database
