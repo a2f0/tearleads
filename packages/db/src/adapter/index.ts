@@ -114,3 +114,72 @@ export interface PlatformInfo {
   supportsNativeEncryption: boolean;
   requiresWebWorker: boolean;
 }
+
+/**
+ * Get platform info for adapter selection.
+ * Uses Record<string, unknown> access for window properties to avoid
+ * requiring client-specific Window type augmentations.
+ */
+export function getPlatformInfo(): PlatformInfo {
+  if (typeof window === 'undefined') {
+    return {
+      platform: 'web',
+      supportsNativeEncryption: false,
+      requiresWebWorker: true
+    };
+  }
+
+  const win = window as unknown as Record<string, unknown>;
+
+  // Check for Electron first
+  if (win['electron']) {
+    return {
+      platform: 'electron',
+      supportsNativeEncryption: true,
+      requiresWebWorker: false
+    };
+  }
+
+  // Check for Capacitor native
+  try {
+    const capacitor = win['Capacitor'] as
+      | {
+          isNativePlatform(): boolean;
+          getPlatform(): string;
+        }
+      | undefined;
+
+    if (capacitor?.isNativePlatform()) {
+      const platform = capacitor.getPlatform();
+      if (platform === 'ios') {
+        return {
+          platform: 'ios',
+          supportsNativeEncryption: true,
+          requiresWebWorker: false
+        };
+      }
+      if (platform === 'android') {
+        return {
+          platform: 'android',
+          supportsNativeEncryption: true,
+          requiresWebWorker: false
+        };
+      }
+    }
+  } catch {
+    // Capacitor not available
+  }
+
+  // Default to web
+  return {
+    platform: 'web',
+    supportsNativeEncryption: false,
+    requiresWebWorker: true
+  };
+}
+
+export {
+  convertRowsToArrays,
+  extractSelectColumns,
+  rowToArray
+} from './utils.js';

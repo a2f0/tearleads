@@ -42,7 +42,7 @@
       "@tearleads/contacts": ["../contacts/src/index.ts"],
       "@tearleads/db/package.json": ["../db/package.json"],
       "@tearleads/db": ["../db/src/index.ts"],
-      "@tearleads/db/adapter": ["../db/src/adapter.ts"],
+      "@tearleads/db/adapter": ["../db/src/adapter/index.ts"],
       "@tearleads/db/sqlite": ["../db/src/generated/sqlite/schema.ts"],
       "@tearleads/db/sqlite-migrations": ["../db/src/sqlite-migrations/index.ts"],
       "@tearleads/email/package.json": ["../email/package.json"],

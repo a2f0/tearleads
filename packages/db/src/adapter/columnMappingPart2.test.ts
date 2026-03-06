@@ -12,7 +12,7 @@ import {
   sampleContactRow,
   sampleContactWithJoinRow,
   sampleFileRow
-} from './columnMappingTestFixtures';
+} from './columnMappingTestFixtures.js';
 
 describe('Column Mapping', () => {
   describe('WebAdapter getConnection()', () => {

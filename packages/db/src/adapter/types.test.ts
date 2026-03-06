@@ -3,7 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPlatformInfo } from './types';
+import { getPlatformInfo } from './index.js';
 
 describe('getPlatformInfo', () => {
   const originalWindow = global.window;
