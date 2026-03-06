@@ -1,6 +1,9 @@
 import 'utils.rb'
 
 GRADLE_FILE = File.expand_path('../android/app/build.gradle', __dir__).freeze
+METADATA_DIR = File.expand_path('../fastlane/metadata/android', __dir__).freeze
+METADATA_STAGING_DIR = File.expand_path('../fastlane/metadata/android-staging', __dir__).freeze
+STAGING_PACKAGE_NAME = 'com.tearleads.app.staging'.freeze
 
 def get_version_code
   content = File.read(GRADLE_FILE)
@@ -257,6 +260,47 @@ platform :android do
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
 
     UI.user_error!('Maestro tests failed') unless maestro_result == '0'
+  end
+
+  desc 'Download store listing metadata from Google Play'
+  lane :metadata_pull do
+    pull_metadata(metadata_path: METADATA_DIR)
+  end
+
+  desc 'Upload store listing metadata to Google Play'
+  lane :metadata_push do
+    push_metadata(metadata_path: METADATA_DIR)
+  end
+
+  desc 'Download staging store listing metadata from Google Play'
+  lane :metadata_pull_staging do
+    pull_metadata(package_name: STAGING_PACKAGE_NAME, metadata_path: METADATA_STAGING_DIR)
+  end
+
+  desc 'Upload staging store listing metadata to Google Play'
+  lane :metadata_push_staging do
+    push_metadata(package_name: STAGING_PACKAGE_NAME, metadata_path: METADATA_STAGING_DIR)
+  end
+
+  private_lane :pull_metadata do |options|
+    download_from_play_store(
+      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
+      package_name: options[:package_name],
+      metadata_path: options.fetch(:metadata_path)
+    )
+  end
+
+  private_lane :push_metadata do |options|
+    upload_to_play_store(
+      json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE'],
+      package_name: options[:package_name],
+      metadata_path: options.fetch(:metadata_path),
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
   end
 
   private_lane :run_gradle do |options|
