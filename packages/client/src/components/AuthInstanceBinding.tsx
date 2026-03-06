@@ -24,8 +24,13 @@ interface InstanceAuthSnapshot {
  * - If current instance belongs to a different user, create and bind a new one
  */
 export function AuthInstanceBinding() {
-  const { user, token, isAuthenticated, isLoading: isAuthLoading, logout } =
-    useAuth();
+  const {
+    user,
+    token,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    logout
+  } = useAuth();
   const {
     isLoading: isDatabaseLoading,
     currentInstanceId,
