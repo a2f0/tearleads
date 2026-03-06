@@ -9,7 +9,10 @@ let mockOrchestrator: {
   blob: { queuedOperations: () => unknown[] };
 } | null = null;
 
-let mockSyncActivity = { inflightCount: 0, lastSyncError: null as Error | null };
+let mockSyncActivity = {
+  inflightCount: 0,
+  lastSyncError: null as Error | null
+};
 let syncActivityCallback: (() => void) | null = null;
 
 vi.mock('@tearleads/ui', () => ({

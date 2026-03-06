@@ -157,7 +157,10 @@ describe('vfsItemSyncWriter', () => {
       secureFacade: { queueEncryptedCrdtOpAndPersist }
     });
 
-    const snapshots: Array<{ inflightCount: number; lastSyncError: Error | null }> = [];
+    const snapshots: Array<{
+      inflightCount: number;
+      lastSyncError: Error | null;
+    }> = [];
     const unsubscribe = subscribeSyncActivity(() => {
       snapshots.push(getSyncActivity());
     });
@@ -172,9 +175,9 @@ describe('vfsItemSyncWriter', () => {
     unsubscribe();
 
     expect(snapshots.length).toBeGreaterThanOrEqual(2);
-    expect(snapshots[0]!.inflightCount).toBe(1);
-    expect(snapshots[snapshots.length - 1]!.inflightCount).toBe(0);
-    expect(snapshots[snapshots.length - 1]!.lastSyncError).toBeNull();
+    expect(snapshots[0]?.inflightCount).toBe(1);
+    expect(snapshots[snapshots.length - 1]?.inflightCount).toBe(0);
+    expect(snapshots[snapshots.length - 1]?.lastSyncError).toBeNull();
   });
 
   it('tracks error state on sync failure', async () => {
@@ -208,7 +211,7 @@ describe('vfsItemSyncWriter', () => {
     const activity = getSyncActivity();
     expect(activity.inflightCount).toBe(0);
     expect(activity.lastSyncError).toBeInstanceOf(Error);
-    expect(activity.lastSyncError!.message).toBe('Network failure');
+    expect(activity.lastSyncError?.message).toBe('Network failure');
   });
 
   it('clears error on subsequent success', async () => {

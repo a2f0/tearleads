@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 
 import { useOptionalAuth } from '../contexts/AuthContext';
 import { useVfsOrchestratorInstance } from '../contexts/VfsOrchestratorContext';
-import { getSyncActivity, subscribeSyncActivity } from '../lib/vfsItemSyncWriter';
+import {
+  getSyncActivity,
+  subscribeSyncActivity
+} from '../lib/vfsItemSyncWriter';
 
 const POLL_INTERVAL_MS = 2000;
 
