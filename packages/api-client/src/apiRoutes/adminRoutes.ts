@@ -3,7 +3,6 @@ import type {
   AdminUserUpdateResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
-  Group,
   Organization,
   UpdateGroupRequest,
   UpdateOrganizationRequest
@@ -66,37 +65,15 @@ export const adminRoutes = {
     list: (options?: { organizationId?: string }) =>
       adminV2Routes.groups.list(options),
     get: (id: string) => adminV2Routes.groups.get(id),
-    create: (data: CreateGroupRequest) =>
-      requestAdminJson<{ group: Group }>(
-        'CreateGroup',
-        { json: JSON.stringify(data) },
-        'api_post_admin_group'
-      ),
+    create: (data: CreateGroupRequest) => adminV2Routes.groups.create(data),
     update: (id: string, data: UpdateGroupRequest) =>
-      requestAdminJson<{ group: Group }>(
-        'UpdateGroup',
-        { id, json: JSON.stringify(data) },
-        'api_put_admin_group'
-      ),
-    delete: (id: string) =>
-      requestAdminJson<{ deleted: boolean }>(
-        'DeleteGroup',
-        { id },
-        'api_delete_admin_group'
-      ),
+      adminV2Routes.groups.update(id, data),
+    delete: (id: string) => adminV2Routes.groups.delete(id),
     getMembers: (id: string) => adminV2Routes.groups.getMembers(id),
     addMember: (groupId: string, userId: string) =>
-      requestAdminJson<{ added: boolean }>(
-        'AddGroupMember',
-        { id: groupId, json: JSON.stringify({ userId }) },
-        'api_post_admin_group_member'
-      ),
+      adminV2Routes.groups.addMember(groupId, userId),
     removeMember: (groupId: string, userId: string) =>
-      requestAdminJson<{ removed: boolean }>(
-        'RemoveGroupMember',
-        { groupId, userId },
-        'api_delete_admin_group_member'
-      )
+      adminV2Routes.groups.removeMember(groupId, userId)
   },
   organizations: {
     list: (options?: { organizationId?: string }) => {

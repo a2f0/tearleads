@@ -82,6 +82,31 @@ pub struct AdminGroupDetail {
     pub members: Vec<AdminGroupMember>,
 }
 
+/// Input payload for creating an admin group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdminCreateGroupInput {
+    /// Owning organization identifier.
+    pub organization_id: String,
+    /// Group display name.
+    pub name: String,
+    /// Optional group description.
+    pub description: Option<String>,
+}
+
+/// Input payload for updating an admin group.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AdminUpdateGroupInput {
+    /// Replacement group name when present.
+    pub name: Option<String>,
+    /// Replacement owning organization ID when present.
+    pub organization_id: Option<String>,
+    /// Description patch semantics:
+    /// - `None`: keep existing value
+    /// - `Some(None)`: clear description
+    /// - `Some(Some(value))`: set description
+    pub description: Option<Option<String>>,
+}
+
 /// Organization metadata exposed by admin organization list endpoints.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdminOrganizationSummary {
@@ -248,6 +273,84 @@ pub trait PostgresAdminReadRepository: Send + Sync {
             Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 format!("get_group not implemented for group_id={group_id}"),
+            ))
+        })
+    }
+
+    /// Creates one group and returns the persisted group metadata.
+    fn create_group(
+        &self,
+        input: AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "create_group not implemented for organization_id={} name={}",
+                    input.organization_id, input.name
+                ),
+            ))
+        })
+    }
+
+    /// Updates one group and returns the persisted group metadata.
+    fn update_group(
+        &self,
+        group_id: &str,
+        input: AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("update_group not implemented for group_id={group_id} input={input:?}"),
+            ))
+        })
+    }
+
+    /// Deletes one group by identifier and returns whether it was removed.
+    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("delete_group not implemented for group_id={group_id}"),
+            ))
+        })
+    }
+
+    /// Adds one user to a group and returns whether a membership was created.
+    fn add_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "add_group_member not implemented for group_id={group_id} user_id={user_id}"
+                ),
+            ))
+        })
+    }
+
+    /// Removes one user from a group and returns whether a membership was removed.
+    fn remove_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "remove_group_member not implemented for group_id={group_id} user_id={user_id}"
+                ),
             ))
         })
     }

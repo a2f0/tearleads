@@ -9,8 +9,15 @@ service AdminService {
   rpc GetContext(AdminGetContextRequest) returns (AdminGetContextResponse);
   rpc ListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
   rpc GetGroup(AdminGetGroupRequest) returns (AdminGetGroupResponse);
+  rpc CreateGroup(AdminCreateGroupRequest) returns (AdminCreateGroupResponse);
+  rpc UpdateGroup(AdminUpdateGroupRequest) returns (AdminUpdateGroupResponse);
+  rpc DeleteGroup(AdminDeleteGroupRequest) returns (AdminDeleteGroupResponse);
   rpc GetGroupMembers(AdminGetGroupMembersRequest)
       returns (AdminGetGroupMembersResponse);
+  rpc AddGroupMember(AdminAddGroupMemberRequest)
+      returns (AdminAddGroupMemberResponse);
+  rpc RemoveGroupMember(AdminRemoveGroupMemberRequest)
+      returns (AdminRemoveGroupMemberResponse);
   rpc ListOrganizations(AdminListOrganizationsRequest)
       returns (AdminListOrganizationsResponse);
   rpc GetOrganization(AdminGetOrganizationRequest)
@@ -73,12 +80,59 @@ message AdminGetGroupResponse {
   repeated AdminGroupMember members = 2;
 }
 
+message AdminCreateGroupRequest {
+  string organization_id = 1;
+  string name = 2;
+  optional string description = 3;
+}
+
+message AdminCreateGroupResponse {
+  AdminGroup group = 1;
+}
+
+message AdminUpdateGroupRequest {
+  string id = 1;
+  optional string organization_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+}
+
+message AdminUpdateGroupResponse {
+  AdminGroup group = 1;
+}
+
+message AdminDeleteGroupRequest {
+  string id = 1;
+}
+
+message AdminDeleteGroupResponse {
+  bool deleted = 1;
+}
+
 message AdminGetGroupMembersRequest {
   string id = 1;
 }
 
 message AdminGetGroupMembersResponse {
   repeated AdminGroupMember members = 1;
+}
+
+message AdminAddGroupMemberRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message AdminAddGroupMemberResponse {
+  bool added = 1;
+}
+
+message AdminRemoveGroupMemberRequest {
+  string group_id = 1;
+  string user_id = 2;
+}
+
+message AdminRemoveGroupMemberResponse {
+  bool removed = 1;
 }
 
 message AdminGroup {

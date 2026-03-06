@@ -4,11 +4,11 @@ use tearleads_api_v2::{
     AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 use tearleads_data_access_traits::{
-    AdminGroupDetail, AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
-    AdminScopeOrganization, AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind,
-    PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage,
-    PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage,
-    RedisKeyValueRecord,
+    AdminCreateGroupInput, AdminGroupDetail, AdminGroupSummary, AdminOrganizationSummary,
+    AdminOrganizationUserSummary, AdminScopeOrganization, AdminUpdateGroupInput, AdminUserSummary,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
+    PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 
@@ -61,6 +61,8 @@ type OrganizationFilterCalls = Arc<Mutex<Vec<OrganizationFilter>>>;
 type GetUserCall = (String, Option<Vec<String>>);
 type GetUserCalls = Arc<Mutex<Vec<GetUserCall>>>;
 type GetOrganizationUsersCalls = Arc<Mutex<Vec<String>>>;
+type GroupMemberMutationCalls = Arc<Mutex<Vec<(String, String)>>>;
+type GroupUpdateCalls = Arc<Mutex<Vec<(String, AdminUpdateGroupInput)>>>;
 
 #[derive(Debug)]
 pub(crate) struct FakePostgresRepository {
@@ -73,6 +75,16 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) list_groups_calls: ListGroupsCalls,
     pub(crate) get_group_result: Result<AdminGroupDetail, DataAccessError>,
     pub(crate) get_group_calls: Arc<Mutex<Vec<String>>>,
+    pub(crate) create_group_result: Result<AdminGroupDetail, DataAccessError>,
+    pub(crate) create_group_calls: Arc<Mutex<Vec<AdminCreateGroupInput>>>,
+    pub(crate) update_group_result: Result<AdminGroupDetail, DataAccessError>,
+    pub(crate) update_group_calls: GroupUpdateCalls,
+    pub(crate) delete_group_result: Result<bool, DataAccessError>,
+    pub(crate) delete_group_calls: Arc<Mutex<Vec<String>>>,
+    pub(crate) add_group_member_result: Result<bool, DataAccessError>,
+    pub(crate) add_group_member_calls: GroupMemberMutationCalls,
+    pub(crate) remove_group_member_result: Result<bool, DataAccessError>,
+    pub(crate) remove_group_member_calls: GroupMemberMutationCalls,
     pub(crate) list_organizations_result: Result<Vec<AdminOrganizationSummary>, DataAccessError>,
     pub(crate) list_organizations_calls: OrganizationFilterCalls,
     pub(crate) organization_users_result:
@@ -103,6 +115,31 @@ impl Default for FakePostgresRepository {
                 "group not found",
             )),
             get_group_calls: Arc::new(Mutex::new(Vec::new())),
+            create_group_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "create_group_result not configured",
+            )),
+            create_group_calls: Arc::new(Mutex::new(Vec::new())),
+            update_group_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "update_group_result not configured",
+            )),
+            update_group_calls: Arc::new(Mutex::new(Vec::new())),
+            delete_group_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "delete_group_result not configured",
+            )),
+            delete_group_calls: Arc::new(Mutex::new(Vec::new())),
+            add_group_member_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "add_group_member_result not configured",
+            )),
+            add_group_member_calls: Arc::new(Mutex::new(Vec::new())),
+            remove_group_member_result: Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "remove_group_member_result not configured",
+            )),
+            remove_group_member_calls: Arc::new(Mutex::new(Vec::new())),
             list_organizations_result: Ok(Vec::new()),
             list_organizations_calls: Arc::new(Mutex::new(Vec::new())),
             organization_users_result: Ok(Vec::new()),
@@ -162,6 +199,53 @@ impl PostgresAdminReadRepository for FakePostgresRepository {
     ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
         lock_or_recover(&self.get_group_calls).push(group_id.to_string());
         let result = self.get_group_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn create_group(
+        &self,
+        input: AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        lock_or_recover(&self.create_group_calls).push(input);
+        let result = self.create_group_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_group(
+        &self,
+        group_id: &str,
+        input: AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        lock_or_recover(&self.update_group_calls).push((group_id.to_string(), input));
+        let result = self.update_group_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.delete_group_calls).push(group_id.to_string());
+        let result = self.delete_group_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn add_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.add_group_member_calls)
+            .push((group_id.to_string(), user_id.to_string()));
+        let result = self.add_group_member_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn remove_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        lock_or_recover(&self.remove_group_member_calls)
+            .push((group_id.to_string(), user_id.to_string()));
+        let result = self.remove_group_member_result.clone();
         Box::pin(async move { result })
     }
 

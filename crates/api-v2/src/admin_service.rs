@@ -1,8 +1,12 @@
 //! Contract-first admin RPC handlers backed by repository traits.
 
 mod detail_reads;
+mod group_mutations;
+mod storage_reads;
 
 use tearleads_api_v2_contracts::tearleads::v2::{
+    AdminAddGroupMemberRequest, AdminAddGroupMemberResponse, AdminCreateGroupRequest,
+    AdminCreateGroupResponse, AdminDeleteGroupRequest, AdminDeleteGroupResponse,
     AdminDeleteRedisKeyRequest, AdminDeleteRedisKeyResponse, AdminGetColumnsRequest,
     AdminGetColumnsResponse, AdminGetContextRequest, AdminGetContextResponse,
     AdminGetGroupMembersRequest, AdminGetGroupMembersResponse, AdminGetGroupRequest,
@@ -15,9 +19,9 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetUserRequest, AdminGetUserResponse, AdminGroup, AdminGroupMember,
     AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
     AdminListOrganizationsRequest, AdminListOrganizationsResponse, AdminListUsersRequest,
-    AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo,
-    AdminPostgresConnectionInfo, AdminPostgresTableInfo, AdminRedisKeyInfo,
-    admin_service_server::AdminService,
+    AdminListUsersResponse, AdminOrganization, AdminPostgresColumnInfo, AdminPostgresTableInfo,
+    AdminRedisKeyInfo, AdminRemoveGroupMemberRequest, AdminRemoveGroupMemberResponse,
+    AdminUpdateGroupRequest, AdminUpdateGroupResponse, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
     PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository,
@@ -77,24 +81,7 @@ where
         &self,
         request: Request<AdminGetPostgresInfoRequest>,
     ) -> Result<Response<AdminGetPostgresInfoResponse>, Status> {
-        self.authorizer
-            .authorize_admin_operation(AdminOperation::GetPostgresInfo, request.metadata())
-            .map_err(map_admin_auth_error)?;
-        let snapshot = self
-            .postgres_repo
-            .get_postgres_info()
-            .await
-            .map_err(map_data_access_error)?;
-        let response = AdminGetPostgresInfoResponse {
-            info: Some(AdminPostgresConnectionInfo {
-                host: snapshot.connection.host,
-                port: snapshot.connection.port.map(u32::from),
-                database: snapshot.connection.database,
-                user: snapshot.connection.user,
-            }),
-            server_version: snapshot.server_version,
-        };
-        Ok(Response::new(response))
+        self.get_postgres_info_impl(request).await
     }
 
     async fn list_groups(
@@ -181,11 +168,46 @@ where
         }))
     }
 
+    async fn create_group(
+        &self,
+        request: Request<AdminCreateGroupRequest>,
+    ) -> Result<Response<AdminCreateGroupResponse>, Status> {
+        self.create_group_impl(request).await
+    }
+
+    async fn update_group(
+        &self,
+        request: Request<AdminUpdateGroupRequest>,
+    ) -> Result<Response<AdminUpdateGroupResponse>, Status> {
+        self.update_group_impl(request).await
+    }
+
+    async fn delete_group(
+        &self,
+        request: Request<AdminDeleteGroupRequest>,
+    ) -> Result<Response<AdminDeleteGroupResponse>, Status> {
+        self.delete_group_impl(request).await
+    }
+
     async fn get_group_members(
         &self,
         request: Request<AdminGetGroupMembersRequest>,
     ) -> Result<Response<AdminGetGroupMembersResponse>, Status> {
         self.get_group_members_impl(request).await
+    }
+
+    async fn add_group_member(
+        &self,
+        request: Request<AdminAddGroupMemberRequest>,
+    ) -> Result<Response<AdminAddGroupMemberResponse>, Status> {
+        self.add_group_member_impl(request).await
+    }
+
+    async fn remove_group_member(
+        &self,
+        request: Request<AdminRemoveGroupMemberRequest>,
+    ) -> Result<Response<AdminRemoveGroupMemberResponse>, Status> {
+        self.remove_group_member_impl(request).await
     }
 
     async fn list_organizations(

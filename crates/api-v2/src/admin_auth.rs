@@ -68,8 +68,18 @@ pub enum AdminOperation {
     ListGroups,
     /// `AdminService.GetGroup`
     GetGroup,
+    /// `AdminService.CreateGroup`
+    CreateGroup,
+    /// `AdminService.UpdateGroup`
+    UpdateGroup,
+    /// `AdminService.DeleteGroup`
+    DeleteGroup,
     /// `AdminService.GetGroupMembers`
     GetGroupMembers,
+    /// `AdminService.AddGroupMember`
+    AddGroupMember,
+    /// `AdminService.RemoveGroupMember`
+    RemoveGroupMember,
     /// `AdminService.ListOrganizations`
     ListOrganizations,
     /// `AdminService.GetOrganization`
@@ -98,7 +108,12 @@ impl AdminOperation {
             Self::GetContext => "get_context",
             Self::ListGroups => "list_groups",
             Self::GetGroup => "get_group",
+            Self::CreateGroup => "create_group",
+            Self::UpdateGroup => "update_group",
+            Self::DeleteGroup => "delete_group",
             Self::GetGroupMembers => "get_group_members",
+            Self::AddGroupMember => "add_group_member",
+            Self::RemoveGroupMember => "remove_group_member",
             Self::ListOrganizations => "list_organizations",
             Self::GetOrganization => "get_organization",
             Self::GetOrgUsers => "get_org_users",
@@ -121,7 +136,12 @@ impl AdminOperation {
             Self::GetContext
             | Self::ListGroups
             | Self::GetGroup
+            | Self::CreateGroup
+            | Self::UpdateGroup
+            | Self::DeleteGroup
             | Self::GetGroupMembers
+            | Self::AddGroupMember
+            | Self::RemoveGroupMember
             | Self::ListOrganizations
             | Self::GetOrganization
             | Self::GetOrgUsers

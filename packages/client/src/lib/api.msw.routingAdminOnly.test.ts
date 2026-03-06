@@ -113,13 +113,13 @@ describe('api with msw admin routing', () => {
     await api.admin.groups.get('group-1');
     await api.admin.groups.create({
       name: 'New Team',
-      organizationId: 'org 1'
+      organizationId: 'org-1'
     });
-    await api.admin.groups.update('group 1', { name: 'Team Updated' });
+    await api.admin.groups.update('group-1', { name: 'Team Updated' });
     await api.admin.groups.getMembers('group-1');
-    await api.admin.groups.addMember('group 1', seededUser.userId);
-    await api.admin.groups.removeMember('group 1', seededUser.userId);
-    await api.admin.groups.delete('group 1');
+    await api.admin.groups.addMember('group-1', seededUser.userId);
+    await api.admin.groups.removeMember('group-1', seededUser.userId);
+    await api.admin.groups.delete('group-1');
 
     await api.admin.organizations.list({
       organizationId: seededUser.organizationId
@@ -210,19 +210,19 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/CreateGroup'
+        '/connect/tearleads.v2.AdminService/CreateGroup'
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/UpdateGroup'
+        '/connect/tearleads.v2.AdminService/UpdateGroup'
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/DeleteGroup'
+        '/connect/tearleads.v2.AdminService/DeleteGroup'
       )
     ).toBe(true);
     expect(
@@ -234,13 +234,13 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/AddGroupMember'
+        '/connect/tearleads.v2.AdminService/AddGroupMember'
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v1.AdminService/RemoveGroupMember'
+        '/connect/tearleads.v2.AdminService/RemoveGroupMember'
       )
     ).toBe(true);
     expect(
