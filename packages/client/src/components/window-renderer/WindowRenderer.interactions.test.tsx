@@ -45,9 +45,9 @@ describe('WindowRenderer interactions', () => {
 
   it.each(
     renderCases
-  )('renders %s window for %s type', (_label, type, id, testId) => {
+  )('renders %s window for %s type', async (_label, type, id, testId) => {
     renderSingleWindow(type, id);
-    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(await screen.findByTestId(testId)).toBeInTheDocument();
   });
 
   const closeCases: WindowClickCase[] = windowCases.map((windowCase) => [
@@ -62,7 +62,7 @@ describe('WindowRenderer interactions', () => {
   )('calls closeWindow when %s close button is clicked', async (_label, type, id, testId) => {
     const user = userEvent.setup();
     renderSingleWindow(type, id);
-    await user.click(screen.getByTestId(testId));
+    await user.click(await screen.findByTestId(testId));
     expect(mockCloseWindow).toHaveBeenCalledWith(id);
   });
 
@@ -80,7 +80,7 @@ describe('WindowRenderer interactions', () => {
   )('calls focusWindow when %s window is clicked', async (_label, type, id, testId) => {
     const user = userEvent.setup();
     renderWindowWithHigherZSibling(type, id);
-    await user.click(screen.getByTestId(testId));
+    await user.click(await screen.findByTestId(testId));
     expect(mockFocusWindow).toHaveBeenCalledWith(id);
   });
 
@@ -88,7 +88,7 @@ describe('WindowRenderer interactions', () => {
     const user = userEvent.setup();
     renderSingleWindow('contacts', 'contacts-1');
 
-    await user.click(screen.getByTestId('contacts-window-contacts-1'));
+    await user.click(await screen.findByTestId('contacts-window-contacts-1'));
 
     expect(mockFocusWindow).not.toHaveBeenCalled();
   });
@@ -99,7 +99,7 @@ describe('WindowRenderer interactions', () => {
     renderWindowRenderer();
 
     mockWindows.length = 0;
-    await user.click(screen.getByTestId('notes-window-notes-1'));
+    await user.click(await screen.findByTestId('notes-window-notes-1'));
 
     expect(mockFocusWindow).not.toHaveBeenCalled();
   });
@@ -119,11 +119,11 @@ describe('WindowRenderer interactions', () => {
   )('calls minimizeWindow when %s minimize button is clicked', async (_label, type, id, testId, dimensions) => {
     const user = userEvent.setup();
     renderSingleWindow(type, id);
-    await user.click(screen.getByTestId(testId));
+    await user.click(await screen.findByTestId(testId));
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders multiple window types together', () => {
+  it('renders multiple window types together', async () => {
     const allWindowCases = windowCases.filter(
       (windowCase) => windowCase.type !== 'admin-users'
     );
@@ -136,7 +136,9 @@ describe('WindowRenderer interactions', () => {
     renderWindowRenderer();
 
     for (const windowCase of allWindowCases) {
-      expect(screen.getByTestId(windowCase.windowTestId)).toBeInTheDocument();
+      expect(
+        await screen.findByTestId(windowCase.windowTestId)
+      ).toBeInTheDocument();
     }
   });
 });

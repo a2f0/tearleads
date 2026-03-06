@@ -28,26 +28,32 @@ describe('WindowRenderer core behavior', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('skips minimized windows when rendering', () => {
+  it('skips minimized windows when rendering', async () => {
     setMockWindows([
       { id: 'notes-1', type: 'notes', zIndex: 100, isMinimized: true },
       { id: 'notes-2', type: 'notes', zIndex: 101 }
     ]);
     renderWindowRenderer();
     expect(
+      await screen.findByTestId('notes-window-notes-2')
+    ).toBeInTheDocument();
+    expect(
       screen.queryByTestId('notes-window-notes-1')
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId('notes-window-notes-2')).toBeInTheDocument();
   });
 
-  it('renders multiple windows', () => {
+  it('renders multiple windows', async () => {
     setMockWindows([
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'notes-2', type: 'notes', zIndex: 101 }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(screen.getByTestId('notes-window-notes-2')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-2')
+    ).toBeInTheDocument();
   });
 
   it('calls saveWindowDimensionsForType when dimensions change', async () => {
@@ -55,7 +61,7 @@ describe('WindowRenderer core behavior', () => {
     setMockWindows([{ id: 'notes-1', type: 'notes', zIndex: 100 }]);
     renderWindowRenderer();
 
-    await user.click(screen.getByTestId('resize-notes-1'));
+    await user.click(await screen.findByTestId('resize-notes-1'));
     expect(mockUpdateWindowDimensions).toHaveBeenCalledWith('notes-1', {
       x: 10,
       y: 20,
@@ -75,7 +81,7 @@ describe('WindowRenderer core behavior', () => {
     setMockWindows([{ id: 'notes-1', type: 'notes', zIndex: 100 }]);
     renderWindowRenderer();
 
-    await user.click(screen.getByTestId('resize-maximized-notes-1'));
+    await user.click(await screen.findByTestId('resize-maximized-notes-1'));
     expect(mockUpdateWindowDimensions).toHaveBeenCalledWith('notes-1', {
       x: 10,
       y: 20,
@@ -91,24 +97,24 @@ describe('WindowRenderer core behavior', () => {
     });
   });
 
-  it('passes correct zIndex to windows', () => {
+  it('passes correct zIndex to windows', async () => {
     setMockWindows([
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'notes-2', type: 'notes', zIndex: 105 }
     ]);
     renderWindowRenderer();
 
-    expect(screen.getByTestId('notes-window-notes-1')).toHaveAttribute(
+    expect(await screen.findByTestId('notes-window-notes-1')).toHaveAttribute(
       'data-zindex',
       '100'
     );
-    expect(screen.getByTestId('notes-window-notes-2')).toHaveAttribute(
+    expect(await screen.findByTestId('notes-window-notes-2')).toHaveAttribute(
       'data-zindex',
       '105'
     );
   });
 
-  it('passes initial dimensions to notes window', () => {
+  it('passes initial dimensions to notes window', async () => {
     setMockWindows([
       {
         id: 'notes-1',
@@ -118,13 +124,13 @@ describe('WindowRenderer core behavior', () => {
       }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('notes-window-notes-1')).toHaveAttribute(
+    expect(await screen.findByTestId('notes-window-notes-1')).toHaveAttribute(
       'data-initial-width',
       '420'
     );
   });
 
-  it('passes initial dimensions to console window', () => {
+  it('passes initial dimensions to console window', async () => {
     setMockWindows([
       {
         id: 'console-1',
@@ -134,13 +140,12 @@ describe('WindowRenderer core behavior', () => {
       }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('console-window-console-1')).toHaveAttribute(
-      'data-initial-width',
-      '640'
-    );
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toHaveAttribute('data-initial-width', '640');
   });
 
-  it('passes initial dimensions to email window', () => {
+  it('passes initial dimensions to email window', async () => {
     setMockWindows([
       {
         id: 'email-1',
@@ -150,7 +155,7 @@ describe('WindowRenderer core behavior', () => {
       }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('email-window-email-1')).toHaveAttribute(
+    expect(await screen.findByTestId('email-window-email-1')).toHaveAttribute(
       'data-initial-width',
       '520'
     );
@@ -162,17 +167,21 @@ describe('WindowRenderer core behavior', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('renders mixed window types', () => {
+  it('renders mixed window types', async () => {
     setMockWindows([
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('notes-window-notes-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toBeInTheDocument();
   });
 
-  it('renders all four window types together', () => {
+  it('renders all four window types together', async () => {
     setMockWindows([
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -180,11 +189,17 @@ describe('WindowRenderer core behavior', () => {
       { id: 'email-1', type: 'email', zIndex: 103 }
     ]);
     renderWindowRenderer();
-    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
-    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
     expect(
-      screen.getByTestId('settings-window-settings-1')
+      await screen.findByTestId('notes-window-notes-1')
     ).toBeInTheDocument();
-    expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('console-window-console-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('settings-window-settings-1')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('email-window-email-1')
+    ).toBeInTheDocument();
   });
 });
