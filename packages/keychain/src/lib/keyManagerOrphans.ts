@@ -1,6 +1,6 @@
-import { detectPlatform } from '@/lib/utils';
-import { getStorageAdapter } from './keyManagerStorageAdapters';
-import * as nativeSecureStorage from './nativeSecureStorage';
+import { detectPlatform } from './detectPlatform.js';
+import { getStorageAdapter } from './keyManagerStorageAdapters.js';
+import * as nativeSecureStorage from './nativeSecureStorage.js';
 
 /**
  * Result of orphan validation and cleanup.

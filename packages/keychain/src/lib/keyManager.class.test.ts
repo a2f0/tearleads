@@ -16,7 +16,7 @@ vi.mock('./nativeSecureStorage', async () => {
   return createNativeStorageMock();
 });
 
-vi.mock('@/lib/utils', async () => {
+vi.mock('./detectPlatform', async () => {
   const { createUtilsMock } = await import('./keyManager.testUtils');
   return createUtilsMock();
 });
