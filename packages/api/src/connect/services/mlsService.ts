@@ -72,7 +72,7 @@ export const mlsConnectServiceV2 = {
     const data = await uploadKeyPackagesDirectTyped(
       {
         keyPackages: request.keyPackages.map((kp) => ({
-          keyPackageData: kp.keyPackageData,
+          keyPackageData: encodeProtoBytes(kp.keyPackageData),
           keyPackageRef: kp.keyPackageRef,
           cipherSuite: fromProtoCipherSuite(kp.cipherSuite)
         }))

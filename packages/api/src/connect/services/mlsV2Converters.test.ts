@@ -8,6 +8,7 @@ import {
   fromProtoMessageType,
   toProtoCipherSuite,
   toProtoGroupState,
+  toProtoKeyPackage,
   toProtoMessageType
 } from './mlsV2Converters.js';
 
@@ -58,6 +59,22 @@ describe('mlsV2Converters', () => {
 
     expect(converted.encryptedState).toEqual(
       new TextEncoder().encode('not-base64***')
+    );
+  });
+
+  it('maps key package payloads to bytes', () => {
+    const converted = toProtoKeyPackage({
+      id: 'kp-1',
+      userId: 'user-1',
+      keyPackageData: Buffer.from('kp-data', 'utf8').toString('base64'),
+      keyPackageRef: 'ref-1',
+      cipherSuite: 3,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      consumed: false
+    });
+
+    expect(converted.keyPackageData).toEqual(
+      new TextEncoder().encode('kp-data')
     );
   });
 });

@@ -19,12 +19,13 @@ import {
   MlsGroupRole,
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
+import { bytesToBase64 } from './mlsV2Binary';
 
-function decodeProtoBytes(value: Uint8Array | string): string {
+function encodeProtoBytesForTransport(value: Uint8Array | string): string {
   if (typeof value === 'string') {
     return value;
   }
-  return new TextDecoder().decode(value);
+  return bytesToBase64(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +98,7 @@ export function mapKeyPackageEntryToMlsKeyPackage(
   return {
     id: entry.id,
     userId: entry.userId,
-    keyPackageData: entry.keyPackageData,
+    keyPackageData: encodeProtoBytesForTransport(entry.keyPackageData),
     keyPackageRef: entry.keyPackageRef,
     cipherSuite: fromProtoCipherSuite(entry.cipherSuite),
     createdAt: entry.createdAt,
@@ -149,7 +150,7 @@ export function mapMessageInfoToMlsMessage(info: MlsMessageInfo): MlsMessage {
     groupId: info.groupId,
     senderUserId: info.senderUserId || null,
     epoch: Number(info.epoch),
-    ciphertext: decodeProtoBytes(info.ciphertext),
+    ciphertext: encodeProtoBytesForTransport(info.ciphertext),
     messageType: fromProtoMessageType(
       info.messageType
     ) as MlsMessage['messageType'],
@@ -171,7 +172,7 @@ export function mapGroupStateInfoToMlsGroupState(
     id: info.id,
     groupId: info.groupId,
     epoch: Number(info.epoch),
-    encryptedState: decodeProtoBytes(info.encryptedState),
+    encryptedState: encodeProtoBytesForTransport(info.encryptedState),
     stateHash: info.stateHash,
     createdAt: info.createdAt
   };
@@ -184,7 +185,7 @@ export function mapWelcomeInfoToMlsWelcomeMessage(
     id: info.id,
     groupId: info.groupId,
     groupName: info.groupName,
-    welcome: decodeProtoBytes(info.welcome),
+    welcome: encodeProtoBytesForTransport(info.welcome),
     keyPackageRef: info.keyPackageRef,
     epoch: Number(info.epoch),
     createdAt: info.createdAt

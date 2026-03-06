@@ -290,6 +290,39 @@ describe('mlsV2Routes', () => {
     expect(removeGroupMember).toHaveBeenCalledTimes(1);
   });
 
+  it('decodes uploadKeyPackages transport payloads to proto bytes', async () => {
+    const uploadKeyPackages = vi.fn(async () => ({ keyPackages: [] }));
+    const client = createMlsV2ClientStub({ uploadKeyPackages });
+    const { routes } = createRoutesForTest(client);
+    const keyPackageBytes = new TextEncoder().encode('key-data');
+    const encodedKeyPackageData = btoa(
+      String.fromCharCode(...Array.from(keyPackageBytes))
+    );
+
+    await routes.uploadKeyPackages({
+      keyPackages: [
+        {
+          keyPackageData: encodedKeyPackageData,
+          keyPackageRef: 'ref-1',
+          cipherSuite: 3
+        }
+      ]
+    });
+
+    const uploadRequest = uploadKeyPackages.mock.calls[0]?.[0];
+    const uploadCallOptions = uploadKeyPackages.mock.calls[0]?.[1];
+    expect(
+      Array.from(uploadRequest?.keyPackages[0]?.keyPackageData ?? [])
+    ).toEqual(Array.from(new TextEncoder().encode('key-data')));
+    expect(uploadRequest?.keyPackages[0]?.keyPackageRef).toBe('ref-1');
+    expect(uploadRequest?.keyPackages[0]?.cipherSuite).toBe(3);
+    expect(uploadCallOptions).toEqual({
+      headers: {
+        authorization: 'Bearer token-123'
+      }
+    });
+  });
+
   it('reuses one memoized client across route calls', async () => {
     const client = createMlsV2ClientStub();
     const createClient = vi.fn(() => client);
