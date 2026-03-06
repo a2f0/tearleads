@@ -17,29 +17,34 @@ export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH =
   '/connect/tearleads.v1.AuthService/RefreshToken';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
+const VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION = new Set([
+  'SetupKeys',
+  'Register',
+  'DeleteBlob',
+  'StageBlob',
+  'UploadBlobChunk',
+  'AttachBlob',
+  'AbandonBlob',
+  'CommitBlob',
+  'RekeyItem',
+  'PushCrdtOps',
+  'ReconcileCrdt',
+  'ReconcileSync',
+  'RunCrdtSession',
+  'DeleteEmail',
+  'SendEmail'
+]);
 const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
   string,
   ReadonlySet<string>
 >([
   [
     'tearleads.v1.VfsService',
-    new Set([
-      'SetupKeys',
-      'Register',
-      'DeleteBlob',
-      'StageBlob',
-      'UploadBlobChunk',
-      'AttachBlob',
-      'AbandonBlob',
-      'CommitBlob',
-      'RekeyItem',
-      'PushCrdtOps',
-      'ReconcileCrdt',
-      'ReconcileSync',
-      'RunCrdtSession',
-      'DeleteEmail',
-      'SendEmail'
-    ])
+    VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
+  ],
+  [
+    'tearleads.v2.VfsService',
+    VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
   ],
   [
     'tearleads.v1.VfsSharesService',

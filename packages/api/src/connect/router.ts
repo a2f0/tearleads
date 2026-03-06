@@ -8,6 +8,7 @@ import { RevenuecatService } from '@tearleads/shared/gen/tearleads/v1/revenuecat
 import { VfsService } from '@tearleads/shared/gen/tearleads/v1/vfs_pb';
 import { VfsSharesService } from '@tearleads/shared/gen/tearleads/v1/vfs_shares_pb';
 import { MlsService as MlsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
+import { VfsService as VfsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { aiConnectService } from './services/aiService.js';
 import { authConnectService } from './services/authService.js';
 import { billingConnectService } from './services/billingService.js';
@@ -27,5 +28,6 @@ export function registerConnectRoutes(router: ConnectRouter): void {
   router.service(NotificationService, notificationConnectService);
   router.service(RevenuecatService, revenuecatConnectService);
   router.service(VfsService, vfsConnectService);
+  router.service(VfsServiceV2, vfsConnectService);
   router.service(VfsSharesService, vfsSharesConnectService);
 }

@@ -103,7 +103,7 @@ describe('api with msw', () => {
           })
       ),
       http.post(
-        'http://localhost/v1/connect/tearleads.v1.VfsService/GetMyKeys',
+        'http://localhost/v1/connect/tearleads.v2.VfsService/GetMyKeys',
         () =>
           HttpResponse.json({
             json: JSON.stringify({
@@ -130,7 +130,7 @@ describe('api with msw', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v1.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.VfsService/GetMyKeys')
     ).toBe(true);
     expect(
       wasApiRequestMade(

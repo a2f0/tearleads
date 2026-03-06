@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
+  const vfsWritePaths = [
+    '/connect/tearleads.v1.VfsService/PushCrdtOps',
+    '/connect/tearleads.v2.VfsService/PushCrdtOps'
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,18 +134,20 @@ describe('api request context headers', () => {
     );
     resetApiRequestHeadersProvider();
 
-    await expect(
-      request<{ ok: boolean }>('/connect/tearleads.v1.VfsService/PushCrdtOps', {
-        fetchOptions: {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
+    for (const path of vfsWritePaths) {
+      await expect(
+        request<{ ok: boolean }>(path, {
+          fetchOptions: {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
           },
-          body: JSON.stringify({})
-        },
-        eventName: 'api_get_ping'
-      })
-    ).rejects.toThrow(/X-Organization-Id header is required/u);
+          eventName: 'api_get_ping'
+        })
+      ).rejects.toThrow(/X-Organization-Id header is required/u);
+    }
 
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -163,18 +169,20 @@ describe('api request context headers', () => {
     );
     resetApiRequestHeadersProvider();
 
-    await expect(
-      request<{ ok: boolean }>('/connect/tearleads.v1.VfsService/PushCrdtOps', {
-        fetchOptions: {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Organization-Id': 'org-explicit'
+    for (const path of vfsWritePaths) {
+      await expect(
+        request<{ ok: boolean }>(path, {
+          fetchOptions: {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Organization-Id': 'org-explicit'
+            },
+            body: JSON.stringify({})
           },
-          body: JSON.stringify({})
-        },
-        eventName: 'api_get_ping'
-      })
-    ).resolves.toEqual({ ok: true });
+          eventName: 'api_get_ping'
+        })
+      ).resolves.toEqual({ ok: true });
+    }
   });
 });

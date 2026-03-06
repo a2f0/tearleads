@@ -269,13 +269,13 @@ describe('api with msw', () => {
     });
 
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/SetupKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/SetupKeys')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/Register')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/Register')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -314,7 +314,7 @@ describe('api with msw', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.VfsService/RekeyItem')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/RekeyItem')
     ).toBe(true);
     expect(
       wasApiRequestMade(

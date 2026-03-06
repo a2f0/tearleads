@@ -35,25 +35,25 @@ describe('vfsRoutes', () => {
     const [getCrdtCursorPath, getCrdtCursorParams] =
       requestMock.mock.calls[3] ?? [];
 
-    expect(getSyncDefaultPath).toBe('/connect/tearleads.v1.VfsService/GetSync');
+    expect(getSyncDefaultPath).toBe('/connect/tearleads.v2.VfsService/GetSync');
     expect(getSyncDefaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 500 })
     );
 
-    expect(getSyncCursorPath).toBe('/connect/tearleads.v1.VfsService/GetSync');
+    expect(getSyncCursorPath).toBe('/connect/tearleads.v2.VfsService/GetSync');
     expect(getSyncCursorParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 25, cursor: 'cursor-1' })
     );
 
     expect(getCrdtDefaultPath).toBe(
-      '/connect/tearleads.v1.VfsService/GetCrdtSync'
+      '/connect/tearleads.v2.VfsService/GetCrdtSync'
     );
     expect(getCrdtDefaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 500 })
     );
 
     expect(getCrdtCursorPath).toBe(
-      '/connect/tearleads.v1.VfsService/GetCrdtSync'
+      '/connect/tearleads.v2.VfsService/GetCrdtSync'
     );
     expect(getCrdtCursorParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 15, cursor: 'cursor-2' })
@@ -139,7 +139,7 @@ describe('vfsRoutes', () => {
     await expect(vfsRoutes.getMyKeys()).resolves.toEqual({});
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v1.VfsService/GetMyKeys');
+    expect(path).toBe('/connect/tearleads.v2.VfsService/GetMyKeys');
     expect(params?.fetchOptions?.body).toBe(JSON.stringify({}));
   });
 
@@ -167,11 +167,11 @@ describe('vfsRoutes', () => {
 
     const [arrayPath, arrayParams] = requestMock.mock.calls[0] ?? [];
     const [encodedPath, encodedParams] = requestMock.mock.calls[1] ?? [];
-    expect(arrayPath).toBe('/connect/tearleads.v1.VfsService/GetBlob');
+    expect(arrayPath).toBe('/connect/tearleads.v2.VfsService/GetBlob');
     expect(arrayParams?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-array' })
     );
-    expect(encodedPath).toBe('/connect/tearleads.v1.VfsService/GetBlob');
+    expect(encodedPath).toBe('/connect/tearleads.v2.VfsService/GetBlob');
     expect(encodedParams?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-encoded' })
     );
@@ -206,7 +206,7 @@ describe('vfsRoutes', () => {
     });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v1.VfsService/DeleteBlob');
+    expect(path).toBe('/connect/tearleads.v2.VfsService/DeleteBlob');
     expect(params?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-1' })
     );
