@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
-import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
+import { getActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
