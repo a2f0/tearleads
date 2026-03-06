@@ -202,7 +202,7 @@ run_step "Bootstrap prod k8s and deploy manifests" "$K8S_SCRIPTS_DIR/apply02.sh"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
   validate_aws_env
-  build_args=("prod")
+  build_args=("prod" "--parallel")
   if [[ "$SKIP_WEBSITE" == "true" ]]; then
     build_args+=("--no-website")
   fi
