@@ -21,8 +21,8 @@ import { detectPlatform } from './detectPlatform.js';
 import {
   getStorageAdapter,
   type KeyStorageAdapter
-} from './keyManagerStorageAdapters';
-import * as nativeSecureStorage from './nativeSecureStorage';
+} from './keyManagerStorageAdapters.js';
+import * as nativeSecureStorage from './nativeSecureStorage.js';
 
 /**
  * Key manager class for handling encryption key lifecycle.

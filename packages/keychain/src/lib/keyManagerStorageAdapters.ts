@@ -1,6 +1,6 @@
 import { exportWrappingKey, importWrappingKey } from '@tearleads/shared';
 import { detectPlatform } from './detectPlatform.js';
-import * as nativeSecureStorage from './nativeSecureStorage';
+import * as nativeSecureStorage from './nativeSecureStorage.js';
 
 const SALT_STORAGE_PREFIX = 'tearleads_db_salt';
 const KEY_CHECK_VALUE_PREFIX = 'tearleads_db_kcv';
