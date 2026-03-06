@@ -1,31 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type MlsWasmBackendModule = typeof import('./mlsWasmBackend');
+type MlsWasmModule = Record<string, unknown>;
+type ResolveMlsBackendStatus =
+  typeof import('./mlsWasmBackend').resolveMlsBackendStatus;
+type ResetWasmModulePromiseForTesting =
+  typeof import('./mlsWasmBackend').resetWasmModulePromiseForTesting;
 
-function mockWasmImport(module: Record<string, unknown>): void {
-  vi.doMock('./mlsWasmImport.js', () => ({
-    importMlsWasmModule: () => Promise.resolve(module)
-  }));
-}
+const importMlsWasmModuleMock = vi.fn<() => Promise<MlsWasmModule>>();
+vi.mock('./mlsWasmImport.js', () => ({
+  importMlsWasmModule: () => importMlsWasmModuleMock()
+}));
 
-async function loadMlsWasmBackend(): Promise<MlsWasmBackendModule> {
-  return import('./mlsWasmBackend');
-}
+let resolveMlsBackendStatus: ResolveMlsBackendStatus;
+let resetWasmModulePromiseForTesting: ResetWasmModulePromiseForTesting;
 
 describe('mlsWasmBackend', () => {
+  beforeAll(async () => {
+    const module = await import('./mlsWasmBackend');
+    resolveMlsBackendStatus = module.resolveMlsBackendStatus;
+    resetWasmModulePromiseForTesting = module.resetWasmModulePromiseForTesting;
+  });
+
   beforeEach(() => {
-    vi.resetModules();
+    vi.clearAllMocks();
+    resetWasmModulePromiseForTesting();
   });
 
   it('returns wasm backend status when module reports ready', async () => {
-    mockWasmImport({
+    importMlsWasmModuleMock.mockResolvedValue({
       mls_backend_name: () => 'tearleads-mls-core-wasm',
       mls_backend_version: () => '0.1.0',
       mls_backend_ready: () => true,
       mls_backend_notice: () => 'ready'
     });
 
-    const { resolveMlsBackendStatus } = await loadMlsWasmBackend();
     const status = await resolveMlsBackendStatus();
 
     expect(status.backend).toBe('wasm');
@@ -35,14 +43,13 @@ describe('mlsWasmBackend', () => {
   });
 
   it('returns placeholder status when wasm backend is not ready yet', async () => {
-    mockWasmImport({
+    importMlsWasmModuleMock.mockResolvedValue({
       mls_backend_name: () => 'tearleads-mls-core-wasm',
       mls_backend_version: () => '0.1.0',
       mls_backend_ready: () => false,
       mls_backend_notice: () => 'not ready'
     });
 
-    const { resolveMlsBackendStatus } = await loadMlsWasmBackend();
     const status = await resolveMlsBackendStatus();
 
     expect(status.backend).toBe('placeholder');
@@ -52,9 +59,8 @@ describe('mlsWasmBackend', () => {
   });
 
   it('includes codegen guidance when module shape is invalid', async () => {
-    mockWasmImport({});
+    importMlsWasmModuleMock.mockResolvedValue({});
 
-    const { resolveMlsBackendStatus } = await loadMlsWasmBackend();
     const status = await resolveMlsBackendStatus();
 
     expect(status.backend).toBe('placeholder');
@@ -62,12 +68,10 @@ describe('mlsWasmBackend', () => {
   });
 
   it('falls back to placeholder when import fails', async () => {
-    vi.doMock('./mlsWasmImport.js', () => ({
-      importMlsWasmModule: () =>
-        Promise.reject(new Error('Cannot find WASM module'))
-    }));
+    importMlsWasmModuleMock.mockRejectedValue(
+      new Error('Cannot find WASM module')
+    );
 
-    const { resolveMlsBackendStatus } = await loadMlsWasmBackend();
     const status = await resolveMlsBackendStatus();
 
     expect(status.backend).toBe('placeholder');
@@ -75,8 +79,8 @@ describe('mlsWasmBackend', () => {
   });
 
   it('runs wasm default initializer when present', async () => {
-    const defaultInit = vi.fn(() => Promise.resolve());
-    mockWasmImport({
+    const defaultInit = vi.fn(() => Promise.resolve(undefined));
+    importMlsWasmModuleMock.mockResolvedValue({
       default: defaultInit,
       mls_backend_name: () => 'tearleads-mls-core-wasm',
       mls_backend_version: () => '0.1.0',
@@ -84,7 +88,6 @@ describe('mlsWasmBackend', () => {
       mls_backend_notice: () => 'not ready'
     });
 
-    const { resolveMlsBackendStatus } = await loadMlsWasmBackend();
     await resolveMlsBackendStatus();
 
     expect(defaultInit).toHaveBeenCalled();

@@ -1,4 +1,7 @@
-import { loadMlsWasmPrimitiveBindings } from './mlsWasmBackend.js';
+import {
+  loadMlsWasmPrimitiveBindings,
+  type MlsWasmPrimitiveBindings
+} from './mlsWasmBackend.js';
 
 interface RecordLike {
   [key: string]: unknown;
@@ -194,7 +197,8 @@ function parseImportStateResult(value: unknown): ImportStateResult {
 export async function wasmGenerateCredential(
   userId: string
 ): Promise<GeneratedCredential> {
-  const bindings = await loadMlsWasmPrimitiveBindings();
+  const bindings: MlsWasmPrimitiveBindings =
+    await loadMlsWasmPrimitiveBindings();
   return parseGeneratedCredential(bindings.mls_generate_credential(userId));
 }
 
