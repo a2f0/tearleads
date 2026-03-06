@@ -8,6 +8,7 @@ import {
   updateInstance
 } from '@/db/instanceRegistry';
 import { readStoredAuth, storeAuth } from '@/lib/authStorage';
+import { getJwtTimeRemaining } from '@/lib/jwt';
 
 interface InstanceAuthSnapshot {
   userId: string;
@@ -23,7 +24,8 @@ interface InstanceAuthSnapshot {
  * - If current instance belongs to a different user, create and bind a new one
  */
 export function AuthInstanceBinding() {
-  const { user, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
+  const { user, token, isAuthenticated, isLoading: isAuthLoading, logout } =
+    useAuth();
   const {
     isLoading: isDatabaseLoading,
     currentInstanceId,
@@ -38,7 +40,7 @@ export function AuthInstanceBinding() {
   );
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user || !token) {
       return;
     }
 
@@ -51,13 +53,19 @@ export function AuthInstanceBinding() {
       return;
     }
 
+    const tokenTimeRemaining = getJwtTimeRemaining(stored.token);
+    if (tokenTimeRemaining === null || tokenTimeRemaining <= 0) {
+      userAuthSnapshotsRef.current.delete(user.id);
+      return;
+    }
+
     userAuthSnapshotsRef.current.set(user.id, {
       userId: stored.user.id,
       userEmail: stored.user.email,
       accessToken: stored.token,
       refreshToken: stored.refreshToken
     });
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, token, user]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -104,9 +112,13 @@ export function AuthInstanceBinding() {
           if (currentBoundUserId) {
             const storedSnapshot =
               userAuthSnapshotsRef.current.get(currentBoundUserId);
+            const snapshotTimeRemaining = storedSnapshot
+              ? getJwtTimeRemaining(storedSnapshot.accessToken)
+              : null;
             if (
               storedSnapshot &&
-              storedSnapshot.userId === currentBoundUserId
+              snapshotTimeRemaining !== null &&
+              snapshotTimeRemaining > 0
             ) {
               storeAuth(
                 storedSnapshot.accessToken,
@@ -118,6 +130,10 @@ export function AuthInstanceBinding() {
               );
               alignedUserId = storedSnapshot.userId;
               return;
+            }
+
+            if (storedSnapshot) {
+              userAuthSnapshotsRef.current.delete(currentBoundUserId);
             }
           }
 
