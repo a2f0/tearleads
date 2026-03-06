@@ -32,11 +32,9 @@ This matrix tracks the first DAL-proving admin read endpoints selected for v2 mi
 - Browser-facing Wave 1A admin RPC routes now use gRPC-web binary transport in `@tearleads/api-client` via `api.adminV2`.
 - Added test-harness override support for api-v2 client WASM importer via `__tearleadsImportApiV2ClientWasmModule`.
 - Runtime harness now routes `/connect/tearleads.v2.AdminService/*` to a Rust `api-v2` Wave 1A harness service for frontend/runtime integration tests.
-- `api.admin` Wave 1A read methods now route through `api.adminV2` (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
+- Wave 1A read methods now route through the canonical `api.adminV2` surface (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
 - Wave 1C adds the first v2 admin write cutover: `DeleteRedisKey` now routes through `api.adminV2` over `/connect/tearleads.v2.AdminService/DeleteRedisKey`.
-- `api.admin.getContext` now routes through `tearleads.v2.AdminService/GetContext` in both `@tearleads/api-client` and `@tearleads/admin`.
-- `@tearleads/admin` `api.admin.groups.list` now routes through `tearleads.v2.AdminService/ListGroups`.
-- `@tearleads/admin` now routes Postgres/Redis admin helpers through `tearleads.v2.AdminService` while preserving the existing DTO surface.
-- `api.admin.groups.get`, `api.admin.organizations.list`, and `api.admin.users.list` now route through `tearleads.v2.AdminService` in both `@tearleads/api-client` and `@tearleads/admin` while preserving DTO compatibility.
+- `@tearleads/api-client` now routes both `api.adminV2` and `api.admin` (direct alias) through the same v2 admin route implementation.
+- Removed the `adminRoutes` compatibility module from `@tearleads/api-client`; `api.admin` remains as an alias while remaining consumers are migrated.
 - MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
-- Next slice: unmount legacy `tearleads.v1.AdminService` runtime registration and update lingering v1 admin-connect MSW coverage to assert v2-only admin transport paths.
+- Next slice: remove stale v1 admin proto/codegen artifacts once all remaining compile-time references are fully eliminated.

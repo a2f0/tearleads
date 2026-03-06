@@ -382,17 +382,17 @@ describe('api with msw', () => {
       )
     );
 
-    await api.admin.postgres.getRows('public', 'users', {
+    await api.adminV2.postgres.getRows('public', 'users', {
       limit: 10,
       offset: 20,
       sortColumn: 'email',
       sortDirection: 'desc'
     });
-    await api.admin.postgres.getRows('public', 'users');
+    await api.adminV2.postgres.getRows('public', 'users');
 
     // Redis getKeys: with params vs without
-    await api.admin.redis.getKeys('5', 10);
-    await api.admin.redis.getKeys();
+    await api.adminV2.redis.getKeys('5', 10);
+    await api.adminV2.redis.getKeys();
 
     await api.ai.getUsage({
       startDate: '2024-01-01',

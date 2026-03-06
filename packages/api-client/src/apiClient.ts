@@ -1,5 +1,4 @@
 import { request } from './apiCore';
-import { adminRoutes } from './apiRoutes/adminRoutes';
 import { adminV2Routes } from './apiRoutes/adminV2Routes';
 import { aiRoutes } from './apiRoutes/aiRoutes';
 import { authRoutes } from './apiRoutes/authRoutes';
@@ -18,7 +17,7 @@ export const api = {
       return parseV2PingData(response);
     }
   },
-  admin: adminRoutes,
+  admin: adminV2Routes,
   adminV2: adminV2Routes,
   vfs: vfsRoutes,
   ai: aiRoutes,
