@@ -23,8 +23,6 @@ breaking:
   use:
     - FILE
   ignore:
-    - tearleads/v1/vfs.proto
-    - tearleads/v1/vfs_shares.proto
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
     - tearleads/v2/vfs.proto
