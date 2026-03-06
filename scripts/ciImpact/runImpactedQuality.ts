@@ -462,20 +462,8 @@ function main(): void {
   }
 
   if (runScriptsTypecheck) {
-    runPm([
-      'exec',
-      'tsc',
-      '--noEmit',
-      '-p',
-      'scripts/tsconfig.json'
-    ]);
-    runPm([
-      'exec',
-      'tsc',
-      '--noEmit',
-      '-p',
-      'scripts/tsconfig.test.json'
-    ]);
+    runPm(['exec', 'tsc', '--noEmit', '-p', 'scripts/tsconfig.json']);
+    runPm(['exec', 'tsc', '--noEmit', '-p', 'scripts/tsconfig.test.json']);
   }
 
   for (const pkgName of buildTargets) {
