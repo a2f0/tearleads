@@ -5,7 +5,12 @@
  * compression, and cryptographic utilities.
  */
 
-export { compress, compressString, decompress, decompressString } from './compression';
+export {
+  compress,
+  compressString,
+  decompress,
+  decompressString
+} from './compression';
 export {
   AES_KEY_BITS,
   AUTH_TAG_SIZE,
@@ -30,16 +35,15 @@ export {
 } from './crypto';
 export {
   BackupDecodeError,
-  type DecodeResult,
   type DecodedBlob,
-  InvalidPasswordError,
+  type DecodeResult,
   decode,
+  InvalidPasswordError,
   readHeader,
   validateBackup
 } from './decoder';
 export { type EncodeOptions, encode, estimateBackupSize } from './encoder';
 export {
-  ChunkType,
   type BackupDatabase,
   type BackupHeader,
   type BackupManifest,
@@ -47,6 +51,7 @@ export {
   type BlobEntry,
   type BlobHeader,
   type ChunkHeader,
+  ChunkType,
   type ChunkTypeValue,
   type ImportResult,
   type IndexSchema,
