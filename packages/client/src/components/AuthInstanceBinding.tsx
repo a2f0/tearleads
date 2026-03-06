@@ -7,6 +7,14 @@ import {
   getInstanceForUser,
   updateInstance
 } from '@/db/instanceRegistry';
+import { readStoredAuth, storeAuth } from '@/lib/authStorage';
+
+interface InstanceAuthSnapshot {
+  userId: string;
+  userEmail: string;
+  accessToken: string;
+  refreshToken: string;
+}
 
 /**
  * Automatically keeps DB instance scope aligned with authenticated user.
@@ -25,6 +33,31 @@ export function AuthInstanceBinding() {
   } = useDatabaseContext();
   const isBindingRef = useRef(false);
   const alignedUserIdRef = useRef<string | null>(null);
+  const userAuthSnapshotsRef = useRef<Map<string, InstanceAuthSnapshot>>(
+    new Map()
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    const stored = readStoredAuth();
+    if (!stored.token || !stored.refreshToken || !stored.user) {
+      return;
+    }
+
+    if (stored.user.id !== user.id) {
+      return;
+    }
+
+    userAuthSnapshotsRef.current.set(user.id, {
+      userId: stored.user.id,
+      userEmail: stored.user.email,
+      accessToken: stored.token,
+      refreshToken: stored.refreshToken
+    });
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -46,7 +79,7 @@ export function AuthInstanceBinding() {
     isBindingRef.current = true;
 
     void (async () => {
-      let alignedSuccessfully = false;
+      let alignedUserId: string | null = null;
       try {
         const userId = user.id;
         const [boundInstance, currentInstance] = await Promise.all([
@@ -62,11 +95,32 @@ export function AuthInstanceBinding() {
           currentBoundUserId === userId;
 
         // If we already aligned this user and they move to a different/unbound
-        // instance, clear auth so each instance has its own sync session.
+        // instance, restore auth for the bound user when possible. If no
+        // snapshot exists, clear auth to avoid cross-user session bleed.
         if (
           alignedUserIdRef.current === userId &&
           !isCurrentInstanceBoundToAuthenticatedUser
         ) {
+          if (currentBoundUserId) {
+            const storedSnapshot =
+              userAuthSnapshotsRef.current.get(currentBoundUserId);
+            if (
+              storedSnapshot &&
+              storedSnapshot.userId === currentBoundUserId
+            ) {
+              storeAuth(
+                storedSnapshot.accessToken,
+                storedSnapshot.refreshToken,
+                {
+                  id: storedSnapshot.userId,
+                  email: storedSnapshot.userEmail
+                }
+              );
+              alignedUserId = storedSnapshot.userId;
+              return;
+            }
+          }
+
           await logout();
           return;
         }
@@ -83,7 +137,7 @@ export function AuthInstanceBinding() {
             await switchInstance(boundInstance.id);
           }
           await updateInstance(boundInstance.id, { name: user.email });
-          alignedSuccessfully = true;
+          alignedUserId = userId;
           return;
         }
 
@@ -91,13 +145,13 @@ export function AuthInstanceBinding() {
           await bindInstanceToUser(currentInstanceId, userId);
           await updateInstance(currentInstanceId, { name: user.email });
           await refreshInstances();
-          alignedSuccessfully = true;
+          alignedUserId = userId;
           return;
         }
 
         if (currentBoundUserId === userId) {
           await updateInstance(currentInstanceId, { name: user.email });
-          alignedSuccessfully = true;
+          alignedUserId = userId;
           return;
         }
 
@@ -105,7 +159,7 @@ export function AuthInstanceBinding() {
         await bindInstanceToUser(newInstanceId, userId);
         await updateInstance(newInstanceId, { name: user.email });
         await refreshInstances();
-        alignedSuccessfully = true;
+        alignedUserId = userId;
         return;
       } catch (error) {
         console.error(
@@ -113,8 +167,8 @@ export function AuthInstanceBinding() {
           error
         );
       } finally {
-        if (!cancelled && alignedSuccessfully) {
-          alignedUserIdRef.current = user.id;
+        if (!cancelled && alignedUserId) {
+          alignedUserIdRef.current = alignedUserId;
         }
         isBindingRef.current = false;
       }
