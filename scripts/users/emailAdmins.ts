@@ -1,12 +1,17 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deliverMail } from './deliverMail.ts';
 
 type AdminRow = {
   id: string;
   email: string;
 };
+
+const PM_SCRIPT_PATH = fileURLToPath(new URL('../tooling/pm.sh', import.meta.url));
+const API_CLI_PATH = fileURLToPath(
+  new URL('../../packages/api/src/apiCli.ts', import.meta.url)
+);
 
 function printUsage(): void {
   console.log(
@@ -38,8 +43,8 @@ function printUsage(): void {
 
 function getAdminUsers(): AdminRow[] {
   const raw = execFileSync(
-    'pnpm',
-    ['--filter', '@tearleads/api', 'cli', 'list-admins', '--json'],
+    'sh',
+    [PM_SCRIPT_PATH, 'exec', 'tsx', API_CLI_PATH, 'list-admins', '--json'],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
   const lines = raw.trim().split('\n');

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S pnpm exec tsx
+#!/usr/bin/env -S node --import tsx
 import net from 'node:net';
 import { pathToFileURL } from 'node:url';
 
