@@ -9,6 +9,7 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+// one-component-per-file: allow -- helper renderers share row-local translation and typing context.
 interface RedisKeyRowProps {
   keyInfo: RedisKeyInfo;
   isExpanded: boolean;

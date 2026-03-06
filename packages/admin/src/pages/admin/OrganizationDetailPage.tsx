@@ -28,6 +28,7 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
+// one-component-per-file: allow -- keeps route-level JSX branches in one page module until page decomposition lands.
 interface OrganizationFormData {
   name: string;
   description: string;
