@@ -294,8 +294,9 @@ describe('mlsV2Routes', () => {
     const uploadKeyPackages = vi.fn(async () => ({ keyPackages: [] }));
     const client = createMlsV2ClientStub({ uploadKeyPackages });
     const { routes } = createRoutesForTest(client);
-    const encodedKeyPackageData = Buffer.from('key-data', 'utf8').toString(
-      'base64'
+    const keyPackageBytes = new TextEncoder().encode('key-data');
+    const encodedKeyPackageData = btoa(
+      String.fromCharCode(...Array.from(keyPackageBytes))
     );
 
     await routes.uploadKeyPackages({
