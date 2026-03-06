@@ -6,10 +6,15 @@ import type {
 } from '@tearleads/shared';
 import { getDatabaseAdapter, isDatabaseInitialized } from '@/db';
 import { api } from '@/lib/api';
+import {
+  resolveMaterializedNoteContent,
+  resolveMaterializedNoteTitle
+} from './vfsRematerializationScrub';
 
 interface RegistryRow {
   id: string;
   objectType: string;
+  encryptedName: string | null;
   ownerId: string | null;
   createdAtMs: number;
 }
@@ -22,6 +27,13 @@ interface AclRow {
   accessLevel: VfsAclAccessLevel;
   grantedBy: string | null;
   occurredAtMs: number;
+}
+
+interface ItemStateRow {
+  itemId: string;
+  encryptedPayload: string | null;
+  updatedAtMs: number;
+  deleted: boolean;
 }
 
 interface PaginatedFeedPage<TItem> {
@@ -115,6 +127,8 @@ function buildRegistryRows(syncItems: VfsSyncItem[]): {
     rowsById.set(item.itemId, {
       id: item.itemId,
       objectType: item.objectType,
+      encryptedName:
+        typeof item.encryptedName === 'string' ? item.encryptedName : null,
       ownerId: item.ownerId,
       createdAtMs: parseTimestampMs(item.createdAt)
     });
@@ -156,6 +170,34 @@ function buildAclRows(crdtItems: VfsCrdtSyncItem[]): AclRow[] {
   return Array.from(rowsByPrincipal.values());
 }
 
+function buildItemStateRows(crdtItems: VfsCrdtSyncItem[]): ItemStateRow[] {
+  const rowsById = new Map<string, ItemStateRow>();
+  for (const item of crdtItems) {
+    const occurredAtMs = parseTimestampMs(item.occurredAt);
+
+    if (item.opType === 'item_upsert') {
+      rowsById.set(item.itemId, {
+        itemId: item.itemId,
+        encryptedPayload: item.encryptedPayload ?? null,
+        updatedAtMs: occurredAtMs,
+        deleted: false
+      });
+      continue;
+    }
+
+    if (item.opType === 'item_delete') {
+      rowsById.set(item.itemId, {
+        itemId: item.itemId,
+        encryptedPayload: null,
+        updatedAtMs: occurredAtMs,
+        deleted: true
+      });
+    }
+  }
+
+  return Array.from(rowsById.values());
+}
+
 async function tableExists(tableName: string): Promise<boolean> {
   const adapter = getDatabaseAdapter();
   const result = await adapter.execute(
@@ -178,11 +220,29 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
   const { upserts: registryUpserts, deletes: registryDeletes } =
     buildRegistryRows(syncItems);
   const registryIds = new Set(registryUpserts.map((row) => row.id));
+  const itemStateRows = buildItemStateRows(crdtItems).filter((row) =>
+    registryIds.has(row.itemId)
+  );
+  const itemStateById = new Map(itemStateRows.map((row) => [row.itemId, row]));
   const aclRows = buildAclRows(crdtItems).filter((row) =>
     registryIds.has(row.itemId)
   );
+  const noteRows = registryUpserts
+    .filter((row) => row.objectType === 'note')
+    .map((row) => {
+      const itemState = itemStateById.get(row.id);
+      return {
+        id: row.id,
+        title: resolveMaterializedNoteTitle(row.encryptedName),
+        content: resolveMaterializedNoteContent(itemState?.encryptedPayload),
+        createdAtMs: row.createdAtMs,
+        updatedAtMs: itemState?.updatedAtMs ?? row.createdAtMs,
+        deleted: itemState?.deleted ?? false
+      };
+    });
 
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
+  const hasNotesTable = await tableExists('notes');
   const adapter = getDatabaseAdapter();
 
   let foreignKeysDisabled = false;
@@ -199,14 +259,22 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
         `INSERT INTO vfs_registry (
            id,
            object_type,
+           encrypted_name,
            owner_id,
            created_at
-         ) VALUES (?, ?, ?, ?)
+         ) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            object_type = excluded.object_type,
+           encrypted_name = excluded.encrypted_name,
            owner_id = excluded.owner_id,
            created_at = excluded.created_at`,
-        [row.id, row.objectType, row.ownerId, row.createdAtMs]
+        [
+          row.id,
+          row.objectType,
+          row.encryptedName,
+          row.ownerId,
+          row.createdAtMs
+        ]
       );
     }
 
@@ -245,6 +313,42 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
             row.grantedBy,
             row.occurredAtMs,
             row.occurredAtMs
+          ]
+        );
+      }
+    }
+
+    if (hasNotesTable) {
+      await adapter.execute(
+        `DELETE FROM notes
+         WHERE id NOT IN (
+           SELECT id FROM vfs_registry WHERE object_type = 'note'
+         )`,
+        []
+      );
+      for (const row of noteRows) {
+        await adapter.execute(
+          `INSERT INTO notes (
+             id,
+             title,
+             content,
+             created_at,
+             updated_at,
+             deleted
+           ) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             title = excluded.title,
+             content = excluded.content,
+             created_at = excluded.created_at,
+             updated_at = excluded.updated_at,
+             deleted = excluded.deleted`,
+          [
+            row.id,
+            row.title,
+            row.content,
+            row.createdAtMs,
+            row.updatedAtMs,
+            row.deleted ? 1 : 0
           ]
         );
       }
