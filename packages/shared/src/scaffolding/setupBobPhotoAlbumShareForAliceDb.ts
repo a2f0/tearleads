@@ -262,7 +262,8 @@ export async function setupBobPhotoAlbumShareForAliceDb(
     });
 
     const photoPayload = encodeBase64(photoSvg);
-    const photoNonce = encodeBase64(`nonce-${idFactory()}`), photoAad = encodeBase64(`aad-${idFactory()}`);
+    const photoNonce = encodeBase64(`nonce-${idFactory()}`),
+      photoAad = encodeBase64(`aad-${idFactory()}`);
     const photoSignature = encodeBase64(`sig-${idFactory()}`);
 
     await input.client.query(
@@ -285,14 +286,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          encryption_signature = EXCLUDED.encryption_signature,
          updated_at = EXCLUDED.updated_at,
          deleted_at = NULL`,
-      [
-        photoId,
-        photoPayload,
-        photoNonce,
-        photoAad,
-        photoSignature,
-        nowIso
-      ]
+      [photoId, photoPayload, photoNonce, photoAad, photoSignature, nowIso]
     );
 
     await input.client.query(

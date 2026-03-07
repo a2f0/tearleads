@@ -278,14 +278,7 @@ export async function setupBobNotesShareForAliceDb(
          encryption_signature = EXCLUDED.encryption_signature,
          updated_at = EXCLUDED.updated_at,
          deleted_at = NULL`,
-      [
-        noteId,
-        notePayload,
-        noteNonce,
-        noteAad,
-        noteSignature,
-        nowIso
-      ]
+      [noteId, notePayload, noteNonce, noteAad, noteSignature, nowIso]
     );
 
     await input.client.query(
