@@ -1,22 +1,25 @@
 import {
-  createPglitePool,
-  createRedisMock,
-  seedTestUser
-} from '../../../api-test-utils/src/index';
-import { runMigrations } from '../../../db/src/migrations/index';
+  type createPglitePool as createPglitePoolFn
+} from '@tearleads/api-test-utils';
 import {
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
 } from '@tearleads/shared/scaffolding';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getApiDeps } from '../harness/getApiDeps.js';
+import { getApiTestUtils } from '../harness/getApiTestUtils.js';
+import { getDbMigrations } from '../harness/getDbMigrations.js';
 
 describe('DB scaffold schema regression', () => {
-  let pool: Awaited<ReturnType<typeof createPglitePool>>['pool'];
+  type CreatePglitePool = typeof createPglitePoolFn;
+  let pool: Awaited<ReturnType<CreatePglitePool>>['pool'];
   let bobEmail: string;
   let aliceEmail: string;
 
   beforeAll(async () => {
+    const { createPglitePool, createRedisMock, seedTestUser } =
+      await getApiTestUtils();
+    const { runMigrations } = await getDbMigrations();
     const pglite = await createPglitePool();
     pool = pglite.pool;
     const redis = createRedisMock();
