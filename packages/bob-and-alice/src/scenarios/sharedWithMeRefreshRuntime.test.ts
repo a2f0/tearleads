@@ -14,6 +14,7 @@ import {
   assertPgHasVfsRegistryItem,
   assertPgUserOrganizationMembership
 } from '../harness/postgresAssertions.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 
 describe('sharedWithMe refresh runtime', () => {
   let harness: ApiScenarioHarness | null = null;
@@ -60,25 +61,15 @@ describe('sharedWithMe refresh runtime', () => {
       organizationId: sharedOrgId
     });
 
-    await alice.fetch('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'alice-public-enc-key',
-        publicSigningKey: 'alice-public-sign-key',
-        encryptedPrivateKeys: 'alice-encrypted-private-keys',
-        argon2Salt: 'alice-argon2-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: alice,
+      keyPrefix: 'alice'
     });
-    await bob.fetch('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'bob-public-enc-key',
-        publicSigningKey: 'bob-public-sign-key',
-        encryptedPrivateKeys: 'bob-encrypted-private-keys',
-        argon2Salt: 'bob-argon2-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: bob,
+      keyPrefix: 'bob'
     });
 
     const aliceBrowser = await createBrowserRuntimeActor('alice');

@@ -14,6 +14,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
@@ -21,20 +22,6 @@ type ScenarioActor = ReturnType<ApiScenarioHarness['actor']>;
 
 function toBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
-}
-
-async function seedVfsKeys(actor: ScenarioActor, alias: string): Promise<void> {
-  const response = await actor.fetch('/vfs/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      publicEncryptionKey: `${alias}-public-enc-key`,
-      publicSigningKey: `${alias}-public-sign-key`,
-      encryptedPrivateKeys: `${alias}-encrypted-private-keys`,
-      argon2Salt: `${alias}-argon2-salt`
-    })
-  });
-  expect(response.status).toBe(201);
 }
 
 async function fetchAllCrdtItems(
@@ -131,8 +118,16 @@ describe('shared note edit sync', () => {
       [bob.user.userId, sharedOrgId, alice.user.userId]
     );
 
-    await seedVfsKeys(bob, 'bob');
-    await seedVfsKeys(alice, 'alice');
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: bob,
+      keyPrefix: 'bob'
+    });
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: alice,
+      keyPrefix: 'alice'
+    });
     const knownUsers = [
       { id: bob.user.userId, email: bob.user.email },
       { id: alice.user.userId, email: alice.user.email }

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 
 describe('API VFS lifecycle', () => {
@@ -34,18 +35,11 @@ describe('API VFS lifecycle', () => {
       [alice.user.userId, sharedOrgId, bob.user.userId]
     );
 
-    // Alice sets up VFS keys
-    const setupKeysResponse = await alice.fetch('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'alice-public-enc-key',
-        publicSigningKey: 'alice-public-sign-key',
-        encryptedPrivateKeys: 'alice-encrypted-private-keys',
-        argon2Salt: 'alice-argon2-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: alice,
+      keyPrefix: 'alice'
     });
-    expect(setupKeysResponse.status).toBe(201);
 
     // Alice retrieves her keys
     const keysBody = await alice.fetchJson<{
@@ -187,16 +181,10 @@ describe('API VFS lifecycle', () => {
       [alice.user.userId, sourceOrgId]
     );
 
-    // Setup keys and register item
-    await alice.fetch('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'alice-enc-key',
-        publicSigningKey: 'alice-sign-key',
-        encryptedPrivateKeys: 'alice-enc-privkeys',
-        argon2Salt: 'alice-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: alice,
+      keyPrefix: 'alice'
     });
     await alice.fetchJson('/vfs/register', {
       method: 'POST',
