@@ -89,15 +89,15 @@ const sqliteCoreSymbols = [
 function resolvePnpmRunner(): { command: string; args: string[] } {
   const npmExecPath = process.env.npm_execpath;
   if (typeof npmExecPath === 'string' && npmExecPath.length > 0) {
-    if (/\.[cm]?js$/iu.test(npmExecPath)) {
+    if (process.platform === 'win32' && /\.[cm]?js$/iu.test(npmExecPath)) {
       // Regression note: on Windows CI, lifecycle scripts can lose the pnpm
       // shim from PATH. Running the active JS entrypoint via node avoids
       // spawnSync('pnpm') ENOENT failures.
       return { command: process.execPath, args: [npmExecPath] };
     }
 
-    // Non-JS entrypoints (for example mise-managed native shims) must be
-    // executed directly, not via node.
+    // On POSIX systems, execute npm_execpath directly. This supports both
+    // shebang-based scripts and native binaries (for example mise shims).
     return { command: npmExecPath, args: [] };
   }
 
