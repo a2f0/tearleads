@@ -1,7 +1,7 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
 import { JSDOM } from 'jsdom';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   composeWrappers,
   createRealDbWrapper,
@@ -9,7 +9,18 @@ import {
 } from './createWrapper.js';
 
 // one-component-per-file: allow - test-only local wrappers keep the hook scenarios readable.
-function ensureDomForBun(): void {
+const managedGlobalNames = [
+  'window',
+  'document',
+  'navigator',
+  'HTMLElement',
+  'Node',
+  'getComputedStyle'
+];
+const originalDescriptors = new Map<string, PropertyDescriptor | undefined>();
+let installedDom = false;
+
+function installDomForBun(): void {
   if (typeof globalThis.document !== 'undefined') {
     return;
   }
@@ -33,9 +44,37 @@ function ensureDomForBun(): void {
     'getComputedStyle',
     dom.window.getComputedStyle.bind(dom.window)
   );
+
+  installedDom = true;
 }
 
-ensureDomForBun();
+function restoreGlobalsAfterDomInstall(): void {
+  if (!installedDom) {
+    return;
+  }
+
+  for (const name of managedGlobalNames) {
+    const descriptor = originalDescriptors.get(name);
+    if (descriptor) {
+      Object.defineProperty(globalThis, name, descriptor);
+      continue;
+    }
+    Reflect.deleteProperty(globalThis, name);
+  }
+
+  installedDom = false;
+}
+
+beforeAll(() => {
+  for (const name of managedGlobalNames) {
+    originalDescriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+  }
+  installDomForBun();
+});
+
+afterAll(() => {
+  restoreGlobalsAfterDomInstall();
+});
 
 describe('createRealDbWrapper', () => {
   it('creates a wrapper component', () => {
