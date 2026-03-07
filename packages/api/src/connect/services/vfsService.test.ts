@@ -72,11 +72,11 @@ const {
   getSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   rekeyItemDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   reconcileSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   registerDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   sendEmailDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   setupKeysDirectMock:
@@ -162,11 +162,11 @@ type DirectJsonMock = {
     calls: unknown[][];
   };
 };
-
-type DirectJsonCallCase = {
-  call: () => Promise<{ json: string }>;
+type DirectCallCase = {
+  call: () => Promise<unknown>;
   expectedRequest: unknown;
-  mock: DirectJsonMock;
+  expectedResponse?: unknown;
+  mock: ReturnType<typeof vi.fn>;
 };
 
 function createContext() {
@@ -190,9 +190,7 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     runCrdtSessionDirectMock,
     stageBlobDirectMock,
     getSyncDirectMock,
-    rekeyItemDirectMock,
     reconcileSyncDirectMock,
-    registerDirectMock,
     uploadBlobChunkDirectMock
   ];
 }
@@ -200,7 +198,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
 describe('vfsConnectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
     getBlobDirectMock.mockReset();
     getBlobDirectMock.mockResolvedValue({
       data: new Uint8Array([7, 8, 9]),
@@ -211,6 +208,18 @@ describe('vfsConnectService', () => {
       mock.mockReset();
       mock.mockResolvedValue({ json: '{"ok":true}' });
     }
+
+    registerDirectMock.mockReset();
+    registerDirectMock.mockResolvedValue({
+      id: 'item-1',
+      createdAt: '2026-03-03T00:00:00.000Z'
+    });
+    rekeyItemDirectMock.mockReset();
+    rekeyItemDirectMock.mockResolvedValue({
+      itemId: 'item-1',
+      newEpoch: 2,
+      wrapsApplied: 0
+    });
 
     getMyKeysDirectMock.mockReset();
     getMyKeysDirectMock.mockResolvedValue({
@@ -315,11 +324,16 @@ describe('vfsConnectService', () => {
       organizationId: 'org-1',
       json: '{"clientId":"client-1","operations":[],"cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","limit":10}'
     };
+    const defaultDirectJsonResponse = { json: '{"ok":true}' };
 
-    const directCases: DirectJsonCallCase[] = [
+    const directCases: DirectCallCase[] = [
       {
         call: () => vfsConnectService.register(registerRequest, context),
         expectedRequest: registerRequest,
+        expectedResponse: {
+          id: 'item-1',
+          createdAt: '2026-03-03T00:00:00.000Z'
+        },
         mock: registerDirectMock
       },
       {
@@ -351,6 +365,11 @@ describe('vfsConnectService', () => {
       {
         call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
         expectedRequest: rekeyItemRequest,
+        expectedResponse: {
+          itemId: 'item-1',
+          newEpoch: 2,
+          wrapsApplied: 0
+        },
         mock: rekeyItemDirectMock
       },
       {
@@ -396,7 +415,9 @@ describe('vfsConnectService', () => {
 
     for (const testCase of directCases) {
       const response = await testCase.call();
-      expect(response).toEqual({ json: '{"ok":true}' });
+      expect(response).toEqual(
+        testCase.expectedResponse ?? defaultDirectJsonResponse
+      );
       expect(testCase.mock).toHaveBeenCalledWith(
         testCase.expectedRequest,
         context

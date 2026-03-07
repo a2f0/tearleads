@@ -177,6 +177,65 @@ describe('vfsRoutes', () => {
     );
   });
 
+  it('routes register and rekey through typed Connect responses', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        id: 'item-1',
+        createdAt: '2026-03-03T00:00:00.000Z'
+      })
+      .mockResolvedValueOnce({
+        itemId: 'item-1',
+        newEpoch: 3,
+        wrapsApplied: 2
+      });
+
+    await expect(
+      vfsRoutes.register({
+        id: 'item-1',
+        objectType: 'file',
+        encryptedSessionKey: 'enc'
+      })
+    ).resolves.toEqual({
+      id: 'item-1',
+      createdAt: '2026-03-03T00:00:00.000Z'
+    });
+    await expect(
+      vfsRoutes.rekeyItem('item-1', {
+        reason: 'manual',
+        newEpoch: 3,
+        wrappedKeys: []
+      })
+    ).resolves.toEqual({
+      itemId: 'item-1',
+      newEpoch: 3,
+      wrapsApplied: 2
+    });
+
+    const [registerPath, registerParams] = requestMock.mock.calls[0] ?? [];
+    const [rekeyPath, rekeyParams] = requestMock.mock.calls[1] ?? [];
+    expect(registerPath).toBe('/connect/tearleads.v2.VfsService/Register');
+    expect(registerParams?.fetchOptions?.body).toBe(
+      JSON.stringify({
+        json: JSON.stringify({
+          id: 'item-1',
+          objectType: 'file',
+          encryptedSessionKey: 'enc'
+        })
+      })
+    );
+    expect(rekeyPath).toBe('/connect/tearleads.v2.VfsService/RekeyItem');
+    expect(rekeyParams?.fetchOptions?.body).toBe(
+      JSON.stringify({
+        itemId: 'item-1',
+        json: JSON.stringify({
+          reason: 'manual',
+          newEpoch: 3,
+          wrappedKeys: []
+        })
+      })
+    );
+  });
+
   it('decodes blob responses from array and base64 payloads', async () => {
     requestMock.mockResolvedValueOnce({
       data: [65, 66, 67],

@@ -27,10 +27,6 @@ import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectRegistry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,7 +108,7 @@ describe('vfsDirectRegistry', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       id: 'item-1',
       createdAt: '2026-03-03T00:00:00.000Z'
     });
@@ -199,7 +195,7 @@ describe('vfsDirectRegistry', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       itemId: 'item-1',
       newEpoch: 2,
       wrapsApplied: 2

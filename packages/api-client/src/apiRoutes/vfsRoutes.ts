@@ -128,11 +128,10 @@ export const vfsRoutes = {
       eventName: 'api_post_vfs_keys'
     }),
   register: (data: VfsRegisterRequest) =>
-    requestVfsJson<VfsRegisterResponse>(
-      'Register',
-      { json: JSON.stringify(data) },
-      'api_post_vfs_register'
-    ),
+    request<VfsRegisterResponse>(`${VFS_V2_CONNECT_BASE_PATH}/Register`, {
+      fetchOptions: createConnectJsonPostInit({ json: JSON.stringify(data) }),
+      eventName: 'api_post_vfs_register'
+    }),
   getShares: (itemId: string) =>
     requestVfsSharesJson<VfsSharesResponse>(
       'GetItemShares',
@@ -251,9 +250,11 @@ export const vfsRoutes = {
       }
     ),
   rekeyItem: (itemId: string, data: VfsRekeyRequest) =>
-    requestVfsJson<VfsRekeyResponse>(
-      'RekeyItem',
-      { itemId, json: JSON.stringify(data) },
-      'api_post_vfs_rekey'
-    )
+    request<VfsRekeyResponse>(`${VFS_V2_CONNECT_BASE_PATH}/RekeyItem`, {
+      fetchOptions: createConnectJsonPostInit({
+        itemId,
+        json: JSON.stringify(data)
+      }),
+      eventName: 'api_post_vfs_rekey'
+    })
 };
