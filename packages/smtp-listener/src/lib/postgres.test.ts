@@ -210,4 +210,20 @@ describe('postgres pool runtime', () => {
     expect(createdPools[0]?.endMock).toHaveBeenCalledOnce();
     expect(first).not.toBe(second);
   });
+
+  it('module-level wrappers delegate to the default runtime', async () => {
+    process.env['DATABASE_URL'] = 'postgres://wrapper-runtime';
+    const { closePostgresPool, getPostgresPool } = await import(
+      './postgres.js'
+    );
+
+    const first = await getPostgresPool();
+    const second = await getPostgresPool();
+    expect(first).toBe(second);
+
+    await closePostgresPool();
+    const third = await getPostgresPool();
+    expect(third).toBeTruthy();
+    await closePostgresPool();
+  });
 });
