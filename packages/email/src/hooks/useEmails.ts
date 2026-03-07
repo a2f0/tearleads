@@ -32,6 +32,7 @@ function isEmailItem(value: unknown): value is EmailItem {
     typeof value['id'] === 'string' &&
     typeof value['from'] === 'string' &&
     isStringArray(value['to']) &&
+    (value['cc'] === undefined || isStringArray(value['cc'])) &&
     typeof value['subject'] === 'string' &&
     typeof value['receivedAt'] === 'string' &&
     typeof value['size'] === 'number'

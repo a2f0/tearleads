@@ -2,6 +2,7 @@ export interface EmailItem {
   id: string;
   from: string;
   to: string[];
+  cc?: string[];
   subject: string;
   receivedAt: string;
   size: number;

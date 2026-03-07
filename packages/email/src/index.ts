@@ -50,6 +50,13 @@ export {
 
 // Lib
 export {
+  buildComposeRequest,
+  buildForwardBody,
+  buildForwardSubject,
+  buildReplyBody,
+  buildReplySubject,
+  type ComposeMode,
+  type ComposeRequestFields,
   type EmailItem,
   formatEmailDate,
   formatEmailSize,

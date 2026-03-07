@@ -6,6 +6,7 @@ interface EmailWindowTabBarProps {
   selectedFolderName: string;
   isComposeTabOpen: boolean;
   onCloseCompose: () => void;
+  composeLabel?: string;
 }
 
 export function EmailWindowTabBar({
@@ -13,7 +14,8 @@ export function EmailWindowTabBar({
   onTabChange,
   selectedFolderName,
   isComposeTabOpen,
-  onCloseCompose
+  onCloseCompose,
+  composeLabel = 'New Message'
 }: EmailWindowTabBarProps) {
   return (
     <div
@@ -57,7 +59,7 @@ export function EmailWindowTabBar({
           data-active={activeTab === 'compose'}
           data-testid="email-tab-compose"
         >
-          New Message
+          {composeLabel}
           <span
             aria-hidden="true"
             data-close-tab="true"

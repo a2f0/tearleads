@@ -4,7 +4,9 @@ import {
 } from '@tearleads/window-manager';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
-import { useEmails } from '../hooks';
+import { useEmailBody, useEmails } from '../hooks';
+import type { ComposeMode } from '../lib/quoteText.js';
+import { buildComposeRequest } from '../lib/quoteText.js';
 import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
 import type { ComposeOpenRequest } from './EmailWindowContent.js';
 import { EmailWindowContent } from './EmailWindowContent.js';
@@ -15,6 +17,13 @@ import { EmailWindowTabBar } from './EmailWindowTabBar.js';
 import { EmailFoldersSidebar } from './sidebar/EmailFoldersSidebar.js';
 
 const DEFAULT_SIDEBAR_WIDTH = 180;
+
+const COMPOSE_MODE_TAB_LABELS: Record<ComposeMode, string> = {
+  new: 'New Message',
+  reply: 'Reply',
+  replyAll: 'Reply All',
+  forward: 'Forward'
+};
 
 type MainTab = 'inbox' | 'compose';
 
@@ -67,6 +76,10 @@ export function EmailWindow({
   const [isComposeTabOpen, setIsComposeTabOpen] = useState(false);
   const [composeOpenRequest, setComposeOpenRequest] =
     useState<ComposeOpenRequest | null>(null);
+  const [composeRequestCounter, setComposeRequestCounter] = useState(0);
+
+  const { body: emailBody } = useEmailBody(selectedEmailId);
+  const selectedEmail = emails.find((e) => e.id === selectedEmailId);
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
@@ -103,18 +116,33 @@ export function EmailWindow({
     closeComposeTab();
   }, [fetchEmails, closeComposeTab]);
 
+  const openComposeForMode = useCallback(
+    (mode: ComposeMode) => {
+      if (!selectedEmail) return;
+      const fields = buildComposeRequest(
+        selectedEmail,
+        emailBody?.text ?? '',
+        mode
+      );
+      setComposeRequestCounter((c) => c + 1);
+      setComposeOpenRequest({
+        ...fields,
+        requestId: composeRequestCounter + 1
+      });
+      setSelectedEmailId(null);
+      setIsComposeTabOpen(true);
+      setActiveTab('compose');
+    },
+    [selectedEmail, emailBody, composeRequestCounter]
+  );
+
   useEffect(() => {
-    if (!isUnlocked) {
-      return;
-    }
+    if (!isUnlocked) return;
     fetchEmails();
   }, [fetchEmails, isUnlocked]);
 
   useEffect(() => {
-    if (!openComposeRequest) {
-      return;
-    }
-
+    if (!openComposeRequest) return;
     setComposeOpenRequest(openComposeRequest);
     setSelectedEmailId(null);
     setIsComposeTabOpen(true);
@@ -122,18 +150,17 @@ export function EmailWindow({
   }, [openComposeRequest]);
 
   useEffect(() => {
-    if (!openRequestId || !openEmailId) {
-      return;
-    }
+    if (!openRequestId || !openEmailId) return;
     setSelectedEmailId(openEmailId);
     setIsComposeTabOpen(false);
     setActiveTab('inbox');
   }, [openEmailId, openRequestId]);
 
-  const selectedEmail = emails.find((e) => e.id === selectedEmailId);
   const selectedFolderName = selectedFolder?.name ?? 'All Mail';
   const isListBackedFolder =
     selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
+  const composeLabel =
+    COMPOSE_MODE_TAB_LABELS[composeOpenRequest?.composeMode ?? 'new'];
 
   return (
     <FloatingWindow
@@ -142,7 +169,7 @@ export function EmailWindow({
         selectedEmail
           ? 'Email'
           : activeTab === 'compose'
-            ? 'New Message'
+            ? composeLabel
             : selectedFolderName
       }
       onClose={onClose}
@@ -173,6 +200,7 @@ export function EmailWindow({
             onCloseCompose={closeComposeTab}
             onCompose={handleCompose}
             onRefresh={fetchEmails}
+            onComposeForMode={openComposeForMode}
           />
         )}
         <div className="flex flex-1 overflow-hidden">
@@ -194,6 +222,7 @@ export function EmailWindow({
                 selectedFolderName={selectedFolderName}
                 isComposeTabOpen={isComposeTabOpen}
                 onCloseCompose={closeComposeTab}
+                composeLabel={composeLabel}
               />
             )}
             <div className="flex-1 overflow-hidden">
