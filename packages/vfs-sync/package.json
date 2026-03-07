@@ -28,7 +28,7 @@
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts",
     "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true bun test --coverage --preload ./src/test/bunSetup.ts"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'bun test --coverage --preload ./src/test/bunSetup.ts --max-concurrency=\"${PRE_PUSH_VITEST_MAX_WORKERS:-4}\"'"
   },
   "peerDependencies": {
     "@tearleads/window-manager": "workspace:*",
