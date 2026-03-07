@@ -1,9 +1,4 @@
-import {
-  createTestDatabase,
-  type Migration,
-  type TestDatabaseContext,
-  vfsTestMigrations
-} from '@tearleads/db-test-utils';
+import type { Migration, TestDatabaseContext } from '@tearleads/db-test-utils';
 import type {
   VfsAclAccessLevel,
   VfsAclPrincipalType,
@@ -12,6 +7,7 @@ import type {
   VfsSyncItem,
   VfsSyncResponse
 } from '@tearleads/shared';
+import { getDbTestUtils } from './getDbTestUtils.js';
 import { fetchVfsConnectJson } from './vfsConnectClient.js';
 
 export interface RuntimeApiActor {
@@ -42,42 +38,46 @@ export interface LocalSharedByMeRow {
   permissionLevel: 'view' | 'edit';
 }
 
-const vfsExplorerLocalMigrations: Migration[] = [
-  ...vfsTestMigrations,
-  {
-    version: 2,
-    up: async (adapter) => {
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_acl_entries (
-          id TEXT PRIMARY KEY,
-          item_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          principal_type TEXT NOT NULL,
-          principal_id TEXT NOT NULL,
-          access_level TEXT NOT NULL,
-          wrapped_session_key TEXT,
-          wrapped_hierarchical_key TEXT,
-          granted_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          expires_at INTEGER,
-          revoked_at INTEGER
-        )
-      `);
-      await adapter.execute(
-        `CREATE INDEX IF NOT EXISTS vfs_acl_entries_item_idx ON vfs_acl_entries (item_id)`
-      );
-      await adapter.execute(
-        `CREATE INDEX IF NOT EXISTS vfs_acl_entries_principal_idx ON vfs_acl_entries (principal_type, principal_id)`
-      );
+function createVfsExplorerLocalMigrations(
+  baseMigrations: Migration[]
+): Migration[] {
+  return [
+    ...baseMigrations,
+    {
+      version: 2,
+      up: async (adapter) => {
+        await adapter.execute(`
+          CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL
+          )
+        `);
+        await adapter.execute(`
+          CREATE TABLE IF NOT EXISTS vfs_acl_entries (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
+            principal_type TEXT NOT NULL,
+            principal_id TEXT NOT NULL,
+            access_level TEXT NOT NULL,
+            wrapped_session_key TEXT,
+            wrapped_hierarchical_key TEXT,
+            granted_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            expires_at INTEGER,
+            revoked_at INTEGER
+          )
+        `);
+        await adapter.execute(
+          `CREATE INDEX IF NOT EXISTS vfs_acl_entries_item_idx ON vfs_acl_entries (item_id)`
+        );
+        await adapter.execute(
+          `CREATE INDEX IF NOT EXISTS vfs_acl_entries_principal_idx ON vfs_acl_entries (principal_type, principal_id)`
+        );
+      }
     }
-  }
-];
+  ];
+}
 
 interface LocalRegistryRow {
   id: string;
@@ -176,9 +176,10 @@ export async function pullRemoteFeedsWithoutLocalHydration(input: {
 export async function createBrowserRuntimeActor(
   alias: string
 ): Promise<BrowserRuntimeActor> {
+  const { createTestDatabase, vfsTestMigrations } = await getDbTestUtils();
   const localDb = await createTestDatabase({
     instanceId: `runtime-${alias}`,
-    migrations: vfsExplorerLocalMigrations
+    migrations: createVfsExplorerLocalMigrations(vfsTestMigrations)
   });
 
   return { alias, localDb };
