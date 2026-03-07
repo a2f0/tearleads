@@ -13,13 +13,13 @@ import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
 import { pushCrdtOpsDirect } from './vfsDirectCrdtPush.js';
 import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
 import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
+import type { SendRequestPayload } from './vfsDirectEmailPayload.js';
 import {
   deleteEmailDirect,
   getEmailDirect,
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
-import type { SendRequestPayload } from './vfsDirectEmailPayload.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
