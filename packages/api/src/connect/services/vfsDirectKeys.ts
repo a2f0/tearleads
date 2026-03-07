@@ -1,15 +1,11 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { VfsUserKeysResponse } from '@tearleads/shared';
+import type {
+  VfsKeySetupRequest,
+  VfsUserKeysResponse
+} from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseKeySetupPayload } from './vfsDirectShared.js';
-
-type SetupKeysTypedRequest = {
-  publicEncryptionKey: string;
-  publicSigningKey?: string;
-  encryptedPrivateKeys: string;
-  argon2Salt: string;
-};
 
 interface UserKeysRow {
   public_encryption_key: string;
@@ -60,7 +56,7 @@ export async function getMyKeysDirect(
 }
 
 export async function setupKeysDirect(
-  request: SetupKeysTypedRequest,
+  request: VfsKeySetupRequest,
   context: { requestHeader: Headers }
 ): Promise<{ created: boolean }> {
   const claims = await requireVfsClaims('/vfs/keys', context.requestHeader, {

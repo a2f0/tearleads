@@ -1,3 +1,4 @@
+import type { VfsKeySetupRequest } from '@tearleads/shared';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
   abandonBlobDirect,
@@ -38,12 +39,7 @@ export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
     getMyKeysDirect({}, context),
   setupKeys: async (
-    request: {
-      publicEncryptionKey: string;
-      publicSigningKey?: string;
-      encryptedPrivateKeys: string;
-      argon2Salt: string;
-    },
+    request: VfsKeySetupRequest,
     context: { requestHeader: Headers }
   ) => setupKeysDirect(request, context),
   register: async (
