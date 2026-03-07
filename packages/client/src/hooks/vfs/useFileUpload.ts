@@ -3,8 +3,7 @@
  *
  * When the 'vfsSecureUpload' feature flag is enabled and the secure facade
  * is available, uploads will use end-to-end encryption through the secure
- * pipeline. Otherwise, falls back to local OPFS storage with optional
- * server registration.
+ * pipeline. Otherwise, uploads stay local to OPFS.
  */
 
 import { and, eq } from 'drizzle-orm';
@@ -333,24 +332,6 @@ export function useFileUpload() {
           } catch (err) {
             console.warn('Failed to log vfs_secure_upload event:', err);
           }
-        }
-      }
-
-      // Legacy registration path - used when secure upload is not enabled.
-      if (
-        !secureUploadEnabled &&
-        isLoggedIn() &&
-        getFeatureFlagValue('vfsServerRegistration') &&
-        encryptedSessionKey
-      ) {
-        try {
-          await api.vfs.register({
-            id,
-            objectType: 'file',
-            encryptedSessionKey
-          });
-        } catch (err) {
-          console.warn('Failed to register file on server:', err);
         }
       }
 

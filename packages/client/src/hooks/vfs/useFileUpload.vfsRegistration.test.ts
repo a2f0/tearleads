@@ -416,7 +416,7 @@ describe('useFileUpload VFS registration', () => {
     );
   });
 
-  it('uses legacy registration when vfsServerRegistration is enabled but not vfsSecureUpload', async () => {
+  it('does not register on server when secure upload is disabled', async () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
     vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
       return flag === 'vfsServerRegistration';
@@ -428,35 +428,6 @@ describe('useFileUpload VFS registration', () => {
 
     await result.current.uploadFile(file);
 
-    expect(api.vfs.register).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'test-uuid-1234',
-        objectType: 'file'
-      })
-    );
-  });
-
-  it('handles legacy registration failure gracefully', async () => {
-    // Mock console.warn before execution
-    const consoleSpy = mockConsoleWarn();
-
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
-      return flag === 'vfsServerRegistration';
-    });
-    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
-    vi.mocked(api.vfs.register).mockRejectedValue(new Error('Server error'));
-
-    const { result } = renderHook(() => useFileUpload());
-    const file = new File(['test'], 'test.png', { type: 'image/png' });
-
-    const uploadResult = await result.current.uploadFile(file);
-
-    // Verify the file was still saved (graceful degradation)
-    expect(uploadResult.id).toBe('test-uuid-1234');
-    expect(mockDb.insert).toHaveBeenCalled();
-
-    // Clean up
-    consoleSpy.mockRestore();
+    expect(api.vfs.register).not.toHaveBeenCalled();
   });
 });
