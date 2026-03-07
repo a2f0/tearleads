@@ -116,7 +116,9 @@ describe('adminConnectServiceV2 error branches', () => {
   });
 
   it('throws internal error when redis response JSON is invalid', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     mocks.getRedisValueDirect.mockResolvedValueOnce({ json: '{' });
 
     await expect(
@@ -141,7 +143,9 @@ describe('adminConnectServiceV2 error branches', () => {
   });
 
   it('throws internal error when decoded JSON is invalid for protobuf', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     mocks.getContextDirect.mockResolvedValueOnce({ json: '{' });
 
     await expect(

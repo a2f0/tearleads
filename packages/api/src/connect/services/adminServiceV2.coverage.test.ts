@@ -318,16 +318,20 @@ describe('adminConnectServiceV2 coverage branches', () => {
       context
     );
 
-    expect(JSON.parse(mocks.createGroupDirect.mock.calls[0]?.[0].json)).toEqual({
-      organizationId: 'org-2',
-      name: 'Ops',
-      description: 'Operations'
-    });
-    expect(JSON.parse(mocks.updateGroupDirect.mock.calls[0]?.[0].json)).toEqual({
-      organizationId: 'org-2',
-      name: 'Ops Team',
-      description: 'Updated'
-    });
+    expect(JSON.parse(mocks.createGroupDirect.mock.calls[0]?.[0].json)).toEqual(
+      {
+        organizationId: 'org-2',
+        name: 'Ops',
+        description: 'Operations'
+      }
+    );
+    expect(JSON.parse(mocks.updateGroupDirect.mock.calls[0]?.[0].json)).toEqual(
+      {
+        organizationId: 'org-2',
+        name: 'Ops Team',
+        description: 'Updated'
+      }
+    );
     expect(JSON.parse(mocks.updateGroupDirect.mock.calls[1]?.[0].json)).toEqual(
       {}
     );
@@ -480,5 +484,4 @@ describe('adminConnectServiceV2 coverage branches', () => {
       });
     }
   });
-
 });
