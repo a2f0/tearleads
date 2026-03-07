@@ -43,8 +43,15 @@ export function NotesWindow({
   openNoteId,
   openRequestId
 }: NotesWindowProps) {
-  const { databaseState, getDatabase, vfsKeys, auth, featureFlags, vfsApi } =
-    useNotesContext();
+  const {
+    databaseState,
+    getDatabase,
+    vfsKeys,
+    auth,
+    featureFlags,
+    vfsApi,
+    vfsItemSync
+  } = useNotesContext();
   const { isUnlocked } = databaseState;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -79,10 +86,18 @@ export function NotesWindow({
     setDeleteError(null);
     try {
       const db = getDatabase();
+      const updatedAt = new Date();
       await db
         .update(notes)
-        .set({ deleted: true })
+        .set({ deleted: true, updatedAt })
         .where(eq(notes.id, selectedNoteId));
+
+      if (vfsItemSync) {
+        await vfsItemSync.queueItemDeleteAndFlush({
+          itemId: selectedNoteId,
+          objectType: 'note'
+        });
+      }
 
       setSelectedNoteId(null);
     } catch (err) {
@@ -93,7 +108,7 @@ export function NotesWindow({
     } finally {
       setDeleting(false);
     }
-  }, [selectedNoteId, isUnlocked, getDatabase]);
+  }, [selectedNoteId, isUnlocked, getDatabase, vfsItemSync]);
 
   const handleNewNote = useCreateNote({
     getDatabase,

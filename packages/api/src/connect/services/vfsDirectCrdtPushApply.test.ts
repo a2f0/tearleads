@@ -42,6 +42,14 @@ function createItemOwnershipRow(
   };
 }
 
+function createAuthorizedItemRow(itemId = 'item-1'): {
+  item_id: string;
+} {
+  return {
+    item_id: itemId
+  };
+}
+
 function createQueryResult<T extends QueryResultRow>(
   rows: T[] = [],
   rowCount?: number
@@ -76,7 +84,8 @@ describe('vfsDirectCrdtPushApply', () => {
       .fn()
       .mockResolvedValueOnce(
         createQueryResult([createItemOwnershipRow({ ownerId: 'user-2' })])
-      );
+      )
+      .mockResolvedValueOnce(createQueryResult([]));
 
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
@@ -86,7 +95,7 @@ describe('vfsDirectCrdtPushApply', () => {
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'invalidOp' }]);
-    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock).toHaveBeenCalledTimes(2);
     expect(String(queryMock.mock.calls[0]?.[0])).toContain('FROM vfs_registry');
   });
 
@@ -95,7 +104,8 @@ describe('vfsDirectCrdtPushApply', () => {
       .fn()
       .mockResolvedValueOnce(
         createQueryResult([createItemOwnershipRow({ organizationId: 'org-2' })])
-      );
+      )
+      .mockResolvedValueOnce(createQueryResult([]));
 
     const result = await applyCrdtPushOperations({
       client: { query: queryMock },
@@ -105,13 +115,61 @@ describe('vfsDirectCrdtPushApply', () => {
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'invalidOp' }]);
-    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns applied when actor has effective write visibility on non-owned item', async () => {
+    const queryMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createQueryResult([createItemOwnershipRow({ ownerId: 'user-2' })])
+      )
+      .mockResolvedValueOnce(createQueryResult([createAuthorizedItemRow()]))
+      .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(
+        createQueryResult(
+          [
+            {
+              id: 'change-1',
+              occurred_at: '2026-02-16T00:00:02.000Z'
+            }
+          ],
+          1
+        )
+      )
+      .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult());
+
+    const result = await applyCrdtPushOperations({
+      client: { query: queryMock },
+      userId: 'user-1',
+      organizationId: 'org-1',
+      parsedOperations: [
+        createParsedOperation(
+          createOperation({
+            opType: 'item_upsert',
+            encryptedPayload: 'YWJj',
+            keyEpoch: 1,
+            encryptionNonce: 'bm9uY2U=',
+            encryptionAad: 'YWFk',
+            encryptionSignature: 'c2ln'
+          })
+        )
+      ]
+    });
+
+    expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
+    expect(queryMock).toHaveBeenCalledTimes(9);
   });
 
   it('returns staleWriteId when writeId does not advance replica head', async () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -132,13 +190,14 @@ describe('vfsDirectCrdtPushApply', () => {
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'staleWriteId' }]);
-    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(queryMock).toHaveBeenCalledTimes(5);
   });
 
   it('returns alreadyApplied and advances replica head when needed', async () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -169,7 +228,7 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(result.results).toEqual([
       { opId: 'op-1', status: 'alreadyApplied' }
     ]);
-    expect(String(queryMock.mock.calls[4]?.[0])).toContain(
+    expect(String(queryMock.mock.calls[5]?.[0])).toContain(
       'INSERT INTO vfs_crdt_replica_heads'
     );
   });
@@ -178,6 +237,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(
         createQueryResult([
@@ -207,13 +267,14 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(result.results).toEqual([
       { opId: 'op-1', status: 'alreadyApplied' }
     ]);
-    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(queryMock).toHaveBeenCalledTimes(5);
   });
 
   it('returns applied, records notifications, and writes canonical item state', async () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
@@ -259,7 +320,7 @@ describe('vfsDirectCrdtPushApply', () => {
       }
     ]);
 
-    const insertValues = queryMock.mock.calls[4]?.[1];
+    const insertValues = queryMock.mock.calls[5]?.[1];
     expect(Array.isArray(insertValues)).toBe(true);
     if (!Array.isArray(insertValues)) {
       throw new Error('expected insert values');
@@ -268,8 +329,8 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(insertValues[11]).toBeNull();
     expect(insertValues[16]).toBeInstanceOf(Uint8Array);
 
-    expect(String(queryMock.mock.calls[6]?.[0])).toContain('vfs_item_state');
-    expect(String(queryMock.mock.calls[7]?.[0])).toContain(
+    expect(String(queryMock.mock.calls[7]?.[0])).toContain('vfs_item_state');
+    expect(String(queryMock.mock.calls[8]?.[0])).toContain(
       'vfs_emit_sync_change'
     );
   });
@@ -278,6 +339,7 @@ describe('vfsDirectCrdtPushApply', () => {
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
@@ -292,6 +354,6 @@ describe('vfsDirectCrdtPushApply', () => {
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'outdatedOp' }]);
     expect(result.notifications).toEqual([]);
-    expect(queryMock).toHaveBeenCalledTimes(5);
+    expect(queryMock).toHaveBeenCalledTimes(6);
   });
 });

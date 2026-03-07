@@ -31,7 +31,7 @@ export function NotesWindowDetail({
   showToolbar = true
 }: NotesWindowDetailProps) {
   const { isUnlocked, isLoading } = useDatabaseState();
-  const { getDatabase, tooltipZIndex } = useNotesContext();
+  const { getDatabase, tooltipZIndex, vfsItemSync } = useNotesContext();
   const { InlineUnlock, EditableTitle } = useNotesUI();
   const { resolvedTheme } = useTheme();
   const editorColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
@@ -103,22 +103,38 @@ export function NotesWindowDetail({
       if (!noteId || newContent === lastSavedContentRef.current) return;
 
       try {
+        const updatedAt = new Date();
         const db = getDatabase();
         await db
           .update(notes)
-          .set({ content: newContent, updatedAt: new Date() })
+          .set({ content: newContent, updatedAt })
           .where(eq(notes.id, noteId));
+
+        if (vfsItemSync) {
+          await vfsItemSync.queueItemUpsertAndFlush({
+            itemId: noteId,
+            objectType: 'note',
+            payload: {
+              id: noteId,
+              objectType: 'note',
+              title: note?.title ?? '',
+              content: newContent,
+              deleted: false,
+              updatedAt: updatedAt.toISOString()
+            }
+          });
+        }
 
         lastSavedContentRef.current = newContent;
         setNote((prev) =>
-          prev ? { ...prev, content: newContent, updatedAt: new Date() } : prev
+          prev ? { ...prev, content: newContent, updatedAt } : prev
         );
       } catch (err) {
         console.error('Failed to save note:', err);
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [noteId, getDatabase]
+    [noteId, getDatabase, note?.title, vfsItemSync]
   );
 
   const handleContentChange = useCallback(
@@ -149,32 +165,66 @@ export function NotesWindowDetail({
   useEffect(() => {
     return () => {
       if (contentRef.current !== lastSavedContentRef.current && noteId) {
+        const updatedAt = new Date();
         const db = getDatabase();
         db.update(notes)
-          .set({ content: contentRef.current, updatedAt: new Date() })
+          .set({ content: contentRef.current, updatedAt })
           .where(eq(notes.id, noteId))
+          .then(async () => {
+            if (vfsItemSync) {
+              await vfsItemSync.queueItemUpsertAndFlush({
+                itemId: noteId,
+                objectType: 'note',
+                payload: {
+                  id: noteId,
+                  objectType: 'note',
+                  title: note?.title ?? '',
+                  content: contentRef.current,
+                  deleted: false,
+                  updatedAt: updatedAt.toISOString()
+                }
+              });
+            }
+            lastSavedContentRef.current = contentRef.current;
+          })
           .catch((err: unknown) =>
             console.error('Failed to save on unmount:', err)
           );
       }
     };
-  }, [noteId, getDatabase]);
+  }, [noteId, getDatabase, note?.title, vfsItemSync]);
 
   const handleUpdateTitle = useCallback(
     async (newTitle: string) => {
       if (!noteId) return;
 
+      const updatedAt = new Date();
       const db = getDatabase();
       await db
         .update(notes)
-        .set({ title: newTitle, updatedAt: new Date() })
+        .set({ title: newTitle, updatedAt })
         .where(eq(notes.id, noteId));
 
+      if (vfsItemSync) {
+        await vfsItemSync.queueItemUpsertAndFlush({
+          itemId: noteId,
+          objectType: 'note',
+          payload: {
+            id: noteId,
+            objectType: 'note',
+            title: newTitle,
+            content,
+            deleted: false,
+            updatedAt: updatedAt.toISOString()
+          }
+        });
+      }
+
       setNote((prev) =>
-        prev ? { ...prev, title: newTitle, updatedAt: new Date() } : prev
+        prev ? { ...prev, title: newTitle, updatedAt } : prev
       );
     },
-    [noteId, getDatabase]
+    [noteId, getDatabase, content, vfsItemSync]
   );
 
   return (

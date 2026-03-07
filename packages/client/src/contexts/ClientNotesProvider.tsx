@@ -37,6 +37,10 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
+import {
+  queueItemDeleteAndFlush,
+  queueItemUpsertAndFlush
+} from '@/lib/vfsItemSyncWriter';
 
 export function NotesAboutMenuItem() {
   return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
@@ -119,6 +123,14 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
     []
   );
 
+  const vfsItemSync = useMemo(
+    () => ({
+      queueItemUpsertAndFlush,
+      queueItemDeleteAndFlush
+    }),
+    []
+  );
+
   const navigateToNote: NavigateToNote = useCallback(
     (noteId, options) => {
       navigateWithFrom(
@@ -140,6 +152,7 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
       auth={auth}
       featureFlags={featureFlags}
       vfsApi={vfsApi}
+      vfsItemSync={vfsItemSync}
       navigateToNote={navigateToNote}
     >
       {children}

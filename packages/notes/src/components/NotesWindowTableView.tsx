@@ -29,7 +29,7 @@ export function NotesWindowTableView({
   refreshToken
 }: NotesWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
-  const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi } =
+  const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi, vfsItemSync } =
     useNotesContext();
   const { Button, ContextMenu, ContextMenuItem, InlineUnlock } = useNotesUI();
   const [notesList, setNotesList] = useState<NoteInfo[]>([]);
@@ -179,10 +179,18 @@ export function NotesWindowTableView({
 
     try {
       const db = getDatabase();
+      const updatedAt = new Date();
       await db
         .update(notes)
-        .set({ deleted: true })
+        .set({ deleted: true, updatedAt })
         .where(eq(notes.id, contextMenu.note.id));
+
+      if (vfsItemSync) {
+        await vfsItemSync.queueItemDeleteAndFlush({
+          itemId: contextMenu.note.id,
+          objectType: 'note'
+        });
+      }
 
       setHasFetched(false);
     } catch (err) {
@@ -191,7 +199,7 @@ export function NotesWindowTableView({
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu, getDatabase]);
+  }, [contextMenu, getDatabase, vfsItemSync]);
 
   const handleBlankSpaceContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

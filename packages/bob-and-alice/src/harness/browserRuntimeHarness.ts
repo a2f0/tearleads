@@ -38,6 +38,13 @@ export interface LocalSharedByMeRow {
   permissionLevel: 'view' | 'edit';
 }
 
+interface LocalNoteRow {
+  id: string;
+  title: string;
+  content: string;
+  deleted: number;
+}
+
 function createVfsExplorerLocalMigrations(
   baseMigrations: Migration[]
 ): Migration[] {
@@ -74,6 +81,15 @@ function createVfsExplorerLocalMigrations(
         await adapter.execute(
           `CREATE INDEX IF NOT EXISTS vfs_acl_entries_principal_idx ON vfs_acl_entries (principal_type, principal_id)`
         );
+        // Base migrations create a minimal notes table. Add content so
+        // runtime refresh can assert note payload convergence across reopen flows.
+        try {
+          await adapter.execute(
+            `ALTER TABLE notes ADD COLUMN content TEXT NOT NULL DEFAULT ''`
+          );
+        } catch {
+          // Column already exists in this runtime schema variant.
+        }
       }
     }
   ];
@@ -283,6 +299,7 @@ export async function refreshLocalStateFromApi(input: {
       return {
         id: entry.id,
         title,
+        content: itemState?.encryptedPayload ?? '',
         deleted: itemState ? (itemState.deletedAt === null ? 0 : 1) : 0
       };
     });
@@ -318,8 +335,8 @@ export async function refreshLocalStateFromApi(input: {
 
     for (const note of noteRows) {
       await input.localDb.adapter.execute(
-        `INSERT INTO notes (id, title, deleted) VALUES (?, ?, ?)`,
-        [note.id, note.title, note.deleted]
+        `INSERT INTO notes (id, title, content, deleted) VALUES (?, ?, ?, ?)`,
+        [note.id, note.title, note.content, note.deleted]
       );
     }
 
@@ -429,4 +446,29 @@ export async function queryLocalSharedByMe(
     permissionLevel:
       String(row['permission_level']) === 'view' ? 'view' : 'edit'
   }));
+}
+
+export async function queryLocalNoteById(
+  localDb: TestDatabaseContext,
+  noteId: string
+): Promise<LocalNoteRow | null> {
+  const result = await localDb.adapter.execute(
+    `SELECT id, title, content, deleted
+     FROM notes
+     WHERE id = ?
+     LIMIT 1`,
+    [noteId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: String(row['id']),
+    title: String(row['title'] ?? ''),
+    content: String(row['content'] ?? ''),
+    deleted: Number(row['deleted'] ?? 0)
+  };
 }
