@@ -59,14 +59,14 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 | Package | Bun-primary script | Vitest fallback | Notes |
 | --- | --- | --- | --- |
-| `@tearleads/app-builder` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/app-builder` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/bob-and-alice` | `test` (`bun test` stable subset) | `testVitest` | Bun-primary stable subset; full suite remains on Vitest fallback |
 | `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/mls-core` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/mls-core` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/photos` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/remote-read-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/search` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/search` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/tee-api` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/vehicles` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 
