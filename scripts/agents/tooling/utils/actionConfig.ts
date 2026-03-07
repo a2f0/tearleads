@@ -29,7 +29,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_local',
     retrySafe: false,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh')
+    scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh'),
+    defaultTimeoutSeconds: 3600
   },
   syncToolchainVersions: {
     safetyClass: 'safe_write_local',
@@ -48,7 +49,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: true,
     isInline: false,
     scriptPath: (repo) =>
-      path.join(repo, 'scripts', 'agents', 'tooling', 'solicitCodexReview.ts')
+      path.join(repo, 'scripts', 'agents', 'tooling', 'solicitCodexReview.ts'),
+    defaultTimeoutSeconds: 1800
   },
   solicitClaudeCodeReview: {
     safetyClass: 'safe_read',
@@ -61,7 +63,8 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
         'agents',
         'tooling',
         'solicitClaudeCodeReview.ts'
-      )
+      ),
+    defaultTimeoutSeconds: 1800
   },
   addLabel: {
     safetyClass: 'safe_write_remote',

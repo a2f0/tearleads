@@ -55,9 +55,9 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    "$AGENT_TOOL" solicitCodexReview
    ```
 
-   **Credit/quota fallback behavior (required)**:
+   **Fallback behavior (required)**:
 
-   - If Codex review fails with a credit/quota style error (for example: `Credit balance is too low`, `quota`, `insufficient credits`), immediately fall back to self-review:
+   - If Codex review fails for **any** reason — credit/quota errors, non-zero exit code, signal termination — immediately fall back to self-review:
 
      ```bash
      "$AGENT_TOOL" solicitClaudeCodeReview
@@ -65,7 +65,7 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    - If Claude Code review also fails (or if Claude Code review was selected first and fails due to nested session restrictions, credits/quota/auth, or prompt size limits), perform an **in-session file-by-file review** (step 3).
 
-   - Only stop immediately for non-credit operational errors (for example: missing PR, missing tool script, malformed args) where fallback is not possible.
+   - Only stop immediately for non-recoverable operational errors (for example: missing PR, missing tool script, malformed args) where fallback would also fail.
 
 3. **In-session file-by-file review** (when external agents are unavailable):
 

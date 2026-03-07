@@ -127,6 +127,8 @@ export interface ActionConfig {
   retrySafe: boolean;
   isInline: boolean;
   scriptPath?: (repoRoot: string, agentsDir: string) => string;
+  /** Default timeout in seconds when --timeout-seconds is not provided. Falls back to 300. */
+  defaultTimeoutSeconds?: number;
 }
 
 export interface JsonOutput {
