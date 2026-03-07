@@ -62,6 +62,7 @@ import {
   AdminUpdateOrganizationResponseSchema,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import { getContextDirect } from './adminDirectContext.js';
 import {
   addGroupMemberDirect,
   createGroupDirect,
@@ -74,7 +75,6 @@ import {
   getGroupMembersDirect,
   listGroupsDirect
 } from './adminDirectGroups.js';
-import { getContextDirect } from './adminDirectContext.js';
 import {
   createOrganizationDirect,
   deleteOrganizationDirect,
@@ -123,7 +123,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  );
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {
@@ -325,7 +327,10 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminCreateOrganizationResponseSchema, response.json);
+    return decodeAdminJson(
+      AdminCreateOrganizationResponseSchema,
+      response.json
+    );
   },
   async updateOrganization(
     request: AdminUpdateOrganizationRequest,
@@ -343,14 +348,20 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminUpdateOrganizationResponseSchema, response.json);
+    return decodeAdminJson(
+      AdminUpdateOrganizationResponseSchema,
+      response.json
+    );
   },
   async deleteOrganization(
     request: AdminDeleteOrganizationRequest,
     context: ConnectContext
   ) {
     const response = await deleteOrganizationDirect(request, context);
-    return decodeAdminJson(AdminDeleteOrganizationResponseSchema, response.json);
+    return decodeAdminJson(
+      AdminDeleteOrganizationResponseSchema,
+      response.json
+    );
   },
   async listUsers(request: AdminListUsersRequest, context: ConnectContext) {
     const response = await listUsersDirect(

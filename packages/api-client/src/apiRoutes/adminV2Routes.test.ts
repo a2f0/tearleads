@@ -453,7 +453,9 @@ describe('adminV2Routes', () => {
       refreshOnUnauthenticated
     );
 
-    await expect(routes.postgres.getInfo()).rejects.toBeInstanceOf(ConnectError);
+    await expect(routes.postgres.getInfo()).rejects.toBeInstanceOf(
+      ConnectError
+    );
     expect(getPostgresInfo).toHaveBeenCalledTimes(1);
     expect(refreshOnUnauthenticated).toHaveBeenCalledTimes(1);
     expect(logEvent).toHaveBeenCalledWith(

@@ -1,7 +1,7 @@
 import {
-  Code,
   type CallOptions,
   type Client,
+  Code,
   ConnectError,
   createClient
 } from '@connectrpc/connect';
