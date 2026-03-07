@@ -1,11 +1,83 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { JSDOM } from 'jsdom';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   composeWrappers,
   createRealDbWrapper,
   useTestDb
 } from './createWrapper.js';
+
+// one-component-per-file: allow - test-only local wrappers keep the hook scenarios readable.
+const managedGlobalNames = [
+  'window',
+  'document',
+  'navigator',
+  'HTMLElement',
+  'Node',
+  'getComputedStyle'
+];
+const originalDescriptors = new Map<string, PropertyDescriptor | undefined>();
+let installedDom = false;
+
+function installDomForBun(): void {
+  if (typeof globalThis.document !== 'undefined') {
+    return;
+  }
+
+  const dom = new JSDOM('<!doctype html><html><body></body></html>');
+
+  const defineGlobal = (name: string, value: unknown): void => {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value
+    });
+  };
+
+  defineGlobal('window', dom.window);
+  defineGlobal('document', dom.window.document);
+  defineGlobal('navigator', dom.window.navigator);
+  defineGlobal('HTMLElement', dom.window.HTMLElement);
+  defineGlobal('Node', dom.window.Node);
+  defineGlobal(
+    'getComputedStyle',
+    dom.window.getComputedStyle.bind(dom.window)
+  );
+
+  installedDom = true;
+}
+
+function restoreGlobalsAfterDomInstall(): void {
+  if (!installedDom) {
+    return;
+  }
+
+  for (const name of managedGlobalNames) {
+    const descriptor = originalDescriptors.get(name);
+    if (descriptor) {
+      Object.defineProperty(globalThis, name, descriptor);
+      continue;
+    }
+    Reflect.deleteProperty(globalThis, name);
+  }
+
+  installedDom = false;
+}
+
+beforeAll(() => {
+  for (const name of managedGlobalNames) {
+    originalDescriptors.set(
+      name,
+      Object.getOwnPropertyDescriptor(globalThis, name)
+    );
+  }
+  installDomForBun();
+});
+
+afterAll(() => {
+  restoreGlobalsAfterDomInstall();
+});
 
 describe('createRealDbWrapper', () => {
   it('creates a wrapper component', () => {
