@@ -294,9 +294,18 @@ build_and_push_image() {
     -t "$image_tag" \
     .
 
+  if [[ "$TAG" != "latest" ]]; then
+    local latest_tag="${image_tag%:*}:latest"
+    docker tag "$image_tag" "$latest_tag"
+  fi
+
   if [[ "$PUSH" == "true" ]]; then
     echo "=== Pushing ${image_name} container ==="
     docker push "$image_tag"
+    if [[ "$TAG" != "latest" ]]; then
+      echo "=== Pushing ${image_name} container (latest) ==="
+      docker push "${image_tag%:*}:latest"
+    fi
   fi
   echo ""
 }
@@ -426,5 +435,8 @@ if [[ "$PUSH" == "true" ]]; then
   fi
   if [[ "$BUILD_WEBSITE" == "true" ]]; then
     echo "  - ${ECR_REGISTRY}/${WEBSITE_REPO}:${TAG}"
+  fi
+  if [[ "$TAG" != "latest" ]]; then
+    echo "  (also pushed as :latest)"
   fi
 fi
