@@ -211,59 +211,10 @@ describe('vfsCrdtSnapshots', () => {
       snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
     });
     expect(query).toHaveBeenCalledTimes(4);
-  });
-
-  it('uses legacy replica write-id scan when replica-head reads are disabled', async () => {
-    vi.stubEnv('VFS_CRDT_REPLICA_HEADS_READS', '0');
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            snapshot_payload: {
-              replaySnapshot: {
-                acl: [],
-                links: [],
-                cursor: {
-                  changedAt: '2026-02-24T12:00:00.000Z',
-                  changeId: 'crdt:500'
-                }
-              },
-              containerClocks: []
-            },
-            snapshot_cursor_changed_at: '2026-02-24T12:00:00.000Z',
-            snapshot_cursor_change_id: 'crdt:500',
-            updated_at: '2026-02-24T12:10:00.000Z'
-          }
-        ]
-      })
-      .mockResolvedValueOnce({
-        rows: []
-      })
-      .mockResolvedValueOnce({
-        rows: []
-      })
-      .mockResolvedValueOnce({
-        rows: [{ replica_id: 'desktop', max_write_id: '3' }]
-      });
-
-    const snapshot = await loadVfsCrdtRematerializationSnapshot(
-      { query },
-      {
-        userId: 'user-1',
-        clientId: 'desktop'
-      }
+    expect(String(query.mock.calls[3]?.[0])).toContain(
+      'FROM vfs_crdt_replica_heads'
     );
-
-    expect(snapshot?.reconcileState?.lastReconciledWriteIds).toEqual({
-      desktop: 3
-    });
-    expect(String(query.mock.calls[3]?.[0])).toContain('FROM vfs_crdt_ops');
-    expect(String(query.mock.calls[3]?.[0])).toContain('split_part(source_id');
-    expect(query.mock.calls[3]?.[1]).toEqual([
-      'vfs_crdt_client_push',
-      'user-1'
-    ]);
+    expect(query.mock.calls[3]?.[1]).toEqual(['user-1']);
   });
 
   it('returns null when no persisted snapshot is available', async () => {

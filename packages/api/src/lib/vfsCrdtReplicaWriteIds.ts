@@ -1,6 +1,5 @@
 import {
   invalidateReplicaWriteIdRowsCache,
-  type ReplicaWriteIdCacheMode,
   readReplicaWriteIdRowsCache,
   writeReplicaWriteIdRowsCache
 } from './vfsCrdtRedisCache.js';
@@ -8,39 +7,6 @@ import type {
   PgQueryable,
   ReplicaWriteIdRow
 } from './vfsCrdtSnapshotCommon.js';
-import {
-  VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE,
-  VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL,
-  VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL
-} from './vfsCrdtSqlFragments.js';
-
-const REPLICA_HEADS_READ_FLAG = 'VFS_CRDT_REPLICA_HEADS_READS';
-
-function parseReplicaHeadsReadFlag(rawValue: string | undefined): boolean {
-  if (rawValue === undefined) {
-    return true;
-  }
-
-  const normalized = rawValue.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  // Fail-open to table reads unless explicitly disabled.
-  return true;
-}
-
-export function areReplicaHeadReadsEnabled(): boolean {
-  return parseReplicaHeadsReadFlag(process.env[REPLICA_HEADS_READ_FLAG]);
-}
-
-function getCacheMode(): ReplicaWriteIdCacheMode {
-  return areReplicaHeadReadsEnabled() ? 'heads' : 'legacy';
-}
 
 async function loadReplicaWriteIdsFromReplicaHeads(
   client: PgQueryable,
@@ -59,44 +25,18 @@ async function loadReplicaWriteIdsFromReplicaHeads(
   return result.rows;
 }
 
-async function loadReplicaWriteIdsFromLegacyOps(
-  client: PgQueryable,
-  userId: string
-): Promise<ReplicaWriteIdRow[]> {
-  const result = await client.query<ReplicaWriteIdRow>(
-    `
-    SELECT
-      ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL} AS replica_id,
-      MAX(
-        ${VFS_CRDT_SOURCE_ID_SAFE_WRITE_ID_SQL}
-      ) AS max_write_id
-    FROM vfs_crdt_ops
-    WHERE source_table = $1::text
-      AND actor_id = $2::text
-    GROUP BY ${VFS_CRDT_SOURCE_ID_REPLICA_ID_SQL}
-    `,
-    [VFS_CRDT_CLIENT_PUSH_SOURCE_TABLE, userId]
-  );
-  return result.rows;
-}
-
 export async function loadReplicaWriteIdRows(
   client: PgQueryable,
   userId: string
 ): Promise<ReplicaWriteIdRow[]> {
-  const mode = getCacheMode();
-  const cachedRows = await readReplicaWriteIdRowsCache({ userId, mode });
+  const cachedRows = await readReplicaWriteIdRowsCache({ userId });
   if (cachedRows !== undefined) {
     return cachedRows;
   }
 
-  const rows =
-    mode === 'heads'
-      ? await loadReplicaWriteIdsFromReplicaHeads(client, userId)
-      : await loadReplicaWriteIdsFromLegacyOps(client, userId);
+  const rows = await loadReplicaWriteIdsFromReplicaHeads(client, userId);
   await writeReplicaWriteIdRowsCache({
     userId,
-    mode,
     rows
   });
   return rows;
