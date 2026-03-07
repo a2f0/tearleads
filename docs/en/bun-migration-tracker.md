@@ -54,13 +54,18 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2857](https://github.com/a2f0/tearleads/pull/2857) | `@tearleads/mls-core` Bun-primary test + mock compatibility |
 | [#2861](https://github.com/a2f0/tearleads/pull/2861) | `@tearleads/search` Bun-primary test + mock compatibility |
 | [#2865](https://github.com/a2f0/tearleads/pull/2865) | `@tearleads/bob-and-alice` Bun-primary `test` script bootstrap |
+| [#2868](https://github.com/a2f0/tearleads/pull/2868) | Tracker dashboard refresh for Bun migration state |
+| [#2869](https://github.com/a2f0/tearleads/pull/2869) | Bun node-pilot fallback script naming (`testVitest`) |
+| [#2875](https://github.com/a2f0/tearleads/pull/2875) | `@tearleads/bob-and-alice` full-suite Bun primary path |
+| [#2877](https://github.com/a2f0/tearleads/pull/2877) | Bob-and-Alice clean-checkout runtime loaders (API/DB deps) |
+| [#2878](https://github.com/a2f0/tearleads/pull/2878) | Bob-and-Alice loader hardening (`db-test-utils`, local-write orchestrator, no-assertion cleanup) |
 
 ## Node Pilot Package Status
 
 | Package | Bun-primary script | Vitest fallback | Notes |
 | --- | --- | --- | --- |
 | `@tearleads/app-builder` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
-| `@tearleads/bob-and-alice` | `test` (`bun test src/**/*.test.ts`) | `testVitest` | Bun-primary full package suite |
+| `@tearleads/bob-and-alice` | `test` (`bun test src/**/*.test.ts`) | `testVitest` | Bun-primary full package suite with clean-checkout runtime loaders for dist-only dependencies |
 | `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/mls-core` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
