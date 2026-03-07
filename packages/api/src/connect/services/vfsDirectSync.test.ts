@@ -10,7 +10,6 @@ const {
   queryMock,
   readOldestAccessibleCursorCacheMock,
   requireVfsClaimsMock,
-  shouldReadEnvelopeByteaMock,
   writeOldestAccessibleCursorCacheMock
 } = vi.hoisted(() => ({
   getVfsCrdtCompactionEpochMock: vi.fn(),
@@ -20,7 +19,6 @@ const {
   queryMock: vi.fn(),
   readOldestAccessibleCursorCacheMock: vi.fn(),
   requireVfsClaimsMock: vi.fn(),
-  shouldReadEnvelopeByteaMock: vi.fn(),
   writeOldestAccessibleCursorCacheMock: vi.fn()
 }));
 vi.mock('../../lib/postgres.js', () => ({
@@ -41,10 +39,6 @@ vi.mock('../../lib/vfsCrdtRedisCache.js', () => ({
 vi.mock('../../lib/vfsCrdtReplicaWriteIds.js', () => ({
   loadReplicaWriteIdRows: (...args: unknown[]) =>
     loadReplicaWriteIdRowsMock(...args)
-}));
-vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
-  shouldReadEnvelopeBytea: (...args: unknown[]) =>
-    shouldReadEnvelopeByteaMock(...args)
 }));
 vi.mock('./vfsDirectAuth.js', () => ({
   requireVfsClaims: (...args: unknown[]) => requireVfsClaimsMock(...args)
@@ -73,7 +67,6 @@ describe('vfsDirectSync', () => {
     readOldestAccessibleCursorCacheMock.mockReset();
     writeOldestAccessibleCursorCacheMock.mockReset();
     loadReplicaWriteIdRowsMock.mockReset();
-    shouldReadEnvelopeByteaMock.mockReset();
 
     getPostgresPoolMock.mockResolvedValue({
       query: queryMock
@@ -85,7 +78,6 @@ describe('vfsDirectSync', () => {
     readOldestAccessibleCursorCacheMock.mockResolvedValue(undefined);
     writeOldestAccessibleCursorCacheMock.mockResolvedValue(undefined);
     loadReplicaWriteIdRowsMock.mockResolvedValue([]);
-    shouldReadEnvelopeByteaMock.mockReturnValue(false);
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });

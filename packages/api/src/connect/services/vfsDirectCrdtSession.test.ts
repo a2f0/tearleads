@@ -11,8 +11,7 @@ const {
   invalidateReplicaWriteIdRowsForUserMock,
   loadReplicaWriteIdRowsMock,
   publishVfsContainerCursorBumpMock,
-  requireVfsClaimsMock,
-  shouldReadEnvelopeByteaMock
+  requireVfsClaimsMock
 } = vi.hoisted(() => ({
   applyCrdtPushOperationsMock: vi.fn(),
   clientQueryMock: vi.fn(),
@@ -22,8 +21,7 @@ const {
   invalidateReplicaWriteIdRowsForUserMock: vi.fn(),
   loadReplicaWriteIdRowsMock: vi.fn(),
   publishVfsContainerCursorBumpMock: vi.fn(),
-  requireVfsClaimsMock: vi.fn(),
-  shouldReadEnvelopeByteaMock: vi.fn()
+  requireVfsClaimsMock: vi.fn()
 }));
 
 vi.mock('../../lib/postgres.js', () => ({
@@ -40,11 +38,6 @@ vi.mock('../../lib/vfsCrdtReplicaWriteIds.js', () => ({
 vi.mock('../../lib/vfsSyncChannels.js', () => ({
   publishVfsContainerCursorBump: (...args: unknown[]) =>
     publishVfsContainerCursorBumpMock(...args)
-}));
-
-vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
-  shouldReadEnvelopeBytea: (...args: unknown[]) =>
-    shouldReadEnvelopeByteaMock(...args)
 }));
 
 vi.mock('./vfsDirectCrdtPushApply.js', () => ({
@@ -95,7 +88,6 @@ describe('vfsDirectCrdtSession', () => {
     loadReplicaWriteIdRowsMock.mockReset();
     publishVfsContainerCursorBumpMock.mockReset();
     requireVfsClaimsMock.mockReset();
-    shouldReadEnvelopeByteaMock.mockReset();
 
     connectMock.mockResolvedValue({
       query: clientQueryMock,
@@ -109,8 +101,6 @@ describe('vfsDirectCrdtSession', () => {
       sub: 'user-1',
       organizationId: 'org-1'
     });
-
-    shouldReadEnvelopeByteaMock.mockReturnValue(false);
 
     applyCrdtPushOperationsMock.mockResolvedValue({
       results: [],
