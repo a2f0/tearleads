@@ -253,6 +253,11 @@ export async function setupBobNotesShareForAliceDb(
       nowIso
     });
 
+    const notePayload = encodeBase64(notePlaintext);
+    const noteNonce = encodeBase64(`nonce-${idFactory()}`);
+    const noteAad = encodeBase64(`aad-${idFactory()}`);
+    const noteSignature = encodeBase64(`sig-${idFactory()}`);
+
     await input.client.query(
       `INSERT INTO vfs_item_state (
          item_id,
@@ -273,14 +278,7 @@ export async function setupBobNotesShareForAliceDb(
          encryption_signature = EXCLUDED.encryption_signature,
          updated_at = EXCLUDED.updated_at,
          deleted_at = NULL`,
-      [
-        noteId,
-        encodeBase64(notePlaintext),
-        encodeBase64(`nonce-${idFactory()}`),
-        encodeBase64(`aad-${idFactory()}`),
-        encodeBase64(`sig-${idFactory()}`),
-        nowIso
-      ]
+      [noteId, notePayload, noteNonce, noteAad, noteSignature, nowIso]
     );
 
     await input.client.query(
@@ -296,7 +294,11 @@ export async function setupBobNotesShareForAliceDb(
          key_epoch,
          encryption_nonce,
          encryption_aad,
-         encryption_signature
+         encryption_signature,
+         encrypted_payload_bytes,
+         encryption_nonce_bytes,
+         encryption_aad_bytes,
+         encryption_signature_bytes
        )
        VALUES (
          $1,
@@ -306,11 +308,15 @@ export async function setupBobNotesShareForAliceDb(
          'vfs_item_state',
          $4,
          $5::timestamptz,
-         $6,
+         NULL,
          1,
-         $7,
-         $8,
-         $9
+         NULL,
+         NULL,
+         NULL,
+         decode($6::text, 'base64'),
+         decode($7::text, 'base64'),
+         decode($8::text, 'base64'),
+         decode($9::text, 'base64')
        )
        ON CONFLICT (id) DO UPDATE SET
          item_id = EXCLUDED.item_id,
@@ -323,17 +329,21 @@ export async function setupBobNotesShareForAliceDb(
          key_epoch = EXCLUDED.key_epoch,
          encryption_nonce = EXCLUDED.encryption_nonce,
          encryption_aad = EXCLUDED.encryption_aad,
-         encryption_signature = EXCLUDED.encryption_signature`,
+         encryption_signature = EXCLUDED.encryption_signature,
+         encrypted_payload_bytes = EXCLUDED.encrypted_payload_bytes,
+         encryption_nonce_bytes = EXCLUDED.encryption_nonce_bytes,
+         encryption_aad_bytes = EXCLUDED.encryption_aad_bytes,
+         encryption_signature_bytes = EXCLUDED.encryption_signature_bytes`,
       [
         `crdt:item_upsert:${noteId}`,
         noteId,
         bobUserId,
         `vfs_item_state:${noteId}`,
         noteItemUpsertOccurredAtIso,
-        encodeBase64(notePlaintext),
-        encodeBase64(`nonce-${idFactory()}`),
-        encodeBase64(`aad-${idFactory()}`),
-        encodeBase64(`sig-${idFactory()}`)
+        notePayload,
+        noteNonce,
+        noteAad,
+        noteSignature
       ]
     );
 

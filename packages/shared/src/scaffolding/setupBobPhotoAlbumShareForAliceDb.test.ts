@@ -134,10 +134,19 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     const crdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
+    expect(crdtUpsertCall?.text).toContain('encrypted_payload_bytes');
+    expect(crdtUpsertCall?.text).toContain('encryption_nonce_bytes');
+    expect(crdtUpsertCall?.text).toContain('encryption_aad_bytes');
+    expect(crdtUpsertCall?.text).toContain('encryption_signature_bytes');
     expect(crdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:photo-fixed');
     expect(crdtUpsertCall?.params?.[1]).toBe('photo-fixed');
     expect(crdtUpsertCall?.params?.[2]).toBe('bob-user-id');
-    expect(crdtUpsertCall?.params?.[5]).toBe(
+    const photoPayloadBase64 = crdtUpsertCall?.params?.[5];
+    expect(typeof photoPayloadBase64).toBe('string');
+    if (typeof photoPayloadBase64 !== 'string') {
+      throw new Error('Expected CRDT payload base64 string');
+    }
+    expect(photoPayloadBase64).toBe(
       Buffer.from(SCAFFOLD_SHARED_LOGO_SVG, 'utf8').toString('base64')
     );
 

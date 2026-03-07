@@ -132,11 +132,20 @@ describe('setupBobNotesShareForAliceDb', () => {
     const noteCrdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
+    expect(noteCrdtUpsertCall?.text).toContain('encrypted_payload_bytes');
+    expect(noteCrdtUpsertCall?.text).toContain('encryption_nonce_bytes');
+    expect(noteCrdtUpsertCall?.text).toContain('encryption_aad_bytes');
+    expect(noteCrdtUpsertCall?.text).toContain('encryption_signature_bytes');
     expect(noteCrdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:note-fixed');
     expect(noteCrdtUpsertCall?.params?.[1]).toBe('note-fixed');
     expect(noteCrdtUpsertCall?.params?.[2]).toBe('bob-user-id');
     expect(noteCrdtUpsertCall?.params?.[4]).toBe('2026-02-28T23:59:59.000Z');
-    expect(noteCrdtUpsertCall?.params?.[5]).toBe(
+    const notePayloadBase64 = noteCrdtUpsertCall?.params?.[5];
+    expect(typeof notePayloadBase64).toBe('string');
+    if (typeof notePayloadBase64 !== 'string') {
+      throw new Error('Expected CRDT payload base64 string');
+    }
+    expect(notePayloadBase64).toBe(
       Buffer.from('Hello, Alice', 'utf8').toString('base64')
     );
 

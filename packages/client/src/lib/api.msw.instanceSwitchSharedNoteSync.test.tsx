@@ -332,7 +332,11 @@ describe('instance switch shared-note sync regression', () => {
            key_epoch,
            encryption_nonce,
            encryption_aad,
-           encryption_signature
+           encryption_signature,
+           encrypted_payload_bytes,
+           encryption_nonce_bytes,
+           encryption_aad_bytes,
+           encryption_signature_bytes
          ) VALUES (
            $1,
            $2,
@@ -341,11 +345,15 @@ describe('instance switch shared-note sync regression', () => {
            'vfs_item_state',
            $4,
            $5::timestamptz,
-           $6,
+           NULL,
            1,
-           $7,
-           $8,
-           $9
+           NULL,
+           NULL,
+           NULL,
+           decode($6::text, 'base64'),
+           decode($7::text, 'base64'),
+           decode($8::text, 'base64'),
+           decode($9::text, 'base64')
          )`,
         [
           `crdt:item_upsert:${randomUUID()}`,
