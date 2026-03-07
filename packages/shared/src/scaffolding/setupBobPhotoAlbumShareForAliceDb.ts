@@ -262,8 +262,8 @@ export async function setupBobPhotoAlbumShareForAliceDb(
     });
 
     const photoPayload = encodeBase64(photoSvg);
-    const photoNonce = encodeBase64(`nonce-${idFactory()}`),
-      photoAad = encodeBase64(`aad-${idFactory()}`);
+    const photoNonce = encodeBase64(`nonce-${idFactory()}`);
+    const photoAad = encodeBase64(`aad-${idFactory()}`);
     const photoSignature = encodeBase64(`sig-${idFactory()}`);
 
     await input.client.query(
