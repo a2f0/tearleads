@@ -40,8 +40,10 @@ export async function getMyKeysDirect(
     const response: VfsUserKeysResponse = {
       publicEncryptionKey: row.public_encryption_key,
       publicSigningKey: row.public_signing_key,
-      encryptedPrivateKeys: row.encrypted_private_keys ?? undefined,
-      argon2Salt: row.argon2_salt ?? undefined
+      ...(row.encrypted_private_keys === null
+        ? {}
+        : { encryptedPrivateKeys: row.encrypted_private_keys }),
+      ...(row.argon2_salt === null ? {} : { argon2Salt: row.argon2_salt })
     };
 
     return response;
