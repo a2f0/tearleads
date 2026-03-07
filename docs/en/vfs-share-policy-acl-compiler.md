@@ -1,6 +1,6 @@
 # VFS Share-Policy ACL Compiler
 
-Status: implementation snapshot (March 7, 2026).
+Status: implementation snapshot.
 
 This document describes the ACL compiler currently implemented in:
 
@@ -31,38 +31,33 @@ Outputs:
 
 ## Pipeline
 
-1. Load state (`loadSharePolicyState`)
+- Step 1 (`loadSharePolicyState`)
+  - Optionally scope by explicit `policyIds`.
+  - Build a graph closure from policy roots using a recursive `vfs_links` query.
+  - Load only registry rows in that closure.
 
-- Optionally scope by explicit `policyIds`.
-- Build a graph closure from policy roots using a recursive `vfs_links` query.
-- Load only registry rows in that closure.
+- Step 2 (`compileSharePolicyCore`)
+  - Filter to active policies only:
+    - `status === 'active'`
+    - `revoked_at IS NULL`
+    - `expires_at IS NULL OR expires_at > now`
+    - `root_item` object type is in `VFS_CONTAINER_OBJECT_TYPES`
+  - Evaluate selector matches against each policy root scope.
+  - Aggregate to one effective decision per `(item, principal)`.
 
-1. Compile in memory (`compileSharePolicyCore`)
+- Step 3 (`materializeCompiledDecisions`)
+  - Upsert into `vfs_acl_entries`.
+  - Upsert derived provenance row.
+  - Preserve direct grants except where policy result is deny (details below).
 
-- Filter to active policies only:
-  - `status === 'active'`
-  - `revoked_at IS NULL`
-  - `expires_at IS NULL OR expires_at > now`
-  - `root_item` object type is in `VFS_CONTAINER_OBJECT_TYPES`
-- Evaluate selector matches against each policy root scope.
-- Aggregate to one effective decision per `(item, principal)`.
+- Step 4 (stale derived revocation)
+  - Find previously derived ACLs not touched in this run.
+  - Soft-revoke corresponding ACL entries (when not direct-protected).
+  - Rewrite derived provenance for stale entries as deny with null source ids.
 
-1. Materialize (`materializeCompiledDecisions`)
-
-- Upsert into `vfs_acl_entries`.
-- Upsert derived provenance row.
-- Preserve direct grants except where policy result is deny (details below).
-
-1. Revoke stale derived ACLs
-
-- Find previously derived ACLs not touched in this run.
-- Soft-revoke corresponding ACL entries (when not direct-protected).
-- Rewrite derived provenance for stale entries as deny with null source ids.
-
-1. Emit metrics/telemetry
-
-- Optional callback + structured JSON event
-  (`event: vfs_share_policy_compile_run`).
+- Step 5 (metrics/telemetry)
+  - Optional callback + structured JSON event
+    (`event: vfs_share_policy_compile_run`).
 
 ## Core Semantics
 

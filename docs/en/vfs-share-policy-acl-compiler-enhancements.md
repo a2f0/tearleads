@@ -1,6 +1,6 @@
 # VFS Share-Policy ACL Compiler Enhancements
 
-Status: proposal document (March 7, 2026).
+Status: proposal document.
 
 This document proposes practical improvements for the current share-policy ACL
 compiler implementation.
