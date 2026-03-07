@@ -1,4 +1,5 @@
-import { screen, waitFor } from '@testing-library/react';
+import '../../test/ensureBunDom';
+import { waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestJwtExpiresIn } from '../../test/jwtTestUtils';
@@ -10,6 +11,10 @@ import {
   resetSyncTestState,
   setupSyncDependencies
 } from './Sync.testHelpers';
+
+function queries(): ReturnType<typeof within> {
+  return within(document.body);
+}
 
 describe('Sync', () => {
   beforeEach(() => {
@@ -24,14 +29,16 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
+    expect(queries().getByLabelText('Email')).toBeInTheDocument();
+    expect(queries().getByLabelText('Password')).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Sync' })
+      queries().getByRole('button', { name: 'Sign In' })
+    ).toBeInTheDocument();
+    expect(
+      queries().queryByRole('heading', { name: 'Sync' })
     ).not.toBeInTheDocument();
   });
 
@@ -39,7 +46,7 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
     const card = document.querySelector('.rounded-lg.border.bg-background');
@@ -51,20 +58,20 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Back to Home')).toBeInTheDocument();
+    expect(queries().getByText('Back to Home')).toBeInTheDocument();
   });
 
   it('hides back link when showBackLink is false', async () => {
     renderSync(false);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Back to Home')).not.toBeInTheDocument();
+    expect(queries().queryByText('Back to Home')).not.toBeInTheDocument();
   });
 
   it('handles successful login', async () => {
@@ -72,16 +79,16 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'password123');
+    await user.click(queries().getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
-      expect(screen.getByText('test@example.com')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('test@example.com')).toBeInTheDocument();
     });
 
     expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
@@ -94,15 +101,15 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'wrongpassword');
+    await user.click(queries().getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+      expect(queries().getByText('Invalid credentials')).toBeInTheDocument();
     });
   });
 
@@ -113,15 +120,15 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'wrongpassword');
+    await user.click(queries().getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+      expect(queries().getByText('Something went wrong')).toBeInTheDocument();
     });
   });
 
@@ -132,16 +139,16 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'wrongpassword');
+    await user.click(queries().getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
       expect(
-        screen.getByText('Login failed. Please try again.')
+        queries().getByText('Login failed. Please try again.')
       ).toBeInTheDocument();
     });
   });
@@ -150,7 +157,7 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Sign In' })).toBeDisabled();
+      expect(queries().getByRole('button', { name: 'Sign In' })).toBeDisabled();
     });
   });
 
@@ -159,15 +166,15 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'password123');
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Sign In' })
+        queries().getByRole('button', { name: 'Sign In' })
       ).not.toBeDisabled();
     });
   });
@@ -183,11 +190,13 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
-      expect(screen.getByText('saved@example.com')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('saved@example.com')).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument();
+    expect(
+      queries().getByRole('button', { name: 'Logout' })
+    ).toBeInTheDocument();
   });
 
   it('handles logout', async () => {
@@ -202,13 +211,13 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Logout' }));
+    await user.click(queries().getByRole('button', { name: 'Logout' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
   });
 
@@ -225,16 +234,16 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
+      expect(queries().getByLabelText('Email')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await user.type(queries().getByLabelText('Email'), 'test@example.com');
+    await user.type(queries().getByLabelText('Password'), 'password123');
+    await user.click(queries().getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Signing in...' })
+        queries().getByRole('button', { name: 'Signing in...' })
       ).toBeInTheDocument();
     });
 
@@ -247,7 +256,7 @@ describe('Sync', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
     });
   });
 
@@ -262,10 +271,10 @@ describe('Sync', () => {
     renderSync(false);
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Back to Home')).not.toBeInTheDocument();
+    expect(queries().queryByText('Back to Home')).not.toBeInTheDocument();
   });
 
   it('displays token expiration time in hours and minutes', async () => {
@@ -280,10 +289,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Token expires')).toBeInTheDocument();
+      expect(queries().getByText('Token expires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/in 1h 59m/)).toBeInTheDocument();
+    expect(queries().getByText(/in 1h 59m/)).toBeInTheDocument();
   });
 
   it('displays token expiration time in minutes only', async () => {
@@ -298,10 +307,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Token expires')).toBeInTheDocument();
+      expect(queries().getByText('Token expires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/in 29m/)).toBeInTheDocument();
+    expect(queries().getByText(/in 29m/)).toBeInTheDocument();
   });
 
   it('displays token expiration time in seconds for short times', async () => {
@@ -316,10 +325,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Token expires')).toBeInTheDocument();
+      expect(queries().getByText('Token expires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/in 4\ds/)).toBeInTheDocument();
+    expect(queries().getByText(/in 4\ds/)).toBeInTheDocument();
   });
 
   it('displays hours without minutes when exactly on the hour', async () => {
@@ -334,10 +343,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Token expires')).toBeInTheDocument();
+      expect(queries().getByText('Token expires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/in 59m/)).toBeInTheDocument();
+    expect(queries().getByText(/in 59m/)).toBeInTheDocument();
   });
 
   it('displays expired state when token has expired', async () => {
@@ -352,10 +361,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Token expires')).toBeInTheDocument();
+      expect(queries().getByText('Token expires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Expired')).toBeInTheDocument();
+    expect(queries().getByText('Expired')).toBeInTheDocument();
   });
 
   it('displays email address when emailDomain is configured', async () => {
@@ -370,10 +379,12 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Email address')).toBeInTheDocument();
+      expect(queries().getByText('Email address')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('user123@email.example.com')).toBeInTheDocument();
+    expect(
+      queries().getByText('user123@email.example.com')
+    ).toBeInTheDocument();
   });
 
   it('does not display email address when emailDomain is not configured', async () => {
@@ -388,10 +399,10 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByText('Logged in as')).toBeInTheDocument();
+      expect(queries().getByText('Logged in as')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Email address')).not.toBeInTheDocument();
+    expect(queries().queryByText('Email address')).not.toBeInTheDocument();
   });
 
   it('switches from login mode to register mode', async () => {
@@ -399,13 +410,15 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Create one' })).toBeVisible();
+      expect(
+        queries().getByRole('button', { name: 'Create one' })
+      ).toBeVisible();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Create one' }));
+    await user.click(queries().getByRole('button', { name: 'Create one' }));
 
     expect(
-      screen.getByRole('button', { name: 'Create Account' })
+      queries().getByRole('button', { name: 'Create Account' })
     ).toBeInTheDocument();
   });
 
@@ -416,11 +429,13 @@ describe('Sync', () => {
     renderSync();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
+      expect(queries().getByRole('button', { name: 'Sign in' })).toBeVisible();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await user.click(queries().getByRole('button', { name: 'Sign in' }));
 
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
+    expect(
+      queries().getByRole('button', { name: 'Sign In' })
+    ).toBeInTheDocument();
   });
 });

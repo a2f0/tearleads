@@ -32,7 +32,11 @@ vi.mock('react-i18next', () => ({
   })
 }));
 
-failOnConsole();
+const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
+
+if (!isBunRuntime) {
+  failOnConsole();
+}
 
 afterEach(() => {
   cleanup();
