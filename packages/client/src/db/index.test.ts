@@ -316,6 +316,27 @@ describe('Database API', () => {
 
       expect(() => getDatabase()).toThrow('Database not initialized');
     });
+
+    it('marks database as closed before adapter close completes', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+
+      let resolveClose: (() => void) | null = null;
+      const pendingClose = new Promise<void>((resolve) => {
+        resolveClose = resolve;
+      });
+      mockAdapter.close.mockReturnValueOnce(pendingClose);
+
+      const closePromise = closeDatabase();
+      try {
+        expect(isDatabaseInitialized()).toBe(false);
+        expect(() => getDatabase()).toThrow('Database not initialized');
+      } finally {
+        if (resolveClose) {
+          resolveClose();
+        }
+        await closePromise;
+      }
+    });
   });
 
   describe('changePassword', () => {

@@ -5,6 +5,12 @@ import { userSettings } from '@/db/schema';
 
 const VFS_ORCHESTRATOR_STATE_KEY_PREFIX = 'vfs_orchestrator_state';
 
+function isDatabaseTransitionError(error: unknown): boolean {
+  return (
+    error instanceof Error && error.message.includes('Database not initialized')
+  );
+}
+
 function buildStateKey(userId: string, clientId: string): string {
   return `${VFS_ORCHESTRATOR_STATE_KEY_PREFIX}:${userId}:${clientId}`;
 }
@@ -17,23 +23,30 @@ export async function loadVfsOrchestratorState(
     return null;
   }
 
-  const db = getDatabase();
   const key = buildStateKey(userId, clientId);
-  const rows = await db
-    .select({ value: userSettings.value })
-    .from(userSettings)
-    .where(eq(userSettings.key, key))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row || !row.value) {
-    return null;
-  }
-
   try {
-    return JSON.parse(row.value) as VfsWriteOrchestratorPersistedState;
-  } catch {
-    return null;
+    const db = getDatabase();
+    const rows = await db
+      .select({ value: userSettings.value })
+      .from(userSettings)
+      .where(eq(userSettings.key, key))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row || !row.value) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(row.value) as VfsWriteOrchestratorPersistedState;
+    } catch {
+      return null;
+    }
+  } catch (error) {
+    if (isDatabaseTransitionError(error)) {
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -46,22 +59,29 @@ export async function saveVfsOrchestratorState(
     return;
   }
 
-  const db = getDatabase();
   const key = buildStateKey(userId, clientId);
   const now = new Date();
   const value = JSON.stringify(state);
-  await db
-    .insert(userSettings)
-    .values({
-      key,
-      value,
-      updatedAt: now
-    })
-    .onConflictDoUpdate({
-      target: userSettings.key,
-      set: {
+  try {
+    const db = getDatabase();
+    await db
+      .insert(userSettings)
+      .values({
+        key,
         value,
         updatedAt: now
-      }
-    });
+      })
+      .onConflictDoUpdate({
+        target: userSettings.key,
+        set: {
+          value,
+          updatedAt: now
+        }
+      });
+  } catch (error) {
+    if (isDatabaseTransitionError(error)) {
+      return;
+    }
+    throw error;
+  }
 }
