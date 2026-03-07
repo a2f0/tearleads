@@ -1,6 +1,6 @@
 import type { TestDatabaseContext } from '@tearleads/db-test-utils';
 
-export interface LocalItemPermission {
+interface LocalItemPermission {
   itemId: string;
   currentUserId: string;
   exists: boolean;
