@@ -9,11 +9,39 @@ import {
 } from './vfsItemSyncWriter';
 
 const isLoggedInMock = vi.fn(() => false);
+const readStoredAuthMock = vi.fn(() => ({
+  token: 'token-1',
+  refreshToken: 'refresh-token-1',
+  user: {
+    id: 'user-1',
+    email: 'user-1@example.com'
+  }
+}));
 const getFeatureFlagValueMock = vi.fn(() => true);
 const registerMock = vi.fn();
+const { getDatabaseMock, selectLimitMock, updateWhereMock } = vi.hoisted(() => {
+  const selectLimitMock = vi.fn();
+  const selectWhereMock = vi.fn(() => ({ limit: selectLimitMock }));
+  const selectFromMock = vi.fn(() => ({ where: selectWhereMock }));
+  const selectMock = vi.fn(() => ({ from: selectFromMock }));
+  const updateWhereMock = vi.fn();
+  const updateSetMock = vi.fn(() => ({ where: updateWhereMock }));
+  const updateMock = vi.fn(() => ({ set: updateSetMock }));
+  const getDatabaseMock = vi.fn(() => ({
+    select: selectMock,
+    update: updateMock
+  }));
+
+  return {
+    getDatabaseMock,
+    selectLimitMock,
+    updateWhereMock
+  };
+});
 
 vi.mock('@/lib/authStorage', () => ({
-  isLoggedIn: () => isLoggedInMock()
+  isLoggedIn: () => isLoggedInMock(),
+  readStoredAuth: () => readStoredAuthMock()
 }));
 
 vi.mock('@/lib/featureFlags', () => ({
@@ -28,12 +56,30 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
+vi.mock('@/db', () => ({
+  getDatabase: () => getDatabaseMock()
+}));
+
 describe('vfsItemSyncWriter', () => {
   beforeEach(() => {
     setVfsItemSyncRuntime(null);
     isLoggedInMock.mockReset();
+    readStoredAuthMock.mockReset();
     getFeatureFlagValueMock.mockReset();
     registerMock.mockReset();
+    getDatabaseMock.mockClear();
+    selectLimitMock.mockReset();
+    updateWhereMock.mockReset();
+
+    readStoredAuthMock.mockReturnValue({
+      token: 'token-1',
+      refreshToken: 'refresh-token-1',
+      user: {
+        id: 'user-1',
+        email: 'user-1@example.com'
+      }
+    });
+    selectLimitMock.mockResolvedValue([]);
   });
 
   it('does nothing when user is signed out', async () => {
