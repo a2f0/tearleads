@@ -1,4 +1,7 @@
-import { type VfsCrdtSyncItem, VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
+import {
+  type VfsCrdtSyncItem,
+  VFS_V2_CONNECT_BASE_PATH
+} from '@tearleads/shared';
 import {
   InMemoryVfsCrdtClientStateStore,
   type InMemoryVfsCrdtSyncServer

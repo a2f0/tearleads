@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
