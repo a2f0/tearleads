@@ -166,6 +166,7 @@ export async function addGroupMemberDirectTyped(
         client,
         commitId,
         groupId,
+        organizationId: membership.organizationId,
         senderUserId: claims.sub,
         epoch: payload.newEpoch,
         commitCiphertext: payload.commit
@@ -361,6 +362,7 @@ export async function removeGroupMemberDirectTyped(
         client,
         commitId,
         groupId,
+        organizationId: membership.organizationId,
         senderUserId: claims.sub,
         epoch: payload.newEpoch,
         commitCiphertext: payload.commit

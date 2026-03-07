@@ -15,7 +15,7 @@ import {
   decodeContentTypeFromSourceId,
   type GroupMaxSequenceRow,
   type GroupMessageRow,
-  persistApplicationMessageToVfs,
+  persistMlsMessageToVfs,
   toIsoString,
   toPositiveInteger
 } from './mlsDirectMessagesShared.js';
@@ -126,7 +126,7 @@ export async function sendGroupMessageDirectTyped(
       const occurredAtIso = new Date().toISOString();
       const contentType = payload.contentType ?? 'text/plain';
 
-      await persistApplicationMessageToVfs(client, {
+      await persistMlsMessageToVfs(client, {
         messageId: id,
         groupId,
         organizationId: membership.organizationId,

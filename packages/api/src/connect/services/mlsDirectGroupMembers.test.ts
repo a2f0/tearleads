@@ -101,11 +101,14 @@ describe('mlsDirectGroupMembers', () => {
       .mockResolvedValueOnce({
         rows: [
           {
-            sequence_number: 9,
-            created_at: new Date('2026-03-03T06:00:00.000Z')
+            sequence_number: 8
           }
         ]
       })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
@@ -124,6 +127,16 @@ describe('mlsDirectGroupMembers', () => {
     const response = await addGroupMemberDirectTyped(ADD_MEMBER_REQUEST, {
       requestHeader: new Headers()
     });
+
+    const queryTexts = clientQueryMock.mock.calls
+      .map((call) => call[0])
+      .filter((query): query is string => typeof query === 'string');
+    expect(
+      queryTexts.some((query) => query.includes("source_table = 'mls_commit'"))
+    ).toBe(true);
+    expect(
+      queryTexts.some((query) => query.includes('INSERT INTO mls_messages'))
+    ).toBe(false);
 
     expect(response).toMatchObject({
       member: {
@@ -398,11 +411,14 @@ describe('mlsDirectGroupMembers', () => {
       .mockResolvedValueOnce({
         rows: [
           {
-            sequence_number: 12,
-            created_at: new Date('2026-03-03T06:05:00.000Z')
+            sequence_number: 11
           }
         ]
       })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
@@ -417,6 +433,16 @@ describe('mlsDirectGroupMembers', () => {
     const response = await removeGroupMemberDirectTyped(REMOVE_MEMBER_REQUEST, {
       requestHeader: new Headers()
     });
+
+    const queryTexts = clientQueryMock.mock.calls
+      .map((call) => call[0])
+      .filter((query): query is string => typeof query === 'string');
+    expect(
+      queryTexts.some((query) => query.includes("source_table = 'mls_commit'"))
+    ).toBe(true);
+    expect(
+      queryTexts.some((query) => query.includes('INSERT INTO mls_messages'))
+    ).toBe(false);
 
     expect(response).toEqual({});
     expect(broadcastMock).toHaveBeenCalledTimes(2);
