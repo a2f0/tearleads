@@ -213,8 +213,31 @@ message VfsGetCrdtSyncRequest {
   string root_id = 3;
 }
 
+message VfsCrdtSyncItem {
+  string op_id = 1;
+  string item_id = 2;
+  string op_type = 3;
+  optional string principal_type = 4;
+  optional string principal_id = 5;
+  optional string access_level = 6;
+  optional string parent_id = 7;
+  optional string child_id = 8;
+  optional string actor_id = 9;
+  string source_table = 10;
+  string source_id = 11;
+  string occurred_at = 12;
+  optional string encrypted_payload = 13;
+  optional int32 key_epoch = 14;
+  optional string encryption_nonce = 15;
+  optional string encryption_aad = 16;
+  optional string encryption_signature = 17;
+}
+
 message VfsGetCrdtSyncResponse {
-  string json = 1;
+  repeated VfsCrdtSyncItem items = 1;
+  optional string next_cursor = 2;
+  bool has_more = 3;
+  map<string, int32> last_reconciled_write_ids = 4;
 }
 
 message VfsGetCrdtSnapshotRequest {

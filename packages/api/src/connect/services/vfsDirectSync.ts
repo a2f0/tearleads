@@ -27,7 +27,9 @@ import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   toIsoString,
-  toLastReconciledWriteIds
+  toLastReconciledWriteIds,
+  toProtoVfsCrdtSyncResponse,
+  type VfsCrdtSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
@@ -226,7 +228,7 @@ export async function getSyncDirect(
 export async function getCrdtSyncDirect(
   request: GetSyncRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsCrdtSyncProtoResponse> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/vfs-sync',
     context.requestHeader
@@ -291,9 +293,7 @@ export async function getCrdtSyncDirect(
       toLastReconciledWriteIds(replicaWriteIdsRows)
     );
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return toProtoVfsCrdtSyncResponse(response);
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

@@ -53,10 +53,6 @@ import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 const REQUEST_CONTEXT = {
   requestHeader: new Headers()
 };
@@ -303,14 +299,10 @@ describe('vfsDirectCrdtSession', () => {
         lastReconciledWriteIds: {}
       },
       pull: {
-        json: expect.any(String)
+        items: [],
+        hasMore: false,
+        lastReconciledWriteIds: {}
       }
-    });
-    expect(parseJson(response.pull.json)).toEqual({
-      items: [],
-      nextCursor: null,
-      hasMore: false,
-      lastReconciledWriteIds: {}
     });
 
     expect(clientReleaseMock).toHaveBeenCalled();
@@ -363,7 +355,7 @@ describe('vfsDirectCrdtSession', () => {
         clientId: 'desktop-1'
       },
       pull: {
-        json: expect.any(String)
+        items: expect.any(Array)
       },
       reconcile: {
         clientId: 'desktop-1'
@@ -435,7 +427,7 @@ describe('vfsDirectCrdtSession', () => {
         clientId: 'desktop-1'
       },
       pull: {
-        json: expect.any(String)
+        items: expect.any(Array)
       },
       reconcile: {
         clientId: 'desktop-1'
