@@ -3,8 +3,7 @@ import type { Base64, EncryptedManifest, ItemId } from './types';
 
 /**
  * Callback invoked for each encrypted chunk during upload.
- * When provided, chunks are processed immediately without accumulation,
- * enabling bounded memory usage for large file uploads.
+ * Chunks are always streamed through this callback to keep memory bounded.
  */
 export type OnChunkCallback = (
   chunk: UploadEncryptedBlobChunk
@@ -15,12 +14,7 @@ export interface UploadEncryptedBlobInput {
   blobId: string;
   contentType?: string | undefined;
   stream: ReadableStream<Uint8Array>;
-  /**
-   * Optional callback to process each chunk as it's encrypted.
-   * When provided, chunks are NOT accumulated in the result array,
-   * reducing memory usage for large files.
-   */
-  onChunk?: OnChunkCallback | undefined;
+  onChunk: OnChunkCallback;
 }
 
 export interface EncryptCrdtOpInput {
@@ -50,7 +44,6 @@ export interface UploadEncryptedBlobChunk {
 export interface UploadEncryptedBlobResult {
   manifest: EncryptedManifest;
   uploadId?: string | undefined;
-  chunks?: UploadEncryptedBlobChunk[] | undefined;
 }
 
 export interface VfsSecureWritePipeline {

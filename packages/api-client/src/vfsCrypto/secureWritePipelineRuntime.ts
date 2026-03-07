@@ -72,28 +72,20 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
       itemId: input.itemId,
       keyEpoch
     });
+    if (typeof input.onChunk !== 'function') {
+      throw new Error('uploadEncryptedBlob requires onChunk callback');
+    }
 
     const chunkHashes: string[] = [];
-    // Only accumulate chunks when no callback is provided (bounded memory mode)
-    const chunks: UploadEncryptedBlobChunk[] = input.onChunk ? [] : [];
-    const useCallback = !!input.onChunk;
     let totalPlaintextBytes = 0;
     let totalCiphertextBytes = 0;
     let chunkIndex = 0;
     let chunkCount = 0;
     let pendingPlaintextChunk: Uint8Array | null = null;
 
-    /**
-     * Process an encrypted chunk: either stream it via callback (bounded memory)
-     * or accumulate it in the chunks array (legacy behavior).
-     */
     const processChunk = async (chunk: UploadEncryptedBlobChunk) => {
       chunkCount += 1;
-      if (useCallback) {
-        await input.onChunk?.(chunk);
-      } else {
-        chunks.push(chunk);
-      }
+      await input.onChunk(chunk);
     };
 
     for await (const plaintextChunk of splitStreamIntoChunks(
@@ -156,9 +148,7 @@ class DefaultVfsSecureWritePipeline implements VfsSecureWritePipeline {
         ...manifestWithoutSignature,
         manifestSignature
       },
-      uploadId: this.createUploadId(),
-      // Only include chunks array when callback was not used
-      chunks: useCallback ? undefined : chunks
+      uploadId: this.createUploadId()
     };
   }
 
