@@ -10,13 +10,16 @@ const API_DEPS_MODULE_URLS = [
   new URL('../../../api/dist/index.js', import.meta.url)
 ] as const;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function isApiDepsModule(value: unknown): value is ApiDepsModule {
-  if (!value || typeof value !== 'object') {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const candidate = value as Partial<ApiDepsModule>;
-  return Boolean(candidate.app) && Array.isArray(candidate.migrations);
+  return Boolean(value['app']) && Array.isArray(value['migrations']);
 }
 
 export async function getApiDeps(): Promise<TestContextDeps> {
