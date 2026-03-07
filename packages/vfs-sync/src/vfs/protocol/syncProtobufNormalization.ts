@@ -20,10 +20,6 @@ interface OperationPayloadSource {
   encryptionSignature?: string;
 }
 
-interface OperationEncodingOptions {
-  includeLegacyEnvelopeStrings?: boolean;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -136,10 +132,7 @@ function decodeBase64ToBytes(value: string): Uint8Array | null {
   }
 }
 
-function readEnvelopeField(
-  bytesValue: unknown,
-  legacyStringValue: unknown
-): string | undefined {
+function readEnvelopeField(bytesValue: unknown): string | undefined {
   const parsedBytes = normalizeOptionalBytes(bytesValue);
   if (parsedBytes) {
     return encodeBytesToBase64(parsedBytes);
@@ -150,28 +143,23 @@ function readEnvelopeField(
     return parsedBytesAsString;
   }
 
-  return normalizeOptionalString(legacyStringValue);
+  return undefined;
 }
 
 function writeEnvelopeField(
   payload: Record<string, unknown>,
   input: {
-    legacyKey: string;
     bytesKey: string;
     value: string;
-    includeLegacyEnvelopeStrings: boolean;
   }
 ): void {
   const decoded = decodeBase64ToBytes(input.value);
   if (!decoded) {
-    payload[input.legacyKey] = input.value;
+    payload[input.bytesKey] = input.value;
     return;
   }
 
   payload[input.bytesKey] = decoded;
-  if (input.includeLegacyEnvelopeStrings) {
-    payload[input.legacyKey] = input.value;
-  }
 }
 
 export function normalizePositiveSafeInteger(
@@ -281,11 +269,8 @@ export function normalizeWriteIdMap(value: unknown): Record<string, unknown> {
 }
 
 export function toOperationPayload(
-  operation: OperationPayloadSource,
-  options: OperationEncodingOptions = {}
+  operation: OperationPayloadSource
 ): Record<string, unknown> {
-  const includeLegacyEnvelopeStrings =
-    options.includeLegacyEnvelopeStrings === true;
   const payload: Record<string, unknown> = {
     opId: operation.opId,
     opType: operation.opType,
@@ -324,10 +309,8 @@ export function toOperationPayload(
   }
   if (typeof operation.encryptedPayload === 'string') {
     writeEnvelopeField(payload, {
-      legacyKey: 'encryptedPayload',
       bytesKey: 'encryptedPayloadBytes',
-      value: operation.encryptedPayload,
-      includeLegacyEnvelopeStrings
+      value: operation.encryptedPayload
     });
   }
   if (typeof operation.keyEpoch === 'number') {
@@ -335,26 +318,20 @@ export function toOperationPayload(
   }
   if (typeof operation.encryptionNonce === 'string') {
     writeEnvelopeField(payload, {
-      legacyKey: 'encryptionNonce',
       bytesKey: 'encryptionNonceBytes',
-      value: operation.encryptionNonce,
-      includeLegacyEnvelopeStrings
+      value: operation.encryptionNonce
     });
   }
   if (typeof operation.encryptionAad === 'string') {
     writeEnvelopeField(payload, {
-      legacyKey: 'encryptionAad',
       bytesKey: 'encryptionAadBytes',
-      value: operation.encryptionAad,
-      includeLegacyEnvelopeStrings
+      value: operation.encryptionAad
     });
   }
   if (typeof operation.encryptionSignature === 'string') {
     writeEnvelopeField(payload, {
-      legacyKey: 'encryptionSignature',
       bytesKey: 'encryptionSignatureBytes',
-      value: operation.encryptionSignature,
-      includeLegacyEnvelopeStrings
+      value: operation.encryptionSignature
     });
   }
   return payload;
@@ -390,10 +367,7 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (childId !== undefined) {
     decoded['childId'] = childId;
   }
-  const encryptedPayload = readEnvelopeField(
-    operation['encryptedPayloadBytes'],
-    operation['encryptedPayload']
-  );
+  const encryptedPayload = readEnvelopeField(operation['encryptedPayloadBytes']);
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }
@@ -401,23 +375,16 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (keyEpoch !== null) {
     decoded['keyEpoch'] = keyEpoch;
   }
-  const encryptionNonce = readEnvelopeField(
-    operation['encryptionNonceBytes'],
-    operation['encryptionNonce']
-  );
+  const encryptionNonce = readEnvelopeField(operation['encryptionNonceBytes']);
   if (encryptionNonce !== undefined) {
     decoded['encryptionNonce'] = encryptionNonce;
   }
-  const encryptionAad = readEnvelopeField(
-    operation['encryptionAadBytes'],
-    operation['encryptionAad']
-  );
+  const encryptionAad = readEnvelopeField(operation['encryptionAadBytes']);
   if (encryptionAad !== undefined) {
     decoded['encryptionAad'] = encryptionAad;
   }
   const encryptionSignature = readEnvelopeField(
-    operation['encryptionSignatureBytes'],
-    operation['encryptionSignature']
+    operation['encryptionSignatureBytes']
   );
   if (encryptionSignature !== undefined) {
     decoded['encryptionSignature'] = encryptionSignature;
@@ -444,10 +411,7 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     sourceId: normalizeRequiredString(operation['sourceId'], 'sourceId'),
     occurredAt: normalizeRequiredString(operation['occurredAt'], 'occurredAt')
   };
-  const encryptedPayload = readEnvelopeField(
-    operation['encryptedPayloadBytes'],
-    operation['encryptedPayload']
-  );
+  const encryptedPayload = readEnvelopeField(operation['encryptedPayloadBytes']);
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }
@@ -455,23 +419,16 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
   if (keyEpoch !== null) {
     decoded['keyEpoch'] = keyEpoch;
   }
-  const encryptionNonce = readEnvelopeField(
-    operation['encryptionNonceBytes'],
-    operation['encryptionNonce']
-  );
+  const encryptionNonce = readEnvelopeField(operation['encryptionNonceBytes']);
   if (encryptionNonce !== undefined) {
     decoded['encryptionNonce'] = encryptionNonce;
   }
-  const encryptionAad = readEnvelopeField(
-    operation['encryptionAadBytes'],
-    operation['encryptionAad']
-  );
+  const encryptionAad = readEnvelopeField(operation['encryptionAadBytes']);
   if (encryptionAad !== undefined) {
     decoded['encryptionAad'] = encryptionAad;
   }
   const encryptionSignature = readEnvelopeField(
-    operation['encryptionSignatureBytes'],
-    operation['encryptionSignature']
+    operation['encryptionSignatureBytes']
   );
   if (encryptionSignature !== undefined) {
     decoded['encryptionSignature'] = encryptionSignature;

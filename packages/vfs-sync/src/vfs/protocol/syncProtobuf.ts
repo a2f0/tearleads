@@ -28,10 +28,6 @@ import {
   SYNC_SESSION_RESPONSE_TYPE
 } from './syncProtobufSchema.js';
 
-interface SyncProtobufEncodingOptions {
-  includeLegacyEnvelopeStrings?: boolean;
-}
-
 function toObject(
   type: protobuf.Type,
   bytes: Uint8Array
@@ -60,14 +56,11 @@ function encode(
 }
 
 export function encodeVfsCrdtPushRequestProtobuf(
-  request: VfsCrdtPushRequest,
-  options: SyncProtobufEncodingOptions = {}
+  request: VfsCrdtPushRequest
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
     clientId: request.clientId,
-    operations: request.operations.map((operation) =>
-      toOperationPayload(operation, options)
-    )
+    operations: request.operations.map((operation) => toOperationPayload(operation))
   });
 }
 export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
@@ -108,11 +101,10 @@ export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
   };
 }
 export function encodeVfsCrdtSyncResponseProtobuf(
-  response: VfsCrdtSyncResponse,
-  options: SyncProtobufEncodingOptions = {}
+  response: VfsCrdtSyncResponse
 ): Uint8Array {
   return encode(PULL_RESPONSE_TYPE, {
-    items: response.items.map((item) => toOperationPayload(item, options)),
+    items: response.items.map((item) => toOperationPayload(item)),
     hasMore: response.hasMore,
     nextCursor: response.nextCursor ?? '',
     lastReconciledWriteIds: response.lastReconciledWriteIds
@@ -175,16 +167,13 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
   };
 }
 export function encodeVfsCrdtSyncSessionRequestProtobuf(
-  request: VfsCrdtSyncSessionRequest,
-  options: SyncProtobufEncodingOptions = {}
+  request: VfsCrdtSyncSessionRequest
 ): Uint8Array {
   return encode(SYNC_SESSION_REQUEST_TYPE, {
     clientId: request.clientId,
     cursor: request.cursor,
     limit: request.limit,
-    operations: request.operations.map((operation) =>
-      toOperationPayload(operation, options)
-    ),
+    operations: request.operations.map((operation) => toOperationPayload(operation)),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
     rootId: request.rootId ?? ''
   });
@@ -207,8 +196,7 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
   };
 }
 export function encodeVfsCrdtSyncSessionResponseProtobuf(
-  response: VfsCrdtSyncSessionResponse,
-  options: SyncProtobufEncodingOptions = {}
+  response: VfsCrdtSyncSessionResponse
 ): Uint8Array {
   return encode(SYNC_SESSION_RESPONSE_TYPE, {
     push: {
@@ -219,9 +207,7 @@ export function encodeVfsCrdtSyncSessionResponseProtobuf(
       }))
     },
     pull: {
-      items: response.pull.items.map((item) =>
-        toOperationPayload(item, options)
-      ),
+      items: response.pull.items.map((item) => toOperationPayload(item)),
       hasMore: response.pull.hasMore,
       nextCursor: response.pull.nextCursor ?? '',
       lastReconciledWriteIds: response.pull.lastReconciledWriteIds
