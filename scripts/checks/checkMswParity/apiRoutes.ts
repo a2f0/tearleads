@@ -172,11 +172,11 @@ const parseNamedImportSpecifiers = (
     }
 
     const imported = specifierMatch[1];
-    const local = specifierMatch[2] ?? imported;
     if (!imported) {
       continue;
     }
-    parsed.push({ imported, local });
+    const local = specifierMatch[2];
+    parsed.push({ imported, local: local ?? imported });
   }
 
   return parsed;
