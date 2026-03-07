@@ -131,6 +131,22 @@ describe('mlsDirectMessages', () => {
         sequenceNumber: 5
       }
     });
+
+    const maxSequenceQuery = clientQueryMock.mock.calls
+      .map((call) => call[0])
+      .find(
+        (queryText) =>
+          typeof queryText === 'string' &&
+          queryText.includes('FROM vfs_crdt_ops')
+      );
+    if (!maxSequenceQuery) {
+      throw new Error('Expected max sequence query to run');
+    }
+    expect(maxSequenceQuery).toContain("source_table = 'mls_message'");
+    expect(maxSequenceQuery).not.toContain(
+      "source_table IN ('mls_messages', 'mls_message')"
+    );
+
     expect(broadcastMock).toHaveBeenCalledWith(
       'mls:group:group-1',
       expect.objectContaining({ type: 'mls:message' })
@@ -278,6 +294,16 @@ describe('mlsDirectMessages', () => {
       '/mls/groups/group-1/messages',
       expect.any(Headers)
     );
+
+    const listQuery = queryMock.mock.calls[0]?.[0];
+    if (typeof listQuery !== 'string') {
+      throw new Error('Expected list query to run');
+    }
+    expect(listQuery).toContain("ops.source_table = 'mls_message'");
+    expect(listQuery).not.toContain(
+      "ops.source_table IN ('mls_messages', 'mls_message')"
+    );
+
     expect(response).toEqual({
       messages: [
         {

@@ -106,7 +106,7 @@ export async function sendGroupMessageDirectTyped(
            END AS sequence_number
            FROM vfs_crdt_ops
           WHERE op_type = 'item_upsert'
-            AND source_table IN ('mls_messages', 'mls_message')
+            AND source_table = 'mls_message'
             AND split_part(source_id, ':', 1) = 'mls_message'
             AND split_part(source_id, ':', 2) = $1::text
           ORDER BY
@@ -243,7 +243,7 @@ export async function getGroupMessagesDirectTyped(
            u.email AS sender_email
          FROM vfs_crdt_ops ops
          LEFT JOIN users u ON u.id = ops.actor_id
-         WHERE ops.source_table IN ('mls_messages', 'mls_message')
+         WHERE ops.source_table = 'mls_message'
            AND ops.op_type = 'item_upsert'
            AND ops.encrypted_payload_bytes IS NOT NULL
            AND ops.source_id LIKE $2::text
