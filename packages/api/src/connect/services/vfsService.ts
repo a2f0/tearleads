@@ -19,6 +19,7 @@ import {
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
+import type { SendRequestPayload } from './vfsDirectEmailPayload.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
@@ -34,18 +35,6 @@ type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
-type SendEmailRequest = {
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
-  subject: string;
-  body?: string;
-  attachments?: Array<{
-    fileName: string;
-    mimeType: string;
-    content: string;
-  }>;
-};
 
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
@@ -131,7 +120,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => deleteEmailDirect(request, context),
   sendEmail: async (
-    request: SendEmailRequest,
+    request: SendRequestPayload,
     context: { requestHeader: Headers }
   ) => sendEmailDirect(request, context)
 };

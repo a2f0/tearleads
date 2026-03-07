@@ -1,7 +1,7 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { isRecord } from './vfsDirectJson.js';
 
-interface SendAttachmentRequest {
+export interface SendAttachmentRequest {
   fileName: string;
   mimeType: string;
   content: string;
