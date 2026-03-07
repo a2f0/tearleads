@@ -1,5 +1,9 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { VfsRekeyRequest, VfsRekeyResponse } from '@tearleads/shared';
+import type {
+  VfsRegisterResponse,
+  VfsRekeyRequest,
+  VfsRekeyResponse
+} from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
@@ -86,7 +90,7 @@ function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
 export async function registerDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsRegisterResponse> {
   const claims = await requireVfsClaims(
     '/vfs/register',
     context.requestHeader,
@@ -139,12 +143,10 @@ export async function registerDirect(
 
     const createdAt = result.rows[0]?.created_at;
     return {
-      json: JSON.stringify({
-        id: payload.id,
-        createdAt: createdAt
-          ? createdAt.toISOString()
-          : new Date().toISOString()
-      })
+      id: payload.id,
+      createdAt: createdAt
+        ? createdAt.toISOString()
+        : new Date().toISOString()
     };
   } catch (error) {
     if (error instanceof ConnectError) {
@@ -159,7 +161,7 @@ export async function registerDirect(
 export async function rekeyItemDirect(
   request: ItemIdJsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsRekeyResponse> {
   const itemId = request.itemId.trim();
   if (itemId.length === 0) {
     throw new ConnectError('itemId is required', Code.InvalidArgument);
@@ -268,9 +270,7 @@ export async function rekeyItemDirect(
         wrapsApplied: updateResult.rowCount ?? 0
       };
 
-      return {
-        json: JSON.stringify(response)
-      };
+      return response;
     } catch (transactionError) {
       if (transactionOpen) {
         try {

@@ -57,7 +57,8 @@ message VfsRegisterRequest {
 }
 
 message VfsRegisterResponse {
-  string json = 1;
+  string id = 1;
+  string created_at = 2;
 }
 
 message VfsGetBlobRequest {
@@ -128,7 +129,9 @@ message VfsRekeyItemRequest {
 }
 
 message VfsRekeyItemResponse {
-  string json = 1;
+  string item_id = 1;
+  int32 new_epoch = 2;
+  int32 wraps_applied = 3;
 }
 
 message VfsPushCrdtOpsRequest {
