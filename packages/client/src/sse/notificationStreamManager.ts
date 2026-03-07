@@ -74,7 +74,7 @@ function isSseMessage(value: unknown): value is SSEMessage {
   return typeof message['timestamp'] === 'string';
 }
 
-export function computeReconnectDelayWithJitter(attempt: number): number {
+function computeReconnectDelayWithJitter(attempt: number): number {
   if (attempt <= 0) {
     return SSE_RECONNECT_BASE_DELAY_MS;
   }
