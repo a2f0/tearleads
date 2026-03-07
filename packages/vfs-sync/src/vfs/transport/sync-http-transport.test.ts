@@ -176,7 +176,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const transport = new VfsHttpCrdtSyncTransport({
       baseUrl: 'https://sync.example.com',
       fetchImpl: fetchMock,
-      organizationId: 'org-1'
+      getOrganizationId: () => 'org-1'
     });
 
     const result = await transport.pullOperations({
@@ -229,7 +229,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(requestBody['limit']).toBe(25);
     expect(requestBody['cursor']).toBe(encodeVfsSyncCursor(cursor));
     const requestHeaders = new Headers(requestInit?.headers);
-    expect(requestHeaders.get('X-Organization-Id')).toBeNull();
+    expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
   });
 
   it('reconciles cursor/write ids through Connect CRDT endpoint', async () => {

@@ -98,6 +98,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     cursor: VfsSyncCursor | null;
     limit: number;
   }): Promise<VfsCrdtSyncPullResponse> {
+    const organizationId = this.resolveOrganizationId();
     const requestBody: Record<string, unknown> = {
       limit: input.limit
     };
@@ -106,7 +107,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     }
 
     const parsed = parseApiPullResponse(
-      await this.requestConnectJson('GetCrdtSync', requestBody)
+      await this.requestConnectJson('GetCrdtSync', requestBody, {
+        organizationId
+      })
     );
 
     const nextCursor = parsed.nextCursor
