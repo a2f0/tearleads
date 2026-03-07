@@ -78,6 +78,12 @@ describe('buildVfsCrdtSyncQuery', () => {
     expect(query.text).toMatch(
       /COALESCE\(\s*encode\(ops\.encryption_nonce_bytes, 'base64'\),\s*ops\.encryption_nonce\s*\) AS encryption_nonce/
     );
+    expect(query.text).toMatch(
+      /COALESCE\(\s*encode\(ops\.encryption_aad_bytes, 'base64'\),\s*ops\.encryption_aad\s*\) AS encryption_aad/
+    );
+    expect(query.text).toMatch(
+      /COALESCE\(\s*encode\(ops\.encryption_signature_bytes, 'base64'\),\s*ops\.encryption_signature\s*\) AS encryption_signature/
+    );
   });
 });
 
