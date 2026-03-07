@@ -21,10 +21,6 @@ import {
 } from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
-  flushMlsKeyPackageOutbox,
-  writeMlsKeyPackagesToOutbox
-} from '@/lib/mlsKeyPackageSync';
-import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
@@ -37,6 +33,10 @@ import {
   storeAuth
 } from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
+import {
+  flushMlsKeyPackageOutbox,
+  writeMlsKeyPackagesToOutbox
+} from '@/lib/mlsKeyPackageSync';
 import { notificationStore } from '@/stores/notificationStore';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds

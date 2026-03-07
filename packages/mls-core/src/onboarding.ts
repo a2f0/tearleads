@@ -5,12 +5,12 @@
  * MLS key packages are immediately available on the server for other users.
  */
 
-import { MlsStorage } from './storage.js';
+import { resolveMlsBackendStatus } from './mlsWasmBackend.js';
 import {
   wasmGenerateCredential,
   wasmGenerateKeyPackage
 } from './mlsWasmBridge.js';
-import { resolveMlsBackendStatus } from './mlsWasmBackend.js';
+import { MlsStorage } from './storage.js';
 import type { MlsCredential } from './types.js';
 
 const DEFAULT_KEY_PACKAGE_COUNT = 5;

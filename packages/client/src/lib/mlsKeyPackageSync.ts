@@ -61,9 +61,7 @@ export async function writeMlsKeyPackagesToOutbox(
     });
 }
 
-export async function flushMlsKeyPackageOutbox(
-  userId: string
-): Promise<void> {
+export async function flushMlsKeyPackageOutbox(userId: string): Promise<void> {
   if (!isDatabaseInitialized()) {
     return;
   }
