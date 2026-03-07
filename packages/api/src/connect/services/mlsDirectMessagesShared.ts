@@ -25,11 +25,7 @@ export interface QueryClient {
 }
 
 interface TransactionPool {
-  query: <T extends QueryResultRow = QueryResultRow>(
-    queryText: string,
-    values?: unknown[]
-  ) => Promise<{ rows: T[]; rowCount: number | null }>;
-  connect?: () => Promise<{
+  connect: () => Promise<{
     query: <T extends QueryResultRow = QueryResultRow>(
       queryText: string,
       values?: unknown[]
@@ -99,16 +95,6 @@ export function toIsoString(value: Date | string): string {
 export async function acquireTransactionClient(
   pool: TransactionPool
 ): Promise<QueryClient> {
-  if (typeof pool.connect !== 'function') {
-    return {
-      query: <T extends QueryResultRow = QueryResultRow>(
-        queryText: string,
-        values?: unknown[]
-      ) => pool.query<T>(queryText, values),
-      release: () => {}
-    };
-  }
-
   const client = await pool.connect();
   return {
     query: <T extends QueryResultRow = QueryResultRow>(
