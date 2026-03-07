@@ -338,25 +338,6 @@ export function useFileUpload() {
         }
       }
 
-      // Legacy registration path - used when secure upload is not enabled.
-      if (
-        !secureUploadEnabled &&
-        isLoggedIn() &&
-        getFeatureFlagValue('vfsServerRegistration') &&
-        encryptedSessionKey
-      ) {
-        try {
-          await api.vfs.register({
-            id,
-            objectType: 'file',
-            encryptedSessionKey
-          });
-        } catch (err) {
-          if (!isVfsAlreadyRegisteredError(err)) {
-            console.warn('Failed to register file on server:', err);
-          }
-        }
-      }
       onProgress?.(100);
 
       return { id, isDuplicate: false };
