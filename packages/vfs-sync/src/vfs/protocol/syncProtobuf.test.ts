@@ -127,4 +127,23 @@ describe('syncProtobuf envelope bytes behavior', () => {
     const firstOperation = readRecord(operations[0], 'operations[0]');
     expect(firstOperation['encryptedPayload']).toBe(encryptedPayload);
   });
+
+  it('rejects invalid base64 envelope payloads on encode', () => {
+    expect(() =>
+      encodeVfsCrdtPushRequestProtobuf({
+        clientId: 'desktop',
+        operations: [
+          {
+            opId: 'op-1',
+            opType: 'item_upsert',
+            itemId: 'item-1',
+            replicaId: 'desktop',
+            writeId: 1,
+            occurredAt: '2026-02-14T00:00:00.000Z',
+            encryptedPayload: 'not-base64***'
+          }
+        ]
+      })
+    ).toThrow('invalid protobuf payload field: encryptedPayload');
+  });
 });

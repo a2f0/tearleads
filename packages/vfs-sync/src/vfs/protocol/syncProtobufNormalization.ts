@@ -138,11 +138,6 @@ function readEnvelopeField(bytesValue: unknown): string | undefined {
     return encodeBytesToBase64(parsedBytes);
   }
 
-  const parsedBytesAsString = normalizeOptionalString(bytesValue);
-  if (parsedBytesAsString !== undefined) {
-    return parsedBytesAsString;
-  }
-
   return undefined;
 }
 
@@ -151,12 +146,12 @@ function writeEnvelopeField(
   input: {
     bytesKey: string;
     value: string;
+    fieldName: string;
   }
 ): void {
   const decoded = decodeBase64ToBytes(input.value);
   if (!decoded) {
-    payload[input.bytesKey] = input.value;
-    return;
+    throw new Error(`invalid protobuf payload field: ${input.fieldName}`);
   }
 
   payload[input.bytesKey] = decoded;
@@ -310,7 +305,8 @@ export function toOperationPayload(
   if (typeof operation.encryptedPayload === 'string') {
     writeEnvelopeField(payload, {
       bytesKey: 'encryptedPayloadBytes',
-      value: operation.encryptedPayload
+      value: operation.encryptedPayload,
+      fieldName: 'encryptedPayload'
     });
   }
   if (typeof operation.keyEpoch === 'number') {
@@ -319,19 +315,22 @@ export function toOperationPayload(
   if (typeof operation.encryptionNonce === 'string') {
     writeEnvelopeField(payload, {
       bytesKey: 'encryptionNonceBytes',
-      value: operation.encryptionNonce
+      value: operation.encryptionNonce,
+      fieldName: 'encryptionNonce'
     });
   }
   if (typeof operation.encryptionAad === 'string') {
     writeEnvelopeField(payload, {
       bytesKey: 'encryptionAadBytes',
-      value: operation.encryptionAad
+      value: operation.encryptionAad,
+      fieldName: 'encryptionAad'
     });
   }
   if (typeof operation.encryptionSignature === 'string') {
     writeEnvelopeField(payload, {
       bytesKey: 'encryptionSignatureBytes',
-      value: operation.encryptionSignature
+      value: operation.encryptionSignature,
+      fieldName: 'encryptionSignature'
     });
   }
   return payload;
