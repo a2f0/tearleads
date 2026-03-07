@@ -1,3 +1,4 @@
+import { Code, ConnectError } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type AdminV2Client,
@@ -135,7 +136,8 @@ function createAdminV2ClientStub(
 function createRoutesForTest(
   client: AdminV2Client,
   logEvent = vi.fn(async () => undefined),
-  buildHeaders = vi.fn(async () => ({ authorization: 'Bearer token-123' }))
+  buildHeaders = vi.fn(async () => ({ authorization: 'Bearer token-123' })),
+  refreshOnUnauthenticated = vi.fn(async () => false)
 ) {
   const routes = createAdminV2Routes({
     resolveApiBaseUrl: () => 'https://api.example.test',
@@ -143,13 +145,15 @@ function createRoutesForTest(
     buildHeaders,
     getAuthHeaderValue: () => 'Bearer token-123',
     createClient: () => client,
+    refreshOnUnauthenticated,
     logEvent
   });
 
   return {
     routes,
     logEvent,
-    buildHeaders
+    buildHeaders,
+    refreshOnUnauthenticated
   };
 }
 
@@ -397,6 +401,65 @@ describe('adminV2Routes', () => {
       'api_get_admin_postgres_rows',
       expect.any(Number),
       true
+    );
+  });
+
+  it('retries once when unauthenticated and refresh succeeds', async () => {
+    const getPostgresInfo = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ConnectError('Unauthorized', Code.Unauthenticated)
+      )
+      .mockResolvedValueOnce({
+        info: {
+          host: 'localhost',
+          port: 5432,
+          database: 'tearleads',
+          user: 'admin'
+        },
+        serverVersion: 'PostgreSQL 16.7'
+      });
+    const client = createAdminV2ClientStub({ getPostgresInfo });
+    const refreshOnUnauthenticated = vi.fn(async () => true);
+    const { routes, logEvent } = createRoutesForTest(
+      client,
+      vi.fn(async () => undefined),
+      vi.fn(async () => ({ authorization: 'Bearer refreshed-token' })),
+      refreshOnUnauthenticated
+    );
+
+    const response = await routes.postgres.getInfo();
+
+    expect(response.info.host).toBe('localhost');
+    expect(getPostgresInfo).toHaveBeenCalledTimes(2);
+    expect(refreshOnUnauthenticated).toHaveBeenCalledTimes(1);
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_info',
+      expect.any(Number),
+      true
+    );
+  });
+
+  it('does not retry when unauthenticated and refresh fails', async () => {
+    const getPostgresInfo = vi.fn(async () => {
+      throw new ConnectError('Unauthorized', Code.Unauthenticated);
+    });
+    const client = createAdminV2ClientStub({ getPostgresInfo });
+    const refreshOnUnauthenticated = vi.fn(async () => false);
+    const { routes, logEvent } = createRoutesForTest(
+      client,
+      vi.fn(async () => undefined),
+      vi.fn(async () => ({ authorization: 'Bearer stale-token' })),
+      refreshOnUnauthenticated
+    );
+
+    await expect(routes.postgres.getInfo()).rejects.toBeInstanceOf(ConnectError);
+    expect(getPostgresInfo).toHaveBeenCalledTimes(1);
+    expect(refreshOnUnauthenticated).toHaveBeenCalledTimes(1);
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_get_admin_postgres_info',
+      expect.any(Number),
+      false
     );
   });
 });
