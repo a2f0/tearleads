@@ -46,7 +46,7 @@ jobs:
           - package: '@tearleads/remote-read-orchestrator'
             script: test
           - package: '@tearleads/search'
-            script: testBun
+            script: test
           - package: '@tearleads/tee-api'
             script: test
           - package: '@tearleads/vehicles'
