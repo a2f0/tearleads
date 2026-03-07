@@ -16,13 +16,7 @@ describe('v037 migration', () => {
     await v037.up(pool);
   });
 
-  it('finds the v037 migration', () => {
-    expect(v037).toBeDefined();
-  });
-
   it('drops the legacy mls_messages table', () => {
-    expect(pool.queries.join('\n')).toContain(
-      'DROP TABLE IF EXISTS "mls_messages"'
-    );
+    expect(pool.queries).toEqual(['DROP TABLE IF EXISTS "mls_messages"']);
   });
 });
