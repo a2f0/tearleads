@@ -132,7 +132,7 @@ const isInRepo = (cwd: string | null): boolean => {
 };
 
 // Dev ports that should be freed before starting
-const DEV_PORTS = [25, 3000, 3001, 5001, 5002];
+const DEV_PORTS = [25, 2525, 3000, 3001, 5001, 5002];
 
 const getProcessOnPort = (port: number): number | null => {
   const pids = getPidsOnPort({ port, listenOnly: true });
