@@ -98,9 +98,9 @@ describe('API', () => {
       expect(response.body).toEqual({ error: 'Not found' });
     });
 
-    it('should return 404 for removed v1 VFS connect route', async () => {
+    it('should return 404 for removed v1 connect route', async () => {
       const response = await request(app)
-        .post('/v1/connect/tearleads.v1.VfsService/GetSync')
+        .post('/v1/connect/tearleads.v1.LegacyService/GetSync')
         .set('Content-Type', 'application/json')
         .send('{}');
 
@@ -108,9 +108,9 @@ describe('API', () => {
       expect(response.body).toEqual({ error: 'Not found' });
     });
 
-    it('should return 404 for removed v1 VFS shares connect route', async () => {
+    it('should return 404 for removed v1 shares connect route', async () => {
       const response = await request(app)
-        .post('/v1/connect/tearleads.v1.VfsSharesService/GetItemShares')
+        .post('/v1/connect/tearleads.v1.LegacySharesService/GetItemShares')
         .set('Content-Type', 'application/json')
         .send('{}');
 
