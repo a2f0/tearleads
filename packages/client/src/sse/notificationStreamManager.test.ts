@@ -215,6 +215,85 @@ describe('notificationStreamManager', () => {
     manager.disconnect();
   });
 
+  it('skips reconnect when connect is called with equivalent config', async () => {
+    const openNotificationEventStream = vi.fn().mockImplementation(() => ({
+      async *[Symbol.asyncIterator]() {
+        await new Promise(() => {
+          // wait until manager disconnects
+        });
+      }
+    }));
+
+    const manager = createNotificationStreamManager({
+      openNotificationEventStream,
+      isTokenExpired: () => false,
+      tryRefreshToken: vi.fn()
+    });
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast', 'mls:user:test', 'broadcast'],
+      token: 'token'
+    });
+    await flushMicrotasks();
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['mls:user:test', 'broadcast'],
+      token: 'token'
+    });
+    await flushMicrotasks();
+
+    expect(openNotificationEventStream).toHaveBeenCalledTimes(1);
+    manager.disconnect();
+  });
+
+  it('reconnects only when effective additional channels change', async () => {
+    const openNotificationEventStream = vi.fn().mockImplementation(() => ({
+      async *[Symbol.asyncIterator]() {
+        await new Promise(() => {
+          // wait until manager reconnects or disconnects
+        });
+      }
+    }));
+
+    const manager = createNotificationStreamManager({
+      openNotificationEventStream,
+      isTokenExpired: () => false,
+      tryRefreshToken: vi.fn()
+    });
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      token: 'token'
+    });
+    await flushMicrotasks();
+
+    manager.addChannels(['mls:user:test']);
+    await flushMicrotasks();
+    manager.addChannels(['mls:user:test']);
+    await flushMicrotasks();
+
+    manager.removeChannels(['mls:user:test']);
+    await flushMicrotasks();
+    manager.removeChannels(['mls:user:test']);
+    await flushMicrotasks();
+
+    expect(openNotificationEventStream).toHaveBeenCalledTimes(3);
+    expect(openNotificationEventStream.mock.calls[0]?.[0]?.channels).toEqual([
+      'broadcast'
+    ]);
+    expect(openNotificationEventStream.mock.calls[1]?.[0]?.channels).toEqual([
+      'broadcast',
+      'mls:user:test'
+    ]);
+    expect(openNotificationEventStream.mock.calls[2]?.[0]?.channels).toEqual([
+      'broadcast'
+    ]);
+    manager.disconnect();
+  });
+
   it('reconnects with scheduled delay when stream ends and token is valid', async () => {
     vi.useFakeTimers();
 

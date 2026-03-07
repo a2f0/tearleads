@@ -1,4 +1,4 @@
-import { type SSEConnectionState, type SSEMessage } from '@tearleads/shared';
+import type { SSEConnectionState, SSEMessage } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -23,6 +23,8 @@ interface SSEContextValue {
   lastMessage: SSEMessage | null;
   connect: (channels?: string[]) => void;
   disconnect: () => void;
+  addChannels: (channels: string[]) => void;
+  removeChannels: (channels: string[]) => void;
 }
 
 const SSEContext = createContext<SSEContextValue | null>(null);
@@ -61,6 +63,20 @@ export function SSEProvider({
   const disconnect = useCallback(() => {
     streamManager.disconnect();
   }, [streamManager]);
+
+  const addChannels = useCallback(
+    (channelsToAdd: string[]) => {
+      streamManager.addChannels(channelsToAdd);
+    },
+    [streamManager]
+  );
+
+  const removeChannels = useCallback(
+    (channelsToRemove: string[]) => {
+      streamManager.removeChannels(channelsToRemove);
+    },
+    [streamManager]
+  );
 
   const connect = useCallback(
     (channelsToUse: string[] = channelsRef.current) => {
@@ -141,9 +157,18 @@ export function SSEProvider({
       connectionState,
       lastMessage,
       connect,
-      disconnect
+      disconnect,
+      addChannels,
+      removeChannels
     }),
-    [connectionState, lastMessage, connect, disconnect]
+    [
+      connectionState,
+      lastMessage,
+      connect,
+      disconnect,
+      addChannels,
+      removeChannels
+    ]
   );
 
   return <SSEContext.Provider value={value}>{children}</SSEContext.Provider>;

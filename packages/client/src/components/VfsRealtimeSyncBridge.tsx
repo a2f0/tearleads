@@ -38,11 +38,11 @@ function parseContainerIdFromChannel(channel: string): string | null {
   return matches?.[1] ?? null;
 }
 
-function buildChannelList(
+function buildDynamicChannelList(
   orchestrator: ReturnType<typeof useVfsOrchestratorInstance>
 ): string[] {
   if (!orchestrator) {
-    return ['broadcast'];
+    return [];
   }
 
   const result = orchestrator.crdt.listChangedContainers(
@@ -53,7 +53,7 @@ function buildChannelList(
     .map((item) => `vfs:container:${item.containerId}:sync`)
     .sort((left, right) => left.localeCompare(right));
 
-  return ['broadcast', ...channels];
+  return channels;
 }
 
 function computeRetryDelayWithJitter(attempt: number): number {
@@ -71,7 +71,7 @@ function computeRetryDelayWithJitter(attempt: number): number {
 }
 
 export function VfsRealtimeSyncBridge() {
-  const { connect, lastMessage } = useSSE();
+  const { addChannels, removeChannels, lastMessage } = useSSE();
   const orchestrator = useVfsOrchestratorInstance();
   const { refresh: refreshSyncState } = useVfsSyncState();
   const hasObservedOrchestratorRef = useRef(false);
@@ -159,13 +159,27 @@ export function VfsRealtimeSyncBridge() {
 
   useEffect(() => {
     const refreshChannels = () => {
-      const nextChannels = buildChannelList(orchestrator);
+      const nextChannels = buildDynamicChannelList(orchestrator);
       if (isSameStringArray(nextChannels, connectedChannelsRef.current)) {
         return;
       }
 
+      const previousChannelSet = new Set(connectedChannelsRef.current);
+      const nextChannelSet = new Set(nextChannels);
+      const addedChannels = nextChannels.filter(
+        (channel) => !previousChannelSet.has(channel)
+      );
+      const removedChannels = connectedChannelsRef.current.filter(
+        (channel) => !nextChannelSet.has(channel)
+      );
+
       connectedChannelsRef.current = nextChannels;
-      connect(nextChannels);
+      if (addedChannels.length > 0) {
+        addChannels(addedChannels);
+      }
+      if (removedChannels.length > 0) {
+        removeChannels(removedChannels);
+      }
     };
 
     refreshChannels();
@@ -175,8 +189,12 @@ export function VfsRealtimeSyncBridge() {
     );
     return () => {
       clearInterval(refreshTimer);
+      if (connectedChannelsRef.current.length > 0) {
+        removeChannels(connectedChannelsRef.current);
+      }
+      connectedChannelsRef.current = [];
     };
-  }, [connect, orchestrator]);
+  }, [addChannels, removeChannels, orchestrator]);
 
   useEffect(() => {
     const nextMessage = lastMessage;

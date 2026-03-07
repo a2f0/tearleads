@@ -41,6 +41,8 @@ interface NotificationStreamManagerDependencies {
 export interface NotificationStreamManager {
   connect: (options: NotificationStreamConnectOptions) => void;
   disconnect: () => void;
+  addChannels: (channels: string[]) => void;
+  removeChannels: (channels: string[]) => void;
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => NotificationStreamManagerSnapshot;
 }
@@ -88,6 +90,25 @@ function computeReconnectDelayWithJitter(attempt: number): number {
   return jitterFloor + Math.floor(Math.random() * (jitterRange + 1));
 }
 
+function normalizeChannels(channels: string[]): string[] {
+  const unique = new Set(channels);
+  return [...unique].sort((left, right) => left.localeCompare(right));
+}
+
+function areSameChannels(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function createNotificationStreamManager(
   dependencies: NotificationStreamManagerDependencies
 ): NotificationStreamManager {
@@ -100,6 +121,9 @@ export function createNotificationStreamManager(
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   let reconnectAttempt = 0;
   let currentConfig: NotificationStreamConnectOptions | null = null;
+  let activeChannels: string[] = [];
+  let baseChannels: string[] = [];
+  const additionalChannelRefCounts = new Map<string, number>();
 
   const emitChange = () => {
     for (const listener of listeners) {
@@ -129,6 +153,11 @@ export function createNotificationStreamManager(
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;
     }
+  };
+
+  const getEffectiveChannels = (): string[] => {
+    const additionalChannels = [...additionalChannelRefCounts.keys()];
+    return normalizeChannels([...baseChannels, ...additionalChannels]);
   };
 
   const disconnectInternal = (resetReconnectAttempt: boolean): void => {
@@ -181,18 +210,44 @@ export function createNotificationStreamManager(
   };
 
   const connect = (options: NotificationStreamConnectOptions): void => {
-    currentConfig = {
+    const nextBaseChannels = normalizeChannels(options.channels);
+
+    const nextConfig: NotificationStreamConnectOptions = {
       apiBaseUrl: options.apiBaseUrl,
-      channels: [...options.channels],
+      channels: nextBaseChannels,
       token: options.token
     };
+
+    const previousConfig = currentConfig;
+    baseChannels = nextBaseChannels;
+    const nextEffectiveChannels = getEffectiveChannels();
+    const configChanged =
+      !previousConfig ||
+      previousConfig.apiBaseUrl !== nextConfig.apiBaseUrl ||
+      previousConfig.token !== nextConfig.token;
+    const effectiveChannelsChanged = !areSameChannels(
+      activeChannels,
+      nextEffectiveChannels
+    );
+
+    currentConfig = nextConfig;
+
+    if (
+      !configChanged &&
+      !effectiveChannelsChanged &&
+      snapshot.connectionState !== 'disconnected'
+    ) {
+      return;
+    }
 
     disconnectInternal(true);
     setSnapshot({
       connectionState: 'connecting'
     });
 
-    const streamConfig = currentConfig;
+    const streamConfig = nextConfig;
+    const streamChannels = nextEffectiveChannels;
+    activeChannels = streamChannels;
     const nextAbortController = new AbortController();
     abortController = nextAbortController;
 
@@ -200,7 +255,7 @@ export function createNotificationStreamManager(
       try {
         for await (const payload of dependencies.openNotificationEventStream({
           apiBaseUrl: streamConfig.apiBaseUrl,
-          channels: streamConfig.channels,
+          channels: streamChannels,
           token: streamConfig.token,
           signal: nextAbortController.signal
         })) {
@@ -259,7 +314,61 @@ export function createNotificationStreamManager(
 
   const disconnect = (): void => {
     currentConfig = null;
+    activeChannels = [];
+    baseChannels = [];
     disconnectInternal(true);
+  };
+
+  const addChannels = (channels: string[]): void => {
+    const normalizedChannels = normalizeChannels(channels);
+    let effectiveChannelsChanged = false;
+
+    for (const channel of normalizedChannels) {
+      const currentCount = additionalChannelRefCounts.get(channel) ?? 0;
+      const nextCount = currentCount + 1;
+      additionalChannelRefCounts.set(channel, nextCount);
+      if (currentCount === 0) {
+        effectiveChannelsChanged = true;
+      }
+    }
+
+    if (
+      !effectiveChannelsChanged ||
+      !currentConfig ||
+      snapshot.connectionState === 'disconnected'
+    ) {
+      return;
+    }
+
+    connect(currentConfig);
+  };
+
+  const removeChannels = (channels: string[]): void => {
+    const normalizedChannels = normalizeChannels(channels);
+    let effectiveChannelsChanged = false;
+
+    for (const channel of normalizedChannels) {
+      const currentCount = additionalChannelRefCounts.get(channel);
+      if (!currentCount) {
+        continue;
+      }
+      if (currentCount <= 1) {
+        additionalChannelRefCounts.delete(channel);
+        effectiveChannelsChanged = true;
+        continue;
+      }
+      additionalChannelRefCounts.set(channel, currentCount - 1);
+    }
+
+    if (
+      !effectiveChannelsChanged ||
+      !currentConfig ||
+      snapshot.connectionState === 'disconnected'
+    ) {
+      return;
+    }
+
+    connect(currentConfig);
   };
 
   const subscribe = (listener: () => void): (() => void) => {
@@ -272,6 +381,8 @@ export function createNotificationStreamManager(
   return {
     connect,
     disconnect,
+    addChannels,
+    removeChannels,
     subscribe,
     getSnapshot
   };
