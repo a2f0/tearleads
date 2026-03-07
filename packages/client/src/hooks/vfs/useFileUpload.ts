@@ -21,6 +21,7 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   computeContentHashStreaming,
   createStreamFromFile,
@@ -257,10 +258,12 @@ export function useFileUpload() {
               encryptedSessionKey
             });
           } catch (err) {
-            secureUploadFailStage = 'register';
-            throw new Error('Secure upload failed (register)', {
-              cause: err
-            });
+            if (!isVfsAlreadyRegisteredError(err)) {
+              secureUploadFailStage = 'register';
+              throw new Error('Secure upload failed (register)', {
+                cause: err
+              });
+            }
           }
 
           const expiresAt = new Date();
@@ -335,6 +338,25 @@ export function useFileUpload() {
         }
       }
 
+      // Legacy registration path - used when secure upload is not enabled.
+      if (
+        !secureUploadEnabled &&
+        isLoggedIn() &&
+        getFeatureFlagValue('vfsServerRegistration') &&
+        encryptedSessionKey
+      ) {
+        try {
+          await api.vfs.register({
+            id,
+            objectType: 'file',
+            encryptedSessionKey
+          });
+        } catch (err) {
+          if (!isVfsAlreadyRegisteredError(err)) {
+            console.warn('Failed to register file on server:', err);
+          }
+        }
+      }
       onProgress?.(100);
 
       return { id, isDuplicate: false };

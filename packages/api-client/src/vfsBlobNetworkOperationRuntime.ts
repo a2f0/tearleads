@@ -14,6 +14,7 @@ import {
   normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
+import { ORGANIZATION_HEADER_NAME } from './vfsBlobOrganizationId';
 import type {
   VfsBlobAbandonQueueOperation,
   VfsBlobAttachQueueOperation,
@@ -27,6 +28,7 @@ interface ExecuteBlobOperationContext {
   apiPrefix: string;
   baseUrl: string;
   fetchImpl: typeof fetch;
+  organizationId?: string | null;
   headers: Record<string, string>;
 }
 
@@ -308,6 +310,13 @@ async function requestConnectJson(
   headers.set('Content-Type', 'application/json');
   for (const [header, value] of Object.entries(context.headers)) {
     headers.set(header, value);
+  }
+  if (
+    context.organizationId &&
+    context.organizationId.trim().length > 0 &&
+    !headers.has(ORGANIZATION_HEADER_NAME)
+  ) {
+    headers.set(ORGANIZATION_HEADER_NAME, context.organizationId);
   }
 
   const response = await fetchWithAuthRefresh(context.fetchImpl, url, {

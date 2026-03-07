@@ -10,6 +10,7 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
 interface VfsSyncRuntime {
   orchestrator: Pick<
@@ -146,13 +147,6 @@ async function ensureLocalEncryptedSessionKey(
   return wrappedSessionKey;
 }
 
-function isAlreadyRegisteredError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.toLowerCase().includes('already registered')
-  );
-}
-
 async function ensureServerRegistration(
   itemId: string,
   objectType: VfsObjectType,
@@ -169,7 +163,7 @@ async function ensureServerRegistration(
       encryptedSessionKey
     });
   } catch (error) {
-    if (!isAlreadyRegisteredError(error)) {
+    if (!isVfsAlreadyRegisteredError(error)) {
       throw error;
     }
   }

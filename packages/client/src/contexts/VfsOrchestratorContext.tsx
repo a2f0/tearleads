@@ -201,6 +201,7 @@ export function VfsOrchestratorProvider({
         blob: {
           baseUrl: effectiveBaseUrl,
           apiPrefix: effectiveApiPrefix,
+          getOrganizationId: getActiveOrganizationId,
           onOperationResult: logBlobFlushOperationTelemetry
         },
         saveState: async (state) => {

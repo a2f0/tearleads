@@ -139,6 +139,40 @@ describe('vfsItemSyncWriter', () => {
     expect(flushAll).toHaveBeenCalledTimes(1);
   });
 
+  it('treats register conflict status as success', async () => {
+    isLoggedInMock.mockReturnValue(true);
+    getFeatureFlagValueMock.mockReturnValue(true);
+    const conflictError = new Error('API error: 409');
+    Reflect.set(conflictError, 'status', 409);
+    registerMock.mockRejectedValue(conflictError);
+
+    const queueEncryptedCrdtOpAndPersist = vi.fn().mockResolvedValue(undefined);
+    const queueCrdtLocalOperationAndPersist = vi
+      .fn()
+      .mockResolvedValue(undefined);
+    const flushAll = vi.fn().mockResolvedValue({
+      crdt: { pushed: 1, pulled: 0, remainingQueued: 0 },
+      blob: { processed: 0, remainingQueued: 0 }
+    });
+
+    setVfsItemSyncRuntime({
+      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
+      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    });
+
+    await expect(
+      queueItemUpsertAndFlush({
+        itemId: 'item-1',
+        objectType: 'contact',
+        encryptedSessionKey: 'wrapped',
+        payload: { id: 'item-1' }
+      })
+    ).resolves.toBeUndefined();
+
+    expect(queueEncryptedCrdtOpAndPersist).toHaveBeenCalledTimes(1);
+    expect(flushAll).toHaveBeenCalledTimes(1);
+  });
+
   it('notifies subscribers during inflight transitions on upsert', async () => {
     isLoggedInMock.mockReturnValue(true);
     getFeatureFlagValueMock.mockReturnValue(true);

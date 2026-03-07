@@ -37,6 +37,7 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   queueItemDeleteAndFlush,
   queueItemUpsertAndFlush
@@ -117,7 +118,13 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
         objectType: 'file' | 'folder' | 'contact' | 'note' | 'photo';
         encryptedSessionKey: string;
       }) => {
-        await api.vfs.register(params);
+        try {
+          await api.vfs.register(params);
+        } catch (error) {
+          if (!isVfsAlreadyRegisteredError(error)) {
+            throw error;
+          }
+        }
       }
     }),
     []

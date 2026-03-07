@@ -28,6 +28,7 @@ import {
   wrapKeyForRecipient
 } from '@tearleads/shared';
 import { api } from '@/lib/api';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
 // In-memory cache for the decrypted VFS keypair
 let cachedKeyPair: VfsKeyPair | null = null;
@@ -374,11 +375,17 @@ export async function registerVfsItemWithCurrentKeys(
   const encryptedSessionKey = await wrapSessionKey(sessionKey);
 
   if (input.registerOnServer ?? true) {
-    await api.vfs.register({
-      id: input.id,
-      objectType: input.objectType,
-      encryptedSessionKey
-    });
+    try {
+      await api.vfs.register({
+        id: input.id,
+        objectType: input.objectType,
+        encryptedSessionKey
+      });
+    } catch (error) {
+      if (!isVfsAlreadyRegisteredError(error)) {
+        throw error;
+      }
+    }
   }
 
   return {

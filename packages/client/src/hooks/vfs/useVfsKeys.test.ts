@@ -357,6 +357,27 @@ describe('useVfsKeys', () => {
       expect(result.encryptedSessionKey).toMatch(/^combined:/);
       expect(api.vfs.register).not.toHaveBeenCalled();
     });
+
+    it('ignores already-registered conflict from server', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+        publicEncryptionKey: 'server-key',
+        publicSigningKey: 'sign'
+      });
+      const conflictError = new Error('Conflict');
+      Reflect.set(conflictError, 'status', 409);
+      vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+
+      await expect(
+        registerVfsItemWithCurrentKeys({
+          id: 'item-3',
+          objectType: 'file'
+        })
+      ).resolves.toEqual(
+        expect.objectContaining({
+          encryptedSessionKey: expect.stringMatching(/^combined:/)
+        })
+      );
+    });
   });
 
   describe('getVfsPublicKey', () => {

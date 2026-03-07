@@ -42,6 +42,10 @@ import {
   isManifestCommitSizeShapeValid,
   normalizeBlobNetworkOperation
 } from './vfsBlobNetworkOperationRuntime';
+import {
+  normalizeOrganizationId,
+  resolveOrganizationIdFromHeaders
+} from './vfsBlobOrganizationId';
 
 export type {
   VfsBlobAbandonQueueOperation,
@@ -68,6 +72,8 @@ export type {
 class VfsBlobNetworkFlusherImpl {
   private readonly baseUrl: string;
   private readonly apiPrefix: string;
+  private readonly getOrganizationId: (() => string | null) | null;
+  private readonly organizationId: string | null;
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: typeof fetch;
   private readonly saveState: PersistStateCallback | null;
@@ -87,6 +93,12 @@ class VfsBlobNetworkFlusherImpl {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? '');
     this.apiPrefix = normalizeApiPrefix(options.apiPrefix ?? '');
     this.headers = options.headers ?? {};
+    this.getOrganizationId = options.getOrganizationId ?? null;
+    const explicitOrganizationId = normalizeOrganizationId(
+      options.organizationId ?? null
+    );
+    this.organizationId =
+      explicitOrganizationId ?? resolveOrganizationIdFromHeaders(this.headers);
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.saveState = options.saveState ?? null;
     this.loadState = options.loadState ?? null;
@@ -421,6 +433,7 @@ class VfsBlobNetworkFlusherImpl {
           {
             baseUrl: this.baseUrl,
             apiPrefix: this.apiPrefix,
+            organizationId: this.resolveOrganizationId(),
             headers: this.headers,
             fetchImpl: this.fetchImpl
           },
@@ -471,6 +484,13 @@ class VfsBlobNetworkFlusherImpl {
       );
       attempt += 1;
     }
+  }
+
+  private resolveOrganizationId(): string | null {
+    const dynamicOrganizationId = this.getOrganizationId
+      ? normalizeOrganizationId(this.getOrganizationId())
+      : null;
+    return dynamicOrganizationId ?? this.organizationId;
   }
 }
 
