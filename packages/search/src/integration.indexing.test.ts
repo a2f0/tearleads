@@ -3,7 +3,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { indexDocument, indexDocuments, indexEntity, removeFromIndex } from './integration';
+import {
+  indexDocument,
+  indexDocuments,
+  indexEntity,
+  removeFromIndex
+} from './integration';
 import * as SearchStoreModule from './SearchStore';
 import type { SearchableDocument } from './types';
 
