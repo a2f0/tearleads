@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVfsCryptoEngine } from './engineRuntime';
 import { createVfsSecureReadPipeline } from './secureReadPipelineRuntime';
+import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
 import { createVfsSecureWritePipeline } from './secureWritePipelineRuntime';
 
 const fixedSessionKey = new Uint8Array(32).fill(3);
@@ -38,6 +39,7 @@ describe('secureReadPipelineRuntime', () => {
 
     const plaintext = new TextEncoder().encode('read pipeline roundtrip data');
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const uploadResult = await writer.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
@@ -47,10 +49,11 @@ describe('secureReadPipelineRuntime', () => {
           controller.enqueue(plaintext);
           controller.close();
         }
-      })
+      }),
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
-
-    const chunks = uploadResult.chunks ?? [];
     const decrypted = await reader.decryptEncryptedBlob({
       manifest: uploadResult.manifest,
       chunks
@@ -74,6 +77,7 @@ describe('secureReadPipelineRuntime', () => {
 
     const reader = createVfsSecureReadPipeline({ engine });
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const uploadResult = await writer.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
@@ -82,7 +86,10 @@ describe('secureReadPipelineRuntime', () => {
           controller.enqueue(new TextEncoder().encode('tamper me'));
           controller.close();
         }
-      })
+      }),
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
 
     const tamperedManifest = {
@@ -93,7 +100,7 @@ describe('secureReadPipelineRuntime', () => {
     await expect(
       reader.decryptEncryptedBlob({
         manifest: tamperedManifest,
-        chunks: uploadResult.chunks ?? []
+        chunks
       })
     ).rejects.toThrow('Encrypted manifest signature verification failed');
   });
@@ -113,6 +120,7 @@ describe('secureReadPipelineRuntime', () => {
 
     const reader = createVfsSecureReadPipeline({ engine });
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const uploadResult = await writer.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
@@ -121,10 +129,11 @@ describe('secureReadPipelineRuntime', () => {
           controller.enqueue(new TextEncoder().encode('chunk hash check'));
           controller.close();
         }
-      })
+      }),
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
-
-    const chunks = uploadResult.chunks ?? [];
     const firstChunk = chunks[0];
     if (!firstChunk) {
       throw new Error('expected at least one chunk');
@@ -166,6 +175,7 @@ describe('secureReadPipelineRuntime', () => {
 
     const reader = createVfsSecureReadPipeline({ engine });
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const uploadResult = await writer.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
@@ -174,10 +184,11 @@ describe('secureReadPipelineRuntime', () => {
           controller.enqueue(new TextEncoder().encode('finality-check-data'));
           controller.close();
         }
-      })
+      }),
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
-
-    const chunks = uploadResult.chunks ?? [];
     if (chunks.length < 2) {
       throw new Error('expected at least two chunks');
     }

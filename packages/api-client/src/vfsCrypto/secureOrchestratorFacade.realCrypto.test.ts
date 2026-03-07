@@ -15,6 +15,7 @@ import {
   createVfsSecureOrchestratorFacadeWithRuntime
 } from './secureOrchestratorFacade';
 import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
+import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
 import { createVfsSecureWritePipeline } from './secureWritePipelineRuntime';
 import type { Epoch, ItemId } from './types';
 
@@ -78,11 +79,15 @@ describe('secureOrchestratorFacade with real crypto', () => {
       }
     });
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const result = await pipeline.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
       contentType: 'text/plain',
-      stream
+      stream,
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
 
     expect(result.manifest.itemId).toBe('item-1');
@@ -91,9 +96,9 @@ describe('secureOrchestratorFacade with real crypto', () => {
     expect(result.manifest.totalPlaintextBytes).toBe(plaintext.length);
     expect(result.manifest.chunkCount).toBe(1);
     expect(result.manifest.manifestSignature).toBeTruthy();
-    expect(result.chunks).toHaveLength(1);
-    expect(result.chunks[0].isFinal).toBe(true);
-    expect(result.chunks[0].ciphertextBase64).toBeTruthy();
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].isFinal).toBe(true);
+    expect(chunks[0].ciphertextBase64).toBeTruthy();
 
     const isValid = await engine.verifyManifest(result.manifest);
     expect(isValid).toBe(true);
@@ -121,17 +126,21 @@ describe('secureOrchestratorFacade with real crypto', () => {
       }
     });
 
+    const chunks: UploadEncryptedBlobChunk[] = [];
     const result = await pipeline.uploadEncryptedBlob({
       itemId: 'item-2',
       blobId: 'blob-2',
-      stream
+      stream,
+      onChunk: async (chunk) => {
+        chunks.push(chunk);
+      }
     });
 
     expect(result.manifest.chunkCount).toBeGreaterThan(1);
     expect(result.manifest.totalPlaintextBytes).toBe(100);
-    expect(result.chunks).toHaveLength(result.manifest.chunkCount);
+    expect(chunks).toHaveLength(result.manifest.chunkCount);
 
-    const finalChunks = result.chunks.filter((c) => c.isFinal);
+    const finalChunks = chunks.filter((c) => c.isFinal);
     expect(finalChunks).toHaveLength(1);
     expect(finalChunks[0].chunkIndex).toBe(result.manifest.chunkCount - 1);
 

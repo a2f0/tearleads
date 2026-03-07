@@ -3,7 +3,7 @@ import type { VfsCryptoEngine } from './engine';
 import { createVfsSecureWritePipeline } from './secureWritePipelineRuntime';
 
 describe('secureWritePipelineRuntime streaming', () => {
-  it('calls onChunk callback for each encrypted chunk when provided', async () => {
+  it('calls onChunk callback for each encrypted chunk', async () => {
     const encryptChunk = vi.fn(
       async ({
         chunkIndex,
@@ -84,11 +84,10 @@ describe('secureWritePipelineRuntime streaming', () => {
       isFinal: true
     });
 
-    expect(result.chunks).toBeUndefined();
     expect(result.manifest.chunkCount).toBe(3);
   });
 
-  it('does not accumulate chunks when onChunk callback is provided', async () => {
+  it('streams chunks without retaining a result chunk array', async () => {
     const encryptChunk = vi.fn(
       async ({
         chunkIndex,
@@ -137,7 +136,6 @@ describe('secureWritePipelineRuntime streaming', () => {
     });
 
     expect(onChunk).toHaveBeenCalledTimes(10);
-    expect(result.chunks).toBeUndefined();
     expect(result.manifest.chunkCount).toBe(10);
     expect(result.manifest.totalPlaintextBytes).toBe(10 * 1024);
   });
@@ -201,7 +199,6 @@ describe('secureWritePipelineRuntime streaming', () => {
     expect(onChunk).toHaveBeenCalledTimes(totalChunks);
     expect(observedChunks).toBe(totalChunks);
     expect(lastChunkIndex).toBe(totalChunks - 1);
-    expect(result.chunks).toBeUndefined();
     expect(result.manifest.chunkCount).toBe(totalChunks);
     expect(result.manifest.totalPlaintextBytes).toBe(
       totalChunks * chunkSizeBytes
@@ -261,7 +258,8 @@ describe('secureWritePipelineRuntime streaming', () => {
     const result = await pipeline.uploadEncryptedBlob({
       itemId: 'item-fragmented',
       blobId: 'blob-fragmented',
-      stream
+      stream,
+      onChunk: async () => {}
     });
 
     expect(encryptChunk).toHaveBeenCalledTimes(3);

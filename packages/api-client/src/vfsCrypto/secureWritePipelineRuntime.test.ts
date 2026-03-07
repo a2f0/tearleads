@@ -60,11 +60,18 @@ describe('secureWritePipelineRuntime', () => {
       }
     });
 
+    const streamedChunks: Array<{ chunkIndex: number; isFinal: boolean }> = [];
     const result = await pipeline.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
       contentType: 'application/octet-stream',
-      stream
+      stream,
+      onChunk: async (chunk) => {
+        streamedChunks.push({
+          chunkIndex: chunk.chunkIndex,
+          isFinal: chunk.isFinal
+        });
+      }
     });
 
     expect(encryptChunk).toHaveBeenCalledTimes(3);
@@ -119,7 +126,7 @@ describe('secureWritePipelineRuntime', () => {
     );
     expect(result.manifest.chunkHashes).toHaveLength(3);
     expect(result.manifest.wrappedFileKeys).toHaveLength(1);
-    expect(result.chunks).toEqual([
+    expect(streamedChunks).toEqual([
       expect.objectContaining({ chunkIndex: 0, isFinal: false }),
       expect.objectContaining({ chunkIndex: 1, isFinal: false }),
       expect.objectContaining({ chunkIndex: 2, isFinal: true })
@@ -165,10 +172,17 @@ describe('secureWritePipelineRuntime', () => {
       }
     });
 
+    const streamedChunks: Array<{ chunkIndex: number; isFinal: boolean }> = [];
     const result = await pipeline.uploadEncryptedBlob({
       itemId: 'item-empty',
       blobId: 'blob-empty',
-      stream
+      stream,
+      onChunk: async (chunk) => {
+        streamedChunks.push({
+          chunkIndex: chunk.chunkIndex,
+          isFinal: chunk.isFinal
+        });
+      }
     });
 
     expect(encryptChunk).toHaveBeenCalledTimes(1);
@@ -181,7 +195,7 @@ describe('secureWritePipelineRuntime', () => {
     );
     expect(result.manifest.chunkCount).toBe(1);
     expect(result.manifest.totalPlaintextBytes).toBe(0);
-    expect(result.chunks).toHaveLength(1);
+    expect(streamedChunks).toHaveLength(1);
   });
 
   it('encrypts CRDT payloads through engine chunk encryption', async () => {
@@ -304,7 +318,8 @@ describe('secureWritePipelineRuntime', () => {
       pipeline.uploadEncryptedBlob({
         itemId: 'item-1',
         blobId: 'blob-1',
-        stream
+        stream,
+        onChunk: async () => {}
       })
     ).rejects.toThrow('keyEpoch must be a positive integer');
   });
@@ -353,12 +368,14 @@ describe('secureWritePipelineRuntime', () => {
     const result1 = await pipeline.uploadEncryptedBlob({
       itemId: 'item-1',
       blobId: 'blob-1',
-      stream: stream1
+      stream: stream1,
+      onChunk: async () => {}
     });
     const result2 = await pipeline.uploadEncryptedBlob({
       itemId: 'item-2',
       blobId: 'blob-2',
-      stream: stream2
+      stream: stream2,
+      onChunk: async () => {}
     });
 
     expect(result1.uploadId).toBeTruthy();
