@@ -21,7 +21,7 @@ const config: AppConfig = {
 
   api: {
     productionUrl: 'https://api.tearleads.com/v1',
-    stagingUrl: 'https://staging-api.tearleads.com/v1'
+    stagingUrl: 'https://api.tearleads.de/v1'
   },
 
   theme: {
