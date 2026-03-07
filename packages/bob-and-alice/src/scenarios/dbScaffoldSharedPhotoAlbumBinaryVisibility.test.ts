@@ -18,6 +18,7 @@ import {
 } from '@tearleads/shared/scaffolding';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
 interface StoredS3Object {
@@ -151,11 +152,6 @@ function setBlobEnv(key: (typeof blobEnvKeys)[number], value: string): void {
   }
   process.env[key] = value;
 }
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 async function postVfsConnectJson(
   actor: ReturnType<ApiScenarioHarness['actor']>,

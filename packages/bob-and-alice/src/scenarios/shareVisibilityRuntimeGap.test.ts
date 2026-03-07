@@ -10,11 +10,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 async function seedKeys(input: {
   alice: ReturnType<ApiScenarioHarness['actor']>;

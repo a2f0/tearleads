@@ -12,12 +12,8 @@ import {
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 async function fetchAllSyncItems(
   actor: ReturnType<ApiScenarioHarness['actor']>

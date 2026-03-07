@@ -89,14 +89,14 @@ function getRepoNameWithOwner(): string {
 
 function printUsage(): void {
   process.stdout.write(
-    [
+    `${[
       'Usage:',
       '  ./scripts/createTuxedoDeployKey.ts',
       '  ./scripts/createTuxedoDeployKey.ts --help',
       '',
       'Options:',
       '  --help, -h    Show this help message.'
-    ].join('\n') + '\n'
+    ].join('\n')}\n`
   );
 }
 

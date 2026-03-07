@@ -649,6 +649,9 @@ importers:
       '@tearleads/api-test-utils':
         specifier: workspace:*
         version: link:../api-test-utils
+      '@tearleads/db':
+        specifier: workspace:*
+        version: link:../db
       '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils

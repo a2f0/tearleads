@@ -9,6 +9,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 interface ActiveShare {
   shareId: string;
@@ -45,11 +46,6 @@ function extractShareUuid(shareId: string): string {
   }
   return lastPart;
 }
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 describe('window lifecycle refresh chaos', () => {
   let harness: ApiScenarioHarness | null = null;
@@ -308,5 +304,5 @@ describe('window lifecycle refresh chaos', () => {
 
     await verifyBobWindow(10_000, 1);
     await verifyAliceWindow(10_000);
-  });
+  }, 20_000);
 });

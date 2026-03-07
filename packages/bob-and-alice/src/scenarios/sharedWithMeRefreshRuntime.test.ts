@@ -8,16 +8,12 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   assertPgHasActiveUserShare,
   assertPgHasVfsRegistryItem,
   assertPgUserOrganizationMembership
 } from '../harness/postgresAssertions.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 describe('sharedWithMe refresh runtime', () => {
   let harness: ApiScenarioHarness | null = null;
