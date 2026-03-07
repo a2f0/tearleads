@@ -1,6 +1,6 @@
 import type { LocalWriteOptions } from '@tearleads/local-write-orchestrator';
+import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VFS_CONNECT_BASE_PATH } from './vfsConnectBasePath';
 import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator';
 
 describe('vfsWriteOrchestrator', () => {

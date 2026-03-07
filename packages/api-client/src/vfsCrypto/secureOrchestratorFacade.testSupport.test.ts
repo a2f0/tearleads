@@ -1,5 +1,5 @@
+import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
-import { VFS_CONNECT_BASE_PATH } from '../vfsConnectBasePath';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
 
 function createConnectPushBody(): string {
