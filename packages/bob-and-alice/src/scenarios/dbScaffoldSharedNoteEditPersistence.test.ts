@@ -225,7 +225,22 @@ describe('DB scaffold shared note edit persistence', () => {
     expect(alicePermission.canEdit).toBe(true);
     expect(alicePermission.permissionLevel).toBe('edit');
 
-    const baseOccurredAtMs = Date.parse('2026-03-07T17:00:00.000Z');
+    const seededNoteTimelineFloorMs = (await fetchAllCrdtItems(alice))
+      .filter(
+        (item) =>
+          item.itemId === seededShare.noteId &&
+          (item.opType === 'item_upsert' || item.opType === 'item_delete')
+      )
+      .reduce((maxOccurredAtMs, item) => {
+        const occurredAtMs = Date.parse(item.occurredAt);
+        if (!Number.isFinite(occurredAtMs)) {
+          return maxOccurredAtMs;
+        }
+        return Math.max(maxOccurredAtMs, occurredAtMs);
+      }, 0);
+    // Keep push timestamps above scaffolded CRDT entries so writes are never
+    // interpreted as stale based on wall-clock execution time.
+    const baseOccurredAtMs = Math.max(seededNoteTimelineFloorMs, Date.now());
 
     const aliceFirstEditPlaintext = 'alice-edit-after-db-scaffold';
     const aliceFirstOperation = buildItemUpsertOperation({

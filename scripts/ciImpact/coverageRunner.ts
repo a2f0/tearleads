@@ -12,8 +12,10 @@ function parseCoverageTimeoutMs(): number {
   return parsed * 60 * 1000;
 }
 
-function parseVitestMaxWorkersArg(): string {
-  const raw = process.env['PRE_PUSH_VITEST_MAX_WORKERS'];
+function parseCoverageMaxWorkersArg(): string {
+  const raw =
+    process.env['PRE_PUSH_MAX_WORKERS'] ??
+    process.env['PRE_PUSH_VITEST_MAX_WORKERS'];
   if (typeof raw === 'string' && raw.trim().length > 0) {
     return `--maxWorkers=${raw.trim()}`;
   }
@@ -22,7 +24,7 @@ function parseVitestMaxWorkersArg(): string {
 
 export function runCoverageForPackage(pkg: string): void {
   const timeoutMs = parseCoverageTimeoutMs();
-  const maxWorkersArg = parseVitestMaxWorkersArg();
+  const maxWorkersArg = parseCoverageMaxWorkersArg();
   const result = spawnSync(
     'pnpm',
     ['--filter', pkg, 'test:coverage', '--', maxWorkersArg],
