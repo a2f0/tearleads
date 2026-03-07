@@ -392,6 +392,9 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
   const subscribe = useCallback((groupId: string) => {
     setSubscribedGroups((prev) => {
+      if (prev.has(groupId)) {
+        return prev;
+      }
       const next = new Set(prev);
       next.add(groupId);
       return next;
@@ -400,6 +403,9 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
   const unsubscribe = useCallback((groupId: string) => {
     setSubscribedGroups((prev) => {
+      if (!prev.has(groupId)) {
+        return prev;
+      }
       const next = new Set(prev);
       next.delete(groupId);
       return next;

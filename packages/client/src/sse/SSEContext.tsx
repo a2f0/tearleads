@@ -1,8 +1,4 @@
-import {
-  isRecord,
-  type SSEConnectionState,
-  type SSEMessage
-} from '@tearleads/shared';
+import { type SSEConnectionState, type SSEMessage } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -11,7 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useSyncExternalStore
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -20,6 +16,7 @@ import {
   tryRefreshToken
 } from '@/lib/api';
 import { isJwtExpired } from '@/lib/jwt';
+import { createNotificationStreamManager } from './notificationStreamManager';
 
 interface SSEContextValue {
   connectionState: SSEConnectionState;
@@ -36,56 +33,6 @@ interface SSEProviderProps {
   channels?: string[];
 }
 
-interface NotificationStreamEnvelope {
-  event: string;
-}
-
-function isNotificationStreamEnvelope(
-  value: unknown
-): value is NotificationStreamEnvelope {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return typeof value['event'] === 'string';
-}
-
-function isSseMessage(value: unknown): value is SSEMessage {
-  if (!isRecord(value)) {
-    return false;
-  }
-  if (typeof value['channel'] !== 'string') {
-    return false;
-  }
-  const message = value['message'];
-  if (!isRecord(message)) {
-    return false;
-  }
-  if (typeof message['type'] !== 'string') {
-    return false;
-  }
-  if (!('payload' in message)) {
-    return false;
-  }
-  return typeof message['timestamp'] === 'string';
-}
-
-const SSE_RECONNECT_BASE_DELAY_MS = 1000;
-const SSE_RECONNECT_MAX_DELAY_MS = 30000;
-
-function computeReconnectDelayWithJitter(attempt: number): number {
-  if (attempt <= 0) {
-    return SSE_RECONNECT_BASE_DELAY_MS;
-  }
-
-  const exponentialDelay = Math.min(
-    SSE_RECONNECT_BASE_DELAY_MS * 2 ** attempt,
-    SSE_RECONNECT_MAX_DELAY_MS
-  );
-  const jitterFloor = Math.floor(exponentialDelay / 2);
-  const jitterRange = Math.max(0, exponentialDelay - jitterFloor);
-  return jitterFloor + Math.floor(Math.random() * (jitterRange + 1));
-}
-
 export function SSEProvider({
   children,
   autoConnect = true,
@@ -93,34 +40,27 @@ export function SSEProvider({
 }: SSEProviderProps) {
   // component-complexity: allow -- stream auth, reconnect, and lifecycle paths are intentionally centralized.
   const { isAuthenticated, isLoading, token } = useAuth();
-  const [connectionState, setConnectionState] =
-    useState<SSEConnectionState>('disconnected');
-  const [lastMessage, setLastMessage] = useState<SSEMessage | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+  const streamManager = useMemo(
+    () =>
+      createNotificationStreamManager({
+        openNotificationEventStream,
+        isTokenExpired: isJwtExpired,
+        tryRefreshToken
+      }),
+    []
   );
-  const reconnectAttemptRef = useRef(0);
+  const { connectionState, lastMessage } = useSyncExternalStore(
+    streamManager.subscribe,
+    streamManager.getSnapshot,
+    streamManager.getSnapshot
+  );
   const channelsRef = useRef(channels);
   const prevChannelsRef = useRef<string[]>(channels);
   const prevTokenRef = useRef<string | null>(token);
 
-  const clearReconnectTimeout = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  }, []);
-
   const disconnect = useCallback(() => {
-    clearReconnectTimeout();
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setConnectionState('disconnected');
-    reconnectAttemptRef.current = 0;
-  }, [clearReconnectTimeout]);
+    streamManager.disconnect();
+  }, [streamManager]);
 
   const connect = useCallback(
     (channelsToUse: string[] = channelsRef.current) => {
@@ -134,94 +74,13 @@ export function SSEProvider({
       }
 
       channelsRef.current = [...channelsToUse];
-      disconnect();
-      setConnectionState('connecting');
-
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      const handleError = (isAborted: boolean) => {
-        if (isAborted) return;
-
-        abortControllerRef.current = null;
-
-        // Check if this is likely an auth error (token expired)
-        if (token && isJwtExpired(token)) {
-          // Token expired - set to 'connecting' while we attempt refresh
-          // This allows the token-change effect to reconnect after refresh succeeds
-          // If refresh fails, isAuthenticated becomes false and we stay disconnected
-          setConnectionState('connecting');
-          void tryRefreshToken();
-          return;
-        }
-
-        // Network error or other issue - set disconnected and use exponential backoff
-        setConnectionState('disconnected');
-        const delay = computeReconnectDelayWithJitter(
-          reconnectAttemptRef.current
-        );
-        reconnectAttemptRef.current++;
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect(channelsToUse);
-        }, delay);
-      };
-
-      const startStream = async () => {
-        try {
-          for await (const payload of openNotificationEventStream({
-            apiBaseUrl,
-            channels: channelsToUse,
-            token,
-            signal: abortController.signal
-          })) {
-            let parsedPayload: unknown;
-            try {
-              parsedPayload = JSON.parse(payload);
-            } catch (err) {
-              console.error('Failed to parse SSE message:', err);
-              continue;
-            }
-
-            if (!isNotificationStreamEnvelope(parsedPayload)) {
-              continue;
-            }
-
-            if (parsedPayload.event === 'connected') {
-              setConnectionState('connected');
-              reconnectAttemptRef.current = 0;
-              continue;
-            }
-
-            if (parsedPayload.event !== 'message') {
-              continue;
-            }
-
-            if (isSseMessage(parsedPayload)) {
-              setLastMessage({
-                channel: parsedPayload.channel,
-                message: parsedPayload.message
-              });
-            } else {
-              console.error(
-                'Failed to parse SSE message: invalid shape',
-                parsedPayload
-              );
-            }
-          }
-
-          handleError(abortController.signal.aborted);
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') {
-            return;
-          }
-          handleError(false);
-        }
-      };
-
-      void startStream();
+      streamManager.connect({
+        apiBaseUrl,
+        channels: channelsToUse,
+        token
+      });
     },
-    [disconnect, token]
+    [streamManager, token]
   );
 
   // Reconnect when channels change (if already connected)
