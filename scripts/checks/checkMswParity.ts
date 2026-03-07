@@ -1,9 +1,6 @@
 #!/usr/bin/env -S node --import tsx
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import {
-  API_ROUTE_REGEX,
-  API_ROUTES_DIR,
   type ApiRoute,
   type HttpMethod,
   LITERAL_PATH_SEGMENT_REGEX,
@@ -12,9 +9,9 @@ import {
   MSW_LITERAL_REGEX,
   MSW_WITH_OPTIONAL_V1_REGEX,
   type MswHandlerMatcher,
-  type ParityResult,
-  ROOT_DIR
+  type ParityResult
 } from './checkMswParity/types.ts';
+import { loadApiRoutes } from './checkMswParity/apiRoutes.ts';
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {
   const segments: string[] = [];
@@ -80,111 +77,13 @@ const toMethod = (value: string): HttpMethod => {
   throw new Error(`Unsupported HTTP method: ${value}`);
 };
 
-const withPrefix = (prefix: string, routePath: string): string =>
-  `${prefix}${routePath === '/' ? '' : routePath}`;
-
-const routePrefixForFile = (filePath: string): string | null => {
-  const normalized = filePath.replace(/\\/g, '/');
-  if (normalized.includes('/routes/admin/users/')) return '/v1/admin/users';
-  if (normalized.includes('/routes/admin/groups/')) return '/v1/admin/groups';
-  if (normalized.includes('/routes/admin/organizations/')) {
-    return '/v1/admin/organizations';
+const pathExists = async (candidatePath: string): Promise<boolean> => {
+  try {
+    await fs.access(candidatePath);
+    return true;
+  } catch {
+    return false;
   }
-  if (normalized.includes('/routes/admin/postgres/'))
-    return '/v1/admin/postgres';
-  if (normalized.includes('/routes/admin/redis/')) return '/v1/admin/redis';
-  if (normalized.endsWith('/routes/admin/context.ts'))
-    return '/v1/admin/context';
-  if (normalized.includes('/routes/auth/')) return '/v1/auth';
-  if (normalized.includes('/routes/billing/')) return '/v1/billing';
-  if (normalized.includes('/routes/chat/')) return '/v1/chat';
-  if (normalized.includes('/routes/ai-conversations/')) return '/v1/ai';
-  if (normalized.includes('/routes/emailsCompose/')) return '/v1/emails';
-  if (normalized.includes('/routes/emails/')) return '/v1/emails';
-  if (normalized.includes('/routes/sse/')) return '/v1/sse';
-  if (normalized.includes('/routes/vfs-shares/')) {
-    return '/v1/connect/tearleads.v2.VfsSharesService';
-  }
-  if (normalized.includes('/routes/vfs/')) {
-    return '/v1/connect/tearleads.v2.VfsService';
-  }
-  if (normalized.includes('/routes/mls/')) return '/v1/mls';
-  if (normalized.includes('/routes/revenuecat/')) return '/v1/revenuecat';
-  return null;
-};
-
-const isLeafRouteFile = (relativePath: string): boolean => {
-  if (relativePath.endsWith('.test.ts')) return false;
-  if (relativePath.endsWith('/shared.ts')) return false;
-  if (relativePath.includes('/lib/')) return false;
-  return !/\/routes\/[a-z-]+\.ts$/.test(relativePath);
-};
-
-const listFilesRecursive = async (directory: string): Promise<string[]> => {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        return listFilesRecursive(absolutePath);
-      }
-
-      if (entry.isFile() && absolutePath.endsWith('.ts')) {
-        return [absolutePath];
-      }
-
-      return [];
-    })
-  );
-
-  return files.flat();
-};
-
-const loadApiRoutes = async (): Promise<ApiRoute[]> => {
-  const apiFiles = await listFilesRecursive(API_ROUTES_DIR);
-  const routes: ApiRoute[] = [];
-
-  for (const absolutePath of apiFiles) {
-    const relativePath = path.relative(ROOT_DIR, absolutePath);
-    if (!isLeafRouteFile(relativePath)) {
-      continue;
-    }
-
-    const prefix = routePrefixForFile(relativePath);
-    if (!prefix) {
-      continue;
-    }
-
-    const content = await fs.readFile(absolutePath, 'utf8');
-    const regex = new RegExp(API_ROUTE_REGEX);
-    let match: RegExpExecArray | null = regex.exec(content);
-
-    while (match) {
-      const methodValue = match[1];
-      const routePath = match[2];
-      if (methodValue === undefined || routePath === undefined) {
-        match = regex.exec(content);
-        continue;
-      }
-      const method = toMethod(methodValue);
-      routes.push({
-        method,
-        path: withPrefix(prefix, routePath),
-        source: relativePath
-      });
-
-      match = regex.exec(content);
-    }
-  }
-
-  const deduped = new Map<string, ApiRoute>();
-  for (const route of routes) {
-    deduped.set(`${route.method} ${route.path}`, route);
-  }
-
-  return [...deduped.values()].sort((a, b) =>
-    `${a.method} ${a.path}`.localeCompare(`${b.method} ${b.path}`)
-  );
 };
 
 const classifyOptionalV1PathPattern = (
@@ -279,6 +178,13 @@ const buildMatcherFromLiteral = (
 };
 
 const loadMswMatchers = async (): Promise<MswHandlerMatcher[]> => {
+  if (!(await pathExists(MSW_HANDLERS_FILE))) {
+    console.error(
+      `MSW parity: handlers file not found at ${MSW_HANDLERS_FILE}; proceeding with zero MSW matchers`
+    );
+    return [];
+  }
+
   const content = await fs.readFile(MSW_HANDLERS_FILE, 'utf8');
   const results: MswHandlerMatcher[] = [];
 
