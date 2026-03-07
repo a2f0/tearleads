@@ -240,10 +240,7 @@ describe('DB scaffold shared note edit persistence', () => {
       }, 0);
     // Keep push timestamps above scaffolded CRDT entries so writes are never
     // interpreted as stale based on wall-clock execution time.
-    const baseOccurredAtMs = Math.max(
-      seededNoteTimelineFloorMs,
-      Date.now()
-    );
+    const baseOccurredAtMs = Math.max(seededNoteTimelineFloorMs, Date.now());
 
     const aliceFirstEditPlaintext = 'alice-edit-after-db-scaffold';
     const aliceFirstOperation = buildItemUpsertOperation({
