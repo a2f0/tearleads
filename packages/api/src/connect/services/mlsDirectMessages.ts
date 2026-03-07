@@ -263,12 +263,7 @@ export async function getGroupMessagesDirectTyped(
          AND ($3::integer IS NULL OR sequence_number < $3::integer)
        ORDER BY sequence_number DESC
        LIMIT $4::integer`,
-      [
-        groupId,
-        `mls_message:${groupId}:%`,
-        cursor,
-        limit + 1
-      ]
+      [groupId, `mls_message:${groupId}:%`, cursor, limit + 1]
     );
 
     const hasMore = result.rows.length > limit;
