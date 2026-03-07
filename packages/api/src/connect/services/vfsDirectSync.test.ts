@@ -455,7 +455,7 @@ describe('vfsDirectSync', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       clientId: 'client-1',
       cursor: encodeVfsSyncCursor({
         changedAt: '2026-03-03T00:00:00.000Z',

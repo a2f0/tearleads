@@ -48,10 +48,6 @@ import { pushCrdtOpsDirect } from './vfsDirectCrdtPush.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectCrdtPush', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -181,7 +177,7 @@ describe('vfsDirectCrdtPush', () => {
       actorId: 'user-1',
       sourceClientId: 'desktop-1'
     });
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       clientId: 'desktop-1',
       results: [
         {
@@ -252,7 +248,8 @@ describe('vfsDirectCrdtPush', () => {
         }
       )
     ).resolves.toMatchObject({
-      json: expect.any(String)
+      clientId: 'desktop-1',
+      results: []
     });
   });
 

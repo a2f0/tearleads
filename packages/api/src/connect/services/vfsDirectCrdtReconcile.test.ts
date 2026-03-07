@@ -22,10 +22,6 @@ import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectCrdtReconcile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,7 +156,7 @@ describe('vfsDirectCrdtReconcile', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       clientId: 'desktop-1',
       cursor: encodeVfsSyncCursor({
         changedAt: '2026-03-03T00:00:00.000Z',
