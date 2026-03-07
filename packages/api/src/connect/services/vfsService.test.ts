@@ -391,7 +391,7 @@ describe('vfsConnectService', () => {
           vfsConnectService.runCrdtSession(runCrdtSessionRequest, context),
         expectedRequest: runCrdtSessionRequest,
         mock: runCrdtSessionDirectMock
-      },
+      }
     ];
 
     for (const testCase of directCases) {
