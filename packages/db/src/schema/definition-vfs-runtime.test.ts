@@ -19,7 +19,6 @@ import {
   mlsGroupStateTable,
   mlsGroupsTable,
   mlsKeyPackagesTable,
-  mlsMessagesTable,
   mlsWelcomeMessagesTable,
   notesTable,
   organizationBillingAccountsTable,
@@ -262,7 +261,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(53);
+    expect(allTables).toHaveLength(52);
   });
 
   it('contains all table definitions', () => {
@@ -311,7 +310,6 @@ describe('allTables', () => {
     expect(allTables).toContain(mlsKeyPackagesTable);
     expect(allTables).toContain(mlsGroupsTable);
     expect(allTables).toContain(mlsGroupMembersTable);
-    expect(allTables).toContain(mlsMessagesTable);
     expect(allTables).toContain(mlsWelcomeMessagesTable);
     expect(allTables).toContain(mlsGroupStateTable);
   });

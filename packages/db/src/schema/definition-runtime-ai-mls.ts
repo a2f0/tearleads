@@ -222,83 +222,6 @@ export const mlsGroupMembersTable: TableDefinition = {
 };
 
 /**
- * MLS encrypted messages.
- * Server stores ciphertext only - decryption happens client-side.
- */
-export const mlsMessagesTable: TableDefinition = {
-  name: 'mls_messages',
-  propertyName: 'mlsMessages',
-  comment:
-    'MLS encrypted messages.\nServer stores ciphertext only - decryption happens client-side.',
-  columns: {
-    id: {
-      type: 'text',
-      sqlName: 'id',
-      primaryKey: true
-    },
-    groupId: {
-      type: 'text',
-      sqlName: 'group_id',
-      notNull: true,
-      references: {
-        table: 'mls_groups',
-        column: 'id',
-        onDelete: 'cascade'
-      }
-    },
-    senderUserId: {
-      type: 'text',
-      sqlName: 'sender_user_id',
-      references: {
-        table: 'users',
-        column: 'id',
-        onDelete: 'set null'
-      }
-    },
-    epoch: {
-      type: 'integer',
-      sqlName: 'epoch',
-      notNull: true
-    },
-    ciphertext: {
-      type: 'text',
-      sqlName: 'ciphertext',
-      notNull: true
-    },
-    messageType: {
-      type: 'text',
-      sqlName: 'message_type',
-      notNull: true,
-      enumValues: ['application', 'commit', 'proposal'] as const
-    },
-    contentType: {
-      type: 'text',
-      sqlName: 'content_type',
-      defaultValue: 'text/plain'
-    },
-    sequenceNumber: {
-      type: 'integer',
-      sqlName: 'sequence_number',
-      notNull: true
-    },
-    createdAt: {
-      type: 'timestamp',
-      sqlName: 'created_at',
-      notNull: true
-    }
-  },
-  indexes: [
-    {
-      name: 'mls_messages_group_seq_unique',
-      columns: ['groupId', 'sequenceNumber'],
-      unique: true
-    },
-    { name: 'mls_messages_group_epoch_idx', columns: ['groupId', 'epoch'] },
-    { name: 'mls_messages_created_idx', columns: ['createdAt'] }
-  ]
-};
-
-/**
  * MLS welcome messages for new group members.
  * When a user is added to a group, they receive a welcome message
  * that contains the encrypted group state needed to join.
@@ -439,7 +362,6 @@ export const runtimeAiMlsTables: TableDefinition[] = [
   mlsKeyPackagesTable,
   mlsGroupsTable,
   mlsGroupMembersTable,
-  mlsMessagesTable,
   mlsWelcomeMessagesTable,
   mlsGroupStateTable
 ];

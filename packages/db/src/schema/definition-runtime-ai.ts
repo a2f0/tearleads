@@ -6,7 +6,6 @@ export {
   mlsGroupStateTable,
   mlsGroupsTable,
   mlsKeyPackagesTable,
-  mlsMessagesTable,
   mlsWelcomeMessagesTable
 } from './definition-runtime-ai-mls.js';
 
