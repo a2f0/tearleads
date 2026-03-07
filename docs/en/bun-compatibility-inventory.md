@@ -1,12 +1,12 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-07T19:31:56.390Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-07T20:19:56.114Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 6
-- Transitional bun auto-fallback scripts: 9
+- Bun-primary test scripts: 12
+- Transitional bun auto-fallback scripts: 3
 - Vitest-primary test scripts: 33
 - Packages with DOM/jsdom indicators: 33
 - Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 14
@@ -73,16 +73,16 @@ Generated: `2026-03-07T19:31:56.390Z` via `node --experimental-strip-types scrip
 | `@tearleads/vfs-sync` | 82 | `bun-auto-fallback` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/photos` | 1 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/vehicles` | 2 | `bun-primary` | yes | vi.mocked:1 | none | `needs-remediation` |
-| `@tearleads/api-test-utils` | 3 | `bun-auto-fallback` | yes | none | none | `ready` |
 | `@tearleads/bob-and-alice` | 29 | `bun-primary` | yes | vi.stubEnv:1 | none | `ready` |
-| `@tearleads/db` | 30 | `bun-auto-fallback` | yes | none | none | `ready` |
-| `@tearleads/msw` | 2 | `bun-auto-fallback` | yes | none | none | `ready` |
-| `@tearleads/remote-read-orchestrator` | 1 | `bun-auto-fallback` | yes | none | none | `ready` |
-| `@tearleads/smtp-listener` | 11 | `bun-auto-fallback` | yes | none | none | `ready` |
-| `@tearleads/tee-api` | 5 | `bun-auto-fallback` | yes | none | none | `ready` |
+| `@tearleads/api-test-utils` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-builder` | 2 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/db` | 30 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/local-write-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/msw` | 2 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/remote-read-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/search` | 3 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/smtp-listener` | 11 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/tee-api` | 5 | `bun-primary` | yes | none | none | `ready` |
 
 ## Notes
 
