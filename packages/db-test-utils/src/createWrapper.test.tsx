@@ -8,6 +8,7 @@ import {
   useTestDb
 } from './createWrapper.js';
 
+// one-component-per-file: allow - test-only local wrappers keep the hook scenarios readable.
 function ensureDomForBun(): void {
   if (typeof globalThis.document !== 'undefined') {
     return;
