@@ -150,6 +150,10 @@ function buildItemUpsertOperation(input: {
   };
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
 describe('DB scaffold shared note edit persistence', () => {
   let harness: ApiScenarioHarness | null = null;
   let browserActors: BrowserRuntimeActor[] = [];
@@ -214,7 +218,7 @@ describe('DB scaffold shared note edit persistence', () => {
       aliceRuntime.localDb,
       seededShare.noteId
     );
-    expect(initialAliceNote?.content).toBe(toBase64('Hello, Alice'));
+    expect(initialAliceNote?.content).toBe('Hello, Alice');
 
     const alicePermission = await queryLocalItemPermission({
       localDb: aliceRuntime.localDb,
@@ -260,7 +264,7 @@ describe('DB scaffold shared note edit persistence', () => {
       expect(
         (await queryLocalNoteById(aliceRuntime.localDb, seededShare.noteId))
           ?.content
-      ).toBe(aliceFirstPayload);
+      ).toBe(aliceFirstEditPlaintext);
     }
 
     const aliceSecondEditPlaintext = 'alice-edit-after-reopen';
@@ -295,7 +299,7 @@ describe('DB scaffold shared note edit persistence', () => {
       expect(
         (await queryLocalNoteById(aliceRuntime.localDb, seededShare.noteId))
           ?.content
-      ).toBe(aliceSecondPayload);
+      ).toBe(aliceSecondEditPlaintext);
     }
 
     await refreshLocalStateFromApi({
@@ -306,27 +310,39 @@ describe('DB scaffold shared note edit persistence', () => {
     expect(
       (await queryLocalNoteById(bobRuntime.localDb, seededShare.noteId))
         ?.content
-    ).toBe(aliceSecondPayload);
+    ).toBe(aliceSecondEditPlaintext);
 
     const bobCrdtFeed = await fetchAllCrdtItems(bob);
-    expect(
-      bobCrdtFeed.some(
-        (item) =>
-          item.itemId === seededShare.noteId &&
-          item.opType === 'item_upsert' &&
-          item.actorId === alice.user.userId &&
-          item.encryptedPayload === aliceFirstPayload
-      )
-    ).toBe(true);
-    expect(
-      bobCrdtFeed.some(
-        (item) =>
-          item.itemId === seededShare.noteId &&
-          item.opType === 'item_upsert' &&
-          item.actorId === alice.user.userId &&
-          item.encryptedPayload === aliceSecondPayload
-      )
-    ).toBe(true);
+    const firstAliceFeedUpsert = bobCrdtFeed.find(
+      (item) =>
+        item.itemId === seededShare.noteId &&
+        item.opType === 'item_upsert' &&
+        item.actorId === alice.user.userId &&
+        item.encryptedPayload === aliceFirstPayload
+    );
+    const secondAliceFeedUpsert = bobCrdtFeed.find(
+      (item) =>
+        item.itemId === seededShare.noteId &&
+        item.opType === 'item_upsert' &&
+        item.actorId === alice.user.userId &&
+        item.encryptedPayload === aliceSecondPayload
+    );
+    // Guardrail: feed upserts must keep non-empty envelope metadata.
+    expect(firstAliceFeedUpsert).toBeDefined();
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionNonce)).toBe(true);
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionAad)).toBe(true);
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionSignature)).toBe(
+      true
+    );
+    expect(firstAliceFeedUpsert?.keyEpoch).toBe(1);
+
+    expect(secondAliceFeedUpsert).toBeDefined();
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionNonce)).toBe(true);
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionAad)).toBe(true);
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionSignature)).toBe(
+      true
+    );
+    expect(secondAliceFeedUpsert?.keyEpoch).toBe(1);
   });
 
   it('keeps read-only DB-scaffold shares non-editable and push is rejected', async () => {

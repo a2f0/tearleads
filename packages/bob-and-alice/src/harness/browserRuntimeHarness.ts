@@ -127,6 +127,29 @@ function parseMillis(value: string | null): number {
   return parsed;
 }
 
+function decodeMaterializedNoteContent(
+  encryptedPayload: string | null | undefined
+): string {
+  if (typeof encryptedPayload !== 'string') return '';
+  const trimmed = encryptedPayload.trim();
+  if (trimmed.length === 0) return '';
+  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  const paddingRemainder = normalized.length % 4;
+  const padded =
+    paddingRemainder === 0
+      ? normalized
+      : `${normalized}${'='.repeat(4 - paddingRemainder)}`;
+  if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(padded)) return '';
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(
+      Uint8Array.from(Buffer.from(padded, 'base64'))
+    );
+  } catch {
+    return '';
+  }
+}
+
 async function fetchAllSyncItems(
   actor: RuntimeApiActor
 ): Promise<VfsSyncItem[]> {
@@ -299,7 +322,8 @@ export async function refreshLocalStateFromApi(input: {
       return {
         id: entry.id,
         title,
-        content: itemState?.encryptedPayload ?? '',
+        // Guardrail: mirror client note materialization (base64 UTF-8 decode).
+        content: decodeMaterializedNoteContent(itemState?.encryptedPayload),
         deleted: itemState ? (itemState.deletedAt === null ? 0 : 1) : 0
       };
     });

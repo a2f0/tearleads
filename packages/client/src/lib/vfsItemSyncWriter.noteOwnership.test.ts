@@ -217,9 +217,27 @@ describe('vfsItemSyncWriter note ownership paths', () => {
       })
     ).resolves.toBeUndefined();
 
+    const encodedPayload = Buffer.from('Alice edit', 'utf8').toString('base64');
     expect(registerMock).not.toHaveBeenCalled();
     expect(queueEncryptedCrdtOpAndPersist).not.toHaveBeenCalled();
-    expect(queueCrdtLocalOperationAndPersist).toHaveBeenCalledTimes(1);
+    expect(queueCrdtLocalOperationAndPersist).toHaveBeenCalledWith({
+      itemId: 'shared-note-2',
+      opType: 'item_upsert',
+      encryptedPayload: encodedPayload,
+      keyEpoch: 1,
+      encryptionNonce: Buffer.from(
+        `nonce:shared-note-2:${encodedPayload}`,
+        'utf8'
+      ).toString('base64'),
+      encryptionAad: Buffer.from(
+        `aad:shared-note-2:${encodedPayload}`,
+        'utf8'
+      ).toString('base64'),
+      encryptionSignature: Buffer.from(
+        `signature:shared-note-2:${encodedPayload}`,
+        'utf8'
+      ).toString('base64')
+    });
     expect(updateWhereMock).not.toHaveBeenCalled();
     expect(flushAll).toHaveBeenCalledTimes(1);
   });

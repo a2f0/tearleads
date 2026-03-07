@@ -27,10 +27,7 @@ function toBase64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
 }
 
-async function seedVfsKeys(
-  actor: ScenarioActor,
-  alias: string
-): Promise<void> {
+async function seedVfsKeys(actor: ScenarioActor, alias: string): Promise<void> {
   const response = await actor.fetch('/vfs/keys', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,7 +41,9 @@ async function seedVfsKeys(
   expect(response.status).toBe(201);
 }
 
-async function fetchAllCrdtItems(actor: ScenarioActor): Promise<VfsCrdtSyncItem[]> {
+async function fetchAllCrdtItems(
+  actor: ScenarioActor
+): Promise<VfsCrdtSyncItem[]> {
   const items: VfsCrdtSyncItem[] = [];
   let cursor: string | undefined;
 
@@ -93,6 +92,10 @@ function buildItemUpsertOperation(input: {
     encryptionAad: toBase64(`aad-${input.opId}`),
     encryptionSignature: toBase64(`sig-${input.opId}`)
   };
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }
 
 describe('shared note edit sync', () => {
@@ -178,7 +181,6 @@ describe('shared note edit sync', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobSeedPayload = bobPushOperation.encryptedPayload ?? '';
     const bobPush = await bob.fetchJson<VfsCrdtPushResponse>('/vfs/crdt/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -194,9 +196,9 @@ describe('shared note edit sync', () => {
       localDb: aliceRuntime.localDb,
       knownUsers
     });
-    expect((await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content).toBe(
-      bobSeedPayload
-    );
+    expect(
+      (await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content
+    ).toBe('bob-seed');
 
     const aliceEditPlaintext = 'alice-edit-v2';
     const alicePushOperation = buildItemUpsertOperation({
@@ -226,9 +228,9 @@ describe('shared note edit sync', () => {
       localDb: aliceRuntime.localDb,
       knownUsers
     });
-    expect((await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content).toBe(
-      aliceEditPayload
-    );
+    expect(
+      (await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content
+    ).toBe(aliceEditPlaintext);
 
     // Simulate close -> reopen cycles by repeatedly re-materializing local state.
     for (let cycle = 0; cycle < 2; cycle += 1) {
@@ -239,7 +241,7 @@ describe('shared note edit sync', () => {
       });
       expect(
         (await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content
-      ).toBe(aliceEditPayload);
+      ).toBe(aliceEditPlaintext);
     }
 
     // Alice edits again after reopening and should keep the latest value.
@@ -275,7 +277,7 @@ describe('shared note edit sync', () => {
       });
       expect(
         (await queryLocalNoteById(aliceRuntime.localDb, noteId))?.content
-      ).toBe(aliceSecondEditPayload);
+      ).toBe(aliceSecondEditPlaintext);
     }
 
     await refreshLocalStateFromApi({
@@ -283,28 +285,40 @@ describe('shared note edit sync', () => {
       localDb: bobRuntime.localDb,
       knownUsers
     });
-    expect((await queryLocalNoteById(bobRuntime.localDb, noteId))?.content).toBe(
-      aliceSecondEditPayload
-    );
+    expect(
+      (await queryLocalNoteById(bobRuntime.localDb, noteId))?.content
+    ).toBe(aliceSecondEditPlaintext);
 
     const bobFeed = await fetchAllCrdtItems(bob);
-    expect(
-      bobFeed.some(
-        (item) =>
-          item.itemId === noteId &&
-          item.opType === 'item_upsert' &&
-          item.actorId === alice.user.userId &&
-          item.encryptedPayload === aliceEditPayload
-      )
-    ).toBe(true);
-    expect(
-      bobFeed.some(
-        (item) =>
-          item.itemId === noteId &&
-          item.opType === 'item_upsert' &&
-          item.actorId === alice.user.userId &&
-          item.encryptedPayload === aliceSecondEditPayload
-      )
-    ).toBe(true);
+    const firstAliceFeedUpsert = bobFeed.find(
+      (item) =>
+        item.itemId === noteId &&
+        item.opType === 'item_upsert' &&
+        item.actorId === alice.user.userId &&
+        item.encryptedPayload === aliceEditPayload
+    );
+    const secondAliceFeedUpsert = bobFeed.find(
+      (item) =>
+        item.itemId === noteId &&
+        item.opType === 'item_upsert' &&
+        item.actorId === alice.user.userId &&
+        item.encryptedPayload === aliceSecondEditPayload
+    );
+    // Guardrail: note upserts must preserve envelope fields required by PushCrdtOps.
+    expect(firstAliceFeedUpsert).toBeDefined();
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionNonce)).toBe(true);
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionAad)).toBe(true);
+    expect(isNonEmptyString(firstAliceFeedUpsert?.encryptionSignature)).toBe(
+      true
+    );
+    expect(firstAliceFeedUpsert?.keyEpoch).toBe(1);
+
+    expect(secondAliceFeedUpsert).toBeDefined();
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionNonce)).toBe(true);
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionAad)).toBe(true);
+    expect(isNonEmptyString(secondAliceFeedUpsert?.encryptionSignature)).toBe(
+      true
+    );
+    expect(secondAliceFeedUpsert?.keyEpoch).toBe(1);
   });
 });
