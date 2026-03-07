@@ -39,12 +39,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn(async () => ({
-        publicEncryptionKey: 'pub-key',
-        publicSigningKey: 'sign-key',
-        encryptedPrivateKeys: 'enc-keys',
-        argon2Salt: 'salt'
-      }))
+      ensureUserKeys: vi.fn(async (): Promise<void> => {})
     });
 
     expect(bundle.engine).toBeDefined();
@@ -66,7 +61,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     const createResult = await bundle.keyManager.createItemKey({
@@ -122,7 +117,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     await bundle.keyManager.createItemKey({ itemId: 'item-2' });
@@ -177,7 +172,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');
@@ -233,7 +228,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     const originalCreateItemKey = bundle.keyManager.createItemKey.bind(
@@ -315,7 +310,7 @@ describe('createVfsSecurePipelineBundle', () => {
       userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
       itemKeyStore,
       recipientPublicKeyResolver: { resolvePublicKey },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     await bundle.keyManager.createItemKey({ itemId: 'item-shared' });
@@ -397,7 +392,7 @@ describe('createVfsSecurePipelineBundle', () => {
       userKeyProvider: createMockUserKeyProvider(ownerKeyPair),
       itemKeyStore,
       recipientPublicKeyResolver: { resolvePublicKey },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     await bundle.keyManager.createItemKey({ itemId: 'item-epoch-mismatch' });
@@ -448,7 +443,7 @@ describe('createVfsSecurePipelineBundle', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     await expect(

@@ -335,7 +335,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     const { VfsWriteOrchestrator } = await import('../vfsWriteOrchestrator');

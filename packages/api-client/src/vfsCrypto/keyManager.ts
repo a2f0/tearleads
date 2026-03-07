@@ -36,7 +36,7 @@ export interface RotateItemKeyEpochResult {
 }
 
 export interface VfsKeyManager {
-  ensureUserKeys(): Promise<VfsKeySetupPayload>;
+  ensureUserKeys(): Promise<void>;
   createItemKey(input: CreateItemKeyInput): Promise<CreateItemKeyResult>;
   wrapItemKeyForShare(input: WrapItemKeyForShareInput): Promise<VfsWrappedKey>;
   rotateItemKeyEpoch(
