@@ -60,7 +60,9 @@ export function encodeVfsCrdtPushRequestProtobuf(
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
     clientId: request.clientId,
-    operations: request.operations.map((operation) => toOperationPayload(operation))
+    operations: request.operations.map((operation) =>
+      toOperationPayload(operation)
+    )
   });
 }
 export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
@@ -173,7 +175,9 @@ export function encodeVfsCrdtSyncSessionRequestProtobuf(
     clientId: request.clientId,
     cursor: request.cursor,
     limit: request.limit,
-    operations: request.operations.map((operation) => toOperationPayload(operation)),
+    operations: request.operations.map((operation) =>
+      toOperationPayload(operation)
+    ),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
     rootId: request.rootId ?? ''
   });

@@ -367,7 +367,9 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (childId !== undefined) {
     decoded['childId'] = childId;
   }
-  const encryptedPayload = readEnvelopeField(operation['encryptedPayloadBytes']);
+  const encryptedPayload = readEnvelopeField(
+    operation['encryptedPayloadBytes']
+  );
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }
@@ -411,7 +413,9 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     sourceId: normalizeRequiredString(operation['sourceId'], 'sourceId'),
     occurredAt: normalizeRequiredString(operation['occurredAt'], 'occurredAt')
   };
-  const encryptedPayload = readEnvelopeField(operation['encryptedPayloadBytes']);
+  const encryptedPayload = readEnvelopeField(
+    operation['encryptedPayloadBytes']
+  );
   if (encryptedPayload !== undefined) {
     decoded['encryptedPayload'] = encryptedPayload;
   }
