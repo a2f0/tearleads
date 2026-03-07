@@ -25,7 +25,7 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
   return value;
 }
 
-describe('syncProtobuf envelope bytes compatibility', () => {
+describe('syncProtobuf envelope bytes behavior', () => {
   it('encodes base64 envelope fields into bytes by default', () => {
     const encryptedPayload = createBase64('ciphertext');
     const encryptionNonce = createBase64('nonce');
@@ -94,81 +94,6 @@ describe('syncProtobuf envelope bytes compatibility', () => {
     expect(firstDecodedOperation['encryptionSignature']).toBe(
       encryptionSignature
     );
-  });
-
-  it('can include legacy string fields when requested', () => {
-    const encryptedPayload = createBase64('ciphertext');
-
-    const encoded = encodeVfsCrdtPushRequestProtobuf(
-      {
-        clientId: 'desktop',
-        operations: [
-          {
-            opId: 'op-1',
-            opType: 'item_upsert',
-            itemId: 'item-1',
-            replicaId: 'desktop',
-            writeId: 1,
-            occurredAt: '2026-02-14T00:00:00.000Z',
-            encryptedPayload,
-            keyEpoch: 3
-          }
-        ]
-      },
-      {
-        includeLegacyEnvelopeStrings: true
-      }
-    );
-
-    const rawPayload = readRecord(
-      PUSH_REQUEST_TYPE.toObject(PUSH_REQUEST_TYPE.decode(encoded), {
-        longs: Number,
-        enums: String,
-        defaults: false,
-        arrays: true,
-        objects: true
-      }),
-      'protobuf payload'
-    );
-    const rawOperations = rawPayload['operations'];
-    if (!Array.isArray(rawOperations)) {
-      throw new Error('expected operations[]');
-    }
-    const firstOperation = readRecord(rawOperations[0], 'operations[0]');
-    expect(firstOperation['encryptedPayload']).toBe(encryptedPayload);
-    expect(firstOperation['encryptedPayloadBytes']).toBeDefined();
-  });
-
-  it('decodes legacy string-only envelope fields', () => {
-    const encryptedPayload = createBase64('ciphertext');
-    const encoded = PUSH_REQUEST_TYPE.encode(
-      PUSH_REQUEST_TYPE.create({
-        clientId: 'desktop',
-        operations: [
-          {
-            opId: 'op-1',
-            opType: 'item_upsert',
-            itemId: 'item-1',
-            replicaId: 'desktop',
-            writeId: 1,
-            occurredAt: '2026-02-14T00:00:00.000Z',
-            encryptedPayload,
-            keyEpoch: 3
-          }
-        ]
-      })
-    ).finish();
-
-    const decoded = readRecord(
-      decodeVfsCrdtPushRequestProtobuf(encoded),
-      'decoded payload'
-    );
-    const operations = decoded['operations'];
-    if (!Array.isArray(operations)) {
-      throw new Error('expected operations[]');
-    }
-    const firstOperation = readRecord(operations[0], 'operations[0]');
-    expect(firstOperation['encryptedPayload']).toBe(encryptedPayload);
   });
 
   it('decodes bytes-only envelope fields', () => {
