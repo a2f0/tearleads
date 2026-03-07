@@ -8,7 +8,7 @@ metadata:
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.DOMAIN_PLACEHOLDER,https://DOMAIN_PLACEHOLDER"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, Connect-Protocol-Version, X-Organization-Id, X-Grpc-Web"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, Connect-Protocol-Version, X-Organization-Id, X-Grpc-Web, X-User-Agent"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
     nginx.ingress.kubernetes.io/cors-max-age: "86400"
 spec:

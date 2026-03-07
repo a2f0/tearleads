@@ -11,7 +11,7 @@
     "composite": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "references": [{ "path": "../local-write-orchestrator" }],
+  "references": [{ "path": "../db" }, { "path": "../local-write-orchestrator" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
