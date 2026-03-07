@@ -70,7 +70,6 @@ const runtimeNames = [
   'mlsKeyPackages',
   'mlsGroups',
   'mlsGroupMembers',
-  'mlsMessages',
   'mlsWelcomeMessages',
   'mlsGroupState',
   'aiUsage'

@@ -142,39 +142,6 @@ export const mlsGroupMembers = pgTable(
 );
 
 /**
- * MLS encrypted messages.
- * Server stores ciphertext only - decryption happens client-side.
- */
-export const mlsMessages = pgTable(
-  'mls_messages',
-  {
-    id: text('id').primaryKey(),
-    groupId: text('group_id')
-      .notNull()
-      .references(() => mlsGroups.id, { onDelete: 'cascade' }),
-    senderUserId: text('sender_user_id').references(() => users.id, {
-      onDelete: 'set null'
-    }),
-    epoch: integer('epoch').notNull(),
-    ciphertext: text('ciphertext').notNull(),
-    messageType: text('message_type', {
-      enum: ['application', 'commit', 'proposal']
-    }).notNull(),
-    contentType: text('content_type').default('text/plain'),
-    sequenceNumber: integer('sequence_number').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
-  },
-  (table) => [
-    uniqueIndex('mls_messages_group_seq_unique').on(
-      table.groupId,
-      table.sequenceNumber
-    ),
-    index('mls_messages_group_epoch_idx').on(table.groupId, table.epoch),
-    index('mls_messages_created_idx').on(table.createdAt)
-  ]
-);
-
-/**
  * MLS welcome messages for new group members.
  * Contains encrypted group state needed to join.
  */

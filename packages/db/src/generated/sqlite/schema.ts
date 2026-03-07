@@ -46,7 +46,6 @@ import {
   mlsGroupState,
   mlsGroups,
   mlsKeyPackages,
-  mlsMessages,
   mlsWelcomeMessages,
   vfsCrdtOps
 } from './schema-runtime.js';
@@ -119,7 +118,6 @@ export const schema = {
   mlsKeyPackages,
   mlsGroups,
   mlsGroupMembers,
-  mlsMessages,
   mlsWelcomeMessages,
   mlsGroupState,
   aiUsage

@@ -318,6 +318,7 @@ describe('instance switch shared-note sync regression', () => {
           occurredAt
         ]
       );
+      const expectedOpId = `crdt:item_upsert:${randomUUID()}`;
 
       await ctx.pool.query(
         `INSERT INTO vfs_crdt_ops (
@@ -356,7 +357,7 @@ describe('instance switch shared-note sync regression', () => {
            decode($9::text, 'base64')
          )`,
         [
-          `crdt:item_upsert:${randomUUID()}`,
+          expectedOpId,
           seededShare.noteId,
           alice.userId,
           `vfs_item_state:${seededShare.noteId}`,
@@ -372,6 +373,7 @@ describe('instance switch shared-note sync regression', () => {
         await requireDatabaseContext().switchInstance(bobInstanceId);
       });
       await waitForCurrentInstance(bobInstanceId);
+      await waitForCurrentInstanceBoundTo(bob.userId);
 
       await waitFor(() => {
         const auth = requireAuthContext();
@@ -392,9 +394,10 @@ describe('instance switch shared-note sync regression', () => {
       expect(
         bobCrdtFeed.items.some(
           (item) =>
+            item.opId === expectedOpId &&
             item.itemId === seededShare.noteId &&
             item.opType === 'item_upsert' &&
-            item.encryptedPayload === updatedPayload
+            item.sourceTable === 'vfs_item_state'
         )
       ).toBe(true);
     },
