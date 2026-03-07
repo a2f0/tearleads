@@ -1,4 +1,4 @@
-import type { VfsCrdtSyncItem } from '@tearleads/shared';
+import { type VfsCrdtSyncItem, VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import {
   InMemoryVfsCrdtClientStateStore,
   type InMemoryVfsCrdtSyncServer
@@ -8,7 +8,6 @@ import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
-import { VFS_CONNECT_BASE_PATH } from './sync-http-transport.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -303,7 +302,7 @@ export function createServerBackedFetch(
     const url = toRequestUrl(input);
 
     if (
-      url.pathname === `${VFS_CONNECT_BASE_PATH}/PushCrdtOps` &&
+      url.pathname === `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps` &&
       init?.method === 'POST'
     ) {
       const requestBody = await readRequestJson(init);
@@ -342,7 +341,7 @@ export function createServerBackedFetch(
     }
 
     if (
-      url.pathname === `${VFS_CONNECT_BASE_PATH}/GetCrdtSync` &&
+      url.pathname === `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync` &&
       (init?.method ?? 'POST') === 'POST'
     ) {
       const interceptedResponse = options.interceptPullResponse?.();
@@ -386,7 +385,7 @@ export function createServerBackedFetch(
     }
 
     if (
-      url.pathname === `${VFS_CONNECT_BASE_PATH}/ReconcileCrdt` &&
+      url.pathname === `${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt` &&
       (init?.method ?? 'POST') === 'POST'
     ) {
       const requestBody = await readRequestJson(init);

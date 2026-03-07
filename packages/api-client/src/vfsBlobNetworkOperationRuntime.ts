@@ -1,6 +1,6 @@
 import {
   parseConnectJsonEnvelopeBody,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH
+  VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
@@ -348,7 +348,7 @@ function buildConnectUrl(
 ): string {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const normalizedPrefix = normalizeApiPrefix(apiPrefix);
-  const pathname = `${normalizedPrefix}${VFS_CONNECT_BASE_PATH}/${methodName}`;
+  const pathname = `${normalizedPrefix}${VFS_V2_CONNECT_BASE_PATH}/${methodName}`;
   return normalizedBaseUrl.length > 0
     ? `${normalizedBaseUrl}${pathname}`
     : pathname;

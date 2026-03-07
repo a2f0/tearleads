@@ -1,7 +1,7 @@
 import {
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH,
   type VfsAclAccessLevel,
   type VfsAclPrincipalType
 } from '@tearleads/shared';
@@ -278,7 +278,7 @@ async function fetchServerRematerializedState(input: {
   apiPrefix: string | undefined;
   clientId: string;
 }): Promise<VfsRematerializedState | null> {
-  const requestUrl = `${normalizeBaseUrl(input.baseUrl)}${normalizeApiPrefix(input.apiPrefix)}${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`;
+  const requestUrl = `${normalizeBaseUrl(input.baseUrl)}${normalizeApiPrefix(input.apiPrefix)}${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSnapshot`;
   const response = await fetchWithAuthRefresh(fetch, requestUrl, {
     method: 'POST',
     headers: {

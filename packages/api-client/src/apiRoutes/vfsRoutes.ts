@@ -26,9 +26,6 @@ import {
 } from '@tearleads/shared';
 import { request } from '../apiCore';
 
-const VFS_CONNECT_BASE_PATH = VFS_V2_CONNECT_BASE_PATH;
-const VFS_SHARES_CONNECT_BASE_PATH = VFS_SHARES_V2_CONNECT_BASE_PATH;
-
 interface ConnectJsonEnvelopeResponse {
   json: string;
 }
@@ -51,7 +48,7 @@ function requestVfsJson<TResponse>(
   eventName: RequestEventName
 ): Promise<TResponse> {
   return request<ConnectJsonEnvelopeResponse>(
-    `${VFS_CONNECT_BASE_PATH}/${methodName}`,
+    `${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
     {
       fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
@@ -65,7 +62,7 @@ function requestVfsSharesJson<TResponse>(
   eventName: RequestEventName
 ): Promise<TResponse> {
   return request<ConnectJsonEnvelopeResponse>(
-    `${VFS_SHARES_CONNECT_BASE_PATH}/${methodName}`,
+    `${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`,
     {
       fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
@@ -226,7 +223,7 @@ export const vfsRoutes = {
   },
   getBlob: async (blobId: string): Promise<VfsBlobResponse> => {
     const response = await request<ConnectBlobResponse>(
-      `${VFS_CONNECT_BASE_PATH}/GetBlob`,
+      `${VFS_V2_CONNECT_BASE_PATH}/GetBlob`,
       {
         fetchOptions: createConnectJsonPostInit({ blobId }),
         eventName: 'api_get_vfs_blob'
