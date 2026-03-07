@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@tearleads/db": "workspace:*",
+    "@tearleads/db-test-utils": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",

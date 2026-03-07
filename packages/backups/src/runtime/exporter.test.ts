@@ -1,7 +1,7 @@
-import { MAGIC_BYTES, MAGIC_SIZE } from '@tearleads/backups/format';
+import type { DatabaseAdapter } from '@tearleads/db/adapter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FileStorage } from '@/storage/opfs';
-import type { DatabaseAdapter } from '../adapters/types';
+import { MAGIC_BYTES, MAGIC_SIZE } from '../format/index';
+import type { BackupFileStorage } from './exporter';
 import { createBackup, estimateBackupSize } from './exporter';
 
 describe('exporter', () => {
@@ -20,17 +20,9 @@ describe('exporter', () => {
     importDatabase: vi.fn()
   };
 
-  const mockFileStorage: FileStorage = {
-    instanceId: 'test-instance',
-    initialize: vi.fn(),
-    store: vi.fn(),
-    measureStore: vi.fn(),
-    retrieve: vi.fn(),
-    measureRetrieve: vi.fn(),
-    delete: vi.fn(),
+  const mockFileStorage: BackupFileStorage = {
     exists: vi.fn(),
-    getStorageUsed: vi.fn(),
-    clearAll: vi.fn()
+    retrieve: vi.fn()
   };
 
   beforeEach(() => {

@@ -583,6 +583,9 @@ importers:
       '@tearleads/app-builder':
         specifier: workspace:*
         version: link:../app-builder
+      '@tearleads/db':
+        specifier: workspace:*
+        version: link:../db
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
@@ -1588,6 +1591,9 @@ importers:
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
+      '@tearleads/db-test-utils':
+        specifier: workspace:*
+        version: link:../db-test-utils
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared

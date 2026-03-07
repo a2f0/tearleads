@@ -10,13 +10,13 @@
 
 import {
   getTestKeyManager,
+  mockConsoleWarn,
   resetTestKeyManager,
   TestKeyManager,
   WasmNodeAdapter
 } from '@tearleads/db-test-utils';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import type { InstanceMetadata } from '@/db/instanceRegistry';
-import { mockConsoleWarn } from './consoleMocks';
 
 // Store active adapter for cleanup
 let activeAdapter: WasmNodeAdapter | null = null;

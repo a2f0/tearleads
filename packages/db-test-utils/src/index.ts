@@ -10,7 +10,6 @@ export type {
   QueryResult,
   WasmNodeAdapterOptions
 } from './adapters/index.js';
-
 // Adapters
 export {
   convertRowsToArrays,
@@ -18,6 +17,8 @@ export {
   rowToArray,
   WasmNodeAdapter
 } from './adapters/index.js';
+// Test helpers
+export { mockConsoleError, mockConsoleWarn } from './consoleMocks.js';
 // React wrapper
 export {
   composeWrappers,

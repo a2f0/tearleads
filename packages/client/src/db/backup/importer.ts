@@ -12,8 +12,7 @@ import {
   type BackupProgressEvent,
   type DecodeResult,
   decode,
-  type ImportResult,
-  validateBackup
+  type ImportResult
 } from '@tearleads/backups/format';
 import { initializeFileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
@@ -24,6 +23,8 @@ import {
   type InstanceMetadata,
   updateInstance
 } from '../instanceRegistry';
+
+export { getBackupInfo, validateBackupFile } from '@tearleads/backups/runtime';
 
 /**
  * Tables to skip during import.
@@ -56,29 +57,6 @@ function generateInstanceName(manifest: BackupManifest): string {
   const day = date.getDate();
   const year = date.getFullYear();
   return `Backup (${month} ${day}, ${year})`;
-}
-
-/**
- * Validate a backup file before restoring.
- * Returns the manifest if valid, or an error message.
- */
-export async function validateBackupFile(
-  data: Uint8Array,
-  password: string
-): Promise<
-  { valid: true; manifest: BackupManifest } | { valid: false; error: string }
-> {
-  const result = await validateBackup(data, password);
-
-  if (!result.valid) {
-    return { valid: false, error: result.error ?? 'Unknown error' };
-  }
-
-  if (!result.manifest) {
-    return { valid: false, error: 'Backup is missing manifest' };
-  }
-
-  return { valid: true, manifest: result.manifest };
 }
 
 /**
@@ -318,26 +296,4 @@ export async function restoreBackup(
     }
     throw err;
   }
-}
-
-/**
- * Get information about a backup file without fully decoding it.
- */
-export async function getBackupInfo(
-  data: Uint8Array,
-  password: string
-): Promise<{
-  manifest: BackupManifest;
-  suggestedName: string;
-} | null> {
-  const validation = await validateBackupFile(data, password);
-
-  if (!validation.valid) {
-    return null;
-  }
-
-  return {
-    manifest: validation.manifest,
-    suggestedName: generateInstanceName(validation.manifest)
-  };
 }

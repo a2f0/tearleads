@@ -12,6 +12,9 @@ export default mergeConfig(
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       exclude: ['node_modules', 'dist'],
+      deps: {
+        inline: ['@tearleads/db-test-utils']
+      },
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'json-summary', 'html'],

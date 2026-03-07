@@ -212,6 +212,8 @@ export default mergeConfig(
           'src/lib/appConfig.ts',
           // Re-export stubs after source moved to packages
           'src/db/analytics.ts',
+          'src/db/backup/exporter.ts',
+          'src/db/emailDrafts.ts',
           'src/db/vehicles.ts'
         ],
         thresholds: {
