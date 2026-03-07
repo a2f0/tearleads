@@ -1,14 +1,15 @@
-import { runMigrations } from '@tearleads/api';
 import {
   createPglitePool,
   createRedisMock,
   seedTestUser
 } from '@tearleads/api-test-utils';
+import { runMigrations } from '@tearleads/db/migrations';
 import {
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
 } from '@tearleads/shared/scaffolding';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 describe('DB scaffold schema regression', () => {
   let pool: Awaited<ReturnType<typeof createPglitePool>>['pool'];
@@ -19,7 +20,8 @@ describe('DB scaffold schema regression', () => {
     const pglite = await createPglitePool();
     pool = pglite.pool;
     const redis = createRedisMock();
-    await runMigrations(pool);
+    const { migrations } = await getApiDeps();
+    await runMigrations(pool, migrations);
 
     const bob = await seedTestUser({ pool, redis }, { email: 'bob@test.com' });
     const alice = await seedTestUser(

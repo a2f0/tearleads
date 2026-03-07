@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 interface AuthResponse {
   accessToken: string;
@@ -14,11 +15,6 @@ interface SessionsResponse {
 interface LogoutResponse {
   loggedOut: boolean;
 }
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 describe('API auth flow', () => {
   let harness: ApiScenarioHarness | null = null;

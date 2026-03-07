@@ -53,14 +53,14 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2855](https://github.com/a2f0/tearleads/pull/2855) | `@tearleads/app-builder` Bun-primary test |
 | [#2857](https://github.com/a2f0/tearleads/pull/2857) | `@tearleads/mls-core` Bun-primary test + mock compatibility |
 | [#2861](https://github.com/a2f0/tearleads/pull/2861) | `@tearleads/search` Bun-primary test + mock compatibility |
-| [#2865](https://github.com/a2f0/tearleads/pull/2865) | `@tearleads/bob-and-alice` Bun-primary `test` script (stable Bun subset) |
+| [#2865](https://github.com/a2f0/tearleads/pull/2865) | `@tearleads/bob-and-alice` Bun-primary `test` script bootstrap |
 
 ## Node Pilot Package Status
 
 | Package | Bun-primary script | Vitest fallback | Notes |
 | --- | --- | --- | --- |
 | `@tearleads/app-builder` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
-| `@tearleads/bob-and-alice` | `test` (`bun test` stable subset) | `testVitest` | Bun-primary stable subset; full suite remains on Vitest fallback |
+| `@tearleads/bob-and-alice` | `test` (`bun test src/**/*.test.ts`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/mls-core` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
@@ -73,5 +73,5 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Expand Bun-first package set where compatibility is already proven, then promote partial Bun suites (for example `bob-and-alice`) to full-suite Bun execution.
+2. Expand Bun-first package set where compatibility is already proven and reduce fallback-only paths package-by-package.
 3. Start Phase 4 compatibility backlog inventory (`vi.hoisted`, `vi.importActual`, env/mocking gaps).

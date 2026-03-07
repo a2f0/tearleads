@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -13,11 +14,6 @@ import {
   assertPgHasVfsRegistryItem,
   assertPgUserOrganizationMembership
 } from '../harness/postgresAssertions.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 describe('sharedWithMe refresh runtime', () => {
   let harness: ApiScenarioHarness | null = null;

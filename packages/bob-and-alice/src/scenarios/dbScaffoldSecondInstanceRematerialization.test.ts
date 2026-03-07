@@ -9,6 +9,7 @@ import {
 } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -16,11 +17,6 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 function buildPublicEncryptionKey(): string {
   const keyPair = generateKeyPair();
