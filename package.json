@@ -34,6 +34,8 @@
     "testVfsSecureUploadQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsSecureUploadQaSuite.test.ts",
     "benchmarkBunMigration": "sh ./scripts/benchmarkBunMigration.sh",
     "pilotBunRuntime": "sh ./scripts/runBunRuntimePilot.sh all",
+    "generateBunCompatibilityInventory": "node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts",
+    "checkBunCompatibilityInventory": "node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts --check",
     "test:tuxedo": "sh ./tuxedo/tests/run.sh",
     "test:coverage": "sh ./tuxedo/tests/coverage.sh",
     "clean": "pnpm -r clean",
