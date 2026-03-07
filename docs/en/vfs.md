@@ -81,6 +81,10 @@ objects through one identity layer.
 
 For policy-compiled ACL precedence and deny-wins merge semantics, see
 `docs/en/vfs-share-policy-precedence.md`.
+For implementation details, limitations, and edge cases of the current compiler,
+see `docs/en/vfs-share-policy-acl-compiler.md`.
+For proposed improvements, see
+`docs/en/vfs-share-policy-acl-compiler-enhancements.md`.
 For rollout correctness/perf gates, see
 `docs/en/vfs-share-policy-rollout-gates.md`.
 
