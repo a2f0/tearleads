@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, spawn as spawnProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { open, stat, unlink } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -37,6 +37,28 @@ export interface ApiV2ServiceHarness {
   stop: () => Promise<void>;
 }
 
+export interface ApiV2ServiceHarnessDependencies {
+  spawn: typeof spawnProcess;
+  open: typeof open;
+  stat: typeof stat;
+  unlink: typeof unlink;
+  createServer: typeof createServer;
+  connectSocket: typeof connectSocket;
+  delay: typeof delay;
+  now: () => number;
+}
+
+const defaultDependencies: ApiV2ServiceHarnessDependencies = {
+  spawn: spawnProcess,
+  open,
+  stat,
+  unlink,
+  createServer,
+  connectSocket,
+  delay,
+  now: () => Date.now()
+};
+
 function getErrorCode(error: unknown): string | null {
   if (!(error instanceof Error)) {
     return null;
@@ -66,12 +88,14 @@ function shouldRetryBootstrap(error: unknown): boolean {
   );
 }
 
-async function acquireStartupLock(): Promise<() => Promise<void>> {
-  const deadline = Date.now() + STARTUP_LOCK_TIMEOUT_MS;
+async function acquireStartupLock(
+  dependencies: ApiV2ServiceHarnessDependencies
+): Promise<() => Promise<void>> {
+  const deadline = dependencies.now() + STARTUP_LOCK_TIMEOUT_MS;
 
-  while (Date.now() < deadline) {
+  while (dependencies.now() < deadline) {
     try {
-      const handle = await open(STARTUP_LOCK_PATH, 'wx');
+      const handle = await dependencies.open(STARTUP_LOCK_PATH, 'wx');
       await handle.writeFile(`${process.pid}\n`);
       await handle.close();
 
@@ -82,7 +106,7 @@ async function acquireStartupLock(): Promise<() => Promise<void>> {
         }
         released = true;
         try {
-          await unlink(STARTUP_LOCK_PATH);
+          await dependencies.unlink(STARTUP_LOCK_PATH);
         } catch (error) {
           if (getErrorCode(error) !== 'ENOENT') {
             throw error;
@@ -95,11 +119,11 @@ async function acquireStartupLock(): Promise<() => Promise<void>> {
       }
 
       try {
-        const lockStats = await stat(STARTUP_LOCK_PATH);
+        const lockStats = await dependencies.stat(STARTUP_LOCK_PATH);
         const lockIsStale =
-          Date.now() - lockStats.mtimeMs > STARTUP_LOCK_STALE_MS;
+          dependencies.now() - lockStats.mtimeMs > STARTUP_LOCK_STALE_MS;
         if (lockIsStale) {
-          await unlink(STARTUP_LOCK_PATH);
+          await dependencies.unlink(STARTUP_LOCK_PATH);
           continue;
         }
       } catch (statError) {
@@ -108,15 +132,17 @@ async function acquireStartupLock(): Promise<() => Promise<void>> {
         }
       }
 
-      await delay(POLL_INTERVAL_MS);
+      await dependencies.delay(POLL_INTERVAL_MS);
     }
   }
 
   throw new Error('timed out waiting for api-v2 harness startup lock');
 }
 
-async function allocatePort(): Promise<number> {
-  const server = createServer();
+async function allocatePort(
+  dependencies: ApiV2ServiceHarnessDependencies
+): Promise<number> {
+  const server = dependencies.createServer();
   await new Promise<void>((resolvePromise, rejectPromise) => {
     server.once('error', rejectPromise);
     server.listen(0, '127.0.0.1', () => resolvePromise());
@@ -140,27 +166,35 @@ async function allocatePort(): Promise<number> {
   return address.port;
 }
 
-function startHarnessProcess(port: number): ChildProcess {
-  return spawn('cargo', ['run', '--quiet', '--package', 'tearleads-api-v2'], {
-    cwd: WORKSPACE_ROOT,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      [API_V2_HARNESS_ENV_KEY]: '1'
-    },
-    stdio: ['ignore', 'ignore', 'pipe']
-  });
+function startHarnessProcess(
+  port: number,
+  dependencies: ApiV2ServiceHarnessDependencies
+): ChildProcess {
+  return dependencies.spawn(
+    'cargo',
+    ['run', '--quiet', '--package', 'tearleads-api-v2'],
+    {
+      cwd: WORKSPACE_ROOT,
+      env: {
+        ...process.env,
+        PORT: String(port),
+        [API_V2_HARNESS_ENV_KEY]: '1'
+      },
+      stdio: ['ignore', 'ignore', 'pipe']
+    }
+  );
 }
 
 async function waitForReadiness(
   process: ChildProcess,
   port: number,
-  stderrBuffer: { value: string }
+  stderrBuffer: { value: string },
+  dependencies: ApiV2ServiceHarnessDependencies
 ): Promise<void> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+  const deadline = dependencies.now() + READY_TIMEOUT_MS;
   let lastError = 'socket is not yet accepting connections';
 
-  while (Date.now() < deadline) {
+  while (dependencies.now() < deadline) {
     if (process.exitCode !== null) {
       throw new Error(
         `api-v2 harness exited before readiness (code ${String(process.exitCode)}): ${stderrBuffer.value}`
@@ -168,7 +202,7 @@ async function waitForReadiness(
     }
 
     const isReady = await new Promise<boolean>((resolveReady) => {
-      const socket = connectSocket({ host: '127.0.0.1', port });
+      const socket = dependencies.connectSocket({ host: '127.0.0.1', port });
 
       socket.once('connect', () => {
         socket.destroy();
@@ -186,7 +220,7 @@ async function waitForReadiness(
       return;
     }
 
-    await delay(POLL_INTERVAL_MS);
+    await dependencies.delay(POLL_INTERVAL_MS);
   }
 
   throw new Error(
@@ -194,7 +228,10 @@ async function waitForReadiness(
   );
 }
 
-async function stopProcess(process: ChildProcess): Promise<void> {
+async function stopProcess(
+  process: ChildProcess,
+  dependencies: ApiV2ServiceHarnessDependencies
+): Promise<void> {
   if (process.exitCode !== null) {
     return;
   }
@@ -203,7 +240,7 @@ async function stopProcess(process: ChildProcess): Promise<void> {
 
   const exited = await Promise.race([
     once(process, 'exit').then(() => true),
-    delay(5_000).then(() => false)
+    dependencies.delay(5_000).then(() => false)
   ]);
   if (!exited) {
     process.kill('SIGKILL');
@@ -211,13 +248,19 @@ async function stopProcess(process: ChildProcess): Promise<void> {
   }
 }
 
-export async function startApiV2ServiceHarness(): Promise<ApiV2ServiceHarness> {
-  const releaseStartupLock = await acquireStartupLock();
+export async function startApiV2ServiceHarness(
+  dependencyOverrides: Partial<ApiV2ServiceHarnessDependencies> = {}
+): Promise<ApiV2ServiceHarness> {
+  const dependencies: ApiV2ServiceHarnessDependencies = {
+    ...defaultDependencies,
+    ...dependencyOverrides
+  };
+  const releaseStartupLock = await acquireStartupLock(dependencies);
 
   try {
     for (let attempt = 1; attempt <= MAX_STARTUP_ATTEMPTS; attempt += 1) {
-      const port = await allocatePort();
-      const process = startHarnessProcess(port);
+      const port = await allocatePort(dependencies);
+      const process = startHarnessProcess(port, dependencies);
       const stderrBuffer = { value: '' };
 
       process.stderr?.setEncoding('utf8');
@@ -228,9 +271,9 @@ export async function startApiV2ServiceHarness(): Promise<ApiV2ServiceHarness> {
       });
 
       try {
-        await waitForReadiness(process, port, stderrBuffer);
+        await waitForReadiness(process, port, stderrBuffer, dependencies);
       } catch (error) {
-        await stopProcess(process);
+        await stopProcess(process, dependencies);
 
         const canRetry =
           attempt < MAX_STARTUP_ATTEMPTS && shouldRetryBootstrap(error);
@@ -238,13 +281,13 @@ export async function startApiV2ServiceHarness(): Promise<ApiV2ServiceHarness> {
           throw error;
         }
 
-        await delay(STARTUP_RETRY_DELAY_MS * attempt);
+        await dependencies.delay(STARTUP_RETRY_DELAY_MS * attempt);
         continue;
       }
 
       return {
         port,
-        stop: async () => stopProcess(process)
+        stop: async () => stopProcess(process, dependencies)
       };
     }
 
