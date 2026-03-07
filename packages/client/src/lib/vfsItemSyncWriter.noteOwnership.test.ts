@@ -176,7 +176,7 @@ describe('vfsItemSyncWriter note ownership paths', () => {
     expect(updateWhereMock).not.toHaveBeenCalled();
   });
 
-  it('rejects non-owned shared items missing encrypted session key', async () => {
+  it('allows non-owned shared items missing encrypted session key', async () => {
     isLoggedInMock.mockReturnValue(true);
     getFeatureFlagValueMock.mockReturnValue(true);
     readStoredAuthMock.mockReturnValue({
@@ -215,10 +215,12 @@ describe('vfsItemSyncWriter note ownership paths', () => {
         objectType: 'note',
         payload: { content: 'Alice edit' }
       })
-    ).rejects.toThrow('Missing encrypted session key for non-owned item');
+    ).resolves.toBeUndefined();
 
     expect(registerMock).not.toHaveBeenCalled();
-    expect(queueCrdtLocalOperationAndPersist).not.toHaveBeenCalled();
+    expect(queueEncryptedCrdtOpAndPersist).not.toHaveBeenCalled();
+    expect(queueCrdtLocalOperationAndPersist).toHaveBeenCalledTimes(1);
     expect(updateWhereMock).not.toHaveBeenCalled();
+    expect(flushAll).toHaveBeenCalledTimes(1);
   });
 });

@@ -152,9 +152,12 @@ async function ensureLocalEncryptedSessionKey(
 
   const currentUserId = getCurrentUserId();
   if (currentUserId && existing.ownerId && existing.ownerId !== currentUserId) {
-    throw new Error(
-      `Missing encrypted session key for non-owned item ${itemId}`
-    );
+    // Shared items may not have a local wrapped session key row yet.
+    // Skip local key synthesis; register is skipped for non-owned items.
+    return {
+      encryptedSessionKey: '',
+      ownerId: existing.ownerId
+    };
   }
 
   const sessionKey = generateSessionKey();
