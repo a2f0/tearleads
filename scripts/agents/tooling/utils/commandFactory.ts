@@ -238,7 +238,7 @@ export function createActionCommand(actionName: ActionName): Command {
     try {
       const repoRoot = getRepoRoot(opts.repoRoot);
       const timeoutMs =
-        (opts.timeoutSeconds ?? (actionName === 'refresh' ? 3600 : 300)) * 1000;
+        (opts.timeoutSeconds ?? config.defaultTimeoutSeconds ?? 300) * 1000;
 
       if (opts.dryRun && actionName !== 'runPreen') {
         if (config.isInline) {
