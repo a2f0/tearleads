@@ -52,6 +52,10 @@ interface PaginatedFeedPage<TItem> {
 const FEED_PAGE_SIZE = 500;
 const MAX_FEED_PAGES = 100;
 const VFS_ROOT_ID = '__vfs_root__';
+const HYDRATION_SAVEPOINT = 'sp_vfs_read_model_hydration';
+
+let hydrationInFlight: Promise<void> | null = null;
+let hydrationQueued = false;
 
 function parseTimestampMs(value: string | null | undefined): number {
   if (!value) {
@@ -242,7 +246,7 @@ async function tableExists(tableName: string): Promise<boolean> {
   return result.rows.length > 0;
 }
 
-export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
+async function hydrateLocalReadModelFromRemoteFeedsOnce(): Promise<void> {
   if (!isDatabaseInitialized()) {
     return;
   }
@@ -287,13 +291,13 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
   const adapter = getDatabaseAdapter();
 
   let foreignKeysDisabled = false;
-  let transactionStarted = false;
+  let savepointStarted = false;
   try {
     await adapter.execute('PRAGMA foreign_keys = OFF', []);
     foreignKeysDisabled = true;
 
-    await adapter.execute('BEGIN', []);
-    transactionStarted = true;
+    await adapter.execute(`SAVEPOINT ${HYDRATION_SAVEPOINT}`, []);
+    savepointStarted = true;
 
     for (const row of registryUpserts) {
       await adapter.execute(
@@ -415,11 +419,12 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
       }
     }
 
-    await adapter.execute('COMMIT', []);
-    transactionStarted = false;
+    await adapter.execute(`RELEASE ${HYDRATION_SAVEPOINT}`, []);
+    savepointStarted = false;
   } catch (error) {
-    if (transactionStarted) {
-      await adapter.execute('ROLLBACK', []);
+    if (savepointStarted) {
+      await adapter.execute(`ROLLBACK TO ${HYDRATION_SAVEPOINT}`, []);
+      await adapter.execute(`RELEASE ${HYDRATION_SAVEPOINT}`, []);
     }
     throw error;
   } finally {
@@ -427,4 +432,23 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
       await adapter.execute('PRAGMA foreign_keys = ON', []);
     }
   }
+}
+
+export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
+  if (hydrationInFlight) {
+    hydrationQueued = true;
+    return hydrationInFlight;
+  }
+
+  hydrationInFlight = (async () => {
+    do {
+      hydrationQueued = false;
+      await hydrateLocalReadModelFromRemoteFeedsOnce();
+    } while (hydrationQueued);
+  })().finally(() => {
+    hydrationInFlight = null;
+    hydrationQueued = false;
+  });
+
+  return hydrationInFlight;
 }
