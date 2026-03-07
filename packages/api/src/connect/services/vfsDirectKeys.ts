@@ -10,8 +10,8 @@ import { parseKeySetupPayload } from './vfsDirectShared.js';
 interface UserKeysRow {
   public_encryption_key: string;
   public_signing_key: string;
-  encrypted_private_keys: string;
-  argon2_salt: string;
+  encrypted_private_keys: string | null;
+  argon2_salt: string | null;
 }
 
 export async function getMyKeysDirect(
@@ -40,8 +40,8 @@ export async function getMyKeysDirect(
     const response: VfsUserKeysResponse = {
       publicEncryptionKey: row.public_encryption_key,
       publicSigningKey: row.public_signing_key,
-      encryptedPrivateKeys: row.encrypted_private_keys,
-      argon2Salt: row.argon2_salt
+      encryptedPrivateKeys: row.encrypted_private_keys ?? undefined,
+      argon2Salt: row.argon2_salt ?? undefined
     };
 
     return response;
