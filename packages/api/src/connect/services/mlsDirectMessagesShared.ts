@@ -228,7 +228,7 @@ export async function persistMlsMessageToVfs(
       $1::text,
       'item_upsert',
       $2::text,
-      '${sourceTable}',
+      $8::text,
       $3::text,
       $4::timestamptz,
       $5::text,
@@ -243,7 +243,8 @@ export async function persistMlsMessageToVfs(
       input.occurredAtIso,
       ciphertext.text,
       ciphertext.bytes,
-      input.epoch
+      input.epoch,
+      sourceTable
     ]
   );
 }

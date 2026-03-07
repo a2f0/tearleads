@@ -48,23 +48,21 @@ export async function insertCommitMessage(
   input: InsertCommitMessageInput
 ): Promise<MlsMessage> {
   const maxSequenceResult = await input.client.query<CommitMaxSequenceRow>(
-    `SELECT
-       CASE
-         WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-         THEN split_part(source_id, ':', 3)::integer
-         ELSE NULL
-       END AS sequence_number
+    `WITH sequences AS (
+       SELECT
+         CASE
+           WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+           THEN split_part(source_id, ':', 3)::integer
+           ELSE NULL
+         END AS sequence_number
        FROM vfs_crdt_ops
       WHERE op_type = 'item_upsert'
         AND source_table = 'mls_commit'
-        AND split_part(source_id, ':', 1) = 'mls_commit'
         AND split_part(source_id, ':', 2) = $1::text
-      ORDER BY
-        CASE
-          WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
-          THEN split_part(source_id, ':', 3)::integer
-          ELSE NULL
-        END DESC NULLS LAST
+    )
+    SELECT sequence_number
+      FROM sequences
+      ORDER BY sequence_number DESC NULLS LAST
       LIMIT 1`,
     [input.groupId]
   );

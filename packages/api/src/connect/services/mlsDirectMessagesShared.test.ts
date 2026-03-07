@@ -103,7 +103,8 @@ describe('mlsDirectMessagesShared', () => {
       '2026-03-03T03:20:00.000Z',
       'ciphertext-value',
       new Uint8Array([1, 2, 3]),
-      2
+      2,
+      'mls_message'
     ]);
   });
 });
