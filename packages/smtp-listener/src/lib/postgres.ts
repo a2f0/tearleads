@@ -12,13 +12,13 @@ interface PoolWithEnd {
   end: () => Promise<void>;
 }
 
-export interface PostgresPoolRuntimeDependencies<TPool extends PoolWithEnd> {
+interface PostgresPoolRuntimeDependencies<TPool extends PoolWithEnd> {
   createPool: (config: PoolConfig) => TPool;
   getPostgresDevDefaults: () => PostgresDevDefaults;
   isDevMode: () => boolean;
 }
 
-export interface PostgresPoolRuntime<TPool extends PoolWithEnd> {
+interface PostgresPoolRuntime<TPool extends PoolWithEnd> {
   closePostgresPool: () => Promise<void>;
   getPostgresPool: () => Promise<TPool>;
 }
