@@ -1,4 +1,7 @@
-export function dispatchRealtimeMessage(groupId: string, message: unknown): void {
+export function dispatchRealtimeMessage(
+  groupId: string,
+  message: unknown
+): void {
   const handlers = Reflect.get(globalThis, '__mlsMessageHandler');
   if (!(handlers instanceof Map)) {
     return;

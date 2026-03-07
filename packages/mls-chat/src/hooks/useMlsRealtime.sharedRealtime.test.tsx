@@ -49,7 +49,8 @@ afterEach(() => {
 
 describe('useMlsRealtime shared realtime bridge', () => {
   it('registers channels through the shared bridge without opening a direct stream', async () => {
-    const { bridge, addChannels, removeChannels } = createSharedRealtimeBridge();
+    const { bridge, addChannels, removeChannels } =
+      createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
 
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {

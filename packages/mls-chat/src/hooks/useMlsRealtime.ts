@@ -420,7 +420,12 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     }
 
     handleMessageEnvelope(latestMessage.message);
-  }, [client, handleMessageEnvelope, realtimeBridge, realtimeBridge?.lastMessage]);
+  }, [
+    client,
+    handleMessageEnvelope,
+    realtimeBridge,
+    realtimeBridge?.lastMessage
+  ]);
 
   // Reconnect when subscribed groups change
   useEffect(() => {
