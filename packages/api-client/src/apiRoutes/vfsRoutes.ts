@@ -243,10 +243,12 @@ export const vfsRoutes = {
     };
   },
   deleteBlob: (blobId: string) =>
-    requestVfsJson<{ deleted: boolean; blobId: string }>(
-      'DeleteBlob',
-      { blobId },
-      'api_delete_vfs_blob'
+    request<{ deleted: boolean; blobId: string }>(
+      `${VFS_V2_CONNECT_BASE_PATH}/DeleteBlob`,
+      {
+        fetchOptions: createConnectJsonPostInit({ blobId }),
+        eventName: 'api_delete_vfs_blob'
+      }
     ),
   rekeyItem: (itemId: string, data: VfsRekeyRequest) =>
     requestVfsJson<VfsRekeyResponse>(

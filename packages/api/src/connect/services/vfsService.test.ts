@@ -31,7 +31,7 @@ const {
   commitBlobDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   getCrdtSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteEmailDirectMock:
@@ -184,7 +184,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     attachBlobDirectMock,
     commitBlobDirectMock,
     getCrdtSyncDirectMock,
-    deleteBlobDirectMock,
     getCrdtSnapshotDirectMock,
     pushCrdtOpsDirectMock,
     reconcileCrdtDirectMock,
@@ -223,6 +222,12 @@ describe('vfsConnectService', () => {
 
     setupKeysDirectMock.mockReset();
     setupKeysDirectMock.mockResolvedValue({ created: true });
+
+    deleteBlobDirectMock.mockReset();
+    deleteBlobDirectMock.mockResolvedValue({
+      deleted: true,
+      blobId: 'blob-2'
+    });
 
     deleteEmailDirectMock.mockReset();
     deleteEmailDirectMock.mockResolvedValue({ success: true });
@@ -316,11 +321,6 @@ describe('vfsConnectService', () => {
         call: () => vfsConnectService.register(registerRequest, context),
         expectedRequest: registerRequest,
         mock: registerDirectMock
-      },
-      {
-        call: () => vfsConnectService.deleteBlob(deleteBlobRequest, context),
-        expectedRequest: deleteBlobRequest,
-        mock: deleteBlobDirectMock
       },
       {
         call: () => vfsConnectService.stageBlob(stageBlobRequest, context),
@@ -418,6 +418,19 @@ describe('vfsConnectService', () => {
     );
     expect(setupKeysResponse).toEqual({ created: true });
     expect(setupKeysDirectMock).toHaveBeenCalledWith(setupKeysRequest, context);
+
+    const deleteBlobResponse = await vfsConnectService.deleteBlob(
+      deleteBlobRequest,
+      context
+    );
+    expect(deleteBlobResponse).toEqual({
+      deleted: true,
+      blobId: 'blob-2'
+    });
+    expect(deleteBlobDirectMock).toHaveBeenCalledWith(
+      deleteBlobRequest,
+      context
+    );
 
     const getEmailsResponse = await vfsConnectService.getEmails(
       getEmailsRequest,

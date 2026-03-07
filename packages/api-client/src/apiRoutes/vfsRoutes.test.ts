@@ -229,9 +229,10 @@ describe('vfsRoutes', () => {
     );
   });
 
-  it('routes deleteBlob through Connect and unwraps response json', async () => {
+  it('routes deleteBlob through Connect and returns typed payload', async () => {
     requestMock.mockResolvedValueOnce({
-      json: JSON.stringify({ deleted: true, blobId: 'blob-1' })
+      deleted: true,
+      blobId: 'blob-1'
     });
 
     await expect(vfsRoutes.deleteBlob('blob-1')).resolves.toEqual({

@@ -79,7 +79,7 @@ export async function getBlobDirect(
 export async function deleteBlobDirect(
   request: BlobIdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ deleted: boolean; blobId: string }> {
   const blobId = normalizeRequiredString(request.blobId);
   if (!blobId) {
     throw new ConnectError('blobId is required', Code.InvalidArgument);
@@ -171,9 +171,7 @@ export async function deleteBlobDirect(
     await client.query('COMMIT');
     inTransaction = false;
 
-    return {
-      json: JSON.stringify({ deleted: true, blobId })
-    };
+    return { deleted: true, blobId };
   } catch (error) {
     if (inTransaction) {
       await rollbackQuietly(client);
