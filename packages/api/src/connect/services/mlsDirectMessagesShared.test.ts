@@ -25,15 +25,10 @@ describe('mlsDirectMessagesShared', () => {
     expect(toPositiveInteger('bad')).toBe(0);
   });
 
-  it('decodes content types with sensible fallbacks', () => {
-    expect(decodeContentTypeFromSourceId('text%2Fplain', null)).toBe(
-      'text/plain'
-    );
-    expect(decodeContentTypeFromSourceId(null, 'text/custom')).toBe(
-      'text/custom'
-    );
-    expect(decodeContentTypeFromSourceId(null, null)).toBe('text/plain');
-    expect(decodeContentTypeFromSourceId('%E0%A4%A', null)).toBe('text/plain');
+  it('decodes content types from source ids', () => {
+    expect(decodeContentTypeFromSourceId('text%2Fplain')).toBe('text/plain');
+    expect(decodeContentTypeFromSourceId(null)).toBe('text/plain');
+    expect(decodeContentTypeFromSourceId('%E0%A4%A')).toBe('text/plain');
   });
 
   it('normalizes date and string timestamps', () => {

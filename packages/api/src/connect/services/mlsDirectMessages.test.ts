@@ -8,8 +8,7 @@ const {
   queryMock,
   randomUuidMock,
   requireMlsClaimsMock,
-  serializeEnvelopeFieldMock,
-  shouldReadEnvelopeByteaMock
+  serializeEnvelopeFieldMock
 } = vi.hoisted(() => ({
   broadcastMock: vi.fn(),
   getPostgresPoolMock: vi.fn(),
@@ -17,8 +16,7 @@ const {
   queryMock: vi.fn(),
   randomUuidMock: vi.fn(),
   requireMlsClaimsMock: vi.fn(),
-  serializeEnvelopeFieldMock: vi.fn(),
-  shouldReadEnvelopeByteaMock: vi.fn()
+  serializeEnvelopeFieldMock: vi.fn()
 }));
 
 vi.mock('node:crypto', () => ({
@@ -36,11 +34,6 @@ vi.mock('../../lib/postgres.js', () => ({
 vi.mock('./mlsDirectShared.js', () => ({
   getActiveMlsGroupMembership: (...args: unknown[]) =>
     getActiveMlsGroupMembershipMock(...args)
-}));
-
-vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
-  shouldReadEnvelopeBytea: (...args: unknown[]) =>
-    shouldReadEnvelopeByteaMock(...args)
 }));
 
 vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
@@ -89,7 +82,6 @@ describe('mlsDirectMessages', () => {
       text: 'ciphertext-1',
       bytes: new Uint8Array([1, 2, 3])
     });
-    shouldReadEnvelopeByteaMock.mockReturnValue(false);
     broadcastMock.mockResolvedValue(undefined);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -259,7 +251,6 @@ describe('mlsDirectMessages', () => {
           epoch: 3,
           ciphertext: 'cipher-3',
           encoded_content_type: 'text%2Fplain',
-          legacy_content_type: null,
           sequence_number: 3,
           created_at: new Date('2026-03-03T03:15:00.000Z'),
           sender_email: 'user@example.com'
@@ -271,7 +262,6 @@ describe('mlsDirectMessages', () => {
           epoch: 3,
           ciphertext: 'cipher-2',
           encoded_content_type: 'text%2Fplain',
-          legacy_content_type: null,
           sequence_number: 2,
           created_at: new Date('2026-03-03T03:14:00.000Z'),
           sender_email: null
@@ -309,7 +299,7 @@ describe('mlsDirectMessages', () => {
     });
   });
 
-  it('uses legacy content type fallback when source encoding is missing', async () => {
+  it('defaults content type when source encoding is missing', async () => {
     queryMock.mockResolvedValueOnce({
       rows: [
         {
@@ -319,7 +309,6 @@ describe('mlsDirectMessages', () => {
           epoch: 2,
           ciphertext: 'cipher-1',
           encoded_content_type: null,
-          legacy_content_type: 'text/custom',
           sequence_number: 1,
           created_at: new Date('2026-03-03T03:13:00.000Z'),
           sender_email: null
@@ -341,7 +330,7 @@ describe('mlsDirectMessages', () => {
           epoch: 2,
           ciphertext: 'cipher-1',
           messageType: 'application',
-          contentType: 'text/custom',
+          contentType: 'text/plain',
           sequenceNumber: 1,
           sentAt: '2026-03-03T03:13:00.000Z',
           createdAt: '2026-03-03T03:13:00.000Z'
