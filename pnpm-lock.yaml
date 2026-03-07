@@ -1074,6 +1074,9 @@ importers:
       '@tearleads/mls-chat':
         specifier: workspace:*
         version: link:../mls-chat
+      '@tearleads/mls-core':
+        specifier: workspace:*
+        version: link:../mls-core
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
