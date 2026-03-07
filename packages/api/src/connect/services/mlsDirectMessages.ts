@@ -20,7 +20,6 @@ import {
   toPositiveInteger
 } from './mlsDirectMessagesShared.js';
 import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
-import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 
 type GroupIdTypedRequest = { groupId: string } & SendMlsMessageRequest;
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };
@@ -225,7 +224,6 @@ export async function getGroupMessagesDirectTyped(
     }
 
     const pool = await getPostgresPool();
-    const includeEnvelopeByteaReads = shouldReadEnvelopeBytea();
 
     const result = await pool.query<GroupMessageRow>(
       `WITH group_messages AS (
@@ -234,29 +232,20 @@ export async function getGroupMessagesDirectTyped(
            $1::text AS group_id,
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
-           CASE
-             WHEN $5::boolean AND ops.encrypted_payload_bytes IS NOT NULL
-               THEN encode(ops.encrypted_payload_bytes, 'base64')
-             ELSE ops.encrypted_payload
-           END AS ciphertext,
+           encode(ops.encrypted_payload_bytes, 'base64') AS ciphertext,
            NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
-           legacy.content_type AS legacy_content_type,
            CASE
              WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
              THEN split_part(ops.source_id, ':', 3)::integer
-             ELSE legacy.sequence_number
+             ELSE NULL
            END::integer AS sequence_number,
            ops.occurred_at AS created_at,
            u.email AS sender_email
          FROM vfs_crdt_ops ops
          LEFT JOIN users u ON u.id = ops.actor_id
-         LEFT JOIN mls_messages legacy ON legacy.id = ops.item_id
          WHERE ops.source_table IN ('mls_messages', 'mls_message')
            AND ops.op_type = 'item_upsert'
-           AND (
-             ops.encrypted_payload_bytes IS NOT NULL
-             OR ops.encrypted_payload IS NOT NULL
-           )
+           AND ops.encrypted_payload_bytes IS NOT NULL
            AND ops.source_id LIKE $2::text
        )
        SELECT
@@ -266,7 +255,6 @@ export async function getGroupMessagesDirectTyped(
          epoch,
          ciphertext,
          encoded_content_type,
-         legacy_content_type,
          sequence_number,
          created_at,
          sender_email
@@ -279,8 +267,7 @@ export async function getGroupMessagesDirectTyped(
         groupId,
         `mls_message:${groupId}:%`,
         cursor,
-        limit + 1,
-        includeEnvelopeByteaReads
+        limit + 1
       ]
     );
 
@@ -296,10 +283,7 @@ export async function getGroupMessagesDirectTyped(
         epoch: row.epoch,
         ciphertext: row.ciphertext,
         messageType: 'application',
-        contentType: decodeContentTypeFromSourceId(
-          row.encoded_content_type,
-          row.legacy_content_type
-        ),
+        contentType: decodeContentTypeFromSourceId(row.encoded_content_type),
         sequenceNumber: row.sequence_number,
         sentAt: createdAt,
         createdAt

@@ -46,7 +46,6 @@ export interface GroupMessageRow {
   epoch: number;
   ciphertext: string;
   encoded_content_type: string | null;
-  legacy_content_type: string | null;
   sequence_number: number;
   created_at: Date | string;
   sender_email: string | null;
@@ -72,15 +71,10 @@ export function encodeContentTypeForSourceId(contentType: string): string {
 }
 
 export function decodeContentTypeFromSourceId(
-  encodedContentType: string | null,
-  fallbackContentType: string | null
+  encodedContentType: string | null
 ): string {
   if (!encodedContentType) {
-    if (!fallbackContentType || fallbackContentType.trim() === '') {
-      return 'text/plain';
-    }
-
-    return fallbackContentType;
+    return 'text/plain';
   }
 
   try {
