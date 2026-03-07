@@ -138,11 +138,7 @@ function createUiComponents(): NotesUIComponents {
         {children}
       </button>
     ),
-    ListRow: ({ children, onContextMenu }) => (
-      <button type="button" onContextMenu={onContextMenu}>
-        {children}
-      </button>
-    ),
+    ListRow: ({ children }) => <div>{children}</div>,
     RefreshButton: ({ onClick }) => (
       <button type="button" onClick={onClick}>
         Refresh
