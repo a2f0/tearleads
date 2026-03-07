@@ -1,6 +1,6 @@
 import {
   generateKeyPair,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH,
   type VfsKeyPair
 } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
@@ -112,7 +112,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -125,7 +125,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -140,7 +140,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -218,7 +218,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     });
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
+      request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     expect(chunkRequests.length).toBeGreaterThan(0);
 
@@ -235,17 +235,17 @@ describe('secureWritePipelineFactory flush integration', () => {
 
     expect(
       requests.some((request) =>
-        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
+        request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
+        request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/CommitBlob`)
       )
     ).toBe(true);
     expect(
       requests.some((request) =>
-        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
+        request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/AttachBlob`)
       )
     ).toBe(true);
   });
@@ -260,7 +260,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           requests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -273,7 +273,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -288,7 +288,7 @@ describe('secureWritePipelineFactory flush integration', () => {
           );
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -354,7 +354,7 @@ describe('secureWritePipelineFactory flush integration', () => {
     await orchestrator.flushAll();
 
     const chunkRequests = requests.filter((request) =>
-      request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
+      request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/UploadBlobChunk`)
     );
     expect(chunkRequests).toHaveLength(stageResult.manifest.chunkCount);
 

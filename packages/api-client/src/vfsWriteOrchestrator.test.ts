@@ -1,5 +1,5 @@
 import type { LocalWriteOptions } from '@tearleads/local-write-orchestrator';
-import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator';
 
@@ -148,7 +148,7 @@ describe('vfsWriteOrchestrator', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -162,7 +162,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -178,7 +178,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
@@ -196,7 +196,7 @@ describe('vfsWriteOrchestrator', () => {
             }
           );
         }
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)) {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({

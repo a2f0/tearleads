@@ -1,4 +1,4 @@
-import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import type {
   VfsBackgroundSyncClientPersistedState,
   VfsCrdtOperation,
@@ -60,7 +60,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           pushAttempt += 1;
           if (pushAttempt === 1) {
             return new Response(null, { status: 401 });
@@ -112,7 +112,7 @@ describe('vfsNetworkFlusher', () => {
     const pushCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)
+        input.toString().endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)
       );
     expect(pushCalls).toHaveLength(2);
 
@@ -315,7 +315,7 @@ describe('vfsNetworkFlusher', () => {
       ): Promise<Response> => {
         const url = input.toString();
 
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           pullCalls += 1;
           if (pullCalls === 1) {
             return new Response(
@@ -347,7 +347,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -364,7 +364,7 @@ describe('vfsNetworkFlusher', () => {
           );
         }
 
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSnapshot`)) {
           let clientId: unknown;
           if (typeof init?.body === 'string') {
             const parsedBody = JSON.parse(init.body);
@@ -431,7 +431,7 @@ describe('vfsNetworkFlusher', () => {
     const snapshotCalls = vi
       .mocked(global.fetch)
       .mock.calls.filter(([input]) =>
-        input.toString().includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSnapshot`)
+        input.toString().includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSnapshot`)
       );
     expect(snapshotCalls).toHaveLength(1);
   });
