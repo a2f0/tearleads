@@ -67,7 +67,10 @@ function restoreGlobalsAfterDomInstall(): void {
 
 beforeAll(() => {
   for (const name of managedGlobalNames) {
-    originalDescriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+    originalDescriptors.set(
+      name,
+      Object.getOwnPropertyDescriptor(globalThis, name)
+    );
   }
   installDomForBun();
 });
