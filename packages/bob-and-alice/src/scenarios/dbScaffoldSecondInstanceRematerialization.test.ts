@@ -9,7 +9,6 @@ import {
 } from '@tearleads/shared/scaffolding';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
-import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -17,6 +16,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 function buildPublicEncryptionKey(): string {
   const keyPair = generateKeyPair();

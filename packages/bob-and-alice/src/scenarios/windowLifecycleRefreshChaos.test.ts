@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
-import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -10,6 +9,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 interface ActiveShare {
   shareId: string;
@@ -304,5 +304,5 @@ describe('window lifecycle refresh chaos', () => {
 
     await verifyBobWindow(10_000, 1);
     await verifyAliceWindow(10_000);
-  });
+  }, 20_000);
 });

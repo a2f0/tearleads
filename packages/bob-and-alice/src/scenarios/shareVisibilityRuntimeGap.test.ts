@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
-import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   type BrowserRuntimeActor,
   createBrowserRuntimeActor,
@@ -11,6 +10,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 
 async function seedKeys(input: {
   alice: ReturnType<ApiScenarioHarness['actor']>;
