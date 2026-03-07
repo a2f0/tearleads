@@ -50,11 +50,18 @@ function readEmailDetail(payload: unknown): EmailDetailPayload | null {
 
   const id = payload['id'];
   const rawData = payload['rawData'];
-  const encryptedBodyPath = payload['encryptedBodyPath'];
+  const encryptedBodyPathValue = payload['encryptedBodyPath'];
   if (typeof id !== 'string' || typeof rawData !== 'string') {
     return null;
   }
-  if (encryptedBodyPath !== null && typeof encryptedBodyPath !== 'string') {
+
+  let encryptedBodyPath: string | null = null;
+  if (typeof encryptedBodyPathValue === 'string') {
+    encryptedBodyPath = encryptedBodyPathValue;
+  } else if (
+    encryptedBodyPathValue !== null &&
+    encryptedBodyPathValue !== undefined
+  ) {
     return null;
   }
 
