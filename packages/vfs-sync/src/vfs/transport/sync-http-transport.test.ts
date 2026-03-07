@@ -1,15 +1,13 @@
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
-import {
-  VFS_CONNECT_BASE_PATH,
-  VfsHttpCrdtSyncTransport
-} from './sync-http-transport.js';
+import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
-const PUSH_CRDT_OPS_PATH = `${VFS_CONNECT_BASE_PATH}/PushCrdtOps`;
-const GET_CRDT_SYNC_PATH = `${VFS_CONNECT_BASE_PATH}/GetCrdtSync`;
-const RECONCILE_CRDT_PATH = `${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`;
-const RUN_CRDT_SESSION_PATH = `${VFS_CONNECT_BASE_PATH}/RunCrdtSession`;
+const PUSH_CRDT_OPS_PATH = `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`;
+const GET_CRDT_SYNC_PATH = `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`;
+const RECONCILE_CRDT_PATH = `${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`;
+const RUN_CRDT_SESSION_PATH = `${VFS_V2_CONNECT_BASE_PATH}/RunCrdtSession`;
 
 async function readRequestJson(
   input: unknown,

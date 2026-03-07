@@ -28,7 +28,6 @@ const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
 const CONNECT_ALREADY_EXISTS_CODE = 'already_exists';
 const JSON_CONTENT_TYPE = 'application/json';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
-export const VFS_CONNECT_BASE_PATH = VFS_V2_CONNECT_BASE_PATH;
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
 
@@ -309,7 +308,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   }
 
   private buildUrl(methodName: string): string {
-    const pathname = `${this.apiPrefix}${VFS_CONNECT_BASE_PATH}/${methodName}`;
+    const pathname = `${this.apiPrefix}${VFS_V2_CONNECT_BASE_PATH}/${methodName}`;
     return this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
   }
 
