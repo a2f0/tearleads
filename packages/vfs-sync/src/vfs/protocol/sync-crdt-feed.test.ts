@@ -72,17 +72,29 @@ describe('buildVfsCrdtSyncQuery', () => {
     expect(query.text).toContain(
       "date_trunc('milliseconds', ops.occurred_at) AS occurred_at"
     );
-    expect(query.text).toMatch(
-      /COALESCE\(\s*encode\(ops\.encrypted_payload_bytes, 'base64'\),\s*ops\.encrypted_payload\s*\) AS encrypted_payload/
+    expect(query.text).toContain(
+      "encode(ops.encrypted_payload_bytes, 'base64') AS encrypted_payload"
     );
-    expect(query.text).toMatch(
-      /COALESCE\(\s*encode\(ops\.encryption_nonce_bytes, 'base64'\),\s*ops\.encryption_nonce\s*\) AS encryption_nonce/
+    expect(query.text).toContain(
+      "encode(ops.encryption_nonce_bytes, 'base64') AS encryption_nonce"
     );
-    expect(query.text).toMatch(
-      /COALESCE\(\s*encode\(ops\.encryption_aad_bytes, 'base64'\),\s*ops\.encryption_aad\s*\) AS encryption_aad/
+    expect(query.text).toContain(
+      "encode(ops.encryption_aad_bytes, 'base64') AS encryption_aad"
     );
-    expect(query.text).toMatch(
-      /COALESCE\(\s*encode\(ops\.encryption_signature_bytes, 'base64'\),\s*ops\.encryption_signature\s*\) AS encryption_signature/
+    expect(query.text).toContain(
+      "encode(ops.encryption_signature_bytes, 'base64') AS encryption_signature"
+    );
+    expect(query.text).not.toMatch(
+      /COALESCE\(\s*encode\(ops\.encrypted_payload_bytes, 'base64'\),\s*ops\.encrypted_payload\s*\)/
+    );
+    expect(query.text).not.toMatch(
+      /COALESCE\(\s*encode\(ops\.encryption_nonce_bytes, 'base64'\),\s*ops\.encryption_nonce\s*\)/
+    );
+    expect(query.text).not.toMatch(
+      /COALESCE\(\s*encode\(ops\.encryption_aad_bytes, 'base64'\),\s*ops\.encryption_aad\s*\)/
+    );
+    expect(query.text).not.toMatch(
+      /COALESCE\(\s*encode\(ops\.encryption_signature_bytes, 'base64'\),\s*ops\.encryption_signature\s*\)/
     );
   });
 });
