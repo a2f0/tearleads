@@ -339,7 +339,8 @@ describe('WindowManagerContext', () => {
         });
       });
 
-      const saved = localStorage.getItem('window-dimensions:notes');
+      // Without DatabaseContext, dimensions are scoped under 'default' instance key
+      const saved = localStorage.getItem('window-dimensions:default:notes');
       expect(saved).not.toBeNull();
     });
 
@@ -356,7 +357,7 @@ describe('WindowManagerContext', () => {
         });
       });
 
-      const saved = localStorage.getItem('window-dimensions:notes');
+      const saved = localStorage.getItem('window-dimensions:default:notes');
       expect(saved).toBeNull();
     });
   });

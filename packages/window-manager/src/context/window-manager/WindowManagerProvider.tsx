@@ -1,28 +1,99 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WindowDimensions } from '../../components/FloatingWindow.js';
 import type { WindowInstance, WindowManagerProviderProps } from './types.js';
 import { WindowManagerContext } from './WindowManagerContext.js';
 
 const BASE_Z_INDEX = 100;
 
+function getNextZIndex(currentWindows: WindowInstance[]): number {
+  if (currentWindows.length === 0) {
+    return BASE_Z_INDEX;
+  }
+  return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
+}
+
+function openWindowReducer(
+  prev: WindowInstance[],
+  type: string,
+  defaultId: string,
+  customId: string | undefined,
+  savedDimensions: WindowDimensions | null,
+  resolveInitialDimensions:
+    | WindowManagerProviderProps['resolveInitialDimensions']
+    | undefined,
+  resolvedIdRef: { value: string }
+): WindowInstance[] {
+  if (!customId) {
+    const existingByType = prev.find((w) => w.type === type);
+    if (existingByType) {
+      resolvedIdRef.value = existingByType.id;
+      const nextZIndex = getNextZIndex(prev);
+      return prev.map((w) =>
+        w.id === existingByType.id
+          ? { ...w, isMinimized: false, zIndex: nextZIndex }
+          : w
+      );
+    }
+  }
+
+  const existing = prev.find((w) => w.id === defaultId);
+  if (existing) {
+    resolvedIdRef.value = existing.id;
+    return prev;
+  }
+
+  const initialDimensions = resolveInitialDimensions
+    ? resolveInitialDimensions({
+        type,
+        savedDimensions,
+        currentWindows: prev
+      })
+    : (savedDimensions ?? undefined);
+
+  const nextZIndex = getNextZIndex(prev);
+  return [
+    ...prev,
+    {
+      id: resolvedIdRef.value,
+      type,
+      zIndex: nextZIndex,
+      isMinimized: false,
+      ...(initialDimensions && { dimensions: initialDimensions })
+    }
+  ];
+}
+
 export function WindowManagerProvider({
   children,
+  instanceKey,
+  initialWindows,
+  onWindowsChange,
   loadDimensions,
   saveDimensions,
   shouldPreserveState,
   createWindowId,
   resolveInitialDimensions
 }: WindowManagerProviderProps) {
-  const [windows, setWindows] = useState<WindowInstance[]>([]);
+  const [windows, setWindows] = useState<WindowInstance[]>(
+    initialWindows ?? []
+  );
   const windowsRef = useRef<WindowInstance[]>(windows);
   windowsRef.current = windows;
 
-  const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
-    if (currentWindows.length === 0) {
-      return BASE_Z_INDEX;
+  const prevInstanceKeyRef = useRef(instanceKey);
+  useEffect(() => {
+    if (
+      instanceKey !== undefined &&
+      prevInstanceKeyRef.current !== instanceKey
+    ) {
+      prevInstanceKeyRef.current = instanceKey;
+      setWindows(initialWindows ?? []);
     }
-    return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
-  }, []);
+  }, [instanceKey, initialWindows]);
+
+  useEffect(() => {
+    onWindowsChange?.(windows);
+  }, [windows, onWindowsChange]);
 
   const closeWindow = useCallback((id: string) => {
     setWindows((prev) => prev.filter((w) => w.id !== id));
@@ -50,58 +121,28 @@ export function WindowManagerProvider({
       const existingWindow = customId
         ? windowsRef.current.find((window) => window.id === defaultId)
         : windowsRef.current.find((window) => window.type === type);
-      let resolvedId = existingWindow?.id ?? defaultId;
+      const resolvedIdRef = { value: existingWindow?.id ?? defaultId };
 
       const preserveState = shouldPreserveState?.() ?? true;
       const savedDimensions =
         preserveState && loadDimensions ? loadDimensions(type) : null;
 
-      setWindows((prev) => {
-        if (!customId) {
-          const existingByType = prev.find((w) => w.type === type);
-          if (existingByType) {
-            resolvedId = existingByType.id;
-            const nextZIndex = getNextZIndex(prev);
-            return prev.map((w) =>
-              w.id === existingByType.id
-                ? { ...w, isMinimized: false, zIndex: nextZIndex }
-                : w
-            );
-          }
-        }
+      setWindows((prev) =>
+        openWindowReducer(
+          prev,
+          type,
+          defaultId,
+          customId,
+          savedDimensions,
+          resolveInitialDimensions,
+          resolvedIdRef
+        )
+      );
 
-        const existing = prev.find((w) => w.id === defaultId);
-        if (existing) {
-          resolvedId = existing.id;
-          return prev;
-        }
-
-        const initialDimensions = resolveInitialDimensions
-          ? resolveInitialDimensions({
-              type,
-              savedDimensions,
-              currentWindows: prev
-            })
-          : (savedDimensions ?? undefined);
-
-        const nextZIndex = getNextZIndex(prev);
-        return [
-          ...prev,
-          {
-            id: resolvedId,
-            type,
-            zIndex: nextZIndex,
-            isMinimized: false,
-            ...(initialDimensions && { dimensions: initialDimensions })
-          }
-        ];
-      });
-
-      return resolvedId;
+      return resolvedIdRef.value;
     },
     [
       createWindowId,
-      getNextZIndex,
       loadDimensions,
       resolveInitialDimensions,
       shouldPreserveState

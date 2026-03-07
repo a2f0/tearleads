@@ -35,6 +35,9 @@ export interface WindowManagerContextValue {
 
 export interface WindowManagerProviderProps {
   children: ReactNode;
+  instanceKey?: string;
+  initialWindows?: WindowInstance[];
+  onWindowsChange?: (windows: WindowInstance[]) => void;
   loadDimensions?: (type: string) => WindowDimensions | null;
   saveDimensions?: (type: string, dimensions: WindowDimensions) => void;
   shouldPreserveState?: () => boolean;

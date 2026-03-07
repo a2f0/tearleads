@@ -66,11 +66,26 @@ const setupDatabase = async (window: Page, password: string) => {
   }
 };
 
+// Helper to open the SQLite window via sidebar
+const openSqliteWindow = async (window: Page) => {
+  await openSidebar(window);
+  await window
+    .locator('nav')
+    .getByRole('button', { name: 'SQLite' })
+    .click();
+  await expect(window.getByTestId('database-test')).toBeVisible({
+    timeout: DB_OPERATION_TIMEOUT
+  });
+};
+
 // Helper to create a new instance via account switcher
 const createNewInstance = async (window: Page) => {
   await window.getByTestId('account-switcher-button').click();
   await expect(window.getByTestId('create-instance-button')).toBeVisible();
   await window.getByTestId('create-instance-button').click();
+  // Window state is instance-scoped, so the SQLite window closes on switch.
+  // Re-open it for the new instance.
+  await openSqliteWindow(window);
   // Wait for the new instance to be active and database status to settle.
   await expect(window.getByTestId('db-status')).toHaveText(
     /Not Set Up|Unlocked/,
@@ -89,6 +104,13 @@ const switchToInstance = async (window: Page, instanceIndex: number) => {
   );
   await expect(instanceItems.nth(instanceIndex)).toBeVisible();
   await instanceItems.nth(instanceIndex).click();
+  // Window state is instance-scoped and restored from snapshot.
+  // If the SQLite window isn't visible, re-open it.
+  const dbTest = window.getByTestId('database-test');
+  const isVisible = await dbTest.isVisible().catch(() => false);
+  if (!isVisible) {
+    await openSqliteWindow(window);
+  }
 };
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
