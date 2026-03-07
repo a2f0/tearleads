@@ -6,6 +6,7 @@ import {
   getPreserveWindowState,
   loadWindowDimensions,
   saveWindowDimensions,
+  subscribePreserveWindowState,
   useWindowManager as useBaseWindowManager,
   type WindowDimensions
 } from '@tearleads/window-manager';
@@ -14,12 +15,21 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState
 } from 'react';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import type { HelpDocId } from '@/constants/help';
+import { DatabaseContext } from '@/db/hooks/useDatabaseContext';
+import {
+  clearAllWindowSnapshots,
+  loadWindowSnapshot,
+  saveWindowSnapshot
+} from '@/storage/windowSnapshotStorage';
+
+// one-component-per-file: allow -- WindowManagerAdapterProvider is an internal helper only used by WindowManagerProvider
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add entry in the window component map)
@@ -323,21 +333,67 @@ function WindowManagerAdapterProvider({ children }: { children: ReactNode }) {
 export function WindowManagerProvider({
   children
 }: WindowManagerProviderProps) {
-  const loadDimensionsForType = useCallback((type: string) => {
-    if (!isWindowType(type)) {
-      return null;
-    }
-    return loadWindowDimensions(type);
+  const dbContext = useContext(DatabaseContext);
+  const instanceKey = dbContext?.currentInstanceId ?? 'default';
+
+  const initialWindows = useMemo(() => {
+    if (!getPreserveWindowState()) return [];
+    return loadWindowSnapshot(instanceKey) ?? [];
+  }, [instanceKey]);
+
+  const windowsRef = useRef<BaseWindowInstance[]>([]);
+
+  const handleWindowsChange = useCallback((windows: BaseWindowInstance[]) => {
+    windowsRef.current = windows;
   }, []);
+
+  useEffect(() => {
+    function handleBeforeUnload() {
+      if (!getPreserveWindowState()) return;
+      if (instanceKey === 'default') return;
+      saveWindowSnapshot(instanceKey, windowsRef.current);
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Save snapshot when unmounting (e.g., instance switch)
+      if (getPreserveWindowState() && instanceKey !== 'default') {
+        saveWindowSnapshot(instanceKey, windowsRef.current);
+      }
+    };
+  }, [instanceKey]);
+
+  useEffect(() => {
+    return subscribePreserveWindowState(() => {
+      if (!getPreserveWindowState()) {
+        clearAllWindowSnapshots();
+      }
+    });
+  }, []);
+
+  const loadDimensionsForType = useCallback(
+    (type: string) => {
+      if (!isWindowType(type)) {
+        return null;
+      }
+      // Try instance-scoped key first, fall back to unscoped (migration)
+      const scopedKey = `${instanceKey}:${type}`;
+      const scoped = loadWindowDimensions(scopedKey);
+      if (scoped) return scoped;
+      return loadWindowDimensions(type);
+    },
+    [instanceKey]
+  );
 
   const saveDimensionsForType = useCallback(
     (type: string, dimensions: WindowDimensions) => {
       if (!isWindowType(type)) {
         return;
       }
-      saveWindowDimensions(type, dimensions);
+      saveWindowDimensions(`${instanceKey}:${type}`, dimensions);
     },
-    []
+    [instanceKey]
   );
 
   const resolveInitialDimensions = useCallback(
@@ -361,6 +417,9 @@ export function WindowManagerProvider({
 
   return (
     <BaseWindowManagerProvider
+      key={instanceKey}
+      initialWindows={initialWindows}
+      onWindowsChange={handleWindowsChange}
       loadDimensions={loadDimensionsForType}
       saveDimensions={saveDimensionsForType}
       shouldPreserveState={getPreserveWindowState}
