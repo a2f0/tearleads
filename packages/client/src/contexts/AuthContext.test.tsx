@@ -41,6 +41,17 @@ vi.mock('@/hooks/vfs', () => ({
     mockSetVfsRecoveryPassword(...args)
 }));
 
+vi.mock('@tearleads/mls-core', () => ({
+  generateMlsOnboardingKeyMaterial: vi
+    .fn()
+    .mockResolvedValue({ keyPackages: [] })
+}));
+
+vi.mock('@/lib/mlsKeyPackageSync', () => ({
+  writeMlsKeyPackagesToOutbox: vi.fn().mockResolvedValue(undefined),
+  flushMlsKeyPackageOutbox: vi.fn().mockResolvedValue(undefined)
+}));
+
 function TestComponent() {
   const {
     authError,
