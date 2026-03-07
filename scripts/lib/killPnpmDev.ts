@@ -132,7 +132,14 @@ const isInRepo = (cwd: string | null): boolean => {
 };
 
 // Dev ports that should be freed before starting
-const DEV_PORTS = [25, 2525, 3000, 3001, 5001, 5002];
+const DEV_PORTS = [
+  25, // SMTP default port
+  2525, // SMTP listener dev port (SMTP_PORT in .env)
+  3000, // Client (Vite) dev server
+  3001, // Website (Astro) dev server
+  5001, // API server
+  5002 // API v2 (Rust) server
+];
 
 const getProcessOnPort = (port: number): number | null => {
   const pids = getPidsOnPort({ port, listenOnly: true });
