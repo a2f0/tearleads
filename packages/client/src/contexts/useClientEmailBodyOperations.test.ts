@@ -46,12 +46,9 @@ describe('useClientEmailBodyOperations', () => {
 
   it('fetches, decrypts, and returns the email body', async () => {
     mockGetAuthHeaderValue.mockReturnValue('Bearer token');
-    const envelope = {
-      json: JSON.stringify({ encryptedBodyPath: 'blobs/email-body-123' })
-    };
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
-      json: async () => envelope
+      json: async () => ({ encryptedBodyPath: 'blobs/email-body-123' })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array([1, 2, 3]) });
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
@@ -78,9 +75,7 @@ describe('useClientEmailBodyOperations', () => {
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({
-        json: JSON.stringify({
-          rawData: 'From: system@tearleads.com\r\n\r\nHello from scaffold'
-        })
+        rawData: 'From: system@tearleads.com\r\n\r\nHello from scaffold'
       })
     } as Response);
 
@@ -95,12 +90,9 @@ describe('useClientEmailBodyOperations', () => {
 
   it('omits Authorization header when auth is null', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    const envelope = {
-      json: JSON.stringify({ encryptedBodyPath: 'blobs/path' })
-    };
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
-      json: async () => envelope
+      json: async () => ({ encryptedBodyPath: 'blobs/path' })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array() });
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
@@ -144,37 +136,11 @@ describe('useClientEmailBodyOperations', () => {
     );
   });
 
-  it('throws when envelope json field is not a string', async () => {
-    mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ json: 123 })
-    } as Response);
-
-    const { result } = renderHook(() => useClientEmailBodyOperations());
-    await expect(result.current.fetchDecryptedBody('email-1')).rejects.toThrow(
-      'Invalid email response envelope'
-    );
-  });
-
-  it('throws when email data is not a record', async () => {
-    mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ json: '"just a string"' })
-    } as Response);
-
-    const { result } = renderHook(() => useClientEmailBodyOperations());
-    await expect(result.current.fetchDecryptedBody('email-1')).rejects.toThrow(
-      'Invalid email data'
-    );
-  });
-
   it('throws when encryptedBodyPath is missing', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({ json: JSON.stringify({}) })
+      json: async () => ({})
     } as Response);
 
     const { result } = renderHook(() => useClientEmailBodyOperations());
@@ -187,9 +153,7 @@ describe('useClientEmailBodyOperations', () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({
-        json: JSON.stringify({ encryptedBodyPath: '' })
-      })
+      json: async () => ({ encryptedBodyPath: '' })
     } as Response);
 
     const { result } = renderHook(() => useClientEmailBodyOperations());
@@ -202,9 +166,7 @@ describe('useClientEmailBodyOperations', () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({
-        json: JSON.stringify({ encryptedBodyPath: 'blobs/x' })
-      })
+      json: async () => ({ encryptedBodyPath: 'blobs/x' })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array() });
     mockGetCurrentKey.mockReturnValue(null);

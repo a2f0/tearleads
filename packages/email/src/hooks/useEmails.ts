@@ -39,34 +39,12 @@ function isEmailItem(value: unknown): value is EmailItem {
   );
 }
 
-function unwrapConnectJsonEnvelope(payload: unknown): unknown {
-  if (!isRecord(payload)) {
-    return payload;
-  }
-
-  const json = payload['json'];
-  if (typeof json !== 'string') {
-    return payload;
-  }
-
-  if (json.trim().length === 0) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(json);
-  } catch {
-    throw new Error('Invalid email payload from server');
-  }
-}
-
 function readEmailsFromPayload(payload: unknown): EmailItem[] {
-  const normalized = unwrapConnectJsonEnvelope(payload);
-  if (!isRecord(normalized)) {
+  if (!isRecord(payload)) {
     return [];
   }
 
-  const emails = normalized['emails'];
+  const emails = payload['emails'];
   if (!Array.isArray(emails)) {
     return [];
   }
