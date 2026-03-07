@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { waitForAssertion } from '../test/bunCompat.js';
 import {
   createMockStream,
   getSmtpTestDoubles,
@@ -35,7 +36,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
 
@@ -60,7 +61,7 @@ describe('server onData', () => {
     stream.emit('data', Buffer.from('Test'));
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(onEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           envelope: {
@@ -94,7 +95,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
     expect(inboundIngestor.ingest).not.toHaveBeenCalled();
@@ -123,7 +124,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
     expect(inboundIngestor.ingest).toHaveBeenCalledWith(
@@ -156,7 +157,7 @@ describe('server onData', () => {
     stream.emit('data', Buffer.from('Subject: Test\r\n\r\nBody'));
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith();
     });
     expect(inboundIngestor.ingest).toHaveBeenCalledWith(
@@ -197,7 +198,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(inboundIngestor.ingest).toHaveBeenCalledWith(
         expect.objectContaining({
           userIds: [USER_ID_A]
@@ -229,7 +230,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(inboundIngestor.ingest).toHaveBeenCalledWith(
         expect.objectContaining({
           userIds: [USER_ID_A]
@@ -260,7 +261,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(inboundIngestor.ingest).toHaveBeenCalledWith(
         expect.objectContaining({
           email: expect.objectContaining({
@@ -317,7 +318,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
     });
   });
@@ -344,7 +345,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(mockCallback).toHaveBeenCalledWith(expect.any(Error));
     });
   });
@@ -375,7 +376,7 @@ describe('server onData', () => {
     smtpTestDoubles.capturedOnDataRef.current?.(stream, session, mockCallback);
     stream.emit('end');
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(inboundIngestor.ingest).toHaveBeenCalledWith(
         expect.objectContaining({
           userIds: [USER_ID_A]

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createStoredEmail, generateEmailId, parseAddress } from './parser.js';
 
 describe('parser', () => {
@@ -58,23 +58,15 @@ describe('parser', () => {
   });
 
   describe('createStoredEmail', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2024-01-15T10:30:00.000Z'));
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
     it('should create a stored email with all fields', () => {
       const envelope = {
         mailFrom: { address: 'sender@example.com' },
         rcptTo: [{ address: 'recipient@example.com' }]
       };
       const rawData = 'Subject: Test\r\n\r\nHello World';
+      const fixedNow = new Date('2024-01-15T10:30:00.000Z');
 
-      const result = createStoredEmail(envelope, rawData);
+      const result = createStoredEmail(envelope, rawData, () => fixedNow);
 
       expect(result.envelope).toEqual(envelope);
       expect(result.rawData).toBe(rawData);

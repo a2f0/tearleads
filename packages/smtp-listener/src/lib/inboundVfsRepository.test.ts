@@ -3,8 +3,10 @@ import type {
   InboundMessageEnvelopeRecord,
   ResolvedInboundRecipient
 } from '../types/inboundContracts.js';
+import { resetModulesIfSupported } from '../test/bunCompat.js';
+import { withHoisted } from '../test/withHoisted.js';
 
-const { getPostgresPoolMock, randomUuidMock } = vi.hoisted(() => ({
+const { getPostgresPoolMock, randomUuidMock } = withHoisted(() => ({
   getPostgresPoolMock: vi.fn(),
   randomUuidMock: vi.fn()
 }));
@@ -13,13 +15,7 @@ vi.mock('./postgres.js', () => ({
   getPostgresPool: getPostgresPoolMock
 }));
 
-vi.mock('node:crypto', async (importOriginal) => {
-  const original = await importOriginal<typeof import('node:crypto')>();
-  return {
-    ...original,
-    randomUUID: randomUuidMock
-  };
-});
+vi.mock('node:crypto', () => ({ randomUUID: randomUuidMock }));
 
 function buildEnvelope(): InboundMessageEnvelopeRecord {
   return {
@@ -60,7 +56,7 @@ function buildRecipients(): ResolvedInboundRecipient[] {
 
 describe('PostgresInboundVfsEmailRepository', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetModulesIfSupported();
     vi.clearAllMocks();
     let counter = 0;
     randomUuidMock.mockImplementation(() => {

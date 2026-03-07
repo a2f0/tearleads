@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetModulesIfSupported } from '../test/bunCompat.js';
+import { withHoisted } from '../test/withHoisted.js';
 
-const { getPostgresPoolMock, poolQueryMock } = vi.hoisted(() => ({
+const { getPostgresPoolMock, poolQueryMock } = withHoisted(() => ({
   getPostgresPoolMock: vi.fn(),
   poolQueryMock: vi.fn()
 }));
@@ -11,7 +13,7 @@ vi.mock('./postgres.js', () => ({
 
 describe('PostgresInboundRecipientKeyLookup', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetModulesIfSupported();
     vi.clearAllMocks();
     getPostgresPoolMock.mockResolvedValue({ query: poolQueryMock });
   });
