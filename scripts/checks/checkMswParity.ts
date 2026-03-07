@@ -102,8 +102,12 @@ const routePrefixForFile = (filePath: string): string | null => {
   if (normalized.includes('/routes/emailsCompose/')) return '/v1/emails';
   if (normalized.includes('/routes/emails/')) return '/v1/emails';
   if (normalized.includes('/routes/sse/')) return '/v1/sse';
-  if (normalized.includes('/routes/vfs-shares/')) return '/v1/vfs';
-  if (normalized.includes('/routes/vfs/')) return '/v1/vfs';
+  if (normalized.includes('/routes/vfs-shares/')) {
+    return '/v1/connect/tearleads.v2.VfsSharesService';
+  }
+  if (normalized.includes('/routes/vfs/')) {
+    return '/v1/connect/tearleads.v2.VfsService';
+  }
   if (normalized.includes('/routes/mls/')) return '/v1/mls';
   if (normalized.includes('/routes/revenuecat/')) return '/v1/revenuecat';
   return null;
