@@ -25,7 +25,6 @@ import {
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 import {
   toIsoString,
   toLastReconciledWriteIds
@@ -281,8 +280,7 @@ export async function getCrdtSyncDirect(
       userId: claims.sub,
       limit: parsedQuery.value.limit,
       cursor: parsedQuery.value.cursor,
-      rootId: parsedQuery.value.rootId,
-      includeEnvelopeByteaReads: shouldReadEnvelopeBytea()
+      rootId: parsedQuery.value.rootId
     });
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
     const replicaWriteIdsRows = await loadReplicaWriteIdRows(pool, claims.sub);

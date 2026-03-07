@@ -13,27 +13,11 @@ export const VFS_CRDT_SYNC_SQL = `
           ops.source_table,
           ops.source_id,
           date_trunc('milliseconds', ops.occurred_at) AS occurred_at,
-          CASE
-            WHEN $6::boolean AND ops.encrypted_payload_bytes IS NOT NULL
-              THEN encode(ops.encrypted_payload_bytes, 'base64')
-            ELSE ops.encrypted_payload
-          END AS encrypted_payload,
+          encode(ops.encrypted_payload_bytes, 'base64') AS encrypted_payload,
           ops.key_epoch,
-          CASE
-            WHEN $6::boolean AND ops.encryption_nonce_bytes IS NOT NULL
-              THEN encode(ops.encryption_nonce_bytes, 'base64')
-            ELSE ops.encryption_nonce
-          END AS encryption_nonce,
-          CASE
-            WHEN $6::boolean AND ops.encryption_aad_bytes IS NOT NULL
-              THEN encode(ops.encryption_aad_bytes, 'base64')
-            ELSE ops.encryption_aad
-          END AS encryption_aad,
-          CASE
-            WHEN $6::boolean AND ops.encryption_signature_bytes IS NOT NULL
-              THEN encode(ops.encryption_signature_bytes, 'base64')
-            ELSE ops.encryption_signature
-          END AS encryption_signature
+          encode(ops.encryption_nonce_bytes, 'base64') AS encryption_nonce,
+          encode(ops.encryption_aad_bytes, 'base64') AS encryption_aad,
+          encode(ops.encryption_signature_bytes, 'base64') AS encryption_signature
         FROM vfs_crdt_ops ops
         INNER JOIN vfs_effective_visibility access 
            ON access.item_id = ops.item_id

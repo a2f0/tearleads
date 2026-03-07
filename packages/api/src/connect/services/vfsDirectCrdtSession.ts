@@ -17,7 +17,6 @@ import {
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { shouldReadEnvelopeBytea } from './vfsDirectCrdtEnvelopeReadOptions.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import {
   type ParsedPushOperation,
@@ -216,8 +215,7 @@ export async function runCrdtSessionDirect(
       userId: claims.sub,
       limit: parsedPayload.value.limit,
       cursor: parsedPayload.value.cursor,
-      rootId: parsedPayload.value.rootId,
-      includeEnvelopeByteaReads: shouldReadEnvelopeBytea()
+      rootId: parsedPayload.value.rootId
     });
 
     const pullRows = await client.query<VfsCrdtSyncDbRow>(

@@ -10,7 +10,6 @@ const {
   queryMock,
   readOldestAccessibleCursorCacheMock,
   requireVfsClaimsMock,
-  shouldReadEnvelopeByteaMock,
   writeOldestAccessibleCursorCacheMock
 } = vi.hoisted(() => ({
   getPostgresPoolMock: vi.fn(),
@@ -20,7 +19,6 @@ const {
   queryMock: vi.fn(),
   readOldestAccessibleCursorCacheMock: vi.fn(),
   requireVfsClaimsMock: vi.fn(),
-  shouldReadEnvelopeByteaMock: vi.fn(),
   writeOldestAccessibleCursorCacheMock: vi.fn()
 }));
 
@@ -45,11 +43,6 @@ vi.mock('../../lib/vfsCrdtReplicaWriteIds.js', () => ({
 vi.mock('../../lib/vfsCrdtSnapshots.js', () => ({
   loadVfsCrdtRematerializationSnapshot: (...args: unknown[]) =>
     loadVfsCrdtRematerializationSnapshotMock(...args)
-}));
-
-vi.mock('./vfsDirectCrdtEnvelopeReadOptions.js', () => ({
-  shouldReadEnvelopeBytea: (...args: unknown[]) =>
-    shouldReadEnvelopeByteaMock(...args)
 }));
 
 vi.mock('./vfsDirectAuth.js', () => ({
@@ -81,7 +74,6 @@ describe('vfsDirectSync coverage branches', () => {
     loadVfsCrdtRematerializationSnapshotMock.mockResolvedValue({
       snapshot: {}
     });
-    shouldReadEnvelopeByteaMock.mockReturnValue(false);
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });

@@ -42,7 +42,6 @@ export interface BuildVfsCrdtSyncQueryInput {
   limit: number;
   cursor: VfsSyncCursor | null;
   rootId: string | null;
-  includeEnvelopeByteaReads?: boolean;
 }
 
 export interface VfsCrdtSyncDbQuery {
@@ -326,8 +325,7 @@ export function buildVfsCrdtSyncQuery(
       input.cursor?.changedAt ?? null,
       input.cursor?.changeId ?? null,
       input.limit + 1,
-      input.rootId,
-      input.includeEnvelopeByteaReads ?? true
+      input.rootId
     ]
   };
 }
