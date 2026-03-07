@@ -80,7 +80,9 @@ const {
   sendEmailDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   setupKeysDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ created: boolean }>>(),
+    vi.fn<
+      (request: unknown, context: unknown) => Promise<{ created: boolean }>
+    >(),
   uploadBlobChunkDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
