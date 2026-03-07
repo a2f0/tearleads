@@ -5,7 +5,7 @@ export default mergeConfig(
   sharedTestConfig,
   defineConfig({
     test: {
-      environment: 'jsdom',
+      environment: 'node',
       globals: true,
       include: ['src/**/*.test.ts'],
       exclude: ['node_modules', 'dist'],
