@@ -8,13 +8,13 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 import {
   assertPgHasActiveUserShare,
   assertPgHasVfsRegistryItem,
   assertPgUserOrganizationMembership
 } from '../harness/postgresAssertions.js';
-import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 
 describe('sharedWithMe refresh runtime', () => {
   let harness: ApiScenarioHarness | null = null;

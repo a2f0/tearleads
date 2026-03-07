@@ -20,7 +20,10 @@ function createVfsKeyPayload(keyPrefix: string): {
   };
 }
 
-function isMissingKeyFieldsError(status: number, responseBody: string): boolean {
+function isMissingKeyFieldsError(
+  status: number,
+  responseBody: string
+): boolean {
   return (
     status === 400 &&
     responseBody.includes(
