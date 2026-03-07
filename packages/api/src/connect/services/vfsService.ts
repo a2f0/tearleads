@@ -13,13 +13,13 @@ import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
 import { pushCrdtOpsDirect } from './vfsDirectCrdtPush.js';
 import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
 import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
-import type { SendRequestPayload } from './vfsDirectEmailPayload.js';
 import {
   deleteEmailDirect,
   getEmailDirect,
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
+import { parseJsonBody } from './vfsDirectJson.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
@@ -118,9 +118,15 @@ export const vfsConnectService = {
   deleteEmail: async (
     request: EmailIdRequest,
     context: { requestHeader: Headers }
-  ) => deleteEmailDirect(request, context),
+  ) => {
+    const response = await deleteEmailDirect(request, context);
+    return { json: JSON.stringify(response) };
+  },
   sendEmail: async (
-    request: SendRequestPayload,
+    request: { json: string },
     context: { requestHeader: Headers }
-  ) => sendEmailDirect(request, context)
+  ) => {
+    const response = await sendEmailDirect(parseJsonBody(request.json), context);
+    return { json: JSON.stringify(response) };
+  }
 };

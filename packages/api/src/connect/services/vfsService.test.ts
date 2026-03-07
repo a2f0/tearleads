@@ -292,9 +292,11 @@ describe('vfsConnectService', () => {
     const getEmailRequest = { id: 'email-1' };
     const deleteEmailRequest = { id: 'email-2' };
     const sendEmailRequest = {
-      to: ['a@example.com'],
-      subject: 'Hi',
-      body: 'Hello'
+      json: JSON.stringify({
+        to: ['a@example.com'],
+        subject: 'Hi',
+        body: 'Hello'
+      })
     };
     const reconcileSyncRequest = {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
@@ -437,7 +439,9 @@ describe('vfsConnectService', () => {
       deleteEmailRequest,
       context
     );
-    expect(deleteEmailResponse).toEqual({ success: true });
+    expect(deleteEmailResponse).toEqual({
+      json: JSON.stringify({ success: true })
+    });
     expect(deleteEmailDirectMock).toHaveBeenCalledWith(
       deleteEmailRequest,
       context
@@ -448,10 +452,19 @@ describe('vfsConnectService', () => {
       context
     );
     expect(sendEmailResponse).toEqual({
-      success: true,
-      messageId: 'msg-1'
+      json: JSON.stringify({
+        success: true,
+        messageId: 'msg-1'
+      })
     });
-    expect(sendEmailDirectMock).toHaveBeenCalledWith(sendEmailRequest, context);
+    expect(sendEmailDirectMock).toHaveBeenCalledWith(
+      {
+        to: ['a@example.com'],
+        subject: 'Hi',
+        body: 'Hello'
+      },
+      context
+    );
 
     const getBlobResponse = await vfsConnectService.getBlob(
       getBlobRequest,
