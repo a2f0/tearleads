@@ -65,6 +65,7 @@ function openWindowReducer(
 
 export function WindowManagerProvider({
   children,
+  instanceKey,
   initialWindows,
   onWindowsChange,
   loadDimensions,
@@ -78,6 +79,17 @@ export function WindowManagerProvider({
   );
   const windowsRef = useRef<WindowInstance[]>(windows);
   windowsRef.current = windows;
+
+  const prevInstanceKeyRef = useRef(instanceKey);
+  useEffect(() => {
+    if (
+      instanceKey !== undefined &&
+      prevInstanceKeyRef.current !== instanceKey
+    ) {
+      prevInstanceKeyRef.current = instanceKey;
+      setWindows(initialWindows ?? []);
+    }
+  }, [instanceKey, initialWindows]);
 
   useEffect(() => {
     onWindowsChange?.(windows);

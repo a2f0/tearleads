@@ -417,7 +417,7 @@ export function WindowManagerProvider({
 
   return (
     <BaseWindowManagerProvider
-      key={instanceKey}
+      instanceKey={instanceKey}
       initialWindows={initialWindows}
       onWindowsChange={handleWindowsChange}
       loadDimensions={loadDimensionsForType}

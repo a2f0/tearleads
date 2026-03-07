@@ -171,4 +171,71 @@ describe('WindowManagerContext props', () => {
       );
     });
   });
+
+  describe('instanceKey', () => {
+    it('resets windows when instanceKey changes', () => {
+      const instanceAWindows = [
+        { id: 'w1', type: 'notes', zIndex: 100, isMinimized: false }
+      ];
+      const instanceBWindows = [
+        { id: 'w2', type: 'files', zIndex: 100, isMinimized: false }
+      ];
+
+      let currentKey = 'inst-a';
+      let currentInitial = instanceAWindows;
+
+      function wrapper({ children }: { children: ReactNode }) {
+        return (
+          <WindowManagerProvider
+            instanceKey={currentKey}
+            initialWindows={currentInitial}
+            loadDimensions={loadWindowDimensions}
+            saveDimensions={saveWindowDimensions}
+            shouldPreserveState={getPreserveWindowState}
+          >
+            {children}
+          </WindowManagerProvider>
+        );
+      }
+
+      const { result, rerender } = renderHook(() => useWindowManager(), {
+        wrapper
+      });
+
+      expect(result.current.windows).toHaveLength(1);
+      expect(result.current.windows[0]?.id).toBe('w1');
+
+      currentKey = 'inst-b';
+      currentInitial = instanceBWindows;
+      rerender();
+
+      expect(result.current.windows).toHaveLength(1);
+      expect(result.current.windows[0]?.id).toBe('w2');
+    });
+
+    it('does not reset windows when instanceKey stays the same', () => {
+      function wrapper({ children }: { children: ReactNode }) {
+        return (
+          <WindowManagerProvider
+            instanceKey="inst-a"
+            initialWindows={[]}
+            loadDimensions={loadWindowDimensions}
+            saveDimensions={saveWindowDimensions}
+            shouldPreserveState={getPreserveWindowState}
+          >
+            {children}
+          </WindowManagerProvider>
+        );
+      }
+
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'w1');
+      });
+
+      expect(result.current.windows).toHaveLength(1);
+      expect(result.current.windows[0]?.id).toBe('w1');
+    });
+  });
 });
