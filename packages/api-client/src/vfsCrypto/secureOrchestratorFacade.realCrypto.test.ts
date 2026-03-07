@@ -14,8 +14,8 @@ import {
   createVfsSecureOrchestratorFacade,
   createVfsSecureOrchestratorFacadeWithRuntime
 } from './secureOrchestratorFacade';
-import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
+import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 import { createVfsSecureWritePipeline } from './secureWritePipelineRuntime';
 import type { Epoch, ItemId } from './types';
 
