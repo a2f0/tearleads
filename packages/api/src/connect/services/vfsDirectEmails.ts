@@ -9,7 +9,7 @@ import { encoded } from './vfsDirectJson.js';
 
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
-type SendEmailRequest = Record<string, unknown>;
+type SendEmailRequest = unknown;
 
 export interface EmailListItem {
   id: string;
