@@ -35,6 +35,26 @@ while [ "$#" -gt 0 ]; do
       fi
       normalized_args="${normalized_args} ${canonical_worker_flag}=$1"
       ;;
+    --preload)
+      if [ "$runner_bin" = "bun" ]; then
+        normalized_args="${normalized_args} $1"
+        shift
+        if [ "$#" -eq 0 ]; then
+          break
+        fi
+        normalized_args="${normalized_args} $1"
+      else
+        shift
+        if [ "$#" -eq 0 ]; then
+          break
+        fi
+      fi
+      ;;
+    --preload=*)
+      if [ "$runner_bin" = "bun" ]; then
+        normalized_args="${normalized_args} $1"
+      fi
+      ;;
     *)
       normalized_args="${normalized_args} $1"
       ;;
