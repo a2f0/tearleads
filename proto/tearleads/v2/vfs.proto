@@ -192,7 +192,9 @@ message VfsRunCrdtSessionRequest {
 }
 
 message VfsRunCrdtSessionResponse {
-  string json = 1;
+  VfsPushCrdtOpsResponse push = 1;
+  VfsGetCrdtSyncResponse pull = 2;
+  VfsReconcileCrdtResponse reconcile = 3;
 }
 
 message VfsGetSyncRequest {

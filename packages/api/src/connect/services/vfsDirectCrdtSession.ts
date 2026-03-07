@@ -48,6 +48,12 @@ interface ParsedSessionPayload {
   lastReconciledWriteIds: Record<string, number>;
 }
 
+export interface RunCrdtSessionDirectResponse {
+  push: VfsCrdtSyncSessionResponse['push'];
+  pull: { json: string };
+  reconcile: VfsCrdtSyncSessionResponse['reconcile'];
+}
+
 function parseLimit(value: unknown): number | null {
   if (typeof value === 'number') {
     if (Number.isInteger(value) && value >= 1 && value <= 500) {
@@ -181,7 +187,7 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
 export async function runCrdtSessionDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<RunCrdtSessionDirectResponse> {
   const parsedPayload = parseSessionPayload(parseJsonBody(request.json));
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
@@ -317,12 +323,14 @@ export async function runCrdtSessionDirect(
       }
     }
 
-    const response: VfsCrdtSyncSessionResponse = {
+    const response: RunCrdtSessionDirectResponse = {
       push: {
         clientId: parsedPayload.value.clientId,
         results: pushResult.results
       },
-      pull: pullResponse,
+      pull: {
+        json: JSON.stringify(pullResponse)
+      },
       reconcile: {
         clientId: parsedPayload.value.clientId,
         cursor: encodeVfsSyncCursor({
@@ -333,9 +341,7 @@ export async function runCrdtSessionDirect(
       }
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (inTransaction) {
       await rollbackQuietly(client);

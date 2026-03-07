@@ -284,7 +284,7 @@ describe('vfsDirectCrdtSession', () => {
       sourceClientId: 'desktop-1'
     });
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       push: {
         clientId: 'desktop-1',
         results: [
@@ -294,12 +294,6 @@ describe('vfsDirectCrdtSession', () => {
           }
         ]
       },
-      pull: {
-        items: [],
-        nextCursor: null,
-        hasMore: false,
-        lastReconciledWriteIds: {}
-      },
       reconcile: {
         clientId: 'desktop-1',
         cursor: encodeVfsSyncCursor({
@@ -307,7 +301,16 @@ describe('vfsDirectCrdtSession', () => {
           changeId: 'change-2'
         }),
         lastReconciledWriteIds: {}
+      },
+      pull: {
+        json: expect.any(String)
       }
+    });
+    expect(parseJson(response.pull.json)).toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
     });
 
     expect(clientReleaseMock).toHaveBeenCalled();
@@ -356,7 +359,15 @@ describe('vfsDirectCrdtSession', () => {
         lastReconciledWriteIds: {}
       })
     ).resolves.toMatchObject({
-      json: expect.any(String)
+      push: {
+        clientId: 'desktop-1'
+      },
+      pull: {
+        json: expect.any(String)
+      },
+      reconcile: {
+        clientId: 'desktop-1'
+      }
     });
   });
 
@@ -420,7 +431,15 @@ describe('vfsDirectCrdtSession', () => {
         lastReconciledWriteIds: {}
       })
     ).resolves.toMatchObject({
-      json: expect.any(String)
+      push: {
+        clientId: 'desktop-1'
+      },
+      pull: {
+        json: expect.any(String)
+      },
+      reconcile: {
+        clientId: 'desktop-1'
+      }
     });
   });
 
