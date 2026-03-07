@@ -181,6 +181,83 @@ platform :ios do
     match(type: 'development', force_for_new_devices: true)
   end
 
+  desc 'Add an external TestFlight beta tester by email'
+  lane :add_tester do |options|
+    UI.user_error!('Please provide tester email using `email:`') unless options[:email]
+    ensure_app_store_connect_api
+
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.user_error!("App not found: #{APP_ID}") unless app
+
+    groups = nil
+    if options[:groups]
+      group_names = options[:groups].split(',').map(&:strip)
+      all_groups = Spaceship::ConnectAPI::BetaGroup.all(filter: { app: app.id })
+      groups = all_groups.select { |g| group_names.include?(g.name) }
+      missing = group_names - groups.map(&:name)
+      UI.important("Groups not found: #{missing.join(', ')}") unless missing.empty?
+    end
+
+    Spaceship::ConnectAPI::BetaTester.create(
+      email: options[:email],
+      first_name: options[:first_name],
+      last_name: options[:last_name],
+      apps: [app],
+      beta_groups: groups
+    )
+    UI.success("Added tester: #{options[:email]}")
+  end
+
+  desc 'Remove an external TestFlight beta tester by email'
+  lane :remove_tester do |options|
+    UI.user_error!('Please provide tester email using `email:`') unless options[:email]
+    ensure_app_store_connect_api
+
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.user_error!("App not found: #{APP_ID}") unless app
+
+    testers = Spaceship::ConnectAPI::BetaTester.all(filter: { email: options[:email] })
+    tester = testers.find { |t| t.email == options[:email] }
+    UI.user_error!("Tester not found: #{options[:email]}") unless tester
+
+    tester.delete_from_apps(apps: [app])
+    UI.success("Removed tester: #{options[:email]}")
+  end
+
+  desc 'List external TestFlight beta testers'
+  lane :list_testers do
+    ensure_app_store_connect_api
+
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.user_error!("App not found: #{APP_ID}") unless app
+
+    testers = Spaceship::ConnectAPI::BetaTester.all(
+      filter: { apps: app.id },
+      includes: 'betaGroups'
+    )
+
+    if testers.empty?
+      UI.important('No external testers found.')
+    else
+      UI.message("#{testers.count} tester(s):")
+      testers.each do |t|
+        groups = t.beta_groups&.map(&:name)&.join(', ') || 'none'
+        UI.message("  #{t.email} (#{t.first_name} #{t.last_name}) [#{groups}]")
+      end
+    end
+  end
+
+  desc 'Bulk register devices from a file and regenerate provisioning profiles'
+  lane :register_devices_from_file do |options|
+    devices_file = options[:devices_file] || File.expand_path('../devices.txt', __dir__)
+    UI.user_error!("Devices file not found: #{devices_file}") unless File.exist?(devices_file)
+    ensure_app_store_connect_api
+
+    register_devices(devices_file: devices_file)
+    match(type: 'development', force_for_new_devices: true)
+    UI.success('Devices registered and development profiles regenerated.')
+  end
+
   desc 'Get latest build number from TestFlight'
   lane :get_testflight_build_number do
     setup_ci_environment
