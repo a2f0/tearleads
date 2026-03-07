@@ -39,8 +39,8 @@ const config: AppConfig = {
   ],
 
   api: {
-    productionUrl: 'https://staging-api.tearleads.com/v1',
-    stagingUrl: 'https://staging-api.tearleads.com/v1'
+    productionUrl: 'https://api.tearleads.de/v1',
+    stagingUrl: 'https://api.tearleads.de/v1'
   },
 
   theme: {

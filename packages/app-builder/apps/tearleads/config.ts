@@ -43,7 +43,7 @@ const config: AppConfig = {
     // API URL is set via VITE_API_URL environment variable at build time
     // These are fallback/documentation values
     productionUrl: 'https://api.tearleads.com/v1',
-    stagingUrl: 'https://staging-api.tearleads.com/v1'
+    stagingUrl: 'https://api.tearleads.de/v1'
   },
 
   theme: {

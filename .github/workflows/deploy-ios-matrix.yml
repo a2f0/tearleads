@@ -85,8 +85,10 @@ jobs:
           CONFIG=$(tsx src/cli.ts dump --app $APP_ID --format json)
           echo "bundle_id=$(echo $CONFIG | jq -r '.bundleIds.ios')" >> $GITHUB_OUTPUT
           echo "display_name=$(echo $CONFIG | jq -r '.displayName')" >> $GITHUB_OUTPUT
+          echo "api_url=$(echo $CONFIG | jq -r '.api.productionUrl')" >> $GITHUB_OUTPUT
           echo "App: $(echo $CONFIG | jq -r '.displayName') ($APP_ID)"
           echo "Bundle ID: $(echo $CONFIG | jq -r '.bundleIds.ios')"
+          echo "API URL: $(echo $CONFIG | jq -r '.api.productionUrl')"
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -133,7 +135,7 @@ jobs:
       - name: Build web assets
         run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run build
         env:
-          VITE_API_URL: https://api.${{ secrets.DEPLOY_DOMAIN_PROD }}/v1
+          VITE_API_URL: ${{ steps.config.outputs.api_url }}
 
       - name: Install ImageMagick
         run: brew install imagemagick
