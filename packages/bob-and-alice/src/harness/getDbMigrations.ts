@@ -1,7 +1,8 @@
-import type { runMigrations as runMigrationsFn } from '@tearleads/db/migrations';
-
 type DbMigrationsModule = {
-  runMigrations: typeof runMigrationsFn;
+  runMigrations: (
+    pool: unknown,
+    migrations: ReadonlyArray<unknown>
+  ) => Promise<void>;
 };
 
 const DB_MIGRATIONS_MODULE_SPECIFIERS = [
