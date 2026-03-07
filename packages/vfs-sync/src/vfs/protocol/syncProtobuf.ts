@@ -39,7 +39,8 @@ function toObject(
       enums: String,
       defaults: false,
       arrays: true,
-      objects: true
+      objects: true,
+      bytes: Array
     }),
     'message'
   );
