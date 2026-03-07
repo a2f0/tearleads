@@ -8,5 +8,5 @@ fi
 if command -v bun >/dev/null 2>&1; then
   bun test --coverage src/generators/*.test.ts "$@"
 else
-  sh ../../scripts/tooling/pm.sh -w exec vitest run --coverage packages/app-builder/src/generators/*.test.ts "$@"
+  sh ../../scripts/tooling/pm.sh -w exec vitest run --coverage packages/app-builder/src/generators/theme.test.ts packages/app-builder/src/generators/utils.test.ts "$@"
 fi
