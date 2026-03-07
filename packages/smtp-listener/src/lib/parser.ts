@@ -41,13 +41,14 @@ export function parseAddress(address: string): EmailAddress {
 
 export function createStoredEmail(
   envelope: EmailEnvelope,
-  rawData: string
+  rawData: string,
+  now: () => Date = () => new Date()
 ): StoredEmail {
   return {
     id: generateEmailId(),
     envelope,
     rawData,
-    receivedAt: new Date().toISOString(),
+    receivedAt: now().toISOString(),
     size: Buffer.byteLength(rawData, 'utf8')
   };
 }

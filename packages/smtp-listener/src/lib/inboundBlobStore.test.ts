@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetModulesIfSupported } from '../test/bunCompat.js';
+import { withHoisted } from '../test/withHoisted.js';
 
-const { sendMock, s3CtorMock, putObjectCtorMock } = vi.hoisted(() => ({
+const { sendMock, s3CtorMock, putObjectCtorMock } = withHoisted(() => ({
   sendMock: vi.fn(async (_command: unknown) => ({})),
   s3CtorMock: vi.fn(),
   putObjectCtorMock: vi.fn()
@@ -49,7 +51,7 @@ function clearBlobEnv(): void {
 
 describe('S3InboundBlobStore', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetModulesIfSupported();
     vi.clearAllMocks();
     clearBlobEnv();
   });

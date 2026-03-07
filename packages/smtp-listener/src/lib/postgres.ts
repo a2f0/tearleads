@@ -1,11 +1,27 @@
-import { getPostgresDevDefaults, isDevMode } from '@tearleads/shared';
+import {
+  getPostgresDevDefaults,
+  isDevMode,
+  type PostgresDevDefaults
+} from '@tearleads/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 
 const { Pool } = pg;
 
-let pool: PgPool | null = null;
-let poolConfigKey: string | null = null;
+interface PoolWithEnd {
+  end: () => Promise<void>;
+}
+
+interface PostgresPoolRuntimeDependencies<TPool extends PoolWithEnd> {
+  createPool: (config: PoolConfig) => TPool;
+  getPostgresDevDefaults: () => PostgresDevDefaults;
+  isDevMode: () => boolean;
+}
+
+interface PostgresPoolRuntime<TPool extends PoolWithEnd> {
+  closePostgresPool: () => Promise<void>;
+  getPostgresPool: () => Promise<TPool>;
+}
 
 function getEnv(name: string): string | null {
   const value = process.env[name];
@@ -27,7 +43,12 @@ function parsePort(value: string | null): number | null {
   return parsed;
 }
 
-function buildPoolConfig(): { config: PoolConfig; key: string } {
+function buildPoolConfig(
+  dependencies: Pick<
+    PostgresPoolRuntimeDependencies<PoolWithEnd>,
+    'getPostgresDevDefaults' | 'isDevMode'
+  >
+): { config: PoolConfig; key: string } {
   const databaseUrl = getEnv('DATABASE_URL') ?? getEnv('POSTGRES_URL');
   if (databaseUrl) {
     return {
@@ -57,12 +78,12 @@ function buildPoolConfig(): { config: PoolConfig; key: string } {
     !config.database &&
     !config.port
   ) {
-    if (!isDevMode()) {
+    if (!dependencies.isDevMode()) {
       throw new Error(
         'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
       );
     }
-    const defaults = getPostgresDevDefaults();
+    const defaults = dependencies.getPostgresDevDefaults();
     const devConfig: PoolConfig = {
       ...(defaults.host ? { host: defaults.host } : {}),
       ...(defaults.port ? { port: defaults.port } : {}),
@@ -92,26 +113,52 @@ function buildPoolConfig(): { config: PoolConfig; key: string } {
 }
 
 export async function getPostgresPool(): Promise<PgPool> {
-  const { config, key } = buildPoolConfig();
-  if (pool && poolConfigKey === key) {
-    return pool;
-  }
-  if (pool) {
-    await pool.end();
-    pool = null;
-    poolConfigKey = null;
-  }
-  pool = new Pool(config);
-  poolConfigKey = key;
-  return pool;
+  return defaultRuntime.getPostgresPool();
 }
 
 export async function closePostgresPool(): Promise<void> {
-  if (!pool) {
-    return;
-  }
-  const poolToClose = pool;
-  pool = null;
-  poolConfigKey = null;
-  await poolToClose.end();
+  await defaultRuntime.closePostgresPool();
 }
+
+export function createPostgresPoolRuntime<TPool extends PoolWithEnd>(
+  dependencies: PostgresPoolRuntimeDependencies<TPool>
+): PostgresPoolRuntime<TPool> {
+  let pool: TPool | null = null;
+  let poolConfigKey: string | null = null;
+
+  async function getPostgresPoolRuntime(): Promise<TPool> {
+    const { config, key } = buildPoolConfig(dependencies);
+    if (pool && poolConfigKey === key) {
+      return pool;
+    }
+    if (pool) {
+      await pool.end();
+      pool = null;
+      poolConfigKey = null;
+    }
+    pool = dependencies.createPool(config);
+    poolConfigKey = key;
+    return pool;
+  }
+
+  async function closePostgresPoolRuntime(): Promise<void> {
+    if (!pool) {
+      return;
+    }
+    const poolToClose = pool;
+    pool = null;
+    poolConfigKey = null;
+    await poolToClose.end();
+  }
+
+  return {
+    getPostgresPool: getPostgresPoolRuntime,
+    closePostgresPool: closePostgresPoolRuntime
+  };
+}
+
+const defaultRuntime = createPostgresPoolRuntime<PgPool>({
+  createPool: (config) => new Pool(config),
+  getPostgresDevDefaults,
+  isDevMode
+});

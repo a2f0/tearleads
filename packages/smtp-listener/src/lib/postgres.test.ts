@@ -1,40 +1,38 @@
+import type { PostgresDevDefaults } from '@tearleads/shared';
+import type { PoolConfig } from 'pg';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createPostgresPoolRuntime } from './postgres.js';
+
 interface MockPool {
-  config: unknown;
-  end: ReturnType<typeof vi.fn>;
+  config: PoolConfig;
+  end: () => Promise<void>;
+  endMock: ReturnType<typeof vi.fn<() => Promise<void>>>;
 }
 
-const { poolCtorSpy, createdPools } = vi.hoisted(() => ({
-  poolCtorSpy: vi.fn(),
-  createdPools: [] as MockPool[]
-}));
+function createRuntime(
+  options: { defaults?: PostgresDevDefaults; devMode?: boolean } = {}
+) {
+  const createdPools: MockPool[] = [];
+  const createPool = vi.fn((config: PoolConfig) => {
+    const endMock = vi.fn<() => Promise<void>>(async () => undefined);
+    const pool: MockPool = {
+      config,
+      end: endMock,
+      endMock
+    };
+    createdPools.push(pool);
+    return pool;
+  });
 
-vi.mock('pg', () => ({
-  default: {
-    Pool: class MockPoolCtor {
-      config: unknown;
-      end: ReturnType<typeof vi.fn>;
+  const runtime = createPostgresPoolRuntime<MockPool>({
+    createPool,
+    getPostgresDevDefaults: () => options.defaults ?? {},
+    isDevMode: () => options.devMode ?? true
+  });
 
-      constructor(config: unknown) {
-        this.config = config;
-        this.end = vi.fn(async () => undefined);
-        const pool: MockPool = {
-          config: this.config,
-          end: this.end
-        };
-        createdPools.push(pool);
-        poolCtorSpy(config);
-      }
-    }
-  }
-}));
-
-vi.mock('node:os', () => ({
-  default: {
-    userInfo: () => ({ username: 'smtp_os_user' })
-  }
-}));
+  return { createPool, createdPools, runtime };
+}
 
 const savedNodeEnv = process.env['NODE_ENV'];
 
@@ -56,9 +54,7 @@ function clearPostgresEnv(): void {
 
 describe('postgres pool runtime', () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
-    createdPools.length = 0;
     clearPostgresEnv();
   });
 
@@ -69,15 +65,20 @@ describe('postgres pool runtime', () => {
   });
 
   it('uses dev defaults when no env vars are set in dev mode', async () => {
-    process.env['NODE_ENV'] = 'development';
-    delete process.env['USER'];
-    delete process.env['LOGNAME'];
-    const { getPostgresPool } = await import('./postgres.js');
-
-    await getPostgresPool();
-
     const expectedHost =
       process.platform === 'linux' ? '/var/run/postgresql' : 'localhost';
+    const { createdPools, runtime } = createRuntime({
+      defaults: {
+        host: expectedHost,
+        port: 5432,
+        user: 'smtp_os_user',
+        database: 'tearleads_development'
+      },
+      devMode: true
+    });
+
+    await runtime.getPostgresPool();
+
     expect(createdPools[0]?.config).toEqual({
       host: expectedHost,
       port: 5432,
@@ -87,58 +88,53 @@ describe('postgres pool runtime', () => {
   });
 
   it('omits missing dev defaults from config', async () => {
-    process.env['NODE_ENV'] = 'development';
-    vi.doMock('@tearleads/shared', () => ({
-      isDevMode: () => true,
-      getPostgresDevDefaults: () => ({
+    const { createdPools, runtime } = createRuntime({
+      defaults: {
         host: 'localhost',
-        port: null,
-        user: null,
         database: 'tearleads_development'
-      })
-    }));
-    const { getPostgresPool } = await import('./postgres.js');
+      },
+      devMode: true
+    });
 
-    await getPostgresPool();
+    await runtime.getPostgresPool();
 
     expect(createdPools[0]?.config).toEqual({
       host: 'localhost',
       database: 'tearleads_development'
     });
-    vi.doUnmock('@tearleads/shared');
   });
 
   it('handles fully empty dev defaults', async () => {
-    process.env['NODE_ENV'] = 'development';
-    vi.doMock('@tearleads/shared', () => ({
-      isDevMode: () => true,
-      getPostgresDevDefaults: () => ({})
-    }));
-    const { getPostgresPool } = await import('./postgres.js');
+    const { createdPools, runtime } = createRuntime({
+      defaults: {},
+      devMode: true
+    });
 
-    await getPostgresPool();
+    await runtime.getPostgresPool();
 
     expect(createdPools[0]?.config).toEqual({});
-    vi.doUnmock('@tearleads/shared');
   });
 
   it('throws when no env vars are set in release mode', async () => {
-    process.env['NODE_ENV'] = 'production';
-    const { getPostgresPool } = await import('./postgres.js');
+    const { runtime } = createRuntime({
+      devMode: false
+    });
 
-    await expect(getPostgresPool()).rejects.toThrow(
+    await expect(runtime.getPostgresPool()).rejects.toThrow(
       'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
     );
   });
 
   it('uses DATABASE_URL and reuses the pool for the same key', async () => {
     process.env['DATABASE_URL'] = 'postgres://db-one';
-    const { getPostgresPool } = await import('./postgres.js');
+    const { createPool, createdPools, runtime } = createRuntime({
+      devMode: false
+    });
 
-    const first = await getPostgresPool();
-    const second = await getPostgresPool();
+    const first = await runtime.getPostgresPool();
+    const second = await runtime.getPostgresPool();
 
-    expect(poolCtorSpy).toHaveBeenCalledOnce();
+    expect(createPool).toHaveBeenCalledOnce();
     expect(first).toBe(second);
     expect(createdPools[0]?.config).toEqual({
       connectionString: 'postgres://db-one'
@@ -147,16 +143,18 @@ describe('postgres pool runtime', () => {
 
   it('rebuilds and closes previous pool when config key changes', async () => {
     process.env['DATABASE_URL'] = 'postgres://db-one';
-    const { getPostgresPool } = await import('./postgres.js');
+    const { createPool, createdPools, runtime } = createRuntime({
+      devMode: false
+    });
 
-    const first = await getPostgresPool();
+    const first = await runtime.getPostgresPool();
 
     process.env['DATABASE_URL'] = 'postgres://db-two';
-    const second = await getPostgresPool();
+    const second = await runtime.getPostgresPool();
 
     expect(first).not.toBe(second);
-    expect(poolCtorSpy).toHaveBeenCalledTimes(2);
-    expect(createdPools[0]?.end).toHaveBeenCalledOnce();
+    expect(createPool).toHaveBeenCalledTimes(2);
+    expect(createdPools[0]?.endMock).toHaveBeenCalledOnce();
     expect(createdPools[1]?.config).toEqual({
       connectionString: 'postgres://db-two'
     });
@@ -168,9 +166,11 @@ describe('postgres pool runtime', () => {
     process.env['POSTGRES_PASSWORD'] = 'secret';
     process.env['POSTGRES_DATABASE'] = 'maildb';
     process.env['POSTGRES_PORT'] = 'not-a-number';
-    const { getPostgresPool } = await import('./postgres.js');
+    const { createdPools, runtime } = createRuntime({
+      devMode: false
+    });
 
-    await getPostgresPool();
+    await runtime.getPostgresPool();
 
     expect(createdPools[0]?.config).toEqual({
       host: '127.0.0.1',
@@ -183,9 +183,11 @@ describe('postgres pool runtime', () => {
   it('treats blank env strings as unset when building config key', async () => {
     process.env['PGHOST'] = '   ';
     process.env['PGUSER'] = 'mailer';
-    const { getPostgresPool } = await import('./postgres.js');
+    const { createdPools, runtime } = createRuntime({
+      devMode: false
+    });
 
-    await getPostgresPool();
+    await runtime.getPostgresPool();
 
     expect(createdPools[0]?.config).toEqual({
       user: 'mailer'
@@ -196,21 +198,32 @@ describe('postgres pool runtime', () => {
     process.env['PGHOST'] = 'localhost';
     process.env['PGDATABASE'] = 'maildb';
     process.env['PGPORT'] = '5433';
+    const { createdPools, runtime } = createRuntime({
+      devMode: false
+    });
+
+    const first = await runtime.getPostgresPool();
+    await runtime.closePostgresPool();
+    await runtime.closePostgresPool();
+    const second = await runtime.getPostgresPool();
+
+    expect(createdPools[0]?.endMock).toHaveBeenCalledOnce();
+    expect(first).not.toBe(second);
+  });
+
+  it('module-level wrappers delegate to the default runtime', async () => {
+    process.env['DATABASE_URL'] = 'postgres://wrapper-runtime';
     const { closePostgresPool, getPostgresPool } = await import(
       './postgres.js'
     );
 
     const first = await getPostgresPool();
-    await closePostgresPool();
-    await closePostgresPool();
     const second = await getPostgresPool();
+    expect(first).toBe(second);
 
-    expect(createdPools[0]?.end).toHaveBeenCalledOnce();
-    expect(first).not.toBe(second);
-    expect(createdPools[1]?.config).toEqual({
-      host: 'localhost',
-      database: 'maildb',
-      port: 5433
-    });
+    await closePostgresPool();
+    const third = await getPostgresPool();
+    expect(third).toBeTruthy();
+    await closePostgresPool();
   });
 });

@@ -9,12 +9,13 @@ import {
   it,
   vi
 } from 'vitest';
+import { withHoisted } from '../test/withHoisted.js';
 import type {
   InboundMessageEnvelopeRecord,
   ResolvedInboundRecipient
 } from '../types/inboundContracts.js';
 
-const { getPostgresPoolMock } = vi.hoisted(() => ({
+const { getPostgresPoolMock } = withHoisted(() => ({
   getPostgresPoolMock: vi.fn()
 }));
 
