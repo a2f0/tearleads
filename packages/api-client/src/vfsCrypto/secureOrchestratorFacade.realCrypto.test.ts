@@ -1,6 +1,6 @@
 import {
   generateKeyPair,
-  VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH,
   type VfsKeyPair
 } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -146,7 +146,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
         _init?: RequestInit
       ): Promise<Response> => {
         const url = input.toString();
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/`)) {
           return new Response(
             JSON.stringify({
               clientId: 'desktop',

@@ -1,4 +1,4 @@
-import { VFS_V2_CONNECT_BASE_PATH as VFS_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +47,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
           observedRequests.push({ url, body: JSON.parse(init.body) });
         }
 
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/PushCrdtOps`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -59,7 +59,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }
           );
         }
-        if (url.includes(`${VFS_CONNECT_BASE_PATH}/GetCrdtSync`)) {
+        if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`)) {
           return new Response(
             connectJsonEnvelope({
               items: [],
@@ -73,7 +73,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
             }
           );
         }
-        if (url.endsWith(`${VFS_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
+        if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
               clientId: 'desktop',
@@ -181,7 +181,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
+          request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)
         )?.body
       )
     ).toEqual(
@@ -198,7 +198,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       parseJsonEnvelope(
         observedRequests.find((request) => {
           if (
-            !request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/UploadBlobChunk`)
+            !request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/UploadBlobChunk`)
           ) {
             return false;
           }
@@ -214,7 +214,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/CommitBlob`)
+          request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/CommitBlob`)
         )?.body
       )
     ).toEqual(
@@ -227,7 +227,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) =>
-          request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/AttachBlob`)
+          request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/AttachBlob`)
         )?.body
       )
     ).toEqual(
