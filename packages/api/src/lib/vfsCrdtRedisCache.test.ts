@@ -112,51 +112,30 @@ describe('vfsCrdtRedisCache', () => {
     ).toBeUndefined();
   });
 
-  it('reads and writes replica write-id cache rows and invalidates both modes', async () => {
+  it('reads and writes replica write-id cache rows', async () => {
     await writeReplicaWriteIdRowsCache({
       userId: 'user-1',
-      mode: 'heads',
       rows: [
         { replica_id: 'desktop', max_write_id: '7' },
         { replica_id: 'mobile', max_write_id: 4 }
       ]
     });
-    await writeReplicaWriteIdRowsCache({
-      userId: 'user-1',
-      mode: 'legacy',
-      rows: [{ replica_id: 'desktop', max_write_id: '7' }]
-    });
 
-    const headsRows = await readReplicaWriteIdRowsCache({
-      userId: 'user-1',
-      mode: 'heads'
-    });
-    const legacyRows = await readReplicaWriteIdRowsCache({
-      userId: 'user-1',
-      mode: 'legacy'
-    });
+    const headsRows = await readReplicaWriteIdRowsCache({ userId: 'user-1' });
 
     expect(headsRows).toEqual([
       { replica_id: 'desktop', max_write_id: '7' },
       { replica_id: 'mobile', max_write_id: 4 }
     ]);
-    expect(legacyRows).toEqual([{ replica_id: 'desktop', max_write_id: '7' }]);
 
     await invalidateReplicaWriteIdRowsCache('user-1');
 
-    expect(
-      await readReplicaWriteIdRowsCache({ userId: 'user-1', mode: 'heads' })
-    ).toBeUndefined();
-    expect(
-      await readReplicaWriteIdRowsCache({ userId: 'user-1', mode: 'legacy' })
-    ).toBeUndefined();
+    expect(await readReplicaWriteIdRowsCache({ userId: 'user-1' })).toBeUndefined();
   });
 
   it('falls back gracefully when redis reads fail', async () => {
     mockRedisClient.get.mockRejectedValueOnce(new Error('redis read failure'));
-    expect(
-      await readReplicaWriteIdRowsCache({ userId: 'user-1', mode: 'heads' })
-    ).toBeUndefined();
+    expect(await readReplicaWriteIdRowsCache({ userId: 'user-1' })).toBeUndefined();
 
     mockRedisClient.get.mockRejectedValueOnce(new Error('redis read failure'));
     expect(
@@ -183,7 +162,6 @@ describe('vfsCrdtRedisCache', () => {
     });
     await writeReplicaWriteIdRowsCache({
       userId: 'user-1',
-      mode: 'heads',
       rows: [{ replica_id: 'desktop', max_write_id: '9' }]
     });
 

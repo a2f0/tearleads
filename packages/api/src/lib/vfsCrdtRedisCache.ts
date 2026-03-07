@@ -66,8 +66,6 @@ function normalizeCompactionEpoch(raw: string | null): string {
   }
 }
 
-export type ReplicaWriteIdCacheMode = 'heads' | 'legacy';
-
 interface CachedOldestCursorEnvelope {
   cursor: VfsSyncCursor | null;
 }
@@ -86,15 +84,12 @@ function buildOldestAccessibleCursorCacheKey(input: {
   ].join(':');
 }
 
-function buildReplicaWriteIdsCacheKey(input: {
-  userId: string;
-  mode: ReplicaWriteIdCacheMode;
-}): string {
+function buildReplicaWriteIdsCacheKey(userId: string): string {
   return [
     CACHE_PREFIX,
     'replicaWriteIds',
-    input.mode,
-    encodeCachePart(input.userId)
+    'heads',
+    encodeCachePart(userId)
   ].join(':');
 }
 
@@ -229,9 +224,8 @@ function parseCachedReplicaWriteIdRows(
 
 export async function readReplicaWriteIdRowsCache(input: {
   userId: string;
-  mode: ReplicaWriteIdCacheMode;
 }): Promise<ReplicaWriteIdRow[] | undefined> {
-  const key = buildReplicaWriteIdsCacheKey(input);
+  const key = buildReplicaWriteIdsCacheKey(input.userId);
 
   try {
     const client = await getRedisClient();
@@ -260,10 +254,9 @@ export async function readReplicaWriteIdRowsCache(input: {
 
 export async function writeReplicaWriteIdRowsCache(input: {
   userId: string;
-  mode: ReplicaWriteIdCacheMode;
   rows: ReplicaWriteIdRow[];
 }): Promise<void> {
-  const key = buildReplicaWriteIdsCacheKey(input);
+  const key = buildReplicaWriteIdsCacheKey(input.userId);
   const rows = sanitizeReplicaWriteIdRows(input.rows);
 
   try {
@@ -281,18 +274,7 @@ export async function invalidateReplicaWriteIdRowsCache(
 ): Promise<void> {
   try {
     const client = await getRedisClient();
-    await client.del(
-      buildReplicaWriteIdsCacheKey({
-        userId,
-        mode: 'heads'
-      })
-    );
-    await client.del(
-      buildReplicaWriteIdsCacheKey({
-        userId,
-        mode: 'legacy'
-      })
-    );
+    await client.del(buildReplicaWriteIdsCacheKey(userId));
   } catch {
     // best-effort cache invalidation
   }
