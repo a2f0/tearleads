@@ -1,23 +1,23 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { VfsUserKeysResponse } from '@tearleads/shared';
+import type {
+  VfsKeySetupRequest,
+  VfsUserKeysResponse
+} from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 import { parseKeySetupPayload } from './vfsDirectShared.js';
-
-type JsonRequest = { json: string };
 
 interface UserKeysRow {
   public_encryption_key: string;
   public_signing_key: string;
-  encrypted_private_keys: string;
-  argon2_salt: string;
+  encrypted_private_keys: string | null;
+  argon2_salt: string | null;
 }
 
 export async function getMyKeysDirect(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsUserKeysResponse> {
   const claims = await requireVfsClaims('/vfs/keys/me', context.requestHeader);
 
   try {
@@ -40,13 +40,13 @@ export async function getMyKeysDirect(
     const response: VfsUserKeysResponse = {
       publicEncryptionKey: row.public_encryption_key,
       publicSigningKey: row.public_signing_key,
-      encryptedPrivateKeys: row.encrypted_private_keys,
-      argon2Salt: row.argon2_salt
+      ...(row.encrypted_private_keys === null
+        ? {}
+        : { encryptedPrivateKeys: row.encrypted_private_keys }),
+      ...(row.argon2_salt === null ? {} : { argon2Salt: row.argon2_salt })
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -58,13 +58,13 @@ export async function getMyKeysDirect(
 }
 
 export async function setupKeysDirect(
-  request: JsonRequest,
+  request: VfsKeySetupRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ created: boolean }> {
   const claims = await requireVfsClaims('/vfs/keys', context.requestHeader, {
     requireDeclaredOrganization: true
   });
-  const payload = parseKeySetupPayload(parseJsonBody(request.json));
+  const payload = parseKeySetupPayload(request);
   if (!payload) {
     throw new ConnectError(
       'publicEncryptionKey, publicSigningKey, encryptedPrivateKeys, and argon2Salt are required',
@@ -104,9 +104,7 @@ export async function setupKeysDirect(
       ]
     );
 
-    return {
-      json: JSON.stringify({ created: true })
-    };
+    return { created: true };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

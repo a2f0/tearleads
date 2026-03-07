@@ -21,10 +21,6 @@ import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectKeys', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,7 +77,7 @@ describe('vfsDirectKeys', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       publicEncryptionKey: 'enc-key',
       publicSigningKey: 'sign-key',
       encryptedPrivateKeys: 'priv-keys',
@@ -93,7 +89,10 @@ describe('vfsDirectKeys', () => {
     await expect(
       setupKeysDirect(
         {
-          json: '{}'
+          publicEncryptionKey: '',
+          publicSigningKey: '',
+          encryptedPrivateKeys: '',
+          argon2Salt: ''
         },
         {
           requestHeader: new Headers()
@@ -112,7 +111,10 @@ describe('vfsDirectKeys', () => {
     await expect(
       setupKeysDirect(
         {
-          json: '{"publicEncryptionKey":"enc","publicSigningKey":"sign","encryptedPrivateKeys":"priv","argon2Salt":"salt"}'
+          publicEncryptionKey: 'enc',
+          publicSigningKey: 'sign',
+          encryptedPrivateKeys: 'priv',
+          argon2Salt: 'salt'
         },
         {
           requestHeader: new Headers()
@@ -132,14 +134,17 @@ describe('vfsDirectKeys', () => {
 
     const response = await setupKeysDirect(
       {
-        json: '{"publicEncryptionKey":"enc","publicSigningKey":"sign","encryptedPrivateKeys":"priv","argon2Salt":"salt"}'
+        publicEncryptionKey: 'enc',
+        publicSigningKey: 'sign',
+        encryptedPrivateKeys: 'priv',
+        argon2Salt: 'salt'
       },
       {
         requestHeader: new Headers()
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       created: true
     });
     expect(queryMock).toHaveBeenCalledTimes(2);

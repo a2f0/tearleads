@@ -50,7 +50,17 @@ const {
   getEmailsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getMyKeysDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<
+      (
+        request: unknown,
+        context: unknown
+      ) => Promise<{
+        publicEncryptionKey: string;
+        publicSigningKey: string;
+        encryptedPrivateKeys?: string;
+        argon2Salt?: string;
+      }>
+    >(),
   pushCrdtOpsDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   reconcileCrdtDirectMock:
@@ -70,7 +80,9 @@ const {
   sendEmailDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   setupKeysDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<
+      (request: unknown, context: unknown) => Promise<{ created: boolean }>
+    >(),
   uploadBlobChunkDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
 }));
@@ -177,7 +189,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     getCrdtSnapshotDirectMock,
     getEmailDirectMock,
     getEmailsDirectMock,
-    getMyKeysDirectMock,
     pushCrdtOpsDirectMock,
     reconcileCrdtDirectMock,
     runCrdtSessionDirectMock,
@@ -187,7 +198,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     reconcileSyncDirectMock,
     registerDirectMock,
     sendEmailDirectMock,
-    setupKeysDirectMock,
     uploadBlobChunkDirectMock
   ];
 }
@@ -206,6 +216,17 @@ describe('vfsConnectService', () => {
       mock.mockReset();
       mock.mockResolvedValue({ json: '{"ok":true}' });
     }
+
+    getMyKeysDirectMock.mockReset();
+    getMyKeysDirectMock.mockResolvedValue({
+      publicEncryptionKey: 'pub-enc',
+      publicSigningKey: 'pub-sign',
+      encryptedPrivateKeys: 'enc-priv',
+      argon2Salt: 'salt-1'
+    });
+
+    setupKeysDirectMock.mockReset();
+    setupKeysDirectMock.mockResolvedValue({ created: true });
   });
 
   it('delegates direct methods to vfs direct handlers', async () => {
@@ -213,7 +234,10 @@ describe('vfsConnectService', () => {
 
     const getBlobRequest = { blobId: 'blob/1' };
     const setupKeysRequest = {
-      json: '{"publicEncryptionKey":"e","publicSigningKey":"s","encryptedPrivateKeys":"p","argon2Salt":"salt"}'
+      publicEncryptionKey: 'e',
+      publicSigningKey: 's',
+      encryptedPrivateKeys: 'p',
+      argon2Salt: 'salt'
     };
     const registerRequest = {
       json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
@@ -275,16 +299,6 @@ describe('vfsConnectService', () => {
     };
 
     const directCases: DirectJsonCallCase[] = [
-      {
-        call: () => vfsConnectService.getMyKeys({}, context),
-        expectedRequest: {},
-        mock: getMyKeysDirectMock
-      },
-      {
-        call: () => vfsConnectService.setupKeys(setupKeysRequest, context),
-        expectedRequest: setupKeysRequest,
-        mock: setupKeysDirectMock
-      },
       {
         call: () => vfsConnectService.register(registerRequest, context),
         expectedRequest: registerRequest,
@@ -395,6 +409,22 @@ describe('vfsConnectService', () => {
         context
       );
     }
+
+    const getMyKeysResponse = await vfsConnectService.getMyKeys({}, context);
+    expect(getMyKeysResponse).toEqual({
+      publicEncryptionKey: 'pub-enc',
+      publicSigningKey: 'pub-sign',
+      encryptedPrivateKeys: 'enc-priv',
+      argon2Salt: 'salt-1'
+    });
+    expect(getMyKeysDirectMock).toHaveBeenCalledWith({}, context);
+
+    const setupKeysResponse = await vfsConnectService.setupKeys(
+      setupKeysRequest,
+      context
+    );
+    expect(setupKeysResponse).toEqual({ created: true });
+    expect(setupKeysDirectMock).toHaveBeenCalledWith(setupKeysRequest, context);
 
     const getBlobResponse = await vfsConnectService.getBlob(
       getBlobRequest,

@@ -133,14 +133,48 @@ describe('vfsRoutes', () => {
     );
   });
 
-  it('parses empty connect envelopes as empty objects', async () => {
-    requestMock.mockResolvedValueOnce({ json: '   ' });
+  it('requests GetMyKeys with typed response payload', async () => {
+    requestMock.mockResolvedValueOnce({
+      publicEncryptionKey: 'enc-key',
+      publicSigningKey: 'sign-key',
+      encryptedPrivateKeys: 'private-keys',
+      argon2Salt: 'salt-1'
+    });
 
-    await expect(vfsRoutes.getMyKeys()).resolves.toEqual({});
+    await expect(vfsRoutes.getMyKeys()).resolves.toEqual({
+      publicEncryptionKey: 'enc-key',
+      publicSigningKey: 'sign-key',
+      encryptedPrivateKeys: 'private-keys',
+      argon2Salt: 'salt-1'
+    });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
     expect(path).toBe('/connect/tearleads.v2.VfsService/GetMyKeys');
     expect(params?.fetchOptions?.body).toBe(JSON.stringify({}));
+  });
+
+  it('sends typed SetupKeys request and returns created flag', async () => {
+    requestMock.mockResolvedValueOnce({ created: true });
+
+    await expect(
+      vfsRoutes.setupKeys({
+        publicEncryptionKey: 'enc',
+        publicSigningKey: 'sign',
+        encryptedPrivateKeys: 'priv',
+        argon2Salt: 'salt'
+      })
+    ).resolves.toEqual({ created: true });
+
+    const [path, params] = requestMock.mock.calls[0] ?? [];
+    expect(path).toBe('/connect/tearleads.v2.VfsService/SetupKeys');
+    expect(params?.fetchOptions?.body).toBe(
+      JSON.stringify({
+        publicEncryptionKey: 'enc',
+        publicSigningKey: 'sign',
+        encryptedPrivateKeys: 'priv',
+        argon2Salt: 'salt'
+      })
+    );
   });
 
   it('decodes blob responses from array and base64 payloads', async () => {
