@@ -1,12 +1,12 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-07T20:19:56.114Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-07T20:55:38.877Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 12
-- Transitional bun auto-fallback scripts: 3
+- Bun-primary test scripts: 15
+- Transitional bun auto-fallback scripts: 0
 - Vitest-primary test scripts: 33
 - Packages with DOM/jsdom indicators: 33
 - Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 14
@@ -67,12 +67,12 @@ Generated: `2026-03-07T20:19:56.114Z` via `node --experimental-strip-types scrip
 | `@tearleads/ui` | 25 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/wallet` | 4 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/window-manager` | 43 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/db-test-utils` | 13 | `bun-auto-fallback` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
-| `@tearleads/mls-core` | 2 | `bun-auto-fallback` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/tee-client` | 1 | `vitest-primary` | no | none | none | `needs-remediation` |
-| `@tearleads/vfs-sync` | 82 | `bun-auto-fallback` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/db-test-utils` | 13 | `bun-primary` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/mls-core` | 2 | `bun-primary` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/photos` | 1 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/vehicles` | 2 | `bun-primary` | yes | vi.mocked:1 | none | `needs-remediation` |
+| `@tearleads/vfs-sync` | 82 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/bob-and-alice` | 29 | `bun-primary` | yes | vi.stubEnv:1 | none | `ready` |
 | `@tearleads/api-test-utils` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-builder` | 2 | `bun-primary` | yes | none | none | `ready` |

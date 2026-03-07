@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'if command -v bun >/dev/null 2>&1; then bun test; else vitest run; fi'",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
     "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
   },

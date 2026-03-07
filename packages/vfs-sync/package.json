@@ -26,9 +26,9 @@
   "scripts": {
     "build": "echo \"@tearleads/vfs-sync is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'if command -v bun >/dev/null 2>&1; then bun test --preload ./src/test/bunSetup.ts ; else vitest run; fi'",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts",
     "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'if command -v bun >/dev/null 2>&1; then bun test --coverage --preload ./src/test/bunSetup.ts --concurrency=\"${PRE_PUSH_MAX_WORKERS:-${PRE_PUSH_VITEST_MAX_WORKERS:-4}}\"; else vitest run --coverage; fi'"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh -- --preload ./src/test/bunSetup.ts"
   },
   "peerDependencies": {
     "@tearleads/window-manager": "workspace:*",
