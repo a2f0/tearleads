@@ -8,8 +8,8 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | --- | --- | --- |
 | Phase 0: Baseline and guardrails | Complete | Baseline and SLOs documented in [bun-migration-baseline.md](./bun-migration-baseline.md). |
 | Phase 1: Bun runtime pilot (Vitest) | In progress | Pilot workflows are running; ongoing stability/perf tracking. |
-| Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` adoption is broad; remaining pnpm-coupled entrypoints are being removed in slices. |
-| Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first with Vitest fallback where needed. |
+| Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
+| Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
 | Phase 4: Advanced compatibility remediation | Not started | Pending inventory/codemod of Vitest-specific APIs. |
 | Phase 5: jsdom/UI-heavy strategy | Not started | Pending pilot package decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
@@ -40,9 +40,38 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2828](https://github.com/a2f0/tearleads/pull/2828) | Bun-primary node pilot scripts |
 | [#2832](https://github.com/a2f0/tearleads/pull/2832) | `scripts/users` runtime-agnostic entrypoints |
 | [#2834](https://github.com/a2f0/tearleads/pull/2834) | Agent/tooling shebang decoupling |
+| [#2836](https://github.com/a2f0/tearleads/pull/2836) | Bun migration tracker dashboard doc |
+| [#2837](https://github.com/a2f0/tearleads/pull/2837) | pre-push `pm.sh` + strip-types runtime decoupling |
+| [#2840](https://github.com/a2f0/tearleads/pull/2840) | Safe utility shebang runtime decoupling |
+| [#2841](https://github.com/a2f0/tearleads/pull/2841) | API CLI shebang runtime decoupling |
+| [#2842](https://github.com/a2f0/tearleads/pull/2842) | Check scripts shebang runtime decoupling |
+| [#2844](https://github.com/a2f0/tearleads/pull/2844) | Utility script shebang runtime decoupling |
+| [#2848](https://github.com/a2f0/tearleads/pull/2848) | Safe script shebang runtime decoupling |
+| [#2849](https://github.com/a2f0/tearleads/pull/2849) | Deploy key script help + shebang runtime decoupling |
+| [#2850](https://github.com/a2f0/tearleads/pull/2850) | Compat shim checker self-exclusion |
+| [#2851](https://github.com/a2f0/tearleads/pull/2851) | Final check-script shebang migration |
+| [#2855](https://github.com/a2f0/tearleads/pull/2855) | `@tearleads/app-builder` Bun-primary test |
+| [#2857](https://github.com/a2f0/tearleads/pull/2857) | `@tearleads/mls-core` Bun-primary test + mock compatibility |
+| [#2861](https://github.com/a2f0/tearleads/pull/2861) | `@tearleads/search` Bun-primary test + mock compatibility |
+| [#2865](https://github.com/a2f0/tearleads/pull/2865) | `@tearleads/bob-and-alice` Bun-primary `test` script (stable Bun subset) |
+
+## Node Pilot Package Status
+
+| Package | Bun-primary script | Vitest fallback | Notes |
+| --- | --- | --- | --- |
+| `@tearleads/app-builder` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/bob-and-alice` | `test` (`bun test` stable subset) | `testVitest` | Bun-primary stable subset; full suite remains on Vitest fallback |
+| `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/mls-core` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/photos` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/remote-read-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/search` | `test` (`bun test ...`) | `test:vitest` | Bun-primary full package suite |
+| `@tearleads/tee-api` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/vehicles` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 
 ## Next Milestones
 
-1. Complete remaining pnpm-coupled script/shebang migrations with no CI regressions.
-2. Expand Bun-first package set where compatibility is already proven.
+1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
+2. Expand Bun-first package set where compatibility is already proven, then promote partial Bun suites (for example `bob-and-alice`) to full-suite Bun execution.
 3. Start Phase 4 compatibility backlog inventory (`vi.hoisted`, `vi.importActual`, env/mocking gaps).
