@@ -50,10 +50,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectBlobFinalize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -114,7 +110,7 @@ describe('vfsDirectBlobFinalize', () => {
     expect(deleteBlobUploadSessionsForStagingMock).toHaveBeenCalledWith({
       stagingId: 'stage-1'
     });
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       abandoned: true,
       stagingId: 'stage-1',
       status: 'abandoned'
@@ -217,7 +213,7 @@ describe('vfsDirectBlobFinalize', () => {
       stagingId: 'stage-1',
       uploadId: 'upload-1'
     });
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       committed: true,
       stagingId: 'stage-1',
       uploadId: 'upload-1',

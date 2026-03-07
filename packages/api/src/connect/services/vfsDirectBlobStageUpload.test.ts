@@ -45,10 +45,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectBlobStageUpload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,7 +119,7 @@ describe('vfsDirectBlobStageUpload', () => {
       data: Buffer.from('data'),
       contentType: 'application/octet-stream'
     });
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       stagingId: 'stage-1',
       blobId: 'blob-1',
       status: 'staged',
@@ -237,7 +233,7 @@ describe('vfsDirectBlobStageUpload', () => {
         ciphertextLength: 4
       }
     });
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       accepted: true,
       stagingId: 'stage-1',
       uploadId: 'upload-1',

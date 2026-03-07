@@ -1,7 +1,4 @@
-import {
-  parseConnectJsonEnvelopeBody,
-  VFS_V2_CONNECT_BASE_PATH
-} from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import {
   fetchWithAuthRefresh,
@@ -335,7 +332,7 @@ async function requestConnectJson(
     throw error;
   }
 
-  return parseConnectJsonEnvelopeBody(parsedBody);
+  return parsedBody;
 }
 
 function parseBody(rawBody: string): unknown {
