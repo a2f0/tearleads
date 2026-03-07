@@ -29,7 +29,10 @@ function ensureDomForBun(): void {
   defineGlobal('navigator', dom.window.navigator);
   defineGlobal('HTMLElement', dom.window.HTMLElement);
   defineGlobal('Node', dom.window.Node);
-  defineGlobal('getComputedStyle', dom.window.getComputedStyle.bind(dom.window));
+  defineGlobal(
+    'getComputedStyle',
+    dom.window.getComputedStyle.bind(dom.window)
+  );
 }
 
 ensureDomForBun();
