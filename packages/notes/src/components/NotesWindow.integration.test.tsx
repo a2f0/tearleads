@@ -1,10 +1,15 @@
 import { type Database, schema } from '@tearleads/db/sqlite';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  NoteInfo,
   NotesUIComponents,
   VfsItemSyncFunctions
 } from '../context/NotesContext';
@@ -115,15 +120,8 @@ interface MutableNote {
 
 function createUiComponents(): NotesUIComponents {
   return {
-    Button: ({
-      children,
-      onClick,
-      ...props
-    }: { children?: ReactNode; onClick?: () => void } & Record<
-      string,
-      unknown
-    >) => (
-      <button type="button" onClick={onClick} {...props}>
+    Button: ({ children, ...props }) => (
+      <button type="button" {...props}>
         {children}
       </button>
     ),
@@ -141,7 +139,9 @@ function createUiComponents(): NotesUIComponents {
       </button>
     ),
     ListRow: ({ children, onContextMenu }) => (
-      <div onContextMenu={onContextMenu}>{children}</div>
+      <button type="button" onContextMenu={onContextMenu}>
+        {children}
+      </button>
     ),
     RefreshButton: ({ onClick }) => (
       <button type="button" onClick={onClick}>
@@ -150,7 +150,9 @@ function createUiComponents(): NotesUIComponents {
     ),
     VirtualListStatus: () => <div>status</div>,
     InlineUnlock: ({ description }) => <div>Unlock {description}</div>,
-    EditableTitle: ({ value }) => <div data-testid="editable-title">{value}</div>,
+    EditableTitle: ({ value }) => (
+      <div data-testid="editable-title">{value}</div>
+    ),
     DropdownMenu: ({ trigger, children }) => (
       <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
     ),
@@ -212,9 +214,8 @@ function createStatefulDatabase(initialNote: MutableNote): {
         }
 
         const selectClause = sqlLower.split('from "notes"')[0] ?? '';
-        const includesDeletedColumn = selectClause.includes(
-          '"notes"."deleted"'
-        );
+        const includesDeletedColumn =
+          selectClause.includes('"notes"."deleted"');
         const baseValues: unknown[] = [
           state.id,
           state.title,
