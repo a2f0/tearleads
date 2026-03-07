@@ -6,9 +6,9 @@ describe('vfsRegistrationErrors', () => {
     expect(
       isVfsAlreadyRegisteredError(new Error('Item already registered in VFS'))
     ).toBe(true);
-    expect(
-      isVfsAlreadyRegisteredError(new Error('API already exists'))
-    ).toBe(true);
+    expect(isVfsAlreadyRegisteredError(new Error('API already exists'))).toBe(
+      true
+    );
   });
 
   it('returns true when status is conflict', () => {

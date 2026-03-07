@@ -14,7 +14,6 @@ import {
   normalizeStageEncryptionMetadata,
   parseErrorMessage
 } from './vfsBlobNetworkFlusherHelpers';
-import { ORGANIZATION_HEADER_NAME } from './vfsBlobOrganizationId';
 import type {
   VfsBlobAbandonQueueOperation,
   VfsBlobAttachQueueOperation,
@@ -23,6 +22,7 @@ import type {
   VfsBlobNetworkOperation,
   VfsBlobStageQueueOperation
 } from './vfsBlobNetworkFlusherTypes';
+import { ORGANIZATION_HEADER_NAME } from './vfsBlobOrganizationId';
 
 interface ExecuteBlobOperationContext {
   apiPrefix: string;

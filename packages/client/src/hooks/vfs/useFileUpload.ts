@@ -21,7 +21,6 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
-import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   computeContentHashStreaming,
   createStreamFromFile,
@@ -29,6 +28,7 @@ import {
   readMagicBytes
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   createStoreLogger,
   getFileStorage,

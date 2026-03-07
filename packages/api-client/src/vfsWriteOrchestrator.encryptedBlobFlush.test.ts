@@ -204,9 +204,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       })
     );
     expect(
-      observedRequests.find((request) =>
-        request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
-      )?.headers.get('X-Organization-Id')
+      observedRequests
+        .find((request) =>
+          request.url.endsWith(`${VFS_CONNECT_BASE_PATH}/StageBlob`)
+        )
+        ?.headers.get('X-Organization-Id')
     ).toBe('org-1');
     expect(
       parseJsonEnvelope(
