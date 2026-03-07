@@ -39,7 +39,7 @@ Use this runbook to diagnose:
 3. If state changed on a failed attempt, treat as a bug (fail-closed invariant break).
 4. Compare cursor + `lastReconciledWriteIds` with server snapshot ordering.
 5. If mismatch persists, restart via hydrate from last known-good exported state and re-run sync.
-6. If the server returns `409` with `code=crdt_rematerialization_required`, rematerialize from canonical sync state (`/v1/vfs/vfs-sync`) and retry CRDT sync.
+6. If the server returns `409` for stale CRDT history, rematerialize from canonical sync state (`POST /v1/connect/tearleads.v2.VfsService/GetSync`) and retry CRDT sync (`POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`).
 
 ## 2) Staged-Blob Visibility Failures
 
