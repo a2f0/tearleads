@@ -21,12 +21,8 @@ import {
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
 import { queryLocalItemPermission } from '../harness/browserRuntimePermissions.js';
+import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
-
-const getApiDeps = async () => {
-  const api = await import('@tearleads/api');
-  return { app: api.app, migrations: api.migrations };
-};
 
 type ScenarioActor = ReturnType<ApiScenarioHarness['actor']>;
 
