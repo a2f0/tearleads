@@ -1,7 +1,11 @@
 import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { createElement, type ReactNode } from 'react';
 
-import { MlsChatProvider, type MlsChatUIComponents } from '../context/index.js';
+import {
+  MlsChatProvider,
+  type MlsChatUIComponents,
+  type MlsRealtimeBridge
+} from '../context/index.js';
 
 const uiComponents: MlsChatUIComponents = {
   Button: ({ children, onClick }) =>
@@ -51,7 +55,10 @@ function createMockMlsRoutes(): MlsV2Routes {
   };
 }
 
-export function createMlsHookWrapper(mlsRoutesOverride?: Partial<MlsV2Routes>) {
+export function createMlsHookWrapper(
+  mlsRoutesOverride?: Partial<MlsV2Routes>,
+  realtime?: MlsRealtimeBridge
+) {
   const mlsRoutes = { ...createMockMlsRoutes(), ...mlsRoutesOverride };
   return function MlsHookWrapper({ children }: { children: ReactNode }) {
     return createElement(MlsChatProvider, {
@@ -61,6 +68,7 @@ export function createMlsHookWrapper(mlsRoutesOverride?: Partial<MlsV2Routes>) {
       userEmail: 'test@example.com',
       ui: uiComponents,
       mlsRoutes,
+      ...(realtime !== undefined && { realtime }),
       children
     });
   };

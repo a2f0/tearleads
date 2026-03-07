@@ -13,6 +13,8 @@ const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
 const mockGenerateAndUpload = vi.fn();
 const mockProcessWelcome = vi.fn();
+const mockSseAddChannels = vi.fn();
+const mockSseRemoveChannels = vi.fn();
 
 // Track mock state for different test scenarios
 const mockState = {
@@ -23,6 +25,17 @@ const mockState = {
   userId: 'user-1',
   groups: [] as { id: string; name: string; memberCount: number }[]
 };
+
+vi.mock('@/sse', () => ({
+  useSSE: () => ({
+    connectionState: 'connected',
+    lastMessage: null,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    addChannels: mockSseAddChannels,
+    removeChannels: mockSseRemoveChannels
+  })
+}));
 
 vi.mock('@tearleads/mls-chat', () => ({
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => (

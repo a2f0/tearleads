@@ -56,6 +56,17 @@ vi.mock('@/components/auth', () => ({
     children
 }));
 
+vi.mock('@/sse', () => ({
+  useSSE: () => ({
+    connectionState: 'connected',
+    lastMessage: null,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    addChannels: vi.fn(),
+    removeChannels: vi.fn()
+  })
+}));
+
 vi.mock('@tearleads/mls-chat', () => ({
   AddMemberDialog: () => null,
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => children,

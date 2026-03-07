@@ -1,6 +1,8 @@
 import type { MlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import type { BroadcastMessage } from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
+import type { SseConnectionState } from '../types.js';
 
 /**
  * UI component props interfaces
@@ -58,6 +60,18 @@ export interface MlsChatUIComponents {
   DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
 }
 
+export interface MlsRealtimeMessage {
+  channel: string;
+  message: BroadcastMessage;
+}
+
+export interface MlsRealtimeBridge {
+  connectionState: SseConnectionState;
+  lastMessage: MlsRealtimeMessage | null;
+  addChannels: (channels: string[]) => void;
+  removeChannels: (channels: string[]) => void;
+}
+
 /**
  * Context value interface
  */
@@ -74,6 +88,8 @@ export interface MlsChatContextValue {
   ui: MlsChatUIComponents;
   /** MLS V2 API routes (generated Connect-ES client) */
   mlsRoutes: MlsV2Routes;
+  /** Optional shared realtime bridge from the host app */
+  realtime?: MlsRealtimeBridge;
 }
 
 const MlsChatContext = createContext<MlsChatContextValue | null>(null);
@@ -86,6 +102,7 @@ export interface MlsChatProviderProps {
   userEmail: string;
   ui: MlsChatUIComponents;
   mlsRoutes: MlsV2Routes;
+  realtime?: MlsRealtimeBridge;
 }
 
 /**
@@ -98,7 +115,8 @@ export function MlsChatProvider({
   userId,
   userEmail,
   ui,
-  mlsRoutes
+  mlsRoutes,
+  realtime
 }: MlsChatProviderProps) {
   const contextValue: MlsChatContextValue = {
     apiBaseUrl,
@@ -106,6 +124,7 @@ export function MlsChatProvider({
     userEmail,
     ui,
     mlsRoutes,
+    ...(realtime !== undefined && { realtime }),
     ...(getAuthHeader !== undefined && { getAuthHeader })
   };
 
@@ -164,4 +183,9 @@ export function useMlsChatUser(): { userId: string; userEmail: string } {
 export function useMlsRoutes(): MlsV2Routes {
   const { mlsRoutes } = useMlsChatContext();
   return mlsRoutes;
+}
+
+export function useMlsChatRealtime(): MlsRealtimeBridge | undefined {
+  const { realtime } = useMlsChatContext();
+  return realtime;
 }

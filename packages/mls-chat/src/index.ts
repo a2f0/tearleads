@@ -25,12 +25,15 @@ export {
   type DropdownMenuProps,
   type InputProps,
   type MlsChatContextValue,
+  type MlsRealtimeBridge,
+  type MlsRealtimeMessage,
   MlsChatProvider,
   type MlsChatProviderProps,
   type MlsChatUIComponents,
   type ScrollAreaProps,
   useMlsChatApi,
   useMlsChatContext,
+  useMlsChatRealtime,
   useMlsChatUI,
   useMlsChatUser
 } from './context/index.js';
