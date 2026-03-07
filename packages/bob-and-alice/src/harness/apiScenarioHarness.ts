@@ -1,9 +1,7 @@
-import {
-  createTestContext,
-  type SeededUser,
-  seedTestUser,
-  type TestContext,
-  type TestContextDeps
+import type {
+  SeededUser,
+  TestContext,
+  TestContextDeps
 } from '@tearleads/api-test-utils';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
@@ -13,6 +11,7 @@ import {
   mergeHeaders,
   resolveDirectApiPath
 } from './apiScenarioConnectCompat.js';
+import { getApiTestUtils } from './getApiTestUtils.js';
 
 export interface ApiActorDefinition {
   alias: string;
@@ -43,6 +42,7 @@ export class ApiScenarioHarness {
     actorDefs: ApiActorDefinition[],
     getDeps: () => Promise<TestContextDeps>
   ): Promise<ApiScenarioHarness> {
+    const { createTestContext, seedTestUser } = await getApiTestUtils();
     const ctx = await createTestContext(getDeps);
     const actorMap = new Map<string, ApiActor>();
 
