@@ -20,16 +20,18 @@ const mockDb = {
   select: mockSelect,
   insert: mockInsert
 };
+const mockGetDatabase = vi.fn(() => mockDb);
 
 vi.mock('@/db', () => ({
   isDatabaseInitialized: () => mockIsDatabaseInitialized(),
-  getDatabase: () => mockDb
+  getDatabase: () => mockGetDatabase()
 }));
 
 describe('vfsOrchestratorState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsDatabaseInitialized.mockReturnValue(true);
+    mockGetDatabase.mockReturnValue(mockDb);
     mockSelectLimit.mockResolvedValue([]);
     mockInsertOnConflictDoUpdate.mockResolvedValue(undefined);
   });
@@ -43,6 +45,16 @@ describe('vfsOrchestratorState', () => {
 
   it('returns null when persisted value is missing', async () => {
     mockSelectLimit.mockResolvedValue([]);
+    await expect(
+      loadVfsOrchestratorState('user-1', 'client')
+    ).resolves.toBeNull();
+  });
+
+  it('returns null when database closes during load', async () => {
+    mockGetDatabase.mockImplementationOnce(() => {
+      throw new Error('Database not initialized');
+    });
+
     await expect(
       loadVfsOrchestratorState('user-1', 'client')
     ).resolves.toBeNull();
@@ -82,5 +94,18 @@ describe('vfsOrchestratorState', () => {
       })
     );
     expect(mockInsertOnConflictDoUpdate).toHaveBeenCalled();
+  });
+
+  it('skips save when database closes during persistence', async () => {
+    mockGetDatabase.mockImplementationOnce(() => {
+      throw new Error('Database not initialized');
+    });
+
+    await expect(
+      saveVfsOrchestratorState('user-1', 'client', {
+        crdt: null,
+        blob: null
+      })
+    ).resolves.toBeUndefined();
   });
 });

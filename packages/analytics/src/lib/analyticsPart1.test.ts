@@ -235,7 +235,7 @@ describe('analytics', () => {
       );
     });
 
-    it('logs warning when adapter throws but does not throw', async () => {
+    it('ignores transient database unavailable errors', async () => {
       const error = new Error('Database not initialized');
       mockAdapter.execute.mockRejectedValue(error);
 
@@ -245,6 +245,19 @@ describe('analytics', () => {
       await expect(
         logApiEvent('api_get_admin_redis_key', 100, true)
       ).resolves.toBeUndefined();
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('logs warning when non-transient adapter errors occur', async () => {
+      const error = new Error('SQLITE_BUSY');
+      mockAdapter.execute.mockRejectedValue(error);
+
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await expect(logApiEvent('api_get_admin_redis_key', 100, true)).resolves
+        .toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         "Failed to log API event 'api_get_admin_redis_key':",

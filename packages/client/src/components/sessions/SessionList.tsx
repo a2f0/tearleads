@@ -29,7 +29,10 @@ export function SessionList() {
     try {
       setError(null);
       const response = await api.auth.getSessions();
-      setSessions(response.sessions);
+      const nextSessions = Array.isArray(response.sessions)
+        ? response.sessions
+        : [];
+      setSessions(nextSessions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load sessions');
     } finally {

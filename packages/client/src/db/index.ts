@@ -9,6 +9,11 @@ import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
+import {
+  closeDatabaseForInstance,
+  markDatabaseServicesUnavailable,
+  runWithDatabaseLifecycleLock
+} from './lifecycleCoordinator';
 import { runMigrations } from './migrations';
 import {
   _getAdapterInstance,
@@ -50,61 +55,65 @@ export async function setupDatabase(
   password: string,
   instanceId: string
 ): Promise<Database> {
-  const dbInstance = _getDatabaseInstance();
-  if (dbInstance && currentInstanceId === instanceId) {
-    throw new Error('Database already initialized for this instance');
-  }
+  return runWithDatabaseLifecycleLock(async () => {
+    const dbInstance = _getDatabaseInstance();
+    if (dbInstance && currentInstanceId === instanceId) {
+      throw new Error('Database already initialized for this instance');
+    }
 
-  if (dbInstance && currentInstanceId !== instanceId) {
-    await closeDatabase();
-  }
+    if (dbInstance && currentInstanceId !== instanceId) {
+      await closeDatabaseForInstance(currentInstanceId);
+    }
 
-  const startTime = performance.now();
+    const startTime = performance.now();
 
-  currentInstanceId = instanceId;
-  setCurrentInstanceId(instanceId);
+    currentInstanceId = instanceId;
+    setCurrentInstanceId(instanceId);
 
-  const keyManager = getKeyManagerForInstance(instanceId);
-  const encryptionKey = await keyManager.setupNewKey(password);
+    const keyManager = getKeyManagerForInstance(instanceId);
+    const encryptionKey = await keyManager.setupNewKey(password);
 
-  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
+    const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
-  const durationMs = performance.now() - startTime;
-  try {
-    await logEvent(db, 'db_setup', durationMs, true);
-  } catch (err) {
-    console.warn('Failed to log db_setup analytics event:', err);
-  }
+    const durationMs = performance.now() - startTime;
+    try {
+      await logEvent(db, 'db_setup', durationMs, true);
+    } catch (err) {
+      console.warn('Failed to log db_setup analytics event:', err);
+    }
 
-  return db;
+    return db;
+  });
 }
 
 export async function autoInitializeDatabase(
   instanceId: string
 ): Promise<Database> {
-  const dbInstance = _getDatabaseInstance();
-  if (dbInstance && currentInstanceId === instanceId) {
-    return dbInstance;
-  }
+  return runWithDatabaseLifecycleLock(async () => {
+    const dbInstance = _getDatabaseInstance();
+    if (dbInstance && currentInstanceId === instanceId) {
+      return dbInstance;
+    }
 
-  if (dbInstance && currentInstanceId !== instanceId) {
-    await closeDatabase();
-  }
+    if (dbInstance && currentInstanceId !== instanceId) {
+      await closeDatabaseForInstance(currentInstanceId);
+    }
 
-  currentInstanceId = instanceId;
-  setCurrentInstanceId(instanceId);
+    currentInstanceId = instanceId;
+    setCurrentInstanceId(instanceId);
 
-  const keyManager = getKeyManagerForInstance(instanceId);
-  const encryptionKey = await keyManager.setupAutoKey();
-  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
-  const persisted = await keyManager.persistSession();
-  if (!persisted) {
-    console.warn(
-      `Failed to persist auto-initialized session for instance ${instanceId}`
-    );
-  }
+    const keyManager = getKeyManagerForInstance(instanceId);
+    const encryptionKey = await keyManager.setupAutoKey();
+    const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
+    const persisted = await keyManager.persistSession();
+    if (!persisted) {
+      console.warn(
+        `Failed to persist auto-initialized session for instance ${instanceId}`
+      );
+    }
 
-  return db;
+    return db;
+  });
 }
 
 interface UnlockResult {
@@ -117,46 +126,48 @@ export async function unlockDatabase(
   instanceId: string,
   persistSession = false
 ): Promise<UnlockResult | null> {
-  const keyManager = getKeyManagerForInstance(instanceId);
+  return runWithDatabaseLifecycleLock(async () => {
+    const keyManager = getKeyManagerForInstance(instanceId);
 
-  const dbInstance = _getDatabaseInstance();
-  if (dbInstance && currentInstanceId === instanceId) {
-    return {
-      db: dbInstance,
-      sessionPersisted: await keyManager.hasPersistedSession()
-    };
-  }
+    const dbInstance = _getDatabaseInstance();
+    if (dbInstance && currentInstanceId === instanceId) {
+      return {
+        db: dbInstance,
+        sessionPersisted: await keyManager.hasPersistedSession()
+      };
+    }
 
-  if (dbInstance && currentInstanceId !== instanceId) {
-    await closeDatabase();
-  }
+    if (dbInstance && currentInstanceId !== instanceId) {
+      await closeDatabaseForInstance(currentInstanceId);
+    }
 
-  const startTime = performance.now();
+    const startTime = performance.now();
 
-  currentInstanceId = instanceId;
-  setCurrentInstanceId(instanceId);
+    currentInstanceId = instanceId;
+    setCurrentInstanceId(instanceId);
 
-  const encryptionKey = await keyManager.unlockWithPassword(password);
+    const encryptionKey = await keyManager.unlockWithPassword(password);
 
-  if (!encryptionKey) {
-    return null;
-  }
+    if (!encryptionKey) {
+      return null;
+    }
 
-  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
+    const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
-  const durationMs = performance.now() - startTime;
-  try {
-    await logEvent(db, 'db_unlock', durationMs, true);
-  } catch (err) {
-    console.warn('Failed to log db_unlock analytics event:', err);
-  }
+    const durationMs = performance.now() - startTime;
+    try {
+      await logEvent(db, 'db_unlock', durationMs, true);
+    } catch (err) {
+      console.warn('Failed to log db_unlock analytics event:', err);
+    }
 
-  let sessionPersisted = false;
-  if (persistSession) {
-    sessionPersisted = await keyManager.persistSession();
-  }
+    let sessionPersisted = false;
+    if (persistSession) {
+      sessionPersisted = await keyManager.persistSession();
+    }
 
-  return { db, sessionPersisted };
+    return { db, sessionPersisted };
+  });
 }
 
 /**
@@ -178,49 +189,51 @@ export async function hasPersistedSession(
 export async function restoreDatabaseSession(
   instanceId: string
 ): Promise<Database | null> {
-  const dbInstance = _getDatabaseInstance();
-  if (dbInstance && currentInstanceId === instanceId) {
-    return dbInstance;
-  }
-
-  // Close existing database if switching instances
-  if (dbInstance && currentInstanceId !== instanceId) {
-    await closeDatabase();
-  }
-
-  const startTime = performance.now();
-
-  // Set current instance
-  currentInstanceId = instanceId;
-  setCurrentInstanceId(instanceId);
-
-  const keyManager = getKeyManagerForInstance(instanceId);
-  const encryptionKey = await keyManager.restoreSession();
-
-  if (!encryptionKey) {
-    return null;
-  }
-
-  try {
-    const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
-
-    // Log the session restore event
-    const durationMs = performance.now() - startTime;
-    try {
-      await logEvent(db, 'db_session_restore', durationMs, true);
-    } catch (err) {
-      // Don't let logging errors affect the main operation
-      console.warn('Failed to log db_session_restore analytics event:', err);
+  return runWithDatabaseLifecycleLock(async () => {
+    const dbInstance = _getDatabaseInstance();
+    if (dbInstance && currentInstanceId === instanceId) {
+      return dbInstance;
     }
 
-    return db;
-  } catch (err) {
-    console.error('Failed to restore database session:', err);
-    // Clear the invalid session
-    await keyManager.clearPersistedSession();
-    keyManager.clearKey();
-    return null;
-  }
+    // Close existing database if switching instances
+    if (dbInstance && currentInstanceId !== instanceId) {
+      await closeDatabaseForInstance(currentInstanceId);
+    }
+
+    const startTime = performance.now();
+
+    // Set current instance
+    currentInstanceId = instanceId;
+    setCurrentInstanceId(instanceId);
+
+    const keyManager = getKeyManagerForInstance(instanceId);
+    const encryptionKey = await keyManager.restoreSession();
+
+    if (!encryptionKey) {
+      return null;
+    }
+
+    try {
+      const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
+
+      // Log the session restore event
+      const durationMs = performance.now() - startTime;
+      try {
+        await logEvent(db, 'db_session_restore', durationMs, true);
+      } catch (err) {
+        // Don't let logging errors affect the main operation
+        console.warn('Failed to log db_session_restore analytics event:', err);
+      }
+
+      return db;
+    } catch (err) {
+      console.error('Failed to restore database session:', err);
+      // Clear the invalid session
+      await keyManager.clearPersistedSession();
+      keyManager.clearKey();
+      return null;
+    }
+  });
 }
 
 /**
@@ -328,24 +341,13 @@ async function initializeDatabaseWithKey(
 }
 
 /**
- * Close the database connection.
- * Note: On web, the adapter is preserved to keep the worker/WASM memory alive.
- * This allows data to persist across lock/unlock cycles within a session.
+ * Close the database connection while preserving adapter reuse for unlock.
  */
 export async function closeDatabase(): Promise<void> {
-  const adapterInstance = _getAdapterInstance();
-  if (adapterInstance) {
-    await adapterInstance.close();
-    // Don't null out the adapter - keep it for potential unlock
-    // The worker stays alive with the encrypted file in WASM VFS
-  }
-  _setDatabaseInstance(null);
-
-  // Clear the encryption key from memory for current instance
-  if (currentInstanceId) {
-    const keyManager = getKeyManagerForInstance(currentInstanceId);
-    keyManager.clearKey();
-  }
+  markDatabaseServicesUnavailable();
+  await runWithDatabaseLifecycleLock(async () => {
+    await closeDatabaseForInstance(currentInstanceId);
+  });
 }
 
 /**
@@ -396,54 +398,56 @@ export async function changePassword(
  * @param instanceId The instance ID to reset
  */
 export async function resetDatabase(instanceId: string): Promise<void> {
-  // Store adapter reference before closing
-  const adapter = _getAdapterInstance();
+  await runWithDatabaseLifecycleLock(async () => {
+    // Store adapter reference before closing
+    const adapter = _getAdapterInstance();
 
-  // Only close if this is the current instance
-  if (currentInstanceId === instanceId) {
-    await closeDatabase();
-    currentInstanceId = null;
-    setCurrentInstanceId(null);
-  }
+    // Only close if this is the current instance
+    if (currentInstanceId === instanceId) {
+      await closeDatabaseForInstance(currentInstanceId);
+      currentInstanceId = null;
+      setCurrentInstanceId(null);
+    }
 
-  const dbName = getDatabaseName(instanceId);
+    const dbName = getDatabaseName(instanceId);
 
-  // Delete the database file if adapter supports it
-  if (adapter?.deleteDatabase) {
-    await adapter.deleteDatabase(dbName);
-  } else {
-    // For Electron, try to delete the database file directly
-    // even if no adapter was initialized
-    const platformInfo = getCurrentPlatform();
-    if (platformInfo.platform === 'electron') {
-      try {
-        if (window.electron?.sqlite?.deleteDatabase) {
-          await window.electron.sqlite.deleteDatabase(dbName);
+    // Delete the database file if adapter supports it
+    if (adapter?.deleteDatabase) {
+      await adapter.deleteDatabase(dbName);
+    } else {
+      // For Electron, try to delete the database file directly
+      // even if no adapter was initialized
+      const platformInfo = getCurrentPlatform();
+      if (platformInfo.platform === 'electron') {
+        try {
+          if (window.electron?.sqlite?.deleteDatabase) {
+            await window.electron.sqlite.deleteDatabase(dbName);
+          }
+        } catch {
+          // Ignore errors if the file doesn't exist
         }
-      } catch {
-        // Ignore errors if the file doesn't exist
       }
     }
-  }
 
-  // Terminate the worker to destroy WASM memory (web platform)
-  if (
-    adapter &&
-    'terminate' in adapter &&
-    typeof adapter.terminate === 'function'
-  ) {
-    adapter.terminate();
-  }
+    // Terminate the worker to destroy WASM memory (web platform)
+    if (
+      adapter &&
+      'terminate' in adapter &&
+      typeof adapter.terminate === 'function'
+    ) {
+      adapter.terminate();
+    }
 
-  // Always clear the adapter instance on reset
-  _setAdapterInstance(null);
-  setAnalyticsAdapter(null);
-  setVehiclesAdapter(null);
+    // Always clear the adapter instance on reset
+    _setAdapterInstance(null);
+    setAnalyticsAdapter(null);
+    setVehiclesAdapter(null);
 
-  const keyManager = getKeyManagerForInstance(instanceId);
-  // Clear any persisted session before full reset
-  await keyManager.clearPersistedSession();
-  await keyManager.reset();
+    const keyManager = getKeyManagerForInstance(instanceId);
+    // Clear any persisted session before full reset
+    await keyManager.clearPersistedSession();
+    await keyManager.reset();
+  });
 }
 
 /**
@@ -470,23 +474,25 @@ export async function exportDatabase(): Promise<Uint8Array> {
  * @param data The encrypted database backup as a Uint8Array
  */
 export async function importDatabase(data: Uint8Array): Promise<void> {
-  const adapterInstance = _getAdapterInstance();
-  if (!adapterInstance || !currentInstanceId) {
-    throw new Error('Database not initialized');
-  }
+  await runWithDatabaseLifecycleLock(async () => {
+    const adapterInstance = _getAdapterInstance();
+    if (!adapterInstance || !currentInstanceId) {
+      throw new Error('Database not initialized');
+    }
 
-  if (!adapterInstance.importDatabase) {
-    throw new Error('Import not supported on this platform');
-  }
+    if (!adapterInstance.importDatabase) {
+      throw new Error('Import not supported on this platform');
+    }
 
-  // Get the current encryption key for adapters that need it (e.g., Electron)
-  const keyManager = getKeyManagerForInstance(currentInstanceId);
-  const encryptionKey = keyManager.getCurrentKey();
+    // Get the current encryption key for adapters that need it (e.g., Electron)
+    const keyManager = getKeyManagerForInstance(currentInstanceId);
+    const encryptionKey = keyManager.getCurrentKey();
 
-  await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
+    await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
 
-  // Re-run migrations in case the backup is from an older version
-  await runMigrations(adapterInstance);
+    // Re-run migrations in case the backup is from an older version
+    await runMigrations(adapterInstance);
+  });
 }
 
 // Re-export schema and types

@@ -326,6 +326,17 @@ export async function clearEvents(_db: Database): Promise<void> {
   await adapter.execute(`DELETE FROM analytics_events`, []);
 }
 
+function isTransientDatabaseUnavailableError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes('Database not initialized') ||
+    error.message.includes('Analytics adapter not initialized')
+  );
+}
+
 /**
  * Log an API call event directly via the database adapter.
  * This function can be called from modules that don't have access to the Database instance.
@@ -357,6 +368,10 @@ export async function logApiEvent<T extends AnalyticsEventSlug>(
       ]
     );
   } catch (error) {
+    if (isTransientDatabaseUnavailableError(error)) {
+      return;
+    }
+
     // Don't let logging errors affect API calls, but log for debugging
     console.warn(`Failed to log API event '${eventName}':`, error);
   }

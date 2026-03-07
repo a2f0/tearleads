@@ -50,6 +50,16 @@ describe('SessionList', () => {
     });
   });
 
+  it('shows empty state when response sessions is missing', async () => {
+    mockGetSessions.mockResolvedValue({});
+
+    render(<SessionList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No active sessions')).toBeInTheDocument();
+    });
+  });
+
   it('renders sessions list', async () => {
     const sessions = [
       {
