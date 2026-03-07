@@ -1,3 +1,5 @@
+require 'googleauth'
+require 'google/apis/androidpublisher_v3'
 import 'utils.rb'
 
 GRADLE_FILE = File.expand_path('../android/app/build.gradle', __dir__).freeze
@@ -172,6 +174,43 @@ platform :android do
     )
   end
 
+  desc 'Update tester groups for a testing track (Google Groups only)'
+  lane :update_testers do |options|
+    track = options[:track] || 'internal'
+    UI.user_error!('Provide Google Group emails using `groups:` (comma-separated)') unless options[:groups]
+
+    group_emails = options[:groups].split(',').map(&:strip)
+    package_name = CredentialsManager::AppfileConfig.try_fetch_value(:package_name)
+    publisher = create_play_store_client
+
+    edit = publisher.insert_edit(package_name)
+    testers = Google::Apis::AndroidpublisherV3::Testers.new(google_groups: group_emails)
+    publisher.update_edit_tester(package_name, edit.id, track, testers)
+    publisher.commit_edit(package_name, edit.id)
+    UI.success("Updated tester groups for '#{track}': #{group_emails.join(', ')}")
+  end
+
+  desc 'List tester groups for a testing track'
+  lane :list_testers do |options|
+    track = options[:track] || 'internal'
+    package_name = CredentialsManager::AppfileConfig.try_fetch_value(:package_name)
+    publisher = create_play_store_client
+
+    edit = publisher.insert_edit(package_name)
+    begin
+      testers = publisher.get_edit_tester(package_name, edit.id, track)
+      groups = testers.google_groups || []
+      if groups.empty?
+        UI.important("No tester groups for '#{track}' track.")
+      else
+        UI.message("Tester groups for '#{track}':")
+        groups.each { |g| UI.message("  #{g}") }
+      end
+    ensure
+      publisher.delete_edit(package_name, edit.id)
+    end
+  end
+
   desc 'Run Android unit tests'
   lane :test do
     run_gradle(task: 'test')
@@ -301,6 +340,15 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
+  end
+
+  private_lane :create_play_store_client do
+    publisher = Google::Apis::AndroidpublisherV3::AndroidPublisherService.new
+    publisher.authorization = Google::Auth::ServiceAccountCredentials.make_creds(
+      json_key_io: File.open(ENV['GOOGLE_PLAY_JSON_KEY_FILE']),
+      scope: 'https://www.googleapis.com/auth/androidpublisher'
+    )
+    publisher
   end
 
   private_lane :run_gradle do |options|
