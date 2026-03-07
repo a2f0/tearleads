@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { isRecord } from '@tearleads/shared';
 
+export type StagingIdJsonRequest = { stagingId: string; json: string };
+
 type VfsBlobRelationKind = 'file' | 'emailAttachment' | 'photo' | 'other';
 
 const VALID_RELATION_KINDS: VfsBlobRelationKind[] = [

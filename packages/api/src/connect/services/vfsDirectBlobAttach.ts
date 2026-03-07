@@ -19,9 +19,9 @@ import {
 import {
   normalizeRequiredString,
   parseBlobAttachBody,
+  type StagingIdJsonRequest,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 export type AttachBlobDirectResponse = {
   attached: boolean;

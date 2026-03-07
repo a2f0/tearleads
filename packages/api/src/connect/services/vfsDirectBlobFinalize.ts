@@ -5,9 +5,9 @@ import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   normalizeRequiredString,
-  parseBlobCommitBody
+  parseBlobCommitBody,
+  type StagingIdJsonRequest
 } from './vfsDirectBlobShared.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import {
   deleteBlobUploadSession,
   deleteBlobUploadSessionsForStaging,

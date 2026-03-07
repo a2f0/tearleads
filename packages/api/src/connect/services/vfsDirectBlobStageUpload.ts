@@ -8,13 +8,13 @@ import {
   normalizeRequiredString,
   parseBlobChunkBody,
   parseBlobStageBody,
+  type StagingIdJsonRequest,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
 import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 
 type JsonRequest = { json: string };
-export type StagingIdJsonRequest = { stagingId: string; json: string };
 export type StageBlobDirectResponse = {
   stagingId: string;
   blobId: string;
