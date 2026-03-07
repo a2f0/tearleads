@@ -68,7 +68,10 @@ export function parseSendRequestPayload(body: unknown): SendRequestPayload {
     const parsedAttachments: SendAttachmentRequest[] = [];
     for (const attachmentValue of attachmentsValue) {
       if (!isRecord(attachmentValue)) {
-        throw new ConnectError('Invalid attachment payload', Code.InvalidArgument);
+        throw new ConnectError(
+          'Invalid attachment payload',
+          Code.InvalidArgument
+        );
       }
 
       const fileName = attachmentValue['fileName'];
@@ -80,7 +83,10 @@ export function parseSendRequestPayload(body: unknown): SendRequestPayload {
         typeof mimeType !== 'string' ||
         typeof content !== 'string'
       ) {
-        throw new ConnectError('Invalid attachment payload', Code.InvalidArgument);
+        throw new ConnectError(
+          'Invalid attachment payload',
+          Code.InvalidArgument
+        );
       }
 
       parsedAttachments.push({
