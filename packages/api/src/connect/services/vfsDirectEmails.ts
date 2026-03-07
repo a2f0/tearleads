@@ -85,6 +85,16 @@ function decodeRecipientList(value: unknown): string[] {
   return toStringArray(value).map((entry) => decodeMaybeBase64Utf8(entry));
 }
 
+function normalizeTimestamp(value: string | Date): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return '';
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -136,7 +146,7 @@ export async function getEmailsDirect(
       encrypted_from: string | null;
       encrypted_to: unknown;
       encrypted_subject: string | null;
-      received_at: string;
+      received_at: string | Date;
       ciphertext_size: number | null;
     }>(
       `SELECT
@@ -160,7 +170,7 @@ export async function getEmailsDirect(
       from: decodeMaybeBase64Utf8(row.encrypted_from),
       to: decodeRecipientList(row.encrypted_to),
       subject: decodeMaybeBase64Utf8(row.encrypted_subject),
-      receivedAt: row.received_at,
+      receivedAt: normalizeTimestamp(row.received_at),
       size: row.ciphertext_size ?? 0
     }));
 
@@ -205,7 +215,7 @@ export async function getEmailDirect(
       encrypted_from: string | null;
       encrypted_to: unknown;
       encrypted_subject: string | null;
-      received_at: string;
+      received_at: string | Date;
       ciphertext_size: number | null;
       encrypted_body_path: string | null;
     }>(
@@ -236,7 +246,7 @@ export async function getEmailDirect(
       from: decodeMaybeBase64Utf8(row.encrypted_from),
       to: decodeRecipientList(row.encrypted_to),
       subject: decodeMaybeBase64Utf8(row.encrypted_subject),
-      receivedAt: row.received_at,
+      receivedAt: normalizeTimestamp(row.received_at),
       size: row.ciphertext_size ?? 0,
       rawData: scaffoldInlineBody ?? '',
       ...(scaffoldInlineBody === null &&
