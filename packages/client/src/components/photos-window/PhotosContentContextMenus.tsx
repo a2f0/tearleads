@@ -2,6 +2,7 @@ import { WindowContextMenu } from '@tearleads/window-manager';
 import {
   Download,
   Info,
+  Mail,
   RotateCcw,
   Share2,
   Trash2,
@@ -28,6 +29,7 @@ interface PhotosContentContextMenusProps {
   onGetInfo: () => void;
   onDownload: (photo: PhotoWithUrl) => void;
   onAddToAIChat: () => void;
+  onSendViaEmail: () => void;
   onShare: (photo: PhotoWithUrl) => void;
   onDelete: () => void;
   onUpload?: (() => void) | undefined;
@@ -50,6 +52,7 @@ export function PhotosContentContextMenus({
   onGetInfo,
   onDownload,
   onAddToAIChat,
+  onSendViaEmail,
   onShare,
   onDelete,
   onUpload,
@@ -96,6 +99,14 @@ export function PhotosContentContextMenus({
                 onClick={onAddToAIChat}
               >
                 Add to AI chat
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={onSendViaEmail}
+              >
+                <Mail className="h-4 w-4" />
+                Send via email
               </button>
               {canShare && (
                 <button

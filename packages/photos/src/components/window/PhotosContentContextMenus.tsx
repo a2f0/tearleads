@@ -1,6 +1,7 @@
 import {
   Download,
   Info,
+  Mail,
   RotateCcw,
   Share2,
   Trash2,
@@ -28,6 +29,7 @@ interface PhotosContentContextMenusProps {
   onGetInfo: () => void;
   onDownload: (photo: PhotoWithUrl) => void;
   onAddToAIChat: () => void;
+  onSendViaEmail: () => void;
   onShare: (photo: PhotoWithUrl) => void;
   onDelete: () => void;
   onUpload?: (() => void) | undefined;
@@ -50,6 +52,7 @@ export function PhotosContentContextMenus({
   onGetInfo,
   onDownload,
   onAddToAIChat,
+  onSendViaEmail,
   onShare,
   onDelete,
   onUpload,
@@ -89,6 +92,12 @@ export function PhotosContentContextMenus({
               </ContextMenuItem>
               <ContextMenuItem onClick={onAddToAIChat}>
                 Add to AI chat
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Mail className="h-4 w-4" />}
+                onClick={onSendViaEmail}
+              >
+                Send via email
               </ContextMenuItem>
               {canShare && (
                 <ContextMenuItem

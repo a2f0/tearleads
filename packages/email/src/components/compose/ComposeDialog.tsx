@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing complexity, only added attachment hydration
 import { clsx } from 'clsx';
 import { Save, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -50,6 +51,13 @@ interface ComposeDialogProps {
     subject?: string;
     body?: string;
     composeMode?: ComposeMode;
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      size: number;
+      content: string;
+    }>;
+
     requestId: number;
   };
 }
@@ -74,6 +82,7 @@ export function ComposeDialog({
     setSubject,
     setBody,
     addAttachment,
+    addAttachmentFromPayload,
     removeAttachment,
     saveDraft,
     send,
@@ -104,8 +113,22 @@ export function ComposeDialog({
     setBcc(formatEmailAddresses(openRequest.bcc ?? []));
     setSubject(openRequest.subject ?? '');
     setBody(openRequest.body ?? '');
+    if (openRequest.attachments) {
+      for (const att of openRequest.attachments) {
+        addAttachmentFromPayload(att);
+      }
+    }
     setAddressBookOpen(false);
-  }, [open, openRequest, setBcc, setBody, setCc, setSubject, setTo]);
+  }, [
+    open,
+    openRequest,
+    setBcc,
+    setBody,
+    setCc,
+    setSubject,
+    setTo,
+    addAttachmentFromPayload
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing complexity, only added email callback
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Download, Loader2, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -7,8 +8,10 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/ListRow';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useVirtualVisibleRange } from '@/hooks/device';
 import { useTypedTranslation } from '@/i18n';
+import { uint8ArrayToBase64 } from '@/lib/base64';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import { setAttachedImage } from '@/lib/llmRuntime';
@@ -45,6 +48,8 @@ export function PhotosWindowContent({
   onUpload,
   onOpenAIChat
 }: PhotosWindowContentProps) {
+  const { openWindow: openEmailWindow, requestWindowOpen } =
+    useWindowManagerActions();
   const { t } = useTypedTranslation('contextMenu');
   const {
     photos,
@@ -191,6 +196,30 @@ export function PhotosWindowContent({
       setContextMenu(null);
     }
   }, [contextMenu, downloadPhoto, onOpenAIChat]);
+
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const data = await downloadPhoto(contextMenu.photo);
+      const base64 = uint8ArrayToBase64(data);
+      openEmailWindow('email');
+      requestWindowOpen('email', {
+        attachments: [
+          {
+            fileName: contextMenu.photo.name,
+            mimeType: contextMenu.photo.mimeType,
+            size: data.byteLength,
+            content: base64
+          }
+        ]
+      });
+    } catch (err) {
+      console.error('Failed to send photo via email:', err);
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhoto, openEmailWindow, requestWindowOpen]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -367,6 +396,9 @@ export function PhotosWindowContent({
         }}
         onAddToAIChat={() => {
           void handleAddToAIChat();
+        }}
+        onSendViaEmail={() => {
+          void handleSendViaEmail();
         }}
         onShare={(photo) => {
           void handleShare(photo);

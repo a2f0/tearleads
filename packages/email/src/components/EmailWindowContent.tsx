@@ -21,6 +21,13 @@ export interface ComposeOpenRequest {
   subject?: string;
   body?: string;
   composeMode?: ComposeMode;
+  attachments?: Array<{
+    fileName: string;
+    mimeType: string;
+    size: number;
+    content: string;
+  }>;
+
   requestId: number;
 }
 

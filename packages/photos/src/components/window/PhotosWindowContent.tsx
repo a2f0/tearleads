@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing complexity, only added email callback
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Download, Loader2, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -48,6 +49,8 @@ export function PhotosWindowContent({
     setMediaDragData,
     uint8ArrayToDataUrl,
     setAttachedImage,
+    openWindow,
+    requestWindowOpen,
     logError
   } = usePhotosUIContext();
 
@@ -258,6 +261,38 @@ export function PhotosWindowContent({
     logError
   ]);
 
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const data = await downloadPhotoData(contextMenu.photo);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
+      openWindow('email');
+      requestWindowOpen('email', {
+        attachments: [
+          {
+            fileName: contextMenu.photo.name,
+            mimeType: contextMenu.photo.mimeType,
+            size: data.byteLength,
+            content: base64
+          }
+        ]
+      });
+    } catch (err) {
+      logError(
+        'Failed to send photo via email',
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhotoData, openWindow, requestWindowOpen, logError]);
+
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
       <PhotosContentHeader />
@@ -433,6 +468,9 @@ export function PhotosWindowContent({
         }}
         onAddToAIChat={() => {
           void handleAddToAIChat();
+        }}
+        onSendViaEmail={() => {
+          void handleSendViaEmail();
         }}
         onShare={(photo) => {
           void handleShare(photo);

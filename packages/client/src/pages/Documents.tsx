@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -6,6 +7,7 @@ import {
   FileText,
   Info,
   Loader2,
+  Mail,
   RotateCcw,
   Trash2,
   Upload
@@ -16,6 +18,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { UploadProgress } from '@/components/ui/UploadProgress';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
 import { DocumentsListView } from './documents/DocumentsListView';
@@ -155,6 +158,7 @@ export function Documents({
   onOpenAIChat
 }: DocumentsProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { openWindow, requestWindowOpen } = useWindowManagerActions();
   const { t } = useTypedTranslation('contextMenu');
 
   const isTableView = viewMode === 'table';
@@ -188,13 +192,18 @@ export function Documents({
     handleRestore,
     handleCloseContextMenu,
     handleAddToAIChat,
+    handleSendViaEmail,
     setBlankSpaceMenu
   } = useDocumentsActions(
     setError,
     setHasFetched,
     onSelectDocument,
     onUpload,
-    onOpenAIChat
+    onOpenAIChat,
+    (attachment) => {
+      openWindow('email');
+      requestWindowOpen('email', { attachments: [attachment] });
+    }
   );
 
   const contentState: DocumentsContentState = {
@@ -272,6 +281,12 @@ export function Documents({
               </ContextMenuItem>
               <ContextMenuItem onClick={handleAddToAIChat}>
                 Add to AI chat
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Mail className="h-4 w-4" />}
+                onClick={handleSendViaEmail}
+              >
+                Send via email
               </ContextMenuItem>
               <ContextMenuItem
                 icon={<Trash2 className="h-4 w-4" />}

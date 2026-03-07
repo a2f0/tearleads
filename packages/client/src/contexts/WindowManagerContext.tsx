@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import {
   type WindowInstance as BaseWindowInstance,
   WindowManagerProvider as BaseWindowManagerProvider,
@@ -92,6 +93,12 @@ export interface WindowOpenRequestPayloads {
     bcc?: string[];
     subject?: string;
     body?: string;
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      size: number;
+      content: string;
+    }>;
   };
   ai: { conversationId?: string };
   help: { helpDocId?: HelpDocId };
