@@ -19,6 +19,13 @@ interface UseComposeOptions {
   onSent?: () => void;
 }
 
+interface AttachmentPayload {
+  fileName: string;
+  mimeType: string;
+  size: number;
+  content: string;
+}
+
 interface UseComposeReturn {
   state: ComposeState;
   setTo: (value: string) => void;
@@ -27,6 +34,7 @@ interface UseComposeReturn {
   setSubject: (value: string) => void;
   setBody: (value: string) => void;
   addAttachment: (file: File) => void;
+  addAttachmentFromPayload: (payload: AttachmentPayload) => void;
   removeAttachment: (id: string) => void;
   saveDraft: () => Promise<string | null>;
   send: () => Promise<boolean>;
@@ -89,6 +97,21 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
       mimeType: file.type || 'application/octet-stream',
       size: file.size,
       file
+    };
+    setState((prev) => ({
+      ...prev,
+      attachments: [...prev.attachments, attachment],
+      isDirty: true
+    }));
+  }, []);
+
+  const addAttachmentFromPayload = useCallback((payload: AttachmentPayload) => {
+    const attachment: Attachment = {
+      id: crypto.randomUUID(),
+      fileName: payload.fileName,
+      mimeType: payload.mimeType,
+      size: payload.size,
+      content: payload.content
     };
     setState((prev) => ({
       ...prev,
@@ -318,6 +341,7 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
     setSubject,
     setBody,
     addAttachment,
+    addAttachmentFromPayload,
     removeAttachment,
     saveDraft,
     send,

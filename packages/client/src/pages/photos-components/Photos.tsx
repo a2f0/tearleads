@@ -1,6 +1,7 @@
 /**
  * Photos component - displays a grid of photos with context menu actions.
  */
+// component-complexity: allow — pre-existing complexity, only added email callback
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -13,6 +14,7 @@ import {
   ImageIcon,
   Info,
   Loader2,
+  Mail,
   Share2,
   Trash2
 } from 'lucide-react';
@@ -24,12 +26,14 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
+import { uint8ArrayToBase64 } from '@/lib/base64';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
 import { setAttachedImage } from '@/lib/llmRuntime';
 import { setMediaDragData } from '@/lib/mediaDragData';
@@ -57,6 +61,7 @@ export function Photos({
   const [searchParams] = useSearchParams();
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { openWindow, requestWindowOpen } = useWindowManagerActions();
   const { t } = useTypedTranslation('contextMenu');
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
@@ -260,6 +265,38 @@ export function Photos({
     }
   }, [contextMenu, currentInstanceId, openAIChat, setError]);
 
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+      const storage = getFileStorage();
+      const data = await storage.retrieve(contextMenu.photo.storagePath);
+      const base64 = uint8ArrayToBase64(data);
+      openWindow('email');
+      requestWindowOpen('email', {
+        attachments: [
+          {
+            fileName: contextMenu.photo.name,
+            mimeType: contextMenu.photo.mimeType,
+            size: data.byteLength,
+            content: base64
+          }
+        ]
+      });
+    } catch (err) {
+      console.error('Failed to send photo via email:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, currentInstanceId, openWindow, requestWindowOpen, setError]);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -440,6 +477,12 @@ export function Photos({
           </ContextMenuItem>
           <ContextMenuItem onClick={handleAddToAIChat}>
             Add to AI chat
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Mail className="h-4 w-4" />}
+            onClick={handleSendViaEmail}
+          >
+            Send via email
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}

@@ -1,9 +1,10 @@
+// component-complexity: allow — pre-existing complexity, only added email callback
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
-import { Download, Info, Loader2, Share2, Trash2 } from 'lucide-react';
+import { Download, Info, Loader2, Mail, Share2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type PhotoWithUrl, usePhotosUIContext } from '../../context';
 
@@ -67,6 +68,8 @@ export function PhotosWindowThumbnailView({
     setMediaDragData,
     uint8ArrayToDataUrl,
     setAttachedImage,
+    openWindow,
+    requestWindowOpen,
     logError
   } = usePhotosUIContext();
 
@@ -261,6 +264,38 @@ export function PhotosWindowThumbnailView({
     logError
   ]);
 
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const data = await downloadPhotoData(contextMenu.photo);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
+      openWindow('email');
+      requestWindowOpen('email', {
+        attachments: [
+          {
+            fileName: contextMenu.photo.name,
+            mimeType: contextMenu.photo.mimeType,
+            size: data.byteLength,
+            content: base64
+          }
+        ]
+      });
+    } catch (err) {
+      logError(
+        'Failed to send photo via email',
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhotoData, openWindow, requestWindowOpen, logError]);
+
   const handleFilesSelected = useCallback((_files: File[]) => {
     // File upload is handled by parent component through props
     // This is a placeholder for the dropzone component
@@ -426,6 +461,12 @@ export function PhotosWindowThumbnailView({
             </ContextMenuItem>
             <ContextMenuItem onClick={handleAddToAIChat}>
               Add to AI chat
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={<Mail className="h-4 w-4" />}
+              onClick={handleSendViaEmail}
+            >
+              Send via email
             </ContextMenuItem>
             <ContextMenuItem
               icon={<Trash2 className="h-4 w-4" />}

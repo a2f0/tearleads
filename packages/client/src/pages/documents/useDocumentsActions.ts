@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { uint8ArrayToBase64 } from '@/lib/base64';
 import { objectUrlToDataUrl } from '@/lib/chatAttachments';
 import { retrieveFileData } from '@/lib/dataRetrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
@@ -39,6 +40,7 @@ interface UseDocumentsActionsResult {
   handleRestore: () => Promise<void>;
   handleCloseContextMenu: () => void;
   handleAddToAIChat: () => Promise<void>;
+  handleSendViaEmail: () => Promise<void>;
   setBlankSpaceMenu: React.Dispatch<
     React.SetStateAction<BlankSpaceMenuState | null>
   >;
@@ -49,7 +51,13 @@ export function useDocumentsActions(
   setHasFetched: React.Dispatch<React.SetStateAction<boolean>>,
   onSelectDocument?: (documentId: string) => void,
   onUpload?: () => void,
-  onOpenAIChat?: () => void
+  onOpenAIChat?: () => void,
+  onSendViaEmail?: (attachment: {
+    fileName: string;
+    mimeType: string;
+    size: number;
+    content: string;
+  }) => void
 ): UseDocumentsActionsResult {
   const navigateWithFrom = useNavigateWithFrom();
   const { currentInstanceId } = useDatabaseContext();
@@ -216,6 +224,30 @@ export function useDocumentsActions(
     }
   }, [contextMenu, openAIChat, setError]);
 
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      if (!currentInstanceId) throw new Error('No active instance');
+      const data = await retrieveFileData(
+        contextMenu.document.storagePath,
+        currentInstanceId
+      );
+      const base64 = uint8ArrayToBase64(data);
+      onSendViaEmail?.({
+        fileName: contextMenu.document.name,
+        mimeType: contextMenu.document.mimeType,
+        size: data.byteLength,
+        content: base64
+      });
+    } catch (err) {
+      console.error('Failed to send document via email:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, currentInstanceId, onSendViaEmail, setError]);
+
   return {
     contextMenu,
     blankSpaceMenu,
@@ -230,6 +262,7 @@ export function useDocumentsActions(
     handleRestore,
     handleCloseContextMenu,
     handleAddToAIChat,
+    handleSendViaEmail,
     setBlankSpaceMenu
   };
 }

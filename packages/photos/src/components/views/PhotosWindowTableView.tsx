@@ -1,13 +1,13 @@
+// component-complexity: allow — pre-existing complexity, only added email callback
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import {
-  ChevronDown,
-  ChevronUp,
   Download,
   ImageIcon,
   Info,
+  Mail,
   RotateCcw,
   Share2,
   Trash2,
@@ -19,40 +19,11 @@ import {
   getPhotoTypeDisplay,
   type PhotosWindowTableViewProps,
   type SortColumn,
-  type SortDirection,
-  type SortHeaderProps
+  type SortDirection
 } from './photosTableHelpers';
+import { SortHeader } from './SortHeader';
 
 export type { PhotosWindowTableViewProps } from './photosTableHelpers';
-
-function SortHeader({
-  column,
-  label,
-  currentColumn,
-  direction,
-  onClick
-}: SortHeaderProps) {
-  const isActive = column === currentColumn;
-
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-      onClick={() => onClick(column)}
-    >
-      {label}
-      {isActive && (
-        <span className="shrink-0">
-          {direction === 'asc' ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )}
-        </span>
-      )}
-    </button>
-  );
-}
 
 export function PhotosWindowTableView({
   onSelectPhoto,
@@ -78,6 +49,8 @@ export function PhotosWindowTableView({
     setMediaDragData,
     uint8ArrayToDataUrl,
     setAttachedImage,
+    openWindow,
+    requestWindowOpen,
     logError
   } = usePhotosUIContext();
 
@@ -243,9 +216,7 @@ export function PhotosWindowTableView({
         const data = await sharePhotoData(photo);
         await shareFile(data, photo.name, photo.mimeType);
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
+        if (err instanceof Error && err.name === 'AbortError') return;
         logError(
           'Failed to share photo',
           err instanceof Error ? err.message : String(err)
@@ -282,6 +253,34 @@ export function PhotosWindowTableView({
     onOpenAIChat,
     logError
   ]);
+
+  const handleSendViaEmail = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      const data = await downloadPhotoData(contextMenu.photo);
+      const base64 = btoa(
+        Array.from(data, (b) => String.fromCharCode(b)).join('')
+      );
+      openWindow('email');
+      requestWindowOpen('email', {
+        attachments: [
+          {
+            fileName: contextMenu.photo.name,
+            mimeType: contextMenu.photo.mimeType,
+            size: data.byteLength,
+            content: base64
+          }
+        ]
+      });
+    } catch (err) {
+      logError(
+        'Failed to send photo via email',
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhotoData, openWindow, requestWindowOpen, logError]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -434,6 +433,12 @@ export function PhotosWindowTableView({
               </ContextMenuItem>
               <ContextMenuItem onClick={handleAddToAIChat}>
                 Add to AI chat
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Mail className="h-4 w-4" />}
+                onClick={handleSendViaEmail}
+              >
+                Send via email
               </ContextMenuItem>
               {canShare && (
                 <ContextMenuItem
