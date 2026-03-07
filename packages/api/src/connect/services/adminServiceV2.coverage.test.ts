@@ -159,7 +159,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
     );
     await adminConnectServiceV2.removeGroupMember(
       create(AdminRemoveGroupMemberRequestSchema, {
-        id: 'group-1',
+        groupId: 'group-1',
         userId: 'user-1'
       }),
       context
@@ -209,9 +209,8 @@ describe('adminConnectServiceV2 coverage branches', () => {
     );
     await adminConnectServiceV2.getRedisKeys(
       create(AdminGetRedisKeysRequestSchema, {
-        pattern: '*',
-        limit: 10,
-        offset: 0
+        cursor: '0',
+        limit: 10
       }),
       context
     );
