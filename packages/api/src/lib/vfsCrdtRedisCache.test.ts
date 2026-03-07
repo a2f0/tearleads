@@ -130,12 +130,16 @@ describe('vfsCrdtRedisCache', () => {
 
     await invalidateReplicaWriteIdRowsCache('user-1');
 
-    expect(await readReplicaWriteIdRowsCache({ userId: 'user-1' })).toBeUndefined();
+    expect(
+      await readReplicaWriteIdRowsCache({ userId: 'user-1' })
+    ).toBeUndefined();
   });
 
   it('falls back gracefully when redis reads fail', async () => {
     mockRedisClient.get.mockRejectedValueOnce(new Error('redis read failure'));
-    expect(await readReplicaWriteIdRowsCache({ userId: 'user-1' })).toBeUndefined();
+    expect(
+      await readReplicaWriteIdRowsCache({ userId: 'user-1' })
+    ).toBeUndefined();
 
     mockRedisClient.get.mockRejectedValueOnce(new Error('redis read failure'));
     expect(
