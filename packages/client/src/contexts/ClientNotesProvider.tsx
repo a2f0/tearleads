@@ -7,7 +7,6 @@ import {
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/notes';
-import notesPackageJson from '@tearleads/notes/package.json';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -26,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
@@ -37,15 +35,12 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
-import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   queueItemDeleteAndFlush,
   queueItemUpsertAndFlush
 } from '@/lib/vfsItemSyncWriter';
-
-export function NotesAboutMenuItem() {
-  return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
-}
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
+import { NotesAboutMenuItem } from './NotesAboutMenuItem';
 
 const notesUIComponents: NotesUIComponents = {
   Button,
