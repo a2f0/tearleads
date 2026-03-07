@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import { loadApiRoutes } from './checkMswParity/apiRoutes.ts';
 import {
   type ApiRoute,
-  type HttpMethod,
   LITERAL_PATH_SEGMENT_REGEX,
   type LowConfidenceRoute,
   MSW_HANDLERS_FILE,
@@ -12,6 +11,7 @@ import {
   type MswHandlerMatcher,
   type ParityResult
 } from './checkMswParity/types.ts';
+import { pathExists, toMethod } from './checkMswParity/utils.ts';
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {
   const segments: string[] = [];
@@ -60,30 +60,6 @@ const splitPathPatternSegments = (pathPattern: string): string[] => {
   }
 
   return segments;
-};
-
-const toMethod = (value: string): HttpMethod => {
-  const upper = value.toUpperCase();
-  if (
-    upper === 'GET' ||
-    upper === 'POST' ||
-    upper === 'PUT' ||
-    upper === 'PATCH' ||
-    upper === 'DELETE'
-  ) {
-    return upper;
-  }
-
-  throw new Error(`Unsupported HTTP method: ${value}`);
-};
-
-const pathExists = async (candidatePath: string): Promise<boolean> => {
-  try {
-    await fs.access(candidatePath);
-    return true;
-  } catch {
-    return false;
-  }
 };
 
 const classifyOptionalV1PathPattern = (

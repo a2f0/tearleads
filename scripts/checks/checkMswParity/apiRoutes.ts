@@ -4,9 +4,9 @@ import {
   API_ROUTE_REGEX,
   API_ROUTES_DIR,
   type ApiRoute,
-  type HttpMethod,
   ROOT_DIR
 } from './types.ts';
+import { pathExists, toMethod } from './utils.ts';
 
 const CONNECT_ROUTER_FILE = path.join(
   ROOT_DIR,
@@ -17,21 +17,6 @@ const CONNECT_ROUTER_FILE = path.join(
   'router.ts'
 );
 const CONNECT_ROUTE_PREFIX = '/v1/connect';
-
-const toMethod = (value: string): HttpMethod => {
-  const upper = value.toUpperCase();
-  if (
-    upper === 'GET' ||
-    upper === 'POST' ||
-    upper === 'PUT' ||
-    upper === 'PATCH' ||
-    upper === 'DELETE'
-  ) {
-    return upper;
-  }
-
-  throw new Error(`Unsupported HTTP method: ${value}`);
-};
 
 const withPrefix = (prefix: string, routePath: string): string =>
   `${prefix}${routePath === '/' ? '' : routePath}`;
@@ -91,15 +76,6 @@ const listFilesRecursive = async (directory: string): Promise<string[]> => {
   );
 
   return files.flat();
-};
-
-const pathExists = async (candidatePath: string): Promise<boolean> => {
-  try {
-    await fs.access(candidatePath);
-    return true;
-  } catch {
-    return false;
-  }
 };
 
 const dedupeAndSortRoutes = (routes: ApiRoute[]): ApiRoute[] => {
@@ -184,7 +160,7 @@ const parseNamedImportSpecifiers = (
 
 const parseConnectMethodNames = (serviceContent: string): string[] => {
   const names: string[] = [];
-  const methodRegex = /^\s{2}([a-z][A-Za-z0-9]*)\s*:\s*async\s*\(/gm;
+  const methodRegex = /^\s+([a-z][A-Za-z0-9]*)\s*:\s*async\s*\(/gm;
   let match: RegExpExecArray | null = methodRegex.exec(serviceContent);
   while (match) {
     const methodName = match[1];
