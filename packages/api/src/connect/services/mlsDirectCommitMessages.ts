@@ -1,23 +1,20 @@
-import { Code, ConnectError } from '@connectrpc/connect';
 import type { MlsMessage } from '@tearleads/shared';
 import { toIsoString } from './mlsDirectCommon.js';
+import {
+  persistMlsMessageToVfs,
+  toPositiveInteger,
+  type QueryClient
+} from './mlsDirectMessagesShared.js';
 
-interface CommitInsertRow {
-  sequence_number: number;
-  created_at: Date | string;
-}
-
-interface TransactionQueryClient {
-  query: <RowType>(
-    queryText: string,
-    values?: readonly unknown[]
-  ) => Promise<{ rows: RowType[] }>;
+interface CommitMaxSequenceRow {
+  sequence_number: string | number | null;
 }
 
 interface InsertCommitMessageInput {
-  client: TransactionQueryClient;
+  client: QueryClient;
   commitId: string;
   groupId: string;
+  organizationId: string;
   senderUserId: string;
   epoch: number;
   commitCiphertext: string;
@@ -50,40 +47,44 @@ function buildCommitMessage(input: {
 export async function insertCommitMessage(
   input: InsertCommitMessageInput
 ): Promise<MlsMessage> {
-  const commitInsertResult = await input.client.query<CommitInsertRow>(
-    `INSERT INTO mls_messages (
-       id,
-       group_id,
-       sender_user_id,
-       epoch,
-       ciphertext,
-       message_type,
-       sequence_number,
-       created_at
-     ) VALUES (
-       $1,
-       $2,
-       $3,
-       $4,
-       $5,
-       'commit',
-       COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
-       NOW()
-     )
-   RETURNING sequence_number, created_at`,
-    [
-      input.commitId,
-      input.groupId,
-      input.senderUserId,
-      input.epoch,
-      input.commitCiphertext
-    ]
+  const maxSequenceResult = await input.client.query<CommitMaxSequenceRow>(
+    `SELECT
+       CASE
+         WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+         THEN split_part(source_id, ':', 3)::integer
+         ELSE NULL
+       END AS sequence_number
+       FROM vfs_crdt_ops
+      WHERE op_type = 'item_upsert'
+        AND source_table = 'mls_commit'
+        AND split_part(source_id, ':', 1) = 'mls_commit'
+        AND split_part(source_id, ':', 2) = $1::text
+      ORDER BY
+        CASE
+          WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+          THEN split_part(source_id, ':', 3)::integer
+          ELSE NULL
+        END DESC NULLS LAST
+      LIMIT 1`,
+    [input.groupId]
   );
 
-  const commitRow = commitInsertResult.rows[0];
-  if (!commitRow) {
-    throw new ConnectError('Failed to persist commit message', Code.Internal);
-  }
+  const sequenceNumber =
+    toPositiveInteger(maxSequenceResult.rows[0]?.sequence_number ?? 0) + 1;
+  const occurredAtIso = new Date().toISOString();
+
+  await persistMlsMessageToVfs(input.client, {
+    messageId: input.commitId,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+    senderUserId: input.senderUserId,
+    ciphertext: input.commitCiphertext,
+    contentType: 'application/mls-commit',
+    epoch: input.epoch,
+    occurredAtIso,
+    sequenceNumber,
+    sourceTable: 'mls_commit'
+  });
 
   return buildCommitMessage({
     id: input.commitId,
@@ -91,7 +92,7 @@ export async function insertCommitMessage(
     senderUserId: input.senderUserId,
     epoch: input.epoch,
     commitCiphertext: input.commitCiphertext,
-    sequenceNumber: commitRow.sequence_number,
-    createdAt: commitRow.created_at
+    sequenceNumber,
+    createdAt: occurredAtIso
   });
 }

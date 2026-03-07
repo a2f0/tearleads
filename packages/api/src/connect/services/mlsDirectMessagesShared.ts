@@ -1,6 +1,8 @@
 import type { QueryResultRow } from 'pg';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
+export type MlsSourceTable = 'mls_message' | 'mls_commit';
+
 export interface VfsMirrorInput {
   messageId: string;
   groupId: string;
@@ -11,6 +13,7 @@ export interface VfsMirrorInput {
   epoch: number;
   occurredAtIso: string;
   sequenceNumber: number;
+  sourceTable?: MlsSourceTable;
 }
 
 export interface QueryClient {
@@ -116,11 +119,12 @@ export async function acquireTransactionClient(
   };
 }
 
-export async function persistApplicationMessageToVfs(
+export async function persistMlsMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
 ): Promise<void> {
   const ciphertext = serializeEnvelopeField(input.ciphertext);
+  const sourceTable = input.sourceTable ?? 'mls_message';
 
   await client.query(
     `
@@ -224,7 +228,7 @@ export async function persistApplicationMessageToVfs(
       $1::text,
       'item_upsert',
       $2::text,
-      'mls_message',
+      '${sourceTable}',
       $3::text,
       $4::timestamptz,
       $5::text,
@@ -235,7 +239,7 @@ export async function persistApplicationMessageToVfs(
     [
       input.messageId,
       input.senderUserId,
-      `mls_message:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
+      `${sourceTable}:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
       input.occurredAtIso,
       ciphertext.text,
       ciphertext.bytes,

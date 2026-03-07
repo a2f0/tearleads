@@ -12,7 +12,7 @@ vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
 import {
   acquireTransactionClient,
   decodeContentTypeFromSourceId,
-  persistApplicationMessageToVfs,
+  persistMlsMessageToVfs,
   toIsoString,
   toPositiveInteger
 } from './mlsDirectMessagesShared.js';
@@ -77,7 +77,7 @@ describe('mlsDirectMessagesShared', () => {
       bytes: new Uint8Array([1, 2, 3])
     });
 
-    await persistApplicationMessageToVfs(
+    await persistMlsMessageToVfs(
       {
         query: queryMock,
         release: vi.fn()
