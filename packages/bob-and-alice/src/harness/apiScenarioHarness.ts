@@ -4,7 +4,7 @@ import {
   seedTestUser,
   type TestContext,
   type TestContextDeps
-} from '@tearleads/api-test-utils';
+} from '../../../api-test-utils/src/index';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
   adaptConnectResponse,

@@ -2,8 +2,8 @@ import {
   createPglitePool,
   createRedisMock,
   seedTestUser
-} from '@tearleads/api-test-utils';
-import { runMigrations } from '@tearleads/db/migrations';
+} from '../../../api-test-utils/src/index';
+import { runMigrations } from '../../../db/src/migrations/index';
 import {
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb

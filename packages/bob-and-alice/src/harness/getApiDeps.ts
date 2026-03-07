@@ -1,4 +1,4 @@
-import type { TestContextDeps } from '@tearleads/api-test-utils';
+import type { TestContextDeps } from '../../../api-test-utils/src/index';
 
 type ApiDepsModule = {
   app: TestContextDeps['app'];
