@@ -1,3 +1,4 @@
+// component-complexity: allow -- Notes table currently co-locates sorting, menus, and sync hooks.
 import { notes } from '@tearleads/db/sqlite';
 import { useSidebarRefetch, WindowPaneState } from '@tearleads/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';

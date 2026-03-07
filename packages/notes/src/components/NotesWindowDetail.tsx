@@ -1,3 +1,4 @@
+// component-complexity: allow -- Notes detail currently co-locates save orchestration with UI.
 import { notes } from '@tearleads/db/sqlite';
 import { useTheme } from '@tearleads/ui';
 import MDEditor from '@uiw/react-md-editor';

@@ -1,3 +1,4 @@
+// component-complexity: allow -- Notes list currently co-locates virtualization, menus, and sync hooks.
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { notes } from '@tearleads/db/sqlite';
 import { useSidebarRefetch, WindowPaneState } from '@tearleads/window-manager';
