@@ -43,23 +43,27 @@ describe('VfsRealtimeSyncBridge', () => {
     vi.useRealTimers();
   });
 
-  it('connects with broadcast channel when no orchestrator is available', () => {
-    const connect = vi.fn();
+  it('registers no dynamic channels when no orchestrator is available', () => {
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     mockUseSSE.mockReturnValue({
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null
     });
     mockUseVfsOrchestratorInstance.mockReturnValue(null);
 
     render(<VfsRealtimeSyncBridge />);
 
-    expect(connect).toHaveBeenCalledWith(['broadcast']);
+    expect(addChannels).not.toHaveBeenCalled();
   });
 
-  it('connects with derived container channels from known clocks', () => {
-    const connect = vi.fn();
+  it('registers derived container channels from known clocks', () => {
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     mockUseSSE.mockReturnValue({
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null
     });
     mockUseVfsOrchestratorInstance.mockReturnValue({
@@ -75,17 +79,18 @@ describe('VfsRealtimeSyncBridge', () => {
 
     render(<VfsRealtimeSyncBridge />);
 
-    expect(connect).toHaveBeenCalledWith([
-      'broadcast',
+    expect(addChannels).toHaveBeenCalledWith([
       'vfs:container:a:sync',
       'vfs:container:z:sync'
     ]);
   });
 
-  it('does not reconnect when computed channels have not changed', async () => {
-    const connect = vi.fn();
+  it('does not re-register when computed channels have not changed', async () => {
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     mockUseSSE.mockReturnValue({
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null
     });
     mockUseVfsOrchestratorInstance.mockReturnValue({
@@ -100,18 +105,20 @@ describe('VfsRealtimeSyncBridge', () => {
     });
 
     render(<VfsRealtimeSyncBridge />);
-    expect(connect).toHaveBeenCalledTimes(1);
+    expect(addChannels).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(15000);
-    expect(connect).toHaveBeenCalledTimes(1);
+    expect(addChannels).toHaveBeenCalledTimes(1);
   });
 
   it('triggers a sync when the orchestrator swaps through a null transition', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdtAlice = vi.fn().mockResolvedValue(undefined);
     const syncCrdtBob = vi.fn().mockResolvedValue(undefined);
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };
@@ -171,10 +178,12 @@ describe('VfsRealtimeSyncBridge', () => {
   });
 
   it('triggers debounced sync on VFS cursor-bump messages', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };
@@ -222,10 +231,12 @@ describe('VfsRealtimeSyncBridge', () => {
   });
 
   it('ignores non-VFS or non-cursor-bump messages', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };
@@ -271,11 +282,13 @@ describe('VfsRealtimeSyncBridge', () => {
   });
 
   it('coalesces cursor-bump syncs while a sync is in flight', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncGate = deferred<void>();
     const syncCrdt = vi.fn(() => syncGate.promise);
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };
@@ -339,13 +352,15 @@ describe('VfsRealtimeSyncBridge', () => {
 
   it('retries failed sync with backoff and re-enters debounced path', async () => {
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi
       .fn()
       .mockRejectedValueOnce(new Error('sync failed'))
       .mockResolvedValue(undefined);
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };
@@ -392,10 +407,12 @@ describe('VfsRealtimeSyncBridge', () => {
 
   it('clears pending retry timer on unmount', async () => {
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi.fn().mockRejectedValue(new Error('sync failed'));
     const sseState = {
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null as {
         channel: string;
         message: { type: string; payload: unknown; timestamp: string };

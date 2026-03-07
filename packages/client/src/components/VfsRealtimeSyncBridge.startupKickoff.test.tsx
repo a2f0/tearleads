@@ -21,10 +21,12 @@ describe('VfsRealtimeSyncBridge startup kickoff', () => {
   });
 
   it('kicks off sync on mount when an active organization is available', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
     mockUseSSE.mockReturnValue({
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null
     });
     mockGetActiveOrganizationId.mockReturnValue('org-1');
@@ -47,10 +49,12 @@ describe('VfsRealtimeSyncBridge startup kickoff', () => {
   });
 
   it('kicks off sync when organization becomes available after mount', async () => {
-    const connect = vi.fn();
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
     const syncCrdt = vi.fn().mockResolvedValue(undefined);
     mockUseSSE.mockReturnValue({
-      connect,
+      addChannels,
+      removeChannels,
       lastMessage: null
     });
     mockUseVfsOrchestratorInstance.mockReturnValue({
