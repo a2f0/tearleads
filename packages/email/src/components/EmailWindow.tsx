@@ -5,6 +5,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmailBody, useEmails } from '../hooks';
+import type { EmailItem } from '../lib/email.js';
 import type { ComposeMode } from '../lib/quoteText.js';
 import { buildComposeRequest } from '../lib/quoteText.js';
 import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
@@ -116,14 +117,9 @@ export function EmailWindow({
     closeComposeTab();
   }, [fetchEmails, closeComposeTab]);
 
-  const openComposeForMode = useCallback(
-    (mode: ComposeMode) => {
-      if (!selectedEmail) return;
-      const fields = buildComposeRequest(
-        selectedEmail,
-        emailBody?.text ?? '',
-        mode
-      );
+  const openComposeWith = useCallback(
+    (email: EmailItem, body: string, mode: ComposeMode) => {
+      const fields = buildComposeRequest(email, body, mode);
       setComposeRequestCounter((c) => c + 1);
       setComposeOpenRequest({
         ...fields,
@@ -133,7 +129,20 @@ export function EmailWindow({
       setIsComposeTabOpen(true);
       setActiveTab('compose');
     },
-    [selectedEmail, emailBody, composeRequestCounter]
+    [composeRequestCounter]
+  );
+
+  const openComposeForMode = useCallback(
+    (mode: ComposeMode) => {
+      if (!selectedEmail) return;
+      openComposeWith(selectedEmail, emailBody?.text ?? '', mode);
+    },
+    [selectedEmail, emailBody, openComposeWith]
+  );
+
+  const handleComposeForEmail = useCallback(
+    (email: EmailItem, mode: ComposeMode) => openComposeWith(email, '', mode),
+    [openComposeWith]
   );
 
   useEffect(() => {
@@ -243,6 +252,7 @@ export function EmailWindow({
                 emails={emails}
                 onSelectEmail={setSelectedEmailId}
                 viewMode={viewMode}
+                onComposeForEmail={handleComposeForEmail}
               />
             </div>
           </div>
