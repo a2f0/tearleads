@@ -17,11 +17,7 @@ message CrdtOperation {
   string actorId = 12;
   string sourceTable = 13;
   string sourceId = 14;
-  string encryptedPayload = 15;
   uint32 keyEpoch = 16;
-  string encryptionNonce = 17;
-  string encryptionAad = 18;
-  string encryptionSignature = 19;
   bytes encryptedPayloadBytes = 20;
   bytes encryptionNonceBytes = 21;
   bytes encryptionAadBytes = 22;
