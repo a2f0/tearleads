@@ -4,7 +4,7 @@ import type {
   TestKeyManager,
   WithRealDatabaseOptions
 } from '@tearleads/db-test-utils';
-import { LocalWriteOrchestrator } from '@tearleads/local-write-orchestrator';
+import type { LocalWriteOrchestrator } from '@tearleads/local-write-orchestrator';
 import {
   InMemoryVfsCrdtSyncTransport,
   type ListVfsContainerClockChangesResult,
@@ -17,6 +17,7 @@ import {
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
 import { getDbTestUtils } from './getDbTestUtils.js';
+import { getLocalWriteOrchestratorModule } from './getLocalWriteOrchestrator.js';
 import type { ServerHarness } from './serverHarness.js';
 
 export interface ActorHarnessConfig {
@@ -43,7 +44,8 @@ export class ActorHarness {
 
   private constructor(
     config: ActorHarnessConfig,
-    keyManagerCtor: typeof TestKeyManager
+    keyManagerCtor: typeof TestKeyManager,
+    localWriteOrchestratorCtor: typeof LocalWriteOrchestrator
   ) {
     this.alias = config.alias;
     this.userId = config.userId ?? randomUUID();
@@ -60,14 +62,19 @@ export class ActorHarness {
       syncOptions
     );
 
-    this.writeOrchestrator = new LocalWriteOrchestrator();
+    this.writeOrchestrator = new localWriteOrchestratorCtor();
     this.keyManager = new keyManagerCtor();
     this.keyManager.setIsSetUp(true);
   }
 
   static async create(config: ActorHarnessConfig): Promise<ActorHarness> {
     const { createTestDatabase, TestKeyManager } = await getDbTestUtils();
-    const actor = new ActorHarness(config, TestKeyManager);
+    const { LocalWriteOrchestrator } = await getLocalWriteOrchestratorModule();
+    const actor = new ActorHarness(
+      config,
+      TestKeyManager,
+      LocalWriteOrchestrator
+    );
     actor.dbContext = await createTestDatabase(config.databaseOptions);
     return actor;
   }
