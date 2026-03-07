@@ -74,10 +74,10 @@ bundle exec fastlane ios register_devices_from_file devices_file:/path/to/device
 
 Tab-separated, one device per line with a header row:
 
-```
-Device ID	Device Name
-00008030-001A3C440E30802E	John's iPhone 15
-00008101-000A28E21E89001E	Test iPad Pro
+```text
+Device ID    Device Name
+00008030-001A3C440E30802E    John's iPhone 15
+00008101-000A28E21E89001E    Test iPad Pro
 ```
 
 After registration, development provisioning profiles are automatically regenerated via `match --force_for_new_devices`.
@@ -86,7 +86,7 @@ After registration, development provisioning profiles are automatically regenera
 
 Manage which Google Groups have access to testing tracks on Google Play.
 
-### Prerequisites
+### Required credentials
 
 - `GOOGLE_PLAY_JSON_KEY_FILE` — path to a Google Play service account JSON key file
 
