@@ -256,8 +256,9 @@ describe('analytics', () => {
 
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      await expect(logApiEvent('api_get_admin_redis_key', 100, true)).resolves
-        .toBeUndefined();
+      await expect(
+        logApiEvent('api_get_admin_redis_key', 100, true)
+      ).resolves.toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         "Failed to log API event 'api_get_admin_redis_key':",
