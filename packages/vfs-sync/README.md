@@ -55,15 +55,20 @@ API routes import helpers from `@tearleads/vfs-sync/vfs`, then execute SQL via P
 
 Current route patterns:
 
-- Sync feed: `GET /v1/vfs/vfs-sync`
-- Sync reconcile: `POST /v1/vfs/vfs-sync/reconcile`
-- CRDT feed: `GET /v1/vfs/crdt/vfs-sync`
-- CRDT push: `POST /v1/vfs/crdt/push`
-- CRDT reconcile: `POST /v1/vfs/crdt/reconcile`
-- Blob stage/attach/abandon:
-  - `POST /v1/vfs/blobs/stage`
-  - `POST /v1/vfs/blobs/stage/:stagingId/attach`
-  - `POST /v1/vfs/blobs/stage/:stagingId/abandon`
+- Connect base path: `/v1/connect/tearleads.v2.VfsService`
+- Sync + CRDT RPC methods:
+  - `POST /v1/connect/tearleads.v2.VfsService/GetSync`
+  - `POST /v1/connect/tearleads.v2.VfsService/ReconcileSync`
+  - `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`
+  - `POST /v1/connect/tearleads.v2.VfsService/PushCrdtOps`
+  - `POST /v1/connect/tearleads.v2.VfsService/ReconcileCrdt`
+  - `POST /v1/connect/tearleads.v2.VfsService/RunCrdtSession`
+- Blob RPC methods:
+  - `POST /v1/connect/tearleads.v2.VfsService/StageBlob`
+  - `POST /v1/connect/tearleads.v2.VfsService/UploadBlobChunk`
+  - `POST /v1/connect/tearleads.v2.VfsService/CommitBlob`
+  - `POST /v1/connect/tearleads.v2.VfsService/AttachBlob`
+  - `POST /v1/connect/tearleads.v2.VfsService/AbandonBlob`
 
 ### Consumer side (client)
 
@@ -72,11 +77,12 @@ Client runtime can use:
 - `VfsHttpCrdtSyncTransport` for API communication
 - `VfsBackgroundSyncClient` for queued local ops, pull/push/reconcile loops, and durable sync state semantics
 
-The transport currently uses:
+The CRDT transport currently uses:
 
-- `POST /v1/vfs/crdt/push`
-- `GET /v1/vfs/crdt/vfs-sync`
-- `POST /v1/vfs/crdt/reconcile`
+- `POST /v1/connect/tearleads.v2.VfsService/PushCrdtOps`
+- `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`
+- `POST /v1/connect/tearleads.v2.VfsService/ReconcileCrdt`
+- `POST /v1/connect/tearleads.v2.VfsService/RunCrdtSession`
 
 ## Protocol Notes
 
