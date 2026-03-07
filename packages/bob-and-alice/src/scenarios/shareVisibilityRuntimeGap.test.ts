@@ -10,31 +10,23 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 
 async function seedKeys(input: {
+  ctx: ApiScenarioHarness['ctx'];
   alice: ReturnType<ApiScenarioHarness['actor']>;
   bob: ReturnType<ApiScenarioHarness['actor']>;
 }): Promise<void> {
-  await input.alice.fetch('/vfs/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      publicEncryptionKey: 'alice-public-enc-key',
-      publicSigningKey: 'alice-public-sign-key',
-      encryptedPrivateKeys: 'alice-encrypted-private-keys',
-      argon2Salt: 'alice-argon2-salt'
-    })
+  await ensureVfsKeysExist({
+    ctx: input.ctx,
+    actor: input.alice,
+    keyPrefix: 'alice'
   });
-  await input.bob.fetch('/vfs/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      publicEncryptionKey: 'bob-public-enc-key',
-      publicSigningKey: 'bob-public-sign-key',
-      encryptedPrivateKeys: 'bob-encrypted-private-keys',
-      argon2Salt: 'bob-argon2-salt'
-    })
+  await ensureVfsKeysExist({
+    ctx: input.ctx,
+    actor: input.bob,
+    keyPrefix: 'bob'
   });
 }
 
@@ -72,7 +64,7 @@ describe('share visibility runtime gap', () => {
       [alice.user.userId, sharedOrgId, bob.user.userId]
     );
 
-    await seedKeys({ alice, bob });
+    await seedKeys({ ctx: harness.ctx, alice, bob });
 
     const aliceBrowser = await createBrowserRuntimeActor('alice');
     const bobBrowser = await createBrowserRuntimeActor('bob');

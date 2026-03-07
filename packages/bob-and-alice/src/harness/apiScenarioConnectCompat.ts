@@ -26,13 +26,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readBodyText(body: RequestInit['body']): string {
+  if (body === null || body === undefined) {
+    return '';
+  }
   if (typeof body === 'string') {
     return body;
+  }
+  if (body instanceof String) {
+    return body.toString();
   }
   if (body instanceof URLSearchParams) {
     return body.toString();
   }
-  return '';
+  if (body instanceof ArrayBuffer) {
+    return new TextDecoder().decode(new Uint8Array(body));
+  }
+  if (ArrayBuffer.isView(body)) {
+    return new TextDecoder().decode(
+      new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+    );
+  }
+  if (typeof body === 'object') {
+    try {
+      return JSON.stringify(body);
+    } catch {
+      return '';
+    }
+  }
+  return String(body);
 }
 
 function readJsonBody(body: RequestInit['body']): Record<string, unknown> {

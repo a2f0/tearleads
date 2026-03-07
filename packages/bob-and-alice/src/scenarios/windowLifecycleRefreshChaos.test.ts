@@ -9,6 +9,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 
 interface ActiveShare {
@@ -96,25 +97,15 @@ describe('window lifecycle refresh chaos', () => {
       [alice.user.userId, sharedOrgId, bob.user.userId]
     );
 
-    await alice.fetchJson('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'alice-chaos-public-enc-key',
-        publicSigningKey: 'alice-chaos-public-sign-key',
-        encryptedPrivateKeys: 'alice-chaos-encrypted-private-keys',
-        argon2Salt: 'alice-chaos-argon2-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: alice,
+      keyPrefix: 'alice-chaos'
     });
-    await bob.fetchJson('/vfs/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicEncryptionKey: 'bob-chaos-public-enc-key',
-        publicSigningKey: 'bob-chaos-public-sign-key',
-        encryptedPrivateKeys: 'bob-chaos-encrypted-private-keys',
-        argon2Salt: 'bob-chaos-argon2-salt'
-      })
+    await ensureVfsKeysExist({
+      ctx: harness.ctx,
+      actor: bob,
+      keyPrefix: 'bob-chaos'
     });
 
     const random = createDeterministicRandom(0x41c3b00c);
