@@ -19,7 +19,7 @@
   "scripts": {
     "build": "echo \"@tearleads/bob-and-alice is a test-only package\"",
     "clean": "rm -rf dist",
-    "test": "bun test src/**/*.test.ts",
+    "test": "sh ../../scripts/tooling/pm.sh --filter @tearleads/bob-and-alice... run build && bun test src/**/*.test.ts",
     "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
