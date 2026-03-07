@@ -1,8 +1,13 @@
-import type { CallOptions, Client } from '@connectrpc/connect';
-import { createClient } from '@connectrpc/connect';
+import {
+  type CallOptions,
+  type Client,
+  Code,
+  ConnectError,
+  createClient
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { AdminService } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
-import { API_BASE_URL } from '../apiCore';
+import { API_BASE_URL, tryRefreshToken } from '../apiCore';
 import { type ApiEventSlug, logApiEvent } from '../apiLogger';
 import {
   type ApiV2RequestHeaderOptions,
@@ -23,6 +28,7 @@ export interface AdminV2RoutesDependencies {
   ) => Promise<Record<string, string>>;
   getAuthHeaderValue: () => string | null;
   createClient: (connectBaseUrl: string) => AdminV2Client;
+  refreshOnUnauthenticated: () => Promise<boolean>;
   logEvent: (
     eventName: ApiEventSlug,
     durationMs: number,
@@ -42,6 +48,7 @@ function createDefaultDependencies(): AdminV2RoutesDependencies {
     buildHeaders: buildApiV2RequestHeaders,
     getAuthHeaderValue,
     createClient: createDefaultAdminV2Client,
+    refreshOnUnauthenticated: tryRefreshToken,
     logEvent: logApiEvent
   };
 }
@@ -70,6 +77,10 @@ export function createAdminV2RoutesDependencies(
     ...createDefaultDependencies(),
     ...overrides
   };
+}
+
+function isUnauthenticatedError(error: unknown): boolean {
+  return error instanceof ConnectError && error.code === Code.Unauthenticated;
 }
 
 export async function buildCallContext(
@@ -101,6 +112,19 @@ export async function runWithEvent<T>(
     const response = await operation();
     success = true;
     return response;
+  } catch (error) {
+    if (!isUnauthenticatedError(error)) {
+      throw error;
+    }
+
+    const refreshed = await dependencies.refreshOnUnauthenticated();
+    if (!refreshed) {
+      throw error;
+    }
+
+    const retriedResponse = await operation();
+    success = true;
+    return retriedResponse;
   } finally {
     await dependencies.logEvent(eventName, performance.now() - start, success);
   }

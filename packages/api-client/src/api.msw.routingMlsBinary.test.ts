@@ -44,7 +44,7 @@ describe('api with msw (MLS binary routes)', () => {
     vi.clearAllMocks();
     installApiV2WasmBindingsOverride();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
-    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
+    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'true');
     localStorage.clear();
 
     const ctx = getSharedTestContext();
