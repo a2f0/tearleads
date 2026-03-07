@@ -41,7 +41,8 @@
     "generate:sqlite": "tsx scripts/generateSqlite.ts",
     "generate:postgresql": "tsx scripts/generatePostgresql.ts",
     "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
+    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
