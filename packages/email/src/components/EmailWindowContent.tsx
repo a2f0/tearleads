@@ -3,12 +3,13 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import { Loader2, Mail } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type MouseEvent, type ReactNode, useCallback, useState } from 'react';
 import { useEmailBody } from '../hooks/useEmailBody.js';
 import { formatEmailDate, formatEmailSize } from '../lib';
 import type { EmailItem } from '../lib/email.js';
 import type { ComposeMode } from '../lib/quoteText.js';
 import { ComposeDialog } from './compose/ComposeDialog.js';
+import { EmailListContextMenu } from './EmailListContextMenu.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailBodyView } from './emailBody/EmailBodyView.js';
 
@@ -41,6 +42,7 @@ interface EmailWindowContentProps {
   emails: EmailItem[];
   onSelectEmail: (id: string) => void;
   viewMode: ViewMode;
+  onComposeForEmail?: (email: EmailItem, mode: ComposeMode) => void;
 }
 
 export function EmailWindowContent({
@@ -59,7 +61,8 @@ export function EmailWindowContent({
   selectedFolderName,
   emails,
   onSelectEmail,
-  viewMode
+  viewMode,
+  onComposeForEmail
 }: EmailWindowContentProps) {
   const {
     body: emailBody,
@@ -68,6 +71,21 @@ export function EmailWindowContent({
     viewMode: bodyViewMode,
     setViewMode: setBodyViewMode
   } = useEmailBody(selectedEmailId);
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    email: EmailItem;
+  } | null>(null);
+
+  const handleContextMenu = useCallback(
+    (e: MouseEvent, email: EmailItem) => {
+      if (!onComposeForEmail) return;
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, email });
+    },
+    [onComposeForEmail]
+  );
 
   if (isDatabaseLoading) {
     return (
@@ -170,6 +188,7 @@ export function EmailWindowContent({
             key={email.id}
             type="button"
             onClick={() => onSelectEmail(email.id)}
+            onContextMenu={(e) => handleContextMenu(e, email)}
             className="flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50"
           >
             <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -186,6 +205,16 @@ export function EmailWindowContent({
             </div>
           </button>
         ))}
+        {contextMenu && onComposeForEmail && (
+          <EmailListContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onComposeForMode={(mode) =>
+              onComposeForEmail(contextMenu.email, mode)
+            }
+          />
+        )}
       </div>
     );
   }
@@ -208,6 +237,7 @@ export function EmailWindowContent({
             <WindowTableRow
               key={email.id}
               onClick={() => onSelectEmail(email.id)}
+              onContextMenu={(e) => handleContextMenu(e, email)}
               isSelected={selectedEmailId === email.id}
             >
               <td
@@ -232,6 +262,16 @@ export function EmailWindowContent({
           ))}
         </tbody>
       </table>
+      {contextMenu && onComposeForEmail && (
+        <EmailListContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onComposeForMode={(mode) =>
+            onComposeForEmail(contextMenu.email, mode)
+          }
+        />
+      )}
     </div>
   );
 }

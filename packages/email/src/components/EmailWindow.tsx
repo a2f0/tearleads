@@ -5,6 +5,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmailBody, useEmails } from '../hooks';
+import type { EmailItem } from '../lib/email.js';
 import type { ComposeMode } from '../lib/quoteText.js';
 import { buildComposeRequest } from '../lib/quoteText.js';
 import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
@@ -136,6 +137,21 @@ export function EmailWindow({
     [selectedEmail, emailBody, composeRequestCounter]
   );
 
+  const handleComposeForEmail = useCallback(
+    (email: EmailItem, mode: ComposeMode) => {
+      const fields = buildComposeRequest(email, '', mode);
+      setComposeRequestCounter((c) => c + 1);
+      setComposeOpenRequest({
+        ...fields,
+        requestId: composeRequestCounter + 1
+      });
+      setSelectedEmailId(null);
+      setIsComposeTabOpen(true);
+      setActiveTab('compose');
+    },
+    [composeRequestCounter]
+  );
+
   useEffect(() => {
     if (!isUnlocked) return;
     fetchEmails();
@@ -243,6 +259,7 @@ export function EmailWindow({
                 emails={emails}
                 onSelectEmail={setSelectedEmailId}
                 viewMode={viewMode}
+                onComposeForEmail={handleComposeForEmail}
               />
             </div>
           </div>
