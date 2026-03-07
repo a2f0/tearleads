@@ -14,6 +14,10 @@
       "types": "./dist/format/index.d.ts",
       "import": "./dist/format/index.js"
     },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -40,6 +44,7 @@
   },
   "devDependencies": {
     "@tearleads/app-builder": "workspace:*",
+    "@tearleads/db": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",

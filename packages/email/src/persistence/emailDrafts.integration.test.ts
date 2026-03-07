@@ -1,15 +1,88 @@
-import { withRealDatabase } from '@tearleads/db-test-utils';
+import { composedEmails, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  type Migration,
+  mockConsoleWarn,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
-import { mockConsoleWarn } from '../test/consoleMocks';
 import {
   deleteEmailDraftFromDb,
   getEmailDraftFromDb,
   listEmailDraftsFromDb,
   saveEmailDraftToDb
-} from './emailDrafts';
-import { migrations } from './migrations';
-import { composedEmails, vfsLinks, vfsRegistry } from './schema';
+} from './sqliteDraftOperations';
+
+/**
+ * Minimal migrations for email draft integration tests.
+ * Creates only the tables needed by the email draft operations.
+ */
+const emailTestMigrations: Migration[] = [
+  {
+    version: 1,
+    up: async (adapter) => {
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS vfs_registry (
+          id TEXT PRIMARY KEY,
+          object_type TEXT NOT NULL,
+          owner_id TEXT,
+          organization_id TEXT,
+          encrypted_session_key TEXT,
+          public_hierarchical_key TEXT,
+          encrypted_private_hierarchical_key TEXT,
+          encrypted_name TEXT,
+          icon TEXT,
+          view_mode TEXT,
+          default_sort TEXT,
+          sort_direction TEXT,
+          created_at INTEGER NOT NULL
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS vfs_links (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
+          child_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
+          wrapped_session_key TEXT NOT NULL,
+          wrapped_hierarchical_key TEXT,
+          visible_children TEXT,
+          position INTEGER,
+          created_at INTEGER NOT NULL
+        )
+      `);
+      await adapter.execute(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "vfs_links_parent_child_idx"
+        ON "vfs_links" ("parent_id", "child_id")
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS "composed_emails" (
+          "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+          "encrypted_to" TEXT,
+          "encrypted_cc" TEXT,
+          "encrypted_bcc" TEXT,
+          "encrypted_subject" TEXT,
+          "encrypted_body" TEXT,
+          "status" TEXT NOT NULL DEFAULT 'draft' CHECK("status" IN ('draft', 'sending', 'sent', 'failed')),
+          "sent_at" INTEGER,
+          "created_at" INTEGER NOT NULL,
+          "updated_at" INTEGER NOT NULL
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS "email_attachments" (
+          "id" TEXT PRIMARY KEY NOT NULL,
+          "composed_email_id" TEXT NOT NULL REFERENCES "composed_emails"("id") ON DELETE CASCADE,
+          "encrypted_file_name" TEXT NOT NULL,
+          "mime_type" TEXT NOT NULL,
+          "size" INTEGER NOT NULL,
+          "encrypted_storage_path" TEXT NOT NULL,
+          "created_at" INTEGER NOT NULL
+        )
+      `);
+      await adapter.execute('PRAGMA foreign_keys = ON');
+    }
+  }
+];
 
 describe('email drafts integration', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -92,7 +165,7 @@ describe('email drafts integration', () => {
         const afterDelete = await getEmailDraftFromDb(db, saveResult.id);
         expect(afterDelete).toBeNull();
       },
-      { migrations }
+      { migrations: emailTestMigrations }
     );
   });
 
@@ -121,7 +194,7 @@ describe('email drafts integration', () => {
         expect(saved?.body).toBe('');
         expect(saved?.to).toEqual(['alex@bitwisewebservices.com']);
       },
-      { migrations }
+      { migrations: emailTestMigrations }
     );
   });
 
@@ -197,7 +270,7 @@ describe('email drafts integration', () => {
 
         expect(linksAfterDelete).toHaveLength(0);
       },
-      { migrations }
+      { migrations: emailTestMigrations }
     );
   });
 });
