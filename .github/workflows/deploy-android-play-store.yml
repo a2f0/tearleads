@@ -41,24 +41,8 @@ jobs:
           node --experimental-strip-types scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_DEPLOY=$(jq -r '(.jobs["android"].run or .jobs["android-maestro-release"].run)' ci-impact.json)
 
-          LATEST_MAIN_SHA="$HEAD_SHA"
-          STALE_HEAD=false
-          # Stale-head protection is only relevant for direct workflow_run triggers.
-          # For workflow_call (used by Integration & Deploy), concurrency already
-          # controls superseded runs and this check can incorrectly suppress deploys.
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            git fetch --no-tags origin main
-            LATEST_MAIN_SHA=$(git rev-parse origin/main)
-            if [ "$HEAD_SHA" != "$LATEST_MAIN_SHA" ]; then
-              STALE_HEAD=true
-              SHOULD_DEPLOY=false
-            fi
-          fi
-
           echo "should-deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
-          echo "stale_head=$STALE_HEAD" >> "$GITHUB_OUTPUT"
           echo "source_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "latest_main_sha=$LATEST_MAIN_SHA" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
           cat ci-impact.json >> "$GITHUB_OUTPUT"
           echo "JSON" >> "$GITHUB_OUTPUT"
@@ -71,10 +55,6 @@ jobs:
           jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           echo "- source sha: ${{ steps.decide.outputs.source_sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- latest main sha: ${{ steps.decide.outputs.latest_main_sha }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.decide.outputs.stale_head }}" = "true" ]; then
-            echo "- stale head: true (deployment skipped for older commit)" >> "$GITHUB_STEP_SUMMARY"
-          fi
 
   deploy:
     name: Deploy to Play Store
