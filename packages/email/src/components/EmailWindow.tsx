@@ -117,29 +117,9 @@ export function EmailWindow({
     closeComposeTab();
   }, [fetchEmails, closeComposeTab]);
 
-  const openComposeForMode = useCallback(
-    (mode: ComposeMode) => {
-      if (!selectedEmail) return;
-      const fields = buildComposeRequest(
-        selectedEmail,
-        emailBody?.text ?? '',
-        mode
-      );
-      setComposeRequestCounter((c) => c + 1);
-      setComposeOpenRequest({
-        ...fields,
-        requestId: composeRequestCounter + 1
-      });
-      setSelectedEmailId(null);
-      setIsComposeTabOpen(true);
-      setActiveTab('compose');
-    },
-    [selectedEmail, emailBody, composeRequestCounter]
-  );
-
-  const handleComposeForEmail = useCallback(
-    (email: EmailItem, mode: ComposeMode) => {
-      const fields = buildComposeRequest(email, '', mode);
+  const openComposeWith = useCallback(
+    (email: EmailItem, body: string, mode: ComposeMode) => {
+      const fields = buildComposeRequest(email, body, mode);
       setComposeRequestCounter((c) => c + 1);
       setComposeOpenRequest({
         ...fields,
@@ -150,6 +130,19 @@ export function EmailWindow({
       setActiveTab('compose');
     },
     [composeRequestCounter]
+  );
+
+  const openComposeForMode = useCallback(
+    (mode: ComposeMode) => {
+      if (!selectedEmail) return;
+      openComposeWith(selectedEmail, emailBody?.text ?? '', mode);
+    },
+    [selectedEmail, emailBody, openComposeWith]
+  );
+
+  const handleComposeForEmail = useCallback(
+    (email: EmailItem, mode: ComposeMode) => openComposeWith(email, '', mode),
+    [openComposeWith]
   );
 
   useEffect(() => {

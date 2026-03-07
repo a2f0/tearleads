@@ -17,7 +17,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={vi.fn()}
         onComposeForMode={vi.fn()}
       />
@@ -32,7 +31,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={vi.fn()}
         onComposeForMode={vi.fn()}
       />
@@ -52,7 +50,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={onClose}
         onComposeForMode={onComposeForMode}
       />
@@ -72,7 +69,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={onClose}
         onComposeForMode={onComposeForMode}
       />
@@ -92,7 +88,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={onClose}
         onComposeForMode={onComposeForMode}
       />
@@ -111,7 +106,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={onClose}
         onComposeForMode={vi.fn()}
       />
@@ -126,7 +120,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={vi.fn()}
         onComposeForMode={vi.fn()}
       />
@@ -147,7 +140,6 @@ describe('EmailListContextMenu', () => {
       <EmailListContextMenu
         x={100}
         y={200}
-
         onClose={onClose}
         onComposeForMode={vi.fn()}
       />
