@@ -39,16 +39,6 @@ describe('mlsDirectMessagesShared', () => {
     );
   });
 
-  it('acquires a transaction client from pool.query fallback when connect is absent', async () => {
-    const poolQueryMock = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
-    const client = await acquireTransactionClient({ query: poolQueryMock });
-
-    await client.query('SELECT 1', ['a']);
-    client.release();
-
-    expect(poolQueryMock).toHaveBeenCalledWith('SELECT 1', ['a']);
-  });
-
   it('acquires and releases connected clients when connect is present', async () => {
     const clientQueryMock = vi
       .fn()
@@ -56,7 +46,6 @@ describe('mlsDirectMessagesShared', () => {
     const releaseMock = vi.fn();
 
     const client = await acquireTransactionClient({
-      query: vi.fn(),
       connect: vi.fn().mockResolvedValue({
         query: clientQueryMock,
         release: releaseMock
