@@ -58,10 +58,7 @@ function readEmailDetail(payload: unknown): EmailDetailPayload | null {
   let encryptedBodyPath: string | null = null;
   if (typeof encryptedBodyPathValue === 'string') {
     encryptedBodyPath = encryptedBodyPathValue;
-  } else if (
-    encryptedBodyPathValue !== null &&
-    encryptedBodyPathValue !== undefined
-  ) {
+  } else if (encryptedBodyPathValue != null) {
     return null;
   }
 
