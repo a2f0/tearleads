@@ -12,7 +12,7 @@ without runtime recursive ACL evaluation in sync queries.
 
 ## Non-goals
 
-- No dynamic recursive permission walks in `/v1/vfs/vfs-sync` or CRDT sync.
+- No dynamic recursive permission walks in sync read RPCs (`POST /v1/connect/tearleads.v2.VfsService/GetSync` and `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`).
 - No implicit allow-wins behavior when a deny is present.
 
 ## Inputs
