@@ -2,8 +2,8 @@ import type { MlsMessage } from '@tearleads/shared';
 import { toIsoString } from './mlsDirectCommon.js';
 import {
   persistMlsMessageToVfs,
-  toPositiveInteger,
-  type QueryClient
+  type QueryClient,
+  toPositiveInteger
 } from './mlsDirectMessagesShared.js';
 
 interface CommitMaxSequenceRow {

@@ -132,9 +132,7 @@ describe('mlsDirectGroupMembers', () => {
       .map((call) => call[0])
       .filter((query): query is string => typeof query === 'string');
     expect(
-      queryTexts.some((query) =>
-        query.includes("source_table = 'mls_commit'")
-      )
+      queryTexts.some((query) => query.includes("source_table = 'mls_commit'"))
     ).toBe(true);
     expect(
       queryTexts.some((query) => query.includes('INSERT INTO mls_messages'))
@@ -440,9 +438,7 @@ describe('mlsDirectGroupMembers', () => {
       .map((call) => call[0])
       .filter((query): query is string => typeof query === 'string');
     expect(
-      queryTexts.some((query) =>
-        query.includes("source_table = 'mls_commit'")
-      )
+      queryTexts.some((query) => query.includes("source_table = 'mls_commit'"))
     ).toBe(true);
     expect(
       queryTexts.some((query) => query.includes('INSERT INTO mls_messages'))
