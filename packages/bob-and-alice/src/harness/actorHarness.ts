@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import {
-  createTestDatabase,
-  type TestDatabaseContext,
+import type {
+  TestDatabaseContext,
   TestKeyManager,
-  type WithRealDatabaseOptions
+  WithRealDatabaseOptions
 } from '@tearleads/db-test-utils';
 import { LocalWriteOrchestrator } from '@tearleads/local-write-orchestrator';
 import {
@@ -17,6 +16,7 @@ import {
   type VfsCrdtOperation,
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
+import { getDbTestUtils } from './getDbTestUtils.js';
 import type { ServerHarness } from './serverHarness.js';
 
 export interface ActorHarnessConfig {
@@ -41,7 +41,10 @@ export class ActorHarness {
 
   private dbContext: TestDatabaseContext | null = null;
 
-  private constructor(config: ActorHarnessConfig) {
+  private constructor(
+    config: ActorHarnessConfig,
+    keyManagerCtor: typeof TestKeyManager
+  ) {
     this.alias = config.alias;
     this.userId = config.userId ?? randomUUID();
     this.clientId = config.clientId ?? `client-${config.alias}`;
@@ -58,12 +61,13 @@ export class ActorHarness {
     );
 
     this.writeOrchestrator = new LocalWriteOrchestrator();
-    this.keyManager = new TestKeyManager();
+    this.keyManager = new keyManagerCtor();
     this.keyManager.setIsSetUp(true);
   }
 
   static async create(config: ActorHarnessConfig): Promise<ActorHarness> {
-    const actor = new ActorHarness(config);
+    const { createTestDatabase, TestKeyManager } = await getDbTestUtils();
+    const actor = new ActorHarness(config, TestKeyManager);
     actor.dbContext = await createTestDatabase(config.databaseOptions);
     return actor;
   }
