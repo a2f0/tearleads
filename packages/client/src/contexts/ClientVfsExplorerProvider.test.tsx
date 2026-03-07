@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '@/lib/api';
 import { ClientVfsExplorerProvider } from './ClientVfsExplorerProvider';
 
 const mockRotateItemKeyEpochAndPersist = vi.fn();
@@ -63,6 +64,7 @@ vi.mock('@/lib/vfsReadModelHydration', () => ({
 vi.mock('@/lib/api', () => ({
   api: {
     vfs: {
+      register: vi.fn(),
       getShares: vi.fn(),
       createShare: vi.fn(),
       updateShare: vi.fn(),
@@ -240,5 +242,61 @@ describe('ClientVfsExplorerProvider', () => {
 
     await syncRemoteState();
     expect(mockHydrateLocalReadModelFromRemoteFeeds).not.toHaveBeenCalled();
+  });
+
+  it('ignores already-registered conflicts for vfsApi.register', async () => {
+    const conflictError = new Error('Conflict');
+    Reflect.set(conflictError, 'status', 409);
+    vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+
+    render(
+      <ClientVfsExplorerProvider>
+        <div>child</div>
+      </ClientVfsExplorerProvider>
+    );
+
+    const vfsApi = capturedProviderProps?.vfsApi as {
+      register: (input: {
+        id: string;
+        objectType: string;
+        encryptedSessionKey: string;
+      }) => Promise<void>;
+    };
+
+    await expect(
+      vfsApi.register({
+        id: 'folder-1',
+        objectType: 'folder',
+        encryptedSessionKey: 'wrapped'
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('rethrows non-conflict vfsApi.register failures', async () => {
+    vi.mocked(api.vfs.register).mockRejectedValueOnce(
+      new Error('register boom')
+    );
+
+    render(
+      <ClientVfsExplorerProvider>
+        <div>child</div>
+      </ClientVfsExplorerProvider>
+    );
+
+    const vfsApi = capturedProviderProps?.vfsApi as {
+      register: (input: {
+        id: string;
+        objectType: string;
+        encryptedSessionKey: string;
+      }) => Promise<void>;
+    };
+
+    await expect(
+      vfsApi.register({
+        id: 'folder-2',
+        objectType: 'folder',
+        encryptedSessionKey: 'wrapped'
+      })
+    ).rejects.toThrow('register boom');
   });
 });

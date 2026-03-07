@@ -146,10 +146,10 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(shareCalls).toHaveLength(2);
     expect(shareCalls[0]?.params?.[1]).toBe('folder-fixed');
     expect(shareCalls[0]?.params?.[2]).toBe('alice-user-id');
-    expect(shareCalls[0]?.params?.[3]).toBe('read');
+    expect(shareCalls[0]?.params?.[3]).toBe('write');
     expect(shareCalls[1]?.params?.[1]).toBe('note-fixed');
     expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
-    expect(shareCalls[1]?.params?.[3]).toBe('read');
+    expect(shareCalls[1]?.params?.[3]).toBe('write');
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
@@ -265,5 +265,32 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(calls.some((call) => call.text.includes('FROM user_keys'))).toBe(
       false
     );
+  });
+
+  it('allows overriding share access level to read', async () => {
+    const { calls, client } = createMockClient();
+
+    await setupBobNotesShareForAliceDb({
+      client,
+      bobEmail: 'bob@tearleads.com',
+      aliceEmail: 'alice@tearleads.com',
+      shareAccessLevel: 'read',
+      hasOrganizationIdColumn: true,
+      folderId: 'folder-fixed',
+      noteId: 'note-fixed',
+      idFactory: (() => {
+        const ids = ['id-1', 'id-2', 'id-3', 'share-id'];
+        let index = 0;
+        return () => ids[index++] ?? `id-${String(index)}`;
+      })(),
+      now: () => new Date('2026-03-01T00:00:00.000Z')
+    });
+
+    const shareCalls = calls.filter((call) =>
+      call.text.includes('INSERT INTO vfs_acl_entries')
+    );
+    expect(shareCalls).toHaveLength(2);
+    expect(shareCalls[0]?.params?.[3]).toBe('read');
+    expect(shareCalls[1]?.params?.[3]).toBe('read');
   });
 });

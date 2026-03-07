@@ -1,3 +1,4 @@
+// component-complexity: allow -- Notes list currently co-locates virtualization, menus, and sync hooks.
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { notes } from '@tearleads/db/sqlite';
 import { useSidebarRefetch, WindowPaneState } from '@tearleads/window-manager';
@@ -31,7 +32,7 @@ export function NotesWindowList({
   refreshToken
 }: NotesWindowListProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
-  const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi } =
+  const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi, vfsItemSync } =
     useNotesContext();
   const {
     Button,
@@ -196,10 +197,18 @@ export function NotesWindowList({
 
     try {
       const db = getDatabase();
+      const updatedAt = new Date();
       await db
         .update(notes)
-        .set({ deleted: true })
+        .set({ deleted: true, updatedAt })
         .where(eq(notes.id, contextMenu.note.id));
+
+      if (vfsItemSync) {
+        await vfsItemSync.queueItemDeleteAndFlush({
+          itemId: contextMenu.note.id,
+          objectType: 'note'
+        });
+      }
 
       setHasFetched(false);
     } catch (err) {
@@ -208,7 +217,7 @@ export function NotesWindowList({
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu, getDatabase]);
+  }, [contextMenu, getDatabase, vfsItemSync]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);

@@ -38,6 +38,13 @@ export interface LocalSharedByMeRow {
   permissionLevel: 'view' | 'edit';
 }
 
+interface LocalNoteRow {
+  id: string;
+  title: string;
+  content: string;
+  deleted: number;
+}
+
 function createVfsExplorerLocalMigrations(
   baseMigrations: Migration[]
 ): Migration[] {
@@ -74,6 +81,15 @@ function createVfsExplorerLocalMigrations(
         await adapter.execute(
           `CREATE INDEX IF NOT EXISTS vfs_acl_entries_principal_idx ON vfs_acl_entries (principal_type, principal_id)`
         );
+        // Base migrations create a minimal notes table. Add content so
+        // runtime refresh can assert note payload convergence across reopen flows.
+        try {
+          await adapter.execute(
+            `ALTER TABLE notes ADD COLUMN content TEXT NOT NULL DEFAULT ''`
+          );
+        } catch {
+          // Column already exists in this runtime schema variant.
+        }
       }
     }
   ];
@@ -109,6 +125,29 @@ function parseMillis(value: string | null): number {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return Date.now();
   return parsed;
+}
+
+function decodeMaterializedNoteContent(
+  encryptedPayload: string | null | undefined
+): string {
+  if (typeof encryptedPayload !== 'string') return '';
+  const trimmed = encryptedPayload.trim();
+  if (trimmed.length === 0) return '';
+  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  const paddingRemainder = normalized.length % 4;
+  const padded =
+    paddingRemainder === 0
+      ? normalized
+      : `${normalized}${'='.repeat(4 - paddingRemainder)}`;
+  if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(padded)) return '';
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(
+      Uint8Array.from(Buffer.from(padded, 'base64'))
+    );
+  } catch {
+    return '';
+  }
 }
 
 async function fetchAllSyncItems(
@@ -283,6 +322,8 @@ export async function refreshLocalStateFromApi(input: {
       return {
         id: entry.id,
         title,
+        // Guardrail: mirror client note materialization (base64 UTF-8 decode).
+        content: decodeMaterializedNoteContent(itemState?.encryptedPayload),
         deleted: itemState ? (itemState.deletedAt === null ? 0 : 1) : 0
       };
     });
@@ -318,8 +359,8 @@ export async function refreshLocalStateFromApi(input: {
 
     for (const note of noteRows) {
       await input.localDb.adapter.execute(
-        `INSERT INTO notes (id, title, deleted) VALUES (?, ?, ?)`,
-        [note.id, note.title, note.deleted]
+        `INSERT INTO notes (id, title, content, deleted) VALUES (?, ?, ?, ?)`,
+        [note.id, note.title, note.content, note.deleted]
       );
     }
 
@@ -429,4 +470,29 @@ export async function queryLocalSharedByMe(
     permissionLevel:
       String(row['permission_level']) === 'view' ? 'view' : 'edit'
   }));
+}
+
+export async function queryLocalNoteById(
+  localDb: TestDatabaseContext,
+  noteId: string
+): Promise<LocalNoteRow | null> {
+  const result = await localDb.adapter.execute(
+    `SELECT id, title, content, deleted
+     FROM notes
+     WHERE id = ?
+     LIMIT 1`,
+    [noteId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: String(row['id']),
+    title: String(row['title'] ?? ''),
+    content: String(row['content'] ?? ''),
+    deleted: Number(row['deleted'] ?? 0)
+  };
 }

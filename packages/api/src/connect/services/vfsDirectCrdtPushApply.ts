@@ -34,6 +34,9 @@ interface ItemOwnerRow {
   owner_id: string | null;
   organization_id: string | null;
 }
+interface EffectiveVisibilityRow {
+  item_id: string | null;
+}
 interface ExistingSourceRow {
   id: string;
   occurred_at: Date | string;
@@ -79,10 +82,7 @@ export async function applyCrdtPushOperations(input: {
     }
   }
 
-  const ownershipByItemId = new Map<
-    string,
-    { ownerId: string | null; organizationId: string | null }
-  >();
+  const authorizedItemIds = new Set<string>();
   if (validOperations.length > 0) {
     const uniqueItemIds = Array.from(
       new Set(validOperations.map((operation) => operation.itemId))
@@ -97,26 +97,44 @@ export async function applyCrdtPushOperations(input: {
       [uniqueItemIds]
     );
     for (const row of itemRows.rows) {
-      ownershipByItemId.set(row.id, {
-        ownerId: row.owner_id,
-        organizationId: row.organization_id
-      });
+      if (
+        row.owner_id === input.userId &&
+        row.organization_id === input.organizationId
+      ) {
+        authorizedItemIds.add(row.id);
+      }
+    }
+
+    const visibilityRows = await runQuery<EffectiveVisibilityRow>(
+      'authorized_item_lookup',
+      `
+      SELECT item_id
+      FROM vfs_effective_visibility
+      WHERE user_id = $1::text
+        AND item_id = ANY($2::text[])
+        AND access_rank >= 2
+      `,
+      [input.userId, uniqueItemIds]
+    );
+    for (const row of visibilityRows.rows) {
+      const itemId = normalizeRequiredString(row.item_id);
+      if (itemId) {
+        authorizedItemIds.add(itemId);
+      }
     }
   }
 
-  const hasOwnedValidOperation = input.parsedOperations.some(
+  const hasAuthorizedValidOperation = input.parsedOperations.some(
     (entry) =>
       entry.status === 'parsed' &&
       !!entry.operation &&
-      ownershipByItemId.get(entry.operation.itemId)?.ownerId === input.userId &&
-      ownershipByItemId.get(entry.operation.itemId)?.organizationId ===
-        input.organizationId
+      authorizedItemIds.has(entry.operation.itemId)
   );
 
   const replicaWriteHeads = new Map<string, number>();
   let maxOccurredAt: string | null = null;
 
-  if (hasOwnedValidOperation) {
+  if (hasAuthorizedValidOperation) {
     await runQuery(
       'advisory_lock',
       'SELECT pg_advisory_xact_lock(hashtext($1::text))',
@@ -160,11 +178,7 @@ export async function applyCrdtPushOperations(input: {
     }
 
     const operation = entry.operation;
-    const ownership = ownershipByItemId.get(operation.itemId);
-    if (
-      ownership?.ownerId !== input.userId ||
-      ownership.organizationId !== input.organizationId
-    ) {
+    if (!authorizedItemIds.has(operation.itemId)) {
       results.push({
         opId: operation.opId,
         status: 'invalidOp'

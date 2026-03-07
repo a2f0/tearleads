@@ -1,12 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { api } from '@/lib/api';
 import { ClientNotesProvider, NotesAboutMenuItem } from './ClientNotesProvider';
 
+let capturedNotesProviderProps: Record<string, unknown> | null = null;
+
 vi.mock('@tearleads/notes', () => ({
-  NotesProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="notes-provider">{children}</div>
-  )
+  NotesProvider: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+  } & Record<string, unknown>) => {
+    capturedNotesProviderProps = props;
+    return <div data-testid="notes-provider">{children}</div>;
+  }
 }));
 
 vi.mock('@tearleads/notes/package.json', () => ({
@@ -126,6 +135,36 @@ describe('ClientNotesProvider', () => {
 
     expect(screen.getByTestId('notes-provider')).toBeInTheDocument();
     expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  it('ignores already-registered conflicts for vfsApi.register', async () => {
+    const conflictError = new Error('Conflict');
+    Reflect.set(conflictError, 'status', 409);
+    vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+
+    render(
+      <MemoryRouter>
+        <ClientNotesProvider>
+          <div>Child</div>
+        </ClientNotesProvider>
+      </MemoryRouter>
+    );
+
+    const vfsApi = capturedNotesProviderProps?.vfsApi as {
+      register: (input: {
+        id: string;
+        objectType: 'note' | 'file' | 'folder' | 'contact' | 'photo';
+        encryptedSessionKey: string;
+      }) => Promise<void>;
+    };
+
+    await expect(
+      vfsApi.register({
+        id: 'note-1',
+        objectType: 'note',
+        encryptedSessionKey: 'wrapped'
+      })
+    ).resolves.toBeUndefined();
   });
 });
 

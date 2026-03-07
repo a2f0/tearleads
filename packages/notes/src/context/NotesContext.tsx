@@ -63,6 +63,24 @@ export interface VfsApiFunctions {
 }
 
 /**
+ * Optional VFS sync write hooks provided by the host app.
+ * When present, notes mutations can be queued to CRDT + flushed.
+ */
+export interface VfsItemSyncFunctions {
+  queueItemUpsertAndFlush: (params: {
+    itemId: string;
+    objectType: VfsObjectType;
+    payload: Record<string, unknown>;
+    encryptedSessionKey?: string;
+  }) => Promise<void>;
+  queueItemDeleteAndFlush: (params: {
+    itemId: string;
+    objectType: VfsObjectType;
+    encryptedSessionKey?: string;
+  }) => Promise<void>;
+}
+
+/**
  * UI component props interfaces
  */
 export interface ButtonProps {
@@ -223,6 +241,8 @@ export interface NotesContextValue {
   featureFlags?: FeatureFlagFunctions;
   /** VFS API functions (optional - for server registration) */
   vfsApi?: VfsApiFunctions;
+  /** VFS sync queue/flush hooks (optional - for CRDT item writes) */
+  vfsItemSync?: VfsItemSyncFunctions;
   /** Navigate to a specific note (for page component) */
   navigateToNote?: NavigateToNote;
 }
@@ -244,6 +264,8 @@ export interface NotesProviderProps {
   featureFlags?: FeatureFlagFunctions;
   /** VFS API functions (optional - for server registration) */
   vfsApi?: VfsApiFunctions;
+  /** VFS sync queue/flush hooks (optional - for CRDT item writes) */
+  vfsItemSync?: VfsItemSyncFunctions;
   navigateToNote?: NavigateToNote;
 }
 
@@ -261,6 +283,7 @@ export function NotesProvider({
   auth,
   featureFlags,
   vfsApi,
+  vfsItemSync,
   navigateToNote
 }: NotesProviderProps) {
   const value = useMemo<NotesContextValue>(
@@ -274,6 +297,7 @@ export function NotesProvider({
       ...(auth && { auth }),
       ...(featureFlags && { featureFlags }),
       ...(vfsApi && { vfsApi }),
+      ...(vfsItemSync && { vfsItemSync }),
       ...(navigateToNote && { navigateToNote })
     }),
     [
@@ -286,6 +310,7 @@ export function NotesProvider({
       auth,
       featureFlags,
       vfsApi,
+      vfsItemSync,
       navigateToNote
     ]
   );

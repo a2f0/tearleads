@@ -5,6 +5,7 @@ import type {
   VfsSyncItem
 } from '@tearleads/shared';
 import { getDatabaseAdapter, isDatabaseInitialized } from '@/db';
+import { runLocalWrite } from '@/db/localWrite';
 import { api } from '@/lib/api';
 import {
   resolveMaterializedNoteContent,
@@ -52,6 +53,10 @@ interface PaginatedFeedPage<TItem> {
 const FEED_PAGE_SIZE = 500;
 const MAX_FEED_PAGES = 100;
 const VFS_ROOT_ID = '__vfs_root__';
+const HYDRATION_SAVEPOINT = 'sp_vfs_read_model_hydration';
+
+let hydrationInFlight: Promise<void> | null = null;
+let hydrationQueued = false;
 
 function parseTimestampMs(value: string | null | undefined): number {
   if (!value) {
@@ -242,7 +247,7 @@ async function tableExists(tableName: string): Promise<boolean> {
   return result.rows.length > 0;
 }
 
-export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
+async function hydrateLocalReadModelFromRemoteFeedsOnce(): Promise<void> {
   if (!isDatabaseInitialized()) {
     return;
   }
@@ -286,18 +291,19 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
   const hasNotesTable = await tableExists('notes');
   const adapter = getDatabaseAdapter();
 
-  let foreignKeysDisabled = false;
-  let transactionStarted = false;
-  try {
-    await adapter.execute('PRAGMA foreign_keys = OFF', []);
-    foreignKeysDisabled = true;
+  await runLocalWrite(async () => {
+    let foreignKeysDisabled = false;
+    let savepointStarted = false;
+    try {
+      await adapter.execute('PRAGMA foreign_keys = OFF', []);
+      foreignKeysDisabled = true;
 
-    await adapter.execute('BEGIN', []);
-    transactionStarted = true;
+      await adapter.execute(`SAVEPOINT ${HYDRATION_SAVEPOINT}`, []);
+      savepointStarted = true;
 
-    for (const row of registryUpserts) {
-      await adapter.execute(
-        `INSERT INTO vfs_registry (
+      for (const row of registryUpserts) {
+        await adapter.execute(
+          `INSERT INTO vfs_registry (
            id,
            object_type,
            encrypted_name,
@@ -309,25 +315,25 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
            encrypted_name = excluded.encrypted_name,
            owner_id = excluded.owner_id,
            created_at = excluded.created_at`,
-        [
-          row.id,
-          row.objectType,
-          row.encryptedName,
-          row.ownerId,
-          row.createdAtMs
-        ]
-      );
-    }
+          [
+            row.id,
+            row.objectType,
+            row.encryptedName,
+            row.ownerId,
+            row.createdAtMs
+          ]
+        );
+      }
 
-    for (const id of registryDeletes) {
-      await adapter.execute(`DELETE FROM vfs_registry WHERE id = ?`, [id]);
-    }
+      for (const id of registryDeletes) {
+        await adapter.execute(`DELETE FROM vfs_registry WHERE id = ?`, [id]);
+      }
 
-    if (hasLinksTable) {
-      await adapter.execute(`DELETE FROM vfs_links`, []);
-      for (const row of linkRows) {
-        await adapter.execute(
-          `INSERT INTO vfs_links (
+      if (hasLinksTable) {
+        await adapter.execute(`DELETE FROM vfs_links`, []);
+        for (const row of linkRows) {
+          await adapter.execute(
+            `INSERT INTO vfs_links (
              id,
              parent_id,
              child_id,
@@ -338,16 +344,16 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
              id = excluded.id,
              wrapped_session_key = excluded.wrapped_session_key,
              created_at = excluded.created_at`,
-          [row.id, row.parentId, row.childId, '', row.createdAtMs]
-        );
+            [row.id, row.parentId, row.childId, '', row.createdAtMs]
+          );
+        }
       }
-    }
 
-    if (hasAclEntriesTable) {
-      await adapter.execute(`DELETE FROM vfs_acl_entries`, []);
-      for (const row of aclRows) {
-        await adapter.execute(
-          `INSERT INTO vfs_acl_entries (
+      if (hasAclEntriesTable) {
+        await adapter.execute(`DELETE FROM vfs_acl_entries`, []);
+        for (const row of aclRows) {
+          await adapter.execute(
+            `INSERT INTO vfs_acl_entries (
              id,
              item_id,
              principal_type,
@@ -365,31 +371,31 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
              created_at = excluded.created_at,
              updated_at = excluded.updated_at,
              revoked_at = NULL`,
-          [
-            row.id,
-            row.itemId,
-            row.principalType,
-            row.principalId,
-            row.accessLevel,
-            row.grantedBy,
-            row.occurredAtMs,
-            row.occurredAtMs
-          ]
-        );
+            [
+              row.id,
+              row.itemId,
+              row.principalType,
+              row.principalId,
+              row.accessLevel,
+              row.grantedBy,
+              row.occurredAtMs,
+              row.occurredAtMs
+            ]
+          );
+        }
       }
-    }
 
-    if (hasNotesTable) {
-      await adapter.execute(
-        `DELETE FROM notes
+      if (hasNotesTable) {
+        await adapter.execute(
+          `DELETE FROM notes
          WHERE id NOT IN (
            SELECT id FROM vfs_registry WHERE object_type = 'note'
          )`,
-        []
-      );
-      for (const row of noteRows) {
-        await adapter.execute(
-          `INSERT INTO notes (
+          []
+        );
+        for (const row of noteRows) {
+          await adapter.execute(
+            `INSERT INTO notes (
              id,
              title,
              content,
@@ -403,28 +409,49 @@ export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
              created_at = excluded.created_at,
              updated_at = excluded.updated_at,
              deleted = excluded.deleted`,
-          [
-            row.id,
-            row.title,
-            row.content,
-            row.createdAtMs,
-            row.updatedAtMs,
-            row.deleted ? 1 : 0
-          ]
-        );
+            [
+              row.id,
+              row.title,
+              row.content,
+              row.createdAtMs,
+              row.updatedAtMs,
+              row.deleted ? 1 : 0
+            ]
+          );
+        }
+      }
+
+      await adapter.execute(`RELEASE ${HYDRATION_SAVEPOINT}`, []);
+      savepointStarted = false;
+    } catch (error) {
+      if (savepointStarted) {
+        await adapter.execute(`ROLLBACK TO ${HYDRATION_SAVEPOINT}`, []);
+        await adapter.execute(`RELEASE ${HYDRATION_SAVEPOINT}`, []);
+      }
+      throw error;
+    } finally {
+      if (foreignKeysDisabled) {
+        await adapter.execute('PRAGMA foreign_keys = ON', []);
       }
     }
+  });
+}
 
-    await adapter.execute('COMMIT', []);
-    transactionStarted = false;
-  } catch (error) {
-    if (transactionStarted) {
-      await adapter.execute('ROLLBACK', []);
-    }
-    throw error;
-  } finally {
-    if (foreignKeysDisabled) {
-      await adapter.execute('PRAGMA foreign_keys = ON', []);
-    }
+export async function hydrateLocalReadModelFromRemoteFeeds(): Promise<void> {
+  if (hydrationInFlight) {
+    hydrationQueued = true;
+    return hydrationInFlight;
   }
+
+  hydrationInFlight = (async () => {
+    do {
+      hydrationQueued = false;
+      await hydrateLocalReadModelFromRemoteFeedsOnce();
+    } while (hydrationQueued);
+  })().finally(() => {
+    hydrationInFlight = null;
+    hydrationQueued = false;
+  });
+
+  return hydrationInFlight;
 }

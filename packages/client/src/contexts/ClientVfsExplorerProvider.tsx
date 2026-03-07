@@ -31,6 +31,7 @@ import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 import {
   useVfsKeyManager,
@@ -113,11 +114,17 @@ export function ClientVfsExplorerProvider({
         if (params.objectType !== 'folder') {
           throw new Error(`Unsupported VFS object type: ${params.objectType}`);
         }
-        await api.vfs.register({
-          id: params.id,
-          objectType: params.objectType,
-          encryptedSessionKey: params.encryptedSessionKey
-        });
+        try {
+          await api.vfs.register({
+            id: params.id,
+            objectType: params.objectType,
+            encryptedSessionKey: params.encryptedSessionKey
+          });
+        } catch (error) {
+          if (!isVfsAlreadyRegisteredError(error)) {
+            throw error;
+          }
+        }
       }
     }),
     []

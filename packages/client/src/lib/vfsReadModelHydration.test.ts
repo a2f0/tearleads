@@ -435,7 +435,7 @@ describe('vfsReadModelHydration', () => {
     );
   });
 
-  it('re-enables foreign keys when transaction begin fails', async () => {
+  it('re-enables foreign keys when savepoint start fails', async () => {
     mockGetSync.mockResolvedValueOnce({
       items: [],
       nextCursor: null,
@@ -453,7 +453,7 @@ describe('vfsReadModelHydration', () => {
     const executeSpy = vi
       .spyOn(adapter, 'execute')
       .mockImplementation(async (sql: string, params: unknown[]) => {
-        if (sql === 'BEGIN') {
+        if (sql === 'SAVEPOINT sp_vfs_read_model_hydration') {
           throw new Error('begin failed');
         }
         return originalExecute(sql, params);

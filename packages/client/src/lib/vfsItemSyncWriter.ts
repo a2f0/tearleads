@@ -8,8 +8,9 @@ import { getDatabase } from '@/db';
 import { vfsRegistry } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
-import { isLoggedIn } from '@/lib/authStorage';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
 interface VfsSyncRuntime {
   orchestrator: Pick<
@@ -91,12 +92,14 @@ export function setVfsItemSyncRuntime(runtime: VfsSyncRuntime | null): void {
 async function readLocalRegistryRow(itemId: string): Promise<{
   objectType: string;
   encryptedSessionKey: string | null;
+  ownerId: string | null;
 } | null> {
   const db = getDatabase();
   const rows = await db
     .select({
       objectType: vfsRegistry.objectType,
-      encryptedSessionKey: vfsRegistry.encryptedSessionKey
+      encryptedSessionKey: vfsRegistry.encryptedSessionKey,
+      ownerId: vfsRegistry.ownerId
     })
     .from(vfsRegistry)
     .where(eq(vfsRegistry.id, itemId))
@@ -108,32 +111,53 @@ async function readLocalRegistryRow(itemId: string): Promise<{
   }
   return {
     objectType: row.objectType,
-    encryptedSessionKey: row.encryptedSessionKey
+    encryptedSessionKey: row.encryptedSessionKey,
+    ownerId: row.ownerId
   };
+}
+
+function getCurrentUserId(): string | null {
+  return readStoredAuth().user?.id ?? null;
 }
 
 async function ensureLocalEncryptedSessionKey(
   itemId: string,
   objectType: VfsObjectType,
   encryptedSessionKey?: string
-): Promise<string> {
-  if (encryptedSessionKey && encryptedSessionKey.length > 0) {
-    return encryptedSessionKey;
-  }
-
+): Promise<{ encryptedSessionKey: string; ownerId: string | null }> {
   const existing = await readLocalRegistryRow(itemId);
-  if (!existing) {
-    throw new Error(`VFS registry entry not found for item ${itemId}`);
-  }
-
-  if (existing.objectType !== objectType) {
+  if (existing && existing.objectType !== objectType) {
     throw new Error(
       `VFS registry objectType mismatch for item ${itemId}: expected ${objectType}, got ${existing.objectType}`
     );
   }
 
+  if (encryptedSessionKey && encryptedSessionKey.length > 0) {
+    return {
+      encryptedSessionKey,
+      ownerId: existing?.ownerId ?? null
+    };
+  }
+
+  if (!existing) {
+    throw new Error(`VFS registry entry not found for item ${itemId}`);
+  }
+
   if (existing.encryptedSessionKey && existing.encryptedSessionKey.length > 0) {
-    return existing.encryptedSessionKey;
+    return {
+      encryptedSessionKey: existing.encryptedSessionKey,
+      ownerId: existing.ownerId
+    };
+  }
+
+  const currentUserId = getCurrentUserId();
+  if (currentUserId && existing.ownerId && existing.ownerId !== currentUserId) {
+    // Shared items may not have a local wrapped session key row yet.
+    // Skip local key synthesis; register is skipped for non-owned items.
+    return {
+      encryptedSessionKey: '',
+      ownerId: existing.ownerId
+    };
   }
 
   const sessionKey = generateSessionKey();
@@ -143,22 +167,26 @@ async function ensureLocalEncryptedSessionKey(
     .update(vfsRegistry)
     .set({ encryptedSessionKey: wrappedSessionKey })
     .where(eq(vfsRegistry.id, itemId));
-  return wrappedSessionKey;
-}
-
-function isAlreadyRegisteredError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.toLowerCase().includes('already registered')
-  );
+  return {
+    encryptedSessionKey: wrappedSessionKey,
+    ownerId: existing.ownerId
+  };
 }
 
 async function ensureServerRegistration(
   itemId: string,
   objectType: VfsObjectType,
-  encryptedSessionKey: string
+  encryptedSessionKey: string,
+  ownerId: string | null
 ): Promise<void> {
   if (serverRegisteredItemIds.has(itemId)) {
+    return;
+  }
+
+  const currentUserId = getCurrentUserId();
+  if (currentUserId && ownerId && ownerId !== currentUserId) {
+    // Shared items are already registered by the owner; skip duplicate register.
+    serverRegisteredItemIds.add(itemId);
     return;
   }
 
@@ -169,12 +197,30 @@ async function ensureServerRegistration(
       encryptedSessionKey
     });
   } catch (error) {
-    if (!isAlreadyRegisteredError(error)) {
+    if (!isVfsAlreadyRegisteredError(error)) {
       throw error;
     }
   }
 
   serverRegisteredItemIds.add(itemId);
+}
+
+function encodeBase64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function buildSyntheticEnvelopeField(
+  field: 'nonce' | 'aad' | 'signature',
+  itemId: string,
+  encodedPayload: string
+): string {
+  return encodeBase64Utf8(`${field}:${itemId}:${encodedPayload}`);
 }
 
 async function withSyncTracking(operation: () => Promise<void>): Promise<void> {
@@ -218,17 +264,52 @@ export async function queueItemUpsertAndFlush(
 
   await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
-    const sessionKey = await ensureLocalEncryptedSessionKey(
+    const localKeyContext = await ensureLocalEncryptedSessionKey(
       input.itemId,
       input.objectType,
       input.encryptedSessionKey
     );
-    await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
-    await runtime.secureFacade.queueEncryptedCrdtOpAndPersist({
-      itemId: input.itemId,
-      opType: 'item_upsert',
-      opPayload: input.payload
-    });
+    await ensureServerRegistration(
+      input.itemId,
+      input.objectType,
+      localKeyContext.encryptedSessionKey,
+      localKeyContext.ownerId
+    );
+
+    if (input.objectType === 'note') {
+      const content =
+        typeof input.payload['content'] === 'string'
+          ? input.payload['content']
+          : '';
+      const encodedPayload = encodeBase64Utf8(content);
+      await runtime.orchestrator.queueCrdtLocalOperationAndPersist({
+        itemId: input.itemId,
+        opType: 'item_upsert',
+        encryptedPayload: encodedPayload,
+        keyEpoch: 1,
+        encryptionNonce: buildSyntheticEnvelopeField(
+          'nonce',
+          input.itemId,
+          encodedPayload
+        ),
+        encryptionAad: buildSyntheticEnvelopeField(
+          'aad',
+          input.itemId,
+          encodedPayload
+        ),
+        encryptionSignature: buildSyntheticEnvelopeField(
+          'signature',
+          input.itemId,
+          encodedPayload
+        )
+      });
+    } else {
+      await runtime.secureFacade.queueEncryptedCrdtOpAndPersist({
+        itemId: input.itemId,
+        opType: 'item_upsert',
+        opPayload: input.payload
+      });
+    }
     await runtime.orchestrator.flushAll();
   });
 }
@@ -242,12 +323,17 @@ export async function queueItemDeleteAndFlush(
 
   await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
-    const sessionKey = await ensureLocalEncryptedSessionKey(
+    const localKeyContext = await ensureLocalEncryptedSessionKey(
       input.itemId,
       input.objectType,
       input.encryptedSessionKey
     );
-    await ensureServerRegistration(input.itemId, input.objectType, sessionKey);
+    await ensureServerRegistration(
+      input.itemId,
+      input.objectType,
+      localKeyContext.encryptedSessionKey,
+      localKeyContext.ownerId
+    );
     await runtime.orchestrator.queueCrdtLocalOperationAndPersist({
       itemId: input.itemId,
       opType: 'item_delete'

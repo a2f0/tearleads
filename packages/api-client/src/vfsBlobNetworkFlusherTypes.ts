@@ -161,6 +161,8 @@ export type LoadStateCallback = () =>
 export interface VfsBlobNetworkFlusherOptions {
   baseUrl?: string;
   apiPrefix?: string;
+  getOrganizationId?: (() => string | null) | null;
+  organizationId?: string | null;
   headers?: Record<string, string>;
   fetchImpl?: typeof fetch;
   saveState?: PersistStateCallback;

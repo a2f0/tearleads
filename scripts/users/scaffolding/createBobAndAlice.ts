@@ -19,7 +19,8 @@ export async function runCreateBobAndAlice(): Promise<void> {
     const result = await setupBobNotesShareForAliceDb({
       client,
       bobEmail: bob.email,
-      aliceEmail: alice.email
+      aliceEmail: alice.email,
+      shareAccessLevel: 'write'
     });
 
     console.log('  Mode: DB-only (no API required)');

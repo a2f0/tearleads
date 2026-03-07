@@ -36,7 +36,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
   });
 
   it('flushes staged encrypted blob pipeline operations', async () => {
-    const observedRequests: Array<{ url: string; body: unknown }> = [];
+    const observedRequests: Array<{
+      url: string;
+      body: unknown;
+      headers: Headers;
+    }> = [];
     vi.mocked(global.fetch).mockImplementation(
       async (
         input: RequestInfo | URL,
@@ -44,7 +48,11 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       ): Promise<Response> => {
         const url = input.toString();
         if (typeof init?.body === 'string') {
-          observedRequests.push({ url, body: JSON.parse(init.body) });
+          observedRequests.push({
+            url,
+            body: JSON.parse(init.body),
+            headers: new Headers(init.headers)
+          });
         }
 
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
@@ -106,7 +114,8 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
         }
       },
       blob: {
-        baseUrl: 'http://localhost'
+        baseUrl: 'http://localhost',
+        getOrganizationId: () => 'org-1'
       }
     });
 
@@ -194,6 +203,13 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
         })
       })
     );
+    expect(
+      observedRequests
+        .find((request) =>
+          request.url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)
+        )
+        ?.headers.get('X-Organization-Id')
+    ).toBe('org-1');
     expect(
       parseJsonEnvelope(
         observedRequests.find((request) => {

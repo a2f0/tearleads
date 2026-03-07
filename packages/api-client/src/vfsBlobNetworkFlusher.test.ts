@@ -8,6 +8,7 @@ function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   }
   return new Headers(init.headers).get('Authorization');
 }
+
 describe('vfsBlobNetworkFlusher', () => {
   const originalFetch = global.fetch;
   beforeEach(() => {
@@ -184,6 +185,7 @@ describe('vfsBlobNetworkFlusher', () => {
     expect(flusher.queuedOperations()).toHaveLength(0);
     expect(saveState).toHaveBeenCalled();
   });
+
   it('flushes queued chunk upload and manifest commit operations', async () => {
     const requestBodies: Array<{ url: string; body: unknown }> = [];
     vi.mocked(global.fetch).mockImplementation(

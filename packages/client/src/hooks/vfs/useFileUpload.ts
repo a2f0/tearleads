@@ -28,6 +28,7 @@ import {
   readMagicBytes
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   createStoreLogger,
   getFileStorage,
@@ -257,10 +258,12 @@ export function useFileUpload() {
               encryptedSessionKey
             });
           } catch (err) {
-            secureUploadFailStage = 'register';
-            throw new Error('Secure upload failed (register)', {
-              cause: err
-            });
+            if (!isVfsAlreadyRegisteredError(err)) {
+              secureUploadFailStage = 'register';
+              throw new Error('Secure upload failed (register)', {
+                cause: err
+              });
+            }
           }
 
           const expiresAt = new Date();
