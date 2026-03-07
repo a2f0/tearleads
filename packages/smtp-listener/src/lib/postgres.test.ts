@@ -10,10 +10,9 @@ interface MockPool {
   endMock: ReturnType<typeof vi.fn<() => Promise<void>>>;
 }
 
-function createRuntime(options: {
-  defaults?: PostgresDevDefaults;
-  devMode?: boolean;
-} = {}) {
+function createRuntime(
+  options: { defaults?: PostgresDevDefaults; devMode?: boolean } = {}
+) {
   const createdPools: MockPool[] = [];
   const createPool = vi.fn((config: PoolConfig) => {
     const endMock = vi.fn<() => Promise<void>>(async () => undefined);
