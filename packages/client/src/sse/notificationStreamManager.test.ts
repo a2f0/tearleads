@@ -70,6 +70,85 @@ describe('notificationStreamManager', () => {
     manager.disconnect();
   });
 
+  it('treats a message event as connected even without handshake', async () => {
+    const openNotificationEventStream = vi.fn().mockImplementation(() => ({
+      async *[Symbol.asyncIterator]() {
+        yield JSON.stringify({
+          event: 'message',
+          channel: 'broadcast',
+          message: {
+            type: 'test',
+            payload: { ok: true },
+            timestamp: '2026-03-07T00:00:00.000Z'
+          }
+        });
+        throw createAbortError();
+      }
+    }));
+
+    const manager = createNotificationStreamManager({
+      openNotificationEventStream,
+      isTokenExpired: () => false,
+      tryRefreshToken: vi.fn()
+    });
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      token: 'token'
+    });
+
+    await vi.waitFor(() => {
+      expect(manager.getSnapshot().lastMessage).not.toBeNull();
+    });
+
+    expect(manager.getSnapshot().connectionState).toBe('connected');
+    manager.disconnect();
+  });
+
+  it('clears the last message when disconnected', async () => {
+    const openNotificationEventStream = vi.fn().mockImplementation(() => ({
+      async *[Symbol.asyncIterator]() {
+        yield JSON.stringify({ event: 'connected' });
+        yield JSON.stringify({
+          event: 'message',
+          channel: 'broadcast',
+          message: {
+            type: 'test',
+            payload: { ok: true },
+            timestamp: '2026-03-07T00:00:00.000Z'
+          }
+        });
+        await new Promise(() => {
+          // wait until manager disconnects
+        });
+      }
+    }));
+
+    const manager = createNotificationStreamManager({
+      openNotificationEventStream,
+      isTokenExpired: () => false,
+      tryRefreshToken: vi.fn()
+    });
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      token: 'token'
+    });
+
+    await vi.waitFor(() => {
+      expect(manager.getSnapshot().lastMessage).not.toBeNull();
+    });
+
+    manager.disconnect();
+
+    expect(manager.getSnapshot()).toEqual({
+      connectionState: 'disconnected',
+      lastMessage: null
+    });
+  });
+
   it('aborts the active stream when disconnected', async () => {
     let observedSignal: AbortSignal | null = null;
 

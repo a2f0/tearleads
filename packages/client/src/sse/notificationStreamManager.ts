@@ -108,8 +108,12 @@ export function createNotificationStreamManager(
   };
 
   const setSnapshot = (
-    nextSnapshot: NotificationStreamManagerSnapshot
+    partialSnapshot: Partial<NotificationStreamManagerSnapshot>
   ): void => {
+    const nextSnapshot = {
+      ...snapshot,
+      ...partialSnapshot
+    };
     if (
       snapshot.connectionState === nextSnapshot.connectionState &&
       snapshot.lastMessage === nextSnapshot.lastMessage
@@ -134,8 +138,8 @@ export function createNotificationStreamManager(
       abortController = null;
     }
     setSnapshot({
-      ...snapshot,
-      connectionState: 'disconnected'
+      connectionState: 'disconnected',
+      lastMessage: resetReconnectAttempt ? null : snapshot.lastMessage
     });
     if (resetReconnectAttempt) {
       reconnectAttempt = 0;
@@ -152,7 +156,6 @@ export function createNotificationStreamManager(
     const token = currentConfig?.token;
     if (token && dependencies.isTokenExpired(token)) {
       setSnapshot({
-        ...snapshot,
         connectionState: 'connecting'
       });
       void dependencies.tryRefreshToken();
@@ -160,7 +163,6 @@ export function createNotificationStreamManager(
     }
 
     setSnapshot({
-      ...snapshot,
       connectionState: 'disconnected'
     });
 
@@ -187,7 +189,6 @@ export function createNotificationStreamManager(
 
     disconnectInternal(true);
     setSnapshot({
-      ...snapshot,
       connectionState: 'connecting'
     });
 
@@ -217,7 +218,6 @@ export function createNotificationStreamManager(
 
           if (parsedPayload.event === 'connected') {
             setSnapshot({
-              ...snapshot,
               connectionState: 'connected'
             });
             reconnectAttempt = 0;
@@ -230,12 +230,13 @@ export function createNotificationStreamManager(
 
           if (isSseMessage(parsedPayload)) {
             setSnapshot({
-              ...snapshot,
+              connectionState: 'connected',
               lastMessage: {
                 channel: parsedPayload.channel,
                 message: parsedPayload.message
               }
             });
+            reconnectAttempt = 0;
           } else {
             console.error(
               'Failed to parse SSE message: invalid shape',
