@@ -13,6 +13,7 @@ import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
 import { pushCrdtOpsDirect } from './vfsDirectCrdtPush.js';
 import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
 import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
+import type { SendRequestPayload } from './vfsDirectEmailPayload.js';
 import {
   deleteEmailDirect,
   getEmailDirect,
@@ -119,7 +120,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => deleteEmailDirect(request, context),
   sendEmail: async (
-    request: { json: string },
+    request: SendRequestPayload,
     context: { requestHeader: Headers }
   ) => sendEmailDirect(request, context)
 };
