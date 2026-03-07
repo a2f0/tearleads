@@ -1,11 +1,37 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import {
   composeWrappers,
   createRealDbWrapper,
   useTestDb
 } from './createWrapper.js';
+
+function ensureDomForBun(): void {
+  if (typeof globalThis.document !== 'undefined') {
+    return;
+  }
+
+  const dom = new JSDOM('<!doctype html><html><body></body></html>');
+
+  const defineGlobal = (name: string, value: unknown): void => {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value
+    });
+  };
+
+  defineGlobal('window', dom.window);
+  defineGlobal('document', dom.window.document);
+  defineGlobal('navigator', dom.window.navigator);
+  defineGlobal('HTMLElement', dom.window.HTMLElement);
+  defineGlobal('Node', dom.window.Node);
+  defineGlobal('getComputedStyle', dom.window.getComputedStyle.bind(dom.window));
+}
+
+ensureDomForBun();
 
 describe('createRealDbWrapper', () => {
   it('creates a wrapper component', () => {
