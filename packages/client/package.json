@@ -73,6 +73,7 @@
     "@tearleads/keychain": "workspace:*",
     "@tearleads/local-write-orchestrator": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
+    "@tearleads/mls-core": "workspace:*",
     "@tearleads/notifications": "workspace:*",
     "@tearleads/notes": "workspace:*",
     "@tearleads/photos": "workspace:*",

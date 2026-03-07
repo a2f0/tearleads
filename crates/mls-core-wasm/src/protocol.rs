@@ -1,7 +1,6 @@
-use std::{
-    collections::{BTreeSet, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{BTreeSet, HashSet};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -36,6 +35,12 @@ pub(crate) struct WelcomeAeadMetadata {
     pub(crate) ephemeral_public_key: Vec<u8>,
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn now_ms() -> Result<u64, MlsError> {
+    Ok(js_sys::Date::now() as u64)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn now_ms() -> Result<u64, MlsError> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)

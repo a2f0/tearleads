@@ -1,4 +1,5 @@
 // component-complexity: allow -- auth state, token lifecycle, and DB password handoff are coordinated here.
+import { generateMlsOnboardingKeyMaterial } from '@tearleads/mls-core';
 import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
@@ -32,6 +33,10 @@ import {
   storeAuth
 } from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
+import {
+  flushMlsKeyPackageOutbox,
+  writeMlsKeyPackagesToOutbox
+} from '@/lib/mlsKeyPackageSync';
 import { notificationStore } from '@/stores/notificationStore';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
@@ -158,6 +163,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await refreshIfNeeded();
 
       setIsLoading(false);
+
+      // Retry any pending MLS key package uploads from a previous session
+      const { user: storedUser } = readStoredAuth();
+      if (storedUser) {
+        void flushMlsKeyPackageOutbox(storedUser.id);
+      }
     };
 
     void initAuth();
@@ -271,6 +282,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Persist to localStorage
       storeAuth(response.accessToken, response.refreshToken, response.user);
       await configureDeferredDatabasePassword(password);
+
+      // Generate MLS credentials + key packages post-registration.
+      // Non-fatal: if MLS WASM backend isn't ready, keys are generated later from MLS chat UI.
+      void (async () => {
+        try {
+          const material = await generateMlsOnboardingKeyMaterial(
+            response.user.id
+          );
+          if (material.keyPackages.length > 0) {
+            await writeMlsKeyPackagesToOutbox(
+              response.user.id,
+              material.keyPackages
+            );
+            void flushMlsKeyPackageOutbox(response.user.id);
+          }
+        } catch (err) {
+          console.warn('[mls-onboarding] MLS key generation skipped:', err);
+        }
+      })();
     },
     [configureDeferredDatabasePassword]
   );

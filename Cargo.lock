@@ -1373,6 +1373,7 @@ dependencies = [
  "getrandom",
  "hex",
  "hkdf",
+ "js-sys",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
