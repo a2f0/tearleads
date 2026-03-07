@@ -26,8 +26,9 @@
   "scripts": {
     "build": "echo \"@tearleads/vfs-sync is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'if command -v bun >/dev/null 2>&1; then bun test --preload ./src/test/bunSetup.ts ; else vitest run; fi'",
+    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh -c 'if command -v bun >/dev/null 2>&1; then bun test --coverage --preload ./src/test/bunSetup.ts --max-concurrency=\"${PRE_PUSH_VITEST_MAX_WORKERS:-4}\"; else vitest run --coverage; fi'"
   },
   "peerDependencies": {
     "@tearleads/window-manager": "workspace:*",
@@ -48,6 +49,7 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
+    "@types/jsdom": "28.0.0",
     "@types/node": "25.3.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

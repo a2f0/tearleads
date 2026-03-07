@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { decodeVfsSyncCursor, encodeVfsSyncCursor } from './sync-cursor.js';
 
 function encodePayloadForTest(payload: unknown): string {
@@ -15,8 +15,17 @@ function encodePayloadForTest(payload: unknown): string {
 }
 
 describe('vfs sync cursor', () => {
+  const originalBufferDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'Buffer'
+  );
+
   afterEach(() => {
-    vi.unstubAllGlobals();
+    if (originalBufferDescriptor) {
+      Object.defineProperty(globalThis, 'Buffer', originalBufferDescriptor);
+      return;
+    }
+    Reflect.deleteProperty(globalThis, 'Buffer');
   });
 
   it('encodes and decodes a cursor payload', () => {
@@ -58,7 +67,11 @@ describe('vfs sync cursor', () => {
   });
 
   it('works when Buffer is not available', () => {
-    vi.stubGlobal('Buffer', undefined);
+    Object.defineProperty(globalThis, 'Buffer', {
+      configurable: true,
+      writable: true,
+      value: undefined
+    });
 
     const encoded = encodeVfsSyncCursor({
       changedAt: '2025-01-02T03:04:05.000Z',

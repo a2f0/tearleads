@@ -1,19 +1,21 @@
-import { render, screen } from '@testing-library/react';
+import '../../test/ensureBunDom';
+import { render, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { SyncWindow } from './SyncWindow';
+
+function queries(): ReturnType<typeof within> {
+  return within(document.body);
+}
 
 vi.mock('@tearleads/vfs-sync/package.json', () => ({
   default: { version: '0.0.42' }
 }));
 
 // Mock FloatingWindow
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
+vi.mock('@tearleads/window-manager', async () => {
   return {
-    ...actual,
     DesktopFloatingWindow: ({
       children,
       title,
@@ -45,18 +47,15 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
         </button>
         {children}
       </div>
+    ),
+    WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="window-control-bar">{children}</div>
+    ),
+    WindowMenuBar: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="window-menu-bar">{children}</div>
     )
   };
 });
-
-// Mock Sync component
-vi.mock('../../pages/sync', () => ({
-  Sync: ({ showBackLink }: { showBackLink?: boolean }) => (
-    <div data-testid="sync-content">
-      <span data-testid="sync-backlink">{showBackLink ? 'true' : 'false'}</span>
-    </div>
-  )
-}));
 
 describe('SyncWindow', () => {
   const defaultProps = {
@@ -69,18 +68,18 @@ describe('SyncWindow', () => {
 
   it('renders in FloatingWindow', () => {
     render(<SyncWindow {...defaultProps} />);
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+    expect(queries().getByTestId('floating-window')).toBeInTheDocument();
   });
 
   it('shows Sync as title', () => {
     render(<SyncWindow {...defaultProps} />);
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Sync');
+    expect(queries().getByTestId('window-title')).toHaveTextContent('Sync');
   });
 
-  it('renders the sync content with showBackLink=false', () => {
+  it('renders sync page content with showBackLink=false', () => {
     render(<SyncWindow {...defaultProps} />);
-    expect(screen.getByTestId('sync-content')).toBeInTheDocument();
-    expect(screen.getByTestId('sync-backlink')).toHaveTextContent('false');
+    expect(queries().getByText('Sync is not configured.')).toBeInTheDocument();
+    expect(queries().queryByText('Back to Home')).not.toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -88,7 +87,7 @@ describe('SyncWindow', () => {
     const onClose = vi.fn();
     render(<SyncWindow {...defaultProps} onClose={onClose} />);
 
-    await user.click(screen.getByTestId('close-window'));
+    await user.click(queries().getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -102,7 +101,7 @@ describe('SyncWindow', () => {
     render(
       <SyncWindow {...defaultProps} initialDimensions={initialDimensions} />
     );
-    const floatingWindow = screen.getByTestId('floating-window');
+    const floatingWindow = queries().getByTestId('floating-window');
     expect(floatingWindow).toHaveAttribute(
       'data-initial-dimensions',
       JSON.stringify(initialDimensions)
@@ -111,9 +110,9 @@ describe('SyncWindow', () => {
 
   it('renders menu bar with File, View, and Help menus', () => {
     render(<SyncWindow {...defaultProps} />);
-    expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
+    expect(queries().getByRole('button', { name: 'File' })).toBeInTheDocument();
+    expect(queries().getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(queries().getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('calls onClose from File menu Close option', async () => {
@@ -121,8 +120,8 @@ describe('SyncWindow', () => {
     const onClose = vi.fn();
     render(<SyncWindow {...defaultProps} onClose={onClose} />);
 
-    await user.click(screen.getByRole('button', { name: 'File' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Close' }));
+    await user.click(queries().getByRole('button', { name: 'File' }));
+    await user.click(queries().getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
   });
@@ -138,6 +137,6 @@ describe('SyncWindow', () => {
         </MemoryRouter>
       )
     ).not.toThrow();
-    expect(screen.getByTestId('sync-content')).toBeInTheDocument();
+    expect(queries().getByText('Sync is not configured.')).toBeInTheDocument();
   });
 });
