@@ -133,6 +133,32 @@ describe('initializeAndRestoreDatabaseState', () => {
     expect(options.setIsLoading).toHaveBeenCalledWith(false);
   });
 
+  it('skips orphan validation for the active instance but validates inactive ones', async () => {
+    const active = { id: 'active-1', name: 'Primary' };
+    const secondary = { id: 'secondary-1', name: 'Secondary' };
+    const database = { id: 'auto-db' };
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances.mockResolvedValue([active, secondary]);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(false);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockAutoInitializeDatabase.mockResolvedValue(database);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockValidateAndPruneOrphanedInstances).toHaveBeenCalledWith(
+      ['secondary-1'],
+      expect.any(Function)
+    );
+  });
+
   it('keeps hasPersisted false when auto-init session persistence is unavailable', async () => {
     const active = { id: 'active-1', name: 'Primary' };
     mockInitializeRegistry.mockResolvedValue(active);

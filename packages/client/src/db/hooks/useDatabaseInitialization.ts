@@ -76,8 +76,13 @@ export async function initializeAndRestoreDatabaseState({
 
     databaseSetupProgressStore.update('Validating database instances...', 25);
     stepStart = performance.now();
+    // The active instance may be freshly created and not yet have key material.
+    // Validate only inactive entries here; active setup happens immediately after.
+    const instanceIdsToValidate = allInstances
+      .filter((instance) => instance.id !== activeInstance.id)
+      .map((instance) => instance.id);
     const cleanupResult = await validateAndPruneOrphanedInstances(
-      allInstances.map((i) => i.id),
+      instanceIdsToValidate,
       deleteInstanceFromRegistry
     );
 
