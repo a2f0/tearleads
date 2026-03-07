@@ -20,6 +20,9 @@ sha2 = "0.10.9"
 wasm-bindgen = "0.2.105"
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+
 [package.metadata.cargo-machete]
 ignored = ["wasm-bindgen"]
 

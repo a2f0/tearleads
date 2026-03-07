@@ -1,5 +1,8 @@
 // component-complexity: allow -- auth state, token lifecycle, and DB password handoff are coordinated here.
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import { generateMlsOnboardingKeyMaterial } from '@tearleads/mls-core';
 import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
+import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -271,6 +274,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Persist to localStorage
       storeAuth(response.accessToken, response.refreshToken, response.user);
       await configureDeferredDatabasePassword(password);
+
+      // Fire-and-forget: generate MLS credentials + key packages for the new user.
+      // Non-blocking — failure is non-fatal; user can generate later from MLS chat UI.
+      void (async () => {
+        try {
+          const material = await generateMlsOnboardingKeyMaterial(
+            response.user.id
+          );
+          if (material.keyPackages.length > 0) {
+            const mlsRoutes = createMlsV2Routes();
+            await mlsRoutes.uploadKeyPackages({
+              keyPackages: material.keyPackages.map((kp) => ({
+                keyPackageData: kp.keyPackageData,
+                keyPackageRef: kp.keyPackageRef,
+                cipherSuite:
+                  MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+              }))
+            });
+          }
+        } catch (err) {
+          console.warn('[mls-onboarding] Failed to generate MLS keys:', err);
+        }
+      })();
     },
     [configureDeferredDatabasePassword]
   );

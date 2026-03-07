@@ -4,6 +4,11 @@ export {
   MLS_CIPHERSUITE_NAME,
   MlsClient
 } from './mls.js';
+export { generateMlsOnboardingKeyMaterial } from './onboarding.js';
+export type {
+  OnboardingKeyMaterial,
+  OnboardingKeyPackage
+} from './onboarding.js';
 export { MlsStorage } from './storage.js';
 export type {
   LocalKeyPackage,
