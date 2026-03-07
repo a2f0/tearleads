@@ -39,10 +39,6 @@ import { deleteBlobDirect, getBlobDirect } from './vfsDirectBlobs.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectBlobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -257,7 +253,7 @@ describe('vfsDirectBlobs', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       deleted: true,
       blobId: 'blob-1'
     });

@@ -74,7 +74,8 @@ message VfsDeleteBlobRequest {
 }
 
 message VfsDeleteBlobResponse {
-  string json = 1;
+  bool deleted = 1;
+  string blob_id = 2;
 }
 
 message VfsStageBlobRequest {
