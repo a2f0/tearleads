@@ -139,8 +139,7 @@ describe('mlsDirectMessages', () => {
           typeof queryText === 'string' &&
           queryText.includes('FROM vfs_crdt_ops')
       );
-    expect(typeof maxSequenceQuery).toBe('string');
-    if (typeof maxSequenceQuery !== 'string') {
+    if (!maxSequenceQuery) {
       throw new Error('Expected max sequence query to run');
     }
     expect(maxSequenceQuery).toContain("source_table = 'mls_message'");
@@ -297,7 +296,6 @@ describe('mlsDirectMessages', () => {
     );
 
     const listQuery = queryMock.mock.calls[0]?.[0];
-    expect(typeof listQuery).toBe('string');
     if (typeof listQuery !== 'string') {
       throw new Error('Expected list query to run');
     }
