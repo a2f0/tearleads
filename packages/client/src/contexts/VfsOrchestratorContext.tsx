@@ -8,7 +8,6 @@
 import {
   createVfsSecurePipelineBundle,
   type VfsKeyManager,
-  type VfsKeySetupPayload,
   type VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
 } from '@tearleads/api-client/clientEntry';
@@ -221,14 +220,8 @@ export function VfsOrchestratorProvider({
         userKeyProvider,
         itemKeyStore,
         recipientPublicKeyResolver,
-        createKeySetupPayload: async (): Promise<VfsKeySetupPayload> => {
+        ensureUserKeys: async (): Promise<void> => {
           await ensureVfsKeys();
-          return {
-            publicEncryptionKey: '',
-            publicSigningKey: '',
-            encryptedPrivateKeys: '',
-            argon2Salt: ''
-          };
         }
       });
 

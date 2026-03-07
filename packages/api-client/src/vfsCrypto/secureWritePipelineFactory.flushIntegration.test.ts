@@ -170,7 +170,7 @@ describe('secureWritePipelineFactory flush integration', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn()
+      ensureUserKeys: vi.fn()
     });
 
     await bundle.keyManager.createItemKey({ itemId: 'item-1' });
@@ -318,7 +318,7 @@ describe('secureWritePipelineFactory flush integration', () => {
       recipientPublicKeyResolver: {
         resolvePublicKey: vi.fn(async () => null)
       },
-      createKeySetupPayload: vi.fn(),
+      ensureUserKeys: vi.fn(),
       chunkSizeBytes: 4
     });
 

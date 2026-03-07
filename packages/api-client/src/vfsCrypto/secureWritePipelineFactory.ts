@@ -1,7 +1,6 @@
 import type { VfsWriteOrchestrator } from '../vfsWriteOrchestrator';
 import type { VfsCryptoEngine } from './engine';
 import { createVfsCryptoEngine, type ItemKeyResolver } from './engineRuntime';
-import type { VfsKeySetupPayload } from './keyManager';
 import type {
   ItemKeyStore,
   RecipientPublicKeyResolver,
@@ -22,7 +21,7 @@ export interface VfsSecurePipelineFactoryOptions {
   userKeyProvider: UserKeyProvider;
   itemKeyStore: ItemKeyStore;
   recipientPublicKeyResolver: RecipientPublicKeyResolver;
-  createKeySetupPayload: () => Promise<VfsKeySetupPayload>;
+  ensureUserKeys: () => Promise<void>;
   chunkSizeBytes?: number;
 }
 
@@ -53,7 +52,7 @@ export function createVfsSecurePipelineBundle(
     userKeyProvider: options.userKeyProvider,
     itemKeyStore: options.itemKeyStore,
     recipientPublicKeyResolver: options.recipientPublicKeyResolver,
-    createKeySetupPayload: options.createKeySetupPayload
+    ensureUserKeys: options.ensureUserKeys
   });
   const inFlightKeyProvisioning = new Map<string, Promise<number>>();
 
