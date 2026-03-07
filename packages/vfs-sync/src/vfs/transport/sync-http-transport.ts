@@ -215,7 +215,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     }
 
     const parsedPush = parseApiPushResponse(parsedSession['push']);
-    const parsedPull = parseApiPullResponse(parsedSession['pull']);
+    const parsedPull = parseApiPullResponse(
+      parseConnectJsonEnvelopeBody(parsedSession['pull'])
+    );
     const parsedReconcile = parseApiReconcileResponse(
       parsedSession['reconcile']
     );
