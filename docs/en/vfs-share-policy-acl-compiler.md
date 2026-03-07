@@ -32,11 +32,13 @@ Outputs:
 ## Pipeline
 
 1. Load state (`loadSharePolicyState`)
+
 - Optionally scope by explicit `policyIds`.
 - Build a graph closure from policy roots using a recursive `vfs_links` query.
 - Load only registry rows in that closure.
 
-2. Compile in memory (`compileSharePolicyCore`)
+1. Compile in memory (`compileSharePolicyCore`)
+
 - Filter to active policies only:
   - `status === 'active'`
   - `revoked_at IS NULL`
@@ -45,17 +47,20 @@ Outputs:
 - Evaluate selector matches against each policy root scope.
 - Aggregate to one effective decision per `(item, principal)`.
 
-3. Materialize (`materializeCompiledDecisions`)
+1. Materialize (`materializeCompiledDecisions`)
+
 - Upsert into `vfs_acl_entries`.
 - Upsert derived provenance row.
 - Preserve direct grants except where policy result is deny (details below).
 
-4. Revoke stale derived ACLs
+1. Revoke stale derived ACLs
+
 - Find previously derived ACLs not touched in this run.
 - Soft-revoke corresponding ACL entries (when not direct-protected).
 - Rewrite derived provenance for stale entries as deny with null source ids.
 
-5. Emit metrics/telemetry
+1. Emit metrics/telemetry
+
 - Optional callback + structured JSON event
   (`event: vfs_share_policy_compile_run`).
 
