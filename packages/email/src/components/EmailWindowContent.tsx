@@ -7,9 +7,12 @@ import type { ReactNode } from 'react';
 import { useEmailBody } from '../hooks/useEmailBody.js';
 import { formatEmailDate, formatEmailSize } from '../lib';
 import type { EmailItem } from '../lib/email.js';
+import type { ComposeMode } from '../lib/quoteText.js';
 import { ComposeDialog } from './compose/ComposeDialog.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailBodyView } from './emailBody/EmailBodyView.js';
+
+export type { ComposeMode };
 
 export interface ComposeOpenRequest {
   to?: string[];
@@ -17,6 +20,7 @@ export interface ComposeOpenRequest {
   bcc?: string[];
   subject?: string;
   body?: string;
+  composeMode?: ComposeMode;
   requestId: number;
 }
 
@@ -117,6 +121,11 @@ export function EmailWindowContent({
           <p className="text-muted-foreground text-xs">
             To: {selectedEmail.to.join(', ')}
           </p>
+          {selectedEmail.cc && selectedEmail.cc.length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Cc: {selectedEmail.cc.join(', ')}
+            </p>
+          )}
           <p className="text-muted-foreground text-xs">
             {formatEmailDate(selectedEmail.receivedAt)} ·{' '}
             {formatEmailSize(selectedEmail.size)}

@@ -4,6 +4,8 @@ import {
   WindowControlGroup
 } from '@tearleads/window-manager';
 import { ArrowLeft, Edit, RefreshCw } from 'lucide-react';
+import type { ComposeMode } from '../lib/quoteText.js';
+import { EmailDetailActions } from './EmailDetailActions.js';
 
 interface EmailWindowControlBarProps {
   selectedEmailId: string | null;
@@ -12,6 +14,7 @@ interface EmailWindowControlBarProps {
   onCloseCompose: () => void;
   onCompose: () => void;
   onRefresh: () => void;
+  onComposeForMode?: (mode: ComposeMode) => void;
 }
 
 export function EmailWindowControlBar({
@@ -20,7 +23,8 @@ export function EmailWindowControlBar({
   onBack,
   onCloseCompose,
   onCompose,
-  onRefresh
+  onRefresh,
+  onComposeForMode
 }: EmailWindowControlBarProps) {
   return (
     <WindowControlBar>
@@ -60,6 +64,9 @@ export function EmailWindowControlBar({
           </>
         )}
       </WindowControlGroup>
+      {selectedEmailId && onComposeForMode && (
+        <EmailDetailActions onComposeForMode={onComposeForMode} />
+      )}
     </WindowControlBar>
   );
 }
