@@ -126,10 +126,7 @@ export const vfsConnectService = {
     request: { json: string },
     context: { requestHeader: Headers }
   ) => {
-    const response = await sendEmailDirect(
-      parseJsonBody(request.json),
-      context
-    );
+    const response = await sendEmailDirect(parseJsonBody(request.json), context);
     return { json: JSON.stringify(response) };
   }
 };
