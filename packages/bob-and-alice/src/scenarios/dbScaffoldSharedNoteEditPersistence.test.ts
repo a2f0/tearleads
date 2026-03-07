@@ -20,6 +20,7 @@ import {
   refreshLocalStateFromApi,
   teardownBrowserRuntimeActors
 } from '../harness/browserRuntimeHarness.js';
+import { queryLocalItemPermission } from '../harness/browserRuntimePermissions.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
 const getApiDeps = async () => {
@@ -215,30 +216,14 @@ describe('DB scaffold shared note edit persistence', () => {
     );
     expect(initialAliceNote?.content).toBe(toBase64('Hello, Alice'));
 
-    const visibilityRows = await harness.ctx.pool.query<{
-      access_rank: number;
-    }>(
-      `SELECT access_rank
-       FROM vfs_effective_visibility
-       WHERE user_id = $1
-         AND item_id = $2
-       LIMIT 1`,
-      [alice.user.userId, seededShare.noteId]
-    );
-    const noteAclRows = await harness.ctx.pool.query<{
-      access_level: string;
-    }>(
-      `SELECT access_level
-       FROM vfs_acl_entries
-       WHERE item_id = $1
-         AND principal_type = 'user'
-         AND principal_id = $2`,
-      [seededShare.noteId, alice.user.userId]
-    );
-    expect(noteAclRows.rows.map((row) => row.access_level)).toContain('write');
-    expect(
-      Number(visibilityRows.rows[0]?.access_rank ?? 0)
-    ).toBeGreaterThanOrEqual(2);
+    const alicePermission = await queryLocalItemPermission({
+      localDb: aliceRuntime.localDb,
+      itemId: seededShare.noteId,
+      currentUserId: alice.user.userId
+    });
+    expect(alicePermission.canRead).toBe(true);
+    expect(alicePermission.canEdit).toBe(true);
+    expect(alicePermission.permissionLevel).toBe('edit');
 
     const baseOccurredAtMs = Date.parse('2026-03-07T17:00:00.000Z');
 
@@ -342,5 +327,94 @@ describe('DB scaffold shared note edit persistence', () => {
           item.encryptedPayload === aliceSecondPayload
       )
     ).toBe(true);
+  });
+
+  it('keeps read-only DB-scaffold shares non-editable and push is rejected', async () => {
+    harness = await ApiScenarioHarness.create(
+      [{ alias: 'bob' }, { alias: 'alice' }],
+      getApiDeps
+    );
+
+    const bob = harness.actor('bob');
+    const alice = harness.actor('alice');
+
+    const client = await harness.ctx.pool.connect();
+    let seededShare: Awaited<ReturnType<typeof setupBobNotesShareForAliceDb>>;
+    try {
+      await seedUserKeys({
+        client,
+        bobUserId: bob.user.userId,
+        aliceUserId: alice.user.userId
+      });
+
+      seededShare = await setupBobNotesShareForAliceDb({
+        client,
+        bobEmail: bob.user.email,
+        aliceEmail: alice.user.email,
+        shareAccessLevel: 'read'
+      });
+    } finally {
+      client.release();
+    }
+
+    const aliceRuntime = await createBrowserRuntimeActor('alice-readonly');
+    browserActors = [aliceRuntime];
+
+    const knownUsers = [
+      { id: bob.user.userId, email: bob.user.email },
+      { id: alice.user.userId, email: alice.user.email }
+    ];
+
+    await refreshLocalStateFromApi({
+      actor: alice,
+      localDb: aliceRuntime.localDb,
+      knownUsers
+    });
+
+    const initialPayload =
+      (await queryLocalNoteById(aliceRuntime.localDb, seededShare.noteId))
+        ?.content ?? '';
+    expect(initialPayload.length).toBeGreaterThan(0);
+
+    const alicePermission = await queryLocalItemPermission({
+      localDb: aliceRuntime.localDb,
+      itemId: seededShare.noteId,
+      currentUserId: alice.user.userId
+    });
+    expect(alicePermission.canRead).toBe(true);
+    expect(alicePermission.canEdit).toBe(false);
+    expect(alicePermission.permissionLevel).toBe('view');
+
+    const rejectedPush = await alice.fetchJson<VfsCrdtPushResponse>(
+      '/vfs/crdt/push',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: 'alice-client-readonly',
+          operations: [
+            buildItemUpsertOperation({
+              opId: `alice-op-${randomUUID()}`,
+              itemId: seededShare.noteId,
+              replicaId: 'alice-client-readonly',
+              writeId: 1,
+              occurredAt: '2026-03-07T18:00:00.000Z',
+              plaintext: 'alice-should-not-be-allowed-to-write'
+            })
+          ]
+        })
+      }
+    );
+    expect(rejectedPush.results[0]?.status).toBe('invalidOp');
+
+    await refreshLocalStateFromApi({
+      actor: alice,
+      localDb: aliceRuntime.localDb,
+      knownUsers
+    });
+    expect(
+      (await queryLocalNoteById(aliceRuntime.localDb, seededShare.noteId))
+        ?.content
+    ).toBe(initialPayload);
   });
 });
