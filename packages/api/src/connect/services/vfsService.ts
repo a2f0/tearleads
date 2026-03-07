@@ -4,8 +4,8 @@ import {
   abandonBlobDirect,
   commitBlobDirect
 } from './vfsDirectBlobFinalize.js';
+import type { StagingIdJsonRequest } from './vfsDirectBlobShared.js';
 import {
-  type StagingIdJsonRequest,
   stageBlobDirect,
   uploadBlobChunkDirect
 } from './vfsDirectBlobStageUpload.js';

@@ -84,7 +84,11 @@ message VfsStageBlobRequest {
 }
 
 message VfsStageBlobResponse {
-  string json = 1;
+  string staging_id = 1;
+  string blob_id = 2;
+  string status = 3;
+  string staged_at = 4;
+  string expires_at = 5;
 }
 
 message VfsUploadBlobChunkRequest {
@@ -93,7 +97,10 @@ message VfsUploadBlobChunkRequest {
 }
 
 message VfsUploadBlobChunkResponse {
-  string json = 1;
+  bool accepted = 1;
+  string staging_id = 2;
+  string upload_id = 3;
+  int32 chunk_index = 4;
 }
 
 message VfsAttachBlobRequest {
@@ -102,7 +109,13 @@ message VfsAttachBlobRequest {
 }
 
 message VfsAttachBlobResponse {
-  string json = 1;
+  bool attached = 1;
+  string staging_id = 2;
+  string blob_id = 3;
+  string item_id = 4;
+  string relation_kind = 5;
+  string ref_id = 6;
+  string attached_at = 7;
 }
 
 message VfsAbandonBlobRequest {
@@ -111,7 +124,9 @@ message VfsAbandonBlobRequest {
 }
 
 message VfsAbandonBlobResponse {
-  string json = 1;
+  bool abandoned = 1;
+  string staging_id = 2;
+  string status = 3;
 }
 
 message VfsCommitBlobRequest {
@@ -120,7 +135,10 @@ message VfsCommitBlobRequest {
 }
 
 message VfsCommitBlobResponse {
-  string json = 1;
+  bool committed = 1;
+  string staging_id = 2;
+  string upload_id = 3;
+  string blob_id = 4;
 }
 
 message VfsRekeyItemRequest {

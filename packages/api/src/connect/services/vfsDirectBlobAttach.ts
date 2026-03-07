@@ -19,10 +19,19 @@ import {
 import {
   normalizeRequiredString,
   parseBlobAttachBody,
+  type StagingIdJsonRequest,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
+export type AttachBlobDirectResponse = {
+  attached: boolean;
+  stagingId: string;
+  blobId: string;
+  itemId: string;
+  relationKind: string;
+  refId: string;
+  attachedAt: string;
+};
 
 interface BlobStagingRow {
   blob_id: string;
@@ -70,7 +79,7 @@ function requireStagingId(value: string): string {
 export async function attachBlobDirect(
   request: StagingIdJsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AttachBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/attach`,
@@ -432,15 +441,13 @@ export async function attachBlobDirect(
     inTransaction = false;
 
     return {
-      json: JSON.stringify({
-        attached: true,
-        stagingId,
-        blobId: stagedBlobId,
-        itemId: parsedBody.itemId,
-        relationKind: parsedBody.relationKind,
-        refId,
-        attachedAt: responseAttachedAtIso
-      })
+      attached: true,
+      stagingId,
+      blobId: stagedBlobId,
+      itemId: parsedBody.itemId,
+      relationKind: parsedBody.relationKind,
+      refId,
+      attachedAt: responseAttachedAtIso
     };
   } catch (error) {
     if (inTransaction) {

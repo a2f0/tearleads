@@ -5,15 +5,26 @@ import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   normalizeRequiredString,
-  parseBlobCommitBody
+  parseBlobCommitBody,
+  type StagingIdJsonRequest
 } from './vfsDirectBlobShared.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobStageUpload.js';
 import {
   deleteBlobUploadSession,
   deleteBlobUploadSessionsForStaging,
   getBlobUploadChunks
 } from './vfsDirectBlobUploadSessions.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
+export type AbandonBlobDirectResponse = {
+  abandoned: boolean;
+  stagingId: string;
+  status: string;
+};
+export type CommitBlobDirectResponse = {
+  committed: boolean;
+  stagingId: string;
+  uploadId: string;
+  blobId: string;
+};
 
 interface BlobStagingStateRow {
   staged_by: string | null;
@@ -65,7 +76,7 @@ function requireStagingId(value: string): string {
 export async function abandonBlobDirect(
   request: StagingIdJsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AbandonBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/abandon`,
@@ -161,11 +172,9 @@ export async function abandonBlobDirect(
     inTransaction = false;
 
     return {
-      json: JSON.stringify({
-        abandoned: true,
-        stagingId,
-        status: 'abandoned'
-      })
+      abandoned: true,
+      stagingId,
+      status: 'abandoned'
     };
   } catch (error) {
     if (inTransaction) {
@@ -186,7 +195,7 @@ export async function abandonBlobDirect(
 export async function commitBlobDirect(
   request: StagingIdJsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<CommitBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/commit`,
@@ -329,12 +338,10 @@ export async function commitBlobDirect(
     });
 
     return {
-      json: JSON.stringify({
-        committed: true,
-        stagingId,
-        uploadId: payload.uploadId,
-        blobId
-      })
+      committed: true,
+      stagingId,
+      uploadId: payload.uploadId,
+      blobId
     };
   } catch (error) {
     if (error instanceof ConnectError) {

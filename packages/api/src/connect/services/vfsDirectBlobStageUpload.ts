@@ -8,13 +8,26 @@ import {
   normalizeRequiredString,
   parseBlobChunkBody,
   parseBlobStageBody,
+  type StagingIdJsonRequest,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
 import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
 import { encoded, parseJsonBody } from './vfsDirectJson.js';
 
 type JsonRequest = { json: string };
-export type StagingIdJsonRequest = { stagingId: string; json: string };
+export type StageBlobDirectResponse = {
+  stagingId: string;
+  blobId: string;
+  status: string;
+  stagedAt: string;
+  expiresAt: string;
+};
+export type UploadBlobChunkDirectResponse = {
+  accepted: boolean;
+  stagingId: string;
+  uploadId: string;
+  chunkIndex: number;
+};
 
 interface BlobRegistryTypeRow {
   object_type: string;
@@ -77,7 +90,7 @@ function requireStagingId(value: string): string {
 export async function stageBlobDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<StageBlobDirectResponse> {
   const claims = await requireVfsClaims(
     '/vfs/blobs/stage',
     context.requestHeader,
@@ -242,13 +255,11 @@ export async function stageBlobDirect(
     inTransaction = false;
 
     return {
-      json: JSON.stringify({
-        stagingId: row.id,
-        blobId: row.blob_id,
-        status: row.status,
-        stagedAt: toIsoFromDateOrString(row.staged_at),
-        expiresAt: toIsoFromDateOrString(row.expires_at)
-      })
+      stagingId: row.id,
+      blobId: row.blob_id,
+      status: row.status,
+      stagedAt: toIsoFromDateOrString(row.staged_at),
+      expiresAt: toIsoFromDateOrString(row.expires_at)
     };
   } catch (error) {
     if (inTransaction) {
@@ -277,7 +288,7 @@ export async function stageBlobDirect(
 export async function uploadBlobChunkDirect(
   request: StagingIdJsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<UploadBlobChunkDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     `/vfs/blobs/stage/${encoded(stagingId)}/chunks`,
@@ -349,12 +360,10 @@ export async function uploadBlobChunkDirect(
     });
 
     return {
-      json: JSON.stringify({
-        accepted: true,
-        stagingId,
-        uploadId: payload.uploadId,
-        chunkIndex: payload.chunkIndex
-      })
+      accepted: true,
+      stagingId,
+      uploadId: payload.uploadId,
+      chunkIndex: payload.chunkIndex
     };
   } catch (error) {
     if (error instanceof ConnectError) {
