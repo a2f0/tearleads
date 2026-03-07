@@ -144,9 +144,7 @@ export async function registerDirect(
     const createdAt = result.rows[0]?.created_at;
     return {
       id: payload.id,
-      createdAt: createdAt
-        ? createdAt.toISOString()
-        : new Date().toISOString()
+      createdAt: createdAt ? createdAt.toISOString() : new Date().toISOString()
     };
   } catch (error) {
     if (error instanceof ConnectError) {

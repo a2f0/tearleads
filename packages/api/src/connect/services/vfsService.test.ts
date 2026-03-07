@@ -152,7 +152,9 @@ vi.mock('./vfsDirectSync.js', () => ({
   reconcileSyncDirect: (request: unknown, context: unknown) =>
     reconcileSyncDirectMock(request, context)
 }));
+
 import { vfsConnectService } from './vfsService.js';
+
 type DirectJsonMock = {
   mockReset: () => void;
   mockResolvedValue: (value: { json: string }) => void;
@@ -196,7 +198,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
 describe('vfsConnectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
     getBlobDirectMock.mockReset();
     getBlobDirectMock.mockResolvedValue({
       data: new Uint8Array([7, 8, 9]),
