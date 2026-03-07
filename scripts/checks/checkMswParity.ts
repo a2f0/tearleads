@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --import tsx
 import fs from 'node:fs/promises';
+import { loadApiRoutes } from './checkMswParity/apiRoutes.ts';
 import {
   type ApiRoute,
   type HttpMethod,
@@ -11,7 +12,6 @@ import {
   type MswHandlerMatcher,
   type ParityResult
 } from './checkMswParity/types.ts';
-import { loadApiRoutes } from './checkMswParity/apiRoutes.ts';
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {
   const segments: string[] = [];
