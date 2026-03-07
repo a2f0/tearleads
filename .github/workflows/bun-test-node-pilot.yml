@@ -34,7 +34,7 @@ jobs:
           - package: '@tearleads/app-builder'
             script: test
           - package: '@tearleads/bob-and-alice'
-            script: testBun
+            script: test
           - package: '@tearleads/local-write-orchestrator'
             script: test
           - package: '@tearleads/mls-core'
