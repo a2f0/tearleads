@@ -238,7 +238,7 @@ export async function getGroupMessagesDirectTyped(
              WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
              THEN split_part(ops.source_id, ':', 3)::integer
              ELSE NULL
-           END::integer AS sequence_number,
+           END AS sequence_number,
            ops.occurred_at AS created_at,
            u.email AS sender_email
          FROM vfs_crdt_ops ops
