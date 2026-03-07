@@ -5,11 +5,11 @@ import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseSendRequestPayload } from './vfsDirectEmailPayload.js';
-import { encoded, parseJsonBody } from './vfsDirectJson.js';
+import { encoded } from './vfsDirectJson.js';
 
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
-type JsonRequest = { json: string };
+type SendEmailRequest = Record<string, unknown>;
 
 export interface EmailListItem {
   id: string;
@@ -268,7 +268,7 @@ export async function getEmailDirect(
 export async function deleteEmailDirect(
   request: EmailIdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ success: boolean }> {
   const emailId = request.id.trim();
   if (emailId.length === 0) {
     throw new ConnectError('id is required', Code.InvalidArgument);
@@ -360,9 +360,7 @@ export async function deleteEmailDirect(
       }
     }
 
-    return {
-      json: JSON.stringify({ success: true })
-    };
+    return { success: true };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -374,15 +372,15 @@ export async function deleteEmailDirect(
 }
 
 export async function sendEmailDirect(
-  request: JsonRequest,
+  request: SendEmailRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ success: boolean; messageId?: string }> {
   await requireVfsClaims('/vfs/emails/send', context.requestHeader, {
     requireDeclaredOrganization: true
   });
 
   try {
-    const payload = parseSendRequestPayload(parseJsonBody(request.json));
+    const payload = parseSendRequestPayload(request);
 
     const emailAttachments: EmailAttachment[] | undefined =
       payload.attachments?.map((attachment) => ({
@@ -408,10 +406,8 @@ export async function sendEmailDirect(
     }
 
     return {
-      json: JSON.stringify({
-        success: true,
-        messageId: result.messageId
-      })
+      success: true,
+      ...(result.messageId ? { messageId: result.messageId } : {})
     };
   } catch (error) {
     if (error instanceof ConnectError) {

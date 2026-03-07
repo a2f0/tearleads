@@ -233,13 +233,25 @@ message VfsDeleteEmailRequest {
 }
 
 message VfsDeleteEmailResponse {
-  string json = 1;
+  bool success = 1;
+}
+
+message VfsSendEmailAttachment {
+  string file_name = 1;
+  string mime_type = 2;
+  string content = 3;
 }
 
 message VfsSendEmailRequest {
-  string json = 1;
+  repeated string to = 1;
+  repeated string cc = 2;
+  repeated string bcc = 3;
+  string subject = 4;
+  string body = 5;
+  repeated VfsSendEmailAttachment attachments = 6;
 }
 
 message VfsSendEmailResponse {
-  string json = 1;
+  bool success = 1;
+  optional string message_id = 2;
 }

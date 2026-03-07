@@ -35,7 +35,7 @@ const {
   getCrdtSyncDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   deleteEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   getBlobDirectMock:
     vi.fn<
       (
@@ -78,7 +78,7 @@ const {
   registerDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   sendEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   setupKeysDirectMock:
     vi.fn<
       (request: unknown, context: unknown) => Promise<{ created: boolean }>
@@ -185,7 +185,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     commitBlobDirectMock,
     getCrdtSyncDirectMock,
     deleteBlobDirectMock,
-    deleteEmailDirectMock,
     getCrdtSnapshotDirectMock,
     pushCrdtOpsDirectMock,
     reconcileCrdtDirectMock,
@@ -195,7 +194,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     rekeyItemDirectMock,
     reconcileSyncDirectMock,
     registerDirectMock,
-    sendEmailDirectMock,
     uploadBlobChunkDirectMock
   ];
 }
@@ -225,6 +223,15 @@ describe('vfsConnectService', () => {
 
     setupKeysDirectMock.mockReset();
     setupKeysDirectMock.mockResolvedValue({ created: true });
+
+    deleteEmailDirectMock.mockReset();
+    deleteEmailDirectMock.mockResolvedValue({ success: true });
+
+    sendEmailDirectMock.mockReset();
+    sendEmailDirectMock.mockResolvedValue({
+      success: true,
+      messageId: 'msg-1'
+    });
 
     getEmailsDirectMock.mockReset();
     getEmailsDirectMock.mockResolvedValue({ emails: [] });
@@ -285,7 +292,9 @@ describe('vfsConnectService', () => {
     const getEmailRequest = { id: 'email-1' };
     const deleteEmailRequest = { id: 'email-2' };
     const sendEmailRequest = {
-      json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}'
+      to: ['a@example.com'],
+      subject: 'Hi',
+      body: 'Hello'
     };
     const reconcileSyncRequest = {
       json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
@@ -383,16 +392,6 @@ describe('vfsConnectService', () => {
         expectedRequest: runCrdtSessionRequest,
         mock: runCrdtSessionDirectMock
       },
-      {
-        call: () => vfsConnectService.deleteEmail(deleteEmailRequest, context),
-        expectedRequest: deleteEmailRequest,
-        mock: deleteEmailDirectMock
-      },
-      {
-        call: () => vfsConnectService.sendEmail(sendEmailRequest, context),
-        expectedRequest: sendEmailRequest,
-        mock: sendEmailDirectMock
-      }
     ];
 
     for (const testCase of directCases) {
@@ -433,6 +432,26 @@ describe('vfsConnectService', () => {
     );
     expect(getEmailResponse).toEqual({ id: 'email-1' });
     expect(getEmailDirectMock).toHaveBeenCalledWith(getEmailRequest, context);
+
+    const deleteEmailResponse = await vfsConnectService.deleteEmail(
+      deleteEmailRequest,
+      context
+    );
+    expect(deleteEmailResponse).toEqual({ success: true });
+    expect(deleteEmailDirectMock).toHaveBeenCalledWith(
+      deleteEmailRequest,
+      context
+    );
+
+    const sendEmailResponse = await vfsConnectService.sendEmail(
+      sendEmailRequest,
+      context
+    );
+    expect(sendEmailResponse).toEqual({
+      success: true,
+      messageId: 'msg-1'
+    });
+    expect(sendEmailDirectMock).toHaveBeenCalledWith(sendEmailRequest, context);
 
     const getBlobResponse = await vfsConnectService.getBlob(
       getBlobRequest,

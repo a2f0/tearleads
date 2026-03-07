@@ -48,10 +48,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectEmails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -328,9 +324,7 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      success: true
-    });
+    expect(response).toEqual({ success: true });
     expect(deleteVfsBlobByStorageKeyMock).toHaveBeenCalledWith({
       storageKey: 'storage-1'
     });
@@ -360,9 +354,7 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      success: true
-    });
+    expect(response).toEqual({ success: true });
     expect(deleteVfsBlobByStorageKeyMock).not.toHaveBeenCalled();
   });
 
@@ -392,16 +384,15 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      success: true
-    });
+    expect(response).toEqual({ success: true });
   });
 
   it('rejects sendEmail when recipients are missing', async () => {
     await expect(
       sendEmailDirect(
         {
-          json: '{"subject":"Hi","body":"Hello"}'
+          subject: 'Hi',
+          body: 'Hello'
         },
         {
           requestHeader: new Headers()
@@ -410,7 +401,6 @@ describe('vfsDirectEmails', () => {
     ).rejects.toMatchObject({
       code: Code.InvalidArgument
     });
-
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
@@ -418,7 +408,9 @@ describe('vfsDirectEmails', () => {
     await expect(
       sendEmailDirect(
         {
-          json: '{"to":["a@example.com"],"subject":"Hi","attachments":[{"fileName":"a.txt"}]}'
+          to: ['a@example.com'],
+          subject: 'Hi',
+          attachments: [{ fileName: 'a.txt' }]
         },
         {
           requestHeader: new Headers()
@@ -434,11 +426,12 @@ describe('vfsDirectEmails', () => {
       success: false,
       error: 'smtp unavailable'
     });
-
     await expect(
       sendEmailDirect(
         {
-          json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}'
+          to: ['a@example.com'],
+          subject: 'Hi',
+          body: 'Hello'
         },
         {
           requestHeader: new Headers()
@@ -451,11 +444,12 @@ describe('vfsDirectEmails', () => {
 
   it('maps unexpected sender exceptions to Internal', async () => {
     sendEmailMock.mockRejectedValueOnce(new Error('boom'));
-
     await expect(
       sendEmailDirect(
         {
-          json: '{"to":["a@example.com"],"subject":"Hi","body":"Hello"}'
+          to: ['a@example.com'],
+          subject: 'Hi',
+          body: 'Hello'
         },
         {
           requestHeader: new Headers()
@@ -469,18 +463,26 @@ describe('vfsDirectEmails', () => {
   it('sends email and returns message id', async () => {
     const response = await sendEmailDirect(
       {
-        json: '{"to":["a@example.com"],"cc":["b@example.com"],"subject":"Hi","body":"Hello","attachments":[{"fileName":"a.txt","mimeType":"text/plain","content":"SGVsbG8="}]}'
+        to: ['a@example.com'],
+        cc: ['b@example.com'],
+        subject: 'Hi',
+        body: 'Hello',
+        attachments: [
+          {
+            fileName: 'a.txt',
+            mimeType: 'text/plain',
+            content: 'SGVsbG8='
+          }
+        ]
       },
       {
         requestHeader: new Headers()
       }
     );
-
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       success: true,
       messageId: 'msg-1'
     });
-
     expect(sendEmailMock).toHaveBeenCalledWith({
       to: ['a@example.com'],
       cc: ['b@example.com'],
