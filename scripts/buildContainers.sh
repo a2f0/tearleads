@@ -38,7 +38,7 @@ usage() {
   echo "  AWS_REGION      AWS region (default: us-east-1)"
   echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected when pushing)"
   echo "  DOCKER_BUILD_PLATFORM  Docker platform (linux/amd64, linux/arm64, or auto)"
-  echo "  VITE_API_URL    API URL for client build (required for client)"
+  echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
 
@@ -53,6 +53,23 @@ if [[ "$ENV" != "staging" && "$ENV" != "prod" ]]; then
   echo "Error: Environment must be 'staging' or 'prod'"
   exit 1
 fi
+
+# Source environment secrets
+ENV_FILE="$REPO_ROOT/.secrets/${ENV}.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Error: Missing secrets file: $ENV_FILE"
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+
+require_var() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    echo "Error: $name is not set. Add it to .secrets/${ENV}.env or export it."
+    exit 1
+  fi
+}
 
 count_selected_builds() {
   local selected=0
@@ -358,12 +375,9 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
 
   # Determine API URL based on environment
   if [[ -z "${VITE_API_URL:-}" ]]; then
-    if [[ "$ENV" == "staging" ]]; then
-      VITE_API_URL="https://api.${TF_VAR_domain:-tearleads.dev}/v1"
-    else
-      VITE_API_URL="https://api.${TF_VAR_domain:-tearleads.com}/v1"
-    fi
-    echo "Note: VITE_API_URL not set, using default: $VITE_API_URL"
+    require_var TF_VAR_domain
+    # shellcheck disable=SC2154  # TF_VAR_domain sourced from .secrets/<env>.env
+    VITE_API_URL="https://api.${TF_VAR_domain}/v1"
   fi
 
   run_or_queue_build \
