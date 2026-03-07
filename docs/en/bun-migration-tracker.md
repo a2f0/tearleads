@@ -10,7 +10,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 1: Bun runtime pilot (Vitest) | In progress | Pilot workflows are running; ongoing stability/perf tracking. |
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
-| Phase 4: Advanced compatibility remediation | Not started | Pending inventory/codemod of Vitest-specific APIs. |
+| Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); codemod/adapters remain pending. |
 | Phase 5: jsdom/UI-heavy strategy | Not started | Pending pilot package decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
@@ -59,6 +59,23 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2875](https://github.com/a2f0/tearleads/pull/2875) | `@tearleads/bob-and-alice` full-suite Bun primary path |
 | [#2877](https://github.com/a2f0/tearleads/pull/2877) | Bob-and-Alice clean-checkout runtime loaders (API/DB deps) |
 | [#2878](https://github.com/a2f0/tearleads/pull/2878) | Bob-and-Alice loader hardening (`db-test-utils`, local-write orchestrator, no-assertion cleanup) |
+| [#2880](https://github.com/a2f0/tearleads/pull/2880) | Tracker dashboard refresh for Bun migration state |
+| [#2882](https://github.com/a2f0/tearleads/pull/2882) | `@tearleads/api-test-utils` Bun-primary compatibility remediation |
+| [#2888](https://github.com/a2f0/tearleads/pull/2888) | `@tearleads/smtp-listener` Bun-primary compatibility remediation |
+| [#2891](https://github.com/a2f0/tearleads/pull/2891) | `@tearleads/db` Bun-primary test |
+| [#2894](https://github.com/a2f0/tearleads/pull/2894) | `@tearleads/db-test-utils` Bun-primary test |
+| [#2895](https://github.com/a2f0/tearleads/pull/2895) | `@tearleads/vfs-sync` Bun-primary compatibility remediation |
+| [#2898](https://github.com/a2f0/tearleads/pull/2898) | `@tearleads/remote-read-orchestrator` Bun-primary coverage |
+| [#2900](https://github.com/a2f0/tearleads/pull/2900) | `@tearleads/tee-api` Bun-primary coverage |
+| [#2901](https://github.com/a2f0/tearleads/pull/2901) | `@tearleads/db-test-utils` Bun-primary coverage |
+| [#2903](https://github.com/a2f0/tearleads/pull/2903) | `@tearleads/db` Bun-primary coverage |
+| [#2908](https://github.com/a2f0/tearleads/pull/2908) | `@tearleads/smtp-listener` Bun-primary coverage |
+| [#2910](https://github.com/a2f0/tearleads/pull/2910) | `@tearleads/api-test-utils` Bun-primary coverage |
+| [#2913](https://github.com/a2f0/tearleads/pull/2913) | `@tearleads/mls-core` Bun-primary coverage |
+| [#2914](https://github.com/a2f0/tearleads/pull/2914) | `@tearleads/msw` Bun-primary coverage |
+| [#2918](https://github.com/a2f0/tearleads/pull/2918) | Node pilot package batch coverage promotion |
+| [#2921](https://github.com/a2f0/tearleads/pull/2921) | Coverage worker flag normalization (`bun`/`vitest`) |
+| [#2923](https://github.com/a2f0/tearleads/pull/2923) | Shared coverage runner consolidation |
 
 ## Node Pilot Package Status
 
@@ -78,5 +95,5 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Expand Bun-first package set where compatibility is already proven and reduce fallback-only paths package-by-package.
-3. Start Phase 4 compatibility backlog inventory (`vi.hoisted`, `vi.importActual`, env/mocking gaps).
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.resetModules`, `vi.mocked`).
+3. Expand Bun-first package set where compatibility is already proven and reduce fallback-only paths package-by-package.
