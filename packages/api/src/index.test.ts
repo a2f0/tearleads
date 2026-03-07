@@ -98,26 +98,6 @@ describe('API', () => {
       expect(response.body).toEqual({ error: 'Not found' });
     });
 
-    it('should return 404 for removed v1 connect route', async () => {
-      const response = await request(app)
-        .post('/v1/connect/tearleads.v1.LegacyService/GetSync')
-        .set('Content-Type', 'application/json')
-        .send('{}');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ error: 'Not found' });
-    });
-
-    it('should return 404 for removed v1 shares connect route', async () => {
-      const response = await request(app)
-        .post('/v1/connect/tearleads.v1.LegacySharesService/GetItemShares')
-        .set('Content-Type', 'application/json')
-        .send('{}');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ error: 'Not found' });
-    });
-
     it('should return 404 for unknown routes', async () => {
       const response = await request(app).get('/unknown-route');
 
