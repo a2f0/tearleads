@@ -58,6 +58,7 @@ Current route patterns:
 - Connect base path: `/v1/connect/tearleads.v2.VfsService`
 - Sync + CRDT RPC methods:
   - `POST /v1/connect/tearleads.v2.VfsService/GetSync`
+  - `POST /v1/connect/tearleads.v2.VfsService/ReconcileSync`
   - `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`
   - `POST /v1/connect/tearleads.v2.VfsService/PushCrdtOps`
   - `POST /v1/connect/tearleads.v2.VfsService/ReconcileCrdt`
@@ -76,11 +77,12 @@ Client runtime can use:
 - `VfsHttpCrdtSyncTransport` for API communication
 - `VfsBackgroundSyncClient` for queued local ops, pull/push/reconcile loops, and durable sync state semantics
 
-The transport currently uses:
+The CRDT transport currently uses:
 
 - `POST /v1/connect/tearleads.v2.VfsService/PushCrdtOps`
 - `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync`
 - `POST /v1/connect/tearleads.v2.VfsService/ReconcileCrdt`
+- `POST /v1/connect/tearleads.v2.VfsService/RunCrdtSession`
 
 ## Protocol Notes
 
