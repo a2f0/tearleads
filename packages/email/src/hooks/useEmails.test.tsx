@@ -81,7 +81,7 @@ describe('useEmails', () => {
     expect(result.current.error).toBe(null);
   });
 
-  it('reads emails from Connect json envelope responses', async () => {
+  it('ignores legacy Connect json envelope responses', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -97,7 +97,7 @@ describe('useEmails', () => {
       await result.current.fetchEmails();
     });
 
-    expect(result.current.emails).toEqual(mockEmails);
+    expect(result.current.emails).toEqual([]);
     expect(result.current.error).toBe(null);
   });
 

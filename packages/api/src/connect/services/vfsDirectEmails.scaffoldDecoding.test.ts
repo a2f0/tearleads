@@ -17,10 +17,6 @@ vi.mock('./vfsDirectAuth.js', () => ({
 
 import { getEmailDirect } from './vfsDirectEmails.js';
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectEmails scaffold decoding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -62,15 +58,14 @@ describe('vfsDirectEmails scaffold decoding', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       id: 'email-decode',
       from: 'system@tearleads.com',
       to: ['bob@test.local', 'alice@test.local'],
       subject: 'Welcome to Tearleads',
       receivedAt: '2026-03-03T00:00:00.000Z',
       size: 12,
-      rawData: scaffoldRawMime,
-      encryptedBodyPath: null
+      rawData: scaffoldRawMime
     });
   });
 });

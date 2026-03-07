@@ -116,7 +116,7 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       emails: [
         {
           id: 'email-1',
@@ -161,7 +161,7 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       emails: [
         {
           id: 'email-2',
@@ -234,15 +234,14 @@ describe('vfsDirectEmails', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       id: 'email-7',
       from: '',
       to: [],
       subject: '',
       receivedAt: '2026-03-03T00:00:00.000Z',
       size: 0,
-      rawData: '',
-      encryptedBodyPath: null
+      rawData: ''
     });
   });
 

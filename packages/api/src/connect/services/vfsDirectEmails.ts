@@ -4,34 +4,20 @@ import { type EmailAttachment, sendEmail } from '../../lib/emailSender.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
+import { parseSendRequestPayload } from './vfsDirectEmailPayload.js';
+import { encoded, parseJsonBody } from './vfsDirectJson.js';
 
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
 type JsonRequest = { json: string };
 
-interface EmailListItem {
+export interface EmailListItem {
   id: string;
   from: string;
   to: string[];
   subject: string;
   receivedAt: string;
   size: number;
-}
-
-interface SendAttachmentRequest {
-  fileName: string;
-  mimeType: string;
-  content: string;
-}
-
-interface SendRequestPayload {
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
-  subject: string;
-  body: string;
-  attachments?: SendAttachmentRequest[];
 }
 
 const SCAFFOLD_INLINE_EMAIL_BODY_PREFIX = 'scaffolding:inline-body:';
@@ -99,6 +85,16 @@ function decodeRecipientList(value: unknown): string[] {
   return toStringArray(value).map((entry) => decodeMaybeBase64Utf8(entry));
 }
 
+function normalizeTimestamp(value: string | Date): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return '';
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -113,88 +109,15 @@ function toStringArray(value: unknown): string[] {
   return entries;
 }
 
-function parseSendRequestPayload(body: unknown): SendRequestPayload {
-  if (!isRecord(body)) {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-
-  const to = toStringArray(body['to']);
-  if (to.length === 0) {
-    throw new ConnectError(
-      'At least one recipient is required',
-      Code.InvalidArgument
-    );
-  }
-
-  const subjectValue = body['subject'];
-  if (typeof subjectValue !== 'string' || subjectValue.trim().length === 0) {
-    throw new ConnectError('Subject is required', Code.InvalidArgument);
-  }
-
-  const bodyValue = body['body'];
-  const textBody = typeof bodyValue === 'string' ? bodyValue : '';
-
-  const ccValues = toStringArray(body['cc']);
-  const bccValues = toStringArray(body['bcc']);
-
-  const attachmentsValue = body['attachments'];
-  let attachments: SendAttachmentRequest[] | undefined;
-  if (attachmentsValue !== undefined) {
-    if (!Array.isArray(attachmentsValue)) {
-      throw new ConnectError(
-        'attachments must be an array',
-        Code.InvalidArgument
-      );
-    }
-
-    const parsedAttachments: SendAttachmentRequest[] = [];
-    for (const attachmentValue of attachmentsValue) {
-      if (!isRecord(attachmentValue)) {
-        throw new ConnectError(
-          'Invalid attachment payload',
-          Code.InvalidArgument
-        );
-      }
-
-      const fileName = attachmentValue['fileName'];
-      const mimeType = attachmentValue['mimeType'];
-      const content = attachmentValue['content'];
-
-      if (
-        typeof fileName !== 'string' ||
-        typeof mimeType !== 'string' ||
-        typeof content !== 'string'
-      ) {
-        throw new ConnectError(
-          'Invalid attachment payload',
-          Code.InvalidArgument
-        );
-      }
-
-      parsedAttachments.push({
-        fileName,
-        mimeType,
-        content
-      });
-    }
-
-    attachments = parsedAttachments;
-  }
-
-  return {
-    to,
-    ...(ccValues.length > 0 ? { cc: ccValues } : {}),
-    ...(bccValues.length > 0 ? { bcc: bccValues } : {}),
-    subject: subjectValue,
-    body: textBody,
-    ...(attachments ? { attachments } : {})
-  };
-}
-
 export async function getEmailsDirect(
   request: GetEmailsRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{
+  emails: EmailListItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}> {
   const claims = await requireVfsClaims('/vfs/emails', context.requestHeader);
 
   const offset = Math.max(
@@ -223,7 +146,7 @@ export async function getEmailsDirect(
       encrypted_from: string | null;
       encrypted_to: unknown;
       encrypted_subject: string | null;
-      received_at: string;
+      received_at: string | Date;
       ciphertext_size: number | null;
     }>(
       `SELECT
@@ -247,13 +170,11 @@ export async function getEmailsDirect(
       from: decodeMaybeBase64Utf8(row.encrypted_from),
       to: decodeRecipientList(row.encrypted_to),
       subject: decodeMaybeBase64Utf8(row.encrypted_subject),
-      receivedAt: row.received_at,
+      receivedAt: normalizeTimestamp(row.received_at),
       size: row.ciphertext_size ?? 0
     }));
 
-    return {
-      json: JSON.stringify({ emails, total, offset, limit })
-    };
+    return { emails, total, offset, limit };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -267,7 +188,16 @@ export async function getEmailsDirect(
 export async function getEmailDirect(
   request: EmailIdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{
+  id: string;
+  from: string;
+  to: string[];
+  subject: string;
+  receivedAt: string;
+  size: number;
+  rawData: string;
+  encryptedBodyPath?: string;
+}> {
   const emailId = request.id.trim();
   if (emailId.length === 0) {
     throw new ConnectError('id is required', Code.InvalidArgument);
@@ -285,7 +215,7 @@ export async function getEmailDirect(
       encrypted_from: string | null;
       encrypted_to: unknown;
       encrypted_subject: string | null;
-      received_at: string;
+      received_at: string | Date;
       ciphertext_size: number | null;
       encrypted_body_path: string | null;
     }>(
@@ -312,17 +242,18 @@ export async function getEmailDirect(
     const scaffoldInlineBody = parseScaffoldInlineBody(row.encrypted_body_path);
 
     return {
-      json: JSON.stringify({
-        id: row.id,
-        from: decodeMaybeBase64Utf8(row.encrypted_from),
-        to: decodeRecipientList(row.encrypted_to),
-        subject: decodeMaybeBase64Utf8(row.encrypted_subject),
-        receivedAt: row.received_at,
-        size: row.ciphertext_size ?? 0,
-        rawData: scaffoldInlineBody ?? '',
-        encryptedBodyPath:
-          scaffoldInlineBody === null ? (row.encrypted_body_path ?? null) : null
-      })
+      id: row.id,
+      from: decodeMaybeBase64Utf8(row.encrypted_from),
+      to: decodeRecipientList(row.encrypted_to),
+      subject: decodeMaybeBase64Utf8(row.encrypted_subject),
+      receivedAt: normalizeTimestamp(row.received_at),
+      size: row.ciphertext_size ?? 0,
+      rawData: scaffoldInlineBody ?? '',
+      ...(scaffoldInlineBody === null &&
+      typeof row.encrypted_body_path === 'string' &&
+      row.encrypted_body_path.length > 0
+        ? { encryptedBodyPath: row.encrypted_body_path }
+        : {})
     };
   } catch (error) {
     if (error instanceof ConnectError) {

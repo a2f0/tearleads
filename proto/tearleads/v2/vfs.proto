@@ -197,8 +197,20 @@ message VfsGetEmailsRequest {
   int32 limit = 2;
 }
 
+message VfsEmailListItem {
+  string id = 1;
+  string from = 2;
+  repeated string to = 3;
+  string subject = 4;
+  string received_at = 5;
+  int32 size = 6;
+}
+
 message VfsGetEmailsResponse {
-  string json = 1;
+  repeated VfsEmailListItem emails = 1;
+  int32 total = 2;
+  int32 offset = 3;
+  int32 limit = 4;
 }
 
 message VfsGetEmailRequest {
@@ -206,7 +218,14 @@ message VfsGetEmailRequest {
 }
 
 message VfsGetEmailResponse {
-  string json = 1;
+  string id = 1;
+  string from = 2;
+  repeated string to = 3;
+  string subject = 4;
+  string received_at = 5;
+  int32 size = 6;
+  string raw_data = 7;
+  optional string encrypted_body_path = 8;
 }
 
 message VfsDeleteEmailRequest {

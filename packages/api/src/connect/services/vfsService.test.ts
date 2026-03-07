@@ -46,9 +46,9 @@ const {
   getCrdtSnapshotDirectMock:
     vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
   getEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   getEmailsDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
+    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
   getMyKeysDirectMock:
     vi.fn<
       (
@@ -187,8 +187,6 @@ function resetDirectJsonMocks(): DirectJsonMock[] {
     deleteBlobDirectMock,
     deleteEmailDirectMock,
     getCrdtSnapshotDirectMock,
-    getEmailDirectMock,
-    getEmailsDirectMock,
     pushCrdtOpsDirectMock,
     reconcileCrdtDirectMock,
     runCrdtSessionDirectMock,
@@ -227,6 +225,12 @@ describe('vfsConnectService', () => {
 
     setupKeysDirectMock.mockReset();
     setupKeysDirectMock.mockResolvedValue({ created: true });
+
+    getEmailsDirectMock.mockReset();
+    getEmailsDirectMock.mockResolvedValue({ emails: [] });
+
+    getEmailDirectMock.mockReset();
+    getEmailDirectMock.mockResolvedValue({ id: 'email-1' });
   });
 
   it('delegates direct methods to vfs direct handlers', async () => {
@@ -380,16 +384,6 @@ describe('vfsConnectService', () => {
         mock: runCrdtSessionDirectMock
       },
       {
-        call: () => vfsConnectService.getEmails(getEmailsRequest, context),
-        expectedRequest: getEmailsRequest,
-        mock: getEmailsDirectMock
-      },
-      {
-        call: () => vfsConnectService.getEmail(getEmailRequest, context),
-        expectedRequest: getEmailRequest,
-        mock: getEmailDirectMock
-      },
-      {
         call: () => vfsConnectService.deleteEmail(deleteEmailRequest, context),
         expectedRequest: deleteEmailRequest,
         mock: deleteEmailDirectMock
@@ -425,6 +419,20 @@ describe('vfsConnectService', () => {
     );
     expect(setupKeysResponse).toEqual({ created: true });
     expect(setupKeysDirectMock).toHaveBeenCalledWith(setupKeysRequest, context);
+
+    const getEmailsResponse = await vfsConnectService.getEmails(
+      getEmailsRequest,
+      context
+    );
+    expect(getEmailsResponse).toEqual({ emails: [] });
+    expect(getEmailsDirectMock).toHaveBeenCalledWith(getEmailsRequest, context);
+
+    const getEmailResponse = await vfsConnectService.getEmail(
+      getEmailRequest,
+      context
+    );
+    expect(getEmailResponse).toEqual({ id: 'email-1' });
+    expect(getEmailDirectMock).toHaveBeenCalledWith(getEmailRequest, context);
 
     const getBlobResponse = await vfsConnectService.getBlob(
       getBlobRequest,

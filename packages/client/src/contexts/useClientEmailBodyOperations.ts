@@ -35,19 +35,9 @@ export function useClientEmailBodyOperations(): EmailBodyOperations {
         throw new Error(`Failed to fetch email: ${response.statusText}`);
       }
 
-      const envelope: unknown = await response.json();
-      if (!isRecord(envelope)) {
-        throw new Error('Invalid email response');
-      }
-
-      const json = envelope['json'];
-      if (typeof json !== 'string') {
-        throw new Error('Invalid email response envelope');
-      }
-
-      const emailData: unknown = JSON.parse(json);
+      const emailData: unknown = await response.json();
       if (!isRecord(emailData)) {
-        throw new Error('Invalid email data');
+        throw new Error('Invalid email response');
       }
 
       const rawData = emailData['rawData'];
