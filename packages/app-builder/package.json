@@ -27,6 +27,7 @@
     "list": "tsx src/cli.ts list",
     "test": "bun test src/generators/theme.test.ts src/generators/utils.test.ts",
     "testVitest": "sh ../../scripts/tooling/pm.sh -w exec vitest run packages/app-builder/src/generators/theme.test.ts packages/app-builder/src/generators/utils.test.ts",
+    "test:coverage": "sh ./scripts/testCoverage.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
