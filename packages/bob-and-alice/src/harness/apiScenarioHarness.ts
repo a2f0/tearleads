@@ -1,7 +1,7 @@
-import {
-  type SeededUser,
-  type TestContext,
-  type TestContextDeps
+import type {
+  SeededUser,
+  TestContext,
+  TestContextDeps
 } from '@tearleads/api-test-utils';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {

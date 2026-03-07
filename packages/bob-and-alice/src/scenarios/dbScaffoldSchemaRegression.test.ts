@@ -1,6 +1,4 @@
-import {
-  type createPglitePool as createPglitePoolFn
-} from '@tearleads/api-test-utils';
+import type { createPglitePool as createPglitePoolFn } from '@tearleads/api-test-utils';
 import {
   setupBobNotesShareForAliceDb,
   setupWelcomeEmailsDb
