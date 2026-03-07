@@ -2,7 +2,7 @@
  * Tests for search indexing helpers
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   indexDocument,
   indexDocuments,
@@ -11,6 +11,10 @@ import {
 } from './integration';
 import * as SearchStoreModule from './SearchStore';
 import type { SearchableDocument } from './types';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('indexDocument', () => {
   let mockUpsert: ReturnType<typeof vi.fn>;
