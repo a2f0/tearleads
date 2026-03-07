@@ -25,7 +25,7 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
 export async function pushCrdtOpsDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsCrdtPushResponse> {
   const parsedPayload = parsePushPayload(parseJsonBody(request.json));
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
@@ -82,9 +82,7 @@ export async function pushCrdtOpsDirect(
       results: pushResult.results
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (inTransaction) {
       await rollbackQuietly(client);

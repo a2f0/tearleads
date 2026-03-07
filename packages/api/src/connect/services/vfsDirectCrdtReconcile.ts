@@ -28,7 +28,7 @@ function toScopedCrdtClientId(clientId: string): string {
 export async function reconcileCrdtDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsCrdtReconcileResponse> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/reconcile',
     context.requestHeader,
@@ -116,9 +116,7 @@ export async function reconcileCrdtDirect(
       lastReconciledWriteIds: parsedLastWriteIds.value
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

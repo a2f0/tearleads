@@ -348,7 +348,7 @@ export async function getCrdtSnapshotDirect(
 export async function reconcileSyncDirect(
   request: JsonRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
     '/vfs/sync/reconcile',
     context.requestHeader,
@@ -423,9 +423,7 @@ export async function reconcileSyncDirect(
       })
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
