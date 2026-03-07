@@ -1,25 +1,10 @@
 import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  spawn: vi.fn(),
-  createServer: vi.fn(),
-  connect: vi.fn(),
-  delay: vi.fn(),
-  open: vi.fn(),
-  stat: vi.fn(),
-  unlink: vi.fn()
-}));
-
-vi.mock('node:child_process', () => ({ spawn: mocks.spawn }));
-vi.mock('node:fs/promises', () => ({
-  open: mocks.open,
-  stat: mocks.stat,
-  unlink: mocks.unlink
-}));
-vi.mock('node:http', () => ({ createServer: mocks.createServer }));
-vi.mock('node:net', () => ({ connect: mocks.connect }));
-vi.mock('node:timers/promises', () => ({ setTimeout: mocks.delay }));
+import {
+  type ApiV2ServiceHarnessDependencies,
+  startApiV2ServiceHarness
+} from './apiV2ServiceHarness.js';
 
 class FakeServer extends EventEmitter {
   constructor(private readonly port: number) {
@@ -80,9 +65,16 @@ class FakeProcess extends EventEmitter {
   }
 }
 
-async function loadModule() {
-  return import('./apiV2ServiceHarness.js');
-}
+type HarnessMocks = {
+  spawn: ReturnType<typeof vi.fn>;
+  createServer: ReturnType<typeof vi.fn>;
+  connectSocket: ReturnType<typeof vi.fn>;
+  delay: ReturnType<typeof vi.fn>;
+  open: ReturnType<typeof vi.fn>;
+  stat: ReturnType<typeof vi.fn>;
+  unlink: ReturnType<typeof vi.fn>;
+  now: ReturnType<typeof vi.fn>;
+};
 
 function createFileHandle() {
   return {
@@ -91,23 +83,49 @@ function createFileHandle() {
   };
 }
 
+function createHarnessDeps(): {
+  dependencies: Partial<ApiV2ServiceHarnessDependencies>;
+  mocks: HarnessMocks;
+} {
+  const now = Date.now();
+  const mocks: HarnessMocks = {
+    spawn: vi.fn(),
+    createServer: vi.fn(),
+    connectSocket: vi.fn(),
+    delay: vi.fn(
+      async () =>
+        new Promise((resolvePromise) => {
+          setImmediate(() => resolvePromise(undefined));
+        })
+    ),
+    open: vi.fn(async () => createFileHandle()),
+    stat: vi.fn(async () => ({ mtimeMs: now })),
+    unlink: vi.fn(async () => undefined),
+    now: vi.fn(() => now)
+  };
+
+  return {
+    dependencies: {
+      spawn: mocks.spawn,
+      createServer: mocks.createServer,
+      connectSocket: mocks.connectSocket,
+      delay: mocks.delay,
+      open: mocks.open,
+      stat: mocks.stat,
+      unlink: mocks.unlink,
+      now: mocks.now
+    },
+    mocks
+  };
+}
+
 describe('startApiV2ServiceHarness', () => {
   beforeEach(() => {
-    vi.resetModules();
-    mocks.spawn.mockReset();
-    mocks.createServer.mockReset();
-    mocks.connect.mockReset();
-    mocks.delay.mockReset();
-    mocks.open.mockReset();
-    mocks.stat.mockReset();
-    mocks.unlink.mockReset();
-    mocks.delay.mockResolvedValue(undefined);
-    mocks.open.mockResolvedValue(createFileHandle());
-    mocks.stat.mockResolvedValue({ mtimeMs: Date.now() });
-    mocks.unlink.mockResolvedValue(undefined);
+    vi.clearAllMocks();
   });
 
   it('starts, retries readiness, and stops on SIGTERM', async () => {
+    const { dependencies, mocks } = createHarnessDeps();
     const process = new FakeProcess((signal, currentProcess) => {
       if (signal === 'SIGTERM') {
         queueMicrotask(() => {
@@ -128,7 +146,7 @@ describe('startApiV2ServiceHarness', () => {
     });
     mocks.createServer.mockReturnValue(new FakeServer(32001));
     mocks.spawn.mockReturnValue(process);
-    mocks.connect.mockImplementation(() => {
+    mocks.connectSocket.mockImplementation(() => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
         if (connectAttempts === 0) {
@@ -141,8 +159,7 @@ describe('startApiV2ServiceHarness', () => {
       return socket;
     });
 
-    const { startApiV2ServiceHarness } = await loadModule();
-    const harness = await startApiV2ServiceHarness();
+    const harness = await startApiV2ServiceHarness(dependencies);
 
     expect(harness.port).toBe(32001);
     expect(process.stderr.getEncodingCalls()).toEqual(['utf8']);
@@ -153,6 +170,7 @@ describe('startApiV2ServiceHarness', () => {
   });
 
   it('falls back to SIGKILL when SIGTERM does not exit', async () => {
+    const { dependencies, mocks } = createHarnessDeps();
     const process = new FakeProcess((signal, currentProcess) => {
       if (signal === 'SIGKILL') {
         queueMicrotask(() => {
@@ -164,7 +182,7 @@ describe('startApiV2ServiceHarness', () => {
 
     mocks.createServer.mockReturnValue(new FakeServer(32002));
     mocks.spawn.mockReturnValue(process);
-    mocks.connect.mockImplementation(() => {
+    mocks.connectSocket.mockImplementation(() => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
         socket.emit('connect');
@@ -172,8 +190,7 @@ describe('startApiV2ServiceHarness', () => {
       return socket;
     });
 
-    const { startApiV2ServiceHarness } = await loadModule();
-    const harness = await startApiV2ServiceHarness();
+    const harness = await startApiV2ServiceHarness(dependencies);
     await harness.stop();
 
     expect(process.killedSignals).toEqual(['SIGTERM', 'SIGKILL']);
@@ -181,12 +198,13 @@ describe('startApiV2ServiceHarness', () => {
   });
 
   it('reports truncated stderr when harness exits before readiness', async () => {
+    const { dependencies, mocks } = createHarnessDeps();
     const process = new FakeProcess(() => {});
     const noisyLog = `start-marker-${'x'.repeat(5_000)}-tail-marker`;
 
     mocks.createServer.mockReturnValue(new FakeServer(32003));
     mocks.spawn.mockReturnValue(process);
-    mocks.connect.mockImplementation(() => {
+    mocks.connectSocket.mockImplementation(() => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
         process.stderr.emit('data', noisyLog);
@@ -201,10 +219,9 @@ describe('startApiV2ServiceHarness', () => {
       return undefined;
     });
 
-    const { startApiV2ServiceHarness } = await loadModule();
     let thrownError: Error | null = null;
     try {
-      await startApiV2ServiceHarness();
+      await startApiV2ServiceHarness(dependencies);
     } catch (error) {
       if (error instanceof Error) {
         thrownError = error;
@@ -223,6 +240,7 @@ describe('startApiV2ServiceHarness', () => {
   });
 
   it('retries transient rust bootstrap failures before succeeding', async () => {
+    const { dependencies, mocks } = createHarnessDeps();
     const failingProcess = new FakeProcess(() => {});
     const passingProcess = new FakeProcess((signal, currentProcess) => {
       if (signal === 'SIGTERM') {
@@ -239,7 +257,7 @@ describe('startApiV2ServiceHarness', () => {
     mocks.spawn
       .mockReturnValueOnce(failingProcess)
       .mockReturnValueOnce(passingProcess);
-    mocks.connect.mockImplementation(() => {
+    mocks.connectSocket.mockImplementation(() => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
         if (failingProcess.exitCode === null) {
@@ -258,18 +276,21 @@ describe('startApiV2ServiceHarness', () => {
       if (timeoutMs === 250 && failingProcess.exitCode === null) {
         failingProcess.exitCode = 1;
       }
-      return undefined;
+      return new Promise((resolvePromise) => {
+        setImmediate(() => resolvePromise(undefined));
+      });
     });
 
-    const { startApiV2ServiceHarness } = await loadModule();
-    const harness = await startApiV2ServiceHarness();
+    const harness = await startApiV2ServiceHarness(dependencies);
 
     expect(harness.port).toBe(32006);
     expect(mocks.spawn).toHaveBeenCalledTimes(2);
     expect(mocks.delay).toHaveBeenCalledWith(1_000);
+    await harness.stop();
   });
 
   it('removes stale startup lock and continues', async () => {
+    const { dependencies, mocks } = createHarnessDeps();
     const process = new FakeProcess((signal, currentProcess) => {
       if (signal === 'SIGTERM') {
         queueMicrotask(() => {
@@ -288,7 +309,7 @@ describe('startApiV2ServiceHarness', () => {
     mocks.stat.mockResolvedValueOnce({ mtimeMs: staleMtimeMs });
     mocks.createServer.mockReturnValue(new FakeServer(32004));
     mocks.spawn.mockReturnValue(process);
-    mocks.connect.mockImplementation(() => {
+    mocks.connectSocket.mockImplementation(() => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
         socket.emit('connect');
@@ -296,8 +317,8 @@ describe('startApiV2ServiceHarness', () => {
       return socket;
     });
 
-    const { startApiV2ServiceHarness } = await loadModule();
-    await startApiV2ServiceHarness();
+    const harness = await startApiV2ServiceHarness(dependencies);
+    await harness.stop();
     expect(mocks.unlink).toHaveBeenCalled();
   });
 });
