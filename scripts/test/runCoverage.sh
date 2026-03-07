@@ -16,15 +16,17 @@ for arg in "$@"; do
 done
 
 if command -v bun >/dev/null 2>&1; then
-  if [ "$has_worker_flag" -eq 1 ]; then
-    bun test --coverage "$@"
-  else
-    bun test --coverage --concurrency="${PRE_PUSH_MAX_WORKERS:-${PRE_PUSH_VITEST_MAX_WORKERS:-4}}" "$@"
-  fi
+  runner_bin='bun'
+  runner_subcommand='test'
+  default_worker_flag='--concurrency'
 else
-  if [ "$has_worker_flag" -eq 1 ]; then
-    vitest run --coverage "$@"
-  else
-    vitest run --coverage --max-workers="${PRE_PUSH_MAX_WORKERS:-${PRE_PUSH_VITEST_MAX_WORKERS:-4}}" "$@"
-  fi
+  runner_bin='vitest'
+  runner_subcommand='run'
+  default_worker_flag='--max-workers'
+fi
+
+if [ "$has_worker_flag" -eq 1 ]; then
+  "$runner_bin" "$runner_subcommand" --coverage "$@"
+else
+  "$runner_bin" "$runner_subcommand" --coverage "${default_worker_flag}=${PRE_PUSH_MAX_WORKERS:-${PRE_PUSH_VITEST_MAX_WORKERS:-4}}" "$@"
 fi
