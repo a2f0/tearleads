@@ -282,10 +282,9 @@ function buildPackageInventory(
   for (const sourceFile of sourceFiles) {
     const content = fs.readFileSync(sourceFile, 'utf8');
     for (const definition of COMPAT_PATTERNS) {
-      compatPatternCounts[definition.key] += countMatches(
-        content,
-        definition.pattern
-      );
+      const currentCount = compatPatternCounts[definition.key] ?? 0;
+      compatPatternCounts[definition.key] =
+        currentCount + countMatches(content, definition.pattern);
     }
   }
 
