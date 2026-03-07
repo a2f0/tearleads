@@ -142,9 +142,13 @@ export async function registerDirect(
     );
 
     const createdAt = result.rows[0]?.created_at;
+    if (!createdAt) {
+      throw new ConnectError('Failed to register VFS item', Code.Internal);
+    }
+
     return {
       id: payload.id,
-      createdAt: createdAt ? createdAt.toISOString() : new Date().toISOString()
+      createdAt: createdAt.toISOString()
     };
   } catch (error) {
     if (error instanceof ConnectError) {
