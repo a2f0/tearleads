@@ -2,10 +2,14 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import type { VfsUserKeysResponse } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 import { parseKeySetupPayload } from './vfsDirectShared.js';
 
-type JsonRequest = { json: string };
+type SetupKeysTypedRequest = {
+  publicEncryptionKey: string;
+  publicSigningKey?: string;
+  encryptedPrivateKeys: string;
+  argon2Salt: string;
+};
 
 interface UserKeysRow {
   public_encryption_key: string;
@@ -17,7 +21,7 @@ interface UserKeysRow {
 export async function getMyKeysDirect(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsUserKeysResponse> {
   const claims = await requireVfsClaims('/vfs/keys/me', context.requestHeader);
 
   try {
@@ -44,9 +48,7 @@ export async function getMyKeysDirect(
       argon2Salt: row.argon2_salt
     };
 
-    return {
-      json: JSON.stringify(response)
-    };
+    return response;
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -58,13 +60,13 @@ export async function getMyKeysDirect(
 }
 
 export async function setupKeysDirect(
-  request: JsonRequest,
+  request: SetupKeysTypedRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ created: boolean }> {
   const claims = await requireVfsClaims('/vfs/keys', context.requestHeader, {
     requireDeclaredOrganization: true
   });
-  const payload = parseKeySetupPayload(parseJsonBody(request.json));
+  const payload = parseKeySetupPayload(request);
   if (!payload) {
     throw new ConnectError(
       'publicEncryptionKey, publicSigningKey, encryptedPrivateKeys, and argon2Salt are required',
@@ -104,9 +106,7 @@ export async function setupKeysDirect(
       ]
     );
 
-    return {
-      json: JSON.stringify({ created: true })
-    };
+    return { created: true };
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

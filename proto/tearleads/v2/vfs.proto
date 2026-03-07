@@ -35,15 +35,21 @@ service VfsService {
 message VfsGetMyKeysRequest {}
 
 message VfsGetMyKeysResponse {
-  string json = 1;
+  string public_encryption_key = 1;
+  string public_signing_key = 2;
+  optional string encrypted_private_keys = 3;
+  optional string argon2_salt = 4;
 }
 
 message VfsSetupKeysRequest {
-  string json = 1;
+  string public_encryption_key = 1;
+  string public_signing_key = 2;
+  string encrypted_private_keys = 3;
+  string argon2_salt = 4;
 }
 
 message VfsSetupKeysResponse {
-  string json = 1;
+  bool created = 1;
 }
 
 message VfsRegisterRequest {

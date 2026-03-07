@@ -91,7 +91,10 @@ function decodeBlobData(data: string | number[] | undefined): Uint8Array {
 
 export const vfsRoutes = {
   getMyKeys: () =>
-    requestVfsJson<VfsUserKeysResponse>('GetMyKeys', {}, 'api_get_vfs_keys'),
+    request<VfsUserKeysResponse>(`${VFS_V2_CONNECT_BASE_PATH}/GetMyKeys`, {
+      fetchOptions: createConnectJsonPostInit({}),
+      eventName: 'api_get_vfs_keys'
+    }),
   getSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
     if (cursor) {
@@ -115,11 +118,15 @@ export const vfsRoutes = {
     );
   },
   setupKeys: (data: VfsKeySetupRequest) =>
-    requestVfsJson<{ created: boolean }>(
-      'SetupKeys',
-      { json: JSON.stringify(data) },
-      'api_post_vfs_keys'
-    ),
+    request<{ created: boolean }>(`${VFS_V2_CONNECT_BASE_PATH}/SetupKeys`, {
+      fetchOptions: createConnectJsonPostInit({
+        publicEncryptionKey: data.publicEncryptionKey,
+        publicSigningKey: data.publicSigningKey ?? '',
+        encryptedPrivateKeys: data.encryptedPrivateKeys,
+        argon2Salt: data.argon2Salt
+      }),
+      eventName: 'api_post_vfs_keys'
+    }),
   register: (data: VfsRegisterRequest) =>
     requestVfsJson<VfsRegisterResponse>(
       'Register',
