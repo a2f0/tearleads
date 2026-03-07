@@ -24,7 +24,7 @@ import {
   updateInstance
 } from '../instanceRegistry';
 
-export { getBackupInfo, validateBackupFile } from '@tearleads/backups/runtime';
+export { getBackupInfo } from '@tearleads/backups/runtime';
 
 /**
  * Tables to skip during import.
