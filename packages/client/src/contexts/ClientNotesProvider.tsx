@@ -42,6 +42,8 @@ import {
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import { NotesAboutMenuItem } from './NotesAboutMenuItem';
 
+export { NotesAboutMenuItem } from './NotesAboutMenuItem';
+
 const notesUIComponents: NotesUIComponents = {
   Button,
   Input,
