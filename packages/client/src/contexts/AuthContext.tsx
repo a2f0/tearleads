@@ -1,8 +1,6 @@
 // component-complexity: allow -- auth state, token lifecycle, and DB password handoff are coordinated here.
-import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
 import { generateMlsOnboardingKeyMaterial } from '@tearleads/mls-core';
 import type { AuthUser, VfsKeySetupRequest } from '@tearleads/shared';
-import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -22,6 +20,10 @@ import {
   setVfsRecoveryPassword
 } from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
+import {
+  flushMlsKeyPackageOutbox,
+  writeMlsKeyPackagesToOutbox
+} from '@/lib/mlsKeyPackageSync';
 import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
@@ -161,6 +163,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await refreshIfNeeded();
 
       setIsLoading(false);
+
+      // Retry any pending MLS key package uploads from a previous session
+      const { user: storedUser } = readStoredAuth();
+      if (storedUser) {
+        void flushMlsKeyPackageOutbox(storedUser.id);
+      }
     };
 
     void initAuth();
@@ -275,26 +283,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       storeAuth(response.accessToken, response.refreshToken, response.user);
       await configureDeferredDatabasePassword(password);
 
-      // Fire-and-forget: generate MLS credentials + key packages for the new user.
-      // Non-blocking — failure is non-fatal; user can generate later from MLS chat UI.
+      // Generate MLS credentials + key packages post-registration.
+      // Non-fatal: if MLS WASM backend isn't ready, keys are generated later from MLS chat UI.
       void (async () => {
         try {
           const material = await generateMlsOnboardingKeyMaterial(
             response.user.id
           );
           if (material.keyPackages.length > 0) {
-            const mlsRoutes = createMlsV2Routes();
-            await mlsRoutes.uploadKeyPackages({
-              keyPackages: material.keyPackages.map((kp) => ({
-                keyPackageData: kp.keyPackageData,
-                keyPackageRef: kp.keyPackageRef,
-                cipherSuite:
-                  MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
-              }))
-            });
+            await writeMlsKeyPackagesToOutbox(
+              response.user.id,
+              material.keyPackages
+            );
+            void flushMlsKeyPackageOutbox(response.user.id);
           }
         } catch (err) {
-          console.warn('[mls-onboarding] Failed to generate MLS keys:', err);
+          console.warn('[mls-onboarding] MLS key generation skipped:', err);
         }
       })();
     },
