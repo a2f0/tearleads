@@ -1,9 +1,11 @@
-import '@/test/setupIntegration';
 import { contacts } from '@tearleads/db/sqlite';
-import { withRealDatabase } from '@tearleads/db-test-utils';
-import { describe, expect, it } from 'vitest';
-import { migrations } from '../migrations';
-import { __test__ } from './importer';
+import {
+  contactsTestMigrations,
+  mockConsoleWarn,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { restoreTableData } from './restoreTableData';
 
 type PerfStats = { queryCount: number; durationMs: number };
 
@@ -47,13 +49,23 @@ async function measureInsertPerf(
 }
 
 describe('backup importer integration (real database)', () => {
+  let warnSpy: ReturnType<typeof mockConsoleWarn>;
+
+  beforeEach(() => {
+    warnSpy = mockConsoleWarn();
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   it('restores large contact batches within perf baseline', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const rows = buildContactRows(CONTACT_ROW_COUNT);
 
         const stats = await measureInsertPerf(adapter, async () => {
-          await __test__.restoreTableData(adapter, 'contacts', rows);
+          await restoreTableData(adapter, 'contacts', rows);
         });
 
         const baseline = {
@@ -67,7 +79,7 @@ describe('backup importer integration (real database)', () => {
         expect(stats.queryCount).toBeLessThanOrEqual(baseline.queryCount);
         expect(stats.durationMs).toBeLessThanOrEqual(baseline.durationMs);
       },
-      { migrations }
+      { migrations: contactsTestMigrations }
     );
   });
 });
