@@ -56,7 +56,9 @@ type RekeyItemLegacyRequest = {
   newEpoch: number;
   wrappedKeys: VfsRekeyRequest['wrappedKeys'];
 };
-type RekeyItemRpcRequest = RekeyItemLegacyRequest | { itemId: string; json: string };
+type RekeyItemRpcRequest =
+  | RekeyItemLegacyRequest
+  | { itemId: string; json: string };
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };

@@ -1,8 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
-  isRecord,
   type CreateOrgShareRequest,
   type CreateVfsShareRequest,
+  isRecord,
   type UpdateVfsShareRequest
 } from '@tearleads/shared';
 import {
@@ -36,7 +36,9 @@ type RpcJsonRequestWithItemId = {
   itemId: string;
   json: string;
 };
-type CreateShareRpcRequest = CreateShareLegacyRequest | RpcJsonRequestWithItemId;
+type CreateShareRpcRequest =
+  | CreateShareLegacyRequest
+  | RpcJsonRequestWithItemId;
 type UpdateShareLegacyRequest = {
   shareId: string;
   permissionLevel?: string;
@@ -47,7 +49,9 @@ type RpcJsonRequestWithShareId = {
   shareId: string;
   json: string;
 };
-type UpdateShareRpcRequest = UpdateShareLegacyRequest | RpcJsonRequestWithShareId;
+type UpdateShareRpcRequest =
+  | UpdateShareLegacyRequest
+  | RpcJsonRequestWithShareId;
 type ShareIdRequest = { shareId: string };
 type CreateOrgShareLegacyRequest = {
   itemId: string;
