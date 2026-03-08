@@ -23,7 +23,7 @@ import {
 // vi.mock() calls - must be inline in each test file
 // ============================================================
 
-vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: vi.fn(
     ({
@@ -299,7 +299,7 @@ describe('PhotosPage (wrapper with sidebar)', () => {
 
       // Mock the sidebar to have an "All Photos" button
       const { PhotosAlbumsSidebar } = await import(
-        '@/components/photos-window/PhotosAlbumsSidebar'
+        '@/components/window-photos/PhotosAlbumsSidebar'
       );
       const MockedSidebar = PhotosAlbumsSidebar as unknown as ReturnType<
         typeof vi.fn

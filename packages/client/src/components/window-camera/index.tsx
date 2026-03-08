@@ -1,7 +1,7 @@
 import { CameraWindow as CameraWindowBase } from '@tearleads/camera';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback } from 'react';
-import { usePhotoAlbums } from '@/components/photos-window/usePhotoAlbums';
+import { usePhotoAlbums } from '@/components/window-photos/usePhotoAlbums';
 import { useFileUpload } from '@/hooks/vfs';
 import { useCameraPhotoRoll } from './useCameraPhotoRoll';
 

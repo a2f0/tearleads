@@ -1,6 +1,7 @@
 // Components
 export {
   AddNoteCard,
+  NotesAboutMenuItem,
   NotesWindow,
   NotesWindowDetail,
   NotesWindowList,

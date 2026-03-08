@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock VideoPlaylistsSidebar
-vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
+vi.mock('@/components/window-video/VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__all__',
   VideoPlaylistsSidebar: vi.fn(
     ({
@@ -339,7 +339,7 @@ describe('Video (wrapper with sidebar)', () => {
 
       // Mock the sidebar to have an "All Videos" button
       const { VideoPlaylistsSidebar } = await import(
-        '@/components/video-window/VideoPlaylistsSidebar'
+        '@/components/window-video/VideoPlaylistsSidebar'
       );
       const MockedSidebar = VideoPlaylistsSidebar as unknown as ReturnType<
         typeof vi.fn

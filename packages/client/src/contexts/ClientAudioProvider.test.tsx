@@ -1,7 +1,7 @@
 import type { AudioUIProviderProps } from '@tearleads/audio';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AudioAboutMenuItem, ClientAudioProvider } from './ClientAudioProvider';
+import { ClientAudioProvider } from './ClientAudioProvider';
 
 const mockDatabaseState = {
   isUnlocked: true,
@@ -72,24 +72,6 @@ vi.mock('@tearleads/audio', async (importOriginal) => {
     }
   };
 });
-
-vi.mock('@tearleads/audio/package.json', () => ({
-  default: { version: '0.0.1' }
-}));
-
-vi.mock('@/components/window-menu/AboutMenuItem', () => ({
-  AboutMenuItem: ({
-    appName,
-    version
-  }: {
-    appName: string;
-    version: string;
-  }) => (
-    <div data-testid="about-menu-item">
-      {appName} v{version}
-    </div>
-  )
-}));
 
 describe('ClientAudioProvider', () => {
   beforeEach(() => {
@@ -485,15 +467,5 @@ describe('ClientAudioProvider', () => {
     );
 
     expect(lastProviderProps.canShareFiles()).toBe(true);
-  });
-});
-
-describe('AudioAboutMenuItem', () => {
-  it('renders AboutMenuItem with correct props', () => {
-    render(<AudioAboutMenuItem />);
-
-    expect(screen.getByTestId('about-menu-item')).toHaveTextContent(
-      'Audio v0.0.1'
-    );
   });
 });

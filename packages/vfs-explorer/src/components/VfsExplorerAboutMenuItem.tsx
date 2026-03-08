@@ -1,5 +1,5 @@
+import { AboutMenuItem } from '@tearleads/ui';
 import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 
 export function VfsExplorerAboutMenuItem() {
   return (

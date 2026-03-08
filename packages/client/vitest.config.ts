@@ -121,22 +121,22 @@ export default mergeConfig(
           'src/sse/index.ts',
           'src/video/index.ts',
           'src/components/admin-groups/index.ts',
-          'src/components/chat-window/index.ts',
+          'src/components/window-chat/index.ts',
           'src/contexts/ClientContactsProvider.tsx',
           // ClientEmailProvider has database folder operations that require integration testing
           'src/contexts/ClientEmailProvider.tsx',
           'src/components/files/index.ts',
-          'src/components/files-window/index.ts',
-          'src/components/search-window/index.ts',
-          'src/components/floating-window/index.ts',
-          'src/components/contacts-window/index.tsx',
-          'src/components/notes-window/index.ts',
-          'src/components/wallet-window/index.ts',
+          'src/components/window-files/index.ts',
+          'src/components/window-search/index.ts',
+          'src/components/window-floating/index.ts',
+          'src/components/window-contacts/index.tsx',
+          'src/components/window-notes/index.ts',
+          'src/components/window-wallet/index.ts',
           'src/components/ui/drop-zone-overlay/index.ts',
           // Wrapper component that delegates to @tearleads/audio package
-          'src/components/audio-window/index.tsx',
+          'src/components/window-audio/index.tsx',
           // Wrapper component that delegates to @tearleads/photos package
-          'src/components/photos-window/index.tsx',
+          'src/components/window-photos/index.tsx',
           // Photos provider has database/file operations that require integration testing
           'src/contexts/ClientPhotosProvider.tsx',
           'src/components/window-renderer/index.ts',
@@ -156,16 +156,16 @@ export default mergeConfig(
           // Stores that require full app context for testing
           'src/stores/presentationStore.ts',
           // Window components are thin wrappers delegating to package components
-          'src/components/*-window/index.ts',
-          'src/components/*-window/index.tsx',
-          'src/components/*-window/*Window.tsx',
-          'src/components/*-window/*MenuBar.tsx',
+          'src/components/window-*/index.ts',
+          'src/components/window-*/index.tsx',
+          'src/components/window-*/*Window.tsx',
+          'src/components/window-*/*MenuBar.tsx',
           // Admin components require full permissions context
           'src/components/admin/**',
           'src/pages/admin/**/*.tsx',
           // Notification center and AI window are complex integrations
           'src/components/notification-center/**',
-          'src/components/ai-window/**',
+          'src/components/window-ai/**',
           // Settings effects hook requires full app lifecycle
           'src/components/settings/SettingsEffects.tsx',
           // Sidebar is a navigation component
@@ -182,8 +182,8 @@ export default mergeConfig(
           // Photos provider directory
           'src/components/photos-provider/**',
           // Context menus with complex interactions
-          'src/components/database-window/DatabaseContextMenus.tsx',
-          'src/components/console-window/ConsoleContextMenu.tsx',
+          'src/components/window-database/DatabaseContextMenus.tsx',
+          'src/components/window-console/ConsoleContextMenu.tsx',
           // Table rows types
           'src/pages/TableRowsTypes.ts',
           // Markdown viewer components

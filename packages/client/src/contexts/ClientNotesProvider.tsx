@@ -4,6 +4,7 @@
  */
 import {
   type NavigateToNote,
+  NotesAboutMenuItem,
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/notes';
@@ -40,9 +41,6 @@ import {
   queueItemUpsertAndFlush
 } from '@/lib/vfsItemSyncWriter';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
-import { NotesAboutMenuItem } from './NotesAboutMenuItem';
-
-export { NotesAboutMenuItem } from './NotesAboutMenuItem';
 
 const notesUIComponents: NotesUIComponents = {
   Button,

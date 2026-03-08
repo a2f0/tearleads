@@ -141,7 +141,7 @@ vi.mock('@tearleads/ui', async () => {
   };
 });
 
-vi.mock('@/components/console-window', () => ({
+vi.mock('@/components/window-console', () => ({
   ConsoleWindow: ({
     id,
     onClose,
@@ -244,11 +244,11 @@ function createMockWindow(
     );
 }
 
-vi.mock('@/components/keychain-window', () => ({
+vi.mock('@/components/window-keychain', () => ({
   KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
 }));
 
-vi.mock('@/components/sync-window', () => ({
+vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 

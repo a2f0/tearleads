@@ -20,92 +20,92 @@ function createDeferredWindowComponent(
 }
 
 const NotesWindow = createDeferredWindowComponent(() =>
-  import('@/components/notes-window').then((module) => ({
+  import('@/components/window-notes').then((module) => ({
     default: module.NotesWindow
   }))
 );
 const ConsoleWindow = createDeferredWindowComponent(() =>
-  import('@/components/console-window').then((module) => ({
+  import('@/components/window-console').then((module) => ({
     default: module.ConsoleWindow
   }))
 );
 const SettingsWindow = createDeferredWindowComponent(() =>
-  import('@/components/settings-window').then((module) => ({
+  import('@/components/window-settings').then((module) => ({
     default: module.SettingsWindow
   }))
 );
 const FilesWindow = createDeferredWindowComponent(() =>
-  import('@/components/files-window').then((module) => ({
+  import('@/components/window-files').then((module) => ({
     default: module.FilesWindow
   }))
 );
 const VideoWindow = createDeferredWindowComponent(() =>
-  import('@/components/video-window').then((module) => ({
+  import('@/components/window-video').then((module) => ({
     default: module.VideoWindow
   }))
 );
 const EmailWindow = createDeferredWindowComponent(() =>
-  import('@/components/email-window').then((module) => ({
+  import('@/components/window-email').then((module) => ({
     default: module.EmailWindow
   }))
 );
 const ContactsWindow = createDeferredWindowComponent(() =>
-  import('@/components/contacts-window').then((module) => ({
+  import('@/components/window-contacts').then((module) => ({
     default: module.ContactsWindow
   }))
 );
 const PhotosWindow = createDeferredWindowComponent(() =>
-  import('@/components/photos-window').then((module) => ({
+  import('@/components/window-photos').then((module) => ({
     default: module.PhotosWindow
   }))
 );
 const CameraWindow = createDeferredWindowComponent(() =>
-  import('@/components/camera-window').then((module) => ({
+  import('@/components/window-camera').then((module) => ({
     default: module.CameraWindow
   }))
 );
 const KeychainWindow = createDeferredWindowComponent(() =>
-  import('@/components/keychain-window').then((module) => ({
+  import('@/components/window-keychain').then((module) => ({
     default: module.KeychainWindow
   }))
 );
 const WalletWindow = createDeferredWindowComponent(() =>
-  import('@/components/wallet-window').then((module) => ({
+  import('@/components/window-wallet').then((module) => ({
     default: module.WalletWindow
   }))
 );
 const SqliteWindow = createDeferredWindowComponent(() =>
-  import('@/components/sqlite-window').then((module) => ({
+  import('@/components/window-sqlite').then((module) => ({
     default: module.SqliteWindow
   }))
 );
 const OpfsWindow = createDeferredWindowComponent(() =>
-  import('@/components/opfs-window').then((module) => ({
+  import('@/components/window-opfs').then((module) => ({
     default: module.OpfsWindow
   }))
 );
 const CacheStorageWindow = createDeferredWindowComponent(() =>
-  import('@/components/cache-storage-window').then((module) => ({
+  import('@/components/window-cache-storage').then((module) => ({
     default: module.CacheStorageWindow
   }))
 );
 const AIWindow = createDeferredWindowComponent(() =>
-  import('@/components/ai-window').then((module) => ({
+  import('@/components/window-ai').then((module) => ({
     default: module.AIWindow
   }))
 );
 const AnalyticsWindow = createDeferredWindowComponent(() =>
-  import('@/components/analytics-window').then((module) => ({
+  import('@/components/window-analytics').then((module) => ({
     default: module.AnalyticsWindow
   }))
 );
 const AudioWindow = createDeferredWindowComponent(() =>
-  import('@/components/audio-window').then((module) => ({
+  import('@/components/window-audio').then((module) => ({
     default: module.AudioWindow
   }))
 );
 const ModelsWindow = createDeferredWindowComponent(() =>
-  import('@/components/models-window').then((module) => ({
+  import('@/components/window-models').then((module) => ({
     default: module.ModelsWindow
   }))
 );
@@ -115,102 +115,102 @@ const AdminWindow = createDeferredWindowComponent(() =>
   }))
 );
 const AdminRedisWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-redis-window').then((module) => ({
+  import('@/components/window-admin-redis').then((module) => ({
     default: module.AdminRedisWindow
   }))
 );
 const AdminPostgresWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-postgres-window').then((module) => ({
+  import('@/components/window-admin-postgres').then((module) => ({
     default: module.AdminPostgresWindow
   }))
 );
 const AdminGroupsWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-groups-window').then((module) => ({
+  import('@/components/window-admin-groups').then((module) => ({
     default: module.AdminGroupsWindow
   }))
 );
 const AdminUsersWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-users-window').then((module) => ({
+  import('@/components/window-admin-users').then((module) => ({
     default: module.AdminUsersWindow
   }))
 );
 const AdminOrganizationsWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-organizations-window').then((module) => ({
+  import('@/components/window-admin-organizations').then((module) => ({
     default: module.AdminOrganizationsWindow
   }))
 );
 const TablesWindow = createDeferredWindowComponent(() =>
-  import('@/components/tables-window').then((module) => ({
+  import('@/components/window-tables').then((module) => ({
     default: module.TablesWindow
   }))
 );
 const DebugWindow = createDeferredWindowComponent(() =>
-  import('@/components/debug-window').then((module) => ({
+  import('@/components/window-debug').then((module) => ({
     default: module.DebugWindow
   }))
 );
 const DocumentsWindow = createDeferredWindowComponent(() =>
-  import('@/components/documents-window').then((module) => ({
+  import('@/components/window-documents').then((module) => ({
     default: module.DocumentsWindow
   }))
 );
 const HelpWindow = createDeferredWindowComponent(() =>
-  import('@/components/help-window').then((module) => ({
+  import('@/components/window-help').then((module) => ({
     default: module.HelpWindow
   }))
 );
 const LocalStorageWindow = createDeferredWindowComponent(() =>
-  import('@/components/local-storage-window').then((module) => ({
+  import('@/components/window-local-storage').then((module) => ({
     default: module.LocalStorageWindow
   }))
 );
 const SyncWindow = createDeferredWindowComponent(() =>
-  import('@/components/sync-window').then((module) => ({
+  import('@/components/window-sync').then((module) => ({
     default: module.SyncWindow
   }))
 );
 const VfsWindow = createDeferredWindowComponent(() =>
-  import('@/components/vfs-window').then((module) => ({
+  import('@/components/window-vfs').then((module) => ({
     default: module.VfsWindow
   }))
 );
 const ClassicWindow = createDeferredWindowComponent(() =>
-  import('@/components/classic-window').then((module) => ({
+  import('@/components/window-classic').then((module) => ({
     default: module.ClassicWindow
   }))
 );
 const BackupWindow = createDeferredWindowComponent(() =>
-  import('@/components/backup-window').then((module) => ({
+  import('@/components/window-backup').then((module) => ({
     default: module.BackupWindow
   }))
 );
 const MlsChatWindow = createDeferredWindowComponent(() =>
-  import('@/components/mls-chat-window').then((module) => ({
+  import('@/components/window-mls-chat').then((module) => ({
     default: module.MlsChatWindow
   }))
 );
 const SearchWindow = createDeferredWindowComponent(() =>
-  import('@/components/search-window').then((module) => ({
+  import('@/components/window-search').then((module) => ({
     default: module.SearchWindow
   }))
 );
 const CalendarWindow = createDeferredWindowComponent(() =>
-  import('@/components/calendar-window').then((module) => ({
+  import('@/components/window-calendar').then((module) => ({
     default: module.CalendarWindow
   }))
 );
 const BusinessesWindow = createDeferredWindowComponent(() =>
-  import('@/components/businesses-window').then((module) => ({
+  import('@/components/window-businesses').then((module) => ({
     default: module.BusinessesWindow
   }))
 );
 const VehiclesWindow = createDeferredWindowComponent(() =>
-  import('@/components/vehicles-window').then((module) => ({
+  import('@/components/window-vehicles').then((module) => ({
     default: module.VehiclesWindow
   }))
 );
 const HealthWindow = createDeferredWindowComponent(() =>
-  import('@/components/health-window').then((module) => ({
+  import('@/components/window-health').then((module) => ({
     default: module.HealthWindow
   }))
 );

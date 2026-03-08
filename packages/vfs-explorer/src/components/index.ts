@@ -19,6 +19,7 @@ export { VfsDragOverlay } from './VfsDragOverlay';
 export { VfsDroppableFolder } from './VfsDroppableFolder';
 export type { VfsOpenItem, VfsViewMode } from './VfsExplorer';
 export { VfsExplorer } from './VfsExplorer';
+export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 export { VfsStatusBar } from './VfsStatusBar';
 export type { VfsFolderNode } from './VfsTreePanel';
 export { VfsTreePanel } from './VfsTreePanel';

@@ -381,7 +381,7 @@ Admin windows (`admin-*`) should use `InlineRequiresLoginAndUnlock` because:
 For admin windows in external packages (e.g., `@tearleads/admin`), create client wrappers:
 
 ```text
-packages/client/src/components/admin-users-window/
+packages/client/src/components/window-admin-users/
 ├── index.tsx           # Wrapper with InlineRequiresLoginAndUnlock
 └── AdminUsersWindow.test.tsx
 ```

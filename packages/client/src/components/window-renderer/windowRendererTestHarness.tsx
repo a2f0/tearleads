@@ -98,7 +98,7 @@ function createMockWindowComponent(config: MockWindowConfig) {
   };
 }
 
-vi.mock('@/components/notes-window', () => ({
+vi.mock('@/components/window-notes', () => ({
   NotesWindow: createMockWindowComponent({
     testIdPrefix: 'notes-window',
     minimizeDimensions: { x: 0, y: 0, width: 400, height: 300 },
@@ -113,23 +113,23 @@ vi.mock('@tearleads/console', () => ({
     includeInitialWidth: true
   })
 }));
-vi.mock('@/components/email-window', () => ({
+vi.mock('@/components/window-email', () => ({
   EmailWindow: createMockWindowComponent({
     testIdPrefix: 'email-window',
     minimizeDimensions: { x: 0, y: 0, width: 550, height: 450 },
     includeInitialWidth: true
   })
 }));
-vi.mock('@/components/settings-window', () => ({
+vi.mock('@/components/window-settings', () => ({
   SettingsWindow: createMockWindowComponent({ testIdPrefix: 'settings-window' })
 }));
-vi.mock('@/components/photos-window', () => ({
+vi.mock('@/components/window-photos', () => ({
   PhotosWindow: createMockWindowComponent({
     testIdPrefix: 'photos-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 550 }
   })
 }));
-vi.mock('@/components/models-window', () => ({
+vi.mock('@/components/window-models', () => ({
   ModelsWindow: createMockWindowComponent({
     testIdPrefix: 'models-window',
     minimizeDimensions: { x: 0, y: 0, width: 720, height: 600 }
@@ -141,91 +141,91 @@ vi.mock('@tearleads/keychain', () => ({
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
   })
 }));
-vi.mock('@/components/sync-window', () => ({
+vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindowComponent({
     testIdPrefix: 'sync-window',
     minimizeDimensions: { x: 0, y: 0, width: 400, height: 450 }
   })
 }));
-vi.mock('@/components/wallet-window', () => ({
+vi.mock('@/components/window-wallet', () => ({
   WalletWindow: createMockWindowComponent({
     testIdPrefix: 'wallet-window',
     minimizeDimensions: { x: 0, y: 0, width: 760, height: 560 }
   })
 }));
-vi.mock('@/components/files-window', () => ({
+vi.mock('@/components/window-files', () => ({
   FilesWindow: createMockWindowComponent({
     testIdPrefix: 'files-window',
     minimizeDimensions: { x: 0, y: 0, width: 500, height: 400 }
   })
 }));
-vi.mock('@/components/documents-window', () => ({
+vi.mock('@/components/window-documents', () => ({
   DocumentsWindow: createMockWindowComponent({
     testIdPrefix: 'documents-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 550 }
   })
 }));
-vi.mock('@/components/help-window', () => ({
+vi.mock('@/components/window-help', () => ({
   HelpWindow: createMockWindowComponent({
     testIdPrefix: 'help-window',
     minimizeDimensions: { x: 0, y: 0, width: 900, height: 700 }
   })
 }));
-vi.mock('@/components/video-window', () => ({
+vi.mock('@/components/window-video', () => ({
   VideoWindow: createMockWindowComponent({
     testIdPrefix: 'video-window',
     minimizeDimensions: { x: 0, y: 0, width: 650, height: 500 }
   })
 }));
-vi.mock('@/components/contacts-window', () => ({
+vi.mock('@/components/window-contacts', () => ({
   ContactsWindow: createMockWindowComponent({
     testIdPrefix: 'contacts-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
   })
 }));
-vi.mock('@/components/local-storage-window', () => ({
+vi.mock('@/components/window-local-storage', () => ({
   LocalStorageWindow: createMockWindowComponent({
     testIdPrefix: 'local-storage-window',
     minimizeDimensions: { x: 0, y: 0, width: 520, height: 420 }
   })
 }));
-vi.mock('@/components/sqlite-window', () => ({
+vi.mock('@/components/window-sqlite', () => ({
   SqliteWindow: createMockWindowComponent({
     testIdPrefix: 'sqlite-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
   })
 }));
-vi.mock('@/components/opfs-window', () => ({
+vi.mock('@/components/window-opfs', () => ({
   OpfsWindow: createMockWindowComponent({
     testIdPrefix: 'opfs-window',
     minimizeDimensions: { x: 0, y: 0, width: 720, height: 560 }
   })
 }));
-vi.mock('@/components/cache-storage-window', () => ({
+vi.mock('@/components/window-cache-storage', () => ({
   CacheStorageWindow: createMockWindowComponent({
     testIdPrefix: 'cache-storage-window',
     minimizeDimensions: { x: 0, y: 0, width: 650, height: 500 }
   })
 }));
-vi.mock('@/components/calendar-window', () => ({
+vi.mock('@/components/window-calendar', () => ({
   CalendarWindow: createMockWindowComponent({
     testIdPrefix: 'calendar-window',
     minimizeDimensions: { x: 0, y: 0, width: 900, height: 640 }
   })
 }));
-vi.mock('@/components/businesses-window', () => ({
+vi.mock('@/components/window-businesses', () => ({
   BusinessesWindow: createMockWindowComponent({
     testIdPrefix: 'businesses-window',
     minimizeDimensions: { x: 0, y: 0, width: 860, height: 560 }
   })
 }));
-vi.mock('@/components/vehicles-window', () => ({
+vi.mock('@/components/window-vehicles', () => ({
   VehiclesWindow: createMockWindowComponent({
     testIdPrefix: 'vehicles-window',
     minimizeDimensions: { x: 0, y: 0, width: 900, height: 620 }
   })
 }));
-vi.mock('@/components/health-window', () => ({
+vi.mock('@/components/window-health', () => ({
   HealthWindow: createMockWindowComponent({
     testIdPrefix: 'health-window',
     minimizeDimensions: { x: 0, y: 0, width: 760, height: 560 }
@@ -237,43 +237,43 @@ vi.mock('@tearleads/analytics', () => ({
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 550 }
   })
 }));
-vi.mock('@/components/audio-window', () => ({
+vi.mock('@/components/window-audio', () => ({
   AudioWindow: createMockWindowComponent({
     testIdPrefix: 'audio-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
   })
 }));
-vi.mock('@/components/camera-window', () => ({
+vi.mock('@/components/window-camera', () => ({
   CameraWindow: createMockWindowComponent({
     testIdPrefix: 'camera-window',
     minimizeDimensions: { x: 0, y: 0, width: 840, height: 620 }
   })
 }));
-vi.mock('@/components/admin-users-window', () => ({
+vi.mock('@/components/window-admin-users', () => ({
   AdminUsersWindow: createMockWindowComponent({
     testIdPrefix: 'admin-users-window',
     minimizeDimensions: { x: 0, y: 0, width: 840, height: 620 }
   })
 }));
-vi.mock('@/components/ai-window', () => ({
+vi.mock('@/components/window-ai', () => ({
   AIWindow: createMockWindowComponent({
     testIdPrefix: 'ai-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
   })
 }));
-vi.mock('@/components/classic-window', () => ({
+vi.mock('@/components/window-classic', () => ({
   ClassicWindow: createMockWindowComponent({
     testIdPrefix: 'classic-window',
     minimizeDimensions: { x: 0, y: 0, width: 980, height: 700 }
   })
 }));
-vi.mock('@/components/tables-window', () => ({
+vi.mock('@/components/window-tables', () => ({
   TablesWindow: createMockWindowComponent({
     testIdPrefix: 'tables-window',
     minimizeDimensions: { x: 0, y: 0, width: 850, height: 600 }
   })
 }));
-vi.mock('@/components/debug-window', () => ({
+vi.mock('@/components/window-debug', () => ({
   DebugWindow: createMockWindowComponent({
     testIdPrefix: 'debug-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
@@ -286,25 +286,25 @@ vi.mock('@/components/admin-windows', () => ({
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
   })
 }));
-vi.mock('@/components/admin-redis-window', () => ({
+vi.mock('@/components/window-admin-redis', () => ({
   AdminRedisWindow: createMockWindowComponent({
     testIdPrefix: 'admin-redis-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
   })
 }));
-vi.mock('@/components/admin-postgres-window', () => ({
+vi.mock('@/components/window-admin-postgres', () => ({
   AdminPostgresWindow: createMockWindowComponent({
     testIdPrefix: 'admin-postgres-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
   })
 }));
-vi.mock('@/components/admin-groups-window', () => ({
+vi.mock('@/components/window-admin-groups', () => ({
   AdminGroupsWindow: createMockWindowComponent({
     testIdPrefix: 'admin-groups-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }
   })
 }));
-vi.mock('@/components/admin-organizations-window', () => ({
+vi.mock('@/components/window-admin-organizations', () => ({
   AdminOrganizationsWindow: createMockWindowComponent({
     testIdPrefix: 'admin-organizations-window',
     minimizeDimensions: { x: 0, y: 0, width: 840, height: 620 }

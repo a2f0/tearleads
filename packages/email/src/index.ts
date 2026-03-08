@@ -3,6 +3,7 @@ export {
   AttachmentInput,
   AttachmentList,
   ComposeDialog,
+  EmailAboutMenuItem,
   EmailBodyView,
   EmailWindow,
   EmailWindowMenuBar,

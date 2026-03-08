@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock VideoPlaylistsSidebar
-vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
+vi.mock('@/components/window-video/VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__all__',
   VideoPlaylistsSidebar: vi.fn(
     ({

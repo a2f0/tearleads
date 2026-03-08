@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing; refactoring deferred
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
@@ -13,13 +14,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DeletePhotoDialog } from '@/components/DeletePhotoDialog';
-import {
-  ALL_PHOTOS_ID,
-  PhotosAlbumsSidebar
-} from '@/components/photos-window/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import {
+  ALL_PHOTOS_ID,
+  PhotosAlbumsSidebar
+} from '@/components/window-photos/PhotosAlbumsSidebar';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';

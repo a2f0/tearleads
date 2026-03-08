@@ -24,7 +24,7 @@ vi.mock('./useCameraPhotoRoll', () => ({
   })
 }));
 
-vi.mock('../photos-window/usePhotoAlbums', () => ({
+vi.mock('../window-photos/usePhotoAlbums', () => ({
   usePhotoAlbums: () => ({
     getPhotoRollAlbum: () => ({ id: 'photo-roll-id' }),
     addPhotoToAlbum: vi.fn()

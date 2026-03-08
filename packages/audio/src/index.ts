@@ -3,6 +3,7 @@
 // Components exports
 export {
   ALL_AUDIO_ID,
+  AudioAboutMenuItem,
   // Player components
   AudioControls,
   AudioPlayer,
