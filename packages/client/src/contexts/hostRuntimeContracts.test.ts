@@ -1,3 +1,7 @@
+import type {
+  AudioUIProviderProps,
+  NavigateToAudioOptions
+} from '@tearleads/audio';
 import type { ContactsProviderProps } from '@tearleads/contacts';
 import type {
   NavigateToNoteOptions,
@@ -8,18 +12,25 @@ import type {
   HostRuntimeNavigateOptions
 } from '@tearleads/shared';
 import { describe, expectTypeOf, it } from 'vitest';
+import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
 describe('host runtime contracts', () => {
-  it('keeps notes and contacts database runtime shape aligned', () => {
+  it('keeps feature database runtime shapes aligned', () => {
     expectTypeOf<
       NotesProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
     expectTypeOf<
       ContactsProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    expectTypeOf<
+      AudioUIProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    expectTypeOf<
+      VideoPlaylistProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 
-  it('keeps navigation options aligned with shared runtime contract', () => {
+  it('keeps feature navigation options aligned with shared runtime contract', () => {
     type ContactsNavigateOptions = Parameters<
       ContactsProviderProps['navigateWithFrom']
     >[1];
@@ -27,6 +38,9 @@ describe('host runtime contracts', () => {
       HostRuntimeNavigateOptions | undefined
     >();
     expectTypeOf<NavigateToNoteOptions>().toEqualTypeOf<
+      Pick<HostRuntimeNavigateOptions, 'fromLabel'>
+    >();
+    expectTypeOf<NavigateToAudioOptions>().toEqualTypeOf<
       Pick<HostRuntimeNavigateOptions, 'fromLabel'>
     >();
   });

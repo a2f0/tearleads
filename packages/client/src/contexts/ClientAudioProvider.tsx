@@ -14,7 +14,10 @@ import {
   type AudioWithUrl,
   type NavigateToAudio
 } from '@tearleads/audio';
-import { assertPlainArrayBuffer } from '@tearleads/shared';
+import {
+  assertPlainArrayBuffer,
+  type HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -89,7 +92,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { uploadFile: fileUpload } = useFileUpload();
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,
