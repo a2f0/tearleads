@@ -13,7 +13,7 @@ SECRETS_ENV="$REPO_ROOT/.secrets/root.env"
 
 # Load TEAM_ID from .secrets/root.env if not already set
 if [ -z "${TEAM_ID:-}" ] && [ -f "$SECRETS_ENV" ]; then
-  TEAM_ID=$(grep -E '^(export )?TEAM_ID=' "$SECRETS_ENV" | head -1 | sed "s/^export //;s/^TEAM_ID=//;s/^['\"]//;s/['\"]$//")
+  TEAM_ID=$(sed -nE '/^(export )?TEAM_ID=/ { s/^(export )?TEAM_ID=//; s/^['"'"'"]+//; s/['"'"'"]+$//; p; q; }' "$SECRETS_ENV")
 fi
 
 cd "$REPO_ROOT/packages/client"
