@@ -170,7 +170,6 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
-      status: 'ok',
       info: {
         host: 'localhost',
         port: 5432,
@@ -360,7 +359,6 @@ describe('admin api client v2 read routes', () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
-      status: 'ok',
       info: {
         host: null,
         port: null,

@@ -197,7 +197,6 @@ describe('adminV2Routes', () => {
     const response = await routes.postgres.getInfo();
 
     expect(response).toEqual({
-      status: 'ok',
       info: {
         host: 'localhost',
         port: 5432,
