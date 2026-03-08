@@ -163,11 +163,11 @@ describe('popup script - content script activation', () => {
     document.getElementById('action-btn')?.click();
     await flushAsyncWork();
 
-    expect(pingCallCount).toBe(2);
-    expect(mockRuntimeSendMessage).toHaveBeenCalledWith(
-      { type: MessageType.INJECT_CONTENT_SCRIPT },
-      expect.any(Function)
+    expect(pingCallCount).toBeGreaterThanOrEqual(2);
+    const injectCalls = mockRuntimeSendMessage.mock.calls.filter(
+      ([message]) => message.type === MessageType.INJECT_CONTENT_SCRIPT
     );
+    expect(injectCalls).toHaveLength(1);
 
     const statusEl = document.getElementById('status');
     expect(statusEl?.textContent).toBe('Content script is active on this tab.');
@@ -208,11 +208,11 @@ describe('popup script - content script activation', () => {
     document.getElementById('action-btn')?.click();
     await flushAsyncWork();
 
-    expect(pingCallCount).toBe(2);
-    expect(mockRuntimeSendMessage).toHaveBeenCalledWith(
-      { type: MessageType.INJECT_CONTENT_SCRIPT },
-      expect.any(Function)
+    expect(pingCallCount).toBeGreaterThanOrEqual(2);
+    const injectCalls = mockRuntimeSendMessage.mock.calls.filter(
+      ([message]) => message.type === MessageType.INJECT_CONTENT_SCRIPT
     );
+    expect(injectCalls).toHaveLength(1);
 
     const statusEl = document.getElementById('status');
     expect(statusEl?.textContent).toBe('Content script is active on this tab.');

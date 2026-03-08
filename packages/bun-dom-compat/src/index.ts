@@ -113,3 +113,83 @@ export function installBrowserGlobalsForBun(): void {
 
   installedDom = true;
 }
+
+interface VitestPolyfillResult {
+  hasCustomStubber: boolean;
+  unstubAllGlobals: () => void;
+}
+
+/**
+ * Install polyfills for `vi.mocked`, `vi.stubGlobal`, and
+ * `vi.unstubAllGlobals` when running tests under Bun where these
+ * Vitest helpers are unavailable.
+ *
+ * `vi.mocked` is an identity function in Vitest itself — it exists
+ * purely for TypeScript type narrowing (`Mocked<T>`). The polyfill
+ * mirrors that behaviour exactly.
+ */
+export function installVitestPolyfills(
+  vi: Record<string, unknown>
+): VitestPolyfillResult {
+  if (typeof Reflect.get(vi, 'mocked') !== 'function') {
+    Reflect.set(vi, 'mocked', <T>(value: T) => value);
+  }
+
+  let hasCustomStubber = false;
+  let cleanup = (): void => {};
+
+  if (typeof Reflect.get(vi, 'stubGlobal') !== 'function') {
+    hasCustomStubber = true;
+    const stubbedGlobals = new Map<
+      string,
+      { hadValue: boolean; value: unknown }
+    >();
+
+    Reflect.set(vi, 'stubGlobal', (name: string, value: unknown) => {
+      if (!stubbedGlobals.has(name)) {
+        stubbedGlobals.set(name, {
+          hadValue: Reflect.has(globalThis, name),
+          value: Reflect.get(globalThis, name)
+        });
+      }
+      Object.defineProperty(globalThis, name, {
+        configurable: true,
+        writable: true,
+        value
+      });
+    });
+
+    cleanup = () => {
+      for (const [name, original] of stubbedGlobals) {
+        if (original.hadValue) {
+          Object.defineProperty(globalThis, name, {
+            configurable: true,
+            writable: true,
+            value: original.value
+          });
+        } else {
+          Reflect.deleteProperty(globalThis, name);
+        }
+      }
+      stubbedGlobals.clear();
+    };
+
+    Reflect.set(vi, 'unstubAllGlobals', cleanup);
+  }
+
+  return { hasCustomStubber, unstubAllGlobals: cleanup };
+}
+
+export function formatConsoleArg(arg: unknown): string {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+  if (arg instanceof Error) {
+    return arg.stack ?? arg.message;
+  }
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
+}

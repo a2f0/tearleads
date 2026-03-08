@@ -1,7 +1,16 @@
 import '@testing-library/jest-dom/vitest';
+import {
+  formatConsoleArg,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
+
+const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
+const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(
+  vi as unknown as Record<string, unknown>
+);
 
 // Allow expected warnings from SQLite WASM (used in integration tests)
 const allowedWarnings = [
@@ -10,33 +19,58 @@ const allowedWarnings = [
 ];
 
 let warnSpy: ReturnType<typeof vi.spyOn> | null = null;
+let errorSpy: ReturnType<typeof vi.spyOn> | null = null;
+let bunConsoleErrors: string[] = [];
 
 beforeEach(() => {
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  if (isBunRuntime) {
+    bunConsoleErrors = [];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      bunConsoleErrors.push(args.map(formatConsoleArg).join(' '));
+    });
+  }
 });
 
 afterEach(() => {
-  if (warnSpy) {
-    const unexpectedWarnings = warnSpy.mock.calls.filter((call: unknown[]) => {
-      const firstArg = call[0];
-      const message =
-        typeof firstArg === 'string'
-          ? firstArg
-          : firstArg instanceof Error
-            ? firstArg.message
-            : String(firstArg);
-      return !allowedWarnings.some((allowed) => message.includes(allowed));
-    });
+  const unexpectedWarnings: unknown[][] = [];
 
-    expect(unexpectedWarnings).toEqual([]);
+  if (warnSpy) {
+    for (const call of warnSpy.mock.calls) {
+      const firstArg = call[0];
+      const message = formatConsoleArg(firstArg);
+      if (!allowedWarnings.some((allowed) => message.includes(allowed))) {
+        unexpectedWarnings.push(call);
+      }
+    }
+
     warnSpy.mockRestore();
     warnSpy = null;
   }
+
+  if (errorSpy) {
+    errorSpy.mockRestore();
+    errorSpy = null;
+  }
+
+  if (hasCustomStubber) {
+    unstubAllGlobals();
+  }
+
   cleanup();
+
+  expect(unexpectedWarnings).toEqual([]);
+
+  if (isBunRuntime && bunConsoleErrors.length > 0) {
+    throw new Error(
+      `Unexpected console errors:\n${bunConsoleErrors.join('\n')}`
+    );
+  }
 });
 
-// Still fail on console.error
-failOnConsole({
-  shouldFailOnWarn: false,
-  shouldFailOnError: true
-});
+if (!isBunRuntime) {
+  failOnConsole({
+    shouldFailOnWarn: false,
+    shouldFailOnError: true
+  });
+}
