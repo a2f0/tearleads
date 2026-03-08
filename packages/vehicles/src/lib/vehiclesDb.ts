@@ -1,8 +1,8 @@
+import type { DatabaseAdapter } from '@tearleads/db/adapter';
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import type { VehicleProfileInput } from './vehicleProfile.js';
 import { normalizeVehicleProfile } from './vehicleProfile.js';
 import type { VehicleRecord } from './vehicleRepository.js';
-import { getDatabaseAdapter, isDatabaseInitialized } from './vehiclesState.js';
 
 export type { VehicleRecord } from './vehicleRepository.js';
 
@@ -81,13 +81,9 @@ function toVehicleRecord(row: RawVehicleRow): VehicleRecord {
 }
 
 export async function getVehicleById(
+  adapter: DatabaseAdapter,
   id: string
 ): Promise<VehicleRecord | null> {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-
-  const adapter = getDatabaseAdapter();
   const result = await adapter.execute(
     `SELECT
       id,
@@ -114,12 +110,9 @@ export async function getVehicleById(
   return normalized === null ? null : toVehicleRecord(normalized);
 }
 
-export async function listVehicles(): Promise<VehicleRecord[]> {
-  if (!isDatabaseInitialized()) {
-    return [];
-  }
-
-  const adapter = getDatabaseAdapter();
+export async function listVehicles(
+  adapter: DatabaseAdapter
+): Promise<VehicleRecord[]> {
   const result = await adapter.execute(
     `SELECT
       id,
@@ -143,18 +136,13 @@ export async function listVehicles(): Promise<VehicleRecord[]> {
 }
 
 export async function createVehicle(
+  adapter: DatabaseAdapter,
   input: VehicleProfileInput
 ): Promise<VehicleRecord | null> {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-
   const normalized = normalizeVehicleProfile(input);
   if (!normalized.ok) {
     return null;
   }
-
-  const adapter = getDatabaseAdapter();
   const now = Date.now();
   const id = crypto.randomUUID();
 
@@ -192,13 +180,10 @@ export async function createVehicle(
 }
 
 export async function updateVehicle(
+  adapter: DatabaseAdapter,
   id: string,
   input: VehicleProfileInput
 ): Promise<VehicleRecord | null> {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-
   if (id.trim().length === 0) {
     return null;
   }
@@ -207,8 +192,6 @@ export async function updateVehicle(
   if (!normalized.ok) {
     return null;
   }
-
-  const adapter = getDatabaseAdapter();
   await adapter.execute(
     `UPDATE vehicles
     SET
@@ -229,19 +212,16 @@ export async function updateVehicle(
     ]
   );
 
-  return getVehicleById(id);
+  return getVehicleById(adapter, id);
 }
 
-export async function deleteVehicle(id: string): Promise<boolean> {
-  if (!isDatabaseInitialized()) {
-    return false;
-  }
-
+export async function deleteVehicle(
+  adapter: DatabaseAdapter,
+  id: string
+): Promise<boolean> {
   if (id.trim().length === 0) {
     return false;
   }
-
-  const adapter = getDatabaseAdapter();
   await adapter.execute(
     `UPDATE vehicles
     SET

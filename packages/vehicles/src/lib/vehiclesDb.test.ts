@@ -1,41 +1,33 @@
 import type { DatabaseAdapter } from '@tearleads/db/adapter';
-import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecute = vi.fn();
-const mockAdapter: Pick<DatabaseAdapter, 'execute'> = {
-  execute: mockExecute
+const mockAdapter: DatabaseAdapter = {
+  initialize: vi.fn(async () => {}),
+  close: vi.fn(async () => {}),
+  isOpen: vi.fn(() => true),
+  execute: mockExecute,
+  executeMany: vi.fn(async () => {}),
+  beginTransaction: vi.fn(async () => {}),
+  commitTransaction: vi.fn(async () => {}),
+  rollbackTransaction: vi.fn(async () => {}),
+  rekeyDatabase: vi.fn(async () => {}),
+  getConnection: vi.fn(() => async () => ({ rows: [] })),
+  exportDatabase: vi.fn(async () => new Uint8Array()),
+  importDatabase: vi.fn(async () => {})
 };
-
-vi.mock('./vehiclesState', () => ({
-  getDatabaseAdapter: vi.fn(() => mockAdapter),
-  isDatabaseInitialized: vi.fn(() => true)
-}));
 
 import {
   createVehicle,
   deleteVehicle,
+  getVehicleById,
   listVehicles,
   updateVehicle
 } from './vehiclesDb';
-import { isDatabaseInitialized } from './vehiclesState';
-
-// Bun-compatible: cast imported mock for stable runtime behavior
-const mockIsDbInit = isDatabaseInitialized as unknown as Mock;
 
 describe('vehicles db helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDbInit.mockReturnValue(true);
-  });
-
-  it('returns empty list when database is not initialized', async () => {
-    mockIsDbInit.mockReturnValue(false);
-
-    const vehicles = await listVehicles();
-
-    expect(vehicles).toEqual([]);
-    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('maps rows from listVehicles query', async () => {
@@ -54,7 +46,7 @@ describe('vehicles db helpers', () => {
       ]
     });
 
-    const vehicles = await listVehicles();
+    const vehicles = await listVehicles(mockAdapter);
 
     expect(vehicles).toHaveLength(1);
     expect(vehicles[0]).toEqual({
@@ -69,7 +61,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('returns null from createVehicle when validation fails', async () => {
-    const created = await createVehicle({ make: '', model: '' });
+    const created = await createVehicle(mockAdapter, { make: '', model: '' });
 
     expect(created).toBeNull();
     expect(mockExecute).not.toHaveBeenCalled();
@@ -78,7 +70,7 @@ describe('vehicles db helpers', () => {
   it('inserts and returns a created vehicle', async () => {
     mockExecute.mockResolvedValueOnce({ rows: [] });
 
-    const created = await createVehicle({
+    const created = await createVehicle(mockAdapter, {
       make: 'Toyota',
       model: 'Camry',
       year: 2022,
@@ -94,7 +86,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('returns null from updateVehicle for invalid id', async () => {
-    const updated = await updateVehicle(' ', {
+    const updated = await updateVehicle(mockAdapter, ' ', {
       make: 'Honda',
       model: 'Civic',
       year: 2020
@@ -120,7 +112,7 @@ describe('vehicles db helpers', () => {
       ]
     });
 
-    const updated = await updateVehicle('vehicle-1', {
+    const updated = await updateVehicle(mockAdapter, 'vehicle-1', {
       make: 'Honda',
       model: 'Civic',
       year: 2021,
@@ -140,7 +132,7 @@ describe('vehicles db helpers', () => {
   });
 
   it('returns false from deleteVehicle for blank id', async () => {
-    const deleted = await deleteVehicle(' ');
+    const deleted = await deleteVehicle(mockAdapter, ' ');
 
     expect(deleted).toBe(false);
     expect(mockExecute).not.toHaveBeenCalled();
@@ -149,9 +141,17 @@ describe('vehicles db helpers', () => {
   it('soft deletes a vehicle', async () => {
     mockExecute.mockResolvedValueOnce({ rows: [] });
 
-    const deleted = await deleteVehicle('vehicle-1');
+    const deleted = await deleteVehicle(mockAdapter, 'vehicle-1');
 
     expect(deleted).toBe(true);
     expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null when getVehicleById has no rows', async () => {
+    mockExecute.mockResolvedValueOnce({ rows: [] });
+
+    const vehicle = await getVehicleById(mockAdapter, 'missing-id');
+
+    expect(vehicle).toBeNull();
   });
 });
