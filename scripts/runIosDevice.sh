@@ -8,7 +8,15 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
-cd "$SCRIPT_DIR/../packages/client"
+REPO_ROOT="$SCRIPT_DIR/.."
+SECRETS_ENV="$REPO_ROOT/.secrets/root.env"
+
+# Load TEAM_ID from .secrets/root.env if not already set
+if [ -z "${TEAM_ID:-}" ] && [ -f "$SECRETS_ENV" ]; then
+  TEAM_ID=$(sed -nE '/^(export )?TEAM_ID=/ { s/^(export )?TEAM_ID=//; s/^['"'"'"]+//; s/['"'"'"]+$//; p; q; }' "$SECRETS_ENV")
+fi
+
+cd "$REPO_ROOT/packages/client"
 
 BUNDLE_ID="com.tearleads.app"
 WORKSPACE="ios/App/App.xcworkspace"
@@ -45,6 +53,7 @@ xcodebuild \
   -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic \
   CODE_SIGN_IDENTITY="Apple Development" \
+  DEVELOPMENT_TEAM="${TEAM_ID:?TEAM_ID not set. Add it to .secrets/root.env or export it.}" \
   build
 
 # Find the built .app bundle
