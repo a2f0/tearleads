@@ -18,7 +18,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 - Packages with tests: 48
 - Bun-primary `test` scripts: 27
-- Transitional inline Bun fallback scripts: 13
+- Transitional bun auto-fallback scripts: 13
 - Vitest-primary `test` scripts: 8
 - High-risk Vitest API packages (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 13
 
@@ -109,4 +109,4 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
 2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.resetModules`, `vi.mocked`).
-3. Burn down the 13 packages still using inline Bun fallback in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
+3. Burn down the 13 packages still using `bun-auto-fallback` in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
