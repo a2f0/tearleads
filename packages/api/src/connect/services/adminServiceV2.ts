@@ -357,38 +357,26 @@ export const adminConnectServiceV2 = {
     return decodeAdminJson(AdminGetUserResponseSchema, response.json);
   },
   async updateUser(request: AdminUpdateUserRequest, context: ConnectContext) {
-    const payload: {
-      id: string;
-      email?: string;
-      emailConfirmed?: boolean;
-      admin?: boolean;
-      organizationIds?: string[];
-      disabled?: boolean;
-      markedForDeletion?: boolean;
-    } = {
-      id: request.id
-    };
-
-    if (request.email !== undefined) {
-      payload.email = request.email;
-    }
-    if (request.emailConfirmed !== undefined) {
-      payload.emailConfirmed = request.emailConfirmed;
-    }
-    if (request.admin !== undefined) {
-      payload.admin = request.admin;
-    }
-    if (request.organizationIds !== undefined) {
-      payload.organizationIds = request.organizationIds.organizationIds;
-    }
-    if (request.disabled !== undefined) {
-      payload.disabled = request.disabled;
-    }
-    if (request.markedForDeletion !== undefined) {
-      payload.markedForDeletion = request.markedForDeletion;
-    }
-
-    const response = await updateUserDirect(payload, context);
+    const response = await updateUserDirect(
+      {
+        id: request.id,
+        ...(request.email !== undefined ? { email: request.email } : {}),
+        ...(request.emailConfirmed !== undefined
+          ? { emailConfirmed: request.emailConfirmed }
+          : {}),
+        ...(request.admin !== undefined ? { admin: request.admin } : {}),
+        ...(request.organizationIds !== undefined
+          ? { organizationIds: request.organizationIds.organizationIds }
+          : {}),
+        ...(request.disabled !== undefined
+          ? { disabled: request.disabled }
+          : {}),
+        ...(request.markedForDeletion !== undefined
+          ? { markedForDeletion: request.markedForDeletion }
+          : {})
+      },
+      context
+    );
     return decodeAdminJson(AdminUpdateUserResponseSchema, response.json);
   },
   async getPostgresInfo(

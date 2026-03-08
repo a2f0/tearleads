@@ -20,12 +20,10 @@ import {
   parseUserUpdatePayload,
   type UserRow
 } from './adminDirectUsersShared.js';
+import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
-type OptionalWithUndefined<T> = {
-  [K in keyof T]?: T[K] | undefined;
-};
 type UpdateUserInput =
   | IdJsonRequest
   | ({ id: string } & OptionalWithUndefined<AdminUserUpdatePayload>);

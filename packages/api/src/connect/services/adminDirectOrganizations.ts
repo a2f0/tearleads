@@ -18,13 +18,11 @@ import {
   mapOrganizationRow,
   type OrganizationRow
 } from './adminDirectOrganizationsShared.js';
+import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };
 type IdJsonRequest = { id: string; json: string };
-type OptionalWithUndefined<T> = {
-  [K in keyof T]?: T[K] | undefined;
-};
 type CreateOrganizationInput =
   | JsonRequest
   | OptionalWithUndefined<CreateOrganizationRequest>;
@@ -91,7 +89,9 @@ function parseUpdateOrganizationPayload(
     return isRecord(parsed) ? parsed : {};
   }
   const { id: _id, ...payload } = request;
-  return payload;
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
 }
 
 function isDuplicateConstraintError(error: unknown): boolean {
