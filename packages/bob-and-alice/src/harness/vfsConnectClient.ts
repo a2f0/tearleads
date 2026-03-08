@@ -53,7 +53,9 @@ function unwrapConnectPayload(payload: unknown): unknown {
   return current;
 }
 
-function normalizeLastReconciledWriteIds(value: unknown): Record<string, number> {
+function normalizeLastReconciledWriteIds(
+  value: unknown
+): Record<string, number> {
   if (!isPlainRecord(value)) {
     return {};
   }
@@ -79,7 +81,10 @@ function normalizeLastReconciledWriteIds(value: unknown): Record<string, number>
   return normalized;
 }
 
-function normalizeSyncPagePayload(payload: unknown, methodName: string): unknown {
+function normalizeSyncPagePayload(
+  payload: unknown,
+  methodName: string
+): unknown {
   if (methodName !== 'GetSync' && methodName !== 'GetCrdtSync') {
     return payload;
   }
@@ -140,6 +145,9 @@ export async function fetchVfsConnectJson<T>(input: {
     createConnectJsonPostInit(input.requestBody ?? {})
   );
   const parsedPayload = unwrapConnectPayload(envelope);
-  const normalizedPayload = normalizeSyncPagePayload(parsedPayload, input.methodName);
+  const normalizedPayload = normalizeSyncPagePayload(
+    parsedPayload,
+    input.methodName
+  );
   return toParsedJson<T>(normalizedPayload);
 }

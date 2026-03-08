@@ -75,15 +75,13 @@ describe('vfsRoutes', () => {
   });
 
   it('normalizes omitted sync pagination defaults from connect responses', async () => {
-    requestMock
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({
-        lastReconciledWriteIds: {
-          desktop: 4,
-          mobile: 0,
-          '  ': 2
-        }
-      });
+    requestMock.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      lastReconciledWriteIds: {
+        desktop: 4,
+        mobile: 0,
+        '  ': 2
+      }
+    });
 
     await expect(vfsRoutes.getSync()).resolves.toEqual({
       items: [],
