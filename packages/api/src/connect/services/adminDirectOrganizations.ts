@@ -22,7 +22,9 @@ import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type CreateOrganizationInput = OptionalWithUndefined<CreateOrganizationRequest>;
-type UpdateOrganizationInput = { id: string } & OptionalWithUndefined<UpdateOrganizationRequest>;
+type UpdateOrganizationInput = {
+  id: string;
+} & OptionalWithUndefined<UpdateOrganizationRequest>;
 type ListOrganizationsRequest = { organizationId: string };
 
 function encoded(value: string): string {
