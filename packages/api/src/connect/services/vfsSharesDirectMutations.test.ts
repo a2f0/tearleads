@@ -83,42 +83,14 @@ describe('vfsSharesDirectMutations', () => {
     consoleErrorSpy = null;
   });
 
-  it('rejects malformed JSON bodies', async () => {
-    await expect(
-      updateShareDirect(
-        {
-          shareId: 'share-1',
-          json: '{'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
-
-    await expect(
-      createShareDirect(
-        {
-          itemId: 'item-1',
-          json: '{'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
-  });
-
   it('rejects update payloads that parse to invalid/empty mutations', async () => {
+    const invalidUpdatePayload = JSON.parse('{"expiresAt":123}');
+
     await expect(
       updateShareDirect(
         {
           shareId: 'share-1',
-          json: '{"permissionLevel":"invalid"}'
+          ...invalidUpdatePayload
         },
         {
           requestHeader: new Headers()
@@ -131,8 +103,7 @@ describe('vfsSharesDirectMutations', () => {
     await expect(
       updateShareDirect(
         {
-          shareId: 'share-1',
-          json: '{}'
+          shareId: 'share-1'
         },
         {
           requestHeader: new Headers()
@@ -150,7 +121,7 @@ describe('vfsSharesDirectMutations', () => {
       updateShareDirect(
         {
           shareId: 'missing-share',
-          json: '{"permissionLevel":"view"}'
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -171,7 +142,7 @@ describe('vfsSharesDirectMutations', () => {
       updateShareDirect(
         {
           shareId: 'share-1',
-          json: '{"permissionLevel":"view"}'
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -191,7 +162,7 @@ describe('vfsSharesDirectMutations', () => {
       updateShareDirect(
         {
           shareId: 'share-1',
-          json: '{"permissionLevel":"view"}'
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -226,7 +197,7 @@ describe('vfsSharesDirectMutations', () => {
     const response = await updateShareDirect(
       {
         shareId: 'share-1',
-        json: '{"permissionLevel":"edit"}'
+        permissionLevel: 'edit'
       },
       {
         requestHeader: new Headers()
@@ -250,7 +221,7 @@ describe('vfsSharesDirectMutations', () => {
       updateShareDirect(
         {
           shareId: 'share-1',
-          json: '{"permissionLevel":"view"}'
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -266,7 +237,7 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"user"}'
+          shareType: 'user'
         },
         {
           requestHeader: new Headers()
@@ -286,7 +257,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'missing-item',
-          json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+          shareType: 'user',
+          targetId: 'user-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -305,7 +278,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+          shareType: 'user',
+          targetId: 'user-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -329,7 +304,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"group","targetId":"group-1","permissionLevel":"view"}'
+          shareType: 'group',
+          targetId: 'group-1',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -370,18 +347,16 @@ describe('vfsSharesDirectMutations', () => {
     const response = await createShareDirect(
       {
         itemId: 'item-1',
-        json: JSON.stringify({
-          shareType: 'user',
-          targetId: 'user-2',
-          permissionLevel: 'edit',
-          wrappedKey: {
-            recipientUserId: 'user-2',
-            recipientPublicKeyId: 'pub-1',
-            keyEpoch: 2,
-            encryptedKey: 'enc-1',
-            senderSignature: 'sig-1'
-          }
-        })
+        shareType: 'user',
+        targetId: 'user-2',
+        permissionLevel: 'edit',
+        wrappedKey: {
+          recipientUserId: 'user-2',
+          recipientPublicKeyId: 'pub-1',
+          keyEpoch: 2,
+          encryptedKey: 'enc-1',
+          senderSignature: 'sig-1'
+        }
       },
       {
         requestHeader: new Headers()
@@ -421,7 +396,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+          shareType: 'user',
+          targetId: 'user-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -448,7 +425,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+          shareType: 'user',
+          targetId: 'user-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -466,7 +445,9 @@ describe('vfsSharesDirectMutations', () => {
       createShareDirect(
         {
           itemId: 'item-1',
-          json: '{"shareType":"user","targetId":"user-2","permissionLevel":"view"}'
+          shareType: 'user',
+          targetId: 'user-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()

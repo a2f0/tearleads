@@ -59,26 +59,12 @@ describe('vfsSharesDirectOrgMutations', () => {
     consoleErrorSpy = null;
   });
 
-  it('rejects malformed JSON and invalid payloads', async () => {
+  it('rejects invalid payloads', async () => {
     await expect(
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
-
-    await expect(
-      createOrgShareDirect(
-        {
-          itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1"}'
+          sourceOrgId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -98,7 +84,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'missing-item',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -117,7 +105,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -141,7 +131,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -167,7 +159,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -210,18 +204,16 @@ describe('vfsSharesDirectOrgMutations', () => {
     const response = await createOrgShareDirect(
       {
         itemId: 'item-1',
-        json: JSON.stringify({
-          sourceOrgId: 'org-1',
-          targetOrgId: 'org-2',
-          permissionLevel: 'edit',
-          wrappedKey: {
-            recipientOrgId: 'org-2',
-            recipientPublicKeyId: 'pub-1',
-            keyEpoch: 3,
-            encryptedKey: 'enc-key',
-            senderSignature: 'sig-1'
-          }
-        })
+        sourceOrgId: 'org-1',
+        targetOrgId: 'org-2',
+        permissionLevel: 'edit',
+        wrappedKey: {
+          recipientOrgId: 'org-2',
+          recipientPublicKeyId: 'pub-1',
+          keyEpoch: 3,
+          encryptedKey: 'enc-key',
+          senderSignature: 'sig-1'
+        }
       },
       {
         requestHeader: new Headers()
@@ -266,7 +258,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -296,7 +290,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()
@@ -314,7 +310,9 @@ describe('vfsSharesDirectOrgMutations', () => {
       createOrgShareDirect(
         {
           itemId: 'item-1',
-          json: '{"sourceOrgId":"org-1","targetOrgId":"org-2","permissionLevel":"view"}'
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
         },
         {
           requestHeader: new Headers()

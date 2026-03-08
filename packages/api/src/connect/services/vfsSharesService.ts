@@ -1,3 +1,10 @@
+import { Code, ConnectError } from '@connectrpc/connect';
+import type {
+  CreateOrgShareRequest,
+  CreateVfsShareRequest,
+  UpdateVfsShareRequest
+} from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import {
   deleteOrgShareDirect,
   deleteShareDirect,
@@ -10,12 +17,17 @@ import {
 } from './vfsSharesDirectMutations.js';
 import { createOrgShareDirect } from './vfsSharesDirectOrgMutations.js';
 import { getItemSharesDirect } from './vfsSharesDirectQueries.js';
+import {
+  parseCreateOrgSharePayload,
+  parseCreateSharePayload,
+  parseUpdateSharePayload
+} from './vfsSharesDirectShared.js';
 
 type GetItemSharesRequest = { itemId: string };
-type CreateShareRequest = { itemId: string; json: string };
-type UpdateShareRequest = { shareId: string; json: string };
+type CreateShareRpcRequest = { itemId: string; json: string };
+type UpdateShareRpcRequest = { shareId: string; json: string };
 type ShareIdRequest = { shareId: string };
-type CreateOrgShareRequest = { itemId: string; json: string };
+type CreateOrgShareRpcRequest = { itemId: string; json: string };
 type SearchShareTargetsRequest = { q: string; type: string };
 type GetSharePolicyPreviewRequest = {
   rootItemId: string;
@@ -28,25 +40,89 @@ type GetSharePolicyPreviewRequest = {
   objectType: string[];
 };
 
+type UpdateShareDirectRequest = { shareId: string } & UpdateVfsShareRequest;
+
+function parseJsonBody(json: string): unknown {
+  const normalized = json.trim().length > 0 ? json : '{}';
+  try {
+    return JSON.parse(normalized);
+  } catch {
+    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
+  }
+}
+
+function parseCreateShareDirectRequest(
+  request: CreateShareRpcRequest
+): CreateVfsShareRequest {
+  const parsedBody = parseJsonBody(request.json);
+  const payload = parseCreateSharePayload({
+    ...(isRecord(parsedBody) ? parsedBody : {}),
+    itemId: request.itemId
+  });
+  if (!payload) {
+    throw new ConnectError(
+      'shareType, targetId, and permissionLevel are required',
+      Code.InvalidArgument
+    );
+  }
+  return payload;
+}
+
+function parseUpdateShareDirectRequest(
+  request: UpdateShareRpcRequest
+): UpdateShareDirectRequest {
+  const payload = parseUpdateSharePayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError('Invalid update payload', Code.InvalidArgument);
+  }
+  if (
+    payload.permissionLevel === undefined &&
+    payload.expiresAt === undefined
+  ) {
+    throw new ConnectError('No fields to update', Code.InvalidArgument);
+  }
+  return {
+    shareId: request.shareId,
+    ...payload
+  };
+}
+
+function parseCreateOrgShareDirectRequest(
+  request: CreateOrgShareRpcRequest
+): CreateOrgShareRequest {
+  const parsedBody = parseJsonBody(request.json);
+  const payload = parseCreateOrgSharePayload({
+    ...(isRecord(parsedBody) ? parsedBody : {}),
+    itemId: request.itemId
+  });
+  if (!payload) {
+    throw new ConnectError(
+      'sourceOrgId, targetOrgId, and permissionLevel are required',
+      Code.InvalidArgument
+    );
+  }
+  return payload;
+}
+
 export const vfsSharesConnectService = {
   getItemShares: async (
     request: GetItemSharesRequest,
     context: { requestHeader: Headers }
   ) => getItemSharesDirect(request, context),
   createShare: async (
-    request: CreateShareRequest,
+    request: CreateShareRpcRequest,
     context: { requestHeader: Headers }
-  ) => createShareDirect(request, context),
+  ) => createShareDirect(parseCreateShareDirectRequest(request), context),
   updateShare: async (
-    request: UpdateShareRequest,
+    request: UpdateShareRpcRequest,
     context: { requestHeader: Headers }
-  ) => updateShareDirect(request, context),
+  ) => updateShareDirect(parseUpdateShareDirectRequest(request), context),
   deleteShare: (request: ShareIdRequest, context: { requestHeader: Headers }) =>
     deleteShareDirect(request, context),
   createOrgShare: async (
-    request: CreateOrgShareRequest,
+    request: CreateOrgShareRpcRequest,
     context: { requestHeader: Headers }
-  ) => createOrgShareDirect(request, context),
+  ) => createOrgShareDirect(parseCreateOrgShareDirectRequest(request), context),
   deleteOrgShare: (
     request: ShareIdRequest,
     context: { requestHeader: Headers }
