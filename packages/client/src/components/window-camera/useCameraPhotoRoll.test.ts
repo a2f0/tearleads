@@ -48,7 +48,7 @@ vi.mock('@/storage/opfs', () => ({
 
 const mockGetPhotoRollAlbum = vi.fn();
 
-vi.mock('@/components/photos-window/usePhotoAlbums', () => ({
+vi.mock('@/components/window-photos/usePhotoAlbums', () => ({
   usePhotoAlbums: () => ({
     getPhotoRollAlbum: mockGetPhotoRollAlbum,
     hasFetched: true,

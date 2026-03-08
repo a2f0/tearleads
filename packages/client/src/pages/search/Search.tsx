@@ -1,4 +1,4 @@
-import { SearchWindowContent } from '@/components/search-window';
+import { SearchWindowContent } from '@/components/window-search';
 import { BackLink } from '@/components/ui/back-link';
 
 export function Search() {

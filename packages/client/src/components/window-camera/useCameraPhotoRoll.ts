@@ -2,7 +2,7 @@ import type { CameraPhotoRollItem } from '@tearleads/camera';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePhotoAlbums } from '@/components/photos-window/usePhotoAlbums';
+import { usePhotoAlbums } from '@/components/window-photos/usePhotoAlbums';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';

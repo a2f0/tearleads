@@ -16,7 +16,7 @@ import { DeletePhotoDialog } from '@/components/DeletePhotoDialog';
 import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
-} from '@/components/photos-window/PhotosAlbumsSidebar';
+} from '@/components/window-photos/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';

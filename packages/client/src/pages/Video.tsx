@@ -7,12 +7,12 @@ import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { UploadProgress } from '@/components/ui/UploadProgress';
-import { VideoListView } from '@/components/video-window/VideoListView';
+import { VideoListView } from '@/components/window-video/VideoListView';
 import {
   ALL_VIDEO_ID,
   VideoPlaylistsSidebar
-} from '@/components/video-window/VideoPlaylistsSidebar';
-import { VideoTableView } from '@/components/video-window/VideoTableView';
+} from '@/components/window-video/VideoPlaylistsSidebar';
+import { VideoTableView } from '@/components/window-video/VideoTableView';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';

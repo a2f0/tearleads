@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
-} from '@/components/photos-window/PhotosAlbumsSidebar';
+} from '@/components/window-photos/PhotosAlbumsSidebar';
 import { BackLink } from '@/components/ui/back-link';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';

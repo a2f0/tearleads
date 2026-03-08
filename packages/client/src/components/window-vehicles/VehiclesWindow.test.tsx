@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindow } from './VehiclesWindow';
 
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@/components/window-floating', () => ({
   FloatingWindow: ({
     children,
     title,

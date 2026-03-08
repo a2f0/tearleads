@@ -5,7 +5,7 @@
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ALL_PHOTOS_ID } from '@/components/photos-window/PhotosAlbumsSidebar';
+import { ALL_PHOTOS_ID } from '@/components/window-photos/PhotosAlbumsSidebar';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';

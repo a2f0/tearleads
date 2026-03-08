@@ -13,7 +13,7 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 // Mock the photos sidebar
-vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: () => (
     <div data-testid="photos-albums-sidebar">Albums Sidebar</div>

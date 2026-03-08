@@ -27,7 +27,7 @@ import { Photos } from './photos-components';
 // vi.mock() calls - must be inline in each test file
 // ============================================================
 
-vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: vi.fn(
     ({

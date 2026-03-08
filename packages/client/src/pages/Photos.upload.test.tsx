@@ -11,7 +11,7 @@ import { mockConsoleError } from '@/test/consoleMocks';
 import { Photos } from './photos-components';
 
 // Mocks must be defined in each test file (hoisted)
-vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: vi.fn(() => <div data-testid="photos-albums-sidebar" />)
 }));
