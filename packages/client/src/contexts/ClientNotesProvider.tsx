@@ -8,11 +8,11 @@ import {
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/notes';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
