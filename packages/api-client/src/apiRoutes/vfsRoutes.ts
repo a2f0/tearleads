@@ -22,15 +22,12 @@ import type {
 } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
+  parseConnectJsonEnvelopeBody,
   parseConnectJsonString,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import { request } from '../apiCore';
-
-interface ConnectJsonEnvelopeResponse {
-  json: string;
-}
 
 interface ConnectBlobResponse {
   data?: string | number[];
@@ -48,6 +45,23 @@ interface NormalizedSyncPage<TItem> {
   items: TItem[];
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+function parseConnectJsonResponse<TResponse>(
+  responseBody: unknown
+): TResponse {
+  const parsedPayload = parseConnectJsonEnvelopeBody(responseBody);
+  if (
+    parsedPayload !== null &&
+    parsedPayload !== undefined &&
+    typeof parsedPayload === 'object'
+  ) {
+    return parsedPayload as TResponse;
+  }
+  if (typeof parsedPayload === 'string') {
+    return parseConnectJsonString<TResponse>(parsedPayload);
+  }
+  return parseConnectJsonString<TResponse>('{}');
 }
 
 function normalizeSyncPage<TItem>(
@@ -107,10 +121,13 @@ function requestVfsTyped<TResponse>(
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<TResponse>(`${VFS_V2_CONNECT_BASE_PATH}/${methodName}`, {
-    fetchOptions: createConnectJsonPostInit(requestBody),
-    eventName
-  });
+  return request<unknown>(
+    `${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: createConnectJsonPostInit(requestBody),
+      eventName
+    }
+  ).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function requestVfsSharesJson<TResponse>(
@@ -118,13 +135,13 @@ function requestVfsSharesJson<TResponse>(
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<ConnectJsonEnvelopeResponse>(
+  return request<unknown>(
     `${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`,
     {
       fetchOptions: createConnectJsonPostInit(requestBody),
       eventName
     }
-  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
+  ).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function decodeBlobData(data: string | number[] | undefined): Uint8Array {
