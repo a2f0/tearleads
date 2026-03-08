@@ -67,7 +67,9 @@ function parseJsonBody(json: string): unknown {
   }
 }
 
-function parseUpdateUserPayload(request: UpdateUserInput): AdminUserUpdatePayload | null {
+function parseUpdateUserPayload(
+  request: UpdateUserInput
+): AdminUserUpdatePayload | null {
   if ('json' in request) {
     return parseUserUpdatePayload(parseJsonBody(request.json));
   }

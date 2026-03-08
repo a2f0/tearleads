@@ -388,10 +388,7 @@ export const adminConnectServiceV2 = {
       payload.markedForDeletion = request.markedForDeletion;
     }
 
-    const response = await updateUserDirect(
-      payload,
-      context
-    );
+    const response = await updateUserDirect(payload, context);
     return decodeAdminJson(AdminUpdateUserResponseSchema, response.json);
   },
   async getPostgresInfo(
