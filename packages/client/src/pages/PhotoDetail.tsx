@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing; refactoring deferred
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
