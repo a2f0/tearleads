@@ -5,6 +5,7 @@ import {
   supportedLanguages
 } from '../i18n/config';
 import { getLocalizedPath } from '../i18n/utils';
+import { navigateToPath } from '../utils/navigation';
 import { GridSquare } from './GridSquare';
 
 interface LanguageSelectorProps {
@@ -19,7 +20,7 @@ export function LanguageSelector({ currentLang }: LanguageSelectorProps) {
     // Navigate to equivalent page in new language
     const currentPath = window.location.pathname;
     const newPath = getLocalizedPath(currentPath, langCode);
-    window.location.href = newPath;
+    navigateToPath(newPath, window.location);
   };
 
   return (

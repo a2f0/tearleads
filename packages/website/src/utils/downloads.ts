@@ -63,8 +63,9 @@ export function getDownloadUrl(
   platform: Platform,
   platformInfo: PlatformInfo
 ): string {
-  const domain =
-    import.meta.env.PUBLIC_DOWNLOAD_DOMAIN || 'download.example.com';
+  const processDomain = globalThis.process?.env?.PUBLIC_DOWNLOAD_DOMAIN ?? '';
+  const importMetaDomain = import.meta.env?.PUBLIC_DOWNLOAD_DOMAIN ?? '';
+  const domain = processDomain || importMetaDomain || 'download.example.com';
   const filename = buildFilename(version, platform, platformInfo);
   return `https://${domain}/desktop/${version}/${filename}`;
 }
