@@ -88,8 +88,8 @@ export interface MlsChatContextValue {
   ui: MlsChatUIComponents;
   /** MLS V2 API routes (generated Connect-ES client) */
   mlsRoutes: MlsV2Routes;
-  /** Optional shared realtime bridge from the host app */
-  realtime?: MlsRealtimeBridge;
+  /** Shared realtime bridge from the host app */
+  realtime: MlsRealtimeBridge;
 }
 
 const MlsChatContext = createContext<MlsChatContextValue | null>(null);
@@ -102,7 +102,7 @@ export interface MlsChatProviderProps {
   userEmail: string;
   ui: MlsChatUIComponents;
   mlsRoutes: MlsV2Routes;
-  realtime?: MlsRealtimeBridge;
+  realtime: MlsRealtimeBridge;
 }
 
 /**
@@ -124,7 +124,7 @@ export function MlsChatProvider({
     userEmail,
     ui,
     mlsRoutes,
-    ...(realtime !== undefined && { realtime }),
+    realtime,
     ...(getAuthHeader !== undefined && { getAuthHeader })
   };
 
@@ -185,7 +185,7 @@ export function useMlsRoutes(): MlsV2Routes {
   return mlsRoutes;
 }
 
-export function useMlsChatRealtime(): MlsRealtimeBridge | undefined {
+export function useMlsChatRealtime(): MlsRealtimeBridge {
   const { realtime } = useMlsChatContext();
   return realtime;
 }

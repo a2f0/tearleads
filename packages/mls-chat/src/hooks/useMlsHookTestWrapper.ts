@@ -55,11 +55,21 @@ function createMockMlsRoutes(): MlsV2Routes {
   };
 }
 
+function createDefaultRealtimeBridge(): MlsRealtimeBridge {
+  return {
+    connectionState: 'connected',
+    lastMessage: null,
+    addChannels: () => undefined,
+    removeChannels: () => undefined
+  };
+}
+
 export function createMlsHookWrapper(
   mlsRoutesOverride?: Partial<MlsV2Routes>,
   realtime?: MlsRealtimeBridge
 ) {
   const mlsRoutes = { ...createMockMlsRoutes(), ...mlsRoutesOverride };
+  const realtimeBridge = realtime ?? createDefaultRealtimeBridge();
   return function MlsHookWrapper({ children }: { children: ReactNode }) {
     return createElement(MlsChatProvider, {
       apiBaseUrl: 'http://localhost:3000',
@@ -68,7 +78,7 @@ export function createMlsHookWrapper(
       userEmail: 'test@example.com',
       ui: uiComponents,
       mlsRoutes,
-      ...(realtime !== undefined && { realtime }),
+      realtime: realtimeBridge,
       children
     });
   };

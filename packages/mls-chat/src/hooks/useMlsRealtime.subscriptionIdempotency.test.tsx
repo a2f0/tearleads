@@ -1,62 +1,56 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { MlsRealtimeBridge } from '../context/index.js';
 import { MlsClient } from '../lib/index.js';
 import { createMlsHookWrapper } from './useMlsHookTestWrapper.js';
 import { useMlsRealtime } from './useMlsRealtime.js';
 
-const { openNotificationEventStreamMock } = vi.hoisted(() => ({
-  openNotificationEventStreamMock: vi.fn()
-}));
+function createSharedRealtimeBridge(): {
+  bridge: MlsRealtimeBridge;
+  addChannels: ReturnType<typeof vi.fn>;
+  removeChannels: ReturnType<typeof vi.fn>;
+} {
+  const addChannels = vi.fn();
+  const removeChannels = vi.fn();
 
-vi.mock('@tearleads/api-client/notificationStream', () => ({
-  openNotificationEventStream: (...args: unknown[]) =>
-    openNotificationEventStreamMock(...args)
-}));
+  const bridge: MlsRealtimeBridge = {
+    connectionState: 'connected',
+    lastMessage: null,
+    addChannels,
+    removeChannels
+  };
 
-function createAbortError(): Error {
-  const error = new Error('aborted');
-  error.name = 'AbortError';
-  return error;
-}
-
-function streamFromEnvelopes(envelopes: unknown[]): AsyncIterable<string> {
   return {
-    async *[Symbol.asyncIterator]() {
-      for (const envelope of envelopes) {
-        yield JSON.stringify(envelope);
-      }
-      throw createAbortError();
-    }
+    bridge,
+    addChannels,
+    removeChannels
   };
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
-
 describe('useMlsRealtime subscribe idempotency', () => {
-  it('does not reconnect when subscribing to an already-subscribed group', async () => {
-    openNotificationEventStreamMock.mockImplementation(() =>
-      streamFromEnvelopes([{ event: 'connected' }])
-    );
-
+  it('does not re-register channels when subscribing to an already-subscribed group', async () => {
+    const { bridge, addChannels } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
+      wrapper: createMlsHookWrapper(undefined, bridge)
     });
 
     await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(1);
+      expect(addChannels).toHaveBeenCalledTimes(1);
     });
+    expect(addChannels).toHaveBeenLastCalledWith(['mls:user:test-user-id']);
 
     act(() => {
       result.current.subscribe('group-1');
     });
 
     await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+      expect(addChannels).toHaveBeenCalledTimes(2);
     });
+    expect(addChannels).toHaveBeenLastCalledWith([
+      'mls:user:test-user-id',
+      'mls:group:group-1'
+    ]);
 
     act(() => {
       result.current.subscribe('group-1');
@@ -66,24 +60,21 @@ describe('useMlsRealtime subscribe idempotency', () => {
       await Promise.resolve();
     });
 
-    expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    expect(addChannels).toHaveBeenCalledTimes(2);
 
     unmount();
     client.close();
   });
 
-  it('does not reconnect when unsubscribing from a non-subscribed group', async () => {
-    openNotificationEventStreamMock.mockImplementation(() =>
-      streamFromEnvelopes([{ event: 'connected' }])
-    );
-
+  it('does not re-register channels when unsubscribing from a non-subscribed group', async () => {
+    const { bridge, addChannels } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
+      wrapper: createMlsHookWrapper(undefined, bridge)
     });
 
     await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(1);
+      expect(addChannels).toHaveBeenCalledTimes(1);
     });
 
     act(() => {
@@ -91,7 +82,7 @@ describe('useMlsRealtime subscribe idempotency', () => {
     });
 
     await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+      expect(addChannels).toHaveBeenCalledTimes(2);
     });
 
     act(() => {
@@ -102,15 +93,16 @@ describe('useMlsRealtime subscribe idempotency', () => {
       await Promise.resolve();
     });
 
-    expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    expect(addChannels).toHaveBeenCalledTimes(2);
 
     act(() => {
       result.current.unsubscribe('group-1');
     });
 
     await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(3);
+      expect(addChannels).toHaveBeenCalledTimes(3);
     });
+    expect(addChannels).toHaveBeenLastCalledWith(['mls:user:test-user-id']);
 
     act(() => {
       result.current.unsubscribe('group-1');
@@ -120,7 +112,7 @@ describe('useMlsRealtime subscribe idempotency', () => {
       await Promise.resolve();
     });
 
-    expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(3);
+    expect(addChannels).toHaveBeenCalledTimes(3);
 
     unmount();
     client.close();

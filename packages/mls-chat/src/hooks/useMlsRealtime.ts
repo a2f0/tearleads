@@ -1,5 +1,5 @@
 /**
- * Hook for MLS real-time message delivery via Connect notifications streaming.
+ * Hook for MLS real-time message delivery via shared realtime bridge.
  * Subscribes to group channels and handles incoming messages.
  */
 
@@ -7,13 +7,11 @@ import {
   decodeRequiredTransportBytes,
   decodeTransportBytes
 } from '@tearleads/api-client/mlsRoutes';
-import { openNotificationEventStream } from '@tearleads/api-client/notificationStream';
 import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
-  useMlsChatApi,
   useMlsChatRealtime,
   useMlsChatUser,
   useMlsRoutes
@@ -51,47 +49,6 @@ interface GroupMembershipPayload {
 interface WelcomePayload {
   groupId: string;
   welcomeId: string;
-}
-
-interface NotificationStreamEnvelope {
-  event: string;
-}
-
-interface NotificationStreamMessageEnvelope extends NotificationStreamEnvelope {
-  channel: string;
-  message: unknown;
-}
-
-function isNotificationStreamEnvelope(
-  value: unknown
-): value is NotificationStreamEnvelope {
-  return isRecord(value) && typeof value['event'] === 'string';
-}
-
-function isNotificationStreamMessageEnvelope(
-  value: unknown
-): value is NotificationStreamMessageEnvelope {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    isNotificationStreamEnvelope(value) &&
-    value['event'] === 'message' &&
-    typeof value['channel'] === 'string' &&
-    'message' in value
-  );
-}
-
-function normalizeToken(authHeaderValue: string | null | undefined): string {
-  if (!authHeaderValue) {
-    return '';
-  }
-  const trimmed = authHeaderValue.trim();
-  if (trimmed.startsWith('Bearer ')) {
-    return trimmed.slice('Bearer '.length).trim();
-  }
-  return trimmed;
 }
 
 /** Type guard for SSE message envelope */
@@ -145,22 +102,17 @@ function isWelcomePayload(value: unknown): value is WelcomePayload {
 }
 
 export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
-  const { apiBaseUrl, getAuthHeader } = useMlsChatApi();
   const realtimeBridge = useMlsChatRealtime();
   const mlsRoutes = useMlsRoutes();
   const { userId } = useMlsChatUser();
 
-  const [connectionState, setConnectionState] =
-    useState<SseConnectionState>('disconnected');
   const [subscribedGroups, setSubscribedGroups] = useState<Set<string>>(
     new Set()
   );
 
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const reconnectAttemptRef = useRef(0);
+  const connectionState: SseConnectionState = client
+    ? realtimeBridge.connectionState
+    : 'disconnected';
 
   const handleMessageEnvelope = useCallback(
     (messageEnvelope: SseMessageEnvelope) => {
@@ -261,103 +213,6 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     [client, mlsRoutes, userId]
   );
 
-  const connect = useCallback(() => {
-    if (realtimeBridge) {
-      return;
-    }
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    if (!client) {
-      setConnectionState('disconnected');
-      return;
-    }
-
-    setConnectionState('connecting');
-
-    const groupChannels = Array.from(subscribedGroups).map(
-      (groupId) => `mls:group:${groupId}`
-    );
-    const channels = [`mls:user:${userId}`, ...groupChannels];
-    const authValue = getAuthHeader?.();
-    const token = normalizeToken(authValue);
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    const handleError = (isAborted: boolean) => {
-      if (isAborted) return;
-
-      setConnectionState('error');
-      abortControllerRef.current = null;
-
-      // Exponential backoff: 1s, 2s, 4s, 8s, ... up to 30s max
-      const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
-      reconnectAttemptRef.current++;
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, delay);
-    };
-
-    const startStream = async () => {
-      try {
-        for await (const payload of openNotificationEventStream({
-          apiBaseUrl,
-          channels,
-          token,
-          signal: abortController.signal
-        })) {
-          let parsedPayload: unknown;
-          try {
-            parsedPayload = JSON.parse(payload);
-          } catch {
-            continue;
-          }
-
-          if (!isNotificationStreamEnvelope(parsedPayload)) {
-            continue;
-          }
-
-          if (parsedPayload.event === 'connected') {
-            setConnectionState('connected');
-            reconnectAttemptRef.current = 0;
-            continue;
-          }
-
-          if (!isNotificationStreamMessageEnvelope(parsedPayload)) {
-            continue;
-          }
-
-          const messageEnvelope = parsedPayload.message;
-          if (!isSseMessageEnvelope(messageEnvelope)) {
-            continue;
-          }
-
-          handleMessageEnvelope(messageEnvelope);
-        }
-
-        handleError(abortController.signal.aborted);
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
-        handleError(false);
-      }
-    };
-
-    void startStream();
-  }, [
-    apiBaseUrl,
-    getAuthHeader,
-    handleMessageEnvelope,
-    realtimeBridge,
-    subscribedGroups,
-    client,
-    userId
-  ]);
-
   const subscribe = useCallback((groupId: string) => {
     setSubscribedGroups((prev) => {
       if (prev.has(groupId)) {
@@ -381,20 +236,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   }, []);
 
   useEffect(() => {
-    if (!realtimeBridge) {
-      return;
-    }
-
     if (!client) {
-      setConnectionState('disconnected');
-      return;
-    }
-
-    setConnectionState(realtimeBridge.connectionState);
-  }, [client, realtimeBridge, realtimeBridge?.connectionState]);
-
-  useEffect(() => {
-    if (!realtimeBridge || !client) {
       return;
     }
 
@@ -410,7 +252,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   }, [client, realtimeBridge, subscribedGroups, userId]);
 
   useEffect(() => {
-    if (!realtimeBridge || !client) {
+    if (!client) {
       return;
     }
 
@@ -424,28 +266,8 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     client,
     handleMessageEnvelope,
     realtimeBridge,
-    realtimeBridge?.lastMessage
+    realtimeBridge.lastMessage
   ]);
-
-  // Reconnect when subscribed groups change
-  useEffect(() => {
-    if (realtimeBridge) {
-      return;
-    }
-
-    connect();
-
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
-  }, [connect, realtimeBridge]);
 
   return {
     connectionState,
