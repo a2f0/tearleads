@@ -8,9 +8,12 @@ export {
   MlsChatProvider,
   type MlsChatProviderProps,
   type MlsChatUIComponents,
+  type MlsRealtimeBridge,
+  type MlsRealtimeMessage,
   type ScrollAreaProps,
   useMlsChatApi,
   useMlsChatContext,
+  useMlsChatRealtime,
   useMlsChatUI,
   useMlsChatUser,
   useMlsRoutes

@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { API_BASE_URL } from '@/lib/api';
+import { useSSE } from '@/sse';
 
 // Map our UI components to what MlsChat expects
 const MlsChatButton: MlsChatUIComponents['Button'] = ({
@@ -122,6 +123,12 @@ interface MlsChatPageProps {
 const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { token, user } = useAuth();
+  const {
+    connectionState: sharedConnectionState,
+    lastMessage,
+    addChannels,
+    removeChannels
+  } = useSSE();
 
   // Get the API base URL from environment
   const apiBaseUrl = API_BASE_URL ?? 'http://localhost:5001/v1';
@@ -144,6 +151,15 @@ const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   // User info
   const userId = user?.id ?? '';
   const userEmail = user?.email ?? '';
+  const realtimeBridge = useMemo(
+    () => ({
+      connectionState: sharedConnectionState,
+      lastMessage,
+      addChannels,
+      removeChannels
+    }),
+    [sharedConnectionState, lastMessage, addChannels, removeChannels]
+  );
 
   if (isDatabaseLoading) {
     return (
@@ -177,6 +193,7 @@ const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
       userEmail={userEmail}
       ui={uiComponents}
       mlsRoutes={mlsRoutes}
+      realtime={realtimeBridge}
     >
       <MlsChatComponent className={className ?? ''} />
     </MlsChatProvider>

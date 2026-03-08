@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTypedTranslation } from '@/i18n';
 import { API_BASE_URL } from '@/lib/api';
+import { useSSE } from '@/sse';
 import { MlsChatContent } from './MlsChatContent';
 import { MlsChatGroupsSidebar } from './MlsChatGroupsSidebar';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
@@ -150,6 +151,12 @@ export function MlsChatWindow({
 }: MlsChatWindowProps) {
   const { t } = useTypedTranslation('menu');
   const { token, user } = useAuth();
+  const {
+    connectionState: sharedConnectionState,
+    lastMessage,
+    addChannels,
+    removeChannels
+  } = useSSE();
 
   const apiBaseUrl = API_BASE_URL ?? 'http://localhost:5001/v1';
   const getAuthHeader = useCallback(
@@ -166,6 +173,15 @@ export function MlsChatWindow({
   );
   const userId = user?.id ?? '';
   const userEmail = user?.email ?? '';
+  const realtimeBridge = useMemo(
+    () => ({
+      connectionState: sharedConnectionState,
+      lastMessage,
+      addChannels,
+      removeChannels
+    }),
+    [sharedConnectionState, lastMessage, addChannels, removeChannels]
+  );
 
   return (
     <FloatingWindow
@@ -195,6 +211,7 @@ export function MlsChatWindow({
             userEmail={userEmail}
             ui={uiComponents}
             mlsRoutes={mlsRoutes}
+            realtime={realtimeBridge}
           >
             <MlsChatWindowInner onClose={onClose} />
           </MlsChatProvider>
