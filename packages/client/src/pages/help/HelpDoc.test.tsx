@@ -10,6 +10,20 @@ vi.mock('@/components/help-links/HelpDocumentation', () => ({
 }));
 
 describe('HelpDocPage', () => {
+  it('renders not found when route has no docId param', () => {
+    render(
+      <MemoryRouter initialEntries={['/help/docs']}>
+        <Routes>
+          <Route path="/help/docs" element={<HelpDocPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByText('This documentation page was not found.')
+    ).toBeInTheDocument();
+  });
+
   it('renders known docs', () => {
     render(
       <MemoryRouter initialEntries={['/help/docs/tuxedo']}>
