@@ -100,6 +100,36 @@ describe('vfsRematerializationAclGrantors', () => {
     ).toBe(false);
   });
 
+  it('treats malformed existing-user rows as missing grantors', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.startsWith(`SELECT id FROM users WHERE id IN`)) {
+          return {
+            rows: [{ id: null }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(['malformed-grantor'], 200);
+
+    expect(
+      executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
+    ).toBe(true);
+    const rows = await originalExecute(
+      `SELECT id FROM users WHERE id = ? ORDER BY id`,
+      ['malformed-grantor']
+    );
+    expect(rows.rows).toEqual([
+      expect.objectContaining({ id: 'malformed-grantor' })
+    ]);
+  });
+
   it('returns early when users table is unavailable', async () => {
     const adapter = getDatabaseAdapter();
     const executeSpy = vi
@@ -228,6 +258,34 @@ describe('vfsRematerializationAclGrantors', () => {
       });
 
     await ensureGrantorUsersExist(['grantor-no-org-required'], 200);
+
+    expect(
+      executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
+    ).toBe(true);
+    expect(
+      executeSpy.mock.calls.some(([sql]) =>
+        sql.startsWith(`INSERT INTO organizations`)
+      )
+    ).toBe(false);
+  });
+
+  it('falls back to base user inserts when pragma notnull is empty text', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.includes('PRAGMA table_info("users")')) {
+          return {
+            rows: [{ name: 'personal_organization_id', notnull: '' }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(['grantor-empty-notnull'], 200);
 
     expect(
       executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
