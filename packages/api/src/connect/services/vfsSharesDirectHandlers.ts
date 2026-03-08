@@ -6,12 +6,12 @@ import {
   type VfsShareType
 } from '@tearleads/shared';
 import type {
-  VfsShareTargetPayload,
-  VfsSharesSearchShareTargetsResponse
+  VfsSharesSearchShareTargetsResponse,
+  VfsShareTargetPayload
 } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import {
-  VfsShareTargetPayloadSchema,
-  VfsSharesSearchShareTargetsResponseSchema
+  VfsSharesSearchShareTargetsResponseSchema,
+  VfsShareTargetPayloadSchema
 } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
