@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom/vitest';
-import { installVitestPolyfills } from '@tearleads/bun-dom-compat';
+import {
+  formatConsoleArg,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
@@ -18,20 +21,6 @@ const allowedWarnings = [
 let warnSpy: ReturnType<typeof vi.spyOn> | null = null;
 let errorSpy: ReturnType<typeof vi.spyOn> | null = null;
 let bunConsoleErrors: string[] = [];
-
-function formatConsoleArg(arg: unknown): string {
-  if (typeof arg === 'string') {
-    return arg;
-  }
-  if (arg instanceof Error) {
-    return arg.stack ?? arg.message;
-  }
-  try {
-    return JSON.stringify(arg);
-  } catch {
-    return String(arg);
-  }
-}
 
 beforeEach(() => {
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

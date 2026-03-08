@@ -1,4 +1,7 @@
-import { installVitestPolyfills } from '@tearleads/bun-dom-compat';
+import {
+  formatConsoleArg,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { afterEach, beforeEach, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
@@ -13,20 +16,6 @@ if (!isBunRuntime) {
   const originalConsoleError = console.error;
   const originalConsoleWarn = console.warn;
   let consoleMessages: string[] = [];
-
-  function formatConsoleArg(arg: unknown): string {
-    if (typeof arg === 'string') {
-      return arg;
-    }
-    if (arg instanceof Error) {
-      return arg.stack ?? arg.message;
-    }
-    try {
-      return JSON.stringify(arg);
-    } catch {
-      return String(arg);
-    }
-  }
 
   beforeEach(() => {
     consoleMessages = [];

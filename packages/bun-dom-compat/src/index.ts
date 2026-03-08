@@ -179,3 +179,17 @@ export function installVitestPolyfills(
 
   return { hasCustomStubber, unstubAllGlobals: cleanup };
 }
+
+export function formatConsoleArg(arg: unknown): string {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+  if (arg instanceof Error) {
+    return arg.stack ?? arg.message;
+  }
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
+}
