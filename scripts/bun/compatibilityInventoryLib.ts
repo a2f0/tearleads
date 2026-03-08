@@ -19,6 +19,7 @@ interface PatternDefinition {
   label: string;
   pattern: RegExp;
   riskWeight: number;
+  highRisk: boolean;
 }
 
 export interface PackageInventory {
@@ -61,31 +62,43 @@ const COMPAT_PATTERNS: ReadonlyArray<PatternDefinition> = [
     key: 'viHoisted',
     label: 'vi.hoisted',
     pattern: /\bvi\.hoisted\s*(?:<[^>]*>)?\s*\(/g,
-    riskWeight: 5
+    riskWeight: 5,
+    highRisk: true
   },
   {
     key: 'viImportActual',
     label: 'vi.importActual',
     pattern: /\bvi\.importActual\s*(?:<[^>]*>)?\s*\(/g,
-    riskWeight: 4
+    riskWeight: 4,
+    highRisk: true
+  },
+  {
+    key: 'viMockImportOriginal',
+    label: 'vi.mock(importOriginal)',
+    pattern: /\bvi\.mock\s*\(\s*[^,\n]+,\s*(?:async\s*)?\(\s*importOriginal\b/g,
+    riskWeight: 4,
+    highRisk: true
   },
   {
     key: 'viResetModules',
     label: 'vi.resetModules',
     pattern: /\bvi\.resetModules\s*\(/g,
-    riskWeight: 3
+    riskWeight: 3,
+    highRisk: true
   },
   {
     key: 'viMocked',
     label: 'vi.mocked',
     pattern: /\bvi\.mocked\s*\(/g,
-    riskWeight: 2
+    riskWeight: 2,
+    highRisk: false
   },
   {
     key: 'viStubEnv',
     label: 'vi.stubEnv',
     pattern: /\bvi\.stubEnv\s*\(/g,
-    riskWeight: 1
+    riskWeight: 1,
+    highRisk: false
   }
 ];
 
@@ -96,6 +109,16 @@ function toRepoRelative(repoRoot: string, absolutePath: string): string {
 function countMatches(sourceText: string, pattern: RegExp): number {
   const matches = sourceText.match(pattern);
   return matches === null ? 0 : matches.length;
+}
+
+export function detectCompatibilityPatternCounts(
+  sourceText: string
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const definition of COMPAT_PATTERNS) {
+    counts[definition.key] = countMatches(sourceText, definition.pattern);
+  }
+  return counts;
 }
 
 function listFilesRecursive(rootDir: string): string[] {
@@ -259,10 +282,11 @@ function buildPackageInventory(
 
   for (const sourceFile of sourceFiles) {
     const content = fs.readFileSync(sourceFile, 'utf8');
+    const contentCounts = detectCompatibilityPatternCounts(content);
     for (const definition of COMPAT_PATTERNS) {
       const currentCount = compatPatternCounts[definition.key] ?? 0;
       compatPatternCounts[definition.key] =
-        currentCount + countMatches(content, definition.pattern);
+        currentCount + (contentCounts[definition.key] ?? 0);
     }
   }
 
@@ -320,9 +344,8 @@ function summarize(packages: PackageInventory[]): InventorySummary {
     if (
       COMPAT_PATTERNS.some(
         (definition) =>
-          ['viHoisted', 'viImportActual', 'viResetModules'].includes(
-            definition.key
-          ) && (pkg.compatPatternCounts[definition.key] ?? 0) > 0
+          definition.highRisk &&
+          (pkg.compatPatternCounts[definition.key] ?? 0) > 0
       )
     ) {
       packagesWithHighRiskVitestApis += 1;
@@ -392,7 +415,7 @@ export function buildCompatibilityInventoryMarkdown(
     `- Packages with DOM/jsdom indicators: ${summary.packagesWithJsdomIndicators}`
   );
   lines.push(
-    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
+    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
   );
   lines.push('');
 
