@@ -10,9 +10,17 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 1: Bun runtime pilot (Vitest) | In progress | Pilot workflows are running; ongoing stability/perf tracking. |
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
-| Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); codemod/adapters remain pending. |
+| Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
 | Phase 5: jsdom/UI-heavy strategy | Not started | Pending pilot package decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
+
+## Compatibility Snapshot (2026-03-08)
+
+- Packages with tests: 48
+- Bun-primary `test` scripts: 27
+- Transitional inline Bun fallback scripts: 13
+- Vitest-primary `test` scripts: 8
+- High-risk Vitest API packages (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 13
 
 ## Merged Slices
 
@@ -76,6 +84,11 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2918](https://github.com/a2f0/tearleads/pull/2918) | Node pilot package batch coverage promotion |
 | [#2921](https://github.com/a2f0/tearleads/pull/2921) | Coverage worker flag normalization (`bun`/`vitest`) |
 | [#2923](https://github.com/a2f0/tearleads/pull/2923) | Shared coverage runner consolidation |
+| [#2930](https://github.com/a2f0/tearleads/pull/2930) | Bun compatibility hardening for Bob-and-Alice email detail parsing |
+| [#2939](https://github.com/a2f0/tearleads/pull/2939) | Bun-primary coverage runner alignment |
+| [#2964](https://github.com/a2f0/tearleads/pull/2964) | `@tearleads/notes` Bun-primary migration |
+| [#2971](https://github.com/a2f0/tearleads/pull/2971) | Bun-primary migration for classic/email/notifications/mls-chat |
+| [#2994](https://github.com/a2f0/tearleads/pull/2994) | Compatibility inventory fallback-classification correction |
 
 ## Node Pilot Package Status
 
@@ -96,4 +109,4 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
 2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.resetModules`, `vi.mocked`).
-3. Expand Bun-first package set where compatibility is already proven and reduce fallback-only paths package-by-package.
+3. Burn down the 13 packages still using inline Bun fallback in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
