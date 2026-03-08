@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   CreateVfsShareRequest,
@@ -6,6 +7,16 @@ import type {
   VfsShare,
   VfsShareType
 } from '@tearleads/shared';
+import type {
+  VfsSharePayload,
+  VfsSharesCreateShareResponse,
+  VfsSharesUpdateShareResponse
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
+import {
+  VfsSharePayloadSchema,
+  VfsSharesCreateShareResponseSchema,
+  VfsSharesUpdateShareResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
@@ -28,10 +39,28 @@ type CreateShareMutationRequest = {
   itemId: string;
 } & Partial<Omit<CreateVfsShareRequest, 'itemId'>>;
 
+function toSharePayload(share: VfsShare): VfsSharePayload {
+  return create(VfsSharePayloadSchema, {
+    id: share.id,
+    itemId: share.itemId,
+    shareType: share.shareType,
+    targetId: share.targetId,
+    targetName: share.targetName,
+    permissionLevel: share.permissionLevel,
+    createdBy: share.createdBy,
+    createdByEmail: share.createdByEmail,
+    createdAt: share.createdAt,
+    ...(typeof share.expiresAt === 'string'
+      ? { expiresAt: share.expiresAt }
+      : {}),
+    ...(share.wrappedKey ? { wrappedKey: share.wrappedKey } : {})
+  });
+}
+
 export async function updateShareDirect(
   request: UpdateShareMutationRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesUpdateShareResponse> {
   const claims = await requireVfsSharesClaims(
     `/vfs/shares/${encoded(request.shareId)}`,
     context.requestHeader
@@ -163,9 +192,9 @@ export async function updateShareDirect(
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null
     };
 
-    return {
-      json: JSON.stringify({ share })
-    };
+    return create(VfsSharesUpdateShareResponseSchema, {
+      share: toSharePayload(share)
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -178,7 +207,7 @@ export async function updateShareDirect(
 export async function createShareDirect(
   request: CreateShareMutationRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesCreateShareResponse> {
   const claims = await requireVfsSharesClaims(
     `/vfs/items/${encoded(request.itemId)}/shares`,
     context.requestHeader
@@ -370,9 +399,9 @@ export async function createShareDirect(
       ...(wrappedKey !== null && { wrappedKey })
     };
 
-    return {
-      json: JSON.stringify({ share })
-    };
+    return create(VfsSharesCreateShareResponseSchema, {
+      share: toSharePayload(share)
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

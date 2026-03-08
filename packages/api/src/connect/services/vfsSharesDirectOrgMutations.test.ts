@@ -31,14 +31,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseResponseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected record JSON payload');
-  }
-  return parsed;
-}
-
 describe('vfsSharesDirectOrgMutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -219,18 +211,16 @@ describe('vfsSharesDirectOrgMutations', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const orgShare = payload['orgShare'];
-    if (!isRecord(orgShare)) {
+    if (!isRecord(response.orgShare)) {
       throw new Error('Expected orgShare payload');
     }
 
-    expect(orgShare['id']).toBe('org-share-1');
-    expect(orgShare['sourceOrgName']).toBe('Source Org');
-    expect(orgShare['targetOrgName']).toBe('Target Org');
-    expect(orgShare['createdBy']).toBe('user-1');
-    expect(orgShare['createdByEmail']).toBe('Unknown');
-    expect(orgShare['wrappedKey']).toEqual({
+    expect(response.orgShare['id']).toBe('org-share-1');
+    expect(response.orgShare['sourceOrgName']).toBe('Source Org');
+    expect(response.orgShare['targetOrgName']).toBe('Target Org');
+    expect(response.orgShare['createdBy']).toBe('user-1');
+    expect(response.orgShare['createdByEmail']).toBe('Unknown');
+    expect(response.orgShare['wrappedKey']).toMatchObject({
       recipientOrgId: 'org-2',
       recipientPublicKeyId: 'pub-1',
       keyEpoch: 3,
