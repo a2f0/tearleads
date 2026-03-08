@@ -322,9 +322,10 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
   }
 
   const rawItems = body['items'];
-  if (!Array.isArray(rawItems)) {
+  if (rawItems !== undefined && !Array.isArray(rawItems)) {
     throw new Error('transport returned invalid pull response items');
   }
+  const normalizedRawItems = Array.isArray(rawItems) ? rawItems : [];
 
   const rawNextCursor = body['nextCursor'];
   if (
@@ -338,9 +339,14 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     typeof rawNextCursor === 'string' ? rawNextCursor : null;
 
   const hasMoreValue = body['hasMore'];
-  if (typeof hasMoreValue !== 'boolean') {
+  if (
+    hasMoreValue !== undefined &&
+    hasMoreValue !== null &&
+    typeof hasMoreValue !== 'boolean'
+  ) {
     throw new Error('transport returned invalid hasMore');
   }
+  const normalizedHasMore = hasMoreValue === true;
 
   const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
     body['lastReconciledWriteIds']
@@ -349,11 +355,13 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     throw new Error(parsedWriteIds.error);
   }
 
-  const items = rawItems.map((item, index) => parseSyncItem(item, index));
+  const items = normalizedRawItems.map((item, index) =>
+    parseSyncItem(item, index)
+  );
   return {
     items,
     nextCursor: nextCursorValue,
-    hasMore: hasMoreValue,
+    hasMore: normalizedHasMore,
     lastReconciledWriteIds: parsedWriteIds.value
   };
 }

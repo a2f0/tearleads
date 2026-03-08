@@ -74,6 +74,33 @@ describe('vfsRoutes', () => {
     });
   });
 
+  it('normalizes omitted sync pagination defaults from connect responses', async () => {
+    requestMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        lastReconciledWriteIds: {
+          desktop: 4,
+          mobile: 0,
+          '  ': 2
+        }
+      });
+
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+
+    await expect(vfsRoutes.getCrdtSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 4
+      }
+    });
+  });
+
   it('returns typed GetCrdtSync responses directly', async () => {
     requestMock.mockResolvedValueOnce({
       items: [

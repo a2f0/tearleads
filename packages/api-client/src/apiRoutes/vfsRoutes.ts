@@ -4,6 +4,7 @@ import type {
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
   VfsCrdtSyncResponse,
+  VfsCrdtSyncItem,
   VfsKeySetupRequest,
   VfsOrgShare,
   VfsRegisterRequest,
@@ -16,6 +17,7 @@ import type {
   VfsSharesResponse,
   VfsShareType,
   VfsSyncResponse,
+  VfsSyncItem,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import {
@@ -40,6 +42,64 @@ type RequestEventName = Parameters<typeof request>[1]['eventName'];
 interface VfsBlobResponse {
   data: Uint8Array;
   contentType: string | null;
+}
+
+interface NormalizedSyncPage<TItem> {
+  items: TItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+function normalizeSyncPage<TItem>(
+  page: {
+    items: TItem[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }
+): NormalizedSyncPage<TItem> {
+  const items = Array.isArray(page.items) ? page.items : [];
+  const nextCursor =
+    typeof page.nextCursor === 'string' && page.nextCursor.trim().length > 0
+      ? page.nextCursor
+      : null;
+
+  return {
+    items,
+    nextCursor,
+    hasMore: page.hasMore === true
+  };
+}
+
+function normalizeLastReconciledWriteIds(
+  lastReconciledWriteIds: VfsCrdtSyncResponse['lastReconciledWriteIds']
+): VfsCrdtSyncResponse['lastReconciledWriteIds'] {
+  if (
+    !lastReconciledWriteIds ||
+    typeof lastReconciledWriteIds !== 'object' ||
+    Array.isArray(lastReconciledWriteIds)
+  ) {
+    return {};
+  }
+
+  const normalized: Record<string, number> = {};
+  for (const [replicaId, writeId] of Object.entries(lastReconciledWriteIds)) {
+    const trimmedReplicaId = replicaId.trim();
+    if (trimmedReplicaId.length === 0) {
+      continue;
+    }
+    if (
+      typeof writeId !== 'number' ||
+      !Number.isInteger(writeId) ||
+      !Number.isSafeInteger(writeId) ||
+      writeId < 1
+    ) {
+      continue;
+    }
+
+    normalized[trimmedReplicaId] = writeId;
+  }
+
+  return normalized;
 }
 
 function requestVfsTyped<TResponse>(
@@ -101,7 +161,7 @@ export const vfsRoutes = {
       'GetSync',
       requestBody,
       'api_get_vfs_sync'
-    );
+    ).then((response) => normalizeSyncPage<VfsSyncItem>(response));
   },
   getCrdtSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
@@ -112,7 +172,15 @@ export const vfsRoutes = {
       'GetCrdtSync',
       requestBody,
       'api_get_vfs_crdt_sync'
-    );
+    ).then((response) => {
+      const normalizedPage = normalizeSyncPage<VfsCrdtSyncItem>(response);
+      return {
+        ...normalizedPage,
+        lastReconciledWriteIds: normalizeLastReconciledWriteIds(
+          response.lastReconciledWriteIds
+        )
+      };
+    });
   },
   setupKeys: (data: VfsKeySetupRequest) =>
     request<{ created: boolean }>(`${VFS_V2_CONNECT_BASE_PATH}/SetupKeys`, {

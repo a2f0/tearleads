@@ -21,6 +21,19 @@ function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
 }
 
 describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
+  it('applies protobuf default semantics when pull defaults are omitted', () => {
+    const response = parseApiPullResponse({
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response).toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+  });
+
   it('rejects encrypted envelope with non-safe-integer keyEpoch', () => {
     expect(() =>
       parseApiPullResponse({
