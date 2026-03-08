@@ -49,6 +49,9 @@ importers:
       '@tearleads/api':
         specifier: workspace:*
         version: link:packages/api
+      '@types/jsdom':
+        specifier: 28.0.0
+        version: 28.0.0
       '@types/node':
         specifier: 25.3.3
         version: 25.3.3
