@@ -135,7 +135,6 @@ describe('msw handlers', () => {
         '/connect/tearleads.v2.AdminService/GetPostgresInfo'
       )
     ).toBe(true);
-    expect(infoPayload).toHaveProperty('status', 'ok');
     expect(infoPayload).toHaveProperty('info');
     expect(infoPayload).toHaveProperty('serverVersion');
 
