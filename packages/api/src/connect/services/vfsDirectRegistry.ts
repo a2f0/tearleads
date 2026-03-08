@@ -8,10 +8,7 @@ import type {
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { encoded } from './vfsDirectJson.js';
-import {
-  parseRegisterPayload,
-  parseRekeyPayload
-} from './vfsDirectShared.js';
+import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
 
 type RegisterDirectRequest = Partial<VfsRegisterRequest>;
 type RekeyItemDirectRequest = { itemId: string } & Partial<VfsRekeyRequest>;

@@ -247,7 +247,6 @@ describe('vfsConnectService', () => {
     const registerRequest = {
       json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
     };
-    const registerDirectRequest = { id: 'item-1', objectType: 'file', encryptedSessionKey: 'enc' };
     const deleteBlobRequest = { blobId: 'blob-2' };
     const stageBlobRequest = {
       blobId: 'blob-3',
@@ -280,7 +279,6 @@ describe('vfsConnectService', () => {
       itemId: 'item-1',
       json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[]}'
     };
-    const rekeyItemDirectRequest = { itemId: 'item-1', reason: 'manual', newEpoch: 2, wrappedKeys: [] };
     const getSyncRequest = {
       cursor: 'sync-cursor',
       limit: 20,
@@ -328,7 +326,7 @@ describe('vfsConnectService', () => {
     const directCases = [
       {
         call: () => vfsConnectService.register(registerRequest, context),
-        expectedRequest: registerDirectRequest,
+        expectedRequest: JSON.parse(registerRequest.json),
         expectedResponse: {
           id: 'item-1',
           createdAt: '2026-03-03T00:00:00.000Z'
@@ -363,7 +361,10 @@ describe('vfsConnectService', () => {
       },
       {
         call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
-        expectedRequest: rekeyItemDirectRequest,
+        expectedRequest: {
+          itemId: rekeyItemRequest.itemId,
+          ...JSON.parse(rekeyItemRequest.json)
+        },
         expectedResponse: {
           itemId: 'item-1',
           newEpoch: 2,

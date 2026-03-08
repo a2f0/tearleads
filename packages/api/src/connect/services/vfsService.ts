@@ -34,10 +34,7 @@ import {
 import { parseJsonBody } from './vfsDirectJson.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
-import {
-  parseRegisterPayload,
-  parseRekeyPayload
-} from './vfsDirectShared.js';
+import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
 import {
   getCrdtSnapshotDirect,
   getCrdtSyncDirect,
@@ -112,10 +109,8 @@ export const vfsConnectService = {
     request: VfsKeySetupRequest,
     context: { requestHeader: Headers }
   ) => setupKeysDirect(request, context),
-  register: async (
-    request: JsonRequest,
-    context: { requestHeader: Headers }
-  ) => registerDirect(parseRegisterDirectRequest(request), context),
+  register: async (request: JsonRequest, context: { requestHeader: Headers }) =>
+    registerDirect(parseRegisterDirectRequest(request), context),
   getBlob: async (
     request: BlobIdRequest,
     context: { requestHeader: Headers }
