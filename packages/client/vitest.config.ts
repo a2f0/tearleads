@@ -214,7 +214,12 @@ export default mergeConfig(
           'src/db/analytics.ts',
           'src/db/backup/exporter.ts',
           'src/db/emailDrafts.ts',
-          'src/db/vehicles.ts'
+          'src/db/vehicles.ts',
+          'src/lib/authStorage.ts',
+          'src/lib/mediaDragData.ts',
+          'src/lib/pingContract.ts',
+          'src/lib/windowDimensionsStorage.ts',
+          'src/lib/windowStatePreference.ts'
         ],
         thresholds: {
           // Thresholds adjusted after moving analytics tests to packages/analytics
