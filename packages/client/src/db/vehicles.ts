@@ -1,5 +1,7 @@
 import type { VehicleProfileInput } from '@tearleads/vehicles';
+
 export type { VehicleRecord } from '@tearleads/vehicles/vehiclesDb';
+
 import {
   createVehicle as createVehicleWithAdapter,
   deleteVehicle as deleteVehicleWithAdapter,

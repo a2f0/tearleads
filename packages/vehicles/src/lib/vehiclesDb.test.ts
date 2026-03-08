@@ -19,8 +19,8 @@ const mockAdapter: DatabaseAdapter = {
 
 import {
   createVehicle,
-  getVehicleById,
   deleteVehicle,
+  getVehicleById,
   listVehicles,
   updateVehicle
 } from './vehiclesDb';
