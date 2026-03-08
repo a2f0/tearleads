@@ -47,6 +47,19 @@ export interface NotificationStreamManager {
   getSnapshot: () => NotificationStreamManagerSnapshot;
 }
 
+type StreamRestartReason =
+  | 'manual-connect'
+  | 'scheduled-reconnect'
+  | 'channel-registration-add'
+  | 'channel-registration-remove';
+
+type StreamErrorReason = 'stream-ended' | 'stream-error';
+
+interface NotificationStreamManagerLogPayload {
+  event: string;
+  [key: string]: unknown;
+}
+
 function isNotificationStreamEnvelope(
   value: unknown
 ): value is NotificationStreamEnvelope {
@@ -107,6 +120,31 @@ function areSameChannels(left: string[], right: string[]): boolean {
   }
 
   return true;
+}
+
+function diffChannels(
+  previousChannels: string[],
+  nextChannels: string[]
+): {
+  added: string[];
+  removed: string[];
+} {
+  const previousChannelSet = new Set(previousChannels);
+  const nextChannelSet = new Set(nextChannels);
+  const added = nextChannels.filter(
+    (channel) => !previousChannelSet.has(channel)
+  );
+  const removed = previousChannels.filter(
+    (channel) => !nextChannelSet.has(channel)
+  );
+  return {
+    added,
+    removed
+  };
+}
+
+function logManagerEvent(payload: NotificationStreamManagerLogPayload): void {
+  console.info('[notification-stream-manager]', payload);
 }
 
 export function createNotificationStreamManager(
@@ -175,7 +213,13 @@ export function createNotificationStreamManager(
     }
   };
 
-  const handleError = (isAborted: boolean): void => {
+  const handleError = ({
+    isAborted,
+    reason
+  }: {
+    isAborted: boolean;
+    reason: StreamErrorReason;
+  }): void => {
     if (isAborted) {
       return;
     }
@@ -184,6 +228,10 @@ export function createNotificationStreamManager(
 
     const token = currentConfig?.token;
     if (token && dependencies.isTokenExpired(token)) {
+      logManagerEvent({
+        event: 'reconnect-deferred-token-refresh',
+        reason
+      });
       setSnapshot({
         connectionState: 'connecting'
       });
@@ -198,18 +246,29 @@ export function createNotificationStreamManager(
     const computeDelay =
       dependencies.computeReconnectDelayWithJitter ??
       computeReconnectDelayWithJitter;
+    const attempt = reconnectAttempt + 1;
     const delay = computeDelay(reconnectAttempt);
-    reconnectAttempt += 1;
+    reconnectAttempt = attempt;
+
+    logManagerEvent({
+      event: 'reconnect-scheduled',
+      reason,
+      attempt,
+      delayMs: delay
+    });
 
     reconnectTimeout = setTimeout(() => {
       if (!currentConfig) {
         return;
       }
-      connect(currentConfig);
+      connectInternal(currentConfig, 'scheduled-reconnect');
     }, delay);
   };
 
-  const connect = (options: NotificationStreamConnectOptions): void => {
+  const connectInternal = (
+    options: NotificationStreamConnectOptions,
+    reason: StreamRestartReason
+  ): void => {
     const nextBaseChannels = normalizeChannels(options.channels);
 
     const nextConfig: NotificationStreamConnectOptions = {
@@ -219,6 +278,7 @@ export function createNotificationStreamManager(
     };
 
     const previousConfig = currentConfig;
+    const previousEffectiveChannels = activeChannels;
     baseChannels = nextBaseChannels;
     const nextEffectiveChannels = getEffectiveChannels();
     const configChanged =
@@ -231,6 +291,21 @@ export function createNotificationStreamManager(
     );
 
     currentConfig = nextConfig;
+
+    if (effectiveChannelsChanged) {
+      const { added, removed } = diffChannels(
+        previousEffectiveChannels,
+        nextEffectiveChannels
+      );
+      logManagerEvent({
+        event: 'channel-set-changed',
+        reason,
+        previousChannels: previousEffectiveChannels,
+        nextChannels: nextEffectiveChannels,
+        addedChannels: added,
+        removedChannels: removed
+      });
+    }
 
     if (
       !configChanged &&
@@ -300,16 +375,26 @@ export function createNotificationStreamManager(
           }
         }
 
-        handleError(nextAbortController.signal.aborted);
+        handleError({
+          isAborted: nextAbortController.signal.aborted,
+          reason: 'stream-ended'
+        });
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
-        handleError(false);
+        handleError({
+          isAborted: false,
+          reason: 'stream-error'
+        });
       }
     };
 
     void startStream();
+  };
+
+  const connect = (options: NotificationStreamConnectOptions): void => {
+    connectInternal(options, 'manual-connect');
   };
 
   const disconnect = (): void => {
@@ -340,7 +425,7 @@ export function createNotificationStreamManager(
       return;
     }
 
-    connect(currentConfig);
+    connectInternal(currentConfig, 'channel-registration-add');
   };
 
   const removeChannels = (channels: string[]): void => {
@@ -368,7 +453,7 @@ export function createNotificationStreamManager(
       return;
     }
 
-    connect(currentConfig);
+    connectInternal(currentConfig, 'channel-registration-remove');
   };
 
   const subscribe = (listener: () => void): (() => void) => {

@@ -71,4 +71,58 @@ describe('useMlsRealtime subscribe idempotency', () => {
     unmount();
     client.close();
   });
+
+  it('does not reconnect when unsubscribing from a non-subscribed group', async () => {
+    openNotificationEventStreamMock.mockImplementation(() =>
+      streamFromEnvelopes([{ event: 'connected' }])
+    );
+
+    const client = new MlsClient('test-user-id');
+    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
+      wrapper: createMlsHookWrapper()
+    });
+
+    await waitFor(() => {
+      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      result.current.subscribe('group-1');
+    });
+
+    await waitFor(() => {
+      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    });
+
+    act(() => {
+      result.current.unsubscribe('group-missing');
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      result.current.unsubscribe('group-1');
+    });
+
+    await waitFor(() => {
+      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(3);
+    });
+
+    act(() => {
+      result.current.unsubscribe('group-1');
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(3);
+
+    unmount();
+    client.close();
+  });
 });

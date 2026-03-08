@@ -12,6 +12,8 @@ import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import {
   combinePublicKey,
   generateKeyPair,
+  parseConnectJsonEnvelopeBody,
+  parseConnectJsonString,
   serializePublicKey,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -244,8 +246,12 @@ describe('DB scaffolding plaintext render integration', () => {
           `${methodName} failed with ${String(response.status)}: ${errorBody}`
         );
       }
-      const connectEnvelope = (await response.json()) as { json: string };
-      return JSON.parse(connectEnvelope.json) as TResponse;
+      const connectEnvelope = await response.json();
+      const parsedBody = parseConnectJsonEnvelopeBody(connectEnvelope);
+      if (typeof parsedBody === 'string') {
+        return parseConnectJsonString<TResponse>(parsedBody);
+      }
+      return parseConnectJsonString<TResponse>(JSON.stringify(parsedBody));
     };
 
     vi.doMock('@/lib/api', async (importOriginal) => {
