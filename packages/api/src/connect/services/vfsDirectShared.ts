@@ -1,7 +1,8 @@
 import type {
   VfsKeySetupRequest,
   VfsObjectType,
-  VfsRegisterRequest
+  VfsRegisterRequest,
+  VfsRekeyRequest
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 
@@ -22,10 +23,29 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'tag'
 ];
 
+type RekeyReason = 'unshare' | 'expiry' | 'manual';
+
 function isValidObjectType(value: unknown): value is VfsObjectType {
   return (
     typeof value === 'string' &&
     VALID_OBJECT_TYPES.includes(value as VfsObjectType)
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidRekeyReason(value: unknown): value is RekeyReason {
+  return value === 'unshare' || value === 'expiry' || value === 'manual';
+}
+
+function isValidEpoch(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isSafeInteger(value) &&
+    value >= 1
   );
 }
 
@@ -99,5 +119,64 @@ export function parseRegisterPayload(body: unknown): VfsRegisterRequest | null {
     ...(typeof encryptedName === 'string'
       ? { encryptedName: encryptedName.trim() }
       : {})
+  };
+}
+
+export function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const reason = body['reason'];
+  const newEpochValue = body['newEpoch'];
+  const wrappedKeysValue = body['wrappedKeys'];
+
+  if (
+    !isValidRekeyReason(reason) ||
+    !isValidEpoch(newEpochValue) ||
+    !Array.isArray(wrappedKeysValue)
+  ) {
+    return null;
+  }
+
+  const wrappedKeys: VfsRekeyRequest['wrappedKeys'] = [];
+  for (const wrappedKeyValue of wrappedKeysValue) {
+    if (!isRecord(wrappedKeyValue)) {
+      return null;
+    }
+
+    const recipientUserId = wrappedKeyValue['recipientUserId'];
+    const recipientPublicKeyId = wrappedKeyValue['recipientPublicKeyId'];
+    const keyEpochValue = wrappedKeyValue['keyEpoch'];
+    const encryptedKey = wrappedKeyValue['encryptedKey'];
+    const senderSignature = wrappedKeyValue['senderSignature'];
+
+    if (
+      !isNonEmptyString(recipientUserId) ||
+      !isNonEmptyString(recipientPublicKeyId) ||
+      !isValidEpoch(keyEpochValue) ||
+      !isNonEmptyString(encryptedKey) ||
+      !isNonEmptyString(senderSignature)
+    ) {
+      return null;
+    }
+
+    if (keyEpochValue !== newEpochValue) {
+      return null;
+    }
+
+    wrappedKeys.push({
+      recipientUserId,
+      recipientPublicKeyId,
+      keyEpoch: keyEpochValue,
+      encryptedKey,
+      senderSignature
+    });
+  }
+
+  return {
+    reason,
+    newEpoch: newEpochValue,
+    wrappedKeys
   };
 }

@@ -1,4 +1,9 @@
-import type { VfsKeySetupRequest } from '@tearleads/shared';
+import { Code, ConnectError } from '@connectrpc/connect';
+import type {
+  VfsKeySetupRequest,
+  VfsRegisterRequest,
+  VfsRekeyRequest
+} from '@tearleads/shared';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
   abandonBlobDirect,
@@ -26,8 +31,10 @@ import {
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
+import { parseJsonBody } from './vfsDirectJson.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
+import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
 import {
   getCrdtSnapshotDirect,
   getCrdtSyncDirect,
@@ -36,6 +43,7 @@ import {
 } from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
+type JsonRequest = { json: string };
 type ItemIdJsonRequest = { itemId: string; json: string };
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
@@ -63,6 +71,37 @@ type RunCrdtSessionRequest = {
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
 
+type RekeyItemDirectRequest = { itemId: string } & VfsRekeyRequest;
+
+function parseRegisterDirectRequest(request: JsonRequest): VfsRegisterRequest {
+  const payload = parseRegisterPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError(
+      'id, objectType, and encryptedSessionKey are required',
+      Code.InvalidArgument
+    );
+  }
+
+  return payload;
+}
+
+function parseRekeyItemDirectRequest(
+  request: ItemIdJsonRequest
+): RekeyItemDirectRequest {
+  const payload = parseRekeyPayload(parseJsonBody(request.json));
+  if (!payload) {
+    throw new ConnectError(
+      'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.',
+      Code.InvalidArgument
+    );
+  }
+
+  return {
+    itemId: request.itemId,
+    ...payload
+  };
+}
+
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
     getMyKeysDirect({}, context),
@@ -70,10 +109,8 @@ export const vfsConnectService = {
     request: VfsKeySetupRequest,
     context: { requestHeader: Headers }
   ) => setupKeysDirect(request, context),
-  register: async (
-    request: { json: string },
-    context: { requestHeader: Headers }
-  ) => registerDirect(request, context),
+  register: async (request: JsonRequest, context: { requestHeader: Headers }) =>
+    registerDirect(parseRegisterDirectRequest(request), context),
   getBlob: async (
     request: BlobIdRequest,
     context: { requestHeader: Headers }
@@ -105,7 +142,7 @@ export const vfsConnectService = {
   rekeyItem: async (
     request: ItemIdJsonRequest,
     context: { requestHeader: Headers }
-  ) => rekeyItemDirect(request, context),
+  ) => rekeyItemDirect(parseRekeyItemDirectRequest(request), context),
   pushCrdtOps: async (
     request: PushCrdtOpsRequest,
     context: { requestHeader: Headers }

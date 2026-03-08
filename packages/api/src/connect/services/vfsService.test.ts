@@ -326,7 +326,7 @@ describe('vfsConnectService', () => {
     const directCases = [
       {
         call: () => vfsConnectService.register(registerRequest, context),
-        expectedRequest: registerRequest,
+        expectedRequest: JSON.parse(registerRequest.json),
         expectedResponse: {
           id: 'item-1',
           createdAt: '2026-03-03T00:00:00.000Z'
@@ -361,7 +361,10 @@ describe('vfsConnectService', () => {
       },
       {
         call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
-        expectedRequest: rekeyItemRequest,
+        expectedRequest: {
+          itemId: rekeyItemRequest.itemId,
+          ...JSON.parse(rekeyItemRequest.json)
+        },
         expectedResponse: {
           itemId: 'item-1',
           newEpoch: 2,

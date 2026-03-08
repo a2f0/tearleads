@@ -1,94 +1,20 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  VfsRegisterRequest,
   VfsRegisterResponse,
   VfsRekeyRequest,
   VfsRekeyResponse
 } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { encoded, isRecord, parseJsonBody } from './vfsDirectJson.js';
-import { parseRegisterPayload } from './vfsDirectShared.js';
+import { encoded } from './vfsDirectJson.js';
+import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
 
-type JsonRequest = { json: string };
-type ItemIdJsonRequest = { itemId: string; json: string };
-
-type RekeyReason = 'unshare' | 'expiry' | 'manual';
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isValidRekeyReason(value: unknown): value is RekeyReason {
-  return value === 'unshare' || value === 'expiry' || value === 'manual';
-}
-
-function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
-  if (!isRecord(body)) {
-    return null;
-  }
-
-  const reason = body['reason'];
-  const newEpochValue = body['newEpoch'];
-  const wrappedKeysValue = body['wrappedKeys'];
-
-  if (
-    !isValidRekeyReason(reason) ||
-    typeof newEpochValue !== 'number' ||
-    !Number.isInteger(newEpochValue) ||
-    !Number.isSafeInteger(newEpochValue) ||
-    newEpochValue < 1 ||
-    !Array.isArray(wrappedKeysValue)
-  ) {
-    return null;
-  }
-
-  const wrappedKeys: VfsRekeyRequest['wrappedKeys'] = [];
-  for (const wrappedKeyValue of wrappedKeysValue) {
-    if (!isRecord(wrappedKeyValue)) {
-      return null;
-    }
-
-    const recipientUserId = wrappedKeyValue['recipientUserId'];
-    const recipientPublicKeyId = wrappedKeyValue['recipientPublicKeyId'];
-    const keyEpochValue = wrappedKeyValue['keyEpoch'];
-    const encryptedKey = wrappedKeyValue['encryptedKey'];
-    const senderSignature = wrappedKeyValue['senderSignature'];
-
-    if (
-      !isNonEmptyString(recipientUserId) ||
-      !isNonEmptyString(recipientPublicKeyId) ||
-      typeof keyEpochValue !== 'number' ||
-      !Number.isInteger(keyEpochValue) ||
-      !Number.isSafeInteger(keyEpochValue) ||
-      keyEpochValue < 1 ||
-      !isNonEmptyString(encryptedKey) ||
-      !isNonEmptyString(senderSignature)
-    ) {
-      return null;
-    }
-
-    if (keyEpochValue !== newEpochValue) {
-      return null;
-    }
-
-    wrappedKeys.push({
-      recipientUserId,
-      recipientPublicKeyId,
-      keyEpoch: keyEpochValue,
-      encryptedKey,
-      senderSignature
-    });
-  }
-
-  return {
-    reason,
-    newEpoch: newEpochValue,
-    wrappedKeys
-  };
-}
+type RegisterDirectRequest = Partial<VfsRegisterRequest>;
+type RekeyItemDirectRequest = { itemId: string } & Partial<VfsRekeyRequest>;
 
 export async function registerDirect(
-  request: JsonRequest,
+  request: RegisterDirectRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsRegisterResponse> {
   const claims = await requireVfsClaims(
@@ -98,7 +24,7 @@ export async function registerDirect(
       requireDeclaredOrganization: true
     }
   );
-  const payload = parseRegisterPayload(parseJsonBody(request.json));
+  const payload = parseRegisterPayload(request);
   if (!payload) {
     throw new ConnectError(
       'id, objectType, and encryptedSessionKey are required',
@@ -161,7 +87,7 @@ export async function registerDirect(
 }
 
 export async function rekeyItemDirect(
-  request: ItemIdJsonRequest,
+  request: RekeyItemDirectRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsRekeyResponse> {
   const itemId = request.itemId.trim();
@@ -175,7 +101,7 @@ export async function rekeyItemDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const payload = parseRekeyPayload(parseJsonBody(request.json));
+  const payload = parseRekeyPayload(request);
   if (!payload) {
     throw new ConnectError(
       'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.',
