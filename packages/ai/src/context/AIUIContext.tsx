@@ -3,17 +3,17 @@
  * Allows consumers to provide UI components and infrastructure dependencies.
  */
 
+import type {
+  HostRuntimeDatabaseState,
+  HostRuntimeTranslation
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 /**
  * Database state
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * Load progress for model loading
@@ -204,7 +204,7 @@ export type AITranslationKey =
 /**
  * Translation function type
  */
-export type TranslationFunction = (key: AITranslationKey) => string;
+export type TranslationFunction = HostRuntimeTranslation<AITranslationKey>;
 
 /**
  * Image attachment operations

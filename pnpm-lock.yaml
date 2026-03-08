@@ -179,6 +179,9 @@ importers:
 
   packages/ai:
     dependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       lucide-react:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
