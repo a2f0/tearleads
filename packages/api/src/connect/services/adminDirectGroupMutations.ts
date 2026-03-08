@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  AddMemberRequest,
-  CreateGroupRequest,
-  UpdateGroupRequest
-} from '@tearleads/shared';
+import type { CreateGroupRequest, UpdateGroupRequest } from '@tearleads/shared';
 import type { Pool } from 'pg';
 import { getPool } from '../../lib/postgres.js';
 import {
@@ -19,16 +15,11 @@ import {
 import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
-type JsonRequest = { json: string };
-type LegacyUpdateGroupRequest = { id: string; json: string };
-type LegacyAddGroupMemberRequest = { id: string; json: string };
-type CreateGroupInput = JsonRequest | OptionalWithUndefined<CreateGroupRequest>;
-type UpdateGroupInput =
-  | LegacyUpdateGroupRequest
-  | ({ id: string } & OptionalWithUndefined<UpdateGroupRequest>);
-type AddGroupMemberInput =
-  | LegacyAddGroupMemberRequest
-  | { id: string; userId: string };
+type CreateGroupInput = OptionalWithUndefined<CreateGroupRequest>;
+type UpdateGroupInput = {
+  id: string;
+} & OptionalWithUndefined<UpdateGroupRequest>;
+type AddGroupMemberInput = { id: string; userId: string };
 type RemoveGroupMemberRequest = { groupId: string; userId: string };
 
 function encoded(value: string): string {
@@ -47,15 +38,6 @@ function canAccessOrganization(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
 }
 
 function isDuplicateConstraintError(error: unknown): error is Error {
@@ -79,37 +61,6 @@ async function ensureOrganizationExists(
   }
 }
 
-function parseCreateGroupPayload(
-  request: CreateGroupInput
-): OptionalWithUndefined<CreateGroupRequest> {
-  if ('json' in request) {
-    const parsed = parseJsonBody(request.json);
-    return isRecord(parsed) ? parsed : {};
-  }
-  return request;
-}
-
-function parseUpdateGroupPayload(
-  request: UpdateGroupInput
-): OptionalWithUndefined<UpdateGroupRequest> {
-  if ('json' in request) {
-    const parsed = parseJsonBody(request.json);
-    return isRecord(parsed) ? parsed : {};
-  }
-  const { id: _id, ...payload } = request;
-  return payload;
-}
-
-function parseAddGroupMemberPayload(
-  request: AddGroupMemberInput
-): OptionalWithUndefined<AddMemberRequest> {
-  if ('json' in request) {
-    const parsed = parseJsonBody(request.json);
-    return isRecord(parsed) ? parsed : {};
-  }
-  return { userId: request.userId };
-}
-
 export async function createGroupDirect(
   request: CreateGroupInput,
   context: { requestHeader: Headers }
@@ -118,8 +69,7 @@ export async function createGroupDirect(
     '/admin/groups',
     context.requestHeader
   );
-  const payload = parseCreateGroupPayload(request);
-  const { name, description, organizationId } = payload;
+  const { name, description, organizationId } = request;
 
   if (typeof name !== 'string' || name.trim() === '') {
     throw new ConnectError('Name is required', Code.InvalidArgument);
@@ -177,19 +127,16 @@ export async function updateGroupDirect(
   request: UpdateGroupInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const { id, ...payload } = request;
   const authorization = await requireScopedAdminAccess(
-    `/admin/groups/${encoded(request.id)}`,
+    `/admin/groups/${encoded(id)}`,
     context.requestHeader
   );
-  const payload = parseUpdateGroupPayload(request);
   const { name, description, organizationId } = payload;
 
   try {
     const pool = await getPool('write');
-    const currentOrganizationId = await getGroupOrganizationId(
-      pool,
-      request.id
-    );
+    const currentOrganizationId = await getGroupOrganizationId(pool, id);
     if (!currentOrganizationId) {
       throw new ConnectError('Group not found', Code.NotFound);
     }
@@ -238,7 +185,7 @@ export async function updateGroupDirect(
 
     updates.push(`updated_at = $${paramIndex++}`);
     values.push(new Date());
-    values.push(request.id);
+    values.push(id);
 
     const result = await pool.query<GroupRow>(
       `UPDATE groups
@@ -310,19 +257,18 @@ export async function addGroupMemberDirect(
   request: AddGroupMemberInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const { id, userId } = request;
   const authorization = await requireScopedAdminAccess(
-    `/admin/groups/${encoded(request.id)}/members`,
+    `/admin/groups/${encoded(id)}/members`,
     context.requestHeader
   );
-  const payload = parseAddGroupMemberPayload(request);
-  const userId = payload.userId;
   if (!userId || typeof userId !== 'string') {
     throw new ConnectError('userId is required', Code.InvalidArgument);
   }
 
   try {
     const pool = await getPool('write');
-    const organizationId = await getGroupOrganizationId(pool, request.id);
+    const organizationId = await getGroupOrganizationId(pool, id);
     if (!organizationId) {
       throw new ConnectError('Group not found', Code.NotFound);
     }
@@ -350,7 +296,7 @@ export async function addGroupMemberDirect(
       await client.query(
         `INSERT INTO user_groups (user_id, group_id, joined_at)
            VALUES ($1, $2, $3)`,
-        [userId, request.id, now]
+        [userId, id, now]
       );
       await client.query('COMMIT');
     } catch (error) {

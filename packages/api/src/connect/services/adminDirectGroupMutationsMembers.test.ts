@@ -70,12 +70,12 @@ describe('adminDirectGroupMutations member errors', () => {
     consoleErrorSpy = null;
   });
 
-  it('rejects addGroupMember with invalid payload', async () => {
+  it('rejects addGroupMember with empty userId', async () => {
     await expect(
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{}'
+          userId: ''
         },
         {
           requestHeader: new Headers()
@@ -95,7 +95,7 @@ describe('adminDirectGroupMutations member errors', () => {
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{"userId":"user-1"}'
+          userId: 'user-1'
         },
         {
           requestHeader: new Headers()
@@ -103,22 +103,6 @@ describe('adminDirectGroupMutations member errors', () => {
       )
     ).rejects.toMatchObject({
       code: Code.PermissionDenied
-    });
-  });
-
-  it('rejects addGroupMember when payload is not an object', async () => {
-    await expect(
-      addGroupMemberDirect(
-        {
-          id: 'group-1',
-          json: '[]'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
     });
   });
 
@@ -131,7 +115,7 @@ describe('adminDirectGroupMutations member errors', () => {
       addGroupMemberDirect(
         {
           id: 'group-missing',
-          json: '{"userId":"user-1"}'
+          userId: 'user-1'
         },
         {
           requestHeader: new Headers()
@@ -168,7 +152,7 @@ describe('adminDirectGroupMutations member errors', () => {
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{"userId":"user-1"}'
+          userId: 'user-1'
         },
         {
           requestHeader: new Headers()
@@ -205,7 +189,7 @@ describe('adminDirectGroupMutations member errors', () => {
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{"userId":"user-1"}'
+          userId: 'user-1'
         },
         {
           requestHeader: new Headers()
