@@ -1,5 +1,3 @@
-import type { VehicleProfileInput } from '@tearleads/vehicles';
-
 export type { VehicleRecord } from '@tearleads/vehicles/vehiclesDb';
 
 import {
@@ -11,37 +9,31 @@ import {
 } from '@tearleads/vehicles/vehiclesDb';
 import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
-export async function getVehicleById(id: string) {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-  return getVehicleByIdWithAdapter(getDatabaseAdapter(), id);
+type ActiveDatabaseAdapter = ReturnType<typeof getDatabaseAdapter>;
+
+function withDatabase<TResult, TArgs extends unknown[]>(
+  operation: (
+    adapter: ActiveDatabaseAdapter,
+    ...args: TArgs
+  ) => Promise<TResult>,
+  uninitializedResult: TResult
+) {
+  return async (...args: TArgs): Promise<TResult> => {
+    if (!isDatabaseInitialized()) {
+      return uninitializedResult;
+    }
+
+    return operation(getDatabaseAdapter(), ...args);
+  };
 }
 
-export async function listVehicles() {
-  if (!isDatabaseInitialized()) {
-    return [];
-  }
-  return listVehiclesWithAdapter(getDatabaseAdapter());
-}
+const emptyVehicles: Awaited<ReturnType<typeof listVehiclesWithAdapter>> = [];
 
-export async function createVehicle(input: VehicleProfileInput) {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-  return createVehicleWithAdapter(getDatabaseAdapter(), input);
-}
-
-export async function updateVehicle(id: string, input: VehicleProfileInput) {
-  if (!isDatabaseInitialized()) {
-    return null;
-  }
-  return updateVehicleWithAdapter(getDatabaseAdapter(), id, input);
-}
-
-export async function deleteVehicle(id: string) {
-  if (!isDatabaseInitialized()) {
-    return false;
-  }
-  return deleteVehicleWithAdapter(getDatabaseAdapter(), id);
-}
+export const getVehicleById = withDatabase(getVehicleByIdWithAdapter, null);
+export const listVehicles = withDatabase(
+  listVehiclesWithAdapter,
+  emptyVehicles
+);
+export const createVehicle = withDatabase(createVehicleWithAdapter, null);
+export const updateVehicle = withDatabase(updateVehicleWithAdapter, null);
+export const deleteVehicle = withDatabase(deleteVehicleWithAdapter, false);
