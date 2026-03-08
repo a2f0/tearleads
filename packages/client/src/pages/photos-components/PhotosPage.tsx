@@ -5,11 +5,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BackLink } from '@/components/ui/back-link';
 import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
 } from '@/components/window-photos/PhotosAlbumsSidebar';
-import { BackLink } from '@/components/ui/back-link';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { vfsLinks } from '@/db/schema';
