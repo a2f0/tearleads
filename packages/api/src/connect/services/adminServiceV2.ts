@@ -209,13 +209,11 @@ export const adminConnectServiceV2 = {
   async createGroup(request: AdminCreateGroupRequest, context: ConnectContext) {
     const response = await createGroupDirect(
       {
-        json: JSON.stringify({
-          organizationId: request.organizationId,
-          name: request.name,
-          ...(request.description !== undefined
-            ? { description: request.description }
-            : {})
-        })
+        organizationId: request.organizationId,
+        name: request.name,
+        ...(request.description !== undefined
+          ? { description: request.description }
+          : {})
       },
       context
     );
@@ -225,15 +223,13 @@ export const adminConnectServiceV2 = {
     const response = await updateGroupDirect(
       {
         id: request.id,
-        json: JSON.stringify({
-          ...(request.organizationId !== undefined
-            ? { organizationId: request.organizationId }
-            : {}),
-          ...(request.name !== undefined ? { name: request.name } : {}),
-          ...(request.description !== undefined
-            ? { description: request.description }
-            : {})
-        })
+        ...(request.organizationId !== undefined
+          ? { organizationId: request.organizationId }
+          : {}),
+        ...(request.name !== undefined ? { name: request.name } : {}),
+        ...(request.description !== undefined
+          ? { description: request.description }
+          : {})
       },
       context
     );
@@ -257,9 +253,7 @@ export const adminConnectServiceV2 = {
     const response = await addGroupMemberDirect(
       {
         id: request.id,
-        json: JSON.stringify({
-          userId: request.userId
-        })
+        userId: request.userId
       },
       context
     );
