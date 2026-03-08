@@ -367,4 +367,67 @@ describe('notificationStreamManager', () => {
     consoleSpy.mockRestore();
     vi.useRealTimers();
   });
+
+  it('ignores stale abort-triggered stream errors after reconnect', async () => {
+    vi.useFakeTimers();
+    try {
+      const openNotificationEventStream = vi
+        .fn()
+        .mockImplementation((options: { signal?: AbortSignal }) => ({
+          async *[Symbol.asyncIterator]() {
+            const signal = options.signal;
+            if (!signal) {
+              throw new Error('Expected abort signal');
+            }
+
+            await new Promise<void>((_resolve, reject) => {
+              if (signal.aborted) {
+                reject(new Error('request aborted'));
+                return;
+              }
+
+              signal.addEventListener(
+                'abort',
+                () => {
+                  reject(new Error('request aborted'));
+                },
+                { once: true }
+              );
+            });
+          }
+        }));
+
+      const manager = createNotificationStreamManager({
+        openNotificationEventStream,
+        isTokenExpired: () => false,
+        tryRefreshToken: vi.fn(),
+        computeReconnectDelayWithJitter: () => 25
+      });
+
+      manager.connect({
+        apiBaseUrl: 'http://localhost:5001/v1',
+        channels: ['broadcast'],
+        token: 'token'
+      });
+      await flushMicrotasks();
+
+      manager.connect({
+        apiBaseUrl: 'http://localhost:5001/v1',
+        channels: ['broadcast', 'mls:user:test'],
+        token: 'token'
+      });
+      await flushMicrotasks();
+
+      expect(openNotificationEventStream).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(25);
+      await flushMicrotasks();
+
+      expect(openNotificationEventStream).toHaveBeenCalledTimes(2);
+
+      manager.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

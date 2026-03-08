@@ -162,4 +162,25 @@ describe('openNotificationEventStream', () => {
       })()
     ).rejects.toThrow('canceled');
   });
+
+  it('suppresses non-connect stream errors after abort', async () => {
+    const subscribe = vi.fn(() =>
+      createAsyncErrorStream(new Error('request aborted'))
+    );
+    const createClient = vi.fn<MockStreamClient>(() => ({ subscribe }));
+    const abortController = new AbortController();
+    abortController.abort();
+    const events: string[] = [];
+
+    for await (const payload of openNotificationEventStream({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      signal: abortController.signal,
+      createClient
+    })) {
+      events.push(payload);
+    }
+
+    expect(events).toEqual([]);
+  });
 });

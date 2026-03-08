@@ -161,6 +161,7 @@ export function createNotificationStreamManager(
   let currentConfig: NotificationStreamConnectOptions | null = null;
   let activeChannels: string[] = [];
   let baseChannels: string[] = [];
+  let activeStreamEpoch = 0;
   const additionalChannelRefCounts = new Map<string, number>();
 
   const emitChange = () => {
@@ -200,6 +201,7 @@ export function createNotificationStreamManager(
 
   const disconnectInternal = (resetReconnectAttempt: boolean): void => {
     clearReconnectTimeout();
+    activeStreamEpoch += 1;
     if (abortController) {
       abortController.abort();
       abortController = null;
@@ -215,12 +217,14 @@ export function createNotificationStreamManager(
 
   const handleError = ({
     isAborted,
-    reason
+    reason,
+    streamEpoch
   }: {
     isAborted: boolean;
     reason: StreamErrorReason;
+    streamEpoch: number;
   }): void => {
-    if (isAborted) {
+    if (isAborted || streamEpoch !== activeStreamEpoch) {
       return;
     }
 
@@ -325,6 +329,7 @@ export function createNotificationStreamManager(
     activeChannels = streamChannels;
     const nextAbortController = new AbortController();
     abortController = nextAbortController;
+    const streamEpoch = activeStreamEpoch;
 
     const startStream = async () => {
       try {
@@ -334,6 +339,10 @@ export function createNotificationStreamManager(
           token: streamConfig.token,
           signal: nextAbortController.signal
         })) {
+          if (streamEpoch !== activeStreamEpoch) {
+            return;
+          }
+
           let parsedPayload: unknown;
           try {
             parsedPayload = JSON.parse(payload);
@@ -377,15 +386,20 @@ export function createNotificationStreamManager(
 
         handleError({
           isAborted: nextAbortController.signal.aborted,
-          reason: 'stream-ended'
+          reason: 'stream-ended',
+          streamEpoch
         });
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (
+          nextAbortController.signal.aborted ||
+          (error instanceof Error && error.name === 'AbortError')
+        ) {
           return;
         }
         handleError({
           isAborted: false,
-          reason: 'stream-error'
+          reason: 'stream-error',
+          streamEpoch
         });
       }
     };

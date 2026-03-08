@@ -1,9 +1,4 @@
-import {
-  type CallOptions,
-  Code,
-  ConnectError,
-  createClient
-} from '@connectrpc/connect';
+import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';
 import { normalizeBearerToken, toConnectBaseUrl } from './connectUtils';
@@ -70,14 +65,6 @@ function readResponsePayload(
   return response.json;
 }
 
-function isCanceledConnectError(error: unknown): boolean {
-  if (error instanceof ConnectError) {
-    return error.code === Code.Canceled;
-  }
-
-  return false;
-}
-
 export async function* openNotificationEventStream(
   options: OpenNotificationEventStreamOptions
 ): AsyncGenerator<string> {
@@ -100,7 +87,7 @@ export async function* openNotificationEventStream(
       yield payload;
     }
   } catch (error) {
-    if (options.signal?.aborted && isCanceledConnectError(error)) {
+    if (options.signal?.aborted) {
       return;
     }
     throw error;
