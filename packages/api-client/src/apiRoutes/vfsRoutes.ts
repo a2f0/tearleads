@@ -3,6 +3,7 @@ import type {
   CreateVfsShareRequest,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
+  VfsCrdtSyncItem,
   VfsCrdtSyncResponse,
   VfsKeySetupRequest,
   VfsOrgShare,
@@ -15,20 +16,18 @@ import type {
   VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType,
+  VfsSyncItem,
   VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
+  parseConnectJsonEnvelopeBody,
   parseConnectJsonString,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 import { request } from '../apiCore';
-
-interface ConnectJsonEnvelopeResponse {
-  json: string;
-}
 
 interface ConnectBlobResponse {
   data?: string | number[];
@@ -42,15 +41,86 @@ interface VfsBlobResponse {
   contentType: string | null;
 }
 
+interface NormalizedSyncPage<TItem> {
+  items: TItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
+  const parsedPayload = parseConnectJsonEnvelopeBody(responseBody);
+  if (
+    parsedPayload !== null &&
+    parsedPayload !== undefined &&
+    typeof parsedPayload === 'object'
+  ) {
+    return parsedPayload as TResponse;
+  }
+  if (typeof parsedPayload === 'string') {
+    return parseConnectJsonString<TResponse>(parsedPayload);
+  }
+  return parseConnectJsonString<TResponse>('{}');
+}
+
+function normalizeSyncPage<TItem>(page: {
+  items: TItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}): NormalizedSyncPage<TItem> {
+  const items = Array.isArray(page.items) ? page.items : [];
+  const nextCursor =
+    typeof page.nextCursor === 'string' && page.nextCursor.trim().length > 0
+      ? page.nextCursor
+      : null;
+
+  return {
+    items,
+    nextCursor,
+    hasMore: page.hasMore === true
+  };
+}
+
+function normalizeLastReconciledWriteIds(
+  lastReconciledWriteIds: VfsCrdtSyncResponse['lastReconciledWriteIds']
+): VfsCrdtSyncResponse['lastReconciledWriteIds'] {
+  if (
+    !lastReconciledWriteIds ||
+    typeof lastReconciledWriteIds !== 'object' ||
+    Array.isArray(lastReconciledWriteIds)
+  ) {
+    return {};
+  }
+
+  const normalized: Record<string, number> = {};
+  for (const [replicaId, writeId] of Object.entries(lastReconciledWriteIds)) {
+    const trimmedReplicaId = replicaId.trim();
+    if (trimmedReplicaId.length === 0) {
+      continue;
+    }
+    if (
+      typeof writeId !== 'number' ||
+      !Number.isInteger(writeId) ||
+      !Number.isSafeInteger(writeId) ||
+      writeId < 1
+    ) {
+      continue;
+    }
+
+    normalized[trimmedReplicaId] = writeId;
+  }
+
+  return normalized;
+}
+
 function requestVfsTyped<TResponse>(
   methodName: string,
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<TResponse>(`${VFS_V2_CONNECT_BASE_PATH}/${methodName}`, {
+  return request<unknown>(`${VFS_V2_CONNECT_BASE_PATH}/${methodName}`, {
     fetchOptions: createConnectJsonPostInit(requestBody),
     eventName
-  });
+  }).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function requestVfsSharesJson<TResponse>(
@@ -58,13 +128,10 @@ function requestVfsSharesJson<TResponse>(
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<ConnectJsonEnvelopeResponse>(
-    `${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody),
-      eventName
-    }
-  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
+  return request<unknown>(`${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody),
+    eventName
+  }).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function decodeBlobData(data: string | number[] | undefined): Uint8Array {
@@ -101,7 +168,7 @@ export const vfsRoutes = {
       'GetSync',
       requestBody,
       'api_get_vfs_sync'
-    );
+    ).then((response) => normalizeSyncPage<VfsSyncItem>(response));
   },
   getCrdtSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
@@ -112,7 +179,15 @@ export const vfsRoutes = {
       'GetCrdtSync',
       requestBody,
       'api_get_vfs_crdt_sync'
-    );
+    ).then((response) => {
+      const normalizedPage = normalizeSyncPage<VfsCrdtSyncItem>(response);
+      return {
+        ...normalizedPage,
+        lastReconciledWriteIds: normalizeLastReconciledWriteIds(
+          response.lastReconciledWriteIds
+        )
+      };
+    });
   },
   setupKeys: (data: VfsKeySetupRequest) =>
     request<{ created: boolean }>(`${VFS_V2_CONNECT_BASE_PATH}/SetupKeys`, {

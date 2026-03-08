@@ -74,6 +74,31 @@ describe('vfsRoutes', () => {
     });
   });
 
+  it('normalizes omitted sync pagination defaults from connect responses', async () => {
+    requestMock.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      lastReconciledWriteIds: {
+        desktop: 4,
+        mobile: 0,
+        '  ': 2
+      }
+    });
+
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+
+    await expect(vfsRoutes.getCrdtSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 4
+      }
+    });
+  });
+
   it('returns typed GetCrdtSync responses directly', async () => {
     requestMock.mockResolvedValueOnce({
       items: [
@@ -112,6 +137,57 @@ describe('vfsRoutes', () => {
       lastReconciledWriteIds: {
         desktop: 1
       }
+    });
+  });
+
+  it('accepts direct connect payloads for sync and share routes', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        items: [{ itemId: 'note-1' }],
+        hasMore: true,
+        nextCursor: 'cursor-1'
+      })
+      .mockResolvedValueOnce({
+        items: [{ itemId: 'note-1', opType: 'item_upsert' }],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {
+          desktop: 3
+        }
+      })
+      .mockResolvedValueOnce({
+        targets: [
+          {
+            id: 'user-1',
+            type: 'user',
+            displayName: 'Alice'
+          }
+        ]
+      });
+
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [{ itemId: 'note-1' }],
+      nextCursor: 'cursor-1',
+      hasMore: true
+    });
+
+    await expect(vfsRoutes.getCrdtSync()).resolves.toEqual({
+      items: [{ itemId: 'note-1', opType: 'item_upsert' }],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 3
+      }
+    });
+
+    await expect(vfsRoutes.searchShareTargets('alice')).resolves.toEqual({
+      targets: [
+        {
+          id: 'user-1',
+          type: 'user',
+          displayName: 'Alice'
+        }
+      ]
     });
   });
 

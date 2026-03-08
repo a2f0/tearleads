@@ -6,10 +6,6 @@ import {
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
-interface ConnectJsonEnvelopeResponse {
-  json?: unknown;
-}
-
 interface ConnectJsonApiActor {
   fetchJson<T = unknown>(path: string, init?: RequestInit): Promise<T>;
 }
@@ -17,7 +13,7 @@ interface ConnectJsonApiActor {
 function unwrapConnectPayload(payload: unknown): unknown {
   let current = parseConnectJsonEnvelopeBody(payload);
 
-  for (let depth = 0; depth < 4; depth += 1) {
+  for (let depth = 0; depth < 8; depth += 1) {
     if (!isPlainRecord(current)) {
       return current;
     }
@@ -46,39 +42,97 @@ function unwrapConnectPayload(payload: unknown): unknown {
       continue;
     }
 
+    if ('json' in current && current['json'] !== undefined) {
+      current = parseConnectJsonEnvelopeBody(current['json']);
+      continue;
+    }
+
     return current;
   }
 
   return current;
 }
 
-function applyConnectMethodDefaults(
-  methodName: string,
-  payload: unknown
+function normalizeLastReconciledWriteIds(
+  value: unknown
+): Record<string, number> {
+  if (!isPlainRecord(value)) {
+    return {};
+  }
+
+  const normalized: Record<string, number> = {};
+  for (const [replicaId, writeId] of Object.entries(value)) {
+    const trimmedReplicaId = replicaId.trim();
+    if (trimmedReplicaId.length === 0) {
+      continue;
+    }
+    if (
+      typeof writeId !== 'number' ||
+      !Number.isInteger(writeId) ||
+      !Number.isSafeInteger(writeId) ||
+      writeId < 1
+    ) {
+      continue;
+    }
+
+    normalized[trimmedReplicaId] = writeId;
+  }
+
+  return normalized;
+}
+
+function normalizeSyncPagePayload(
+  payload: unknown,
+  methodName: string
 ): unknown {
-  if (!isPlainRecord(payload)) {
+  if (methodName !== 'GetSync' && methodName !== 'GetCrdtSync') {
     return payload;
   }
 
+  const recordPayload = isPlainRecord(payload) ? payload : {};
+  const rawItems = recordPayload['items'];
+  const rawNextCursor = recordPayload['nextCursor'];
+  const rawHasMore = recordPayload['hasMore'];
+
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  const nextCursor =
+    typeof rawNextCursor === 'string' && rawNextCursor.trim().length > 0
+      ? rawNextCursor
+      : null;
+  const hasMore = rawHasMore === true;
+
   if (methodName === 'GetSync') {
     return {
-      items: [],
-      hasMore: false,
-      ...payload
+      ...recordPayload,
+      items,
+      nextCursor,
+      hasMore
     };
   }
 
-  if (methodName === 'GetCrdtSync') {
-    return {
-      items: [],
-      hasMore: false,
-      nextCursor: null,
-      lastReconciledWriteIds: {},
-      ...payload
-    };
-  }
+  return {
+    ...recordPayload,
+    items,
+    nextCursor,
+    hasMore,
+    lastReconciledWriteIds: normalizeLastReconciledWriteIds(
+      recordPayload['lastReconciledWriteIds']
+    )
+  };
+}
 
-  return payload;
+function toParsedJson<T>(payload: unknown): T {
+  if (typeof payload === 'string') {
+    return parseConnectJsonString<T>(payload);
+  }
+  if (payload === null || payload === undefined) {
+    return parseConnectJsonString<T>('{}');
+  }
+  try {
+    return parseConnectJsonString<T>(JSON.stringify(payload));
+  } catch {
+    return parseConnectJsonString<T>('{}');
+  }
 }
 
 export async function fetchVfsConnectJson<T>(input: {
@@ -86,16 +140,14 @@ export async function fetchVfsConnectJson<T>(input: {
   methodName: string;
   requestBody?: Record<string, unknown>;
 }): Promise<T> {
-  const envelope = await input.actor.fetchJson<ConnectJsonEnvelopeResponse>(
+  const envelope = await input.actor.fetchJson<unknown>(
     `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
   );
-  const parsedBody = applyConnectMethodDefaults(
-    input.methodName,
-    unwrapConnectPayload(envelope)
+  const parsedPayload = unwrapConnectPayload(envelope);
+  const normalizedPayload = normalizeSyncPagePayload(
+    parsedPayload,
+    input.methodName
   );
-  if (typeof parsedBody === 'string') {
-    return parseConnectJsonString<T>(parsedBody);
-  }
-  return parseConnectJsonString<T>(JSON.stringify(parsedBody));
+  return toParsedJson<T>(normalizedPayload);
 }

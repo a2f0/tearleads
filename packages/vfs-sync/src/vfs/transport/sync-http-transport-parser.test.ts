@@ -21,6 +21,19 @@ function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
 }
 
 describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
+  it('applies protobuf default semantics when pull defaults are omitted', () => {
+    const response = parseApiPullResponse({
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response).toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+  });
+
   it('rejects encrypted envelope with non-safe-integer keyEpoch', () => {
     expect(() =>
       parseApiPullResponse({
@@ -42,5 +55,40 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
 
     expect(response.items[0]?.keyEpoch).toBe(3);
     expect(response.items[0]?.encryptedPayload).toBe('base64-ciphertext');
+  });
+
+  it('treats empty optional enum/string fields as null', () => {
+    const response = parseApiPullResponse({
+      items: [
+        {
+          opId: 'op-2',
+          itemId: 'item-2',
+          opType: 'item_upsert',
+          principalType: '',
+          principalId: '',
+          accessLevel: '',
+          parentId: '',
+          childId: '',
+          actorId: '',
+          sourceTable: 'vfs_item_state',
+          sourceId: 'row-2',
+          occurredAt: new Date('2026-02-21T10:00:01.000Z').toISOString()
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response.items[0]).toEqual(
+      expect.objectContaining({
+        principalType: null,
+        principalId: null,
+        accessLevel: null,
+        parentId: null,
+        childId: null,
+        actorId: null
+      })
+    );
   });
 });

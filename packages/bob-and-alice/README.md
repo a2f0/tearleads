@@ -87,6 +87,26 @@ Key methods: `queueCrdtOp()`, `flush()`, `sync()`, `syncSnapshot()`, `close()`
 | Conflict resolution | `conflictResolution.test.ts` | Concurrent ACL grants from both actors merge correctly via CRDT semantics |
 | Container realtime subscriptions | `containerRealtimeSubscriptions.test.ts` | Actors derive per-container sync channels from local container clocks and only subscribe to newly observed containers after syncing |
 
+## Related Client Integration Baselines
+
+These client tests are the closest user-facing baselines for Bob/Alice sharing regressions (instance switching, rematerialization, and note-body visibility in Notes UI):
+
+| Client scenario | File | What it verifies |
+|-----------------|------|------------------|
+| Instance switch + shared-note sync feed continuity | `packages/client/src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx` | Bob remains authenticated after switching Alice -> Bob instance and can still read Alice's CRDT `item_upsert` from server feed |
+| Instance switch + rematerialization + rendered note body | `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | Bob/Alice scaffolded share rematerializes into Bob local DB and renders updated note content in `@tearleads/notes` (`NotesWindowDetail`) |
+| Scaffolded feed hydration/rematerialization edge cases | `packages/client/src/lib/api.msw.scaffoldMaterialization.test.tsx` | Local read-model hydration from scaffolded sync + CRDT pages, including rematerialization fallback behavior |
+| Bootstrap retry/error handling for rematerialization | `packages/client/src/components/VfsRematerializationBootstrap.test.tsx` | UI bootstrap behavior around rematerialization retries/failures so warnings/errors are surfaced predictably |
+
+Run them directly from repo root:
+
+```bash
+pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx
+pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchRematerialization.test.tsx
+pnpm --filter @tearleads/client test -- src/lib/api.msw.scaffoldMaterialization.test.tsx
+pnpm --filter @tearleads/client test -- src/components/VfsRematerializationBootstrap.test.tsx
+```
+
 ## Running Tests
 
 ```bash
