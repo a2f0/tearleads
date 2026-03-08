@@ -206,7 +206,7 @@ describe('adminDirectUsers', () => {
       updateUserDirect(
         {
           id: 'user-1',
-          json: '{"disabled":true}'
+          disabled: true
         },
         {
           requestHeader: new Headers()
@@ -219,7 +219,7 @@ describe('adminDirectUsers', () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid updateUser payloads', async () => {
+  it('rejects updateUser payloads without editable fields', async () => {
     requireScopedAdminAccessMock.mockResolvedValueOnce({
       sub: 'admin-root',
       adminAccess: {
@@ -231,8 +231,7 @@ describe('adminDirectUsers', () => {
     await expect(
       updateUserDirect(
         {
-          id: 'user-1',
-          json: '{"emailConfirmed":"yes"}'
+          id: 'user-1'
         },
         {
           requestHeader: new Headers()
@@ -296,7 +295,7 @@ describe('adminDirectUsers', () => {
     const response = await updateUserDirect(
       {
         id: 'user-1',
-        json: '{"disabled":true}'
+        disabled: true
       },
       {
         requestHeader: new Headers()
@@ -366,7 +365,7 @@ describe('adminDirectUsers', () => {
       updateUserDirect(
         {
           id: 'user-1',
-          json: '{"organizationIds":["org-1","org-missing"]}'
+          organizationIds: ['org-1', 'org-missing']
         },
         {
           requestHeader: new Headers()
