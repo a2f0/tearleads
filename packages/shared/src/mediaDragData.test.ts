@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getMediaDragIds, setMediaDragData } from './mediaDragData';
+import { getMediaDragIds, setMediaDragData } from './mediaDragData.js';
 
 function createDragEventStub() {
   const data = new Map<string, string>();
