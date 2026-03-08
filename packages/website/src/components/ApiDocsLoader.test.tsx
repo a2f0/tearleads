@@ -110,7 +110,9 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not update state after unmount before fetch resolves', async () => {
-    let resolveFetch: ((value: MockFetchResponse) => void) | null = null;
+    let resolveFetch = (_value: MockFetchResponse): void => {
+      throw new Error('Expected fetch resolver to be initialized');
+    };
     const fetchMock = vi.fn(
       () =>
         new Promise<MockFetchResponse>((resolve) => {
@@ -122,10 +124,6 @@ describe('ApiDocsLoader', () => {
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
 
-    if (resolveFetch === null) {
-      throw new Error('Expected fetch resolver to be initialized');
-    }
-
     resolveFetch({
       ok: false,
       json: async () => ({})
@@ -136,7 +134,9 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not update state after unmount before json resolves', async () => {
-    let resolveJson: ((value: unknown) => void) | null = null;
+    let resolveJson = (_value: unknown): void => {
+      throw new Error('Expected JSON resolver to be initialized');
+    };
     const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
       ok: true,
       json: () =>
@@ -150,10 +150,6 @@ describe('ApiDocsLoader', () => {
     await Promise.resolve();
     unmount();
 
-    if (resolveJson === null) {
-      throw new Error('Expected JSON resolver to be initialized');
-    }
-
     resolveJson({
       openapi: '3.0.0',
       info: { title: 'Ignored', version: '1.0.0' },
@@ -165,7 +161,9 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not set loadFailed after unmount when fetch later throws', async () => {
-    let rejectFetch: ((reason?: unknown) => void) | null = null;
+    let rejectFetch = (_reason?: unknown): void => {
+      throw new Error('Expected fetch rejector to be initialized');
+    };
     const fetchMock = vi.fn(
       () =>
         new Promise<MockFetchResponse>((_, reject) => {
@@ -176,10 +174,6 @@ describe('ApiDocsLoader', () => {
 
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
-
-    if (rejectFetch === null) {
-      throw new Error('Expected fetch rejector to be initialized');
-    }
 
     rejectFetch(new Error('late failure'));
 

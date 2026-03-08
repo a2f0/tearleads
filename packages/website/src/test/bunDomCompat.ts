@@ -61,13 +61,13 @@ export function installBrowserGlobalsForBun(): void {
   const requestAnimationFrameImpl =
     dom.window.requestAnimationFrame?.bind(dom.window) ??
     ((callback: FrameRequestCallback): number =>
-      setTimeout(() => {
+      dom.window.setTimeout(() => {
         callback(Date.now());
       }, 16));
   const cancelAnimationFrameImpl =
     dom.window.cancelAnimationFrame?.bind(dom.window) ??
     ((handle: number): void => {
-      clearTimeout(handle);
+      dom.window.clearTimeout(handle);
     });
   defineGlobalIfMissing('requestAnimationFrame', requestAnimationFrameImpl);
   defineGlobalIfMissing('cancelAnimationFrame', cancelAnimationFrameImpl);
