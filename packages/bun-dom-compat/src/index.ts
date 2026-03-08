@@ -120,7 +120,7 @@ interface VitestPolyfillResult {
 }
 
 /**
- * Install polyfills for `vi.mocked`, `vi.stubGlobal`, and
+ * Install polyfills for `vi.hoisted`, `vi.mocked`, `vi.stubGlobal`, and
  * `vi.unstubAllGlobals` when running tests under Bun where these
  * Vitest helpers are unavailable.
  *
@@ -128,9 +128,11 @@ interface VitestPolyfillResult {
  * purely for TypeScript type narrowing (`Mocked<T>`). The polyfill
  * mirrors that behaviour exactly.
  */
-export function installVitestPolyfills(
-  vi: Record<string, unknown>
-): VitestPolyfillResult {
+export function installVitestPolyfills(vi: object): VitestPolyfillResult {
+  if (typeof Reflect.get(vi, 'hoisted') !== 'function') {
+    Reflect.set(vi, 'hoisted', <T>(factory: () => T): T => factory());
+  }
+
   if (typeof Reflect.get(vi, 'mocked') !== 'function') {
     Reflect.set(vi, 'mocked', <T>(value: T) => value);
   }
