@@ -56,6 +56,17 @@ function requestVfsJson<TResponse>(
   ).then((response) => parseConnectJsonString<TResponse>(response?.json));
 }
 
+function requestVfsTyped<TResponse>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  eventName: RequestEventName
+): Promise<TResponse> {
+  return request<TResponse>(`${VFS_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody),
+    eventName
+  });
+}
+
 function requestVfsSharesJson<TResponse>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -111,7 +122,7 @@ export const vfsRoutes = {
     if (cursor) {
       requestBody['cursor'] = cursor;
     }
-    return requestVfsJson<VfsCrdtSyncResponse>(
+    return requestVfsTyped<VfsCrdtSyncResponse>(
       'GetCrdtSync',
       requestBody,
       'api_get_vfs_crdt_sync'
