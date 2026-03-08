@@ -217,7 +217,9 @@ describe('vfsRematerializationAclGrantors', () => {
       .mockImplementation(async (sql: string, params: unknown[]) => {
         if (sql.includes('PRAGMA table_info("users")')) {
           return {
-            rows: [{ name: 'personal_organization_id', notnull: 'not-a-number' }],
+            rows: [
+              { name: 'personal_organization_id', notnull: 'not-a-number' }
+            ],
             changes: 0,
             lastInsertRowId: 0
           };
