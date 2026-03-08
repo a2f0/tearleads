@@ -189,6 +189,7 @@ describe('notificationStreamManager', () => {
 
   it('attempts token refresh when stream ends with expired token', async () => {
     const tryRefreshToken = vi.fn();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
     const openNotificationEventStream = vi.fn().mockImplementation(() => ({
       async *[Symbol.asyncIterator]() {
@@ -212,7 +213,15 @@ describe('notificationStreamManager', () => {
 
     expect(tryRefreshToken).toHaveBeenCalledTimes(1);
     expect(manager.getSnapshot().connectionState).toBe('connecting');
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[notification-stream-manager]',
+      expect.objectContaining({
+        event: 'reconnect-deferred-token-refresh',
+        reason: 'stream-ended'
+      })
+    );
     manager.disconnect();
+    consoleSpy.mockRestore();
   });
 
   it('skips reconnect when connect is called with equivalent config', async () => {
@@ -249,6 +258,7 @@ describe('notificationStreamManager', () => {
   });
 
   it('reconnects only when effective additional channels change', async () => {
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     const openNotificationEventStream = vi.fn().mockImplementation(() => ({
       async *[Symbol.asyncIterator]() {
         await new Promise(() => {
@@ -291,11 +301,31 @@ describe('notificationStreamManager', () => {
     expect(openNotificationEventStream.mock.calls[2]?.[0]?.channels).toEqual([
       'broadcast'
     ]);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[notification-stream-manager]',
+      expect.objectContaining({
+        event: 'channel-set-changed',
+        reason: 'channel-registration-add',
+        addedChannels: ['mls:user:test'],
+        removedChannels: []
+      })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[notification-stream-manager]',
+      expect.objectContaining({
+        event: 'channel-set-changed',
+        reason: 'channel-registration-remove',
+        addedChannels: [],
+        removedChannels: ['mls:user:test']
+      })
+    );
     manager.disconnect();
+    consoleSpy.mockRestore();
   });
 
   it('reconnects with scheduled delay when stream ends and token is valid', async () => {
     vi.useFakeTimers();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
     const openNotificationEventStream = vi.fn().mockImplementation(() => ({
       async *[Symbol.asyncIterator]() {
@@ -318,6 +348,15 @@ describe('notificationStreamManager', () => {
 
     await flushMicrotasks();
     expect(openNotificationEventStream).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[notification-stream-manager]',
+      expect.objectContaining({
+        event: 'reconnect-scheduled',
+        reason: 'stream-ended',
+        attempt: 1,
+        delayMs: 25
+      })
+    );
 
     await vi.advanceTimersByTimeAsync(25);
     await flushMicrotasks();
@@ -325,6 +364,7 @@ describe('notificationStreamManager', () => {
     expect(openNotificationEventStream).toHaveBeenCalledTimes(2);
 
     manager.disconnect();
+    consoleSpy.mockRestore();
     vi.useRealTimers();
   });
 });
