@@ -45,6 +45,7 @@
   "devDependencies": {
     "@tearleads/app-builder": "workspace:*",
     "@tearleads/db": "workspace:*",
+    "@tearleads/db-test-utils": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
