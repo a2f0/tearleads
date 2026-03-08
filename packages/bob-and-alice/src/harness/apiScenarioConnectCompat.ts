@@ -222,14 +222,14 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/crdt/push' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/PushCrdtOps`,
-      body: { json: jsonBodyText },
+      body: jsonBody,
       unwrapJsonEnvelope: true
     };
   }
   if (pathname === '/vfs/crdt/session' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/RunCrdtSession`,
-      body: { json: jsonBodyText },
+      body: jsonBody,
       unwrapJsonEnvelope: true
     };
   }
