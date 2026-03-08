@@ -12,7 +12,7 @@ This package provides the client-side MLS protocol interface and UI integration 
 - **Message crypto hooks** - Encrypt/decrypt interface for group messages
 - **Member management** - Add/remove members with automatic key rotation
 - **Local state persistence** - IndexedDB storage for credentials and group states
-- **Real-time updates** - SSE-based message delivery
+- **Real-time updates** - Shared notification stream manager delivery
 
 Target ciphersuite: `MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519`
 
@@ -32,15 +32,30 @@ Wrap your app with `MlsChatProvider` to supply dependencies:
 
 ```tsx
 import { MlsChatProvider } from '@tearleads/mls-chat';
+import { createMlsV2Routes } from '@tearleads/api-client/mlsRoutes';
+import { useSSE } from '@/sse';
 import { Button, Input, Avatar, ScrollArea, DropdownMenu, DropdownMenuItem } from '@/components/ui';
 
 function App() {
+  const { connectionState, lastMessage, addChannels, removeChannels } = useSSE();
+  const mlsRoutes = createMlsV2Routes({
+    resolveApiBaseUrl: () => 'https://api.example.com',
+    getAuthHeaderValue: () => `Bearer ${accessToken}`
+  });
+
   return (
     <MlsChatProvider
       apiBaseUrl="https://api.example.com"
       userId={currentUser.id}
       userEmail={currentUser.email}
       getAuthHeader={() => `Bearer ${accessToken}`}
+      mlsRoutes={mlsRoutes}
+      realtime={{
+        connectionState,
+        lastMessage,
+        addChannels,
+        removeChannels
+      }}
       ui={{
         Button,
         Input,
@@ -107,7 +122,7 @@ import {
 | `useGroupMembers` | Manage group membership |
 | `useKeyPackages` | Generate and upload key packages for invitations |
 | `useWelcomeMessages` | Process Welcome messages to join groups |
-| `useMlsRealtime` | Subscribe to real-time message events via SSE |
+| `useMlsRealtime` | Subscribe to real-time message events via shared realtime bridge |
 
 ### Context Hooks
 

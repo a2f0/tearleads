@@ -10,7 +10,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 import {
   MlsChatProvider,
-  type MlsChatUIComponents
+  type MlsChatUIComponents,
+  type MlsRealtimeBridge
 } from '../context/MlsChatContext.js';
 
 // Mock UI components for testing
@@ -126,6 +127,16 @@ interface TestProviderProps {
   userEmail?: string;
   ui?: Partial<MlsChatUIComponents>;
   mlsRoutes?: MlsV2Routes;
+  realtime?: MlsRealtimeBridge;
+}
+
+function createDefaultRealtimeBridge(): MlsRealtimeBridge {
+  return {
+    connectionState: 'connected',
+    lastMessage: null,
+    addChannels: () => undefined,
+    removeChannels: () => undefined
+  };
 }
 
 function TestMlsChatProvider({
@@ -135,7 +146,8 @@ function TestMlsChatProvider({
   userId = 'test-user-id',
   userEmail = 'test@example.com',
   ui = {},
-  mlsRoutes = createMockMlsRoutes()
+  mlsRoutes = createMockMlsRoutes(),
+  realtime = createDefaultRealtimeBridge()
 }: TestProviderProps): ReactElement {
   return (
     <MlsChatProvider
@@ -145,6 +157,7 @@ function TestMlsChatProvider({
       userEmail={userEmail}
       ui={{ ...mockUiComponents, ...ui }}
       mlsRoutes={mlsRoutes}
+      realtime={realtime}
     >
       {children}
     </MlsChatProvider>

@@ -1,15 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { openNotificationEventStreamMock } = vi.hoisted(() => ({
-  openNotificationEventStreamMock: vi.fn()
-}));
-
-vi.mock('@tearleads/api-client/notificationStream', () => ({
-  openNotificationEventStream: (...args: unknown[]) =>
-    openNotificationEventStreamMock(...args)
-}));
-
 import type { MlsRealtimeBridge } from '../context/index.js';
 import { MlsClient } from '../lib/index.js';
 import { createMlsHookWrapper } from './useMlsHookTestWrapper.js';
@@ -48,7 +39,7 @@ afterEach(() => {
 });
 
 describe('useMlsRealtime shared realtime bridge', () => {
-  it('registers channels through the shared bridge without opening a direct stream', async () => {
+  it('registers channels through the shared bridge', async () => {
     const { bridge, addChannels, removeChannels } =
       createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
@@ -71,8 +62,6 @@ describe('useMlsRealtime shared realtime bridge', () => {
         'mls:group:group-1'
       ]);
     });
-
-    expect(openNotificationEventStreamMock).not.toHaveBeenCalled();
 
     unmount();
 
@@ -127,8 +116,6 @@ describe('useMlsRealtime shared realtime bridge', () => {
     await waitFor(() => {
       expect(handler).toHaveBeenCalledTimes(1);
     });
-
-    expect(openNotificationEventStreamMock).not.toHaveBeenCalled();
 
     unmount();
     client.close();

@@ -1,15 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { openNotificationEventStreamMock, uploadGroupStateSnapshotMock } =
-  vi.hoisted(() => ({
-    openNotificationEventStreamMock: vi.fn(),
-    uploadGroupStateSnapshotMock: vi.fn()
-  }));
-
-vi.mock('@tearleads/api-client/notificationStream', () => ({
-  openNotificationEventStream: (...args: unknown[]) =>
-    openNotificationEventStreamMock(...args)
+const { uploadGroupStateSnapshotMock } = vi.hoisted(() => ({
+  uploadGroupStateSnapshotMock: vi.fn()
 }));
 
 vi.mock('./groupStateSync.js', () => ({
@@ -17,31 +10,51 @@ vi.mock('./groupStateSync.js', () => ({
     uploadGroupStateSnapshotMock(...args)
 }));
 
+import type { MlsRealtimeBridge } from '../context/index.js';
 import { MlsClient } from '../lib/index.js';
 import { useGroupMembers } from './useGroupMembers.js';
 import { createMlsHookWrapper } from './useMlsHookTestWrapper.js';
 import { useMlsRealtime } from './useMlsRealtime.js';
 import { useWelcomeMessages } from './useWelcomeMessages.js';
 
-function createAbortError(): Error {
-  const error = new Error('aborted');
-  error.name = 'AbortError';
-  return error;
-}
+function createSharedRealtimeBridge(): {
+  bridge: MlsRealtimeBridge;
+  addChannels: ReturnType<typeof vi.fn>;
+  removeChannels: ReturnType<typeof vi.fn>;
+} {
+  const addChannels = vi.fn();
+  const removeChannels = vi.fn();
 
-function streamFromEnvelopes(envelopes: unknown[]): AsyncIterable<string> {
+  const bridge: MlsRealtimeBridge = {
+    connectionState: 'connected',
+    lastMessage: null,
+    addChannels,
+    removeChannels
+  };
+
   return {
-    async *[Symbol.asyncIterator]() {
-      for (const envelope of envelopes) {
-        yield JSON.stringify(envelope);
-      }
-      throw createAbortError();
-    }
+    bridge,
+    addChannels,
+    removeChannels
   };
 }
 
 function commitCiphertext(bytes: number[]): string {
   return btoa(String.fromCharCode(...bytes));
+}
+
+function emitBridgeMessage(
+  bridge: MlsRealtimeBridge,
+  message: { type: string; payload: unknown },
+  channel = 'mls:group:group-1'
+): void {
+  bridge.lastMessage = {
+    channel,
+    message: {
+      ...message,
+      timestamp: '2026-03-03T06:10:00.000Z'
+    }
+  };
 }
 
 afterEach(() => {
@@ -61,107 +74,87 @@ describe('useMlsRealtime', () => {
       new Map<string, (msg: unknown) => void>([['group-1', handler]])
     );
 
-    let callCount = 0;
-    openNotificationEventStreamMock.mockImplementation(() => {
-      callCount += 1;
-      if (callCount === 1) {
-        return streamFromEnvelopes([{ event: 'connected' }]);
-      }
-
-      return streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:message',
-            payload: {
-              id: 'msg-1',
-              groupId: 'group-1',
-              senderUserId: 'other-user',
-              epoch: 2,
-              ciphertext: commitCiphertext([1, 2, 3]),
-              messageType: 'application',
-              contentType: 'text/plain',
-              sequenceNumber: 4,
-              sentAt: '2026-03-03T06:10:00.000Z',
-              createdAt: '2026-03-03T06:10:00.000Z'
-            }
-          }
-        }
-      ]);
-    });
-
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
-    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
-    });
+    const { result, rerender, unmount } = renderHook(
+      () => useMlsRealtime(client),
+      {
+        wrapper: createMlsHookWrapper(undefined, bridge)
+      }
+    );
 
     act(() => {
       result.current.subscribe('group-1');
     });
 
+    act(() => {
+      emitBridgeMessage(bridge, {
+        type: 'mls:message',
+        payload: {
+          id: 'msg-1',
+          groupId: 'group-1',
+          senderUserId: 'other-user',
+          epoch: 2,
+          ciphertext: commitCiphertext([1, 2, 3]),
+          messageType: 'application',
+          contentType: 'text/plain',
+          sequenceNumber: 4,
+          sentAt: '2026-03-03T06:10:00.000Z',
+          createdAt: '2026-03-03T06:10:00.000Z'
+        }
+      });
+    });
+
+    rerender();
+
     await waitFor(() => {
       expect(handler).toHaveBeenCalledTimes(1);
     });
-
-    expect(openNotificationEventStreamMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        channels: ['mls:user:test-user-id', 'mls:group:group-1']
-      })
-    );
 
     unmount();
     client.close();
   });
 
   it('processes commit messages from other senders and uploads state snapshots', async () => {
-    let callCount = 0;
-    openNotificationEventStreamMock.mockImplementation(() => {
-      callCount += 1;
-      if (callCount === 1) {
-        return streamFromEnvelopes([{ event: 'connected' }]);
-      }
-
-      return streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:message',
-            payload: {
-              id: 'commit-1',
-              groupId: 'group-1',
-              senderUserId: 'other-user',
-              epoch: 5,
-              ciphertext: commitCiphertext([10, 11, 12]),
-              messageType: 'commit',
-              contentType: 'application/mls-commit',
-              sequenceNumber: 8,
-              sentAt: '2026-03-03T06:15:00.000Z',
-              createdAt: '2026-03-03T06:15:00.000Z'
-            }
-          }
-        }
-      ]);
-    });
-
     uploadGroupStateSnapshotMock.mockResolvedValue(undefined);
 
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     const hasGroupSpy = vi.spyOn(client, 'hasGroup').mockReturnValue(true);
     const processCommitSpy = vi
       .spyOn(client, 'processCommit')
       .mockResolvedValue(undefined);
 
-    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
-    });
+    const { result, rerender, unmount } = renderHook(
+      () => useMlsRealtime(client),
+      {
+        wrapper: createMlsHookWrapper(undefined, bridge)
+      }
+    );
 
     act(() => {
       result.current.subscribe('group-1');
     });
+
+    act(() => {
+      emitBridgeMessage(bridge, {
+        type: 'mls:message',
+        payload: {
+          id: 'commit-1',
+          groupId: 'group-1',
+          senderUserId: 'other-user',
+          epoch: 5,
+          ciphertext: commitCiphertext([10, 11, 12]),
+          messageType: 'commit',
+          contentType: 'application/mls-commit',
+          sequenceNumber: 8,
+          sentAt: '2026-03-03T06:15:00.000Z',
+          createdAt: '2026-03-03T06:15:00.000Z'
+        }
+      });
+    });
+
+    rerender();
 
     await waitFor(() => {
       expect(processCommitSpy).toHaveBeenCalledTimes(1);
@@ -187,53 +180,46 @@ describe('useMlsRealtime', () => {
   });
 
   it('skips invalid commit ciphertext payloads', async () => {
-    let callCount = 0;
-    openNotificationEventStreamMock.mockImplementation(() => {
-      callCount += 1;
-      if (callCount === 1) {
-        return streamFromEnvelopes([{ event: 'connected' }]);
-      }
-
-      return streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:message',
-            payload: {
-              id: 'commit-invalid',
-              groupId: 'group-1',
-              senderUserId: 'other-user',
-              epoch: 5,
-              ciphertext: 'not-base64***',
-              messageType: 'commit',
-              contentType: 'application/mls-commit',
-              sequenceNumber: 9,
-              sentAt: '2026-03-03T06:18:00.000Z',
-              createdAt: '2026-03-03T06:18:00.000Z'
-            }
-          }
-        }
-      ]);
-    });
-
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     vi.spyOn(client, 'hasGroup').mockReturnValue(true);
     const processCommitSpy = vi
       .spyOn(client, 'processCommit')
       .mockResolvedValue(undefined);
 
-    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
-    });
+    const { result, rerender, unmount } = renderHook(
+      () => useMlsRealtime(client),
+      {
+        wrapper: createMlsHookWrapper(undefined, bridge)
+      }
+    );
 
     act(() => {
       result.current.subscribe('group-1');
     });
 
-    await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    act(() => {
+      emitBridgeMessage(bridge, {
+        type: 'mls:message',
+        payload: {
+          id: 'commit-invalid',
+          groupId: 'group-1',
+          senderUserId: 'other-user',
+          epoch: 5,
+          ciphertext: 'not-base64***',
+          messageType: 'commit',
+          contentType: 'application/mls-commit',
+          sequenceNumber: 9,
+          sentAt: '2026-03-03T06:18:00.000Z',
+          createdAt: '2026-03-03T06:18:00.000Z'
+        }
+      });
+    });
+
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(processCommitSpy).not.toHaveBeenCalled();
@@ -244,53 +230,46 @@ describe('useMlsRealtime', () => {
   });
 
   it('ignores commit messages emitted by the current user', async () => {
-    let callCount = 0;
-    openNotificationEventStreamMock.mockImplementation(() => {
-      callCount += 1;
-      if (callCount === 1) {
-        return streamFromEnvelopes([{ event: 'connected' }]);
-      }
-
-      return streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:message',
-            payload: {
-              id: 'commit-2',
-              groupId: 'group-1',
-              senderUserId: 'test-user-id',
-              epoch: 5,
-              ciphertext: commitCiphertext([20, 21, 22]),
-              messageType: 'commit',
-              contentType: 'application/mls-commit',
-              sequenceNumber: 10,
-              sentAt: '2026-03-03T06:20:00.000Z',
-              createdAt: '2026-03-03T06:20:00.000Z'
-            }
-          }
-        }
-      ]);
-    });
-
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     vi.spyOn(client, 'hasGroup').mockReturnValue(true);
     const processCommitSpy = vi
       .spyOn(client, 'processCommit')
       .mockResolvedValue(undefined);
 
-    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
-    });
+    const { result, rerender, unmount } = renderHook(
+      () => useMlsRealtime(client),
+      {
+        wrapper: createMlsHookWrapper(undefined, bridge)
+      }
+    );
 
     act(() => {
       result.current.subscribe('group-1');
     });
 
-    await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    act(() => {
+      emitBridgeMessage(bridge, {
+        type: 'mls:message',
+        payload: {
+          id: 'commit-2',
+          groupId: 'group-1',
+          senderUserId: 'test-user-id',
+          epoch: 5,
+          ciphertext: commitCiphertext([20, 21, 22]),
+          messageType: 'commit',
+          contentType: 'application/mls-commit',
+          sequenceNumber: 10,
+          sentAt: '2026-03-03T06:20:00.000Z',
+          createdAt: '2026-03-03T06:20:00.000Z'
+        }
+      });
+    });
+
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(processCommitSpy).not.toHaveBeenCalled();
@@ -301,53 +280,46 @@ describe('useMlsRealtime', () => {
   });
 
   it('skips commit processing when local group state is missing', async () => {
-    let callCount = 0;
-    openNotificationEventStreamMock.mockImplementation(() => {
-      callCount += 1;
-      if (callCount === 1) {
-        return streamFromEnvelopes([{ event: 'connected' }]);
-      }
-
-      return streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:message',
-            payload: {
-              id: 'commit-3',
-              groupId: 'group-1',
-              senderUserId: 'other-user',
-              epoch: 5,
-              ciphertext: commitCiphertext([30, 31, 32]),
-              messageType: 'commit',
-              contentType: 'application/mls-commit',
-              sequenceNumber: 11,
-              sentAt: '2026-03-03T06:22:00.000Z',
-              createdAt: '2026-03-03T06:22:00.000Z'
-            }
-          }
-        }
-      ]);
-    });
-
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
     vi.spyOn(client, 'hasGroup').mockReturnValue(false);
     const processCommitSpy = vi
       .spyOn(client, 'processCommit')
       .mockResolvedValue(undefined);
 
-    const { result, unmount } = renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
-    });
+    const { result, rerender, unmount } = renderHook(
+      () => useMlsRealtime(client),
+      {
+        wrapper: createMlsHookWrapper(undefined, bridge)
+      }
+    );
 
     act(() => {
       result.current.subscribe('group-1');
     });
 
-    await waitFor(() => {
-      expect(openNotificationEventStreamMock).toHaveBeenCalledTimes(2);
+    act(() => {
+      emitBridgeMessage(bridge, {
+        type: 'mls:message',
+        payload: {
+          id: 'commit-3',
+          groupId: 'group-1',
+          senderUserId: 'other-user',
+          epoch: 5,
+          ciphertext: commitCiphertext([30, 31, 32]),
+          messageType: 'commit',
+          contentType: 'application/mls-commit',
+          sequenceNumber: 11,
+          sentAt: '2026-03-03T06:22:00.000Z',
+          createdAt: '2026-03-03T06:22:00.000Z'
+        }
+      });
+    });
+
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(processCommitSpy).not.toHaveBeenCalled();
@@ -368,36 +340,39 @@ describe('useMlsRealtime', () => {
     );
     Reflect.set(globalThis, '__mlsWelcomeRefreshHandler', welcomeRefresh);
 
-    openNotificationEventStreamMock.mockImplementation(() =>
-      streamFromEnvelopes([
-        { event: 'connected' },
-        {
-          event: 'message',
-          channel: 'mls:group:group-1',
-          message: {
-            type: 'mls:member_added',
-            payload: { groupId: 'group-1', userId: 'other-user' }
-          }
-        },
-        {
-          event: 'message',
-          channel: 'mls:user:test-user-id',
-          message: {
-            type: 'mls:welcome',
-            payload: { groupId: 'group-1', welcomeId: 'welcome-1' }
-          }
-        }
-      ])
-    );
-
+    const { bridge } = createSharedRealtimeBridge();
     const client = new MlsClient('test-user-id');
-    renderHook(() => useMlsRealtime(client), {
-      wrapper: createMlsHookWrapper()
+    const { rerender } = renderHook(() => useMlsRealtime(client), {
+      wrapper: createMlsHookWrapper(undefined, bridge)
     });
+
+    act(() => {
+      emitBridgeMessage(
+        bridge,
+        {
+          type: 'mls:member_added',
+          payload: { groupId: 'group-1', userId: 'other-user' }
+        },
+        'mls:group:group-1'
+      );
+    });
+    rerender();
 
     await waitFor(() => {
       expect(membershipRefresh).toHaveBeenCalledTimes(1);
     });
+
+    act(() => {
+      emitBridgeMessage(
+        bridge,
+        {
+          type: 'mls:welcome',
+          payload: { groupId: 'group-1', welcomeId: 'welcome-1' }
+        },
+        'mls:user:test-user-id'
+      );
+    });
+    rerender();
 
     await waitFor(() => {
       expect(welcomeRefresh).toHaveBeenCalledTimes(1);
