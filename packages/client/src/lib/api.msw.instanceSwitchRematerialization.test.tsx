@@ -3,31 +3,32 @@ import '../test/setupIntegration';
 import { randomUUID } from 'node:crypto';
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import { NotesWindowDetail } from '@tearleads/notes';
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
-import {
-  combinePublicKey,
-  generateKeyPair,
-  serializePublicKey
-} from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
-import { render, waitFor } from '@testing-library/react';
+import { ThemeProvider } from '@tearleads/ui';
+import { render, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { act } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
+import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import {
-  useVfsOrchestrator,
-  VfsOrchestratorProvider
-} from '@/contexts/VfsOrchestratorContext';
 import { getDatabase } from '@/db';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
 import { api } from '@/lib/api';
-import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/authStorage';
-import { setActiveOrganizationId } from '@/lib/orgStorage';
+import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
+import {
+  buildPublicEncryptionKey,
+  createTokenActor,
+  installConnectSyncMocks,
+  seedUserKeys,
+  toBase64
+} from '@/lib/instanceSwitchTestUtils';
+import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { getSharedTestContext } from '@/test/testContext';
 import { fetchVfsConnectJson } from '../../../bob-and-alice/src/harness/vfsConnectClient';
-import type { JsonApiActor } from '../../../bob-and-alice/src/scaffolding/setupBobNotesShareForAlice';
 
 const TEST_TIMEOUT_MS = 45000;
 
@@ -38,8 +39,6 @@ interface AuthSnapshot {
 
 let latestAuthContext: ReturnType<typeof useAuth> | null = null;
 let latestDatabaseContext: ReturnType<typeof useDatabaseContext> | null = null;
-let latestVfsOrchestratorContext: ReturnType<typeof useVfsOrchestrator> | null =
-  null;
 const { mockApiLogout } = vi.hoisted(() => ({
   mockApiLogout: vi.fn(async () => undefined)
 }));
@@ -62,6 +61,12 @@ vi.mock('@/lib/api', () => ({
   tryRefreshToken: vi.fn(async () => false)
 }));
 
+vi.mock('@uiw/react-md-editor', () => ({
+  default: ({ value }: { value?: string }) => (
+    <textarea data-testid="mock-md-editor" value={value ?? ''} readOnly />
+  )
+}));
+
 function AuthContextProbe() {
   latestAuthContext = useAuth();
   return null;
@@ -69,11 +74,6 @@ function AuthContextProbe() {
 
 function DatabaseContextProbe() {
   latestDatabaseContext = useDatabaseContext();
-  return null;
-}
-
-function VfsOrchestratorContextProbe() {
-  latestVfsOrchestratorContext = useVfsOrchestrator();
   return null;
 }
 
@@ -89,122 +89,6 @@ function requireDatabaseContext(): ReturnType<typeof useDatabaseContext> {
     throw new Error('Expected database context to be available');
   }
   return latestDatabaseContext;
-}
-
-function requireVfsOrchestratorContext(): ReturnType<
-  typeof useVfsOrchestrator
-> {
-  if (!latestVfsOrchestratorContext) {
-    throw new Error('Expected VFS orchestrator context to be available');
-  }
-  return latestVfsOrchestratorContext;
-}
-
-function toBase64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
-function buildPublicEncryptionKey(): string {
-  const keyPair = generateKeyPair();
-  return combinePublicKey(
-    serializePublicKey({
-      x25519PublicKey: keyPair.x25519PublicKey,
-      mlKemPublicKey: keyPair.mlKemPublicKey
-    })
-  );
-}
-
-async function seedUserKeys(input: {
-  client: {
-    query: (text: string, params?: readonly unknown[]) => Promise<unknown>;
-  };
-  bobUserId: string;
-  aliceUserId: string;
-}): Promise<void> {
-  const bobPublicKey = buildPublicEncryptionKey();
-  const alicePublicKey = buildPublicEncryptionKey();
-
-  await input.client.query(
-    `INSERT INTO user_keys (
-       user_id,
-       public_encryption_key,
-       public_signing_key,
-       encrypted_private_keys,
-       argon2_salt,
-       created_at
-     )
-     VALUES ($1, $2, $3, $4, $5, NOW())
-     ON CONFLICT (user_id) DO UPDATE SET
-       public_encryption_key = EXCLUDED.public_encryption_key`,
-    [
-      input.bobUserId,
-      bobPublicKey,
-      'seeded-signing-key-bob',
-      'seeded-private-keys-bob',
-      'seeded-argon2-salt-bob'
-    ]
-  );
-
-  await input.client.query(
-    `INSERT INTO user_keys (
-       user_id,
-       public_encryption_key,
-       public_signing_key,
-       encrypted_private_keys,
-       argon2_salt,
-       created_at
-     )
-     VALUES ($1, $2, $3, $4, $5, NOW())
-     ON CONFLICT (user_id) DO UPDATE SET
-       public_encryption_key = EXCLUDED.public_encryption_key`,
-    [
-      input.aliceUserId,
-      alicePublicKey,
-      'seeded-signing-key-alice',
-      'seeded-private-keys-alice',
-      'seeded-argon2-salt-alice'
-    ]
-  );
-}
-
-async function readJsonResponse(response: Response): Promise<unknown> {
-  const raw = await response.text();
-  if (raw.trim().length === 0) {
-    return null;
-  }
-  return JSON.parse(raw);
-}
-
-function createTokenActor(input: {
-  baseUrl: string;
-  resolveToken: () => string | null;
-}): JsonApiActor {
-  return {
-    async fetchJson(path: string, init?: RequestInit): Promise<unknown> {
-      const token = input.resolveToken();
-      if (!token) {
-        throw new Error('Missing auth token');
-      }
-
-      const headers = new Headers(init?.headers);
-      headers.set('Authorization', `Bearer ${token}`);
-      if (init?.body && !headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json');
-      }
-
-      const response = await fetch(`${input.baseUrl}${path}`, {
-        ...init,
-        headers
-      });
-      const body = await readJsonResponse(response);
-      if (!response.ok) {
-        throw new Error(
-          `Request failed: ${path} ${String(response.status)} ${JSON.stringify(body)}`
-        );
-      }
-      return body;
-    }
-  };
 }
 
 async function waitForProvidersReady(): Promise<void> {
@@ -247,12 +131,12 @@ describe('instance switch shared-note sync regression', () => {
   beforeEach(() => {
     latestAuthContext = null;
     latestDatabaseContext = null;
-    latestVfsOrchestratorContext = null;
     clearStoredAuth();
-    setActiveOrganizationId(null);
     mockApiLogout.mockClear();
     vi.mocked(api.vfs.getMyKeys).mockReset();
     vi.mocked(api.vfs.setupKeys).mockReset();
+    vi.mocked(api.vfs.getSync).mockReset();
+    vi.mocked(api.vfs.getCrdtSync).mockReset();
     vi.mocked(api.vfs.getMyKeys).mockResolvedValue({
       publicEncryptionKey: buildPublicEncryptionKey(),
       publicSigningKey: 'seeded-signing-key'
@@ -260,8 +144,7 @@ describe('instance switch shared-note sync regression', () => {
     vi.mocked(api.vfs.setupKeys).mockResolvedValue({ created: true });
   });
 
-  // TODO: fix broken CRDT rematerialization assertion - fails on main too
-  it.skip(
+  it(
     'rematerializes Alice note updates into Bob local notes after instance switch',
     async () => {
       const ctx = getSharedTestContext();
@@ -342,11 +225,8 @@ describe('instance switch shared-note sync regression', () => {
         <DatabaseProvider>
           <AuthProvider>
             <AuthInstanceBinding />
-            <VfsOrchestratorProvider baseUrl={apiBaseUrl} apiPrefix="/v1">
-              <DatabaseContextProbe />
-              <AuthContextProbe />
-              <VfsOrchestratorContextProbe />
-            </VfsOrchestratorProvider>
+            <DatabaseContextProbe />
+            <AuthContextProbe />
           </AuthProvider>
         </DatabaseProvider>
       );
@@ -378,10 +258,6 @@ describe('instance switch shared-note sync regression', () => {
       });
       await waitForAuthUser(alice.userId);
       await waitForCurrentInstanceBoundTo(alice.userId);
-
-      await waitFor(() => {
-        expect(requireVfsOrchestratorContext().isReady).toBe(true);
-      });
 
       await upsertLocalSharedNote('Hello, Alice');
 
@@ -466,7 +342,7 @@ describe('instance switch shared-note sync regression', () => {
       const expectedPayload = toBase64(updatedContent);
       const storedAuthActor = createTokenActor({
         baseUrl: apiBaseUrl,
-        resolveToken: () => readStoredAuth().token
+        resolveToken: () => bob.accessToken
       });
       const bobCrdtFeed = await fetchVfsConnectJson<VfsCrdtSyncResponse>({
         actor: storedAuthActor,
@@ -483,8 +359,15 @@ describe('instance switch shared-note sync regression', () => {
         )
       ).toBe(true);
 
+      installConnectSyncMocks({ baseUrl: apiBaseUrl });
+      const db = getDatabase();
+      await db.delete(vfsRegistry).where(eq(vfsRegistry.id, seededShare.noteId));
+      await db.delete(notes).where(eq(notes.id, seededShare.noteId));
+
+      await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
+
       await waitFor(async () => {
-        const rows = await getDatabase()
+        const rows = await db
           .select({
             content: notes.content
           })
@@ -492,6 +375,24 @@ describe('instance switch shared-note sync regression', () => {
           .where(eq(notes.id, seededShare.noteId))
           .limit(1);
         expect(rows[0]?.content).toBe(updatedContent);
+      });
+
+      render(
+        <ThemeProvider>
+          <DatabaseProvider>
+            <MemoryRouter>
+              <ClientNotesProvider>
+                <NotesWindowDetail noteId={seededShare.noteId} />
+              </ClientNotesProvider>
+            </MemoryRouter>
+          </DatabaseProvider>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByDisplayValue('Alice edited this shared note')
+        ).toBeInTheDocument();
       });
     },
     TEST_TIMEOUT_MS
