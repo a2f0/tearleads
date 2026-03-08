@@ -114,7 +114,9 @@ afterEach(() => {
   expect(unexpectedWarnings).toEqual([]);
 
   if (isBunRuntime && bunConsoleErrors.length > 0) {
-    throw new Error(`Unexpected console errors:\n${bunConsoleErrors.join('\n')}`);
+    throw new Error(
+      `Unexpected console errors:\n${bunConsoleErrors.join('\n')}`
+    );
   }
 });
 
