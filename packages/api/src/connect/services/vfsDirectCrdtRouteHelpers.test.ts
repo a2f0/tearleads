@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toIsoString,
   toLastReconciledWriteIds,
+  toProtoVfsCrdtSnapshotResponse,
   toProtoVfsCrdtSyncResponse
 } from './vfsDirectCrdtRouteHelpers.js';
 
@@ -152,6 +153,117 @@ describe('vfsDirectCrdtRouteHelpers', () => {
           desktop: 8
         }
       });
+    });
+  });
+
+  describe('toProtoVfsCrdtSnapshotResponse', () => {
+    it('omits optional replay and reconcile cursors when absent', () => {
+      const response = toProtoVfsCrdtSnapshotResponse({
+        replaySnapshot: {
+          acl: [],
+          links: [],
+          cursor: null
+        },
+        reconcileState: null,
+        containerClocks: [],
+        snapshotUpdatedAt: '2026-03-08T00:00:00.000Z'
+      });
+
+      expect(response).toEqual({
+        replaySnapshot: {
+          acl: [],
+          links: []
+        },
+        containerClocks: [],
+        snapshotUpdatedAt: '2026-03-08T00:00:00.000Z'
+      });
+    });
+
+    it('maps populated replay/reconcile cursors and copies write ids', () => {
+      const writeIds = {
+        desktop: 11
+      };
+
+      const response = toProtoVfsCrdtSnapshotResponse({
+        replaySnapshot: {
+          acl: [
+            {
+              itemId: 'item-1',
+              principalType: 'user',
+              principalId: 'user-1',
+              accessLevel: 'admin'
+            }
+          ],
+          links: [
+            {
+              parentId: 'parent-1',
+              childId: 'item-1'
+            }
+          ],
+          cursor: {
+            changedAt: '2026-03-08T00:00:00.000Z',
+            changeId: 'change-10'
+          }
+        },
+        reconcileState: {
+          cursor: {
+            changedAt: '2026-03-08T00:00:01.000Z',
+            changeId: 'change-11'
+          },
+          lastReconciledWriteIds: writeIds
+        },
+        containerClocks: [
+          {
+            containerId: 'item-1',
+            changedAt: '2026-03-08T00:00:00.000Z',
+            changeId: 'change-10'
+          }
+        ],
+        snapshotUpdatedAt: '2026-03-08T00:00:05.000Z'
+      });
+
+      expect(response).toEqual({
+        replaySnapshot: {
+          acl: [
+            {
+              itemId: 'item-1',
+              principalType: 'user',
+              principalId: 'user-1',
+              accessLevel: 'admin'
+            }
+          ],
+          links: [
+            {
+              parentId: 'parent-1',
+              childId: 'item-1'
+            }
+          ],
+          cursor: {
+            changedAt: '2026-03-08T00:00:00.000Z',
+            changeId: 'change-10'
+          }
+        },
+        reconcileState: {
+          cursor: {
+            changedAt: '2026-03-08T00:00:01.000Z',
+            changeId: 'change-11'
+          },
+          lastReconciledWriteIds: {
+            desktop: 11
+          }
+        },
+        containerClocks: [
+          {
+            containerId: 'item-1',
+            changedAt: '2026-03-08T00:00:00.000Z',
+            changeId: 'change-10'
+          }
+        ],
+        snapshotUpdatedAt: '2026-03-08T00:00:05.000Z'
+      });
+      expect(response.reconcileState?.lastReconciledWriteIds).not.toBe(
+        writeIds
+      );
     });
   });
 });

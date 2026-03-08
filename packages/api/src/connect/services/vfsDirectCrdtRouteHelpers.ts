@@ -346,7 +346,9 @@ export function toProtoVfsCrdtSnapshotResponse(
   if (response.reconcileState) {
     parsed.reconcileState = {
       cursor: toProtoSnapshotCursor(response.reconcileState.cursor),
-      lastReconciledWriteIds: response.reconcileState.lastReconciledWriteIds
+      lastReconciledWriteIds: {
+        ...response.reconcileState.lastReconciledWriteIds
+      }
     };
   }
 
