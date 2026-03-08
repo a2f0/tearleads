@@ -59,11 +59,37 @@ const REQUEST_CONTEXT = {
 
 function createSessionRequest(payload: Record<string, unknown>): {
   organizationId: string;
-  json: string;
+  clientId: string;
+  operations: unknown[];
+  cursor: string;
+  limit: number;
+  rootId?: string | null;
+  lastReconciledWriteIds: Record<string, number>;
 } {
+  const operations = payload['operations'];
+  const rawLastWriteIds = payload['lastReconciledWriteIds'];
+  const lastReconciledWriteIds: Record<string, number> = {};
+  if (
+    typeof rawLastWriteIds === 'object' &&
+    rawLastWriteIds !== null &&
+    !Array.isArray(rawLastWriteIds)
+  ) {
+    for (const [key, value] of Object.entries(rawLastWriteIds)) {
+      if (typeof value === 'number') {
+        lastReconciledWriteIds[key] = value;
+      }
+    }
+  }
+
   return {
     organizationId: 'org-1',
-    json: JSON.stringify(payload)
+    clientId:
+      typeof payload['clientId'] === 'string' ? payload['clientId'] : '',
+    operations: Array.isArray(operations) ? operations : [],
+    cursor: typeof payload['cursor'] === 'string' ? payload['cursor'] : '',
+    limit: typeof payload['limit'] === 'number' ? payload['limit'] : 0,
+    rootId: typeof payload['rootId'] === 'string' ? payload['rootId'] : null,
+    lastReconciledWriteIds
   };
 }
 
@@ -139,7 +165,10 @@ describe('vfsDirectCrdtSession', () => {
       runCrdtSessionDirect(
         {
           organizationId: '',
-          json: '{}'
+          clientId: '',
+          operations: [],
+          cursor: '',
+          limit: 0
         },
         REQUEST_CONTEXT
       )
@@ -335,7 +364,7 @@ describe('vfsDirectCrdtSession', () => {
     expect(clientReleaseMock).toHaveBeenCalled();
   });
 
-  it('accepts string limits and non-string rootId values', async () => {
+  it('accepts non-string rootId values', async () => {
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
       changeId: 'change-1'
@@ -346,7 +375,7 @@ describe('vfsDirectCrdtSession', () => {
         clientId: 'desktop-1',
         operations: [],
         cursor: inputCursor,
-        limit: '10',
+        limit: 10,
         rootId: 123,
         lastReconciledWriteIds: {}
       })

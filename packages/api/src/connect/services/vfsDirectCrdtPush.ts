@@ -7,11 +7,11 @@ import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 
-interface JsonRequest {
+interface PushCrdtOpsRequest {
   organizationId: string;
-  json: string;
+  clientId: string;
+  operations: unknown[];
 }
 
 async function rollbackQuietly(client: PoolClient): Promise<void> {
@@ -23,10 +23,13 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
 }
 
 export async function pushCrdtOpsDirect(
-  request: JsonRequest,
+  request: PushCrdtOpsRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtPushResponse> {
-  const parsedPayload = parsePushPayload(parseJsonBody(request.json));
+  const parsedPayload = parsePushPayload({
+    clientId: request.clientId,
+    operations: request.operations
+  });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }

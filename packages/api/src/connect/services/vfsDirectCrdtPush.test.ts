@@ -103,7 +103,8 @@ describe('vfsDirectCrdtPush', () => {
       pushCrdtOpsDirect(
         {
           organizationId: '',
-          json: '{}'
+          clientId: '',
+          operations: []
         },
         {
           requestHeader: new Headers()
@@ -141,10 +142,8 @@ describe('vfsDirectCrdtPush', () => {
     const response = await pushCrdtOpsDirect(
       {
         organizationId: 'org-1',
-        json: JSON.stringify({
-          clientId: 'desktop-1',
-          operations: []
-        })
+        clientId: 'desktop-1',
+        operations: []
       },
       {
         requestHeader: new Headers()
@@ -196,10 +195,8 @@ describe('vfsDirectCrdtPush', () => {
       pushCrdtOpsDirect(
         {
           organizationId: 'org-1',
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: []
-          })
+          clientId: 'desktop-1',
+          operations: []
         },
         {
           requestHeader: new Headers()
@@ -238,10 +235,8 @@ describe('vfsDirectCrdtPush', () => {
       pushCrdtOpsDirect(
         {
           organizationId: 'org-1',
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: []
-          })
+          clientId: 'desktop-1',
+          operations: []
         },
         {
           requestHeader: new Headers()
@@ -262,10 +257,8 @@ describe('vfsDirectCrdtPush', () => {
       pushCrdtOpsDirect(
         {
           organizationId: 'org-1',
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            operations: []
-          })
+          clientId: 'desktop-1',
+          operations: []
         },
         {
           requestHeader: new Headers()

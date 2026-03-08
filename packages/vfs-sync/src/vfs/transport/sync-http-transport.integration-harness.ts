@@ -267,18 +267,6 @@ async function readRequestJson(
   return asRecord(JSON.parse(rawBody), 'request body');
 }
 
-function parseConnectJsonPayload(
-  requestBody: Record<string, unknown>,
-  fieldName: string
-): Record<string, unknown> {
-  const encodedPayload = requestBody['json'];
-  if (typeof encodedPayload !== 'string') {
-    throw new Error(`Integration harness failed to parse ${fieldName}`);
-  }
-
-  return asRecord(JSON.parse(encodedPayload), fieldName);
-}
-
 function connectJsonResponse(payload: unknown): Response {
   return new Response(JSON.stringify({ json: JSON.stringify(payload) }), {
     status: 200,
@@ -308,8 +296,7 @@ export function createServerBackedFetch(
       url.pathname === `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps` &&
       init?.method === 'POST'
     ) {
-      const requestBody = await readRequestJson(init);
-      const pushBody = parseConnectJsonPayload(requestBody, 'push request');
+      const pushBody = await readRequestJson(init);
 
       const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
       const operations = parsePushOperations(pushBody['operations']);

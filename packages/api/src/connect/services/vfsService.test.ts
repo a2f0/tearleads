@@ -302,7 +302,8 @@ describe('vfsConnectService', () => {
     };
     const pushCrdtOpsRequest = {
       organizationId: 'org-1',
-      json: '{"clientId":"client-1","operations":[]}'
+      clientId: 'client-1',
+      operations: []
     };
     const reconcileCrdtRequest = {
       organizationId: 'org-1',
@@ -312,7 +313,11 @@ describe('vfsConnectService', () => {
     };
     const runCrdtSessionRequest = {
       organizationId: 'org-1',
-      json: '{"clientId":"client-1","operations":[],"cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","limit":10}'
+      clientId: 'client-1',
+      operations: [],
+      cursor: 'MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x',
+      limit: 10,
+      lastReconciledWriteIds: {}
     };
     const defaultDirectJsonResponse = { json: '{"ok":true}' };
 

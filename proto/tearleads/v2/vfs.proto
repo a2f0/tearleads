@@ -152,9 +152,29 @@ message VfsRekeyItemResponse {
   int32 wraps_applied = 3;
 }
 
+message VfsCrdtPushOperation {
+  string op_id = 1;
+  string op_type = 2;
+  string item_id = 3;
+  string replica_id = 4;
+  int32 write_id = 5;
+  string occurred_at = 6;
+  optional string principal_type = 7;
+  optional string principal_id = 8;
+  optional string access_level = 9;
+  optional string parent_id = 10;
+  optional string child_id = 11;
+  optional string encrypted_payload = 12;
+  optional int32 key_epoch = 13;
+  optional string encryption_nonce = 14;
+  optional string encryption_aad = 15;
+  optional string encryption_signature = 16;
+}
+
 message VfsPushCrdtOpsRequest {
   string organization_id = 1;
-  string json = 2;
+  string client_id = 2;
+  repeated VfsCrdtPushOperation operations = 3;
 }
 
 message VfsCrdtPushResult {
@@ -192,7 +212,12 @@ message VfsReconcileSyncResponse {
 
 message VfsRunCrdtSessionRequest {
   string organization_id = 1;
-  string json = 2;
+  string client_id = 2;
+  string cursor = 3;
+  int32 limit = 4;
+  repeated VfsCrdtPushOperation operations = 5;
+  map<string, int32> last_reconciled_write_ids = 6;
+  optional string root_id = 7;
 }
 
 message VfsRunCrdtSessionResponse {

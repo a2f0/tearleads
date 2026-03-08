@@ -77,10 +77,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         'PushCrdtOps',
         {
           organizationId: organizationId ?? '',
-          json: JSON.stringify({
-            clientId: input.clientId,
-            operations: input.operations
-          })
+          clientId: input.clientId,
+          operations: input.operations
         },
         {
           organizationId
@@ -189,14 +187,12 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       'RunCrdtSession',
       {
         organizationId: organizationId ?? '',
-        json: JSON.stringify({
-          clientId: input.clientId,
-          cursor: encodeVfsSyncCursor(input.cursor),
-          limit: input.limit,
-          operations: input.operations,
-          lastReconciledWriteIds: input.lastReconciledWriteIds,
-          rootId: input.rootId ?? null
-        })
+        clientId: input.clientId,
+        cursor: encodeVfsSyncCursor(input.cursor),
+        limit: input.limit,
+        operations: input.operations,
+        lastReconciledWriteIds: input.lastReconciledWriteIds,
+        rootId: input.rootId ?? null
       },
       {
         organizationId
