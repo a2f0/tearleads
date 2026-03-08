@@ -28,11 +28,19 @@ export function isPlainRecord(
 }
 
 export function parseConnectJsonEnvelopeBody(body: unknown): unknown {
-  if (!isPlainRecord(body) || typeof body['json'] !== 'string') {
+  if (!isPlainRecord(body) || !('json' in body)) {
     return body;
   }
 
-  const rawJson = body['json'].trim();
+  const jsonValue = body['json'];
+  if (typeof jsonValue !== 'string') {
+    if (jsonValue === undefined || jsonValue === null) {
+      return {};
+    }
+    return jsonValue;
+  }
+
+  const rawJson = jsonValue.trim();
   if (rawJson.length === 0) {
     return {};
   }

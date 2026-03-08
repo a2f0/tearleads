@@ -9,6 +9,7 @@ import type {
 import {
   combinePublicKey,
   generateKeyPair,
+  parseConnectJsonEnvelopeBody,
   serializePublicKey,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -37,10 +38,6 @@ const blobEnvKeys = [
   'VFS_BLOB_S3_SECRET_ACCESS_KEY',
   'VFS_BLOB_S3_FORCE_PATH_STYLE'
 ] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 async function startS3MockServer(): Promise<string> {
   const server = createServer((request, response) => {
@@ -180,13 +177,7 @@ async function postVfsConnectJson(
   }
 
   const connectEnvelope: unknown = await response.json();
-  if (
-    !isRecord(connectEnvelope) ||
-    typeof connectEnvelope['json'] !== 'string'
-  ) {
-    throw new Error(`${methodName} returned invalid connect json envelope`);
-  }
-  JSON.parse(connectEnvelope['json']);
+  parseConnectJsonEnvelopeBody(connectEnvelope);
 }
 
 async function fetchAllSyncItems(

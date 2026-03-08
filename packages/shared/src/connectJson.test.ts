@@ -26,6 +26,10 @@ describe('connectJson helpers', () => {
       ok: true
     });
     expect(parseConnectJsonEnvelopeBody({ json: '  ' })).toEqual({});
+    expect(parseConnectJsonEnvelopeBody({ json: { ok: true } })).toEqual({
+      ok: true
+    });
+    expect(parseConnectJsonEnvelopeBody({ json: undefined })).toEqual({});
     expect(parseConnectJsonEnvelopeBody({ ok: true })).toEqual({ ok: true });
   });
 
