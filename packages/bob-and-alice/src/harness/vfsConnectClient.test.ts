@@ -119,7 +119,34 @@ describe('fetchVfsConnectJson', () => {
     expect(response).toEqual(createCrdtResponse());
   });
 
-  it('omits nextCursor default for typed GetSync responses', async () => {
+  it('normalizes lastReconciledWriteIds values for direct payloads', async () => {
+    const actor = {
+      fetchJson: vi.fn().mockResolvedValue({
+        lastReconciledWriteIds: {
+          desktop: 8,
+          mobile: 0,
+          '   ': 1
+        }
+      })
+    };
+
+    const response = await fetchVfsConnectJson<VfsCrdtSyncResponse>({
+      actor,
+      methodName: 'GetCrdtSync',
+      requestBody: { limit: 500 }
+    });
+
+    expect(response).toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 8
+      }
+    });
+  });
+
+  it('normalizes omitted sync defaults for GetSync responses', async () => {
     const actor = {
       fetchJson: vi.fn().mockResolvedValue({})
     };
@@ -132,8 +159,21 @@ describe('fetchVfsConnectJson', () => {
 
     expect(response).toEqual({
       items: [],
+      nextCursor: null,
       hasMore: false
     });
-    expect('nextCursor' in response).toBe(false);
+  });
+
+  it('passes through non-sync connect payloads', async () => {
+    const actor = {
+      fetchJson: vi.fn().mockResolvedValue({ created: true })
+    };
+
+    const response = await fetchVfsConnectJson<{ created: boolean }>({
+      actor,
+      methodName: 'SetupKeys'
+    });
+
+    expect(response).toEqual({ created: true });
   });
 });

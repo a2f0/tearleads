@@ -176,8 +176,8 @@ async function postVfsConnectJson(
     );
   }
 
-  const connectEnvelope: unknown = await response.json();
-  parseConnectJsonEnvelopeBody(connectEnvelope);
+  const rawBody: unknown = await response.json();
+  parseConnectJsonEnvelopeBody(rawBody);
 }
 
 async function fetchAllSyncItems(
