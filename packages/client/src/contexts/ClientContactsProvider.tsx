@@ -1,3 +1,4 @@
+// one-component-per-file: allow - keeps small local adapter components with provider wiring in this legacy file
 /**
  * Client-side ContactsProvider wrapper that supplies all dependencies
  * to the @tearleads/contacts package components.
