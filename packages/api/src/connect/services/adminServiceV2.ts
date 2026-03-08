@@ -211,31 +211,22 @@ export const adminConnectServiceV2 = {
       {
         organizationId: request.organizationId,
         name: request.name,
-        ...(request.description !== undefined
-          ? { description: request.description }
-          : {})
+        description: request.description
       },
       context
     );
     return decodeAdminJson(AdminCreateGroupResponseSchema, response.json);
   },
   async updateGroup(request: AdminUpdateGroupRequest, context: ConnectContext) {
-    const payload: {
-      id: string;
-      organizationId?: string;
-      name?: string;
-      description?: string;
-    } = { id: request.id };
-    if (request.organizationId !== undefined) {
-      payload.organizationId = request.organizationId;
-    }
-    if (request.name !== undefined) {
-      payload.name = request.name;
-    }
-    if (request.description !== undefined) {
-      payload.description = request.description;
-    }
-    const response = await updateGroupDirect(payload, context);
+    const response = await updateGroupDirect(
+      {
+        id: request.id,
+        organizationId: request.organizationId,
+        name: request.name,
+        description: request.description
+      },
+      context
+    );
     return decodeAdminJson(AdminUpdateGroupResponseSchema, response.json);
   },
   async deleteGroup(request: AdminDeleteGroupRequest, context: ConnectContext) {

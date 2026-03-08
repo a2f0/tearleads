@@ -21,10 +21,13 @@ type IdRequest = { id: string };
 type JsonRequest = { json: string };
 type LegacyUpdateGroupRequest = { id: string; json: string };
 type LegacyAddGroupMemberRequest = { id: string; json: string };
-type CreateGroupInput = JsonRequest | Partial<CreateGroupRequest>;
+type OptionalWithUndefined<T> = {
+  [K in keyof T]?: T[K] | undefined;
+};
+type CreateGroupInput = JsonRequest | OptionalWithUndefined<CreateGroupRequest>;
 type UpdateGroupInput =
   | LegacyUpdateGroupRequest
-  | ({ id: string } & Partial<UpdateGroupRequest>);
+  | ({ id: string } & OptionalWithUndefined<UpdateGroupRequest>);
 type AddGroupMemberInput =
   | LegacyAddGroupMemberRequest
   | { id: string; userId: string };
@@ -80,7 +83,7 @@ async function ensureOrganizationExists(
 
 function parseCreateGroupPayload(
   request: CreateGroupInput
-): Partial<CreateGroupRequest> {
+): OptionalWithUndefined<CreateGroupRequest> {
   if ('json' in request) {
     const parsed = parseJsonBody(request.json);
     return isRecord(parsed) ? parsed : {};
@@ -90,7 +93,7 @@ function parseCreateGroupPayload(
 
 function parseUpdateGroupPayload(
   request: UpdateGroupInput
-): Partial<UpdateGroupRequest> {
+): OptionalWithUndefined<UpdateGroupRequest> {
   if ('json' in request) {
     const parsed = parseJsonBody(request.json);
     return isRecord(parsed) ? parsed : {};
@@ -101,7 +104,7 @@ function parseUpdateGroupPayload(
 
 function parseAddGroupMemberPayload(
   request: AddGroupMemberInput
-): Partial<AddMemberRequest> {
+): OptionalWithUndefined<AddMemberRequest> {
   if ('json' in request) {
     const parsed = parseJsonBody(request.json);
     return isRecord(parsed) ? parsed : {};
