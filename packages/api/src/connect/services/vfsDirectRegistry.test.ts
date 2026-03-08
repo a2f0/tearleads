@@ -59,9 +59,7 @@ describe('vfsDirectRegistry', () => {
   it('rejects register when payload is invalid', async () => {
     await expect(
       registerDirect(
-        {
-          json: '{}'
-        },
+        {},
         {
           requestHeader: new Headers()
         }
@@ -79,7 +77,9 @@ describe('vfsDirectRegistry', () => {
     await expect(
       registerDirect(
         {
-          json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
+          id: 'item-1',
+          objectType: 'file',
+          encryptedSessionKey: 'enc'
         },
         {
           requestHeader: new Headers()
@@ -101,7 +101,9 @@ describe('vfsDirectRegistry', () => {
 
     const response = await registerDirect(
       {
-        json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
+        id: 'item-1',
+        objectType: 'file',
+        encryptedSessionKey: 'enc'
       },
       {
         requestHeader: new Headers()
@@ -118,8 +120,7 @@ describe('vfsDirectRegistry', () => {
     await expect(
       rekeyItemDirect(
         {
-          itemId: '   ',
-          json: '{}'
+          itemId: '   '
         },
         {
           requestHeader: new Headers()
@@ -134,8 +135,7 @@ describe('vfsDirectRegistry', () => {
     await expect(
       rekeyItemDirect(
         {
-          itemId: 'item-1',
-          json: '{}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -158,7 +158,9 @@ describe('vfsDirectRegistry', () => {
       rekeyItemDirect(
         {
           itemId: 'item-missing',
-          json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[]}'
+          reason: 'manual',
+          newEpoch: 2,
+          wrappedKeys: []
         },
         {
           requestHeader: new Headers()
@@ -188,7 +190,24 @@ describe('vfsDirectRegistry', () => {
     const response = await rekeyItemDirect(
       {
         itemId: 'item-1',
-        json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[{"recipientUserId":"user-2","recipientPublicKeyId":"pub-1","keyEpoch":2,"encryptedKey":"enc","senderSignature":"sig"},{"recipientUserId":"user-3","recipientPublicKeyId":"pub-2","keyEpoch":2,"encryptedKey":"enc2","senderSignature":"sig2"}]}'
+        reason: 'manual',
+        newEpoch: 2,
+        wrappedKeys: [
+          {
+            recipientUserId: 'user-2',
+            recipientPublicKeyId: 'pub-1',
+            keyEpoch: 2,
+            encryptedKey: 'enc',
+            senderSignature: 'sig'
+          },
+          {
+            recipientUserId: 'user-3',
+            recipientPublicKeyId: 'pub-2',
+            keyEpoch: 2,
+            encryptedKey: 'enc2',
+            senderSignature: 'sig2'
+          }
+        ]
       },
       {
         requestHeader: new Headers()
