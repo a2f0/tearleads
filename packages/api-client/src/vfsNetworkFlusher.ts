@@ -1,6 +1,5 @@
 import {
   isPlainRecord,
-  parseConnectJsonEnvelopeBody,
   VFS_V2_CONNECT_BASE_PATH,
   type VfsAclAccessLevel,
   type VfsAclPrincipalType
@@ -297,10 +296,9 @@ async function fetchServerRematerializedState(input: {
     );
   }
 
-  const responseBody = parseConnectJsonEnvelopeBody(
+  const parsedState = parseServerRematerializedState(
     (await response.json()) as unknown
   );
-  const parsedState = parseServerRematerializedState(responseBody);
   if (!parsedState) {
     throw new Error('Server returned invalid CRDT rematerialization snapshot');
   }

@@ -379,24 +379,22 @@ describe('vfsNetworkFlusher', () => {
           expect(clientId).toBe('desktop');
           return new Response(
             JSON.stringify({
-              json: JSON.stringify({
-                replaySnapshot: {
-                  acl: [],
-                  links: [],
-                  cursor: null
+              replaySnapshot: {
+                acl: [],
+                links: [],
+                cursor: null
+              },
+              reconcileState: {
+                cursor: {
+                  changedAt: '2026-02-24T12:09:59.000Z',
+                  changeId: 'desktop-9'
                 },
-                reconcileState: {
-                  cursor: {
-                    changedAt: '2026-02-24T12:09:59.000Z',
-                    changeId: 'desktop-9'
-                  },
-                  lastReconciledWriteIds: {
-                    desktop: '9'
-                  }
-                },
-                containerClocks: [],
-                snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
-              })
+                lastReconciledWriteIds: {
+                  desktop: '9'
+                }
+              },
+              containerClocks: [],
+              snapshotUpdatedAt: '2026-02-24T12:10:00.000Z'
             }),
             {
               status: 200,

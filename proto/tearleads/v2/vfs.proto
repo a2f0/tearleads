@@ -258,8 +258,45 @@ message VfsGetCrdtSnapshotRequest {
   string client_id = 1;
 }
 
+message VfsSnapshotCursor {
+  string changed_at = 1;
+  string change_id = 2;
+}
+
+message VfsSnapshotAclEntry {
+  string item_id = 1;
+  string principal_type = 2;
+  string principal_id = 3;
+  string access_level = 4;
+}
+
+message VfsSnapshotLinkEntry {
+  string parent_id = 1;
+  string child_id = 2;
+}
+
+message VfsSnapshotReplay {
+  repeated VfsSnapshotAclEntry acl = 1;
+  repeated VfsSnapshotLinkEntry links = 2;
+  optional VfsSnapshotCursor cursor = 3;
+}
+
+message VfsSnapshotReconcileState {
+  VfsSnapshotCursor cursor = 1;
+  map<string, int32> last_reconciled_write_ids = 2;
+}
+
+message VfsSnapshotContainerClock {
+  string container_id = 1;
+  string changed_at = 2;
+  string change_id = 3;
+}
+
 message VfsGetCrdtSnapshotResponse {
-  string json = 1;
+  VfsSnapshotReplay replay_snapshot = 1;
+  optional VfsSnapshotReconcileState reconcile_state = 2;
+  repeated VfsSnapshotContainerClock container_clocks = 3;
+  string snapshot_updated_at = 4;
 }
 
 message VfsGetEmailsRequest {

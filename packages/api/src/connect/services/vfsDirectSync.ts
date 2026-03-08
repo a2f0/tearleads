@@ -29,8 +29,10 @@ import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
+  toProtoVfsCrdtSnapshotResponse,
   toProtoVfsCrdtSyncResponse,
   toProtoVfsSyncResponse,
+  type VfsCrdtSnapshotProtoResponse,
   type VfsCrdtSyncProtoResponse,
   type VfsSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
@@ -312,7 +314,7 @@ export async function getCrdtSyncDirect(
 export async function getCrdtSnapshotDirect(
   request: GetCrdtSnapshotRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsCrdtSnapshotProtoResponse> {
   const claims = await requireVfsClaims(
     '/vfs/crdt/snapshot',
     context.requestHeader
@@ -337,9 +339,7 @@ export async function getCrdtSnapshotDirect(
       throw new ConnectError('No CRDT snapshot is available', Code.NotFound);
     }
 
-    return {
-      json: JSON.stringify(snapshot)
-    };
+    return toProtoVfsCrdtSnapshotResponse(snapshot);
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
