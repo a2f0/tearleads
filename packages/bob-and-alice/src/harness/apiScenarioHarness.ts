@@ -29,17 +29,29 @@ function parseJson<T>(text: string): T {
   return JSON.parse(text);
 }
 
-function isShareRequestMissingFieldsError(
+export function isRetryableWriteValidationError(
   path: string,
   init: RequestInit | undefined,
   status: number,
   body: string
 ): boolean {
-  return (
-    status === 400 &&
-    (init?.method ?? 'GET').toUpperCase() === 'POST' &&
-    path.includes('/shares') &&
+  const isPost = (init?.method ?? 'GET').toUpperCase() === 'POST';
+  if (status !== 400 || !isPost) {
+    return false;
+  }
+
+  const isShareRoute = path.includes('/shares');
+  if (
+    isShareRoute &&
     body.includes('shareType, targetId, and permissionLevel are required')
+  ) {
+    return true;
+  }
+
+  const isRegisterRoute = /\/vfs\/register(?:$|[/?#])/.test(path);
+  return (
+    isRegisterRoute &&
+    body.includes('id, objectType, and encryptedSessionKey are required')
   );
 }
 
@@ -99,20 +111,20 @@ export class ApiScenarioHarness {
       ): Promise<T> => {
         let response = await actorFetch(path, init);
         let responseBody = '';
-        let retriedShareRequest = false;
+        let retriedValidationRequest = false;
 
         while (!response.ok) {
           responseBody = await response.text();
           if (
-            !retriedShareRequest &&
-            isShareRequestMissingFieldsError(
+            !retriedValidationRequest &&
+            isRetryableWriteValidationError(
               path,
               init,
               response.status,
               responseBody
             )
           ) {
-            retriedShareRequest = true;
+            retriedValidationRequest = true;
             response = await actorFetch(path, init);
             continue;
           }
