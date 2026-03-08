@@ -150,6 +150,71 @@ describe('clientBackupsRuntime', () => {
     expect(result.destination).toBe('storage');
   });
 
+  it('passes progress callback through backup creation when provided', async () => {
+    getCurrentInstanceIdMock.mockReturnValue('instance-1');
+    const onProgress = vi.fn();
+
+    await clientBackupsRuntime.createBackup({
+      password: 'pw',
+      includeBlobs: false,
+      onProgress
+    });
+
+    expect(createBackupMock).toHaveBeenCalledWith('adapter', null, {
+      password: 'pw',
+      includeBlobs: false,
+      instanceName: 'Primary',
+      onProgress
+    });
+  });
+
+  it('throws when no active instance is set for backup creation', async () => {
+    getCurrentInstanceIdMock.mockReturnValue(null);
+
+    await expect(
+      clientBackupsRuntime.createBackup({
+        password: 'pw',
+        includeBlobs: false
+      })
+    ).rejects.toThrow('No active database instance');
+  });
+
+  it('initializes file storage when encryption key is available', async () => {
+    const key = new Uint8Array([7, 8, 9]);
+    getCurrentInstanceIdMock.mockReturnValue('instance-1');
+    getKeyManagerMock.mockReturnValue({ getCurrentKey: () => key });
+    initializeFileStorageMock.mockResolvedValue('file-storage');
+
+    const result = await clientBackupsRuntime.createBackup({
+      password: 'pw',
+      includeBlobs: true
+    });
+
+    expect(initializeFileStorageMock).toHaveBeenCalledWith(key, 'instance-1');
+    expect(createBackupMock).toHaveBeenCalledWith('adapter', 'file-storage', {
+      password: 'pw',
+      includeBlobs: true,
+      instanceName: 'Primary'
+    });
+    expect(result.destination).toBe('storage');
+  });
+
+  it('uses Unknown instance name when active instance cannot be resolved', async () => {
+    getCurrentInstanceIdMock.mockReturnValue('instance-1');
+    getActiveInstanceMock.mockResolvedValue(null);
+
+    await clientBackupsRuntime.createBackup({
+      password: 'pw',
+      includeBlobs: false
+    });
+
+    expect(createBackupMock).toHaveBeenCalledWith('adapter', null, {
+      password: 'pw',
+      includeBlobs: false,
+      instanceName: 'Unknown'
+    });
+  });
+
   it('downloads backup when storage support is unavailable', async () => {
     getCurrentInstanceIdMock.mockReturnValue('instance-1');
     isBackupStorageSupportedMock.mockReturnValue(false);
@@ -177,6 +242,43 @@ describe('clientBackupsRuntime', () => {
     expect(result.destination).toBe('download');
   });
 
+  it('falls back to download when storage save throws synchronously', async () => {
+    getCurrentInstanceIdMock.mockReturnValue('instance-1');
+    saveBackupToStorageMock.mockImplementation(() => {
+      throw new Error('sync save failure');
+    });
+
+    const result = await clientBackupsRuntime.createBackup({
+      password: 'pw',
+      includeBlobs: false
+    });
+
+    expect(saveFileMock).toHaveBeenCalledTimes(1);
+    expect(result.destination).toBe('download');
+  });
+
+  it('falls back to download when storage save times out', async () => {
+    vi.useFakeTimers();
+    try {
+      getCurrentInstanceIdMock.mockReturnValue('instance-1');
+      saveBackupToStorageMock.mockImplementation(
+        () => new Promise<void>(() => {})
+      );
+
+      const backupPromise = clientBackupsRuntime.createBackup({
+        password: 'pw',
+        includeBlobs: false
+      });
+      await vi.advanceTimersByTimeAsync(15000);
+
+      const result = await backupPromise;
+      expect(saveFileMock).toHaveBeenCalledTimes(1);
+      expect(result.destination).toBe('download');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('passes progress handler through restoreBackup', async () => {
     const onProgress = vi.fn();
 
@@ -192,6 +294,20 @@ describe('clientBackupsRuntime', () => {
       backupPassword: 'old',
       newInstancePassword: 'new',
       onProgress
+    });
+  });
+
+  it('omits progress handler when restore input does not provide it', async () => {
+    await clientBackupsRuntime.restoreBackup({
+      backupData: new Uint8Array([2]),
+      backupPassword: 'old',
+      newInstancePassword: 'new'
+    });
+
+    expect(restoreBackupMock).toHaveBeenCalledWith({
+      backupData: new Uint8Array([2]),
+      backupPassword: 'old',
+      newInstancePassword: 'new'
     });
   });
 
