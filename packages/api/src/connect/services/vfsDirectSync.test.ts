@@ -122,9 +122,8 @@ describe('vfsDirectSync', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       items: [],
-      nextCursor: null,
       hasMore: false
     });
   });
@@ -164,9 +163,8 @@ describe('vfsDirectSync', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       items: [],
-      nextCursor: null,
       hasMore: false
     });
   });

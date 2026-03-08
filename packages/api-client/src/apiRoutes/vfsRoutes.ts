@@ -42,20 +42,6 @@ interface VfsBlobResponse {
   contentType: string | null;
 }
 
-function requestVfsJson<TResponse>(
-  methodName: string,
-  requestBody: Record<string, unknown>,
-  eventName: RequestEventName
-): Promise<TResponse> {
-  return request<ConnectJsonEnvelopeResponse>(
-    `${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody),
-      eventName
-    }
-  ).then((response) => parseConnectJsonString<TResponse>(response?.json));
-}
-
 function requestVfsTyped<TResponse>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -111,7 +97,7 @@ export const vfsRoutes = {
     if (cursor) {
       requestBody['cursor'] = cursor;
     }
-    return requestVfsJson<VfsSyncResponse>(
+    return requestVfsTyped<VfsSyncResponse>(
       'GetSync',
       requestBody,
       'api_get_vfs_sync'

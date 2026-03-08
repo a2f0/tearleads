@@ -203,8 +203,22 @@ message VfsGetSyncRequest {
   string root_id = 3;
 }
 
+message VfsSyncItem {
+  string change_id = 1;
+  string item_id = 2;
+  string change_type = 3;
+  string changed_at = 4;
+  optional string object_type = 5;
+  optional string encrypted_name = 6;
+  optional string owner_id = 7;
+  optional string created_at = 8;
+  string access_level = 9;
+}
+
 message VfsGetSyncResponse {
-  string json = 1;
+  repeated VfsSyncItem items = 1;
+  optional string next_cursor = 2;
+  bool has_more = 3;
 }
 
 message VfsGetCrdtSyncRequest {

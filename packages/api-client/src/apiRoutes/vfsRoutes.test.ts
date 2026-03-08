@@ -60,13 +60,11 @@ describe('vfsRoutes', () => {
     );
   });
 
-  it('parses GetSync envelope responses', async () => {
+  it('returns typed GetSync responses directly', async () => {
     requestMock.mockResolvedValueOnce({
-      json: JSON.stringify({
-        items: [],
-        nextCursor: null,
-        hasMore: false
-      })
+      items: [],
+      nextCursor: null,
+      hasMore: false
     });
 
     await expect(vfsRoutes.getSync()).resolves.toEqual({
