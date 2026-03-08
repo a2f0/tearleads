@@ -163,7 +163,7 @@ describe('adminDirectOrganizations', () => {
   it('requires root admin for createOrganization', async () => {
     await expect(
       createOrganizationDirect(
-        { json: '{"name":"Org"}' },
+        { name: 'Org' },
         {
           requestHeader: new Headers()
         }
@@ -186,7 +186,7 @@ describe('adminDirectOrganizations', () => {
 
     await expect(
       createOrganizationDirect(
-        { json: '{}' },
+        {},
         {
           requestHeader: new Headers()
         }
@@ -217,7 +217,7 @@ describe('adminDirectOrganizations', () => {
 
     await expect(
       createOrganizationDirect(
-        { json: '{"name":"Org"}' },
+        { name: 'Org' },
         {
           requestHeader: new Headers()
         }
@@ -239,8 +239,7 @@ describe('adminDirectOrganizations', () => {
     await expect(
       updateOrganizationDirect(
         {
-          id: 'org-1',
-          json: '{}'
+          id: 'org-1'
         },
         {
           requestHeader: new Headers()

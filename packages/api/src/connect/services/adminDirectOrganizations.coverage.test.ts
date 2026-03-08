@@ -162,29 +162,7 @@ describe('adminDirectOrganizations coverage branches', () => {
     ).rejects.toMatchObject({ code: Code.Internal });
   });
 
-  it('rejects createOrganization with invalid JSON body', async () => {
-    requireScopedAdminAccessMock.mockResolvedValueOnce({
-      sub: 'admin-root',
-      adminAccess: { isRootAdmin: true, organizationIds: [] }
-    });
-
-    await expect(
-      createOrganizationDirect({ json: '{' }, { requestHeader: new Headers() })
-    ).rejects.toMatchObject({ code: Code.InvalidArgument });
-  });
-
-  it('rejects createOrganization when JSON is not an object payload', async () => {
-    requireScopedAdminAccessMock.mockResolvedValueOnce({
-      sub: 'admin-root',
-      adminAccess: { isRootAdmin: true, organizationIds: [] }
-    });
-
-    await expect(
-      createOrganizationDirect({ json: '[]' }, { requestHeader: new Headers() })
-    ).rejects.toMatchObject({ code: Code.InvalidArgument });
-  });
-
-  it('creates organization and normalizes non-string description to null', async () => {
+  it('creates organization and normalizes empty description to null', async () => {
     requireScopedAdminAccessMock.mockResolvedValueOnce({
       sub: 'admin-root',
       adminAccess: { isRootAdmin: true, organizationIds: [] }
@@ -202,7 +180,7 @@ describe('adminDirectOrganizations coverage branches', () => {
     });
 
     const response = await createOrganizationDirect(
-      { json: '{"name":"Org New","description":123}' },
+      { name: 'Org New', description: '   ' },
       { requestHeader: new Headers() }
     );
 
@@ -241,7 +219,7 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       createOrganizationDirect(
-        { json: '{"name":"Org"}' },
+        { name: 'Org' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
@@ -255,13 +233,13 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       updateOrganizationDirect(
-        { id: 'org-1', json: '{"name":" "}' },
+        { id: 'org-1', name: ' ' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
-  it('updates organization with non-string description normalized to null', async () => {
+  it('updates organization with empty description normalized to null', async () => {
     requireScopedAdminAccessMock.mockResolvedValueOnce({
       sub: 'admin-root',
       adminAccess: { isRootAdmin: true, organizationIds: [] }
@@ -279,7 +257,7 @@ describe('adminDirectOrganizations coverage branches', () => {
     });
 
     const response = await updateOrganizationDirect(
-      { id: 'org-1', json: '{"description":123}' },
+      { id: 'org-1', description: '' },
       { requestHeader: new Headers() }
     );
 
@@ -320,7 +298,7 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       updateOrganizationDirect(
-        { id: 'org-1', json: '{"name":"dup"}' },
+        { id: 'org-1', name: 'dup' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.AlreadyExists });
@@ -335,7 +313,7 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       updateOrganizationDirect(
-        { id: 'org-1', json: '{"name":"next"}' },
+        { id: 'org-1', name: 'next' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
