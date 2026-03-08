@@ -62,6 +62,9 @@ function parseNullableString(value: unknown, fieldName: string): string | null {
   if (value === null || value === undefined) {
     return null;
   }
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return null;
+  }
 
   return parseRequiredString(value, fieldName);
 }
@@ -112,7 +115,11 @@ function parseNullablePrincipalType(
   value: unknown,
   fieldName: string
 ): VfsAclPrincipalType | null {
-  if (value === null) {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim().length === 0)
+  ) {
     return null;
   }
 
@@ -134,7 +141,11 @@ function parseNullableAccessLevel(
   value: unknown,
   fieldName: string
 ): VfsAclAccessLevel | null {
-  if (value === null) {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim().length === 0)
+  ) {
     return null;
   }
 
