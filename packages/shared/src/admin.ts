@@ -29,7 +29,6 @@ export interface PostgresConnectionInfo {
 }
 
 export interface PostgresAdminInfoResponse {
-  status: 'ok';
   info: PostgresConnectionInfo;
   serverVersion: string | null;
 }

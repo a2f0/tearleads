@@ -56,7 +56,6 @@ export function mapPostgresInfoResponse(
   response: AdminGetPostgresInfoResponse
 ): PostgresAdminInfoResponse {
   return {
-    status: 'ok',
     info: {
       host: response.info?.host ?? null,
       port: response.info?.port ?? null,

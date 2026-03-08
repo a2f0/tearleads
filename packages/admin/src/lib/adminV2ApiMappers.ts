@@ -15,7 +15,6 @@ export function mapPostgresInfoResponse(
   const info = isRecord(response['info']) ? response['info'] : {};
 
   return {
-    status: 'ok',
     info: {
       host: typeof info['host'] === 'string' ? info['host'] : null,
       port: toNullableNumber(info['port']),

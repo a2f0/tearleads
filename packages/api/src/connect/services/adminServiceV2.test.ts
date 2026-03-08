@@ -119,10 +119,9 @@ describe('adminConnectServiceV2', () => {
     expect(response.defaultOrganizationId).toBeUndefined();
   });
 
-  it('decodes postgres info while ignoring legacy status field', async () => {
+  it('decodes postgres info response', async () => {
     mocks.getPostgresInfoDirect.mockResolvedValueOnce({
       json: JSON.stringify({
-        status: 'ok',
         info: {
           host: 'localhost',
           port: 5432,

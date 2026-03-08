@@ -95,7 +95,6 @@ describe('adminDirectPostgres', () => {
       expect.any(Headers)
     );
     expect(parseJson(response.json)).toEqual({
-      status: 'ok',
       info: {
         host: 'localhost',
         port: 5432

@@ -54,7 +54,6 @@ export async function getPostgresInfoDirect(
       'SELECT version() AS version'
     );
     const response: PostgresAdminInfoResponse = {
-      status: 'ok',
       info: getPostgresConnectionInfo(),
       serverVersion: versionResult.rows[0]?.version ?? null
     };
