@@ -8,9 +8,17 @@
     "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["src", "*.ts"],
-  "exclude": ["astro.config.ts"]
+  "include": [
+    "src",
+    "*.ts"
+  ],
+  "exclude": [
+    "astro.config.ts",
+    "src/test/**/*"
+  ]
 }

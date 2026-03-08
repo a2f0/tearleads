@@ -7,23 +7,32 @@
     "declarationMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@contacts/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@contacts/*": [
+        "./src/*"
+      ]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "src/test/setup.ts",
-    "src/test/bunSetup.ts"
+    "src/test/**/*"
   ]
 }

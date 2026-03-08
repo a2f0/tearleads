@@ -7,18 +7,36 @@
     "declarationMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client"
+    ],
     "jsx": "react-jsx",
     "composite": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@compliance/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@compliance/*": [
+        "./src/*"
+      ]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/test/**/*"
+  ]
 }
