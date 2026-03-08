@@ -178,7 +178,6 @@ describe('vfsConnectService', () => {
       data: new Uint8Array([7, 8, 9]),
       contentType: 'application/octet-stream'
     });
-
     for (const mock of directJsonMocks) {
       mock.mockReset();
       mock.mockResolvedValue({ json: '{"ok":true}' });
@@ -245,7 +244,9 @@ describe('vfsConnectService', () => {
       argon2Salt: 'salt'
     };
     const registerRequest = {
-      json: '{"id":"item-1","objectType":"file","encryptedSessionKey":"enc"}'
+      id: 'item-1',
+      objectType: 'file',
+      encryptedSessionKey: 'enc'
     };
     const deleteBlobRequest = { blobId: 'blob-2' };
     const stageBlobRequest = {
@@ -277,7 +278,9 @@ describe('vfsConnectService', () => {
     };
     const rekeyItemRequest = {
       itemId: 'item-1',
-      json: '{"reason":"manual","newEpoch":2,"wrappedKeys":[]}'
+      reason: 'manual',
+      newEpoch: 2,
+      wrappedKeys: []
     };
     const getSyncRequest = {
       cursor: 'sync-cursor',
@@ -326,7 +329,7 @@ describe('vfsConnectService', () => {
     const directCases = [
       {
         call: () => vfsConnectService.register(registerRequest, context),
-        expectedRequest: JSON.parse(registerRequest.json),
+        expectedRequest: registerRequest,
         expectedResponse: {
           id: 'item-1',
           createdAt: '2026-03-03T00:00:00.000Z'
@@ -361,10 +364,7 @@ describe('vfsConnectService', () => {
       },
       {
         call: () => vfsConnectService.rekeyItem(rekeyItemRequest, context),
-        expectedRequest: {
-          itemId: rekeyItemRequest.itemId,
-          ...JSON.parse(rekeyItemRequest.json)
-        },
+        expectedRequest: rekeyItemRequest,
         expectedResponse: {
           itemId: 'item-1',
           newEpoch: 2,

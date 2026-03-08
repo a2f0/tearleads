@@ -53,7 +53,10 @@ message VfsSetupKeysResponse {
 }
 
 message VfsRegisterRequest {
-  string json = 1;
+  string id = 1;
+  string object_type = 2;
+  string encrypted_session_key = 3;
+  optional string encrypted_name = 4;
 }
 
 message VfsRegisterResponse {
@@ -180,7 +183,17 @@ message VfsCommitBlobResponse {
 
 message VfsRekeyItemRequest {
   string item_id = 1;
-  string json = 2;
+  string reason = 2;
+  int32 new_epoch = 3;
+  repeated VfsRekeyWrappedKey wrapped_keys = 4;
+}
+
+message VfsRekeyWrappedKey {
+  string recipient_user_id = 1;
+  string recipient_public_key_id = 2;
+  int32 key_epoch = 3;
+  string encrypted_key = 4;
+  string sender_signature = 5;
 }
 
 message VfsRekeyItemResponse {

@@ -347,22 +347,18 @@ describe('vfsRoutes', () => {
     expect(registerPath).toBe('/connect/tearleads.v2.VfsService/Register');
     expect(registerParams?.fetchOptions?.body).toBe(
       JSON.stringify({
-        json: JSON.stringify({
-          id: 'item-1',
-          objectType: 'file',
-          encryptedSessionKey: 'enc'
-        })
+        id: 'item-1',
+        objectType: 'file',
+        encryptedSessionKey: 'enc'
       })
     );
     expect(rekeyPath).toBe('/connect/tearleads.v2.VfsService/RekeyItem');
     expect(rekeyParams?.fetchOptions?.body).toBe(
       JSON.stringify({
         itemId: 'item-1',
-        json: JSON.stringify({
-          reason: 'manual',
-          newEpoch: 3,
-          wrappedKeys: []
-        })
+        reason: 'manual',
+        newEpoch: 3,
+        wrappedKeys: []
       })
     );
   });
