@@ -46,4 +46,18 @@ describe('detectCompatibilityPatternCounts', () => {
 
     assert.equal(counts.viMockImportOriginal, 1);
   });
+
+  it('counts vi.waitFor usages', () => {
+    const source = `
+      await vi.waitFor(() => expect(button).toBeDisabled());
+      await vi.waitFor<{ ready: boolean }>(() => {
+        return { ready: true };
+      });
+      await waitFor(() => expect(input).toHaveFocus());
+    `;
+
+    const counts = detectCompatibilityPatternCounts(source);
+
+    assert.equal(counts.viWaitFor, 2);
+  });
 });

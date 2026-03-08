@@ -1,5 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  COMPAT_PATTERNS,
+  detectCompatibilityPatternCounts
+} from './compatibilityPatterns.ts';
 import { classifyTestScript, type TestScriptMode } from './testScriptMode.ts';
 
 export type PackageReadiness =
@@ -12,14 +16,6 @@ interface PackageJsonShape {
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
-}
-
-interface PatternDefinition {
-  key: string;
-  label: string;
-  pattern: RegExp;
-  riskWeight: number;
-  highRisk: boolean;
 }
 
 export interface PackageInventory {
@@ -57,69 +53,11 @@ const TEST_FILE_PATTERN =
 const SOURCE_FILE_PATTERN = /\.[cm]?[jt]sx?$/;
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.turbo']);
 
-const COMPAT_PATTERNS: ReadonlyArray<PatternDefinition> = [
-  {
-    key: 'viHoisted',
-    label: 'vi.hoisted',
-    pattern: /\bvi\.hoisted\s*(?:<[^>]*>)?\s*\(/g,
-    riskWeight: 5,
-    highRisk: true
-  },
-  {
-    key: 'viImportActual',
-    label: 'vi.importActual',
-    pattern: /\bvi\.importActual\s*(?:<[^>]*>)?\s*\(/g,
-    riskWeight: 4,
-    highRisk: true
-  },
-  {
-    key: 'viMockImportOriginal',
-    label: 'vi.mock(importOriginal)',
-    pattern: /\bvi\.mock\s*\(\s*[^,\n]+,\s*(?:async\s*)?\(\s*importOriginal\b/g,
-    riskWeight: 4,
-    highRisk: true
-  },
-  {
-    key: 'viResetModules',
-    label: 'vi.resetModules',
-    pattern: /\bvi\.resetModules\s*\(/g,
-    riskWeight: 3,
-    highRisk: true
-  },
-  {
-    key: 'viMocked',
-    label: 'vi.mocked',
-    pattern: /\bvi\.mocked\s*\(/g,
-    riskWeight: 2,
-    highRisk: false
-  },
-  {
-    key: 'viStubEnv',
-    label: 'vi.stubEnv',
-    pattern: /\bvi\.stubEnv\s*\(/g,
-    riskWeight: 1,
-    highRisk: false
-  }
-];
-
 function toRepoRelative(repoRoot: string, absolutePath: string): string {
   return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
 
-function countMatches(sourceText: string, pattern: RegExp): number {
-  const matches = sourceText.match(pattern);
-  return matches === null ? 0 : matches.length;
-}
-
-export function detectCompatibilityPatternCounts(
-  sourceText: string
-): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const definition of COMPAT_PATTERNS) {
-    counts[definition.key] = countMatches(sourceText, definition.pattern);
-  }
-  return counts;
-}
+export { detectCompatibilityPatternCounts };
 
 function listFilesRecursive(rootDir: string): string[] {
   const output: string[] = [];
@@ -415,7 +353,7 @@ export function buildCompatibilityInventoryMarkdown(
     `- Packages with DOM/jsdom indicators: ${summary.packagesWithJsdomIndicators}`
   );
   lines.push(
-    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
+    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.waitFor\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
   );
   lines.push('');
 
