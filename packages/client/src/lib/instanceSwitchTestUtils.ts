@@ -20,7 +20,7 @@ interface SeedUserKeysInput {
   aliceUserId: string;
 }
 
-export interface JsonApiActor {
+interface JsonApiActor {
   fetchJson(path: string, init?: RequestInit): Promise<unknown>;
 }
 
