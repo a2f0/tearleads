@@ -371,7 +371,7 @@ describe('adminDirectGroupMutations error branches', () => {
       {
         id: 'group-1',
         organizationId: 'org-2',
-        description: null
+        description: ''
       },
       {
         requestHeader: new Headers()
