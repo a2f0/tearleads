@@ -5,6 +5,18 @@
     "noEmit": true,
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist", "dist-tests"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-tests"
+  ],
+  "references": [
+    {
+      "path": "../bun-dom-compat"
+    }
+  ]
 }
