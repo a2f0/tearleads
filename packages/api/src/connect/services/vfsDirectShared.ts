@@ -40,6 +40,15 @@ function isValidRekeyReason(value: unknown): value is RekeyReason {
   return value === 'unshare' || value === 'expiry' || value === 'manual';
 }
 
+function isValidEpoch(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isSafeInteger(value) &&
+    value >= 1
+  );
+}
+
 export function parseKeySetupPayload(body: unknown): VfsKeySetupRequest | null {
   if (!isRecord(body)) {
     return null;
@@ -124,10 +133,7 @@ export function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
 
   if (
     !isValidRekeyReason(reason) ||
-    typeof newEpochValue !== 'number' ||
-    !Number.isInteger(newEpochValue) ||
-    !Number.isSafeInteger(newEpochValue) ||
-    newEpochValue < 1 ||
+    !isValidEpoch(newEpochValue) ||
     !Array.isArray(wrappedKeysValue)
   ) {
     return null;
@@ -148,10 +154,7 @@ export function parseRekeyPayload(body: unknown): VfsRekeyRequest | null {
     if (
       !isNonEmptyString(recipientUserId) ||
       !isNonEmptyString(recipientPublicKeyId) ||
-      typeof keyEpochValue !== 'number' ||
-      !Number.isInteger(keyEpochValue) ||
-      !Number.isSafeInteger(keyEpochValue) ||
-      keyEpochValue < 1 ||
+      !isValidEpoch(keyEpochValue) ||
       !isNonEmptyString(encryptedKey) ||
       !isNonEmptyString(senderSignature)
     ) {
