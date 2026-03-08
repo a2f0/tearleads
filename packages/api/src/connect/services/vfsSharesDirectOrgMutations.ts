@@ -30,9 +30,7 @@ type CreateOrgShareMutationRequest = {
   itemId: string;
 } & Partial<Omit<CreateOrgShareRequest, 'itemId'>>;
 
-function toOrgSharePayload(
-  orgShare: VfsOrgShare
-): VfsOrgSharePayload {
+function toOrgSharePayload(orgShare: VfsOrgShare): VfsOrgSharePayload {
   return create(VfsOrgSharePayloadSchema, {
     id: orgShare.id,
     sourceOrgId: orgShare.sourceOrgId,

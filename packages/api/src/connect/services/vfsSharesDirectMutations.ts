@@ -50,7 +50,9 @@ function toSharePayload(share: VfsShare): VfsSharePayload {
     createdBy: share.createdBy,
     createdByEmail: share.createdByEmail,
     createdAt: share.createdAt,
-    ...(typeof share.expiresAt === 'string' ? { expiresAt: share.expiresAt } : {}),
+    ...(typeof share.expiresAt === 'string'
+      ? { expiresAt: share.expiresAt }
+      : {}),
     ...(share.wrappedKey ? { wrappedKey: share.wrappedKey } : {})
   });
 }
