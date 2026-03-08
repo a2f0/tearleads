@@ -16,14 +16,12 @@ import {
   getGroupOrganizationId,
   mapGroupRow
 } from './adminDirectGroupsShared.js';
+import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };
 type LegacyUpdateGroupRequest = { id: string; json: string };
 type LegacyAddGroupMemberRequest = { id: string; json: string };
-type OptionalWithUndefined<T> = {
-  [K in keyof T]?: T[K] | undefined;
-};
 type CreateGroupInput = JsonRequest | OptionalWithUndefined<CreateGroupRequest>;
 type UpdateGroupInput =
   | LegacyUpdateGroupRequest

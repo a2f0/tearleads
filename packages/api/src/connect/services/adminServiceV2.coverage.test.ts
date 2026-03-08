@@ -263,7 +263,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
     );
   });
 
-  it('serializes group and organization mutation payloads', async () => {
+  it('maps group and organization mutation payloads', async () => {
     mocks.createGroupDirect.mockResolvedValue(emptyResponse);
     mocks.updateGroupDirect.mockResolvedValue(emptyResponse);
     mocks.addGroupMemberDirect.mockResolvedValue(emptyResponse);
@@ -336,24 +336,21 @@ describe('adminConnectServiceV2 coverage branches', () => {
       id: 'group-2',
       userId: 'user-2'
     });
-    expect(
-      JSON.parse(mocks.createOrganizationDirect.mock.calls[0]?.[0].json)
-    ).toEqual({
+    expect(mocks.createOrganizationDirect.mock.calls[0]?.[0]).toEqual({
       name: 'Org 2',
       description: 'Org description'
     });
-    expect(
-      JSON.parse(mocks.updateOrganizationDirect.mock.calls[0]?.[0].json)
-    ).toEqual({
+    expect(mocks.updateOrganizationDirect.mock.calls[0]?.[0]).toEqual({
+      id: 'org-2',
       name: 'Org 2 Updated',
       description: 'Updated org'
     });
-    expect(
-      JSON.parse(mocks.updateOrganizationDirect.mock.calls[1]?.[0].json)
-    ).toEqual({});
+    expect(mocks.updateOrganizationDirect.mock.calls[1]?.[0]).toEqual({
+      id: 'org-3'
+    });
   });
 
-  it('serializes updateUser optional fields and empty updates', async () => {
+  it('maps updateUser optional fields and empty updates', async () => {
     mocks.updateUserDirect.mockResolvedValue(emptyResponse);
 
     await adminConnectServiceV2.updateUser(
@@ -375,7 +372,8 @@ describe('adminConnectServiceV2 coverage branches', () => {
       context
     );
 
-    expect(JSON.parse(mocks.updateUserDirect.mock.calls[0]?.[0].json)).toEqual({
+    expect(mocks.updateUserDirect.mock.calls[0]?.[0]).toEqual({
+      id: 'user-2',
       email: 'user2@example.com',
       emailConfirmed: true,
       admin: true,
@@ -383,9 +381,9 @@ describe('adminConnectServiceV2 coverage branches', () => {
       disabled: false,
       markedForDeletion: true
     });
-    expect(JSON.parse(mocks.updateUserDirect.mock.calls[1]?.[0].json)).toEqual(
-      {}
-    );
+    expect(mocks.updateUserDirect.mock.calls[1]?.[0]).toEqual({
+      id: 'user-3'
+    });
   });
 
   it('maps row sort values with explicit and default fallbacks', async () => {

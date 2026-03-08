@@ -18,10 +18,17 @@ import {
   mapOrganizationRow,
   type OrganizationRow
 } from './adminDirectOrganizationsShared.js';
+import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };
 type IdJsonRequest = { id: string; json: string };
+type CreateOrganizationInput =
+  | JsonRequest
+  | OptionalWithUndefined<CreateOrganizationRequest>;
+type UpdateOrganizationInput =
+  | IdJsonRequest
+  | ({ id: string } & OptionalWithUndefined<UpdateOrganizationRequest>);
 type ListOrganizationsRequest = { organizationId: string };
 
 function encoded(value: string): string {
@@ -62,6 +69,29 @@ function parseJsonBody(json: string): unknown {
   } catch {
     throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
   }
+}
+
+function parseCreateOrganizationPayload(
+  request: CreateOrganizationInput
+): OptionalWithUndefined<CreateOrganizationRequest> {
+  if ('json' in request) {
+    const parsed = parseJsonBody(request.json);
+    return isRecord(parsed) ? parsed : {};
+  }
+  return request;
+}
+
+function parseUpdateOrganizationPayload(
+  request: UpdateOrganizationInput
+): OptionalWithUndefined<UpdateOrganizationRequest> {
+  if ('json' in request) {
+    const parsed = parseJsonBody(request.json);
+    return isRecord(parsed) ? parsed : {};
+  }
+  const { id: _id, ...payload } = request;
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
 }
 
 function isDuplicateConstraintError(error: unknown): boolean {
@@ -175,7 +205,7 @@ export async function getOrganizationDirect(
 }
 
 export async function createOrganizationDirect(
-  request: JsonRequest,
+  request: CreateOrganizationInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
@@ -184,10 +214,7 @@ export async function createOrganizationDirect(
   );
   ensureRootAdmin(authorization);
 
-  const parsed = parseJsonBody(request.json);
-  const payload: Partial<CreateOrganizationRequest> = isRecord(parsed)
-    ? parsed
-    : {};
+  const payload = parseCreateOrganizationPayload(request);
   const { name, description } = payload;
   if (typeof name !== 'string' || name.trim() === '') {
     throw new ConnectError('Name is required', Code.InvalidArgument);
@@ -252,7 +279,7 @@ export async function createOrganizationDirect(
 }
 
 export async function updateOrganizationDirect(
-  request: IdJsonRequest,
+  request: UpdateOrganizationInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
@@ -261,10 +288,7 @@ export async function updateOrganizationDirect(
   );
   ensureRootAdmin(authorization);
 
-  const parsed = parseJsonBody(request.json);
-  const payload: Partial<UpdateOrganizationRequest> = isRecord(parsed)
-    ? parsed
-    : {};
+  const payload = parseUpdateOrganizationPayload(request);
   const { name, description } = payload;
 
   try {

@@ -226,7 +226,7 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       createOrganizationDirect(
-        { json: '{"name":"Org"}' },
+        { name: 'Org' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
@@ -303,7 +303,7 @@ describe('adminDirectOrganizations coverage branches', () => {
 
     await expect(
       updateOrganizationDirect(
-        { id: 'org-missing', json: '{"name":"next"}' },
+        { id: 'org-missing', name: 'next' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.NotFound });

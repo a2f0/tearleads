@@ -306,12 +306,8 @@ export const adminConnectServiceV2 = {
   ) {
     const response = await createOrganizationDirect(
       {
-        json: JSON.stringify({
-          name: request.name,
-          ...(request.description !== undefined
-            ? { description: request.description }
-            : {})
-        })
+        name: request.name,
+        description: request.description
       },
       context
     );
@@ -327,12 +323,8 @@ export const adminConnectServiceV2 = {
     const response = await updateOrganizationDirect(
       {
         id: request.id,
-        json: JSON.stringify({
-          ...(request.name !== undefined ? { name: request.name } : {}),
-          ...(request.description !== undefined
-            ? { description: request.description }
-            : {})
-        })
+        name: request.name,
+        description: request.description
       },
       context
     );
@@ -368,22 +360,20 @@ export const adminConnectServiceV2 = {
     const response = await updateUserDirect(
       {
         id: request.id,
-        json: JSON.stringify({
-          ...(request.email !== undefined ? { email: request.email } : {}),
-          ...(request.emailConfirmed !== undefined
-            ? { emailConfirmed: request.emailConfirmed }
-            : {}),
-          ...(request.admin !== undefined ? { admin: request.admin } : {}),
-          ...(request.organizationIds !== undefined
-            ? { organizationIds: request.organizationIds.organizationIds }
-            : {}),
-          ...(request.disabled !== undefined
-            ? { disabled: request.disabled }
-            : {}),
-          ...(request.markedForDeletion !== undefined
-            ? { markedForDeletion: request.markedForDeletion }
-            : {})
-        })
+        ...(request.email !== undefined ? { email: request.email } : {}),
+        ...(request.emailConfirmed !== undefined
+          ? { emailConfirmed: request.emailConfirmed }
+          : {}),
+        ...(request.admin !== undefined ? { admin: request.admin } : {}),
+        ...(request.organizationIds !== undefined
+          ? { organizationIds: request.organizationIds.organizationIds }
+          : {}),
+        ...(request.disabled !== undefined
+          ? { disabled: request.disabled }
+          : {}),
+        ...(request.markedForDeletion !== undefined
+          ? { markedForDeletion: request.markedForDeletion }
+          : {})
       },
       context
     );
