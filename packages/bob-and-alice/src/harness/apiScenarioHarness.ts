@@ -44,6 +44,54 @@ function retryDelayMs(retryAttempt: number): number {
   return Math.min(250, 20 * 2 ** (retryAttempt - 1));
 }
 
+async function normalizeRequestBodyForRetries(
+  body: RequestInit['body']
+): Promise<RequestInit['body']> {
+  if (body === null || body === undefined) {
+    return body;
+  }
+  if (typeof body === 'string' || body instanceof String) {
+    return body.toString();
+  }
+  if (body instanceof URLSearchParams) {
+    return body.toString();
+  }
+  if (body instanceof ArrayBuffer) {
+    return body.slice(0);
+  }
+  if (ArrayBuffer.isView(body)) {
+    return new Uint8Array(
+      body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)
+    );
+  }
+  if (body instanceof Blob) {
+    return await body.text();
+  }
+  if (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream) {
+    return await new Response(body).text();
+  }
+  return body;
+}
+
+async function normalizeRequestInitForRetries(
+  init: RequestInit | undefined
+): Promise<RequestInit | undefined> {
+  if (!init) {
+    return init;
+  }
+
+  const normalizedBody = await normalizeRequestBodyForRetries(init.body);
+  if (normalizedBody === undefined) {
+    const { body: _body, ...rest } = init;
+    return rest;
+  }
+
+  return {
+    ...init,
+    body: normalizedBody
+  };
+}
+
 export function isRetryableWriteValidationError(
   path: string,
   init: RequestInit | undefined,
@@ -78,14 +126,15 @@ export async function fetchWithRetryableWriteValidationError(
 ): Promise<Response> {
   const maxRetryAttempts = options.maxRetryAttempts ?? 8;
   const sleep = options.sleep ?? defaultSleep;
+  const retryInit = await normalizeRequestInitForRetries(init);
 
   let retryAttempts = 0;
-  let response = await actorFetch(path, init);
+  let response = await actorFetch(path, retryInit);
   while (!response.ok) {
     const responseBody = await response.text();
     const shouldRetry = isRetryableWriteValidationError(
       path,
-      init,
+      retryInit,
       response.status,
       responseBody
     );
@@ -97,7 +146,7 @@ export async function fetchWithRetryableWriteValidationError(
 
     retryAttempts += 1;
     await sleep(retryDelayMs(retryAttempts));
-    response = await actorFetch(path, init);
+    response = await actorFetch(path, retryInit);
   }
 
   return response;

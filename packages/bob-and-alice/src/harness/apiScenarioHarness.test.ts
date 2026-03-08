@@ -146,4 +146,53 @@ describe('fetchWithRetryableWriteValidationError', () => {
     expect(callCount).toBe(3);
     expect(sleeps).toEqual([20, 40]);
   });
+
+  it('normalizes stream request bodies so retries keep the payload', async () => {
+    const payload = JSON.stringify({
+      id: 'note-stream',
+      objectType: 'note',
+      encryptedSessionKey: 'stream-key'
+    });
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(payload));
+        controller.close();
+      }
+    });
+    const seenBodies: string[] = [];
+    let callCount = 0;
+    const actorFetch = async (
+      _path: string,
+      init?: RequestInit
+    ): Promise<Response> => {
+      seenBodies.push(
+        typeof init?.body === 'string' ? init.body : String(init?.body)
+      );
+      callCount += 1;
+      if (callCount === 1) {
+        return new Response(
+          '{"error":"id, objectType, and encryptedSessionKey are required"}',
+          { status: 400, statusText: 'Bad Request' }
+        );
+      }
+      return new Response('{"ok":true}', { status: 200, statusText: 'OK' });
+    };
+
+    const response = await fetchWithRetryableWriteValidationError(
+      actorFetch,
+      '/vfs/register',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: stream
+      },
+      {
+        sleep: async (): Promise<void> => {}
+      }
+    );
+
+    expect(response.ok).toBe(true);
+    expect(seenBodies).toEqual([payload, payload]);
+  });
 });
