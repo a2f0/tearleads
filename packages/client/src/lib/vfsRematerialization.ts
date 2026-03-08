@@ -18,6 +18,7 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { api } from './api';
+import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
 import {
   buildMaterializedAlbumRows,
   buildMaterializedFileRows
@@ -27,7 +28,6 @@ import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
-import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;
@@ -354,8 +354,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   const aclGrantorCandidates = rawAclRows
     .map((entry) => entry.grantedBy)
     .filter(
-      (value): value is string =>
-        typeof value === 'string' && value.length > 0
+      (value): value is string => typeof value === 'string' && value.length > 0
     );
   const aclRows = rawAclRows;
   const itemStateRows = Array.from(itemStateById.values()).map((entry) => ({

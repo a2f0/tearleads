@@ -69,7 +69,10 @@ async function resolveExistingUserIds(
 
 async function usersRequirePersonalOrganizationId(): Promise<boolean> {
   const adapter = getDatabaseAdapter();
-  const tableInfoResult = await adapter.execute(`PRAGMA table_info("users")`, []);
+  const tableInfoResult = await adapter.execute(
+    `PRAGMA table_info("users")`,
+    []
+  );
   for (const row of tableInfoResult.rows) {
     const columnName = getNullableString(row, 'name');
     if (columnName !== 'personal_organization_id') {
@@ -101,8 +104,13 @@ export async function ensureGrantorUsersExist(
     return;
   }
 
-  const existingUserIds = await resolveExistingUserIds(uniqueGrantorIds, batchSize);
-  const missingUserIds = uniqueGrantorIds.filter((userId) => !existingUserIds.has(userId));
+  const existingUserIds = await resolveExistingUserIds(
+    uniqueGrantorIds,
+    batchSize
+  );
+  const missingUserIds = uniqueGrantorIds.filter(
+    (userId) => !existingUserIds.has(userId)
+  );
   if (missingUserIds.length === 0) {
     return;
   }
@@ -118,13 +126,7 @@ export async function ensureGrantorUsersExist(
         `INSERT INTO organizations (id, name, is_personal, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
-        [
-          personalOrganizationId,
-          `Bootstrap User ${userId}`,
-          1,
-          nowMs,
-          nowMs
-        ]
+        [personalOrganizationId, `Bootstrap User ${userId}`, 1, nowMs, nowMs]
       );
     }
 
