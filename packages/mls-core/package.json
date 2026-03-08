@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/mls-core",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Core MLS (RFC 9420) client and storage primitives",
   "type": "module",
   "main": "dist/index.js",
