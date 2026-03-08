@@ -253,6 +253,9 @@ export class KeyManager {
             clearError
           );
         }
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+        }
       }
     }
 
