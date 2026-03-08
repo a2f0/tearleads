@@ -4,6 +4,7 @@
  */
 
 import {
+  AudioAboutMenuItem,
   type AudioInfo,
   type AudioMetadata,
   type AudioPlaylist,
@@ -12,7 +13,6 @@ import {
   type AudioWithUrl,
   type NavigateToAudio
 } from '@tearleads/audio';
-import audioPackageJson from '@tearleads/audio/package.json';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
@@ -36,7 +36,6 @@ import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
@@ -57,10 +56,6 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 import { logStore } from '@/stores/logStore';
-
-export function AudioAboutMenuItem() {
-  return <AboutMenuItem appName="Audio" version={audioPackageJson.version} />;
-}
 
 const audioUIComponents: AudioUIComponents = {
   Button,

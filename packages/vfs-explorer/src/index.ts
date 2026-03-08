@@ -17,6 +17,7 @@ export {
   VFS_ROOT_ID,
   VfsDetailsPanel,
   VfsExplorer,
+  VfsExplorerAboutMenuItem,
   VfsTreePanel,
   VfsWindow,
   VfsWindowMenuBar

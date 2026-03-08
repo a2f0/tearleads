@@ -20,14 +20,11 @@ vi.mock('@tearleads/api-client/clientEntry', () => ({
 }));
 
 vi.mock('@tearleads/vfs-explorer', () => ({
+  VfsExplorerAboutMenuItem: () => <div>VfsExplorerAboutMenuItem</div>,
   VfsExplorerProvider: ({ children, ...props }: Record<string, unknown>) => {
     capturedProviderProps = props;
     return <>{children}</>;
   }
-}));
-
-vi.mock('@tearleads/vfs-explorer/package.json', () => ({
-  default: { version: '0.0.8' }
 }));
 
 vi.mock('@/db/hooks', () => ({

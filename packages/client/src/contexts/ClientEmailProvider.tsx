@@ -1,4 +1,5 @@
 import {
+  EmailAboutMenuItem,
   type EmailContactOperations,
   type EmailDraftOperations,
   EmailProvider,
@@ -26,7 +27,6 @@ import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contacts } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/authStorage';
-import { EmailAboutMenuItem } from './EmailAboutMenuItem';
 import { useClientEmailBodyOperations } from './useClientEmailBodyOperations';
 import { useClientEmailFolderOperations } from './useClientEmailFolderOperations';
 

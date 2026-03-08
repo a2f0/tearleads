@@ -2,11 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
-import { ClientNotesProvider, NotesAboutMenuItem } from './ClientNotesProvider';
+import { ClientNotesProvider } from './ClientNotesProvider';
 
 let capturedNotesProviderProps: Record<string, unknown> | null = null;
 
 vi.mock('@tearleads/notes', () => ({
+  NotesAboutMenuItem: () => <div>NotesAboutMenuItem</div>,
   NotesProvider: ({
     children,
     ...props
@@ -16,10 +17,6 @@ vi.mock('@tearleads/notes', () => ({
     capturedNotesProviderProps = props;
     return <div data-testid="notes-provider">{children}</div>;
   }
-}));
-
-vi.mock('@tearleads/notes/package.json', () => ({
-  default: { version: '1.0.0' }
 }));
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
@@ -65,20 +62,6 @@ vi.mock('@/components/ui/RefreshButton', () => ({
 
 vi.mock('@/components/ui/VirtualListStatus', () => ({
   VirtualListStatus: () => <div>VirtualListStatus</div>
-}));
-
-vi.mock('@/components/window-menu/AboutMenuItem', () => ({
-  AboutMenuItem: ({
-    appName,
-    version
-  }: {
-    appName: string;
-    version: string;
-  }) => (
-    <div data-testid="about-menu-item">
-      {appName} v{version}
-    </div>
-  )
 }));
 
 vi.mock('@/components/window-menu/WindowOptionsMenuItem', () => ({
@@ -168,11 +151,3 @@ describe('ClientNotesProvider', () => {
   });
 });
 
-describe('NotesAboutMenuItem', () => {
-  it('renders with app name and version', () => {
-    render(<NotesAboutMenuItem />);
-    expect(screen.getByTestId('about-menu-item')).toHaveTextContent(
-      'Notes v1.0.0'
-    );
-  });
-});

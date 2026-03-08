@@ -1,3 +1,5 @@
+export { AudioAboutMenuItem } from './AudioAboutMenuItem';
+
 // Player components
 export {
   AudioControls,

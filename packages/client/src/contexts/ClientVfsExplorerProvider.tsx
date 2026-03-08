@@ -5,6 +5,7 @@
 
 import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client/clientEntry';
 import {
+  VfsExplorerAboutMenuItem,
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@tearleads/vfs-explorer';
@@ -32,14 +33,11 @@ import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
-import { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 import {
   useVfsKeyManager,
   useVfsOrchestratorInstance
 } from './VfsOrchestratorContext';
 import { useVfsSyncState } from './VfsSyncStateContext';
-
-export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 
 const vfsExplorerUIComponents: VfsExplorerUIComponents = {
   AboutMenuItem: VfsExplorerAboutMenuItem,

@@ -1612,6 +1612,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1

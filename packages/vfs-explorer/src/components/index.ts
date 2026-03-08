@@ -6,6 +6,7 @@ export {
   VFS_ROOT_ID
 } from '../constants';
 export { DeleteFolderDialog } from './DeleteFolderDialog';
+export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 export { FolderContextMenu } from './FolderContextMenu';
 export { ItemContextMenu } from './ItemContextMenu';
 export type { NewFolderDialogProps } from './NewFolderDialog';
