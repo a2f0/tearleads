@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test';
-import { shouldFailOnConsoleMessage } from './consoleGuardPatterns.js';
+import { describe, expect, it } from 'vitest';
+import { shouldFailOnConsoleMessage } from './consoleGuardPatterns';
 
 describe('consoleGuardPatterns', () => {
   it('matches rematerialization and flush warning signatures', () => {
