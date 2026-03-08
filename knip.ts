@@ -63,6 +63,9 @@ const config: KnipConfig = {
     'packages/classic': {
       entry: ['src/test/**/*.ts']
     },
+    'packages/health': {
+      entry: ['src/test/**/*.ts']
+    },
     'packages/shared': {
       entry: ['src/gen/**/*.ts']
     },
