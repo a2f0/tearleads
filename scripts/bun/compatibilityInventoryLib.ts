@@ -1,12 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-export type TestScriptMode =
-  | 'none'
-  | 'bun-primary'
-  | 'bun-auto-fallback'
-  | 'vitest-primary'
-  | 'other';
+import { classifyTestScript, type TestScriptMode } from './testScriptMode.ts';
 
 export type PackageReadiness =
   | 'ready'
@@ -143,22 +137,6 @@ function readPackageJson(
     );
   }
   return parsed as PackageJsonShape;
-}
-
-function classifyTestScript(testScript: string | undefined): TestScriptMode {
-  if (testScript === undefined) {
-    return 'none';
-  }
-  if (testScript.includes('command -v bun')) {
-    return 'bun-auto-fallback';
-  }
-  if (testScript.includes('bun test')) {
-    return 'bun-primary';
-  }
-  if (testScript.includes('vitest')) {
-    return 'vitest-primary';
-  }
-  return 'other';
 }
 
 function hasDependency(
