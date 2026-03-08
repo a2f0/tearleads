@@ -36,6 +36,13 @@ export const COMPAT_PATTERNS: ReadonlyArray<PatternDefinition> = [
     highRisk: true
   },
   {
+    key: 'importMetaGlob',
+    label: 'import.meta.glob',
+    pattern: /\bimport\.meta\.glob\s*(?:<[^)]*>)?\s*\(/g,
+    riskWeight: 3,
+    highRisk: true
+  },
+  {
     key: 'viResetModules',
     label: 'vi.resetModules',
     pattern: /\bvi\.resetModules\s*\(/g,

@@ -60,4 +60,18 @@ describe('detectCompatibilityPatternCounts', () => {
 
     assert.equal(counts.viWaitFor, 2);
   });
+
+  it('counts import.meta.glob usages', () => {
+    const source = `
+      const modules = import.meta.glob('./fixtures/*.md', {
+        eager: true
+      });
+      const typed = import.meta.glob<Record<string, string>>('./*.json');
+      const notCounted = import.meta.resolve('./fixtures/foo.md');
+    `;
+
+    const counts = detectCompatibilityPatternCounts(source);
+
+    assert.equal(counts.importMetaGlob, 2);
+  });
 });
