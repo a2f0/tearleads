@@ -64,7 +64,6 @@ function applyConnectMethodDefaults(
     return {
       items: [],
       hasMore: false,
-      nextCursor: null,
       ...payload
     };
   }

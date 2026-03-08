@@ -19,10 +19,6 @@ vi.mock('./vfsDirectAuth.js', () => ({
 
 import { getSyncDirect } from './vfsDirectSync.js';
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 async function encryptNameForScaffold(
   plaintextName: string,
   sessionKey: Uint8Array
@@ -92,7 +88,7 @@ describe('vfsDirectSync scaffold decryption', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       items: [
         {
           accessLevel: 'admin',
@@ -106,7 +102,6 @@ describe('vfsDirectSync scaffold decryption', () => {
           ownerId: 'user-1'
         }
       ],
-      nextCursor: null,
       hasMore: false
     });
   });

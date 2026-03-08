@@ -1,4 +1,4 @@
-import type { VfsCrdtSyncResponse } from '@tearleads/shared';
+import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { fetchVfsConnectJson } from './vfsConnectClient.js';
@@ -117,5 +117,23 @@ describe('fetchVfsConnectJson', () => {
     });
 
     expect(response).toEqual(createCrdtResponse());
+  });
+
+  it('omits nextCursor default for typed GetSync responses', async () => {
+    const actor = {
+      fetchJson: vi.fn().mockResolvedValue({})
+    };
+
+    const response = await fetchVfsConnectJson<VfsSyncResponse>({
+      actor,
+      methodName: 'GetSync',
+      requestBody: { limit: 500 }
+    });
+
+    expect(response).toEqual({
+      items: [],
+      hasMore: false
+    });
+    expect('nextCursor' in response).toBe(false);
   });
 });

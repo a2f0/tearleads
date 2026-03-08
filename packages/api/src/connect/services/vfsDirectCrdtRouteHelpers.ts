@@ -1,4 +1,9 @@
-import type { VfsCrdtSyncItem, VfsCrdtSyncResponse } from '@tearleads/shared';
+import type {
+  VfsCrdtSyncItem,
+  VfsCrdtSyncResponse,
+  VfsSyncItem,
+  VfsSyncResponse
+} from '@tearleads/shared';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 
 interface VfsCrdtReplicaWriteIdRow {
@@ -31,6 +36,24 @@ export interface VfsCrdtSyncProtoResponse {
   nextCursor?: string;
   hasMore: boolean;
   lastReconciledWriteIds: Record<string, number>;
+}
+
+export interface VfsSyncProtoItem {
+  changeId: string;
+  itemId: string;
+  changeType: string;
+  changedAt: string;
+  objectType?: string;
+  encryptedName?: string;
+  ownerId?: string;
+  createdAt?: string;
+  accessLevel: string;
+}
+
+export interface VfsSyncProtoResponse {
+  items: VfsSyncProtoItem[];
+  nextCursor?: string;
+  hasMore: boolean;
 }
 
 function parseWriteId(value: unknown): number | null {
@@ -180,6 +203,54 @@ export function toProtoVfsCrdtSyncResponse(
     items: response.items.map((item) => toProtoCrdtSyncItem(item)),
     hasMore: response.hasMore,
     lastReconciledWriteIds: response.lastReconciledWriteIds
+  };
+
+  const nextCursor = toOptionalString(response.nextCursor);
+  if (nextCursor) {
+    parsed.nextCursor = nextCursor;
+  }
+
+  return parsed;
+}
+
+function toProtoVfsSyncItem(item: VfsSyncItem): VfsSyncProtoItem {
+  const parsed: VfsSyncProtoItem = {
+    changeId: item.changeId,
+    itemId: item.itemId,
+    changeType: item.changeType,
+    changedAt: item.changedAt,
+    accessLevel: item.accessLevel
+  };
+
+  const objectType = toOptionalString(item.objectType);
+  if (objectType) {
+    parsed.objectType = objectType;
+  }
+
+  const encryptedName = toOptionalString(item.encryptedName);
+  if (encryptedName) {
+    parsed.encryptedName = encryptedName;
+  }
+
+  const ownerId = toOptionalString(item.ownerId);
+  if (ownerId) {
+    parsed.ownerId = ownerId;
+  }
+
+  const createdAt = toOptionalString(item.createdAt);
+  if (createdAt) {
+    parsed.createdAt = createdAt;
+  }
+
+  return parsed;
+}
+
+export function toProtoVfsSyncResponse(
+  response: VfsSyncResponse
+): VfsSyncProtoResponse {
+  const parsed: VfsSyncProtoResponse = {
+    items: response.items.map((item) => toProtoVfsSyncItem(item)),
+    hasMore: response.hasMore
   };
 
   const nextCursor = toOptionalString(response.nextCursor);

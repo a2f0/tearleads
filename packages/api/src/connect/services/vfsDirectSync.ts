@@ -1,7 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   VfsCrdtSyncResponse,
-  VfsSyncReconcileResponse
+  VfsSyncReconcileResponse,
+  VfsSyncResponse
 } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
@@ -29,7 +30,9 @@ import {
   toIsoString,
   toLastReconciledWriteIds,
   toProtoVfsCrdtSyncResponse,
-  type VfsCrdtSyncProtoResponse
+  toProtoVfsSyncResponse,
+  type VfsCrdtSyncProtoResponse,
+  type VfsSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
 import { parseJsonBody } from './vfsDirectJson.js';
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
@@ -193,7 +196,7 @@ function normalizeRequiredClientId(value: unknown): string | null {
 export async function getSyncDirect(
   request: GetSyncRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSyncProtoResponse> {
   const claims = await requireVfsClaims('/vfs/vfs-sync', context.requestHeader);
 
   const parsedQuery = parseVfsSyncQuery(normalizeSyncQueryRequest(request));
@@ -212,9 +215,11 @@ export async function getSyncDirect(
     const result = await pool.query<VfsSyncDbRow>(query.text, query.values);
     const rows = await materializeScaffoldEncryptedNames(pool, result.rows);
 
-    return {
-      json: JSON.stringify(mapVfsSyncRows(rows, parsedQuery.value.limit))
-    };
+    const response: VfsSyncResponse = mapVfsSyncRows(
+      rows,
+      parsedQuery.value.limit
+    );
+    return toProtoVfsSyncResponse(response);
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
