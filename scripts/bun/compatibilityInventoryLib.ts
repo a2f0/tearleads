@@ -70,6 +70,12 @@ const COMPAT_PATTERNS: ReadonlyArray<PatternDefinition> = [
     riskWeight: 4
   },
   {
+    key: 'viMockImportOriginal',
+    label: 'vi.mock(importOriginal)',
+    pattern: /\bvi\.mock\s*\(\s*[^,]+,\s*(?:async\s*)?\(\s*importOriginal\b/g,
+    riskWeight: 4
+  },
+  {
     key: 'viResetModules',
     label: 'vi.resetModules',
     pattern: /\bvi\.resetModules\s*\(/g,
@@ -320,9 +326,13 @@ function summarize(packages: PackageInventory[]): InventorySummary {
     if (
       COMPAT_PATTERNS.some(
         (definition) =>
-          ['viHoisted', 'viImportActual', 'viResetModules'].includes(
-            definition.key
-          ) && (pkg.compatPatternCounts[definition.key] ?? 0) > 0
+          [
+            'viHoisted',
+            'viImportActual',
+            'viMockImportOriginal',
+            'viResetModules'
+          ].includes(definition.key) &&
+          (pkg.compatPatternCounts[definition.key] ?? 0) > 0
       )
     ) {
       packagesWithHighRiskVitestApis += 1;
@@ -392,7 +402,7 @@ export function buildCompatibilityInventoryMarkdown(
     `- Packages with DOM/jsdom indicators: ${summary.packagesWithJsdomIndicators}`
   );
   lines.push(
-    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
+    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
   );
   lines.push('');
 
