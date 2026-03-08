@@ -1,4 +1,9 @@
 import type { Database } from '@tearleads/db/sqlite';
+import type {
+  HostRuntimeDatabaseState,
+  HostRuntimeNavigateOptions,
+  HostRuntimeTranslation
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
@@ -15,13 +20,9 @@ export interface NoteInfo {
 }
 
 /**
- * Database context state
+ * Database context state shared with host-runtime adapters.
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * VFS key management functions for registering notes in VFS
@@ -202,14 +203,15 @@ export type NotesTranslationKey = 'getInfo' | 'delete' | 'newNote';
 /**
  * Translation function type - accepts notes-specific keys
  */
-export type TranslationFunction = (key: NotesTranslationKey) => string;
+export type TranslationFunction = HostRuntimeTranslation<NotesTranslationKey>;
 
 /**
  * Navigation options for note navigation
  */
-export interface NavigateToNoteOptions {
-  fromLabel?: string;
-}
+export type NavigateToNoteOptions = Pick<
+  HostRuntimeNavigateOptions,
+  'fromLabel'
+>;
 
 /**
  * Navigation function type for navigating to a specific note

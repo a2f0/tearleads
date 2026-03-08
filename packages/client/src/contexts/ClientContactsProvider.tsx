@@ -10,6 +10,7 @@ import {
 } from '@tearleads/contacts';
 import contactsPackageJson from '@tearleads/contacts/package.json';
 import { vfsRegistry } from '@tearleads/db/sqlite';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -161,7 +162,7 @@ export function ClientContactsProvider({
     [tContacts, tContextMenu]
   );
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

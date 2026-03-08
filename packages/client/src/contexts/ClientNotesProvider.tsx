@@ -12,6 +12,7 @@ import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -69,7 +70,7 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
   const { t } = useTypedTranslation('contextMenu');
   const navigateWithFrom = useNavigateWithFrom();
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

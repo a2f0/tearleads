@@ -1,10 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
 import { ClientNotesProvider } from './ClientNotesProvider';
 
 let capturedNotesProviderProps: Record<string, unknown> | null = null;
+
+beforeEach(() => {
+  capturedNotesProviderProps = null;
+});
 
 vi.mock('@tearleads/notes', () => ({
   NotesAboutMenuItem: () => <div>NotesAboutMenuItem</div>,
@@ -118,6 +122,23 @@ describe('ClientNotesProvider', () => {
 
     expect(screen.getByTestId('notes-provider')).toBeInTheDocument();
     expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  it('passes host runtime database state to NotesProvider', () => {
+    render(
+      <MemoryRouter>
+        <ClientNotesProvider>
+          <div>Child</div>
+        </ClientNotesProvider>
+      </MemoryRouter>
+    );
+
+    expect(capturedNotesProviderProps).not.toBeNull();
+    expect(capturedNotesProviderProps?.databaseState).toEqual({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('ignores already-registered conflicts for vfsApi.register', async () => {
