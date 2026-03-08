@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 /**
  * Photos upload and error handling tests.
  */

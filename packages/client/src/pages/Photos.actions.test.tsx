@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 /**
  * Photos download, share, and storage tests.
  */

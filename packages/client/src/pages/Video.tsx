@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import { and, eq, inArray } from 'drizzle-orm';
 import { Film, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';

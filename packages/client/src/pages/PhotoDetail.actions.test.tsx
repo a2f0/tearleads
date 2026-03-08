@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 /**
  * PhotoDetail download and share functionality tests.
  */
