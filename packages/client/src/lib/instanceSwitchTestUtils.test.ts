@@ -18,19 +18,19 @@ describe('createTokenActor', () => {
       resolveToken: () => null
     });
 
-    await expect(actor.fetchJson('/v1/test')).rejects.toThrow('Missing auth token');
+    await expect(actor.fetchJson('/v1/test')).rejects.toThrow(
+      'Missing auth token'
+    );
     expect(vi.spyOn(globalThis, 'fetch')).not.toHaveBeenCalled();
   });
 
   it('adds auth and default content-type for json bodies', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        })
-      );
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
     const actor = createTokenActor({
       baseUrl: 'https://api.example',
       resolveToken: () => 'token-123'
