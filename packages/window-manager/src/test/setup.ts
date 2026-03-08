@@ -10,7 +10,10 @@ if (typeof Reflect.get(vi, 'mocked') !== 'function') {
 }
 
 if (typeof Reflect.get(vi, 'stubGlobal') !== 'function') {
-  const stubbedGlobals = new Map<string, { hadValue: boolean; value: unknown }>();
+  const stubbedGlobals = new Map<
+    string,
+    { hadValue: boolean; value: unknown }
+  >();
 
   Reflect.set(vi, 'stubGlobal', (name: string, value: unknown) => {
     if (!stubbedGlobals.has(name)) {
