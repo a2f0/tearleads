@@ -355,46 +355,38 @@ describe('DB scaffolding shared photo album binary visibility', () => {
     const stagingId = 'shared-logo-stage';
     const uploadId = 'shared-logo-upload';
     await postVfsConnectJson(bob, harness, 'StageBlob', {
-      json: JSON.stringify({
-        stagingId,
-        blobId,
-        expiresAt: '2099-01-01T00:00:00.000Z'
-      })
+      stagingId,
+      blobId,
+      expiresAt: '2099-01-01T00:00:00.000Z'
     });
 
     await postVfsConnectJson(bob, harness, 'UploadBlobChunk', {
       stagingId,
-      json: JSON.stringify({
-        uploadId,
-        chunkIndex: 0,
-        isFinal: true,
-        nonce: 'nonce-1',
-        aadHash: 'aad-1',
-        ciphertextBase64: logoBase64,
-        plaintextLength: logoBytes.byteLength,
-        ciphertextLength: logoBytes.byteLength
-      })
+      uploadId,
+      chunkIndex: 0,
+      isFinal: true,
+      nonce: 'nonce-1',
+      aadHash: 'aad-1',
+      ciphertextBase64: logoBase64,
+      plaintextLength: logoBytes.byteLength,
+      ciphertextLength: logoBytes.byteLength
     });
 
     await postVfsConnectJson(bob, harness, 'CommitBlob', {
       stagingId,
-      json: JSON.stringify({
-        uploadId,
-        keyEpoch: 1,
-        manifestHash: 'manifest-hash-1',
-        manifestSignature: 'manifest-signature-1',
-        chunkCount: 1,
-        totalPlaintextBytes: logoBytes.byteLength,
-        totalCiphertextBytes: logoBytes.byteLength
-      })
+      uploadId,
+      keyEpoch: 1,
+      manifestHash: 'manifest-hash-1',
+      manifestSignature: 'manifest-signature-1',
+      chunkCount: 1,
+      totalPlaintextBytes: logoBytes.byteLength,
+      totalCiphertextBytes: logoBytes.byteLength
     });
 
     await postVfsConnectJson(bob, harness, 'AttachBlob', {
       stagingId,
-      json: JSON.stringify({
-        itemId: seeded.photoId,
-        relationKind: 'photo'
-      })
+      itemId: seeded.photoId,
+      relationKind: 'photo'
     });
 
     const stored = s3Objects.get('blob-bucket/scaffold/shared-logo-blob');

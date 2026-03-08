@@ -81,11 +81,17 @@ export function parseBlobAttachConsistency(
   const rawClientId = body['clientId'];
   const rawRequiredCursor = body['requiredCursor'];
   const rawRequiredLastWriteIds = body['requiredLastReconciledWriteIds'];
+  // Protobuf map fields normalize to `{}` when absent, so treat empty objects as "not provided."
+  const hasRequiredLastWriteIds =
+    rawRequiredLastWriteIds !== undefined &&
+    rawRequiredLastWriteIds !== null &&
+    (!isRecord(rawRequiredLastWriteIds) ||
+      Object.keys(rawRequiredLastWriteIds).length > 0);
 
   if (
     rawClientId === undefined &&
     rawRequiredCursor === undefined &&
-    rawRequiredLastWriteIds === undefined
+    !hasRequiredLastWriteIds
   ) {
     return {
       ok: true,

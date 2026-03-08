@@ -240,15 +240,7 @@ describe('vfsBlobNetworkFlusher', () => {
     );
     expect(chunkCall?.body).toEqual(
       expect.objectContaining({
-        stagingId: 'stage-1'
-      })
-    );
-    expect(
-      JSON.parse(
-        String((chunkCall?.body as { json?: string } | undefined)?.json ?? '{}')
-      )
-    ).toEqual(
-      expect.objectContaining({
+        stagingId: 'stage-1',
         uploadId: 'upload-1',
         chunkIndex: 0,
         isFinal: false,
@@ -257,17 +249,7 @@ describe('vfsBlobNetworkFlusher', () => {
     );
     expect(commitCall?.body).toEqual(
       expect.objectContaining({
-        stagingId: 'stage-1'
-      })
-    );
-    expect(
-      JSON.parse(
-        String(
-          (commitCall?.body as { json?: string } | undefined)?.json ?? '{}'
-        )
-      )
-    ).toEqual(
-      expect.objectContaining({
+        stagingId: 'stage-1',
         uploadId: 'upload-1',
         keyEpoch: 3,
         manifestHash: 'manifest-hash-1',
@@ -345,10 +327,7 @@ describe('vfsBlobNetworkFlusher', () => {
       processedOperations: 1,
       pendingOperations: 0
     });
-    const stageBody = JSON.parse(
-      String((requestBodies[0] as { json?: string } | undefined)?.json ?? '{}')
-    );
-    expect(stageBody).toEqual(
+    expect(requestBodies[0]).toEqual(
       expect.objectContaining({
         encryption: expect.objectContaining({
           algorithm: 'aes-256-gcm',

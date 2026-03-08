@@ -8,13 +8,12 @@ import {
   normalizeRequiredString,
   parseBlobChunkBody,
   parseBlobStageBody,
-  type StagingIdJsonRequest,
-  toIsoFromDateOrString
+  type StageBlobRequest,
+  toIsoFromDateOrString,
+  type UploadBlobChunkRequest
 } from './vfsDirectBlobShared.js';
 import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
-import { encoded, parseJsonBody } from './vfsDirectJson.js';
-
-type JsonRequest = { json: string };
+import { encoded } from './vfsDirectJson.js';
 export type StageBlobDirectResponse = {
   stagingId: string;
   blobId: string;
@@ -88,7 +87,7 @@ function requireStagingId(value: string): string {
 }
 
 export async function stageBlobDirect(
-  request: JsonRequest,
+  request: StageBlobRequest,
   context: { requestHeader: Headers }
 ): Promise<StageBlobDirectResponse> {
   const claims = await requireVfsClaims(
@@ -97,7 +96,7 @@ export async function stageBlobDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const parsedBody = parseBlobStageBody(parseJsonBody(request.json));
+  const parsedBody = parseBlobStageBody(request);
   if (!parsedBody) {
     throw new ConnectError(
       'blobId and expiresAt are required',
@@ -286,7 +285,7 @@ export async function stageBlobDirect(
 }
 
 export async function uploadBlobChunkDirect(
-  request: StagingIdJsonRequest,
+  request: UploadBlobChunkRequest,
   context: { requestHeader: Headers }
 ): Promise<UploadBlobChunkDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
@@ -296,7 +295,7 @@ export async function uploadBlobChunkDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const payload = parseBlobChunkBody(parseJsonBody(request.json));
+  const payload = parseBlobChunkBody(request);
   if (!payload) {
     throw new ConnectError('chunk payload is invalid', Code.InvalidArgument);
   }

@@ -14,11 +14,16 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
   };
 
   const parseJsonEnvelope = (body: unknown): Record<string, unknown> => {
-    if (!isRecord(body) || typeof body['json'] !== 'string') {
+    if (!isRecord(body)) {
       return {};
     }
 
-    const parsed = JSON.parse(body['json']);
+    const nestedJson = body['json'];
+    if (typeof nestedJson !== 'string') {
+      return body;
+    }
+
+    const parsed = JSON.parse(nestedJson);
     return isRecord(parsed) ? parsed : {};
   };
 

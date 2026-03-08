@@ -82,11 +82,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z',
-            dataBase64: '***invalid***'
-          })
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          dataBase64: '***invalid***'
         },
         {
           requestHeader: new Headers()
@@ -107,11 +105,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -134,11 +130,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -158,11 +152,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -187,11 +179,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -225,12 +215,10 @@ describe('vfsDirectBlobStageUpload coverage', () => {
 
     await stageBlobDirect(
       {
-        json: JSON.stringify({
-          stagingId: 'stage-1',
-          blobId: 'blob-1',
-          expiresAt: '2099-01-01T00:00:00.000Z',
-          dataBase64: 'Zg=='
-        })
+        stagingId: 'stage-1',
+        blobId: 'blob-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        dataBase64: 'Zg=='
       },
       {
         requestHeader: new Headers()
@@ -252,11 +240,9 @@ describe('vfsDirectBlobStageUpload coverage', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -272,7 +258,14 @@ describe('vfsDirectBlobStageUpload coverage', () => {
       uploadBlobChunkDirect(
         {
           stagingId: ' ',
-          json: '{}'
+          uploadId: '',
+          chunkIndex: -1,
+          isFinal: true,
+          nonce: '',
+          aadHash: '',
+          ciphertextBase64: '',
+          plaintextLength: -1,
+          ciphertextLength: -1
         },
         {
           requestHeader: new Headers()
@@ -299,16 +292,14 @@ describe('vfsDirectBlobStageUpload coverage', () => {
       uploadBlobChunkDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            chunkIndex: 0,
-            isFinal: true,
-            nonce: 'nonce-1',
-            aadHash: 'aad-1',
-            ciphertextBase64: 'ZGF0YQ==',
-            plaintextLength: 4,
-            ciphertextLength: 4
-          })
+          uploadId: 'upload-1',
+          chunkIndex: 0,
+          isFinal: true,
+          nonce: 'nonce-1',
+          aadHash: 'aad-1',
+          ciphertextBase64: 'ZGF0YQ==',
+          plaintextLength: 4,
+          ciphertextLength: 4
         },
         {
           requestHeader: new Headers()
@@ -336,16 +327,14 @@ describe('vfsDirectBlobStageUpload coverage', () => {
       uploadBlobChunkDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            chunkIndex: 0,
-            isFinal: true,
-            nonce: 'nonce-1',
-            aadHash: 'aad-1',
-            ciphertextBase64: 'ZGF0YQ==',
-            plaintextLength: 4,
-            ciphertextLength: 4
-          })
+          uploadId: 'upload-1',
+          chunkIndex: 0,
+          isFinal: true,
+          nonce: 'nonce-1',
+          aadHash: 'aad-1',
+          ciphertextBase64: 'ZGF0YQ==',
+          plaintextLength: 4,
+          ciphertextLength: 4
         },
         {
           requestHeader: new Headers()

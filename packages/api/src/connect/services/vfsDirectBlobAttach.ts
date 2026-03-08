@@ -17,12 +17,12 @@ import {
   toScopedCrdtClientId
 } from './vfsDirectBlobAttachHelpers.js';
 import {
+  type AttachBlobRequest,
   normalizeRequiredString,
   parseBlobAttachBody,
-  type StagingIdJsonRequest,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
-import { encoded, parseJsonBody } from './vfsDirectJson.js';
+import { encoded } from './vfsDirectJson.js';
 export type AttachBlobDirectResponse = {
   attached: boolean;
   stagingId: string;
@@ -77,7 +77,7 @@ function requireStagingId(value: string): string {
 }
 
 export async function attachBlobDirect(
-  request: StagingIdJsonRequest,
+  request: AttachBlobRequest,
   context: { requestHeader: Headers }
 ): Promise<AttachBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
@@ -87,13 +87,12 @@ export async function attachBlobDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const parsedJsonBody = parseJsonBody(request.json);
-  const parsedBody = parseBlobAttachBody(parsedJsonBody);
+  const parsedBody = parseBlobAttachBody(request);
   if (!parsedBody) {
     throw new ConnectError('itemId is required', Code.InvalidArgument);
   }
 
-  const parsedConsistency = parseBlobAttachConsistency(parsedJsonBody);
+  const parsedConsistency = parseBlobAttachConsistency(request);
   if (!parsedConsistency.ok) {
     throw new ConnectError(parsedConsistency.error, Code.InvalidArgument);
   }

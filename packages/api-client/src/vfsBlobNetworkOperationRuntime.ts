@@ -35,34 +35,32 @@ export async function executeBlobNetworkOperation(
 ): Promise<void> {
   if (operation.kind === 'stage') {
     await requestConnectJson(context, 'StageBlob', {
-      json: JSON.stringify({
-        stagingId: operation.payload.stagingId,
-        blobId: operation.payload.blobId,
-        expiresAt: operation.payload.expiresAt,
-        encryption: operation.payload.encryption
-      })
+      stagingId: operation.payload.stagingId,
+      blobId: operation.payload.blobId,
+      expiresAt: operation.payload.expiresAt,
+      ...(operation.payload.encryption
+        ? { encryption: operation.payload.encryption }
+        : {})
     });
     return;
   }
 
   if (operation.kind === 'attach') {
-    const body: Record<string, unknown> = {
-      itemId: operation.payload.itemId,
-      relationKind: operation.payload.relationKind
-    };
-    if (operation.payload.consistency) {
-      body['clientId'] = operation.payload.consistency.clientId;
-      body['requiredCursor'] = encodeVfsSyncCursor(
-        operation.payload.consistency.requiredCursor
-      );
-      body['requiredLastReconciledWriteIds'] = {
-        ...operation.payload.consistency.requiredLastReconciledWriteIds
-      };
-    }
-
     await requestConnectJson(context, 'AttachBlob', {
       stagingId: operation.payload.stagingId,
-      json: JSON.stringify(body)
+      itemId: operation.payload.itemId,
+      relationKind: operation.payload.relationKind,
+      ...(operation.payload.consistency
+        ? {
+            clientId: operation.payload.consistency.clientId,
+            requiredCursor: encodeVfsSyncCursor(
+              operation.payload.consistency.requiredCursor
+            ),
+            requiredLastReconciledWriteIds: {
+              ...operation.payload.consistency.requiredLastReconciledWriteIds
+            }
+          }
+        : {})
     });
     return;
   }
@@ -70,16 +68,14 @@ export async function executeBlobNetworkOperation(
   if (operation.kind === 'chunk') {
     await requestConnectJson(context, 'UploadBlobChunk', {
       stagingId: operation.payload.stagingId,
-      json: JSON.stringify({
-        uploadId: operation.payload.uploadId,
-        chunkIndex: operation.payload.chunkIndex,
-        isFinal: operation.payload.isFinal,
-        nonce: operation.payload.nonce,
-        aadHash: operation.payload.aadHash,
-        ciphertextBase64: operation.payload.ciphertextBase64,
-        plaintextLength: operation.payload.plaintextLength,
-        ciphertextLength: operation.payload.ciphertextLength
-      })
+      uploadId: operation.payload.uploadId,
+      chunkIndex: operation.payload.chunkIndex,
+      isFinal: operation.payload.isFinal,
+      nonce: operation.payload.nonce,
+      aadHash: operation.payload.aadHash,
+      ciphertextBase64: operation.payload.ciphertextBase64,
+      plaintextLength: operation.payload.plaintextLength,
+      ciphertextLength: operation.payload.ciphertextLength
     });
     return;
   }
@@ -87,22 +83,19 @@ export async function executeBlobNetworkOperation(
   if (operation.kind === 'commit') {
     await requestConnectJson(context, 'CommitBlob', {
       stagingId: operation.payload.stagingId,
-      json: JSON.stringify({
-        uploadId: operation.payload.uploadId,
-        keyEpoch: operation.payload.keyEpoch,
-        manifestHash: operation.payload.manifestHash,
-        manifestSignature: operation.payload.manifestSignature,
-        chunkCount: operation.payload.chunkCount,
-        totalPlaintextBytes: operation.payload.totalPlaintextBytes,
-        totalCiphertextBytes: operation.payload.totalCiphertextBytes
-      })
+      uploadId: operation.payload.uploadId,
+      keyEpoch: operation.payload.keyEpoch,
+      manifestHash: operation.payload.manifestHash,
+      manifestSignature: operation.payload.manifestSignature,
+      chunkCount: operation.payload.chunkCount,
+      totalPlaintextBytes: operation.payload.totalPlaintextBytes,
+      totalCiphertextBytes: operation.payload.totalCiphertextBytes
     });
     return;
   }
 
   await requestConnectJson(context, 'AbandonBlob', {
-    stagingId: operation.payload.stagingId,
-    json: JSON.stringify({})
+    stagingId: operation.payload.stagingId
   });
 }
 

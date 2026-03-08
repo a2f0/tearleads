@@ -1,7 +1,61 @@
 import { randomUUID } from 'node:crypto';
 import { isRecord } from '@tearleads/shared';
 
-export type StagingIdJsonRequest = { stagingId: string; json: string };
+export type StageBlobRequest = {
+  blobId: string;
+  expiresAt: string;
+  stagingId?: string | null;
+  dataBase64?: string | null;
+  contentType?: string | null;
+  encryption?: StageBlobEncryptionRequest | null;
+};
+
+export type StageBlobUploadCheckpointRequest = {
+  uploadId: string;
+  nextChunkIndex: number;
+};
+
+export type StageBlobEncryptionRequest = {
+  algorithm: string;
+  keyEpoch: number;
+  manifestHash: string;
+  chunkCount: number;
+  chunkSizeBytes: number;
+  plaintextSizeBytes: number;
+  ciphertextSizeBytes: number;
+  checkpoint?: StageBlobUploadCheckpointRequest | null;
+};
+
+export type StagingIdRequest = { stagingId: string };
+
+export type UploadBlobChunkRequest = StagingIdRequest & {
+  uploadId: string;
+  chunkIndex: number;
+  isFinal: boolean;
+  nonce: string;
+  aadHash: string;
+  ciphertextBase64: string;
+  plaintextLength: number;
+  ciphertextLength: number;
+};
+
+export type AttachBlobRequest = StagingIdRequest & {
+  itemId: string;
+  relationKind?: string | null;
+  clientId?: string | null;
+  requiredCursor?: string | null;
+  requiredLastReconciledWriteIds?: Record<string, number>;
+};
+
+export type CommitBlobRequest = StagingIdRequest & {
+  uploadId: string;
+  keyEpoch: number;
+  manifestHash: string;
+  manifestSignature: string;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
+};
 
 type VfsBlobRelationKind = 'file' | 'emailAttachment' | 'photo' | 'other';
 

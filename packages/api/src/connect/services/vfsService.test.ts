@@ -155,31 +155,20 @@ vi.mock('./vfsDirectSync.js', () => ({
 
 import { vfsConnectService } from './vfsService.js';
 
-function createContext() {
-  return {
-    requestHeader: new Headers({
-      authorization: 'Bearer token-1',
-      'x-organization-id': 'org-1'
-    })
-  };
-}
-
-function resetDirectJsonMocks() {
-  return [
-    abandonBlobDirectMock,
-    attachBlobDirectMock,
-    commitBlobDirectMock,
-    getCrdtSyncDirectMock,
-    getCrdtSnapshotDirectMock,
-    pushCrdtOpsDirectMock,
-    reconcileCrdtDirectMock,
-    runCrdtSessionDirectMock,
-    stageBlobDirectMock,
-    getSyncDirectMock,
-    reconcileSyncDirectMock,
-    uploadBlobChunkDirectMock
-  ];
-}
+const directJsonMocks = [
+  abandonBlobDirectMock,
+  attachBlobDirectMock,
+  commitBlobDirectMock,
+  getCrdtSyncDirectMock,
+  getCrdtSnapshotDirectMock,
+  pushCrdtOpsDirectMock,
+  reconcileCrdtDirectMock,
+  runCrdtSessionDirectMock,
+  stageBlobDirectMock,
+  getSyncDirectMock,
+  reconcileSyncDirectMock,
+  uploadBlobChunkDirectMock
+];
 
 describe('vfsConnectService', () => {
   beforeEach(() => {
@@ -190,7 +179,7 @@ describe('vfsConnectService', () => {
       contentType: 'application/octet-stream'
     });
 
-    for (const mock of resetDirectJsonMocks()) {
+    for (const mock of directJsonMocks) {
       mock.mockReset();
       mock.mockResolvedValue({ json: '{"ok":true}' });
     }
@@ -241,7 +230,12 @@ describe('vfsConnectService', () => {
   });
 
   it('delegates direct methods to vfs direct handlers', async () => {
-    const context = createContext();
+    const context = {
+      requestHeader: new Headers({
+        authorization: 'Bearer token-1',
+        'x-organization-id': 'org-1'
+      })
+    };
 
     const getBlobRequest = { blobId: 'blob/1' };
     const setupKeysRequest = {
@@ -255,23 +249,31 @@ describe('vfsConnectService', () => {
     };
     const deleteBlobRequest = { blobId: 'blob-2' };
     const stageBlobRequest = {
-      json: '{"blobId":"blob-3","expiresAt":"2099-01-01T00:00:00.000Z"}'
+      blobId: 'blob-3',
+      expiresAt: '2099-01-01T00:00:00.000Z'
     };
     const uploadBlobChunkRequest = {
       stagingId: 'stage-1',
-      json: '{"uploadId":"u1","chunkIndex":0,"isFinal":true,"nonce":"n","aadHash":"a","ciphertextBase64":"ZGF0YQ==","plaintextLength":4,"ciphertextLength":4}'
+      uploadId: 'u1',
+      chunkIndex: 0,
+      isFinal: true,
+      nonce: 'n',
+      aadHash: 'a',
+      ciphertextBase64: 'ZGF0YQ==',
+      plaintextLength: 4,
+      ciphertextLength: 4
     };
-    const attachBlobRequest = {
-      stagingId: 'stage-2',
-      json: '{"itemId":"item-attach"}'
-    };
-    const abandonBlobRequest = {
-      stagingId: 'stage-3',
-      json: '{}'
-    };
+    const attachBlobRequest = { stagingId: 'stage-2', itemId: 'item-attach' };
+    const abandonBlobRequest = { stagingId: 'stage-3' };
     const commitBlobRequest = {
       stagingId: 'stage-4',
-      json: '{"uploadId":"u1","keyEpoch":1,"manifestHash":"h","manifestSignature":"s","chunkCount":1,"totalPlaintextBytes":4,"totalCiphertextBytes":4}'
+      uploadId: 'u1',
+      keyEpoch: 1,
+      manifestHash: 'h',
+      manifestSignature: 's',
+      chunkCount: 1,
+      totalPlaintextBytes: 4,
+      totalCiphertextBytes: 4
     };
     const rekeyItemRequest = {
       itemId: 'item-1',

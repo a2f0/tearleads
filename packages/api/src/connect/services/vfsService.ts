@@ -4,7 +4,13 @@ import {
   abandonBlobDirect,
   commitBlobDirect
 } from './vfsDirectBlobFinalize.js';
-import type { StagingIdJsonRequest } from './vfsDirectBlobShared.js';
+import type {
+  AttachBlobRequest,
+  CommitBlobRequest,
+  StageBlobRequest,
+  StagingIdRequest,
+  UploadBlobChunkRequest
+} from './vfsDirectBlobShared.js';
 import {
   stageBlobDirect,
   uploadBlobChunkDirect
@@ -77,23 +83,23 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => deleteBlobDirect(request, context),
   stageBlob: async (
-    request: { json: string },
+    request: StageBlobRequest,
     context: { requestHeader: Headers }
   ) => stageBlobDirect(request, context),
   uploadBlobChunk: async (
-    request: StagingIdJsonRequest,
+    request: UploadBlobChunkRequest,
     context: { requestHeader: Headers }
   ) => uploadBlobChunkDirect(request, context),
   attachBlob: async (
-    request: StagingIdJsonRequest,
+    request: AttachBlobRequest,
     context: { requestHeader: Headers }
   ) => attachBlobDirect(request, context),
   abandonBlob: async (
-    request: StagingIdJsonRequest,
+    request: StagingIdRequest,
     context: { requestHeader: Headers }
   ) => abandonBlobDirect(request, context),
   commitBlob: async (
-    request: StagingIdJsonRequest,
+    request: CommitBlobRequest,
     context: { requestHeader: Headers }
   ) => commitBlobDirect(request, context),
   rekeyItem: async (

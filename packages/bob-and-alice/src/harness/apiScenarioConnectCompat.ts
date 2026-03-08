@@ -236,7 +236,7 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/blobs/stage' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/StageBlob`,
-      body: { json: jsonBodyText },
+      body: jsonBody,
       unwrapJsonEnvelope: true
     };
   }
@@ -249,7 +249,7 @@ export function mapLegacyPathToConnect(
       path: `${VFS_SERVICE_PATH}/UploadBlobChunk`,
       body: {
         stagingId: encodedSegment(requiredMatchGroup(blobStageChunksMatch, 1)),
-        json: jsonBodyText
+        ...jsonBody
       },
       unwrapJsonEnvelope: true
     };
@@ -263,7 +263,7 @@ export function mapLegacyPathToConnect(
       path: `${VFS_SERVICE_PATH}/AttachBlob`,
       body: {
         stagingId: encodedSegment(requiredMatchGroup(blobStageAttachMatch, 1)),
-        json: jsonBodyText
+        ...jsonBody
       },
       unwrapJsonEnvelope: true
     };
@@ -276,8 +276,7 @@ export function mapLegacyPathToConnect(
     return {
       path: `${VFS_SERVICE_PATH}/AbandonBlob`,
       body: {
-        stagingId: encodedSegment(requiredMatchGroup(blobStageAbandonMatch, 1)),
-        json: jsonBodyText
+        stagingId: encodedSegment(requiredMatchGroup(blobStageAbandonMatch, 1))
       },
       unwrapJsonEnvelope: true
     };
@@ -291,7 +290,7 @@ export function mapLegacyPathToConnect(
       path: `${VFS_SERVICE_PATH}/CommitBlob`,
       body: {
         stagingId: encodedSegment(requiredMatchGroup(blobStageCommitMatch, 1)),
-        json: jsonBodyText
+        ...jsonBody
       },
       unwrapJsonEnvelope: true
     };

@@ -71,10 +71,16 @@ function getObjectField(value: unknown, key: string): unknown {
 }
 
 function parseConnectJsonBody(value: unknown): Record<string, unknown> {
-  if (!isRecord(value) || typeof value['json'] !== 'string') {
+  if (!isRecord(value)) {
     return {};
   }
-  const parsed = JSON.parse(value['json']);
+
+  const nestedJson = value['json'];
+  if (typeof nestedJson !== 'string') {
+    return value;
+  }
+
+  const parsed = JSON.parse(nestedJson);
   return isRecord(parsed) ? parsed : {};
 }
 

@@ -4,16 +4,17 @@ import { getPostgresPool } from '../../lib/postgres.js';
 import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import {
+  type CommitBlobRequest,
   normalizeRequiredString,
   parseBlobCommitBody,
-  type StagingIdJsonRequest
+  type StagingIdRequest
 } from './vfsDirectBlobShared.js';
 import {
   deleteBlobUploadSession,
   deleteBlobUploadSessionsForStaging,
   getBlobUploadChunks
 } from './vfsDirectBlobUploadSessions.js';
-import { encoded, parseJsonBody } from './vfsDirectJson.js';
+import { encoded } from './vfsDirectJson.js';
 export type AbandonBlobDirectResponse = {
   abandoned: boolean;
   stagingId: string;
@@ -74,7 +75,7 @@ function requireStagingId(value: string): string {
 }
 
 export async function abandonBlobDirect(
-  request: StagingIdJsonRequest,
+  request: StagingIdRequest,
   context: { requestHeader: Headers }
 ): Promise<AbandonBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
@@ -193,7 +194,7 @@ export async function abandonBlobDirect(
 }
 
 export async function commitBlobDirect(
-  request: StagingIdJsonRequest,
+  request: CommitBlobRequest,
   context: { requestHeader: Headers }
 ): Promise<CommitBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
@@ -203,7 +204,7 @@ export async function commitBlobDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const payload = parseBlobCommitBody(parseJsonBody(request.json));
+  const payload = parseBlobCommitBody(request);
   if (!payload) {
     throw new ConnectError('commit payload is invalid', Code.InvalidArgument);
   }
