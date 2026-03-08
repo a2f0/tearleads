@@ -33,6 +33,13 @@ type BlobIdRequest = { blobId: string };
 type ItemIdJsonRequest = { itemId: string; json: string };
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
+type ReconcileSyncRequest = { clientId: string; cursor: string };
+type ReconcileCrdtRequest = {
+  organizationId: string;
+  clientId: string;
+  cursor: string;
+  lastReconciledWriteIds: Record<string, number>;
+};
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
 
@@ -84,11 +91,11 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
-    request: { organizationId?: string; json: string },
+    request: ReconcileCrdtRequest,
     context: { requestHeader: Headers }
   ) => reconcileCrdtDirect(request, context),
   reconcileSync: async (
-    request: { json: string },
+    request: ReconcileSyncRequest,
     context: { requestHeader: Headers }
   ) => reconcileSyncDirect(request, context),
   runCrdtSession: async (

@@ -168,7 +168,10 @@ message VfsPushCrdtOpsResponse {
 }
 
 message VfsReconcileCrdtRequest {
-  string json = 1;
+  string organization_id = 1;
+  string client_id = 2;
+  string cursor = 3;
+  map<string, int32> last_reconciled_write_ids = 4;
 }
 
 message VfsReconcileCrdtResponse {
@@ -178,7 +181,8 @@ message VfsReconcileCrdtResponse {
 }
 
 message VfsReconcileSyncRequest {
-  string json = 1;
+  string client_id = 1;
+  string cursor = 2;
 }
 
 message VfsReconcileSyncResponse {
