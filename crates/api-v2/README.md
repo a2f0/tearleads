@@ -1,12 +1,21 @@
 # `tearleads-api-v2`
 
-Rust V2 API service (Axum), starting with versioned routes.
+Rust API v2 service (Axum + tonic-web).
 
-## Endpoints
+## Runtime
+
+### Environment
+
+- `PORT` (default `5002`)
+- `ALLOWED_ORIGINS` (comma-separated CORS allowlist; empty means permissive for local dev)
+- `API_V2_ENABLE_ADMIN_HARNESS` (`1|true|yes|on` to mount admin gRPC-web harness routes)
+
+### Routes
 
 - `GET /v2/ping`
+- `POST /connect/tearleads.v2.AdminService/*` (only when `API_V2_ENABLE_ADMIN_HARNESS` is enabled)
 
-Returns:
+`GET /v2/ping` response:
 
 ```json
 {
@@ -14,6 +23,16 @@ Returns:
   "service": "api-v2",
   "version": "<crate-version>"
 }
+```
+
+## Local Run
+
+```bash
+# default runtime (ping route)
+cargo run --package tearleads-api-v2
+
+# include admin harness connect routes
+API_V2_ENABLE_ADMIN_HARNESS=1 cargo run --package tearleads-api-v2
 ```
 
 ## Quality Gates
