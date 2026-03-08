@@ -58,12 +58,10 @@ describe('adminDirectGroupMutations error branches', () => {
     consoleErrorSpy = null;
   });
 
-  it('rejects createGroup on invalid JSON payload', async () => {
+  it('rejects createGroup when payload is missing required fields', async () => {
     await expect(
       createGroupDirect(
-        {
-          json: '{"name":'
-        },
+        {},
         {
           requestHeader: new Headers()
         }
@@ -81,7 +79,8 @@ describe('adminDirectGroupMutations error branches', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering","organizationId":"org-1"}'
+          name: 'Engineering',
+          organizationId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -104,7 +103,8 @@ describe('adminDirectGroupMutations error branches', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering","organizationId":"org-1"}'
+          name: 'Engineering',
+          organizationId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -119,22 +119,7 @@ describe('adminDirectGroupMutations error branches', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering"}'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
-  });
-
-  it('treats empty createGroup payload as empty object', async () => {
-    await expect(
-      createGroupDirect(
-        {
-          json: ''
+          name: 'Engineering'
         },
         {
           requestHeader: new Headers()
@@ -165,7 +150,9 @@ describe('adminDirectGroupMutations error branches', () => {
 
     const response = await createGroupDirect(
       {
-        json: '{"name":"Engineering","organizationId":"org-1","description":"   "}'
+        name: 'Engineering',
+        organizationId: 'org-1',
+        description: '   '
       },
       {
         requestHeader: new Headers()
@@ -194,7 +181,8 @@ describe('adminDirectGroupMutations error branches', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering","organizationId":"org-1"}'
+          name: 'Engineering',
+          organizationId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -214,7 +202,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"name":"   "}'
+          name: '   '
         },
         {
           requestHeader: new Headers()
@@ -234,7 +222,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"organizationId":"   "}'
+          organizationId: '   '
         },
         {
           requestHeader: new Headers()
@@ -258,7 +246,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"organizationId":"org-2"}'
+          organizationId: 'org-2'
         },
         {
           requestHeader: new Headers()
@@ -282,7 +270,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"organizationId":"org-2"}'
+          organizationId: 'org-2'
         },
         {
           requestHeader: new Headers()
@@ -311,7 +299,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"name":"Engineering"}'
+          name: 'Engineering'
         },
         {
           requestHeader: new Headers()
@@ -331,7 +319,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'missing-group',
-          json: '{"name":"Engineering"}'
+          name: 'Engineering'
         },
         {
           requestHeader: new Headers()
@@ -374,7 +362,8 @@ describe('adminDirectGroupMutations error branches', () => {
     const response = await updateGroupDirect(
       {
         id: 'group-1',
-        json: '{"organizationId":"org-2","description":null}'
+        organizationId: 'org-2',
+        description: ''
       },
       {
         requestHeader: new Headers()
@@ -406,7 +395,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"name":"Engineering"}'
+          name: 'Engineering'
         },
         {
           requestHeader: new Headers()
@@ -428,7 +417,7 @@ describe('adminDirectGroupMutations error branches', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"name":"Engineering"}'
+          name: 'Engineering'
         },
         {
           requestHeader: new Headers()

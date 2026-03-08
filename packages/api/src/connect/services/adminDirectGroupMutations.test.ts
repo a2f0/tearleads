@@ -104,7 +104,8 @@ describe('adminDirectGroupMutations', () => {
 
     const response = await createGroupDirect(
       {
-        json: '{"name":"Engineering","organizationId":"org-1"}'
+        name: 'Engineering',
+        organizationId: 'org-1'
       },
       {
         requestHeader: new Headers()
@@ -131,7 +132,7 @@ describe('adminDirectGroupMutations', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"organizationId":"org-1"}'
+          organizationId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -148,7 +149,8 @@ describe('adminDirectGroupMutations', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering","organizationId":"org-2"}'
+          name: 'Engineering',
+          organizationId: 'org-2'
         },
         {
           requestHeader: new Headers()
@@ -178,7 +180,8 @@ describe('adminDirectGroupMutations', () => {
     await expect(
       createGroupDirect(
         {
-          json: '{"name":"Engineering","organizationId":"org-1"}'
+          name: 'Engineering',
+          organizationId: 'org-1'
         },
         {
           requestHeader: new Headers()
@@ -210,7 +213,8 @@ describe('adminDirectGroupMutations', () => {
     const response = await updateGroupDirect(
       {
         id: 'group-1',
-        json: '{"name":"Product","description":"Core"}'
+        name: 'Product',
+        description: 'Core'
       },
       {
         requestHeader: new Headers()
@@ -237,8 +241,7 @@ describe('adminDirectGroupMutations', () => {
     await expect(
       updateGroupDirect(
         {
-          id: 'group-1',
-          json: '{}'
+          id: 'group-1'
         },
         {
           requestHeader: new Headers()
@@ -258,7 +261,7 @@ describe('adminDirectGroupMutations', () => {
       updateGroupDirect(
         {
           id: 'group-1',
-          json: '{"name":"Product"}'
+          name: 'Product'
         },
         {
           requestHeader: new Headers()
@@ -319,7 +322,7 @@ describe('adminDirectGroupMutations', () => {
     const response = await addGroupMemberDirect(
       {
         id: 'group-1',
-        json: '{"userId":"user-1"}'
+        userId: 'user-1'
       },
       {
         requestHeader: new Headers()
@@ -344,7 +347,7 @@ describe('adminDirectGroupMutations', () => {
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{"userId":"missing-user"}'
+          userId: 'missing-user'
         },
         {
           requestHeader: new Headers()
@@ -385,7 +388,7 @@ describe('adminDirectGroupMutations', () => {
       addGroupMemberDirect(
         {
           id: 'group-1',
-          json: '{"userId":"user-1"}'
+          userId: 'user-1'
         },
         {
           requestHeader: new Headers()
