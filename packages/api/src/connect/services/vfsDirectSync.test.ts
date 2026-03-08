@@ -53,10 +53,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function parseJson(json: string): unknown {
-  return JSON.parse(json);
-}
-
 describe('vfsDirectSync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -342,7 +338,14 @@ describe('vfsDirectSync', () => {
 
   it('returns snapshot payload when one exists', async () => {
     loadVfsCrdtRematerializationSnapshotMock.mockResolvedValueOnce({
-      snapshot: 'payload'
+      replaySnapshot: {
+        acl: [],
+        links: [],
+        cursor: null
+      },
+      reconcileState: null,
+      containerClocks: [],
+      snapshotUpdatedAt: '2026-03-08T00:00:00.000Z'
     });
 
     const response = await getCrdtSnapshotDirect(
@@ -354,8 +357,13 @@ describe('vfsDirectSync', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      snapshot: 'payload'
+    expect(response).toEqual({
+      replaySnapshot: {
+        acl: [],
+        links: []
+      },
+      containerClocks: [],
+      snapshotUpdatedAt: '2026-03-08T00:00:00.000Z'
     });
   });
 

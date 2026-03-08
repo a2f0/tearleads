@@ -4,6 +4,7 @@ import type {
   VfsSyncItem,
   VfsSyncResponse
 } from '@tearleads/shared';
+import type { VfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshotCommon.js';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 
 interface VfsCrdtReplicaWriteIdRow {
@@ -54,6 +55,47 @@ export interface VfsSyncProtoResponse {
   items: VfsSyncProtoItem[];
   nextCursor?: string;
   hasMore: boolean;
+}
+
+export interface VfsSnapshotCursorProto {
+  changedAt: string;
+  changeId: string;
+}
+
+export interface VfsSnapshotAclEntryProto {
+  itemId: string;
+  principalType: string;
+  principalId: string;
+  accessLevel: string;
+}
+
+export interface VfsSnapshotLinkEntryProto {
+  parentId: string;
+  childId: string;
+}
+
+export interface VfsSnapshotReplayProto {
+  acl: VfsSnapshotAclEntryProto[];
+  links: VfsSnapshotLinkEntryProto[];
+  cursor?: VfsSnapshotCursorProto;
+}
+
+export interface VfsSnapshotReconcileStateProto {
+  cursor: VfsSnapshotCursorProto;
+  lastReconciledWriteIds: Record<string, number>;
+}
+
+export interface VfsSnapshotContainerClockProto {
+  containerId: string;
+  changedAt: string;
+  changeId: string;
+}
+
+export interface VfsCrdtSnapshotProtoResponse {
+  replaySnapshot: VfsSnapshotReplayProto;
+  reconcileState?: VfsSnapshotReconcileStateProto;
+  containerClocks: VfsSnapshotContainerClockProto[];
+  snapshotUpdatedAt: string;
 }
 
 function parseWriteId(value: unknown): number | null {
@@ -256,6 +298,56 @@ export function toProtoVfsSyncResponse(
   const nextCursor = toOptionalString(response.nextCursor);
   if (nextCursor) {
     parsed.nextCursor = nextCursor;
+  }
+
+  return parsed;
+}
+
+function toProtoSnapshotCursor(value: {
+  changedAt: string;
+  changeId: string;
+}): VfsSnapshotCursorProto {
+  return {
+    changedAt: value.changedAt,
+    changeId: value.changeId
+  };
+}
+
+export function toProtoVfsCrdtSnapshotResponse(
+  response: VfsCrdtRematerializationSnapshot
+): VfsCrdtSnapshotProtoResponse {
+  const parsed: VfsCrdtSnapshotProtoResponse = {
+    replaySnapshot: {
+      acl: response.replaySnapshot.acl.map((entry) => ({
+        itemId: entry.itemId,
+        principalType: entry.principalType,
+        principalId: entry.principalId,
+        accessLevel: entry.accessLevel
+      })),
+      links: response.replaySnapshot.links.map((entry) => ({
+        parentId: entry.parentId,
+        childId: entry.childId
+      }))
+    },
+    containerClocks: response.containerClocks.map((entry) => ({
+      containerId: entry.containerId,
+      changedAt: entry.changedAt,
+      changeId: entry.changeId
+    })),
+    snapshotUpdatedAt: response.snapshotUpdatedAt
+  };
+
+  if (response.replaySnapshot.cursor) {
+    parsed.replaySnapshot.cursor = toProtoSnapshotCursor(
+      response.replaySnapshot.cursor
+    );
+  }
+
+  if (response.reconcileState) {
+    parsed.reconcileState = {
+      cursor: toProtoSnapshotCursor(response.reconcileState.cursor),
+      lastReconciledWriteIds: response.reconcileState.lastReconciledWriteIds
+    };
   }
 
   return parsed;
