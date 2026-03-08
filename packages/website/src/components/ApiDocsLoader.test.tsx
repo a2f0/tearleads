@@ -43,17 +43,19 @@ describe('ApiDocsLoader', () => {
   });
 
   it('renders docs when openapi payload is valid', async () => {
-    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
-      ok: true,
-      json: async () => ({
-        openapi: '3.0.0',
-        info: {
-          title: 'Website API Docs',
-          version: '1.0.0'
-        },
-        paths: {}
+    const fetchMock = vi.fn(
+      async (): Promise<MockFetchResponse> => ({
+        ok: true,
+        json: async () => ({
+          openapi: '3.0.0',
+          info: {
+            title: 'Website API Docs',
+            version: '1.0.0'
+          },
+          paths: {}
+        })
       })
-    }));
+    );
     stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
@@ -65,10 +67,12 @@ describe('ApiDocsLoader', () => {
   });
 
   it('shows error when response is not ok', async () => {
-    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
-      ok: false,
-      json: async () => ({})
-    }));
+    const fetchMock = vi.fn(
+      async (): Promise<MockFetchResponse> => ({
+        ok: false,
+        json: async () => ({})
+      })
+    );
     stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
@@ -79,14 +83,16 @@ describe('ApiDocsLoader', () => {
   });
 
   it('shows error when payload is not an OpenAPI doc', async () => {
-    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
-      ok: true,
-      json: async () => ({
-        info: {
-          title: 'Missing openapi field'
-        }
+    const fetchMock = vi.fn(
+      async (): Promise<MockFetchResponse> => ({
+        ok: true,
+        json: async () => ({
+          info: {
+            title: 'Missing openapi field'
+          }
+        })
       })
-    }));
+    );
     stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
@@ -137,13 +143,15 @@ describe('ApiDocsLoader', () => {
     let resolveJson = (_value: unknown): void => {
       throw new Error('Expected JSON resolver to be initialized');
     };
-    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
-      ok: true,
-      json: () =>
-        new Promise((resolve) => {
-          resolveJson = resolve;
-        })
-    }));
+    const fetchMock = vi.fn(
+      async (): Promise<MockFetchResponse> => ({
+        ok: true,
+        json: () =>
+          new Promise((resolve) => {
+            resolveJson = resolve;
+          })
+      })
+    );
     stubFetch(fetchMock);
 
     const { unmount } = render(<ApiDocsLoader />);
