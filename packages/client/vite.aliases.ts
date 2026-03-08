@@ -54,10 +54,6 @@ export const createViteAliases = (
       dirname,
       '../vehicles/src/lib/vehiclesDb.ts'
     ),
-    '@tearleads/vehicles/vehiclesState': path.resolve(
-      dirname,
-      '../vehicles/src/lib/vehiclesState.ts'
-    ),
     '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
     // Workspace packages aliased to source for HMR
     '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),

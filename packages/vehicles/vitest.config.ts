@@ -17,8 +17,7 @@ export default mergeConfig(
         exclude: [
           'src/**/*.test.ts',
           'src/index.ts',
-          'src/**/index.ts',
-          'src/lib/vehiclesState.ts'
+          'src/**/index.ts'
         ],
         thresholds: {
           statements: 88,

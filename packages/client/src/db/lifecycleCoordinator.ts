@@ -1,5 +1,4 @@
 import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
-import { setVehiclesAdapter } from '@tearleads/vehicles/vehiclesState';
 import { getKeyManagerForInstance } from './crypto';
 import { _getAdapterInstance, _setDatabaseInstance } from './state';
 
@@ -19,7 +18,6 @@ export async function runWithDatabaseLifecycleLock<T>(
 export function markDatabaseServicesUnavailable(): void {
   _setDatabaseInstance(null);
   setAnalyticsAdapter(null);
-  setVehiclesAdapter(null);
 }
 
 export async function closeDatabaseForInstance(

@@ -14,10 +14,6 @@
       "types": "./src/lib/vehiclesDb.ts",
       "import": "./src/lib/vehiclesDb.ts"
     },
-    "./vehiclesState": {
-      "types": "./src/lib/vehiclesState.ts",
-      "import": "./src/lib/vehiclesState.ts"
-    },
     "./package.json": "./package.json"
   },
   "files": [
