@@ -55,7 +55,7 @@ function ensureRootAdmin(authorization: ScopedAdminAccess): void {
   }
 }
 
-function parseUpdateUserPayload(
+function normalizeUpdateUserPayload(
   input: OptionalWithUndefined<AdminUserUpdatePayload>
 ): AdminUserUpdatePayload | null {
   const normalized = Object.fromEntries(
@@ -270,7 +270,7 @@ export async function updateUserDirect(
   );
   ensureRootAdmin(authorization);
 
-  const updates = parseUpdateUserPayload(payload);
+  const updates = normalizeUpdateUserPayload(payload);
   if (!updates) {
     throw new ConnectError('Invalid user update payload', Code.InvalidArgument);
   }
