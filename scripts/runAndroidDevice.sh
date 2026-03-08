@@ -10,7 +10,11 @@ PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 cd "$SCRIPT_DIR/../packages/client"
 
-PACKAGE_ID="com.tearleads.app"
+PACKAGE_ID=$(awk -F '[<>]' '/package_name/ {print $3}' android/app/src/main/res/values/strings.xml)
+if [ -z "$PACKAGE_ID" ]; then
+  echo "Error: Could not determine PACKAGE_ID from android/app/src/main/res/values/strings.xml" >&2
+  exit 1
+fi
 
 # Auto-detect a connected physical device, or accept a device serial as an argument
 if [ -n "${1:-}" ]; then
@@ -29,8 +33,8 @@ else
     exit 1
   fi
   DEVICE_SERIAL=$(echo "$DEVICE_LINE" | awk '{print $1}')
-  DEVICE_MODEL=$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.model 2>/dev/null || echo "unknown")
-  echo "Detected device: $DEVICE_MODEL ($DEVICE_SERIAL)"
+  DEVICE_MODEL=$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.model 2>/dev/null)
+  echo "Detected device: ${DEVICE_MODEL:-unknown} ($DEVICE_SERIAL)"
 fi
 
 # Download gradle wrapper if needed (script exits early if already present)
