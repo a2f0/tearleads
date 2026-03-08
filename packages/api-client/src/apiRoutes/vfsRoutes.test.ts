@@ -60,6 +60,63 @@ describe('vfsRoutes', () => {
     );
   });
 
+  it('parses GetSync envelope responses', async () => {
+    requestMock.mockResolvedValueOnce({
+      json: JSON.stringify({
+        items: [],
+        nextCursor: null,
+        hasMore: false
+      })
+    });
+
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+  });
+
+  it('returns typed GetCrdtSync responses directly', async () => {
+    requestMock.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'desktop-1',
+          itemId: 'item-1',
+          opType: 'acl_add',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read',
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'user-1:desktop:1:desktop-1',
+          occurredAt: '2026-03-08T00:00:00.000Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 1
+      }
+    });
+
+    await expect(vfsRoutes.getCrdtSync()).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          opId: 'desktop-1',
+          itemId: 'item-1',
+          opType: 'acl_add'
+        })
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 1
+      }
+    });
+  });
+
   it('routes share-target search through Connect', async () => {
     await vfsRoutes.searchShareTargets('alice');
     await vfsRoutes.searchShareTargets('bob', 'user');
