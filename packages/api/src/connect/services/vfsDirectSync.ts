@@ -36,12 +36,11 @@ import {
   type VfsCrdtSyncProtoResponse,
   type VfsSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
 
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
-type JsonRequest = { json: string };
+type ReconcileSyncRequest = { clientId: string; cursor: string };
 
 interface ReconcileRow {
   last_reconciled_at: Date | string;
@@ -351,7 +350,7 @@ export async function getCrdtSnapshotDirect(
 }
 
 export async function reconcileSyncDirect(
-  request: JsonRequest,
+  request: ReconcileSyncRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
@@ -360,9 +359,10 @@ export async function reconcileSyncDirect(
     { requireDeclaredOrganization: true }
   );
 
-  const parsedPayload = parseVfsSyncReconcilePayload(
-    parseJsonBody(request.json)
-  );
+  const parsedPayload = parseVfsSyncReconcilePayload({
+    clientId: request.clientId,
+    cursor: request.cursor
+  });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }

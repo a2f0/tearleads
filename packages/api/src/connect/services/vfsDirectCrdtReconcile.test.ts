@@ -49,7 +49,10 @@ describe('vfsDirectCrdtReconcile', () => {
     await expect(
       reconcileCrdtDirect(
         {
-          json: '{}'
+          organizationId: '',
+          clientId: '',
+          cursor: '',
+          lastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()
@@ -71,11 +74,10 @@ describe('vfsDirectCrdtReconcile', () => {
     await expect(
       reconcileCrdtDirect(
         {
-          json: JSON.stringify({
-            clientId: 'bad:client',
-            cursor,
-            lastReconciledWriteIds: {}
-          })
+          organizationId: '',
+          clientId: 'bad:client',
+          cursor,
+          lastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()
@@ -106,11 +108,9 @@ describe('vfsDirectCrdtReconcile', () => {
     await reconcileCrdtDirect(
       {
         organizationId: 'org-1',
-        json: JSON.stringify({
-          clientId: 'desktop-1',
-          cursor: inputCursor,
-          lastReconciledWriteIds: { replicaA: 5 }
-        })
+        clientId: 'desktop-1',
+        cursor: inputCursor,
+        lastReconciledWriteIds: { replicaA: 5 }
       },
       {
         requestHeader: new Headers()
@@ -145,11 +145,10 @@ describe('vfsDirectCrdtReconcile', () => {
 
     const response = await reconcileCrdtDirect(
       {
-        json: JSON.stringify({
-          clientId: 'desktop-1',
-          cursor: inputCursor,
-          lastReconciledWriteIds: { replicaA: 5 }
-        })
+        organizationId: '',
+        clientId: 'desktop-1',
+        cursor: inputCursor,
+        lastReconciledWriteIds: { replicaA: 5 }
       },
       {
         requestHeader: new Headers()
@@ -178,11 +177,10 @@ describe('vfsDirectCrdtReconcile', () => {
     await expect(
       reconcileCrdtDirect(
         {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            cursor: inputCursor,
-            lastReconciledWriteIds: {}
-          })
+          organizationId: '',
+          clientId: 'desktop-1',
+          cursor: inputCursor,
+          lastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()
@@ -205,11 +203,10 @@ describe('vfsDirectCrdtReconcile', () => {
     await expect(
       reconcileCrdtDirect(
         {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            cursor: inputCursor,
-            lastReconciledWriteIds: {}
-          })
+          organizationId: '',
+          clientId: 'desktop-1',
+          cursor: inputCursor,
+          lastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()
@@ -232,11 +229,10 @@ describe('vfsDirectCrdtReconcile', () => {
     await expect(
       reconcileCrdtDirect(
         {
-          json: JSON.stringify({
-            clientId: 'desktop-1',
-            cursor: inputCursor,
-            lastReconciledWriteIds: {}
-          })
+          organizationId: '',
+          clientId: 'desktop-1',
+          cursor: inputCursor,
+          lastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()

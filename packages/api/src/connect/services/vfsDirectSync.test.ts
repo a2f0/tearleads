@@ -371,7 +371,8 @@ describe('vfsDirectSync', () => {
     await expect(
       reconcileSyncDirect(
         {
-          json: '{}'
+          clientId: '',
+          cursor: ''
         },
         {
           requestHeader: new Headers()
@@ -393,10 +394,8 @@ describe('vfsDirectSync', () => {
     await expect(
       reconcileSyncDirect(
         {
-          json: JSON.stringify({
-            clientId: 'bad:client',
-            cursor
-          })
+          clientId: 'bad:client',
+          cursor
         },
         {
           requestHeader: new Headers()
@@ -419,10 +418,8 @@ describe('vfsDirectSync', () => {
     await expect(
       reconcileSyncDirect(
         {
-          json: JSON.stringify({
-            clientId: 'client-1',
-            cursor: inputCursor
-          })
+          clientId: 'client-1',
+          cursor: inputCursor
         },
         {
           requestHeader: new Headers()
@@ -450,10 +447,8 @@ describe('vfsDirectSync', () => {
 
     const response = await reconcileSyncDirect(
       {
-        json: JSON.stringify({
-          clientId: 'client-1',
-          cursor: inputCursor
-        })
+        clientId: 'client-1',
+        cursor: inputCursor
       },
       {
         requestHeader: new Headers()
@@ -479,10 +474,8 @@ describe('vfsDirectSync', () => {
     await expect(
       reconcileSyncDirect(
         {
-          json: JSON.stringify({
-            clientId: 'client-1',
-            cursor: inputCursor
-          })
+          clientId: 'client-1',
+          cursor: inputCursor
         },
         {
           requestHeader: new Headers()

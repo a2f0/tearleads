@@ -295,21 +295,17 @@ describe('VfsHttpCrdtSyncTransport', () => {
       'reconcile request'
     );
     expect(requestBody['organizationId']).toBe('org-1');
-    const decodedBody = parseConnectEnvelopeBody(
-      requestBody,
-      'reconcile request'
-    );
     const requestHeaders = new Headers(requestInit?.headers);
     expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
 
-    expect(decodedBody['clientId']).toBe('desktop');
-    expect(decodedBody['cursor']).toBe(
+    expect(requestBody['clientId']).toBe('desktop');
+    expect(requestBody['cursor']).toBe(
       encodeVfsSyncCursor({
         changedAt: '2026-02-14T20:10:04.000Z',
         changeId: 'desktop-4'
       })
     );
-    expect(decodedBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
+    expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
   });
 
   it('runs unified sync session over Connect and parses typed results', async () => {

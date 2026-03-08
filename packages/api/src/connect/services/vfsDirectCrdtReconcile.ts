@@ -8,11 +8,12 @@ import {
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
-import { parseJsonBody } from './vfsDirectJson.js';
 
-interface JsonRequest {
-  organizationId?: string | null;
-  json: string;
+interface ReconcileCrdtRequest {
+  organizationId: string;
+  clientId: string;
+  cursor: string;
+  lastReconciledWriteIds: Record<string, number>;
 }
 
 interface ReconcileRow {
@@ -26,21 +27,25 @@ function toScopedCrdtClientId(clientId: string): string {
 }
 
 export async function reconcileCrdtDirect(
-  request: JsonRequest,
+  request: ReconcileCrdtRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtReconcileResponse> {
+  const declaredOrganizationId = request.organizationId.trim();
   const claims = await requireVfsClaims(
     '/vfs/crdt/reconcile',
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
-      declaredOrganizationId: request.organizationId ?? null
+      declaredOrganizationId:
+        declaredOrganizationId.length > 0 ? declaredOrganizationId : null
     }
   );
 
-  const parsedPayload = parseVfsCrdtReconcilePayload(
-    parseJsonBody(request.json)
-  );
+  const parsedPayload = parseVfsCrdtReconcilePayload({
+    clientId: request.clientId,
+    cursor: request.cursor,
+    lastReconciledWriteIds: request.lastReconciledWriteIds
+  });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }

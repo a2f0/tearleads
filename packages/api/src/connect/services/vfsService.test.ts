@@ -155,20 +155,6 @@ vi.mock('./vfsDirectSync.js', () => ({
 
 import { vfsConnectService } from './vfsService.js';
 
-type DirectJsonMock = {
-  mockReset: () => void;
-  mockResolvedValue: (value: { json: string }) => void;
-  mock: {
-    calls: unknown[][];
-  };
-};
-type DirectCallCase = {
-  call: () => Promise<unknown>;
-  expectedRequest: unknown;
-  expectedResponse?: unknown;
-  mock: ReturnType<typeof vi.fn>;
-};
-
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -178,7 +164,7 @@ function createContext() {
   };
 }
 
-function resetDirectJsonMocks(): DirectJsonMock[] {
+function resetDirectJsonMocks() {
   return [
     abandonBlobDirectMock,
     attachBlobDirectMock,
@@ -311,14 +297,18 @@ describe('vfsConnectService', () => {
       body: 'Hello'
     };
     const reconcileSyncRequest = {
-      json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x"}'
+      clientId: 'client-1',
+      cursor: 'MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x'
     };
     const pushCrdtOpsRequest = {
       organizationId: 'org-1',
       json: '{"clientId":"client-1","operations":[]}'
     };
     const reconcileCrdtRequest = {
-      json: '{"clientId":"client-1","cursor":"MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x","lastReconciledWriteIds":{}}'
+      organizationId: 'org-1',
+      clientId: 'client-1',
+      cursor: 'MjAyNi0wMy0wM1QwMDowMDowMC4wMDBafGNoYW5nZS0x',
+      lastReconciledWriteIds: {}
     };
     const runCrdtSessionRequest = {
       organizationId: 'org-1',
@@ -326,7 +316,7 @@ describe('vfsConnectService', () => {
     };
     const defaultDirectJsonResponse = { json: '{"ok":true}' };
 
-    const directCases: DirectCallCase[] = [
+    const directCases = [
       {
         call: () => vfsConnectService.register(registerRequest, context),
         expectedRequest: registerRequest,

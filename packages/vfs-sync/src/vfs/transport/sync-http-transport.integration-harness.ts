@@ -391,8 +391,7 @@ export function createServerBackedFetch(
       url.pathname === `${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt` &&
       (init?.method ?? 'POST') === 'POST'
     ) {
-      const requestBody = await readRequestJson(init);
-      const body = parseConnectJsonPayload(requestBody, 'reconcile request');
+      const body = await readRequestJson(init);
 
       const cursorRaw = parseRequiredString(body['cursor'], 'cursor');
       const cursor = decodeVfsSyncCursor(cursorRaw);
