@@ -105,7 +105,20 @@ describe('vfsDirectBlobStageUpload', () => {
         blobId: 'blob-1',
         expiresAt: '2099-01-01T00:00:00.000Z',
         dataBase64: 'ZGF0YQ==',
-        contentType: 'application/octet-stream'
+        contentType: 'application/octet-stream',
+        encryption: {
+          algorithm: 'xchacha20poly1305',
+          keyEpoch: 3,
+          manifestHash: 'manifest-hash',
+          chunkCount: 1,
+          chunkSizeBytes: 4096,
+          plaintextSizeBytes: 4,
+          ciphertextSizeBytes: 20,
+          checkpoint: {
+            uploadId: 'upload-1',
+            nextChunkIndex: 0
+          }
+        }
       },
       {
         requestHeader: new Headers()

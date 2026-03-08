@@ -7,6 +7,23 @@ export type StageBlobRequest = {
   stagingId?: string | null;
   dataBase64?: string | null;
   contentType?: string | null;
+  encryption?: StageBlobEncryptionRequest | null;
+};
+
+export type StageBlobUploadCheckpointRequest = {
+  uploadId: string;
+  nextChunkIndex: number;
+};
+
+export type StageBlobEncryptionRequest = {
+  algorithm: string;
+  keyEpoch: number;
+  manifestHash: string;
+  chunkCount: number;
+  chunkSizeBytes: number;
+  plaintextSizeBytes: number;
+  ciphertextSizeBytes: number;
+  checkpoint?: StageBlobUploadCheckpointRequest | null;
 };
 
 export type StagingIdRequest = { stagingId: string };
