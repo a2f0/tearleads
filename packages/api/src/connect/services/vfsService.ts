@@ -1,8 +1,9 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  VfsKeySetupRequest,
-  VfsRegisterRequest,
-  VfsRekeyRequest
+import {
+  isRecord,
+  type VfsKeySetupRequest,
+  type VfsRegisterRequest,
+  type VfsRekeyRequest
 } from '@tearleads/shared';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
@@ -42,18 +43,20 @@ import {
 } from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
-type RegisterRequest = {
+type RegisterLegacyRequest = {
   id: string;
   objectType: string;
   encryptedSessionKey: string;
   encryptedName?: string;
 };
-type RekeyItemRequest = {
+type RegisterRpcRequest = RegisterLegacyRequest | { json: string };
+type RekeyItemLegacyRequest = {
   itemId: string;
   reason: string;
   newEpoch: number;
   wrappedKeys: VfsRekeyRequest['wrappedKeys'];
 };
+type RekeyItemRpcRequest = RekeyItemLegacyRequest | { itemId: string; json: string };
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };
@@ -83,9 +86,13 @@ type EmailIdRequest = { id: string };
 type RekeyItemDirectRequest = { itemId: string } & VfsRekeyRequest;
 
 function parseRegisterDirectRequest(
-  request: RegisterRequest
+  request: RegisterRpcRequest
 ): VfsRegisterRequest {
-  const payload = parseRegisterPayload(request);
+  const requestPayload: unknown =
+    'json' in request
+      ? parseJsonRecord(request.json, 'register payload')
+      : request;
+  const payload = parseRegisterPayload(requestPayload);
   if (!payload) {
     throw new ConnectError(
       'id, objectType, and encryptedSessionKey are required',
@@ -96,10 +103,42 @@ function parseRegisterDirectRequest(
   return payload;
 }
 
+function parseJsonRecord(
+  json: string,
+  contextLabel: string
+): Record<string, unknown> {
+  if (!json.trim()) {
+    throw new ConnectError(`${contextLabel} is required`, Code.InvalidArgument);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new ConnectError(
+      `${contextLabel} must be valid JSON`,
+      Code.InvalidArgument
+    );
+  }
+
+  if (!isRecord(parsed)) {
+    throw new ConnectError(
+      `${contextLabel} must be a JSON object`,
+      Code.InvalidArgument
+    );
+  }
+
+  return parsed;
+}
+
 function parseRekeyItemDirectRequest(
-  request: RekeyItemRequest
+  request: RekeyItemRpcRequest
 ): RekeyItemDirectRequest {
-  const payload = parseRekeyPayload(request);
+  const payloadInput: unknown =
+    'json' in request
+      ? parseJsonRecord(request.json, 'rekeyItem payload')
+      : request;
+  const payload = parseRekeyPayload(payloadInput);
   if (!payload) {
     throw new ConnectError(
       'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.',
@@ -121,7 +160,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => setupKeysDirect(request, context),
   register: async (
-    request: RegisterRequest,
+    request: RegisterRpcRequest,
     context: { requestHeader: Headers }
   ) => registerDirect(parseRegisterDirectRequest(request), context),
   getBlob: async (
@@ -153,7 +192,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => commitBlobDirect(request, context),
   rekeyItem: async (
-    request: RekeyItemRequest,
+    request: RekeyItemRpcRequest,
     context: { requestHeader: Headers }
   ) => rekeyItemDirect(parseRekeyItemDirectRequest(request), context),
   pushCrdtOps: async (
