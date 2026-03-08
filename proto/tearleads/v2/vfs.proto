@@ -79,8 +79,29 @@ message VfsDeleteBlobResponse {
   string blob_id = 2;
 }
 
+message VfsBlobStageUploadCheckpoint {
+  string upload_id = 1;
+  int32 next_chunk_index = 2;
+}
+
+message VfsBlobStageEncryption {
+  string algorithm = 1;
+  int32 key_epoch = 2;
+  string manifest_hash = 3;
+  int32 chunk_count = 4;
+  int32 chunk_size_bytes = 5;
+  int32 plaintext_size_bytes = 6;
+  int32 ciphertext_size_bytes = 7;
+  optional VfsBlobStageUploadCheckpoint checkpoint = 8;
+}
+
 message VfsStageBlobRequest {
-  string json = 1;
+  string blob_id = 1;
+  string expires_at = 2;
+  optional string staging_id = 3;
+  optional string data_base64 = 4;
+  optional string content_type = 5;
+  optional VfsBlobStageEncryption encryption = 6;
 }
 
 message VfsStageBlobResponse {
@@ -93,7 +114,14 @@ message VfsStageBlobResponse {
 
 message VfsUploadBlobChunkRequest {
   string staging_id = 1;
-  string json = 2;
+  string upload_id = 2;
+  int32 chunk_index = 3;
+  bool is_final = 4;
+  string nonce = 5;
+  string aad_hash = 6;
+  string ciphertext_base64 = 7;
+  int32 plaintext_length = 8;
+  int32 ciphertext_length = 9;
 }
 
 message VfsUploadBlobChunkResponse {
@@ -105,7 +133,11 @@ message VfsUploadBlobChunkResponse {
 
 message VfsAttachBlobRequest {
   string staging_id = 1;
-  string json = 2;
+  string item_id = 2;
+  optional string relation_kind = 3;
+  optional string client_id = 4;
+  optional string required_cursor = 5;
+  map<string, int32> required_last_reconciled_write_ids = 6;
 }
 
 message VfsAttachBlobResponse {
@@ -120,7 +152,6 @@ message VfsAttachBlobResponse {
 
 message VfsAbandonBlobRequest {
   string staging_id = 1;
-  string json = 2;
 }
 
 message VfsAbandonBlobResponse {
@@ -131,7 +162,13 @@ message VfsAbandonBlobResponse {
 
 message VfsCommitBlobRequest {
   string staging_id = 1;
-  string json = 2;
+  string upload_id = 2;
+  int32 key_epoch = 3;
+  string manifest_hash = 4;
+  string manifest_signature = 5;
+  int32 chunk_count = 6;
+  int32 total_plaintext_bytes = 7;
+  int32 total_ciphertext_bytes = 8;
 }
 
 message VfsCommitBlobResponse {

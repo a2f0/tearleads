@@ -7,21 +7,23 @@ interface ObservedRequest {
   body: unknown;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function parseNestedJsonBody(body: unknown): Record<string, unknown> {
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    Array.isArray(body) ||
-    typeof (body as { json?: unknown }).json !== 'string'
-  ) {
+  if (!isRecord(body)) {
     return {};
   }
 
+  const nestedJson = body['json'];
+  if (typeof nestedJson !== 'string') {
+    return body;
+  }
+
   try {
-    return JSON.parse((body as { json: string }).json) as Record<
-      string,
-      unknown
-    >;
+    const parsed = JSON.parse(nestedJson);
+    return isRecord(parsed) ? parsed : {};
   } catch {
     return {};
   }

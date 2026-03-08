@@ -87,8 +87,7 @@ describe('vfsDirectBlobFinalize coverage', () => {
     await expect(
       abandonBlobDirect(
         {
-          stagingId: ' ',
-          json: '{}'
+          stagingId: ' '
         },
         {
           requestHeader: new Headers()
@@ -115,8 +114,7 @@ describe('vfsDirectBlobFinalize coverage', () => {
     await expect(
       abandonBlobDirect(
         {
-          stagingId: 'stage-1',
-          json: '{}'
+          stagingId: 'stage-1'
         },
         {
           requestHeader: new Headers()
@@ -144,8 +142,7 @@ describe('vfsDirectBlobFinalize coverage', () => {
     await expect(
       abandonBlobDirect(
         {
-          stagingId: 'stage-1',
-          json: '{}'
+          stagingId: 'stage-1'
         },
         {
           requestHeader: new Headers()
@@ -174,8 +171,7 @@ describe('vfsDirectBlobFinalize coverage', () => {
     await expect(
       abandonBlobDirect(
         {
-          stagingId: 'stage-1',
-          json: '{}'
+          stagingId: 'stage-1'
         },
         {
           requestHeader: new Headers()
@@ -191,7 +187,13 @@ describe('vfsDirectBlobFinalize coverage', () => {
       commitBlobDirect(
         {
           stagingId: ' ',
-          json: '{}'
+          uploadId: '',
+          keyEpoch: 0,
+          manifestHash: '',
+          manifestSignature: '',
+          chunkCount: 0,
+          totalPlaintextBytes: -1,
+          totalCiphertextBytes: -1
         },
         {
           requestHeader: new Headers()
@@ -217,15 +219,13 @@ describe('vfsDirectBlobFinalize coverage', () => {
       commitBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            keyEpoch: 1,
-            manifestHash: 'hash-1',
-            manifestSignature: 'sig-1',
-            chunkCount: 1,
-            totalPlaintextBytes: 4,
-            totalCiphertextBytes: 4
-          })
+          uploadId: 'upload-1',
+          keyEpoch: 1,
+          manifestHash: 'hash-1',
+          manifestSignature: 'sig-1',
+          chunkCount: 1,
+          totalPlaintextBytes: 4,
+          totalCiphertextBytes: 4
         },
         {
           requestHeader: new Headers()
@@ -260,15 +260,13 @@ describe('vfsDirectBlobFinalize coverage', () => {
       commitBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            keyEpoch: 1,
-            manifestHash: 'hash-1',
-            manifestSignature: 'sig-1',
-            chunkCount: 1,
-            totalPlaintextBytes: 4,
-            totalCiphertextBytes: 4
-          })
+          uploadId: 'upload-1',
+          keyEpoch: 1,
+          manifestHash: 'hash-1',
+          manifestSignature: 'sig-1',
+          chunkCount: 1,
+          totalPlaintextBytes: 4,
+          totalCiphertextBytes: 4
         },
         {
           requestHeader: new Headers()
@@ -303,15 +301,13 @@ describe('vfsDirectBlobFinalize coverage', () => {
       commitBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            keyEpoch: 1,
-            manifestHash: 'hash-1',
-            manifestSignature: 'sig-1',
-            chunkCount: 1,
-            totalPlaintextBytes: 4,
-            totalCiphertextBytes: 4
-          })
+          uploadId: 'upload-1',
+          keyEpoch: 1,
+          manifestHash: 'hash-1',
+          manifestSignature: 'sig-1',
+          chunkCount: 1,
+          totalPlaintextBytes: 4,
+          totalCiphertextBytes: 4
         },
         {
           requestHeader: new Headers()
@@ -347,15 +343,13 @@ describe('vfsDirectBlobFinalize coverage', () => {
       commitBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            keyEpoch: 1,
-            manifestHash: 'hash-1',
-            manifestSignature: 'sig-1',
-            chunkCount: 1,
-            totalPlaintextBytes: 4,
-            totalCiphertextBytes: 4
-          })
+          uploadId: 'upload-1',
+          keyEpoch: 1,
+          manifestHash: 'hash-1',
+          manifestSignature: 'sig-1',
+          chunkCount: 1,
+          totalPlaintextBytes: 4,
+          totalCiphertextBytes: 4
         },
         {
           requestHeader: new Headers()

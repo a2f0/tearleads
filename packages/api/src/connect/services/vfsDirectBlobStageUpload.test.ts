@@ -101,13 +101,11 @@ describe('vfsDirectBlobStageUpload', () => {
 
     const response = await stageBlobDirect(
       {
-        json: JSON.stringify({
-          stagingId: 'stage-1',
-          blobId: 'blob-1',
-          expiresAt: '2099-01-01T00:00:00.000Z',
-          dataBase64: 'ZGF0YQ==',
-          contentType: 'application/octet-stream'
-        })
+        stagingId: 'stage-1',
+        blobId: 'blob-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        dataBase64: 'ZGF0YQ==',
+        contentType: 'application/octet-stream'
       },
       {
         requestHeader: new Headers()
@@ -133,7 +131,8 @@ describe('vfsDirectBlobStageUpload', () => {
     await expect(
       stageBlobDirect(
         {
-          json: '{}'
+          blobId: '',
+          expiresAt: ''
         },
         {
           requestHeader: new Headers()
@@ -148,10 +147,8 @@ describe('vfsDirectBlobStageUpload', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            blobId: 'blob-1',
-            expiresAt: '2000-01-01T00:00:00.000Z'
-          })
+          blobId: 'blob-1',
+          expiresAt: '2000-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -175,11 +172,9 @@ describe('vfsDirectBlobStageUpload', () => {
     await expect(
       stageBlobDirect(
         {
-          json: JSON.stringify({
-            stagingId: 'stage-1',
-            blobId: 'blob-1',
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          })
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
         },
         {
           requestHeader: new Headers()
@@ -205,16 +200,14 @@ describe('vfsDirectBlobStageUpload', () => {
     const response = await uploadBlobChunkDirect(
       {
         stagingId: 'stage-1',
-        json: JSON.stringify({
-          uploadId: 'upload-1',
-          chunkIndex: 0,
-          isFinal: true,
-          nonce: 'nonce-1',
-          aadHash: 'aad-1',
-          ciphertextBase64: 'ZGF0YQ==',
-          plaintextLength: 4,
-          ciphertextLength: 4
-        })
+        uploadId: 'upload-1',
+        chunkIndex: 0,
+        isFinal: true,
+        nonce: 'nonce-1',
+        aadHash: 'aad-1',
+        ciphertextBase64: 'ZGF0YQ==',
+        plaintextLength: 4,
+        ciphertextLength: 4
       },
       {
         requestHeader: new Headers()
@@ -246,7 +239,14 @@ describe('vfsDirectBlobStageUpload', () => {
       uploadBlobChunkDirect(
         {
           stagingId: 'stage-1',
-          json: '{}'
+          uploadId: '',
+          chunkIndex: -1,
+          isFinal: true,
+          nonce: '',
+          aadHash: '',
+          ciphertextBase64: '',
+          plaintextLength: -1,
+          ciphertextLength: -1
         },
         {
           requestHeader: new Headers()
@@ -267,16 +267,14 @@ describe('vfsDirectBlobStageUpload', () => {
       uploadBlobChunkDirect(
         {
           stagingId: 'stage-missing',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            chunkIndex: 0,
-            isFinal: true,
-            nonce: 'nonce-1',
-            aadHash: 'aad-1',
-            ciphertextBase64: 'ZGF0YQ==',
-            plaintextLength: 4,
-            ciphertextLength: 4
-          })
+          uploadId: 'upload-1',
+          chunkIndex: 0,
+          isFinal: true,
+          nonce: 'nonce-1',
+          aadHash: 'aad-1',
+          ciphertextBase64: 'ZGF0YQ==',
+          plaintextLength: 4,
+          ciphertextLength: 4
         },
         {
           requestHeader: new Headers()
@@ -303,16 +301,14 @@ describe('vfsDirectBlobStageUpload', () => {
       uploadBlobChunkDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            uploadId: 'upload-1',
-            chunkIndex: 0,
-            isFinal: true,
-            nonce: 'nonce-1',
-            aadHash: 'aad-1',
-            ciphertextBase64: 'ZGF0YQ==',
-            plaintextLength: 4,
-            ciphertextLength: 4
-          })
+          uploadId: 'upload-1',
+          chunkIndex: 0,
+          isFinal: true,
+          nonce: 'nonce-1',
+          aadHash: 'aad-1',
+          ciphertextBase64: 'ZGF0YQ==',
+          plaintextLength: 4,
+          ciphertextLength: 4
         },
         {
           requestHeader: new Headers()

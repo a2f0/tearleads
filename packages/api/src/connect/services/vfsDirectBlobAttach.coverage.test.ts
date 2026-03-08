@@ -80,7 +80,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -111,7 +111,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -142,7 +142,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -174,7 +174,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -218,7 +218,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -272,7 +272,8 @@ describe('vfsDirectBlobAttach coverage', () => {
     const response = await attachBlobDirect(
       {
         stagingId: 'stage-1',
-        json: '{"itemId":"item-1","relationKind":"file"}'
+        itemId: 'item-1',
+        relationKind: 'file'
       },
       {
         requestHeader: new Headers()
@@ -300,7 +301,7 @@ describe('vfsDirectBlobAttach coverage', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()

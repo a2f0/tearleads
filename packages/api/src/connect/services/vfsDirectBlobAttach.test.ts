@@ -66,7 +66,7 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: ' ',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -83,7 +83,7 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{}'
+          itemId: ''
         },
         {
           requestHeader: new Headers()
@@ -99,10 +99,8 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            itemId: 'item-1',
-            clientId: 'client-1'
-          })
+          itemId: 'item-1',
+          clientId: 'client-1'
         },
         {
           requestHeader: new Headers()
@@ -123,7 +121,7 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-missing',
-          json: '{"itemId":"item-1"}'
+          itemId: 'item-1'
         },
         {
           requestHeader: new Headers()
@@ -169,7 +167,7 @@ describe('vfsDirectBlobAttach', () => {
     const response = await attachBlobDirect(
       {
         stagingId: 'stage-1',
-        json: '{"itemId":"item-1"}'
+        itemId: 'item-1'
       },
       {
         requestHeader: new Headers()
@@ -214,12 +212,10 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: JSON.stringify({
-            itemId: 'item-1',
-            clientId: 'client-1',
-            requiredCursor,
-            requiredLastReconciledWriteIds: {}
-          })
+          itemId: 'item-1',
+          clientId: 'client-1',
+          requiredCursor,
+          requiredLastReconciledWriteIds: {}
         },
         {
           requestHeader: new Headers()
@@ -274,7 +270,8 @@ describe('vfsDirectBlobAttach', () => {
       attachBlobDirect(
         {
           stagingId: 'stage-1',
-          json: '{"itemId":"item-1","relationKind":"file"}'
+          itemId: 'item-1',
+          relationKind: 'file'
         },
         {
           requestHeader: new Headers()
