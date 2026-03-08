@@ -8,7 +8,10 @@ import {
   AIUIProvider,
   type DecryptedConversation
 } from '@tearleads/ai';
-import type { DecryptedAiConversation } from '@tearleads/shared';
+import type {
+  DecryptedAiConversation,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { ModelSelector } from '@/components/ModelSelector';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -74,7 +77,7 @@ export function ClientAIProvider({
     ((value: string | null) => void) | null
   >(null);
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

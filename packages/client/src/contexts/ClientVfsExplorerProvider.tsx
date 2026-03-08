@@ -15,6 +15,7 @@ import {
   DesktopContextMenuSeparator as ContextMenuSeparator,
   DesktopFloatingWindow as FloatingWindow
 } from '@tearleads/window-manager';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
 import { Button } from '@/components/ui/button';
@@ -65,7 +66,7 @@ export function ClientVfsExplorerProvider({
   const orchestrator = useVfsOrchestratorInstance();
   const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

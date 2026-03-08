@@ -5,15 +5,15 @@
 
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
+import type {
+  HostRuntimeDatabaseState,
+  HostRuntimeTranslation
+} from '@tearleads/shared';
 
 /**
  * Database state
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * Load progress for model loading
@@ -204,7 +204,7 @@ export type AITranslationKey =
 /**
  * Translation function type
  */
-export type TranslationFunction = (key: AITranslationKey) => string;
+export type TranslationFunction = HostRuntimeTranslation<AITranslationKey>;
 
 /**
  * Image attachment operations

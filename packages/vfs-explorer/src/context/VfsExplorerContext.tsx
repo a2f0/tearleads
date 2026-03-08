@@ -2,6 +2,7 @@ import type { Database } from '@tearleads/db/sqlite';
 import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
+  HostRuntimeDatabaseState,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
   VfsOrgShare,
@@ -17,11 +18,7 @@ import { createContext, useContext } from 'react';
 /**
  * Database context state
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * VFS key management functions
