@@ -13,7 +13,7 @@ export default mergeConfig(
         reporter: ['text', 'json', 'json-summary', 'html'],
         reportsDirectory: './coverage',
         include: ['src/**/*.ts'],
-        exclude: ['src/**/*.test.ts'],
+        exclude: ['src/**/*.test.ts', 'src/test/**/*'],
         thresholds: {
           statements: 100,
           branches: 100,
