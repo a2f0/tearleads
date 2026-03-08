@@ -1,13 +1,6 @@
 variable "domain" {
-  description = "SES sender domain"
+  description = "SES sender domain (set via TF_VAR_domain)"
   type        = string
-  default     = "mail.tearleads.com"
-}
-
-variable "dns_domain" {
-  description = "Apex domain for Cloudflare zone lookup"
-  type        = string
-  default     = "tearleads.com"
 }
 
 variable "cloudflare_api_token" {
