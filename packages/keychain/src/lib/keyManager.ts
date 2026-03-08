@@ -218,30 +218,45 @@ export class KeyManager {
     if (!this.currentKey) return false;
     if (!this.storage) await this.initialize();
 
-    try {
-      const platform = detectPlatform();
-      const useExtractableKey =
-        platform === 'ios' || platform === 'android' || platform === 'electron';
+    const platform = detectPlatform();
+    const useExtractableKey =
+      platform === 'ios' || platform === 'android' || platform === 'electron';
+    const maxAttempts = platform === 'ios' || platform === 'android' ? 3 : 1;
 
-      // Generate appropriate wrapping key based on platform
-      // Mobile/Electron: extractable (stored in native secure storage)
-      // Web: non-extractable (stored in IndexedDB, can't export bytes)
-      const wrappingKey = useExtractableKey
-        ? await generateExtractableWrappingKey()
-        : await generateWrappingKey();
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        // Generate appropriate wrapping key based on platform
+        // Mobile/Electron: extractable (stored in native secure storage)
+        // Web: non-extractable (stored in IndexedDB, can't export bytes)
+        const wrappingKey = useExtractableKey
+          ? await generateExtractableWrappingKey()
+          : await generateWrappingKey();
 
-      // Wrap (encrypt) the database key
-      const wrappedKey = await wrapKey(this.currentKey, wrappingKey);
+        // Wrap (encrypt) the database key
+        const wrappedKey = await wrapKey(this.currentKey, wrappingKey);
 
-      // Store both keys using platform-appropriate storage
-      await this.storage?.setWrappingKey(wrappingKey);
-      await this.storage?.setWrappedKey(wrappedKey);
+        // Store both keys using platform-appropriate storage
+        await this.storage?.setWrappingKey(wrappingKey);
+        await this.storage?.setWrappedKey(wrappedKey);
 
-      return true;
-    } catch (err) {
-      console.error('Failed to persist session:', err);
-      return false;
+        return true;
+      } catch (err) {
+        console.error(
+          `Failed to persist session (attempt ${attempt}/${maxAttempts}):`,
+          err
+        );
+        try {
+          await this.storage?.clearSession();
+        } catch (clearError) {
+          console.warn(
+            'Failed to clear partial session state after persist error:',
+            clearError
+          );
+        }
+      }
     }
+
+    return false;
   }
 
   /**
