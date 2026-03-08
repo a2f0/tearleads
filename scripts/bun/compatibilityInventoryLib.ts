@@ -353,7 +353,7 @@ export function buildCompatibilityInventoryMarkdown(
     `- Packages with DOM/jsdom indicators: ${summary.packagesWithJsdomIndicators}`
   );
   lines.push(
-    `- Packages using high-risk Vitest APIs (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.waitFor\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
+    `- Packages using high-risk compatibility APIs/patterns (\`vi.hoisted\`, \`vi.importActual\`, \`vi.mock(importOriginal)\`, \`vi.waitFor\`, \`import.meta.glob\`, \`vi.resetModules\`): ${summary.packagesWithHighRiskVitestApis}`
   );
   lines.push('');
 
