@@ -469,4 +469,3 @@ describe('ClientAudioProvider', () => {
     expect(lastProviderProps.canShareFiles()).toBe(true);
   });
 });
-

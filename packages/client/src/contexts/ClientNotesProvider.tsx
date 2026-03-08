@@ -41,6 +41,7 @@ import {
   queueItemUpsertAndFlush
 } from '@/lib/vfsItemSyncWriter';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
+
 const notesUIComponents: NotesUIComponents = {
   Button,
   Input,

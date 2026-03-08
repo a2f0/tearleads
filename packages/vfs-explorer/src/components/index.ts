@@ -6,7 +6,6 @@ export {
   VFS_ROOT_ID
 } from '../constants';
 export { DeleteFolderDialog } from './DeleteFolderDialog';
-export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 export { FolderContextMenu } from './FolderContextMenu';
 export { ItemContextMenu } from './ItemContextMenu';
 export type { NewFolderDialogProps } from './NewFolderDialog';
@@ -20,6 +19,7 @@ export { VfsDragOverlay } from './VfsDragOverlay';
 export { VfsDroppableFolder } from './VfsDroppableFolder';
 export type { VfsOpenItem, VfsViewMode } from './VfsExplorer';
 export { VfsExplorer } from './VfsExplorer';
+export { VfsExplorerAboutMenuItem } from './VfsExplorerAboutMenuItem';
 export { VfsStatusBar } from './VfsStatusBar';
 export type { VfsFolderNode } from './VfsTreePanel';
 export { VfsTreePanel } from './VfsTreePanel';
