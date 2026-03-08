@@ -1,3 +1,4 @@
+// one-component-per-file: allow - keeps small local adapter components with provider wiring in this legacy file
 /**
  * Client-side ContactsProvider wrapper that supplies all dependencies
  * to the @tearleads/contacts package components.
@@ -10,6 +11,7 @@ import {
 } from '@tearleads/contacts';
 import contactsPackageJson from '@tearleads/contacts/package.json';
 import { vfsRegistry } from '@tearleads/db/sqlite';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -161,7 +163,7 @@ export function ClientContactsProvider({
     [tContacts, tContextMenu]
   );
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

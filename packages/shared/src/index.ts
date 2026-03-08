@@ -33,6 +33,7 @@ export * from './chat.js';
 export * from './connectJson.js';
 export * from './dialogFocusTrap.js';
 export * from './dropdownMenuKeyboard.js';
+export * from './hostRuntime.js';
 // Media drag-and-drop helpers
 export * from './mediaDragData.js';
 export * from './mlsTypes.js';

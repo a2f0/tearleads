@@ -8,6 +8,7 @@ import {
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/notes';
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -69,7 +70,7 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
   const { t } = useTypedTranslation('contextMenu');
   const navigateWithFrom = useNavigateWithFrom();
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,

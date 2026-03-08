@@ -1,23 +1,21 @@
 import type { Database } from '@tearleads/db/sqlite';
+import type {
+  HostRuntimeDatabaseState,
+  HostRuntimeNavigateOptions,
+  HostRuntimeTranslation
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode, Ref } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 /**
- * Database context state
+ * Database context state shared with host-runtime adapters.
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * Navigation options for navigateWithFrom
  */
-export interface NavigateOptions {
-  fromLabel?: string;
-  state?: Record<string, unknown>;
-}
+export type NavigateOptions = HostRuntimeNavigateOptions;
 
 /**
  * UI component props interfaces
@@ -218,7 +216,8 @@ export type ContactsTranslationKey =
 /**
  * Translation function type - accepts contacts-specific keys
  */
-export type TranslationFunction = (key: ContactsTranslationKey) => string;
+export type TranslationFunction =
+  HostRuntimeTranslation<ContactsTranslationKey>;
 
 /**
  * File save function type for exporting vCards
