@@ -1,4 +1,4 @@
-import { installBrowserGlobalsForBun } from './bunDomCompat';
+import { installBrowserGlobalsForBun } from './bunDomCompat.js';
 
 installBrowserGlobalsForBun();
-await import('./setup');
+await import('./setup.js');
