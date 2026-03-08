@@ -10,12 +10,18 @@ import {
 } from './downloads';
 
 describe('getDownloadUrl', () => {
+  const originalDomain = process.env.PUBLIC_DOWNLOAD_DOMAIN;
+
   beforeEach(() => {
-    vi.stubEnv('PUBLIC_DOWNLOAD_DOMAIN', 'download.example.com');
+    process.env.PUBLIC_DOWNLOAD_DOMAIN = 'download.example.com';
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    if (typeof originalDomain === 'undefined') {
+      delete process.env.PUBLIC_DOWNLOAD_DOMAIN;
+      return;
+    }
+    process.env.PUBLIC_DOWNLOAD_DOMAIN = originalDomain;
   });
 
   it('builds correct URL for macOS', () => {
@@ -43,7 +49,7 @@ describe('getDownloadUrl', () => {
   });
 
   it('uses fallback domain when PUBLIC_DOWNLOAD_DOMAIN is not set', () => {
-    vi.unstubAllEnvs();
+    delete process.env.PUBLIC_DOWNLOAD_DOMAIN;
     const url = getDownloadUrl('1.2.3', 'macos', { arch: 'arm64', ext: 'dmg' });
     expect(url).toBe(
       'https://download.example.com/desktop/1.2.3/Tearleads-1.2.3-arm64.dmg'

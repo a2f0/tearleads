@@ -11,15 +11,31 @@ vi.mock('@tearleads/ui', () => ({
 }));
 
 describe('ApiDocsLoader', () => {
+  const originalFetch = globalThis.fetch;
+  type MockFetchResponse = {
+    ok: boolean;
+    json: () => Promise<unknown>;
+  };
+
+  function stubFetch(implementation: unknown): void {
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: implementation
+    });
+  }
+
   afterEach(() => {
-    vi.unstubAllGlobals();
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: originalFetch
+    });
   });
 
   it('renders loading state before docs are loaded', () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise(() => {}))
-    );
+    const fetchMock = vi.fn(() => new Promise<never>(() => {}));
+    stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
 
@@ -27,37 +43,33 @@ describe('ApiDocsLoader', () => {
   });
 
   it('renders docs when openapi payload is valid', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          openapi: '3.0.0',
-          info: {
-            title: 'Website API Docs',
-            version: '1.0.0'
-          },
-          paths: {}
-        })
-      }))
-    );
+    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
+      ok: true,
+      json: async () => ({
+        openapi: '3.0.0',
+        info: {
+          title: 'Website API Docs',
+          version: '1.0.0'
+        },
+        paths: {}
+      })
+    }));
+    stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
 
-    expect(fetch).toHaveBeenCalledWith(OPENAPI_JSON_PATH);
+    expect(fetchMock).toHaveBeenCalledWith(OPENAPI_JSON_PATH);
     expect(await screen.findByTestId('api-docs')).toHaveTextContent(
       'Website API Docs'
     );
   });
 
   it('shows error when response is not ok', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: false,
-        json: async () => ({})
-      }))
-    );
+    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
+      ok: false,
+      json: async () => ({})
+    }));
+    stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
 
@@ -67,17 +79,15 @@ describe('ApiDocsLoader', () => {
   });
 
   it('shows error when payload is not an OpenAPI doc', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          info: {
-            title: 'Missing openapi field'
-          }
-        })
-      }))
-    );
+    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
+      ok: true,
+      json: async () => ({
+        info: {
+          title: 'Missing openapi field'
+        }
+      })
+    }));
+    stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
 
@@ -87,12 +97,10 @@ describe('ApiDocsLoader', () => {
   });
 
   it('shows error when fetch fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new Error('network failure');
-      })
-    );
+    const fetchMock = vi.fn(async () => {
+      throw new Error('network failure');
+    });
+    stubFetch(fetchMock);
 
     render(<ApiDocsLoader />);
 
@@ -102,45 +110,49 @@ describe('ApiDocsLoader', () => {
   });
 
   it('does not update state after unmount before fetch resolves', async () => {
-    let resolveFetch!: (value: Response) => void;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolveFetch = resolve as (value: Response) => void;
-          })
-      )
+    let resolveFetch: ((value: MockFetchResponse) => void) | null = null;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<MockFetchResponse>((resolve) => {
+          resolveFetch = resolve;
+        })
     );
+    stubFetch(fetchMock);
 
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
+
+    if (resolveFetch === null) {
+      throw new Error('Expected fetch resolver to be initialized');
+    }
 
     resolveFetch({
       ok: false,
       json: async () => ({})
-    } as Response);
+    });
 
     await Promise.resolve();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not update state after unmount before json resolves', async () => {
-    let resolveJson!: (value: unknown) => void;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () =>
-          new Promise((resolve) => {
-            resolveJson = resolve;
-          })
-      }))
-    );
+    let resolveJson: ((value: unknown) => void) | null = null;
+    const fetchMock = vi.fn(async (): Promise<MockFetchResponse> => ({
+      ok: true,
+      json: () =>
+        new Promise((resolve) => {
+          resolveJson = resolve;
+        })
+    }));
+    stubFetch(fetchMock);
 
     const { unmount } = render(<ApiDocsLoader />);
     await Promise.resolve();
     unmount();
+
+    if (resolveJson === null) {
+      throw new Error('Expected JSON resolver to be initialized');
+    }
 
     resolveJson({
       openapi: '3.0.0',
@@ -149,27 +161,29 @@ describe('ApiDocsLoader', () => {
     });
 
     await Promise.resolve();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not set loadFailed after unmount when fetch later throws', async () => {
-    let rejectFetch!: (reason?: unknown) => void;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        () =>
-          new Promise((_, reject) => {
-            rejectFetch = reject;
-          })
-      )
+    let rejectFetch: ((reason?: unknown) => void) | null = null;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<MockFetchResponse>((_, reject) => {
+          rejectFetch = reject;
+        })
     );
+    stubFetch(fetchMock);
 
     const { unmount } = render(<ApiDocsLoader />);
     unmount();
 
+    if (rejectFetch === null) {
+      throw new Error('Expected fetch rejector to be initialized');
+    }
+
     rejectFetch(new Error('late failure'));
 
     await Promise.resolve();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

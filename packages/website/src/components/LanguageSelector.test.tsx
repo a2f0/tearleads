@@ -1,30 +1,50 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as navigation from '../utils/navigation';
 import { LanguageSelector } from './LanguageSelector';
 
 describe('LanguageSelector', () => {
-  const mockLocation = {
-    pathname: '/en/docs/api',
-    href: 'http://localhost/en/docs/api'
+  let navigateToPathSpy: ReturnType<typeof vi.spyOn> | null = null;
+  const originalGlobalLocalStorage = globalThis.localStorage;
+  const originalWindowLocalStorage = window.localStorage;
+  const localStorageMock = {
+    getItem: vi.fn(() => null),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    clear: vi.fn()
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-
+    window.history.replaceState({}, '', '/en/docs/api');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      writable: true,
+      value: localStorageMock
+    });
     Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: vi.fn(() => null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn()
-      },
-      writable: true
+      configurable: true,
+      writable: true,
+      value: localStorageMock
     });
+    navigateToPathSpy = vi
+      .spyOn(navigation, 'navigateToPath')
+      .mockImplementation(() => {});
+  });
 
-    Object.defineProperty(window, 'location', {
-      value: mockLocation,
-      writable: true
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      writable: true,
+      value: originalGlobalLocalStorage
     });
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      writable: true,
+      value: originalWindowLocalStorage
+    });
+    navigateToPathSpy?.mockRestore();
+    navigateToPathSpy = null;
   });
 
   it('renders all language options', () => {
@@ -70,7 +90,11 @@ describe('LanguageSelector', () => {
 
     fireEvent.click(screen.getByTestId('language-option-es'));
 
-    expect(window.localStorage.setItem).toHaveBeenCalledWith('language', 'es');
-    expect(window.location.href).toBe('/es/docs/api');
+    if (navigateToPathSpy === null) {
+      throw new Error('Expected spies to be initialized');
+    }
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('language', 'es');
+    expect(navigateToPathSpy).toHaveBeenCalledTimes(1);
+    expect(navigateToPathSpy.mock.calls[0]?.[0]).toBe('/es/docs/api');
   });
 });
