@@ -25,10 +25,7 @@ import { vfsSharesConnectService } from './vfsSharesService.js';
 
 describe('vfsSharesConnectService parse errors', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    createShareDirectMock.mockReset();
-    createOrgShareDirectMock.mockReset();
-    updateShareDirectMock.mockReset();
+    vi.resetAllMocks();
   });
 
   it('rejects malformed mutation JSON at the service boundary', async () => {
