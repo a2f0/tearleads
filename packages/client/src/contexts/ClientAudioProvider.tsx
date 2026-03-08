@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing; refactoring deferred
 /**
  * Client-side AudioUIProvider wrapper that supplies all dependencies
  * to the @tearleads/audio package components.
