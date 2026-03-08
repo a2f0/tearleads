@@ -25,6 +25,7 @@ export {
   type HealthDrilldownRoute
 } from './pages/Health';
 export {
+  type HealthDatabaseState,
   type HealthRuntimeContextValue,
   HealthRuntimeProvider,
   type HealthRuntimeProviderProps,
