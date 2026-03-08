@@ -166,6 +166,12 @@ describe('vfsRematerialization integration', () => {
       lastReconciledWriteIds: { 'user-1:client': 4 }
     });
 
+    const adapter = getDatabaseAdapter();
+    await adapter.execute(`INSERT INTO users (id, email) VALUES (?, ?)`, [
+      'user-1',
+      'user-1@example.com'
+    ]);
+
     await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
 
     const db = getDatabase();
@@ -446,7 +452,7 @@ describe('vfsRematerialization integration', () => {
     expect(noteRows).toHaveLength(0);
   });
 
-  it('re-enables foreign key enforcement when rematerialization fails mid-write', async () => {
+  it('keeps foreign key enforcement enabled when rematerialization fails mid-write', async () => {
     mockGetSync.mockResolvedValueOnce({
       items: [
         {

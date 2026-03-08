@@ -8,6 +8,7 @@ export default mergeConfig(
     test: {
       environment: 'node',
       globals: true,
+      setupFiles: ['./src/test/vitestConsoleGuard.ts'],
       include: ['src/**/*.test.ts'],
       exclude: ['node_modules', 'dist'],
       testTimeout: 30_000,
