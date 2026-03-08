@@ -134,11 +134,7 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    const payload: unknown = JSON.parse(response.json);
-    if (!isUnknownRecord(payload)) {
-      throw new Error('Expected object payload');
-    }
-    const orgShare = payload['orgShare'];
+    const orgShare = response.orgShare;
     if (!isUnknownRecord(orgShare)) {
       throw new Error('Expected orgShare payload');
     }
@@ -256,11 +252,7 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    const payload: unknown = JSON.parse(response.json);
-    if (!isUnknownRecord(payload)) {
-      throw new Error('Expected object payload');
-    }
-    const share = payload['share'];
+    const share = response.share;
     if (!isUnknownRecord(share)) {
       throw new Error('Expected share payload');
     }
@@ -303,11 +295,7 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    const payload: unknown = JSON.parse(response.json);
-    if (!isUnknownRecord(payload)) {
-      throw new Error('Expected object payload');
-    }
-    const share = payload['share'];
+    const share = response.share;
     if (!isUnknownRecord(share)) {
       throw new Error('Expected share payload');
     }

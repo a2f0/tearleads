@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { CreateOrgShareRequest, VfsOrgShare } from '@tearleads/shared';
+import type {
+  VfsOrgSharePayload,
+  VfsSharesCreateOrgShareResponse
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
+import {
+  VfsOrgSharePayloadSchema,
+  VfsSharesCreateOrgShareResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
@@ -21,10 +30,31 @@ type CreateOrgShareMutationRequest = {
   itemId: string;
 } & Partial<Omit<CreateOrgShareRequest, 'itemId'>>;
 
+function toOrgSharePayload(
+  orgShare: VfsOrgShare
+): VfsOrgSharePayload {
+  return create(VfsOrgSharePayloadSchema, {
+    id: orgShare.id,
+    sourceOrgId: orgShare.sourceOrgId,
+    sourceOrgName: orgShare.sourceOrgName,
+    targetOrgId: orgShare.targetOrgId,
+    targetOrgName: orgShare.targetOrgName,
+    itemId: orgShare.itemId,
+    permissionLevel: orgShare.permissionLevel,
+    createdBy: orgShare.createdBy,
+    createdByEmail: orgShare.createdByEmail,
+    createdAt: orgShare.createdAt,
+    ...(typeof orgShare.expiresAt === 'string'
+      ? { expiresAt: orgShare.expiresAt }
+      : {}),
+    ...(orgShare.wrappedKey ? { wrappedKey: orgShare.wrappedKey } : {})
+  });
+}
+
 export async function createOrgShareDirect(
   request: CreateOrgShareMutationRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesCreateOrgShareResponse> {
   const claims = await requireVfsSharesClaims(
     `/vfs/items/${encoded(request.itemId)}/org-shares`,
     context.requestHeader
@@ -180,9 +210,9 @@ export async function createOrgShareDirect(
       ...(wrappedKey !== null && { wrappedKey })
     };
 
-    return {
-      json: JSON.stringify({ orgShare })
-    };
+    return create(VfsSharesCreateOrgShareResponseSchema, {
+      orgShare: toOrgSharePayload(orgShare)
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

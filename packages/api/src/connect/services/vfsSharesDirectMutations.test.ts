@@ -50,14 +50,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseResponseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected record JSON payload');
-  }
-  return parsed;
-}
-
 describe('vfsSharesDirectMutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -203,15 +195,13 @@ describe('vfsSharesDirectMutations', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const share = payload['share'];
-    if (!isRecord(share)) {
+    if (!isRecord(response.share)) {
       throw new Error('Expected share payload');
     }
 
-    expect(share['targetName']).toBe('Unknown');
-    expect(share['createdBy']).toBe('unknown');
-    expect(share['createdByEmail']).toBe('Unknown');
+    expect(response.share['targetName']).toBe('Unknown');
+    expect(response.share['createdBy']).toBe('unknown');
+    expect(response.share['createdByEmail']).toBe('Unknown');
   });
 
   it('converts unexpected update failures to internal errors', async () => {
@@ -362,16 +352,14 @@ describe('vfsSharesDirectMutations', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const share = payload['share'];
-    if (!isRecord(share)) {
+    if (!isRecord(response.share)) {
       throw new Error('Expected share payload');
     }
 
-    expect(share['targetName']).toBe('target@example.com');
-    expect(share['createdBy']).toBe('user-1');
-    expect(share['createdByEmail']).toBe('Unknown');
-    expect(share['wrappedKey']).toEqual({
+    expect(response.share['targetName']).toBe('target@example.com');
+    expect(response.share['createdBy']).toBe('user-1');
+    expect(response.share['createdByEmail']).toBe('Unknown');
+    expect(response.share['wrappedKey']).toMatchObject({
       recipientUserId: 'user-2',
       recipientPublicKeyId: 'pub-1',
       keyEpoch: 2,
