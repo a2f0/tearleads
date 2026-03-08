@@ -31,8 +31,8 @@ describe('VfsExplorerAboutMenuItem', () => {
       </ThemeProvider>
     );
 
-    const [aboutButton] = screen.getAllByRole('menuitem', { name: 'About' });
-    fireEvent.click(aboutButton);
+    const aboutButton = screen.getAllByRole('menuitem', { name: 'About' })[0];
+    if (aboutButton) fireEvent.click(aboutButton);
 
     expect(screen.getByText('About VFS Explorer')).toBeInTheDocument();
     expect(screen.getByTestId('about-version')).toHaveTextContent('0.0.8');
