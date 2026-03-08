@@ -28,11 +28,16 @@ import {
   toProtoVfsCrdtSyncResponse,
   type VfsCrdtSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
-import { isRecord, parseJsonBody } from './vfsDirectJson.js';
+import { isRecord } from './vfsDirectJson.js';
 
-interface JsonRequest {
+interface RunCrdtSessionRequest {
   organizationId: string;
-  json: string;
+  clientId: string;
+  operations: unknown[];
+  cursor: string;
+  limit: number;
+  rootId?: string | null;
+  lastReconciledWriteIds?: Record<string, number>;
 }
 
 interface ReconcileRow {
@@ -187,10 +192,17 @@ async function rollbackQuietly(client: PoolClient): Promise<void> {
 }
 
 export async function runCrdtSessionDirect(
-  request: JsonRequest,
+  request: RunCrdtSessionRequest,
   context: { requestHeader: Headers }
 ): Promise<RunCrdtSessionDirectResponse> {
-  const parsedPayload = parseSessionPayload(parseJsonBody(request.json));
+  const parsedPayload = parseSessionPayload({
+    clientId: request.clientId,
+    operations: request.operations,
+    cursor: request.cursor,
+    limit: request.limit,
+    rootId: request.rootId,
+    lastReconciledWriteIds: request.lastReconciledWriteIds
+  });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }

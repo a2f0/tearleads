@@ -36,18 +36,6 @@ function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
   return value;
 }
 
-function parseConnectEnvelopeBody(
-  body: unknown,
-  fieldName: string
-): Record<string, unknown> {
-  const parsedBody = asRecord(body, fieldName);
-  const encodedPayload = parsedBody['json'];
-  if (typeof encodedPayload !== 'string') {
-    throw new Error(`expected ${fieldName}.json to be a string`);
-  }
-  return asRecord(JSON.parse(encodedPayload), `${fieldName}.json`);
-}
-
 describe('VfsHttpCrdtSyncTransport', () => {
   it('pushes operations to Connect CRDT endpoint with auth headers', async () => {
     const fetchMock = vi.fn(async () => {
@@ -113,9 +101,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
       'push request'
     );
     expect(requestBody['organizationId']).toBe('org-1');
-    const decodedBody = parseConnectEnvelopeBody(requestBody, 'push request');
-    expect(decodedBody['clientId']).toBe('desktop');
-    const operations = decodedBody['operations'];
+    expect(requestBody['clientId']).toBe('desktop');
+    const operations = requestBody['operations'];
     if (!Array.isArray(operations)) {
       throw new Error('expected push request operations');
     }
@@ -428,12 +415,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const requestHeaders = new Headers(requestInit?.headers);
     expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
     expect(requestBody['organizationId']).toBe('org-1');
-    const decodedBody = parseConnectEnvelopeBody(
-      requestBody,
-      'session request'
-    );
-    expect(decodedBody['clientId']).toBe('desktop');
-    expect(decodedBody['operations']).toEqual(
+    expect(requestBody['clientId']).toBe('desktop');
+    expect(requestBody['operations']).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           opId: 'desktop-6'

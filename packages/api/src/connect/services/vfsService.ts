@@ -40,6 +40,20 @@ type ReconcileCrdtRequest = {
   cursor: string;
   lastReconciledWriteIds: Record<string, number>;
 };
+type PushCrdtOpsRequest = {
+  organizationId: string;
+  clientId: string;
+  operations: unknown[];
+};
+type RunCrdtSessionRequest = {
+  organizationId: string;
+  clientId: string;
+  cursor: string;
+  limit: number;
+  operations: unknown[];
+  lastReconciledWriteIds: Record<string, number>;
+  rootId?: string | null;
+};
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
 
@@ -87,7 +101,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => rekeyItemDirect(request, context),
   pushCrdtOps: async (
-    request: { organizationId: string; json: string },
+    request: PushCrdtOpsRequest,
     context: { requestHeader: Headers }
   ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
@@ -99,7 +113,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => reconcileSyncDirect(request, context),
   runCrdtSession: async (
-    request: { organizationId: string; json: string },
+    request: RunCrdtSessionRequest,
     context: { requestHeader: Headers }
   ) => runCrdtSessionDirect(request, context),
   getSync: async (
