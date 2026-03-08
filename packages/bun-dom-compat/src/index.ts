@@ -2,6 +2,36 @@ import { JSDOM } from 'jsdom';
 
 let installedDom = false;
 
+const WINDOW_GLOBAL_NAMES: ReadonlyArray<string> = [
+  'Element',
+  'HTMLElement',
+  'HTMLMediaElement',
+  'HTMLVideoElement',
+  'HTMLCanvasElement',
+  'HTMLButtonElement',
+  'HTMLInputElement',
+  'HTMLTextAreaElement',
+  'HTMLSelectElement',
+  'HTMLAnchorElement',
+  'SVGElement',
+  'Node',
+  'NodeList',
+  'Document',
+  'DocumentFragment',
+  'Storage',
+  'EventTarget',
+  'Event',
+  'CustomEvent',
+  'MouseEvent',
+  'KeyboardEvent',
+  'FocusEvent',
+  'PointerEvent',
+  'InputEvent',
+  'MutationObserver',
+  'ResizeObserver',
+  'DOMRect'
+];
+
 function defineGlobal(name: string, value: unknown): void {
   Object.defineProperty(globalThis, name, {
     configurable: true,
@@ -32,84 +62,103 @@ function definePropertyIfMissing(
   });
 }
 
+function defineGlobalFromWindow(windowObject: object, name: string): void {
+  const value = Reflect.get(windowObject, name);
+  if (typeof value === 'undefined') {
+    return;
+  }
+  defineGlobal(name, value);
+}
+
 export function installBrowserGlobalsForBun(): void {
-  if (
-    installedDom ||
-    (typeof globalThis.document !== 'undefined' &&
-      typeof globalThis.localStorage !== 'undefined')
-  ) {
+  if (installedDom) {
     return;
   }
 
-  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'http://localhost/'
-  });
+  let windowObject: object;
 
-  defineGlobal('window', dom.window);
-  defineGlobal('document', dom.window.document);
-  defineGlobal('navigator', dom.window.navigator);
-  defineGlobal('HTMLElement', dom.window.HTMLElement);
-  defineGlobal('HTMLMediaElement', dom.window.HTMLMediaElement);
-  defineGlobal('HTMLVideoElement', dom.window.HTMLVideoElement);
-  defineGlobal('HTMLCanvasElement', dom.window.HTMLCanvasElement);
-  defineGlobal('Node', dom.window.Node);
-  defineGlobal('Event', dom.window.Event);
-  defineGlobal('CustomEvent', dom.window.CustomEvent);
-  defineGlobal('MouseEvent', dom.window.MouseEvent);
-  defineGlobal('KeyboardEvent', dom.window.KeyboardEvent);
-  defineGlobal('FocusEvent', dom.window.FocusEvent);
-  defineGlobal('MutationObserver', dom.window.MutationObserver);
-  defineGlobal(
-    'getComputedStyle',
-    dom.window.getComputedStyle.bind(dom.window)
-  );
-  Object.defineProperty(globalThis, 'localStorage', {
-    configurable: true,
-    get: () => dom.window.localStorage
-  });
-  Object.defineProperty(globalThis, 'sessionStorage', {
-    configurable: true,
-    get: () => dom.window.sessionStorage
-  });
-  defineGlobalIfMissing('atob', dom.window.atob.bind(dom.window));
-  defineGlobalIfMissing('btoa', dom.window.btoa.bind(dom.window));
+  if (
+    typeof globalThis.window === 'undefined' ||
+    typeof globalThis.document === 'undefined'
+  ) {
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      url: 'http://localhost/'
+    });
+    windowObject = dom.window;
+
+    defineGlobal('window', dom.window);
+    defineGlobal('document', dom.window.document);
+    defineGlobal('navigator', dom.window.navigator);
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get: () => dom.window.localStorage
+    });
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      get: () => dom.window.sessionStorage
+    });
+  } else {
+    windowObject = globalThis.window;
+  }
+
+  defineGlobalIfMissing('self', globalThis.window);
+  for (const name of WINDOW_GLOBAL_NAMES) {
+    defineGlobalFromWindow(windowObject, name);
+  }
+
+  const getComputedStyleFn = Reflect.get(windowObject, 'getComputedStyle');
+  if (typeof getComputedStyleFn === 'function') {
+    defineGlobal('getComputedStyle', getComputedStyleFn.bind(windowObject));
+  }
+
+  const atobFn = Reflect.get(windowObject, 'atob');
+  if (typeof atobFn === 'function') {
+    defineGlobalIfMissing('atob', atobFn.bind(windowObject));
+  }
+
+  const btoaFn = Reflect.get(windowObject, 'btoa');
+  if (typeof btoaFn === 'function') {
+    defineGlobalIfMissing('btoa', btoaFn.bind(windowObject));
+  }
+
+  const timingWindow = globalThis.window;
   const requestAnimationFrameImpl =
-    dom.window.requestAnimationFrame?.bind(dom.window) ??
+    timingWindow.requestAnimationFrame?.bind(timingWindow) ??
     ((callback: FrameRequestCallback): number =>
-      dom.window.setTimeout(() => {
+      timingWindow.setTimeout(() => {
         callback(Date.now());
       }, 16));
   const cancelAnimationFrameImpl =
-    dom.window.cancelAnimationFrame?.bind(dom.window) ??
+    timingWindow.cancelAnimationFrame?.bind(timingWindow) ??
     ((handle: number): void => {
-      dom.window.clearTimeout(handle);
+      timingWindow.clearTimeout(handle);
     });
   defineGlobalIfMissing('requestAnimationFrame', requestAnimationFrameImpl);
   defineGlobalIfMissing('cancelAnimationFrame', cancelAnimationFrameImpl);
+
   definePropertyIfMissing(
-    dom.window,
+    timingWindow,
     'requestAnimationFrame',
     requestAnimationFrameImpl
   );
   definePropertyIfMissing(
-    dom.window,
+    timingWindow,
     'cancelAnimationFrame',
     cancelAnimationFrameImpl
   );
-  definePropertyIfMissing(
-    dom.window.HTMLElement.prototype,
-    'attachEvent',
-    () => {
-      // React's input polyfill path still checks these legacy hooks.
+
+  const htmlElementCtor = Reflect.get(windowObject, 'HTMLElement');
+  if (typeof htmlElementCtor === 'function') {
+    const prototype = Reflect.get(htmlElementCtor, 'prototype');
+    if (typeof prototype === 'object' && prototype !== null) {
+      definePropertyIfMissing(prototype, 'attachEvent', () => {
+        // React's input polyfill path still checks these legacy hooks.
+      });
+      definePropertyIfMissing(prototype, 'detachEvent', () => {
+        // No-op keeps jsdom compatible with that branch.
+      });
     }
-  );
-  definePropertyIfMissing(
-    dom.window.HTMLElement.prototype,
-    'detachEvent',
-    () => {
-      // No-op keeps jsdom compatible with that branch.
-    }
-  );
+  }
 
   installedDom = true;
 }
