@@ -23,10 +23,9 @@ import {
 } from './adminDirectUsersShared.js';
 
 type IdRequest = { id: string };
-type IdJsonRequest = { id: string; json: string };
-type UpdateUserInput =
-  | IdJsonRequest
-  | ({ id: string } & OptionalWithUndefined<AdminUserUpdatePayload>);
+type UpdateUserInput = {
+  id: string;
+} & OptionalWithUndefined<AdminUserUpdatePayload>;
 type ListUsersRequest = { organizationId: string };
 
 function encoded(value: string): string {
@@ -56,25 +55,11 @@ function ensureRootAdmin(authorization: ScopedAdminAccess): void {
   }
 }
 
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
-function parseUpdateUserPayload(
-  request: UpdateUserInput
+function normalizeUpdateUserPayload(
+  input: OptionalWithUndefined<AdminUserUpdatePayload>
 ): AdminUserUpdatePayload | null {
-  if ('json' in request) {
-    return parseUserUpdatePayload(parseJsonBody(request.json));
-  }
-
-  const { id: _id, ...payload } = request;
   const normalized = Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
+    Object.entries(input).filter(([, value]) => value !== undefined)
   );
   return parseUserUpdatePayload(normalized);
 }
@@ -278,13 +263,14 @@ export async function updateUserDirect(
   request: UpdateUserInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
+  const { id, ...payload } = request;
   const authorization = await requireScopedAdminAccess(
-    `/admin/users/${encoded(request.id)}`,
+    `/admin/users/${encoded(id)}`,
     context.requestHeader
   );
   ensureRootAdmin(authorization);
 
-  const updates = parseUpdateUserPayload(request);
+  const updates = normalizeUpdateUserPayload(payload);
   if (!updates) {
     throw new ConnectError('Invalid user update payload', Code.InvalidArgument);
   }
@@ -345,7 +331,7 @@ export async function updateUserDirect(
   let transactionStarted = false;
 
   try {
-    const userId = request.id;
+    const userId = id;
     await pool.query('BEGIN');
     transactionStarted = true;
 

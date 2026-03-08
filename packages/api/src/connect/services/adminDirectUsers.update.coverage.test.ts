@@ -81,23 +81,9 @@ describe('adminDirectUsers update coverage branches', () => {
     consoleErrorSpy = null;
   });
 
-  it('rejects updateUser when JSON body is invalid', async () => {
-    await expect(
-      updateUserDirect(
-        { id: 'user-1', json: '{' },
-        { requestHeader: new Headers() }
-      )
-    ).rejects.toMatchObject({ code: Code.InvalidArgument });
-
-    expect(queryMock).not.toHaveBeenCalled();
-  });
-
   it('rejects updateUser when parsed payload has no editable fields', async () => {
     await expect(
-      updateUserDirect(
-        { id: 'user-1', json: '{}' },
-        { requestHeader: new Headers() }
-      )
+      updateUserDirect({ id: 'user-1' }, { requestHeader: new Headers() })
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
 
     expect(queryMock).not.toHaveBeenCalled();
@@ -111,7 +97,7 @@ describe('adminDirectUsers update coverage branches', () => {
 
     await expect(
       updateUserDirect(
-        { id: 'missing-user', json: '{"email":"next@example.com"}' },
+        { id: 'missing-user', email: 'next@example.com' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.NotFound });
@@ -127,7 +113,7 @@ describe('adminDirectUsers update coverage branches', () => {
 
     await expect(
       updateUserDirect(
-        { id: 'missing-user', json: '{"organizationIds":["org-1"]}' },
+        { id: 'missing-user', organizationIds: ['org-1'] },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.NotFound });
@@ -234,7 +220,7 @@ describe('adminDirectUsers update coverage branches', () => {
       .mockResolvedValueOnce({ rows: [] });
 
     const response = await updateUserDirect(
-      { id: 'user-1', json: '{"organizationIds":["org-2","org-2"]}' },
+      { id: 'user-1', organizationIds: ['org-2', 'org-2'] },
       { requestHeader: new Headers() }
     );
 
@@ -296,7 +282,7 @@ describe('adminDirectUsers update coverage branches', () => {
 
     await expect(
       updateUserDirect(
-        { id: 'user-1', json: '{"organizationIds":["org-2"]}' },
+        { id: 'user-1', organizationIds: ['org-2'] },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
@@ -312,7 +298,7 @@ describe('adminDirectUsers update coverage branches', () => {
 
     await expect(
       updateUserDirect(
-        { id: 'user-1', json: '{"email":"next@example.com"}' },
+        { id: 'user-1', email: 'next@example.com' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
@@ -328,7 +314,7 @@ describe('adminDirectUsers update coverage branches', () => {
 
     await expect(
       updateUserDirect(
-        { id: 'user-1', json: '{"email":"next@example.com"}' },
+        { id: 'user-1', email: 'next@example.com' },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.Internal });
