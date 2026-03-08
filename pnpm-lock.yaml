@@ -1740,9 +1740,6 @@ importers:
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@tearleads/db-test-utils':
-        specifier: workspace:*
-        version: link:../db-test-utils
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
