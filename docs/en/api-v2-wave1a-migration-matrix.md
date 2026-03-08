@@ -1,43 +1,49 @@
-# API v2 Wave 1A Migration Matrix
+# API v2 Admin Migration Matrix
 
-This matrix tracks the first DAL-proving admin read endpoints selected for v2 migration in issue #2555.
+This matrix tracks the current `tearleads.v2.AdminService` migration status for issue #2555.
 
-| Endpoint | Value | Dependency | Blast | Auth | Payload | Owner | Status |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| `AdminService.GetPostgresInfo` | 2 | 2 | 1 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
-| `AdminService.GetTables` | 3 | 2 | 2 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
-| `AdminService.GetColumns` | 3 | 2 | 2 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
-| `AdminService.GetRows` | 3 | 2 | 2 | 4 | 2 | @a2f0 | v2 contract + handler + adapter flow landed; client/admin consumers now route to v2 |
-| `AdminService.GetRedisKeys` | 3 | 2 | 2 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
-| `AdminService.GetRedisValue` | 3 | 2 | 2 | 4 | 1 | @a2f0 | Contracts + traits + adapters + hardened handler wiring landed |
-| `AdminService.DeleteRedisKey` | 3 | 3 | 2 | 4 | 1 | @a2f0 | Wave 1C write cutover landed on v2 transport + handler path |
-| `AdminService.GetRedisDbSize` | 2 | 2 | 1 | 4 | 1 | @a2f0 | v2 contract/handler route landed; browser/admin consumers now on v2 |
-| `AdminService.ListGroups` | 3 | 3 | 2 | 4 | 1 | @a2f0 | v2 contract + handler + harness landed; `@tearleads/admin` groups list now routes to v2 |
-| `AdminService.GetGroup` | 3 | 3 | 2 | 4 | 2 | @a2f0 | v2 contract + handler + harness landed; browser/client/admin `groups.get` now routes to v2 |
-| `AdminService.ListOrganizations` | 3 | 3 | 2 | 4 | 1 | @a2f0 | v2 contract + handler + harness landed; browser/client/admin organization list now routes to v2 |
-| `AdminService.ListUsers` | 3 | 4 | 3 | 4 | 3 | @a2f0 | v2 contract + handler + harness landed; browser/client/admin user list now routes to v2 |
+Status legend:
+
+- Landed: proto contract exists in `proto/tearleads/v2/admin.proto`, Rust handler path exists in `crates/api-v2/src/admin_service.rs`, and `api.adminV2` exposes the method in `packages/api-client/src/apiRoutes/adminV2Routes.ts`.
+
+| Endpoint | Category | Value | Dependency | Blast | Auth | Payload | Owner | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| `AdminService.GetContext` | access scope | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetPostgresInfo` | postgres read | 2 | 2 | 1 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetTables` | postgres read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetColumns` | postgres read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetRows` | postgres read | 3 | 2 | 2 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.GetRedisKeys` | redis read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetRedisValue` | redis read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetRedisDbSize` | redis read | 2 | 2 | 1 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.DeleteRedisKey` | redis write | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.ListGroups` | group read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetGroup` | group read | 3 | 3 | 2 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.GetGroupMembers` | group read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.CreateGroup` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.UpdateGroup` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.DeleteGroup` | group write | 4 | 3 | 3 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.AddGroupMember` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.RemoveGroupMember` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.ListOrganizations` | organization read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetOrganization` | organization read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.GetOrgUsers` | organization read | 3 | 4 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.GetOrgGroups` | organization read | 3 | 3 | 2 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.CreateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.UpdateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.DeleteOrganization` | organization write | 4 | 3 | 3 | 4 | 1 | @a2f0 | Landed |
+| `AdminService.ListUsers` | user read | 3 | 4 | 3 | 4 | 3 | @a2f0 | Landed |
+| `AdminService.GetUser` | user read | 3 | 4 | 3 | 4 | 2 | @a2f0 | Landed |
+| `AdminService.UpdateUser` | user write | 4 | 4 | 4 | 4 | 3 | @a2f0 | Landed |
 
 ## Notes
 
-- This slice establishes contract-first messages in `proto/tearleads/v2/admin.proto`.
+- Contract-first messages live in `proto/tearleads/v2/admin.proto`.
 - Rust repository interfaces live in `crates/data-access-traits`.
-- Native repository adapter crates now live in `crates/data-access-postgres` and `crates/data-access-redis`.
+- Native repository adapter crates live in `crates/data-access-postgres` and `crates/data-access-redis`.
 - Contract-first trait-backed handler core lives in `crates/api-v2/src/admin_service.rs`.
-- Handler boundary validation now rejects invalid identifiers, negative Redis limits, and blank Redis keys before repository calls.
-- Internal/unavailable repository failures now return sanitized transport errors.
 - Shared pure normalization logic lives in `crates/api-domain-core` and is WASM-compatible.
 - Rust-generated v2 contract crate lives in `crates/api-v2-contracts`.
-- Transport-level gRPC integration tests now cover Wave 1A admin RPC round-trips and auth metadata enforcement.
-- Handler -> adapter -> gateway integration tests now cover Wave 1A admin read flows and auth short-circuit behavior.
-- Browser-facing Wave 1A admin RPC routes now use gRPC-web binary transport in `@tearleads/api-client` via `api.adminV2`.
-- Added test-harness override support for api-v2 client WASM importer via `__tearleadsImportApiV2ClientWasmModule`.
-- Runtime harness now routes `/connect/tearleads.v2.AdminService/*` to a Rust `api-v2` Wave 1A harness service for frontend/runtime integration tests.
-- Wave 1A read methods now route through the canonical `api.adminV2` surface (`GetPostgresInfo`, `GetTables`, `GetColumns`, `GetRedisKeys`, `GetRedisValue`).
-- Wave 1C adds the first v2 admin write cutover: `DeleteRedisKey` now routes through `api.adminV2` over `/connect/tearleads.v2.AdminService/DeleteRedisKey`.
-- Removed the `adminRoutes` compatibility module and retired `api.admin` from `@tearleads/api-client`; `api.adminV2` is now the only admin route surface there.
-- MLS browser/runtime traffic is now v2-only (`tearleads.v2.MlsService`), and the Node v1 MLS service registration has been removed.
-- Removed stale `tearleads/v1/mls.proto` contract artifacts and dropped its `proto/buf.yaml` lint-ignore entries after MLS transport cleanup landed via #2717.
-- Removed the stale `tearleads/v1/mls.proto` breaking-ignore entry from `proto/buf.yaml` after retirement landed on `main`.
-- Removed stale `tearleads/v1/admin.proto` contract artifacts from the active proto migration surface.
-- Removed the stale `tearleads/v1/admin.proto` breaking-ignore entry from `proto/buf.yaml` after retirement landed on `main`.
-- `@tearleads/admin` now exposes the canonical `api.adminV2` surface only; local `api.admin` alias usage and export were removed.
+- Browser-facing admin RPC routes use `api.adminV2` in `@tearleads/api-client`.
+- `@tearleads/admin` consumes the canonical `api.adminV2` surface only.
+- MLS browser/runtime traffic is v2-only (`tearleads.v2.MlsService`), and stale v1 MLS/admin proto files were removed from `proto/`.
