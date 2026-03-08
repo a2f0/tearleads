@@ -24,7 +24,6 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "src/test/setup.ts",
-    "src/test/bunSetup.ts",
-    "src/test/bunDomCompat.ts"
+    "src/test/bunSetup.ts"
   ]
 }

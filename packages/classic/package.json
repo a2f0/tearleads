@@ -45,6 +45,7 @@
     "react-i18next": "16.5.4",
     "typescript": "5.9.3",
     "vitest": "4.0.18",
-    "@types/jsdom": "27.0.0"
+    "@types/jsdom": "27.0.0",
+    "@tearleads/bun-dom-compat": "workspace:*"
   }
 }

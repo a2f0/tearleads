@@ -1,4 +1,6 @@
-import '../../test/ensureBunDom';
+import { installBrowserGlobalsForBun } from '@tearleads/bun-dom-compat';
+
+installBrowserGlobalsForBun();
 import { render, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
