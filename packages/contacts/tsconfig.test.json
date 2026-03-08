@@ -12,9 +12,20 @@
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
   "references": [
-    { "path": "../db-test-utils" }
+    {
+      "path": "../db-test-utils"
+    },
+    {
+      "path": "../bun-dom-compat"
+    }
   ]
 }
