@@ -158,6 +158,26 @@ export async function initializeAndRestoreDatabaseState({
         hasShownRecoveryNotification
       );
     } else {
+      const activeInstanceMetadata = allInstances.find(
+        (instance) => instance.id === activeInstance.id
+      );
+
+      if (activeInstanceMetadata?.passwordDeferred) {
+        databaseSetupProgressStore.update('Restoring deferred session...', 55);
+        const restoredDeferredSession = await restoreDatabaseSession(
+          activeInstance.id
+        );
+        if (restoredDeferredSession) {
+          databaseSetupProgressStore.update('Ready', 100);
+          setDb(restoredDeferredSession);
+          setIsSetUp(true);
+          setHasPersisted(true);
+          markSessionActive();
+          await touchInstance(activeInstance.id);
+          return;
+        }
+      }
+
       databaseSetupProgressStore.update('Loading database engine...', 55);
       const database = await autoInitializeDatabase(activeInstance.id);
       const persistedAfterAutoInit = await hasPersistedSession(

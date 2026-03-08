@@ -39,6 +39,14 @@ describe('CapacitorKeyStorage session persistence', () => {
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
+    const nativeStorage = await import('./nativeSecureStorage');
+    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(true);
+    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValue(true);
+    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValue(null);
+    vi.mocked(nativeStorage.retrieveWrappedKey).mockResolvedValue(null);
+    vi.mocked(nativeStorage.hasSession).mockResolvedValue(false);
+    vi.mocked(nativeStorage.clearSession).mockResolvedValue(undefined);
+
     const utils = await import('./detectPlatform');
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
   });
@@ -48,7 +56,7 @@ describe('CapacitorKeyStorage session persistence', () => {
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
-  it('returns false when wrapping key storage fails', async () => {
+  it('retries when wrapping key storage fails once', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -61,11 +69,31 @@ describe('CapacitorKeyStorage session persistence', () => {
 
     const result = await keyManager.persistSession();
 
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(nativeStorage.storeWrappingKeyBytes).toHaveBeenCalledTimes(2);
     consoleError.mockRestore();
   });
 
-  it('returns false when wrapped key storage fails', async () => {
+  it('returns false when wrapping key storage fails on every attempt', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const nativeStorage = await import('./nativeSecureStorage');
+    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(false);
+
+    const keyManager = new KeyManager(IOS_INSTANCE_ID);
+    await keyManager.setupNewKey('password');
+
+    const result = await keyManager.persistSession();
+
+    expect(result).toBe(false);
+    expect(nativeStorage.storeWrappingKeyBytes).toHaveBeenCalledTimes(3);
+    expect(nativeStorage.storeWrappedKey).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('retries when wrapped key storage fails once', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -79,7 +107,29 @@ describe('CapacitorKeyStorage session persistence', () => {
 
     const result = await keyManager.persistSession();
 
+    expect(result).toBe(true);
+    expect(nativeStorage.storeWrappingKeyBytes).toHaveBeenCalledTimes(2);
+    expect(nativeStorage.storeWrappedKey).toHaveBeenCalledTimes(2);
+    consoleError.mockRestore();
+  });
+
+  it('returns false when wrapped key storage fails on every attempt', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const nativeStorage = await import('./nativeSecureStorage');
+    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(true);
+    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValue(false);
+
+    const keyManager = new KeyManager(IOS_INSTANCE_ID);
+    await keyManager.setupNewKey('password');
+
+    const result = await keyManager.persistSession();
+
     expect(result).toBe(false);
+    expect(nativeStorage.storeWrappingKeyBytes).toHaveBeenCalledTimes(3);
+    expect(nativeStorage.storeWrappedKey).toHaveBeenCalledTimes(3);
     consoleError.mockRestore();
   });
 
