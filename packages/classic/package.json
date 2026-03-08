@@ -17,8 +17,9 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist dist-tests coverage",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts ./src/**/*.test.ts ./src/**/*.test.tsx || cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true BUN_TEST_PRELOAD=./src/test/bunSetup.ts BUN_TEST_PATTERNS=./src/**/*.test.ts,./src/**/*.test.tsx bash ../../scripts/test/runCoverage.sh || cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
+    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run"
   },
   "peerDependencies": {
     "react": "19.2.4",
@@ -43,6 +44,7 @@
     "react-dom": "19.2.4",
     "react-i18next": "16.5.4",
     "typescript": "5.9.3",
-    "vitest": "4.0.18"
+    "vitest": "4.0.18",
+    "@types/jsdom": "27.0.0"
   }
 }
