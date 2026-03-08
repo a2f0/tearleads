@@ -121,4 +121,51 @@ describe('vfsRematerialization grantor bootstrap integration', () => {
       })
     ]);
   });
+
+  it('ignores acl_add rows without accessLevel', async () => {
+    mockGetSync.mockResolvedValueOnce({
+      items: [
+        {
+          changeId: 'change-no-access-level-1',
+          itemId: 'note-no-access-level',
+          changeType: 'upsert',
+          changedAt: '2026-01-01T00:00:01.000Z',
+          objectType: 'note',
+          encryptedName: 'No access level note',
+          ownerId: 'user-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          accessLevel: 'admin'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+    mockGetCrdtSync.mockResolvedValueOnce({
+      items: [
+        {
+          opId: 'op-no-access-level-1',
+          itemId: 'note-no-access-level',
+          opType: 'acl_add',
+          principalType: 'user',
+          principalId: 'user-1',
+          accessLevel: null,
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'source-no-access-level-1',
+          occurredAt: '2026-01-01T00:00:01.100Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);
+
+    const db = getDatabase();
+    const aclRows = await db.select().from(vfsAclEntries);
+    expect(aclRows).toEqual([]);
+  });
 });
