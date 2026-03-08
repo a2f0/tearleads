@@ -191,7 +191,7 @@ describe('adminConnectServiceV2', () => {
     }
   });
 
-  it('serializes createGroup requests to the legacy direct JSON format', async () => {
+  it('forwards createGroup payload fields directly to group mutations', async () => {
     mocks.createGroupDirect.mockResolvedValueOnce({
       json: JSON.stringify({
         group: {
@@ -216,7 +216,7 @@ describe('adminConnectServiceV2', () => {
     expect(firstCall).toBeDefined();
     const requestArg = firstCall?.[0];
     expect(requestArg).toBeDefined();
-    expect(JSON.parse(requestArg.json)).toEqual({
+    expect(requestArg).toEqual({
       organizationId: 'org-1',
       name: 'Engineering'
     });

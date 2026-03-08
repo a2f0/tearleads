@@ -19,7 +19,18 @@ import {
 
 type IdRequest = { id: string };
 type JsonRequest = { json: string };
-type IdJsonRequest = { id: string; json: string };
+type LegacyUpdateGroupRequest = { id: string; json: string };
+type LegacyAddGroupMemberRequest = { id: string; json: string };
+type OptionalWithUndefined<T> = {
+  [K in keyof T]?: T[K] | undefined;
+};
+type CreateGroupInput = JsonRequest | OptionalWithUndefined<CreateGroupRequest>;
+type UpdateGroupInput =
+  | LegacyUpdateGroupRequest
+  | ({ id: string } & OptionalWithUndefined<UpdateGroupRequest>);
+type AddGroupMemberInput =
+  | LegacyAddGroupMemberRequest
+  | { id: string; userId: string };
 type RemoveGroupMemberRequest = { groupId: string; userId: string };
 
 function encoded(value: string): string {
@@ -70,16 +81,46 @@ async function ensureOrganizationExists(
   }
 }
 
+function parseCreateGroupPayload(
+  request: CreateGroupInput
+): OptionalWithUndefined<CreateGroupRequest> {
+  if ('json' in request) {
+    const parsed = parseJsonBody(request.json);
+    return isRecord(parsed) ? parsed : {};
+  }
+  return request;
+}
+
+function parseUpdateGroupPayload(
+  request: UpdateGroupInput
+): OptionalWithUndefined<UpdateGroupRequest> {
+  if ('json' in request) {
+    const parsed = parseJsonBody(request.json);
+    return isRecord(parsed) ? parsed : {};
+  }
+  const { id: _id, ...payload } = request;
+  return payload;
+}
+
+function parseAddGroupMemberPayload(
+  request: AddGroupMemberInput
+): OptionalWithUndefined<AddMemberRequest> {
+  if ('json' in request) {
+    const parsed = parseJsonBody(request.json);
+    return isRecord(parsed) ? parsed : {};
+  }
+  return { userId: request.userId };
+}
+
 export async function createGroupDirect(
-  request: JsonRequest,
+  request: CreateGroupInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
     '/admin/groups',
     context.requestHeader
   );
-  const parsed = parseJsonBody(request.json);
-  const payload: Partial<CreateGroupRequest> = isRecord(parsed) ? parsed : {};
+  const payload = parseCreateGroupPayload(request);
   const { name, description, organizationId } = payload;
 
   if (typeof name !== 'string' || name.trim() === '') {
@@ -135,15 +176,14 @@ export async function createGroupDirect(
 }
 
 export async function updateGroupDirect(
-  request: IdJsonRequest,
+  request: UpdateGroupInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.id)}`,
     context.requestHeader
   );
-  const parsed = parseJsonBody(request.json);
-  const payload: Partial<UpdateGroupRequest> = isRecord(parsed) ? parsed : {};
+  const payload = parseUpdateGroupPayload(request);
   const { name, description, organizationId } = payload;
 
   try {
@@ -269,15 +309,14 @@ export async function deleteGroupDirect(
 }
 
 export async function addGroupMemberDirect(
-  request: IdJsonRequest,
+  request: AddGroupMemberInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.id)}/members`,
     context.requestHeader
   );
-  const parsed = parseJsonBody(request.json);
-  const payload: Partial<AddMemberRequest> = isRecord(parsed) ? parsed : {};
+  const payload = parseAddGroupMemberPayload(request);
   const userId = payload.userId;
   if (!userId || typeof userId !== 'string') {
     throw new ConnectError('userId is required', Code.InvalidArgument);
