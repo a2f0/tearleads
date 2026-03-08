@@ -74,7 +74,7 @@ message VfsSharesDeleteShareRequest {
 }
 
 message VfsSharesDeleteShareResponse {
-  string json = 1;
+  bool deleted = 1;
 }
 
 message VfsSharesCreateOrgShareRequest {
@@ -95,7 +95,7 @@ message VfsSharesDeleteOrgShareRequest {
 }
 
 message VfsSharesDeleteOrgShareResponse {
-  string json = 1;
+  bool deleted = 1;
 }
 
 message VfsSharesSearchShareTargetsRequest {
