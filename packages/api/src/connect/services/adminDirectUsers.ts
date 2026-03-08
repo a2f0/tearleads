@@ -1,5 +1,9 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { AdminUserResponse, AdminUsersResponse } from '@tearleads/shared';
+import type {
+  AdminUserResponse,
+  AdminUsersResponse,
+  AdminUserUpdatePayload
+} from '@tearleads/shared';
 import { getPool } from '../../lib/postgres.js';
 import {
   deleteAllSessionsForUser,
@@ -19,6 +23,12 @@ import {
 
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
+type OptionalWithUndefined<T> = {
+  [K in keyof T]?: T[K] | undefined;
+};
+type UpdateUserInput =
+  | IdJsonRequest
+  | ({ id: string } & OptionalWithUndefined<AdminUserUpdatePayload>);
 type ListUsersRequest = { organizationId: string };
 
 function encoded(value: string): string {
@@ -55,6 +65,18 @@ function parseJsonBody(json: string): unknown {
   } catch {
     throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
   }
+}
+
+function parseUpdateUserPayload(request: UpdateUserInput): AdminUserUpdatePayload | null {
+  if ('json' in request) {
+    return parseUserUpdatePayload(parseJsonBody(request.json));
+  }
+
+  const { id: _id, ...payload } = request;
+  const normalized = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
+  return parseUserUpdatePayload(normalized);
 }
 
 export async function listUsersDirect(
@@ -253,7 +275,7 @@ export async function getUserDirect(
 }
 
 export async function updateUserDirect(
-  request: IdJsonRequest,
+  request: UpdateUserInput,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const authorization = await requireScopedAdminAccess(
@@ -262,7 +284,7 @@ export async function updateUserDirect(
   );
   ensureRootAdmin(authorization);
 
-  const updates = parseUserUpdatePayload(parseJsonBody(request.json));
+  const updates = parseUpdateUserPayload(request);
   if (!updates) {
     throw new ConnectError('Invalid user update payload', Code.InvalidArgument);
   }

@@ -222,7 +222,7 @@ describe('adminConnectServiceV2', () => {
     });
   });
 
-  it('serializes updateUser organization ids payload for direct handlers', async () => {
+  it('maps updateUser organization ids payload for direct handlers', async () => {
     mocks.updateUserDirect.mockResolvedValueOnce({
       json: JSON.stringify({
         user: {
@@ -256,8 +256,8 @@ describe('adminConnectServiceV2', () => {
     const firstCall = mocks.updateUserDirect.mock.calls[0];
     expect(firstCall).toBeDefined();
     const requestArg = firstCall?.[0];
-    expect(requestArg).toBeDefined();
-    expect(JSON.parse(requestArg.json)).toEqual({
+    expect(requestArg).toEqual({
+      id: 'user-1',
       organizationIds: ['org-1'],
       disabled: true
     });

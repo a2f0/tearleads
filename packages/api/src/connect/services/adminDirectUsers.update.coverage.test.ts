@@ -161,7 +161,7 @@ describe('adminDirectUsers update coverage branches', () => {
       .mockResolvedValueOnce({ rows: [] });
 
     const response = await updateUserDirect(
-      { id: 'user-1', json: '{"disabled":false,"markedForDeletion":false}' },
+      { id: 'user-1', disabled: false, markedForDeletion: false },
       { requestHeader: new Headers() }
     );
 
