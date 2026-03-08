@@ -109,8 +109,10 @@ export class ApiScenarioHarness {
         path: string,
         init?: RequestInit
       ): Promise<T> => {
+        const maxRetryAttempts = 3;
+        let retryAttempts = 0;
         let response = await actorFetch(path, init);
-        if (!response.ok) {
+        while (!response.ok) {
           const responseBody = await response.text();
           const shouldRetry = isRetryableWriteValidationError(
             path,
@@ -118,21 +120,14 @@ export class ApiScenarioHarness {
             response.status,
             responseBody
           );
-          if (!shouldRetry) {
+          if (!shouldRetry || retryAttempts >= maxRetryAttempts) {
             throw new Error(
               `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
             );
           }
 
+          retryAttempts += 1;
           response = await actorFetch(path, init);
-          if (!response.ok) {
-            const retryBody = await response.text();
-            throw new Error(
-              `API error ${String(response.status)} ${response.statusText}: ${retryBody}`
-            );
-          }
-
-          // Request recovered after one retry.
         }
 
         const text = await response.text();
