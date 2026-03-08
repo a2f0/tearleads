@@ -1,5 +1,6 @@
 import {
   createConnectJsonPostInit,
+  parseConnectJsonEnvelopeBody,
   parseConnectJsonString,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -21,5 +22,9 @@ export async function fetchVfsConnectJson<T>(input: {
     `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
   );
-  return parseConnectJsonString<T>(envelope.json);
+  const parsedBody = parseConnectJsonEnvelopeBody(envelope);
+  if (typeof parsedBody === 'string') {
+    return parseConnectJsonString<T>(parsedBody);
+  }
+  return parseConnectJsonString<T>(JSON.stringify(parsedBody));
 }
