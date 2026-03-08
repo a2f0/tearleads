@@ -1,7 +1,7 @@
 import type {
+  TranslationFunction as AITranslationFunction,
   AITranslationKey,
-  AIUIProviderProps,
-  TranslationFunction as AITranslationFunction
+  AIUIProviderProps
 } from '@tearleads/ai';
 import type {
   AudioUIProviderProps,
