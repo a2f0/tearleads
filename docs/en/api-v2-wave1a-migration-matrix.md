@@ -4,37 +4,43 @@ This matrix tracks the current `tearleads.v2.AdminService` migration status for 
 
 Status legend:
 
-- Landed: proto contract exists in `proto/tearleads/v2/admin.proto`, Rust handler path exists in `crates/api-v2/src/admin_service.rs`, and `api.adminV2` exposes the method in `packages/api-client/src/apiRoutes/adminV2Routes.ts`.
+- Landed: The endpoint is fully migrated, meaning:
+  - the proto contract exists in `proto/tearleads/v2/admin.proto`
+  - the Rust handler path exists in `crates/api-v2/src/admin_service.rs`
+  - the `api.adminV2` client exposes the method in `packages/api-client/src/apiRoutes/adminV2Routes.ts`
 
-| Endpoint | Category | Value | Dependency | Blast | Auth | Payload | Owner | Status |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| `AdminService.GetContext` | access scope | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetPostgresInfo` | postgres read | 2 | 2 | 1 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetTables` | postgres read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetColumns` | postgres read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetRows` | postgres read | 3 | 2 | 2 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.GetRedisKeys` | redis read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetRedisValue` | redis read | 3 | 2 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetRedisDbSize` | redis read | 2 | 2 | 1 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.DeleteRedisKey` | redis write | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.ListGroups` | group read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetGroup` | group read | 3 | 3 | 2 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.GetGroupMembers` | group read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.CreateGroup` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.UpdateGroup` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.DeleteGroup` | group write | 4 | 3 | 3 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.AddGroupMember` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.RemoveGroupMember` | group write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.ListOrganizations` | organization read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetOrganization` | organization read | 3 | 3 | 2 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.GetOrgUsers` | organization read | 3 | 4 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.GetOrgGroups` | organization read | 3 | 3 | 2 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.CreateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.UpdateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.DeleteOrganization` | organization write | 4 | 3 | 3 | 4 | 1 | @a2f0 | Landed |
-| `AdminService.ListUsers` | user read | 3 | 4 | 3 | 4 | 3 | @a2f0 | Landed |
-| `AdminService.GetUser` | user read | 3 | 4 | 3 | 4 | 2 | @a2f0 | Landed |
-| `AdminService.UpdateUser` | user write | 4 | 4 | 4 | 4 | 3 | @a2f0 | Landed |
+Owner: `@a2f0` for all endpoints.
+Status: all endpoints are `Landed` as defined in the legend.
+
+| Endpoint | Category | Value | Dependency | Blast | Auth | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `AdminService.GetContext` | access scope | 3 | 2 | 2 | 4 | 1 |
+| `AdminService.GetPostgresInfo` | postgres read | 2 | 2 | 1 | 4 | 1 |
+| `AdminService.GetTables` | postgres read | 3 | 2 | 2 | 4 | 1 |
+| `AdminService.GetColumns` | postgres read | 3 | 2 | 2 | 4 | 1 |
+| `AdminService.GetRows` | postgres read | 3 | 2 | 2 | 4 | 2 |
+| `AdminService.GetRedisKeys` | redis read | 3 | 2 | 2 | 4 | 1 |
+| `AdminService.GetRedisValue` | redis read | 3 | 2 | 2 | 4 | 1 |
+| `AdminService.GetRedisDbSize` | redis read | 2 | 2 | 1 | 4 | 1 |
+| `AdminService.DeleteRedisKey` | redis write | 3 | 3 | 2 | 4 | 1 |
+| `AdminService.ListGroups` | group read | 3 | 3 | 2 | 4 | 1 |
+| `AdminService.GetGroup` | group read | 3 | 3 | 2 | 4 | 2 |
+| `AdminService.GetGroupMembers` | group read | 3 | 3 | 2 | 4 | 1 |
+| `AdminService.CreateGroup` | group write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.UpdateGroup` | group write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.DeleteGroup` | group write | 4 | 3 | 3 | 4 | 1 |
+| `AdminService.AddGroupMember` | group write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.RemoveGroupMember` | group write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.ListOrganizations` | organization read | 3 | 3 | 2 | 4 | 1 |
+| `AdminService.GetOrganization` | organization read | 3 | 3 | 2 | 4 | 1 |
+| `AdminService.GetOrgUsers` | organization read | 3 | 4 | 3 | 4 | 2 |
+| `AdminService.GetOrgGroups` | organization read | 3 | 3 | 2 | 4 | 2 |
+| `AdminService.CreateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.UpdateOrganization` | organization write | 4 | 3 | 3 | 4 | 2 |
+| `AdminService.DeleteOrganization` | organization write | 4 | 3 | 3 | 4 | 1 |
+| `AdminService.ListUsers` | user read | 3 | 4 | 3 | 4 | 3 |
+| `AdminService.GetUser` | user read | 3 | 4 | 3 | 4 | 2 |
+| `AdminService.UpdateUser` | user write | 4 | 4 | 4 | 4 | 3 |
 
 ## Notes
 
