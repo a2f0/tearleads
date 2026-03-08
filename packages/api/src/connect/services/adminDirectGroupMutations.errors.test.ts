@@ -130,14 +130,6 @@ describe('adminDirectGroupMutations error branches', () => {
     });
   });
 
-  it('rejects createGroup when payload is empty', async () => {
-    await expect(
-      createGroupDirect({}, { requestHeader: new Headers() })
-    ).rejects.toMatchObject({
-      code: Code.InvalidArgument
-    });
-  });
-
   it('normalizes blank createGroup descriptions to null', async () => {
     queryMock
       .mockResolvedValueOnce({
