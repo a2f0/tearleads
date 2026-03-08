@@ -157,7 +157,7 @@ describe('vfsSharesDirectHandlers', () => {
       }
     );
     expect(response).toEqual({
-      json: JSON.stringify({ deleted: false })
+      deleted: false
     });
   });
 

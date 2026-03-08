@@ -110,7 +110,7 @@ export async function requireVfsSharesClaims(
 export async function deleteShareDirect(
   request: { shareId: string },
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
     `/vfs/shares/${encoded(request.shareId)}`,
     context.requestHeader
@@ -143,9 +143,7 @@ export async function deleteShareDirect(
     );
 
     return {
-      json: JSON.stringify({
-        deleted: result.rowCount !== null && result.rowCount > 0
-      })
+      deleted: result.rowCount !== null && result.rowCount > 0
     };
   } catch (error) {
     if (error instanceof ConnectError) {
@@ -159,7 +157,7 @@ export async function deleteShareDirect(
 export async function deleteOrgShareDirect(
   request: { shareId: string },
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
     `/vfs/org-shares/${encoded(request.shareId)}`,
     context.requestHeader
@@ -192,9 +190,7 @@ export async function deleteOrgShareDirect(
     );
 
     return {
-      json: JSON.stringify({
-        deleted: result.rowCount !== null && result.rowCount > 0
-      })
+      deleted: result.rowCount !== null && result.rowCount > 0
     };
   } catch (error) {
     if (error instanceof ConnectError) {

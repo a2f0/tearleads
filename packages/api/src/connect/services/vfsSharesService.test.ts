@@ -375,9 +375,7 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    expect(response).toEqual({
-      json: JSON.stringify({ deleted: true })
-    });
+    expect(response).toEqual({ deleted: true });
     expect(loadShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
@@ -392,9 +390,7 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    expect(response).toEqual({
-      json: JSON.stringify({ deleted: true })
-    });
+    expect(response).toEqual({ deleted: true });
     expect(loadOrgShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
