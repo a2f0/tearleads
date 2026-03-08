@@ -28,7 +28,7 @@ else
     exit 1
   fi
   DEVICE_ID=$(echo "$DEVICE_LINE" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
-  DEVICE_NAME=$(echo "$DEVICE_LINE" | sed 's/   .*//')
+  DEVICE_NAME=$(echo "$DEVICE_LINE" | sed -E "s/\s\s+${DEVICE_ID}.*//")
   echo "Detected device: $DEVICE_NAME ($DEVICE_ID)"
 fi
 
@@ -45,11 +45,10 @@ xcodebuild \
   -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic \
   CODE_SIGN_IDENTITY="Apple Development" \
-  DEVELOPMENT_TEAM=H4QLD7XWGS \
   build
 
 # Find the built .app bundle
-APP_PATH=$(find "$DERIVED_DATA/Build/Products" -name "*.app" -type d | head -1)
+APP_PATH=$(find "$DERIVED_DATA/Build/Products/Debug-iphoneos" -name "*.app" -maxdepth 1 -type d)
 if [ -z "$APP_PATH" ]; then
   echo "Error: Could not find built .app bundle in $DERIVED_DATA" >&2
   exit 1
