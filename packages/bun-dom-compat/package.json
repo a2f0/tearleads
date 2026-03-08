@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/bun-dom-compat",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Shared JSDOM browser-globals installer for Bun test environments",
   "type": "module",
   "main": "dist/index.js",
