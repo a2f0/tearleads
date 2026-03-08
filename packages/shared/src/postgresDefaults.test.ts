@@ -10,7 +10,6 @@ const originalEnv = process.env;
 
 describe('postgresDefaults', () => {
   beforeEach(() => {
-    vi.resetModules();
     process.env = { ...originalEnv };
     delete process.env['NODE_ENV'];
     delete process.env['USER'];

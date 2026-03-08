@@ -1,15 +1,15 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-08T00:26:01.608Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 16
+- Bun-primary test scripts: 17
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary test scripts: 32
+- Vitest-primary test scripts: 31
 - Packages with DOM/jsdom indicators: 31
-- Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 14
+- Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 13
 
 ## Top Blockers
 
@@ -21,7 +21,7 @@ Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scrip
 | `@tearleads/api` | 18 | vi.hoisted (57), vi.importActual (19), vi.resetModules (9), vi.mocked (4), vi.stubEnv (41), test script is vitest-primary |
 | `@tearleads/admin` | 15 | vi.importActual (7), vi.resetModules (4), vi.mocked (4), vi.stubEnv (4), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
 | `@tearleads/backups` | 12 | vi.hoisted (1), vi.mocked (8), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
-| `@tearleads/mls-chat` | 10 | vi.hoisted (2), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
+| `@tearleads/mls-chat` | 10 | vi.hoisted (3), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
 | `@tearleads/compliance` | 9 | vi.importActual (2), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
 | `@tearleads/console` | 9 | vi.importActual (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
 | `@tearleads/contacts` | 9 | vi.importActual (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
@@ -41,7 +41,7 @@ Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scrip
 | `@tearleads/api` | 152 | `vitest-primary` | no | vi.hoisted:57, vi.importActual:19, vi.resetModules:9, vi.mocked:4, vi.stubEnv:41 | none | `high-remediation` |
 | `@tearleads/admin` | 58 | `vitest-primary` | no | vi.importActual:7, vi.resetModules:4, vi.mocked:4, vi.stubEnv:4 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/backups` | 18 | `vitest-primary` | no | vi.hoisted:1, vi.mocked:8 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/mls-chat` | 7 | `vitest-primary` | no | vi.hoisted:2 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/mls-chat` | 8 | `vitest-primary` | no | vi.hoisted:3 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/compliance` | 3 | `vitest-primary` | no | vi.importActual:2 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/console` | 5 | `vitest-primary` | no | vi.importActual:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/contacts` | 11 | `vitest-primary` | no | vi.importActual:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
@@ -52,7 +52,6 @@ Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scrip
 | `@tearleads/email` | 27 | `vitest-primary` | no | vi.mocked:2 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/notes` | 7 | `vitest-primary` | no | vi.mocked:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/vfs-explorer` | 46 | `vitest-primary` | no | vi.mocked:36 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/shared` | 15 | `vitest-primary` | no | vi.resetModules:3 | none | `high-remediation` |
 | `@tearleads/website` | 10 | `vitest-primary` | no | vi.stubEnv:1 | @testing-library/jest-dom dependency; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/ai` | 2 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/businesses` | 5 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
@@ -79,6 +78,7 @@ Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scrip
 | `@tearleads/photos` | 1 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/remote-read-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/search` | 3 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/shared` | 15 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/smtp-listener` | 11 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-api` | 5 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-client` | 1 | `bun-primary` | yes | none | none | `ready` |

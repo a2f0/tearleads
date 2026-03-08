@@ -13,13 +13,29 @@ vi.mock('redis', () => ({
 }));
 
 describe('Redis Client', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const {
+      closeRedisClient,
+      setRedisClientOverrideForTesting,
+      setRedisSubscriberOverrideForTesting
+    } = await import('./client.js');
+
+    await closeRedisClient();
+    setRedisClientOverrideForTesting(null);
+    setRedisSubscriberOverrideForTesting(null);
     vi.clearAllMocks();
-    vi.resetModules();
   });
 
   afterEach(async () => {
-    vi.resetModules();
+    const {
+      closeRedisClient,
+      setRedisClientOverrideForTesting,
+      setRedisSubscriberOverrideForTesting
+    } = await import('./client.js');
+
+    await closeRedisClient();
+    setRedisClientOverrideForTesting(null);
+    setRedisSubscriberOverrideForTesting(null);
   });
 
   describe('getRedisClient', () => {
