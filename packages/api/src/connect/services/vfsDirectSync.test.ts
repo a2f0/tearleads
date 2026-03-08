@@ -212,9 +212,8 @@ describe('vfsDirectSync', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toEqual({
       items: [],
-      nextCursor: null,
       hasMore: false,
       lastReconciledWriteIds: {
         desktop: 5

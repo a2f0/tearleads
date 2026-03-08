@@ -24,7 +24,9 @@ import {
 } from './vfsDirectCrdtPushParse.js';
 import {
   toIsoString,
-  toLastReconciledWriteIds
+  toLastReconciledWriteIds,
+  toProtoVfsCrdtSyncResponse,
+  type VfsCrdtSyncProtoResponse
 } from './vfsDirectCrdtRouteHelpers.js';
 import { isRecord, parseJsonBody } from './vfsDirectJson.js';
 
@@ -50,7 +52,7 @@ interface ParsedSessionPayload {
 
 export interface RunCrdtSessionDirectResponse {
   push: VfsCrdtSyncSessionResponse['push'];
-  pull: { json: string };
+  pull: VfsCrdtSyncProtoResponse;
   reconcile: VfsCrdtSyncSessionResponse['reconcile'];
 }
 
@@ -328,9 +330,7 @@ export async function runCrdtSessionDirect(
         clientId: parsedPayload.value.clientId,
         results: pushResult.results
       },
-      pull: {
-        json: JSON.stringify(pullResponse)
-      },
+      pull: toProtoVfsCrdtSyncResponse(pullResponse),
       reconcile: {
         clientId: parsedPayload.value.clientId,
         cursor: encodeVfsSyncCursor({

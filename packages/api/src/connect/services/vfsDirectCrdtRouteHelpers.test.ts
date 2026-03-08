@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   toIsoString,
-  toLastReconciledWriteIds
+  toLastReconciledWriteIds,
+  toProtoVfsCrdtSyncResponse
 } from './vfsDirectCrdtRouteHelpers.js';
 
 describe('vfsDirectCrdtRouteHelpers', () => {
@@ -46,6 +47,111 @@ describe('vfsDirectCrdtRouteHelpers', () => {
         '2026-02-16T00:00:00.000Z'
       );
       expect(toIsoString('not-a-date')).toBeNull();
+    });
+  });
+
+  describe('toProtoVfsCrdtSyncResponse', () => {
+    it('omits nullable fields and nextCursor when absent', () => {
+      const response = toProtoVfsCrdtSyncResponse({
+        items: [
+          {
+            opId: 'op-1',
+            itemId: 'item-1',
+            opType: 'acl_add',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: null,
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-1',
+            occurredAt: '2026-03-07T23:00:00.000Z'
+          }
+        ],
+        nextCursor: null,
+        hasMore: false,
+        lastReconciledWriteIds: {
+          desktop: 7
+        }
+      });
+
+      expect(response).toEqual({
+        items: [
+          {
+            opId: 'op-1',
+            itemId: 'item-1',
+            opType: 'acl_add',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-1',
+            occurredAt: '2026-03-07T23:00:00.000Z'
+          }
+        ],
+        hasMore: false,
+        lastReconciledWriteIds: {
+          desktop: 7
+        }
+      });
+    });
+
+    it('preserves populated optional fields and normalized nextCursor', () => {
+      const response = toProtoVfsCrdtSyncResponse({
+        items: [
+          {
+            opId: 'op-2',
+            itemId: 'item-2',
+            opType: 'link_add',
+            principalType: 'group',
+            principalId: 'group-1',
+            accessLevel: 'write',
+            parentId: 'parent-1',
+            childId: 'item-2',
+            actorId: 'user-1',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-2',
+            occurredAt: '2026-03-07T23:00:01.000Z',
+            encryptedPayload: 'payload',
+            keyEpoch: 4,
+            encryptionNonce: 'nonce',
+            encryptionAad: 'aad',
+            encryptionSignature: 'sig'
+          }
+        ],
+        nextCursor: '  cursor-1  ',
+        hasMore: true,
+        lastReconciledWriteIds: {
+          desktop: 8
+        }
+      });
+
+      expect(response).toEqual({
+        items: [
+          {
+            opId: 'op-2',
+            itemId: 'item-2',
+            opType: 'link_add',
+            principalType: 'group',
+            principalId: 'group-1',
+            accessLevel: 'write',
+            parentId: 'parent-1',
+            childId: 'item-2',
+            actorId: 'user-1',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'source-2',
+            occurredAt: '2026-03-07T23:00:01.000Z',
+            encryptedPayload: 'payload',
+            keyEpoch: 4,
+            encryptionNonce: 'nonce',
+            encryptionAad: 'aad',
+            encryptionSignature: 'sig'
+          }
+        ],
+        nextCursor: 'cursor-1',
+        hasMore: true,
+        lastReconciledWriteIds: {
+          desktop: 8
+        }
+      });
     });
   });
 });

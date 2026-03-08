@@ -312,7 +312,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(decodedBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
   });
 
-  it('runs unified sync session over Connect and parses nested results', async () => {
+  it('runs unified sync session over Connect and parses typed results', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(

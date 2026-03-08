@@ -59,7 +59,7 @@ function parseRequiredString(value: unknown, fieldName: string): string {
 }
 
 function parseNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
+  if (value === null || value === undefined) {
     return null;
   }
 
@@ -326,10 +326,16 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     throw new Error('transport returned invalid pull response items');
   }
 
-  const nextCursorValue = body['nextCursor'];
-  if (nextCursorValue !== null && typeof nextCursorValue !== 'string') {
+  const rawNextCursor = body['nextCursor'];
+  if (
+    rawNextCursor !== undefined &&
+    rawNextCursor !== null &&
+    typeof rawNextCursor !== 'string'
+  ) {
     throw new Error('transport returned invalid nextCursor');
   }
+  const nextCursorValue =
+    typeof rawNextCursor === 'string' ? rawNextCursor : null;
 
   const hasMoreValue = body['hasMore'];
   if (typeof hasMoreValue !== 'boolean') {
