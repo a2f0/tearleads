@@ -44,8 +44,18 @@ async function getApiClient() {
 
 beforeEach(async () => {
   vi.resetModules();
+  vi.unmock('../../lib/api');
+  vi.unmock('@/lib/api');
+  vi.unmock('@tearleads/api-client/clientEntry');
   vi.stubEnv('VITE_API_URL', 'http://localhost');
   localStorage.clear();
+  const [{ clearActiveOrganizationId }, { resetApiRequestHeadersProvider }] =
+    await Promise.all([
+      import('../../lib/orgStorage'),
+      import('@tearleads/api-client/clientEntry')
+    ]);
+  clearActiveOrganizationId();
+  resetApiRequestHeadersProvider();
   const ctx = getSharedTestContext();
   seededUser = await seedTestUser(ctx, { admin: true });
   localStorage.setItem('auth_token', 'header.payload.signature');
