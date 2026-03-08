@@ -29,6 +29,20 @@ function parseJson<T>(text: string): T {
   return JSON.parse(text);
 }
 
+function isShareRequestMissingFieldsError(
+  path: string,
+  init: RequestInit | undefined,
+  status: number,
+  body: string
+): boolean {
+  return (
+    status === 400 &&
+    (init?.method ?? 'GET').toUpperCase() === 'POST' &&
+    path.includes('/shares') &&
+    body.includes('shareType, targetId, and permissionLevel are required')
+  );
+}
+
 export class ApiScenarioHarness {
   readonly ctx: TestContext;
   private readonly actorMap: Map<string, ApiActor>;
@@ -83,13 +97,30 @@ export class ApiScenarioHarness {
         path: string,
         init?: RequestInit
       ): Promise<T> => {
-        const response = await actorFetch(path, init);
-        if (!response.ok) {
-          const body = await response.text();
+        let response = await actorFetch(path, init);
+        let responseBody = '';
+        let retriedShareRequest = false;
+
+        while (!response.ok) {
+          responseBody = await response.text();
+          if (
+            !retriedShareRequest &&
+            isShareRequestMissingFieldsError(
+              path,
+              init,
+              response.status,
+              responseBody
+            )
+          ) {
+            retriedShareRequest = true;
+            response = await actorFetch(path, init);
+            continue;
+          }
           throw new Error(
-            `API error ${String(response.status)} ${response.statusText}: ${body}`
+            `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
           );
         }
+
         const text = await response.text();
         if (text.trim().length === 0) {
           return parseJson<T>('{}');
