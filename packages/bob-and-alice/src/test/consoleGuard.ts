@@ -57,7 +57,8 @@ afterEach(() => {
 
   const details = guardrailFailures
     .map(
-      (entry, index) => `${String(index + 1)}. [${entry.level}] ${entry.rendered}`
+      (entry, index) =>
+        `${String(index + 1)}. [${entry.level}] ${entry.rendered}`
     )
     .join('\n\n');
   throw new Error(

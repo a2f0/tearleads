@@ -13,8 +13,8 @@ import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
-import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
 import { getDatabase } from '@/db';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
 import { api } from '@/lib/api';
@@ -361,7 +361,9 @@ describe('instance switch shared-note sync regression', () => {
 
       installConnectSyncMocks({ baseUrl: apiBaseUrl });
       const db = getDatabase();
-      await db.delete(vfsRegistry).where(eq(vfsRegistry.id, seededShare.noteId));
+      await db
+        .delete(vfsRegistry)
+        .where(eq(vfsRegistry.id, seededShare.noteId));
       await db.delete(notes).where(eq(notes.id, seededShare.noteId));
 
       await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(true);

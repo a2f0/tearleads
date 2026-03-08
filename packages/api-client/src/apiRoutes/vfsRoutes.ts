@@ -3,8 +3,8 @@ import type {
   CreateVfsShareRequest,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
-  VfsCrdtSyncResponse,
   VfsCrdtSyncItem,
+  VfsCrdtSyncResponse,
   VfsKeySetupRequest,
   VfsOrgShare,
   VfsRegisterRequest,
@@ -16,8 +16,8 @@ import type {
   VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType,
-  VfsSyncResponse,
   VfsSyncItem,
+  VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import {
@@ -47,9 +47,7 @@ interface NormalizedSyncPage<TItem> {
   hasMore: boolean;
 }
 
-function parseConnectJsonResponse<TResponse>(
-  responseBody: unknown
-): TResponse {
+function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
   const parsedPayload = parseConnectJsonEnvelopeBody(responseBody);
   if (
     parsedPayload !== null &&
@@ -64,13 +62,11 @@ function parseConnectJsonResponse<TResponse>(
   return parseConnectJsonString<TResponse>('{}');
 }
 
-function normalizeSyncPage<TItem>(
-  page: {
-    items: TItem[];
-    nextCursor: string | null;
-    hasMore: boolean;
-  }
-): NormalizedSyncPage<TItem> {
+function normalizeSyncPage<TItem>(page: {
+  items: TItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}): NormalizedSyncPage<TItem> {
   const items = Array.isArray(page.items) ? page.items : [];
   const nextCursor =
     typeof page.nextCursor === 'string' && page.nextCursor.trim().length > 0
@@ -121,13 +117,10 @@ function requestVfsTyped<TResponse>(
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<unknown>(
-    `${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody),
-      eventName
-    }
-  ).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
+  return request<unknown>(`${VFS_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody),
+    eventName
+  }).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function requestVfsSharesJson<TResponse>(
@@ -135,13 +128,10 @@ function requestVfsSharesJson<TResponse>(
   requestBody: Record<string, unknown>,
   eventName: RequestEventName
 ): Promise<TResponse> {
-  return request<unknown>(
-    `${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody),
-      eventName
-    }
-  ).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
+  return request<unknown>(`${VFS_SHARES_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody),
+    eventName
+  }).then((responseBody) => parseConnectJsonResponse<TResponse>(responseBody));
 }
 
 function decodeBlobData(data: string | number[] | undefined): Uint8Array {
