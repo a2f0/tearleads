@@ -8,10 +8,10 @@
  * Related: https://github.com/a2f0/tearleads/issues/137
  */
 
-import type { DatabaseConfig } from './types.js';
-import { WasmNodeAdapter } from './wasmNode.adapter.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleWarn } from '../consoleMocks.js';
+import type { DatabaseConfig } from './types.js';
+import { WasmNodeAdapter } from './wasmNode.adapter.js';
 
 // Use a fixed test key for consistency
 const TEST_ENCRYPTION_KEY = new Uint8Array([
