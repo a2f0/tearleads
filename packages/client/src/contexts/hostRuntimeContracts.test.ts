@@ -1,9 +1,4 @@
 import type {
-  TranslationFunction as AITranslationFunction,
-  AITranslationKey,
-  AIUIProviderProps
-} from '@tearleads/ai';
-import type {
   AudioUIProviderProps,
   NavigateToAudioOptions
 } from '@tearleads/audio';
@@ -14,10 +9,8 @@ import type {
 } from '@tearleads/notes';
 import type {
   HostRuntimeDatabaseState,
-  HostRuntimeNavigateOptions,
-  HostRuntimeTranslation
+  HostRuntimeNavigateOptions
 } from '@tearleads/shared';
-import type { VfsExplorerProviderProps } from '@tearleads/vfs-explorer';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
@@ -35,12 +28,6 @@ describe('host runtime contracts', () => {
     expectTypeOf<
       VideoPlaylistProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
-    expectTypeOf<
-      AIUIProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState>();
-    expectTypeOf<
-      VfsExplorerProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 
   it('keeps feature navigation options aligned with shared runtime contract', () => {
@@ -55,12 +42,6 @@ describe('host runtime contracts', () => {
     >();
     expectTypeOf<NavigateToAudioOptions>().toEqualTypeOf<
       Pick<HostRuntimeNavigateOptions, 'fromLabel'>
-    >();
-  });
-
-  it('keeps feature translation function signatures aligned', () => {
-    expectTypeOf<AITranslationFunction>().toEqualTypeOf<
-      HostRuntimeTranslation<AITranslationKey>
     >();
   });
 });

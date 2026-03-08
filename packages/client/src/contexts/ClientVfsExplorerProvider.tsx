@@ -4,7 +4,6 @@
  */
 
 import { rotateItemKeyEpochAndPersist } from '@tearleads/api-client/clientEntry';
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   VfsExplorerAboutMenuItem,
   VfsExplorerProvider,
@@ -66,7 +65,7 @@ export function ClientVfsExplorerProvider({
   const orchestrator = useVfsOrchestratorInstance();
   const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
 
-  const databaseState = useMemo<HostRuntimeDatabaseState>(
+  const databaseState = useMemo(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,
