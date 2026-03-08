@@ -60,7 +60,10 @@ export async function restoreTableData(
       await adapter.execute(batchSql, batchValues);
       continue;
     } catch (err) {
-      console.warn(`Batch insert failed for "${tableName}", falling back to single-row inserts:`, err);
+      console.warn(
+        `Batch insert failed for "${tableName}", falling back to single-row inserts:`,
+        err
+      );
     }
 
     for (const rawRow of batchRows) {
