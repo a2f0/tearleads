@@ -18,6 +18,11 @@ export interface ApiActorDefinition {
   admin?: boolean;
 }
 
+interface RetryableWriteOptions {
+  maxRetryAttempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
 interface ApiActor {
   alias: string;
   user: SeededUser;
@@ -27,6 +32,16 @@ interface ApiActor {
 
 function parseJson<T>(text: string): T {
   return JSON.parse(text);
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function retryDelayMs(retryAttempt: number): number {
+  return Math.min(250, 20 * 2 ** (retryAttempt - 1));
 }
 
 export function isRetryableWriteValidationError(
@@ -53,6 +68,39 @@ export function isRetryableWriteValidationError(
     isRegisterRoute &&
     body.includes('id, objectType, and encryptedSessionKey are required')
   );
+}
+
+export async function fetchWithRetryableWriteValidationError(
+  actorFetch: (path: string, init?: RequestInit) => Promise<Response>,
+  path: string,
+  init?: RequestInit,
+  options: RetryableWriteOptions = {}
+): Promise<Response> {
+  const maxRetryAttempts = options.maxRetryAttempts ?? 8;
+  const sleep = options.sleep ?? defaultSleep;
+
+  let retryAttempts = 0;
+  let response = await actorFetch(path, init);
+  while (!response.ok) {
+    const responseBody = await response.text();
+    const shouldRetry = isRetryableWriteValidationError(
+      path,
+      init,
+      response.status,
+      responseBody
+    );
+    if (!shouldRetry || retryAttempts >= maxRetryAttempts) {
+      throw new Error(
+        `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
+      );
+    }
+
+    retryAttempts += 1;
+    await sleep(retryDelayMs(retryAttempts));
+    response = await actorFetch(path, init);
+  }
+
+  return response;
 }
 
 export class ApiScenarioHarness {
@@ -109,26 +157,11 @@ export class ApiScenarioHarness {
         path: string,
         init?: RequestInit
       ): Promise<T> => {
-        const maxRetryAttempts = 3;
-        let retryAttempts = 0;
-        let response = await actorFetch(path, init);
-        while (!response.ok) {
-          const responseBody = await response.text();
-          const shouldRetry = isRetryableWriteValidationError(
-            path,
-            init,
-            response.status,
-            responseBody
-          );
-          if (!shouldRetry || retryAttempts >= maxRetryAttempts) {
-            throw new Error(
-              `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
-            );
-          }
-
-          retryAttempts += 1;
-          response = await actorFetch(path, init);
-        }
+        const response = await fetchWithRetryableWriteValidationError(
+          actorFetch,
+          path,
+          init
+        );
 
         const text = await response.text();
         if (text.trim().length === 0) {

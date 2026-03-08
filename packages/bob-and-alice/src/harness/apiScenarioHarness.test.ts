@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isRetryableWriteValidationError } from './apiScenarioHarness.js';
+import {
+  fetchWithRetryableWriteValidationError,
+  isRetryableWriteValidationError
+} from './apiScenarioHarness.js';
 
 describe('isRetryableWriteValidationError', () => {
   it('retries share requests with transient required-field validation failures', () => {
@@ -51,5 +54,85 @@ describe('isRetryableWriteValidationError', () => {
         '{"error":"unexpected payload"}'
       )
     ).toBe(false);
+  });
+});
+
+describe('fetchWithRetryableWriteValidationError', () => {
+  it('retries transient register validation failures until success', async () => {
+    const responses = [
+      new Response(
+        '{"error":"id, objectType, and encryptedSessionKey are required"}',
+        { status: 400, statusText: 'Bad Request' }
+      ),
+      new Response(
+        '{"error":"id, objectType, and encryptedSessionKey are required"}',
+        { status: 400, statusText: 'Bad Request' }
+      ),
+      new Response('{"ok":true}', { status: 200, statusText: 'OK' })
+    ];
+    let callCount = 0;
+    const sleeps: number[] = [];
+    const actorFetch = async (): Promise<Response> => {
+      const response = responses[callCount];
+      callCount += 1;
+      return response ?? responses[responses.length - 1];
+    };
+
+    const response = await fetchWithRetryableWriteValidationError(
+      actorFetch,
+      '/vfs/register',
+      { method: 'POST' },
+      {
+        sleep: async (ms: number): Promise<void> => {
+          sleeps.push(ms);
+        }
+      }
+    );
+
+    expect(response.ok).toBe(true);
+    expect(callCount).toBe(3);
+    expect(sleeps).toEqual([20, 40]);
+  });
+
+  it('throws after the retry limit is reached', async () => {
+    const retries = [
+      new Response(
+        '{"error":"id, objectType, and encryptedSessionKey are required"}',
+        { status: 400, statusText: 'Bad Request' }
+      ),
+      new Response(
+        '{"error":"id, objectType, and encryptedSessionKey are required"}',
+        { status: 400, statusText: 'Bad Request' }
+      ),
+      new Response(
+        '{"error":"id, objectType, and encryptedSessionKey are required"}',
+        { status: 400, statusText: 'Bad Request' }
+      )
+    ];
+    let callCount = 0;
+    const sleeps: number[] = [];
+    const actorFetch = async (): Promise<Response> => {
+      const response = retries[callCount];
+      callCount += 1;
+      return response ?? retries[retries.length - 1];
+    };
+
+    await expect(
+      fetchWithRetryableWriteValidationError(
+        actorFetch,
+        '/vfs/register',
+        { method: 'POST' },
+        {
+          maxRetryAttempts: 2,
+          sleep: async (ms: number): Promise<void> => {
+            sleeps.push(ms);
+          }
+        }
+      )
+    ).rejects.toThrow(
+      'API error 400 Bad Request: {"error":"id, objectType, and encryptedSessionKey are required"}'
+    );
+    expect(callCount).toBe(3);
+    expect(sleeps).toEqual([20, 40]);
   });
 });
