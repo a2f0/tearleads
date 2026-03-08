@@ -80,6 +80,26 @@ describe('vfsRematerializationAclGrantors', () => {
     ]);
   });
 
+  it('returns without inserts when every grantor already exists', async () => {
+    const adapter = getDatabaseAdapter();
+    await adapter.execute(
+      `INSERT INTO users (id, email, email_confirmed) VALUES (?, ?, ?)`,
+      ['existing-only', 'existing-only@example.com', 1]
+    );
+
+    const executeSpy = vi.spyOn(adapter, 'execute');
+
+    await ensureGrantorUsersExist(['existing-only', 'existing-only'], 200);
+
+    expect(
+      executeSpy.mock.calls.some(
+        ([sql]) =>
+          sql.startsWith(`INSERT INTO users`) ||
+          sql.startsWith(`INSERT INTO organizations`)
+      )
+    ).toBe(false);
+  });
+
   it('returns early when users table is unavailable', async () => {
     const adapter = getDatabaseAdapter();
     const executeSpy = vi
@@ -109,7 +129,7 @@ describe('vfsRematerializationAclGrantors', () => {
       .mockImplementation(async (sql: string, params: unknown[]) => {
         if (sql.includes('PRAGMA table_info("users")')) {
           return {
-            rows: [{ name: 'personal_organization_id', notnull: 1 }],
+            rows: [{ name: 'personal_organization_id', notnull: '1' }],
             changes: 0,
             lastInsertRowId: 0
           };
@@ -143,5 +163,77 @@ describe('vfsRematerializationAclGrantors', () => {
     expect(
       executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
     ).toBe(true);
+  });
+
+  it('supports numeric notnull values from pragma table_info', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.includes('PRAGMA table_info("users")')) {
+          return {
+            rows: [{ name: 'personal_organization_id', notnull: 1 }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        if (
+          sql.includes(`SELECT name FROM sqlite_master`) &&
+          params[0] === 'organizations'
+        ) {
+          return {
+            rows: [{ name: 'organizations' }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        if (sql.startsWith(`INSERT INTO organizations`)) {
+          return { rows: [], changes: 1, lastInsertRowId: 0 };
+        }
+        if (sql.startsWith(`INSERT INTO users`)) {
+          return { rows: [], changes: 1, lastInsertRowId: 0 };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(['grantor-with-numeric-notnull'], 200);
+
+    expect(
+      executeSpy.mock.calls.some(([sql]) =>
+        sql.startsWith(`INSERT INTO organizations`)
+      )
+    ).toBe(true);
+    expect(
+      executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
+    ).toBe(true);
+  });
+
+  it('falls back to base user inserts when pragma notnull is invalid text', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.includes('PRAGMA table_info("users")')) {
+          return {
+            rows: [{ name: 'personal_organization_id', notnull: 'not-a-number' }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(['grantor-no-org-required'], 200);
+
+    expect(
+      executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
+    ).toBe(true);
+    expect(
+      executeSpy.mock.calls.some(([sql]) =>
+        sql.startsWith(`INSERT INTO organizations`)
+      )
+    ).toBe(false);
   });
 });

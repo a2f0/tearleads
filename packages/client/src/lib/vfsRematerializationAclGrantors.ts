@@ -49,9 +49,6 @@ async function resolveExistingUserIds(
   const adapter = getDatabaseAdapter();
   const existing = new Set<string>();
   for (const chunk of chunkArray(candidateIds, batchSize)) {
-    if (chunk.length === 0) {
-      continue;
-    }
     const placeholders = chunk.map(() => '?').join(', ');
     const result = await adapter.execute(
       `SELECT id FROM users WHERE id IN (${placeholders})`,
