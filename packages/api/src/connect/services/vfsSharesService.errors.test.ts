@@ -28,12 +28,17 @@ describe('vfsSharesConnectService parse errors', () => {
     vi.resetAllMocks();
   });
 
-  it('rejects malformed mutation JSON at the service boundary', async () => {
+  it('rejects invalid mutation payloads at the service boundary', async () => {
     const context = { requestHeader: new Headers() };
 
     await expect(
       vfsSharesConnectService.createShare(
-        { itemId: 'item-1', json: '{' },
+        {
+          itemId: 'item-1',
+          shareType: 'invalid',
+          targetId: 'user-2',
+          permissionLevel: 'view'
+        },
         context
       )
     ).rejects.toMatchObject({
@@ -41,7 +46,23 @@ describe('vfsSharesConnectService parse errors', () => {
     });
     await expect(
       vfsSharesConnectService.updateShare(
-        { shareId: 'share-1', json: '{' },
+        {
+          shareId: 'share-1',
+          permissionLevel: 'owner',
+          clearExpiresAt: false
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    await expect(
+      vfsSharesConnectService.updateShare(
+        {
+          shareId: 'share-1',
+          expiresAt: '2026-03-01T00:00:00Z',
+          clearExpiresAt: true
+        },
         context
       )
     ).rejects.toMatchObject({
@@ -49,7 +70,12 @@ describe('vfsSharesConnectService parse errors', () => {
     });
     await expect(
       vfsSharesConnectService.createOrgShare(
-        { itemId: 'item-1', json: '{' },
+        {
+          itemId: 'item-1',
+          sourceOrgId: '',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
+        },
         context
       )
     ).rejects.toMatchObject({

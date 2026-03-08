@@ -29,9 +29,29 @@ message VfsSharesGetItemSharesResponse {
   string json = 1;
 }
 
+message VfsWrappedKeyPayload {
+  string recipient_user_id = 1;
+  string recipient_public_key_id = 2;
+  int32 key_epoch = 3;
+  string encrypted_key = 4;
+  string sender_signature = 5;
+}
+
+message VfsOrgWrappedKeyPayload {
+  string recipient_org_id = 1;
+  string recipient_public_key_id = 2;
+  int32 key_epoch = 3;
+  string encrypted_key = 4;
+  string sender_signature = 5;
+}
+
 message VfsSharesCreateShareRequest {
   string item_id = 1;
-  string json = 2;
+  string share_type = 2;
+  string target_id = 3;
+  string permission_level = 4;
+  optional string expires_at = 5;
+  optional VfsWrappedKeyPayload wrapped_key = 6;
 }
 
 message VfsSharesCreateShareResponse {
@@ -40,7 +60,9 @@ message VfsSharesCreateShareResponse {
 
 message VfsSharesUpdateShareRequest {
   string share_id = 1;
-  string json = 2;
+  optional string permission_level = 2;
+  optional string expires_at = 3;
+  bool clear_expires_at = 4;
 }
 
 message VfsSharesUpdateShareResponse {
@@ -57,7 +79,11 @@ message VfsSharesDeleteShareResponse {
 
 message VfsSharesCreateOrgShareRequest {
   string item_id = 1;
-  string json = 2;
+  string source_org_id = 2;
+  string target_org_id = 3;
+  string permission_level = 4;
+  optional string expires_at = 5;
+  optional VfsOrgWrappedKeyPayload wrapped_key = 6;
 }
 
 message VfsSharesCreateOrgShareResponse {

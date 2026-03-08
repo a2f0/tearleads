@@ -4,8 +4,6 @@ import type {
   CreateVfsShareRequest,
   UpdateVfsShareRequest
 } from '@tearleads/shared';
-import { isRecord } from '@tearleads/shared';
-import { parseJsonBody } from './vfsDirectJson.js';
 import {
   deleteOrgShareDirect,
   deleteShareDirect,
@@ -25,10 +23,29 @@ import {
 } from './vfsSharesDirectShared.js';
 
 type GetItemSharesRequest = { itemId: string };
-type CreateShareRpcRequest = { itemId: string; json: string };
-type UpdateShareRpcRequest = { shareId: string; json: string };
+type CreateShareRpcRequest = {
+  itemId: string;
+  shareType: string;
+  targetId: string;
+  permissionLevel: string;
+  expiresAt?: string;
+  wrappedKey?: CreateVfsShareRequest['wrappedKey'];
+};
+type UpdateShareRpcRequest = {
+  shareId: string;
+  permissionLevel?: string;
+  expiresAt?: string;
+  clearExpiresAt: boolean;
+};
 type ShareIdRequest = { shareId: string };
-type CreateOrgShareRpcRequest = { itemId: string; json: string };
+type CreateOrgShareRpcRequest = {
+  itemId: string;
+  sourceOrgId: string;
+  targetOrgId: string;
+  permissionLevel: string;
+  expiresAt?: string;
+  wrappedKey?: CreateOrgShareRequest['wrappedKey'];
+};
 type SearchShareTargetsRequest = { q: string; type: string };
 type GetSharePolicyPreviewRequest = {
   rootItemId: string;
@@ -46,11 +63,7 @@ type UpdateShareDirectRequest = { shareId: string } & UpdateVfsShareRequest;
 function parseCreateShareDirectRequest(
   request: CreateShareRpcRequest
 ): CreateVfsShareRequest {
-  const parsedBody = parseJsonBody(request.json);
-  const payload = parseCreateSharePayload({
-    ...(isRecord(parsedBody) ? parsedBody : {}),
-    itemId: request.itemId
-  });
+  const payload = parseCreateSharePayload(request);
   if (!payload) {
     throw new ConnectError(
       'shareType, targetId, and permissionLevel are required',
@@ -63,7 +76,16 @@ function parseCreateShareDirectRequest(
 function parseUpdateShareDirectRequest(
   request: UpdateShareRpcRequest
 ): UpdateShareDirectRequest {
-  const payload = parseUpdateSharePayload(parseJsonBody(request.json));
+  if (request.clearExpiresAt && request.expiresAt !== undefined) {
+    throw new ConnectError(
+      'expiresAt and clearExpiresAt cannot both be set',
+      Code.InvalidArgument
+    );
+  }
+  const payload = parseUpdateSharePayload({
+    permissionLevel: request.permissionLevel,
+    expiresAt: request.clearExpiresAt ? null : request.expiresAt
+  });
   if (!payload) {
     throw new ConnectError('Invalid update payload', Code.InvalidArgument);
   }
@@ -82,11 +104,7 @@ function parseUpdateShareDirectRequest(
 function parseCreateOrgShareDirectRequest(
   request: CreateOrgShareRpcRequest
 ): CreateOrgShareRequest {
-  const parsedBody = parseJsonBody(request.json);
-  const payload = parseCreateOrgSharePayload({
-    ...(isRecord(parsedBody) ? parsedBody : {}),
-    itemId: request.itemId
-  });
+  const payload = parseCreateOrgSharePayload(request);
   if (!payload) {
     throw new ConnectError(
       'sourceOrgId, targetOrgId, and permissionLevel are required',
