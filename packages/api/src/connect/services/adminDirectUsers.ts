@@ -13,6 +13,7 @@ import {
   requireScopedAdminAccess,
   type ScopedAdminAccess
 } from './adminDirectAuth.js';
+import type { OptionalWithUndefined } from './adminDirectTypes.js';
 import {
   emptyAccounting,
   getUserAccounting,
@@ -20,7 +21,6 @@ import {
   parseUserUpdatePayload,
   type UserRow
 } from './adminDirectUsersShared.js';
-import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
 type IdRequest = { id: string };
 type IdJsonRequest = { id: string; json: string };
