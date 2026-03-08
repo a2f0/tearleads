@@ -72,10 +72,14 @@ describe('fetchWithRetryableWriteValidationError', () => {
     ];
     let callCount = 0;
     const sleeps: number[] = [];
+    const fallbackSuccess = new Response('{"ok":true}', {
+      status: 200,
+      statusText: 'OK'
+    });
     const actorFetch = async (): Promise<Response> => {
       const response = responses[callCount];
       callCount += 1;
-      return response ?? responses[responses.length - 1];
+      return response ?? fallbackSuccess;
     };
 
     const response = await fetchWithRetryableWriteValidationError(
@@ -111,10 +115,17 @@ describe('fetchWithRetryableWriteValidationError', () => {
     ];
     let callCount = 0;
     const sleeps: number[] = [];
+    const fallbackFailure = new Response(
+      '{"error":"id, objectType, and encryptedSessionKey are required"}',
+      {
+        status: 400,
+        statusText: 'Bad Request'
+      }
+    );
     const actorFetch = async (): Promise<Response> => {
       const response = retries[callCount];
       callCount += 1;
-      return response ?? retries[retries.length - 1];
+      return response ?? fallbackFailure;
     };
 
     await expect(
