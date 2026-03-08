@@ -6,7 +6,7 @@ import failOnConsole from 'vitest-fail-on-console';
 
 const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
 
-const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
+installVitestPolyfills(vi);
 
 if (!isBunRuntime) {
   failOnConsole();
@@ -54,13 +54,9 @@ if (!isBunRuntime) {
 }
 
 afterEach(() => {
-  if (hasCustomStubber) {
-    unstubAllGlobals();
-  } else {
-    const nativeUnstubAllGlobals = Reflect.get(vi, 'unstubAllGlobals');
-    if (typeof nativeUnstubAllGlobals === 'function') {
-      Reflect.apply(nativeUnstubAllGlobals, vi, []);
-    }
+  const unstubAllGlobals = Reflect.get(vi, 'unstubAllGlobals');
+  if (typeof unstubAllGlobals === 'function') {
+    Reflect.apply(unstubAllGlobals, vi, []);
   }
   cleanup();
 });
