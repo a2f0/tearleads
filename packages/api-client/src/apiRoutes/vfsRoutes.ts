@@ -215,20 +215,29 @@ export const vfsRoutes = {
       'CreateShare',
       {
         itemId: data.itemId,
-        json: JSON.stringify({
-          shareType: data.shareType,
-          targetId: data.targetId,
-          permissionLevel: data.permissionLevel,
-          expiresAt: data.expiresAt,
-          wrappedKey: data.wrappedKey
-        })
+        shareType: data.shareType,
+        targetId: data.targetId,
+        permissionLevel: data.permissionLevel,
+        ...(typeof data.expiresAt === 'string'
+          ? { expiresAt: data.expiresAt }
+          : {}),
+        ...(data.wrappedKey ? { wrappedKey: data.wrappedKey } : {})
       },
       'api_post_vfs_share'
     ).then((response) => response.share),
   updateShare: (shareId: string, data: UpdateVfsShareRequest) =>
     requestVfsSharesJson<{ share: VfsShare }>(
       'UpdateShare',
-      { shareId, json: JSON.stringify(data) },
+      {
+        shareId,
+        ...(data.permissionLevel
+          ? { permissionLevel: data.permissionLevel }
+          : {}),
+        ...(typeof data.expiresAt === 'string'
+          ? { expiresAt: data.expiresAt }
+          : {}),
+        ...(data.expiresAt === null ? { clearExpiresAt: true } : {})
+      },
       'api_patch_vfs_share'
     ).then((response) => response.share),
   deleteShare: (shareId: string) =>
@@ -242,12 +251,13 @@ export const vfsRoutes = {
       'CreateOrgShare',
       {
         itemId: data.itemId,
-        json: JSON.stringify({
-          sourceOrgId: data.sourceOrgId,
-          targetOrgId: data.targetOrgId,
-          permissionLevel: data.permissionLevel,
-          expiresAt: data.expiresAt
-        })
+        sourceOrgId: data.sourceOrgId,
+        targetOrgId: data.targetOrgId,
+        permissionLevel: data.permissionLevel,
+        ...(typeof data.expiresAt === 'string'
+          ? { expiresAt: data.expiresAt }
+          : {}),
+        ...(data.wrappedKey ? { wrappedKey: data.wrappedKey } : {})
       },
       'api_post_vfs_org_share'
     ).then((response) => response.orgShare),
