@@ -110,27 +110,29 @@ export class ApiScenarioHarness {
         init?: RequestInit
       ): Promise<T> => {
         let response = await actorFetch(path, init);
-        let responseBody = '';
-        let retriedValidationRequest = false;
-
-        while (!response.ok) {
-          responseBody = await response.text();
-          if (
-            !retriedValidationRequest &&
-            isRetryableWriteValidationError(
-              path,
-              init,
-              response.status,
-              responseBody
-            )
-          ) {
-            retriedValidationRequest = true;
-            response = await actorFetch(path, init);
-            continue;
-          }
-          throw new Error(
-            `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
+        if (!response.ok) {
+          const responseBody = await response.text();
+          const shouldRetry = isRetryableWriteValidationError(
+            path,
+            init,
+            response.status,
+            responseBody
           );
+          if (!shouldRetry) {
+            throw new Error(
+              `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
+            );
+          }
+
+          response = await actorFetch(path, init);
+          if (!response.ok) {
+            const retryBody = await response.text();
+            throw new Error(
+              `API error ${String(response.status)} ${response.statusText}: ${retryBody}`
+            );
+          }
+
+          // Request recovered after one retry.
         }
 
         const text = await response.text();

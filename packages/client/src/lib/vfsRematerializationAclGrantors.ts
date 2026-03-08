@@ -117,40 +117,60 @@ export async function ensureGrantorUsersExist(
   const nowMs = Date.now();
 
   if (requirePersonalOrg && (await tableExists('organizations'))) {
-    for (const userId of missingUserIds) {
-      const personalOrganizationId = buildPersonalOrganizationId(userId);
+    for (const chunk of chunkArray(missingUserIds, batchSize)) {
+      const organizationValuesSql = chunk
+        .map(() => `(?, ?, ?, ?, ?)`)
+        .join(', ');
+      const organizationParams = chunk.flatMap((userId) => {
+        const personalOrganizationId = buildPersonalOrganizationId(userId);
+        return [
+          personalOrganizationId,
+          `Bootstrap User ${userId}`,
+          1,
+          nowMs,
+          nowMs
+        ];
+      });
       await adapter.execute(
         `INSERT INTO organizations (id, name, is_personal, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)
+         VALUES ${organizationValuesSql}
          ON CONFLICT(id) DO NOTHING`,
-        [personalOrganizationId, `Bootstrap User ${userId}`, 1, nowMs, nowMs]
+        organizationParams
       );
     }
 
-    for (const userId of missingUserIds) {
+    for (const chunk of chunkArray(missingUserIds, batchSize)) {
+      const userValuesSql = chunk.map(() => `(?, ?, ?, ?, ?, ?)`).join(', ');
+      const userParams = chunk.flatMap((userId) => [
+        userId,
+        buildPlaceholderEmail(userId),
+        0,
+        buildPersonalOrganizationId(userId),
+        nowMs,
+        nowMs
+      ]);
       await adapter.execute(
         `INSERT INTO users (id, email, email_confirmed, personal_organization_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+         VALUES ${userValuesSql}
          ON CONFLICT(id) DO NOTHING`,
-        [
-          userId,
-          buildPlaceholderEmail(userId),
-          0,
-          buildPersonalOrganizationId(userId),
-          nowMs,
-          nowMs
-        ]
+        userParams
       );
     }
     return;
   }
 
-  for (const userId of missingUserIds) {
+  for (const chunk of chunkArray(missingUserIds, batchSize)) {
+    const userValuesSql = chunk.map(() => `(?, ?, ?)`).join(', ');
+    const userParams = chunk.flatMap((userId) => [
+      userId,
+      buildPlaceholderEmail(userId),
+      0
+    ]);
     await adapter.execute(
       `INSERT INTO users (id, email, email_confirmed)
-       VALUES (?, ?, ?)
+       VALUES ${userValuesSql}
        ON CONFLICT(id) DO NOTHING`,
-      [userId, buildPlaceholderEmail(userId), 0]
+      userParams
     );
   }
 }

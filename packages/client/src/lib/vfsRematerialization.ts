@@ -356,7 +356,6 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     .filter(
       (value): value is string => typeof value === 'string' && value.length > 0
     );
-  const aclRows = rawAclRows;
   const itemStateRows = Array.from(itemStateById.values()).map((entry) => ({
     itemId: entry.itemId,
     encryptedPayload: entry.encryptedPayload,
@@ -450,7 +449,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         }
       }
       if (hasAclEntriesTable) {
-        for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
+        for (const chunk of chunkArray(rawAclRows, INSERT_BATCH_SIZE)) {
           if (chunk.length > 0) {
             await tx.insert(vfsAclEntries).values(chunk);
           }

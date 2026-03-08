@@ -53,6 +53,30 @@ describe('vfsRematerializationAclGrantors', () => {
     ]);
   });
 
+  it('batches base-path inserts using the provided batch size', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.includes('PRAGMA table_info("users")')) {
+          return {
+            rows: [{ name: 'personal_organization_id', notnull: 0 }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(['batched-a', 'batched-b', 'batched-c'], 2);
+
+    const userInsertCalls = executeSpy.mock.calls.filter(([sql]) =>
+      sql.startsWith(`INSERT INTO users (id, email, email_confirmed)`)
+    );
+    expect(userInsertCalls).toHaveLength(2);
+  });
+
   it('does not overwrite existing user records', async () => {
     const adapter = getDatabaseAdapter();
     await adapter.execute(
@@ -237,6 +261,58 @@ describe('vfsRematerializationAclGrantors', () => {
     expect(
       executeSpy.mock.calls.some(([sql]) => sql.startsWith(`INSERT INTO users`))
     ).toBe(true);
+  });
+
+  it('batches personal-organization inserts by batch size', async () => {
+    const adapter = getDatabaseAdapter();
+    const originalExecute = adapter.execute.bind(adapter);
+    const executeSpy = vi
+      .spyOn(adapter, 'execute')
+      .mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.includes('PRAGMA table_info("users")')) {
+          return {
+            rows: [{ name: 'personal_organization_id', notnull: 1 }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        if (
+          sql.includes(`SELECT name FROM sqlite_master`) &&
+          params[0] === 'organizations'
+        ) {
+          return {
+            rows: [{ name: 'organizations' }],
+            changes: 0,
+            lastInsertRowId: 0
+          };
+        }
+        if (sql.startsWith(`INSERT INTO organizations`)) {
+          return { rows: [], changes: 1, lastInsertRowId: 0 };
+        }
+        if (sql.startsWith(`INSERT INTO users`)) {
+          return { rows: [], changes: 1, lastInsertRowId: 0 };
+        }
+        return originalExecute(sql, params);
+      });
+
+    await ensureGrantorUsersExist(
+      ['grantor-batch-1', 'grantor-batch-2', 'grantor-batch-3'],
+      2
+    );
+
+    const organizationInsertCalls = executeSpy.mock.calls.filter(([sql]) =>
+      sql.startsWith(
+        `INSERT INTO organizations (id, name, is_personal, created_at, updated_at)`
+      )
+    );
+    const userInsertCalls = executeSpy.mock.calls.filter(([sql]) =>
+      sql.startsWith(
+        `INSERT INTO users (id, email, email_confirmed, personal_organization_id, created_at, updated_at)`
+      )
+    );
+
+    expect(organizationInsertCalls).toHaveLength(2);
+    expect(userInsertCalls).toHaveLength(2);
   });
 
   it('falls back to base user inserts when pragma notnull is invalid text', async () => {
