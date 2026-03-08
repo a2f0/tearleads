@@ -20,7 +20,7 @@ import {
 } from './vehiclesDb';
 import { isDatabaseInitialized } from './vehiclesState';
 
-// Bun-compatible: cast imported mock instead of vi.mocked()
+// Bun-compatible: cast imported mock for stable runtime behavior
 const mockIsDbInit = isDatabaseInitialized as unknown as Mock;
 
 describe('vehicles db helpers', () => {

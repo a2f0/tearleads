@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-07T23:20:10.018Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-07T23:44:00.610Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -8,7 +8,7 @@ Generated: `2026-03-07T23:20:10.018Z` via `node --experimental-strip-types scrip
 - Bun-primary test scripts: 16
 - Transitional bun auto-fallback scripts: 0
 - Vitest-primary test scripts: 32
-- Packages with DOM/jsdom indicators: 33
+- Packages with DOM/jsdom indicators: 31
 - Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 14
 
 ## Top Blockers
@@ -68,21 +68,21 @@ Generated: `2026-03-07T23:20:10.018Z` via `node --experimental-strip-types scrip
 | `@tearleads/wallet` | 4 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/window-manager` | 43 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/db-test-utils` | 13 | `bun-primary` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
-| `@tearleads/mls-core` | 2 | `bun-primary` | yes | none | DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
-| `@tearleads/photos` | 1 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
-| `@tearleads/vehicles` | 2 | `bun-primary` | yes | vi.mocked:1 | none | `needs-remediation` |
 | `@tearleads/vfs-sync` | 82 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/bob-and-alice` | 29 | `bun-primary` | yes | vi.stubEnv:1 | none | `ready` |
 | `@tearleads/api-test-utils` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-builder` | 2 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/db` | 30 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/local-write-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/mls-core` | 2 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/msw` | 2 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/photos` | 1 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/remote-read-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/search` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/smtp-listener` | 11 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-api` | 5 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-client` | 1 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/vehicles` | 2 | `bun-primary` | yes | none | none | `ready` |
 
 ## Notes
 
