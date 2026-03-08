@@ -15,7 +15,7 @@ module "ses" {
 
 data "cloudflare_zone" "this" {
   account_id = var.cloudflare_account_id
-  name       = var.dns_domain
+  name       = var.domain
 }
 
 # SES domain verification TXT record
