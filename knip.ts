@@ -56,6 +56,13 @@ const config: KnipConfig = {
         'electron/preload.ts',
         'electron/sqlite/**/*.ts',
         'scripts/optimizeSvg.ts',
+        // Keep wrapper modules in the knip program to avoid TS reference
+        // lookup crashes when colocated tests are removed.
+        'src/lib/authStorage.ts',
+        'src/lib/mediaDragData.ts',
+        'src/lib/pingContract.ts',
+        'src/lib/windowDimensionsStorage.ts',
+        'src/lib/windowStatePreference.ts',
         // CSS import graph includes @import "tailwindcss".
         'src/index.css'
       ]
