@@ -15,6 +15,22 @@ else
   canonical_worker_flag='--max-workers'
 fi
 
+# Allow package scripts to request Bun preload without passing Bun-only args to Vitest.
+if [ "$runner_bin" = "bun" ] && [ -n "${BUN_TEST_PRELOAD:-}" ]; then
+  set -- --preload "$BUN_TEST_PRELOAD" "$@"
+fi
+
+if [ "$runner_bin" = "bun" ] && [ -n "${BUN_TEST_PATTERNS:-}" ]; then
+  # Keep glob patterns literal for Bun's matcher by disabling shell glob expansion.
+  set -f
+  old_ifs=$IFS
+  IFS=','
+  # shellcheck disable=SC2086
+  set -- "$@" ${BUN_TEST_PATTERNS}
+  IFS=$old_ifs
+  set +f
+fi
+
 has_worker_flag=0
 normalized_args=''
 while [ "$#" -gt 0 ]; do
