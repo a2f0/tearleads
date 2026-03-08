@@ -11,13 +11,11 @@ export function classifyTestScript(
   if (testScript === undefined) {
     return 'none';
   }
-  if (testScript.includes('command -v bun')) {
-    return 'bun-auto-fallback';
-  }
   if (
-    testScript.includes('bun test') &&
-    testScript.includes('||') &&
-    testScript.includes('vitest')
+    testScript.includes('command -v bun') ||
+    (testScript.includes('bun test') &&
+      testScript.includes('||') &&
+      testScript.includes('vitest'))
   ) {
     return 'bun-auto-fallback';
   }
