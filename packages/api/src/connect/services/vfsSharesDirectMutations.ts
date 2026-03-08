@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { isRecord, type VfsShare, type VfsShareType } from '@tearleads/shared';
+import type {
+  CreateVfsShareRequest,
+  UpdateVfsShareRequest,
+  VfsShare,
+  VfsShareType
+} from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
@@ -14,28 +19,24 @@ import {
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
 
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
-
 function encoded(value: string): string {
   return encodeURIComponent(value);
 }
 
+type UpdateShareMutationRequest = { shareId: string } & UpdateVfsShareRequest;
+type CreateShareMutationRequest = {
+  itemId: string;
+} & Partial<Omit<CreateVfsShareRequest, 'itemId'>>;
+
 export async function updateShareDirect(
-  request: { shareId: string; json: string },
+  request: UpdateShareMutationRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const claims = await requireVfsSharesClaims(
     `/vfs/shares/${encoded(request.shareId)}`,
     context.requestHeader
   );
-  const payload = parseUpdateSharePayload(parseJsonBody(request.json));
+  const payload = parseUpdateSharePayload(request);
 
   if (!payload) {
     throw new ConnectError('Invalid update payload', Code.InvalidArgument);
@@ -175,7 +176,7 @@ export async function updateShareDirect(
 }
 
 export async function createShareDirect(
-  request: { itemId: string; json: string },
+  request: CreateShareMutationRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const claims = await requireVfsSharesClaims(
@@ -183,11 +184,7 @@ export async function createShareDirect(
     context.requestHeader
   );
 
-  const parsedBody = parseJsonBody(request.json);
-  const payload = parseCreateSharePayload({
-    ...(isRecord(parsedBody) ? parsedBody : {}),
-    itemId: request.itemId
-  });
+  const payload = parseCreateSharePayload(request);
 
   if (!payload) {
     throw new ConnectError(

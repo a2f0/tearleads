@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { isRecord, type VfsOrgShare } from '@tearleads/shared';
+import type { CreateOrgShareRequest, VfsOrgShare } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
@@ -17,17 +17,12 @@ function encoded(value: string): string {
   return encodeURIComponent(value);
 }
 
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
+type CreateOrgShareMutationRequest = {
+  itemId: string;
+} & Partial<Omit<CreateOrgShareRequest, 'itemId'>>;
 
 export async function createOrgShareDirect(
-  request: { itemId: string; json: string },
+  request: CreateOrgShareMutationRequest,
   context: { requestHeader: Headers }
 ): Promise<{ json: string }> {
   const claims = await requireVfsSharesClaims(
@@ -35,11 +30,7 @@ export async function createOrgShareDirect(
     context.requestHeader
   );
 
-  const parsedBody = parseJsonBody(request.json);
-  const payload = parseCreateOrgSharePayload({
-    ...(isRecord(parsedBody) ? parsedBody : {}),
-    itemId: request.itemId
-  });
+  const payload = parseCreateOrgSharePayload(request);
   if (!payload) {
     throw new ConnectError(
       'sourceOrgId, targetOrgId, and permissionLevel are required',
