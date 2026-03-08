@@ -5,6 +5,7 @@ import type {
   UpdateVfsShareRequest
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
+import { parseJsonBody } from './vfsDirectJson.js';
 import {
   deleteOrgShareDirect,
   deleteShareDirect,
@@ -41,15 +42,6 @@ type GetSharePolicyPreviewRequest = {
 };
 
 type UpdateShareDirectRequest = { shareId: string } & UpdateVfsShareRequest;
-
-function parseJsonBody(json: string): unknown {
-  const normalized = json.trim().length > 0 ? json : '{}';
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new ConnectError('Invalid JSON body', Code.InvalidArgument);
-  }
-}
 
 function parseCreateShareDirectRequest(
   request: CreateShareRpcRequest
