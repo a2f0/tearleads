@@ -128,7 +128,9 @@ interface VitestPolyfillResult {
  * purely for TypeScript type narrowing (`Mocked<T>`). The polyfill
  * mirrors that behaviour exactly.
  */
-export function installVitestPolyfills(vi: object): VitestPolyfillResult {
+export function installVitestPolyfills(
+  vi: Record<string, unknown>
+): VitestPolyfillResult {
   if (typeof Reflect.get(vi, 'hoisted') !== 'function') {
     Reflect.set(vi, 'hoisted', <T>(factory: () => T): T => factory());
   }
