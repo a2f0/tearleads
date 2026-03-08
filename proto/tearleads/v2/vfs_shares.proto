@@ -26,7 +26,8 @@ message VfsSharesGetItemSharesRequest {
 }
 
 message VfsSharesGetItemSharesResponse {
-  string json = 1;
+  repeated VfsSharePayload shares = 1;
+  repeated VfsOrgSharePayload org_shares = 2;
 }
 
 message VfsWrappedKeyPayload {
@@ -132,8 +133,15 @@ message VfsSharesSearchShareTargetsRequest {
   string type = 2;
 }
 
+message VfsShareTargetPayload {
+  string id = 1;
+  string type = 2;
+  string name = 3;
+  optional string description = 4;
+}
+
 message VfsSharesSearchShareTargetsResponse {
-  string json = 1;
+  repeated VfsShareTargetPayload results = 1;
 }
 
 message VfsSharesGetSharePolicyPreviewRequest {

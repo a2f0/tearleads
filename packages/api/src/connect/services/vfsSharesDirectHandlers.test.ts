@@ -52,18 +52,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseResponseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected record JSON payload');
-  }
-  return parsed;
-}
-
 describe('vfsSharesDirectHandlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -253,13 +241,11 @@ describe('vfsSharesDirectHandlers', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const results = payload['results'];
-    if (!Array.isArray(results)) {
+    if (!Array.isArray(response.results)) {
       throw new Error('Expected search results');
     }
 
-    expect(results).toEqual([
+    expect(response.results).toMatchObject([
       { id: 'user-2', type: 'user', name: 'target@example.com' },
       { id: 'group-1', type: 'group', name: 'Eng' },
       { id: 'org-1', type: 'organization', name: 'Org One' }
@@ -287,7 +273,7 @@ describe('vfsSharesDirectHandlers', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseResponseJson(emptyOrgResult.json)).toEqual({ results: [] });
+    expect(emptyOrgResult).toMatchObject({ results: [] });
 
     const userOnlyResult = await searchShareTargetsDirect(
       {
@@ -298,7 +284,7 @@ describe('vfsSharesDirectHandlers', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseResponseJson(userOnlyResult.json)).toEqual({
+    expect(userOnlyResult).toMatchObject({
       results: [{ id: 'user-2', type: 'user', name: 'alice@example.com' }]
     });
   });
