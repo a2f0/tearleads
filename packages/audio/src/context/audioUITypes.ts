@@ -2,6 +2,11 @@
  * Types for Audio UI Context.
  */
 
+import type {
+  HostRuntimeDatabaseState,
+  HostRuntimeNavigateOptions,
+  HostRuntimeTranslation
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import type { AudioTrack } from './AudioContext';
 
@@ -40,11 +45,7 @@ export interface AudioPlaylist {
 /**
  * Database state
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * UI component props interfaces
@@ -270,14 +271,15 @@ export type AudioTranslationKey =
 /**
  * Translation function type
  */
-export type TranslationFunction = (key: AudioTranslationKey) => string;
+export type TranslationFunction = HostRuntimeTranslation<AudioTranslationKey>;
 
 /**
  * Navigation options for audio navigation
  */
-export interface NavigateToAudioOptions {
-  fromLabel?: string;
-}
+export type NavigateToAudioOptions = Pick<
+  HostRuntimeNavigateOptions,
+  'fromLabel'
+>;
 
 /**
  * Navigation function type for navigating to a specific audio file

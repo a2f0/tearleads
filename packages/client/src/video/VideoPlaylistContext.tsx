@@ -3,6 +3,7 @@
  * Provides playlist operations for video playlists.
  */
 
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
@@ -14,11 +15,7 @@ export interface VideoPlaylist {
   mediaType: 'audio' | 'video';
 }
 
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-  currentInstanceId: string | null;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 export interface VideoPlaylistContextValue {
   /** Database state */

@@ -3,6 +3,7 @@
  * for video playlist functionality.
  */
 
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import { and, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { getDatabase } from '@/db';
@@ -19,7 +20,7 @@ interface ClientVideoProviderProps {
 export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
   const databaseContext = useDatabaseContext();
 
-  const databaseState = useMemo(
+  const databaseState = useMemo<HostRuntimeDatabaseState>(
     () => ({
       isUnlocked: databaseContext.isUnlocked,
       isLoading: databaseContext.isLoading,
