@@ -24,8 +24,9 @@ export async function restoreTableData(
   if (rows.length === 0) return;
 
   // Get column names from the first row
-  const firstRow = rows[0] as Record<string, unknown>;
-  const columns = Object.keys(firstRow);
+  const firstRow = rows[0];
+  if (typeof firstRow !== 'object' || !firstRow) return;
+  const columns = Object.keys(firstRow as Record<string, unknown>);
 
   if (columns.length === 0) return;
 
@@ -48,6 +49,7 @@ export async function restoreTableData(
       .map(() => `(${placeholders})`)
       .join(', ')}`;
     const batchValues = batchRows.flatMap((rawRow) => {
+      if (typeof rawRow !== 'object' || !rawRow) return [];
       const rowData = rawRow as Record<string, unknown>;
       return columns.map((columnName) =>
         normalizeRestoreValue(rowData[columnName])
@@ -57,11 +59,12 @@ export async function restoreTableData(
     try {
       await adapter.execute(batchSql, batchValues);
       continue;
-    } catch {
-      // Fallback preserves previous best-effort semantics if a batch fails.
+    } catch (err) {
+      console.warn(`Batch insert failed for "${tableName}", falling back to single-row inserts:`, err);
     }
 
     for (const rawRow of batchRows) {
+      if (typeof rawRow !== 'object' || !rawRow) continue;
       const rowData = rawRow as Record<string, unknown>;
       const values = columns.map((columnName) =>
         normalizeRestoreValue(rowData[columnName])
