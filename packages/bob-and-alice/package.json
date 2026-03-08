@@ -19,8 +19,8 @@
   "scripts": {
     "build": "echo \"@tearleads/bob-and-alice is a test-only package\"",
     "clean": "rm -rf dist",
-    "test": "bun test src/**/*.test.ts",
-    "testCi": "bun test --concurrency=1 src/**/*.test.ts",
+    "test": "bun test --preload ./src/test/consoleGuard.ts src/**/*.test.ts",
+    "testCi": "bun test --concurrency=1 --preload ./src/test/consoleGuard.ts src/**/*.test.ts",
     "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh 'src/**/*.test.ts'"
   },
