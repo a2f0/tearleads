@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
