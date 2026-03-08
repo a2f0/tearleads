@@ -1,13 +1,13 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-08T03:35:10.036Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-08T04:31:56.835Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 27
+- Bun-primary test scripts: 29
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary test scripts: 21
+- Vitest-primary test scripts: 19
 - Packages with DOM/jsdom indicators: 31
 - Packages using high-risk Vitest APIs (`vi.hoisted`, `vi.importActual`, `vi.resetModules`): 13
 
@@ -54,8 +54,6 @@ Generated: `2026-03-08T03:35:10.036Z` via `node --experimental-strip-types scrip
 | `@tearleads/classic` | 21 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/cli` | 6 | `vitest-primary` | no | vi.mocked:7 | none | `high-remediation` |
 | `@tearleads/notifications` | 7 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/ui` | 25 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/window-manager` | 43 | `vitest-primary` | no | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/notes` | 7 | `bun-primary` | yes | vi.mocked:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/ai` | 2 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/businesses` | 5 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
@@ -65,9 +63,11 @@ Generated: `2026-03-08T03:35:10.036Z` via `node --experimental-strip-types scrip
 | `@tearleads/health` | 25 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/settings` | 7 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/terminal` | 11 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/ui` | 25 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/vfs-sync` | 82 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/wallet` | 4 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/website` | 11 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/window-manager` | 43 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/bob-and-alice` | 30 | `bun-primary` | yes | vi.stubEnv:1 | none | `ready` |
 | `@tearleads/api-test-utils` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-builder` | 2 | `bun-primary` | yes | none | none | `ready` |
