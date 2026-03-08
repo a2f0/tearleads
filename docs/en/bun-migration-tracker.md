@@ -20,7 +20,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 - Bun-primary `test` scripts: 28
 - Transitional bun auto-fallback scripts: 12
 - Vitest-primary `test` scripts: 8
-- High-risk Vitest API packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`): 15
+- High-risk Vitest API packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `vi.resetModules`): 16
 
 ## Merged Slices
 
@@ -91,6 +91,8 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2994](https://github.com/a2f0/tearleads/pull/2994) | Compatibility inventory fallback-classification correction |
 | [#2996](https://github.com/a2f0/tearleads/pull/2996) | Tracker dashboard refresh for Bun migration state |
 | [#2998](https://github.com/a2f0/tearleads/pull/2998) | Bun compatibility remediation for `vi.hoisted` polyfill and shared setup |
+| [#3000](https://github.com/a2f0/tearleads/pull/3000) | `@tearleads/mls-chat` Bun-primary `test` script |
+| [#3002](https://github.com/a2f0/tearleads/pull/3002) | Compatibility inventory `vi.mock(importOriginal)` blocker detection |
 
 ## Node Pilot Package Status
 
@@ -110,5 +112,5 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, `vi.mocked`).
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `vi.resetModules`, `vi.mocked`).
 3. Burn down the 12 packages still using `bun-auto-fallback` in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
