@@ -39,18 +39,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectPostgres', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +82,7 @@ describe('adminDirectPostgres', () => {
       '/admin/postgres/info',
       expect.any(Headers)
     );
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       info: {
         host: 'localhost',
         port: 5432
@@ -124,18 +112,16 @@ describe('adminDirectPostgres', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      tables: [
-        {
-          schema: 'public',
-          name: 'users',
-          rowCount: 12,
-          totalBytes: 1024,
-          tableBytes: 768,
-          indexBytes: 256
-        }
-      ]
-    });
+    expect(response.tables).toMatchObject([
+      {
+        schema: 'public',
+        name: 'users',
+        rowCount: 12n,
+        totalBytes: 1024n,
+        tableBytes: 768n,
+        indexBytes: 256n
+      }
+    ]);
   });
 
   it('returns not found for unknown table columns', async () => {
@@ -185,17 +171,15 @@ describe('adminDirectPostgres', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      columns: [
-        {
-          name: 'id',
-          type: 'text',
-          nullable: false,
-          defaultValue: null,
-          ordinalPosition: 1
-        }
-      ]
-    });
+    expect(response.columns).toMatchObject([
+      {
+        name: 'id',
+        type: 'text',
+        nullable: false,
+        ordinalPosition: 1
+      }
+    ]);
+    expect(response.columns[0]?.defaultValue).toBeUndefined();
   });
 
   it('normalizes row pagination and applies valid sorting', async () => {
@@ -234,12 +218,84 @@ describe('adminDirectPostgres', () => {
     expect(rowQuerySql).toContain('LIMIT $1 OFFSET $2');
     expect(rowQueryParams).toEqual([50, 0]);
 
-    expect(parseJson(response.json)).toEqual({
-      rows: [{ id: 'user-1', email: 'admin@example.com' }],
-      totalCount: 2,
-      limit: 50,
-      offset: 0
-    });
+    expect(response.rows).toEqual([
+      { id: 'user-1', email: 'admin@example.com' }
+    ]);
+    expect(response.totalCount).toBe(2n);
+    expect(response.limit).toBe(50);
+    expect(response.offset).toBe(0);
+  });
+
+  it('coerces row values into protobuf-safe JSON', async () => {
+    const timestamp = new Date('2024-01-02T03:04:05.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ column_name: 'payload' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ count: 'not-a-number' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            payload: {
+              nullable: null,
+              boolValue: true,
+              finiteNumber: 1.5,
+              nonFiniteNumber: Number.POSITIVE_INFINITY,
+              bigValue: 42n,
+              dateValue: timestamp,
+              arrayValue: [1, null, Number.NEGATIVE_INFINITY, 7n, timestamp],
+              objectValue: {
+                nestedDate: timestamp,
+                nestedArray: [false]
+              }
+            }
+          },
+          'invalid-row-shape'
+        ]
+      });
+
+    const response = await getRowsDirect(
+      {
+        schema: 'public',
+        table: 'users',
+        limit: 10,
+        offset: 0,
+        sortColumn: 'not_a_column',
+        sortDirection: 'asc'
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    const rowQueryCall = queryMock.mock.calls[2];
+    if (!rowQueryCall) {
+      throw new Error('Expected row query call');
+    }
+
+    const [rowQuerySql] = rowQueryCall;
+    expect(rowQuerySql).not.toContain('ORDER BY');
+    expect(response.totalCount).toBe(0n);
+    expect(response.rows).toEqual([
+      {
+        payload: {
+          nullable: null,
+          boolValue: true,
+          finiteNumber: 1.5,
+          nonFiniteNumber: null,
+          bigValue: '42',
+          dateValue: '2024-01-02T03:04:05.000Z',
+          arrayValue: [1, null, null, '7', '2024-01-02T03:04:05.000Z'],
+          objectValue: {
+            nestedDate: '2024-01-02T03:04:05.000Z',
+            nestedArray: [false]
+          }
+        }
+      },
+      {}
+    ]);
   });
 
   it('returns not found for row queries when table is missing', async () => {

@@ -40,16 +40,12 @@ import {
   AdminDeleteGroupResponseSchema,
   AdminDeleteOrganizationResponseSchema,
   AdminDeleteRedisKeyResponseSchema,
-  AdminGetColumnsResponseSchema,
   AdminGetOrganizationResponseSchema,
   AdminGetOrgGroupsResponseSchema,
   AdminGetOrgUsersResponseSchema,
-  AdminGetPostgresInfoResponseSchema,
   AdminGetRedisDbSizeResponseSchema,
   AdminGetRedisKeysResponseSchema,
   AdminGetRedisValueResponseSchema,
-  AdminGetRowsResponseSchema,
-  AdminGetTablesResponseSchema,
   AdminGetUserResponseSchema,
   AdminListOrganizationsResponseSchema,
   AdminListUsersResponseSchema,
@@ -375,19 +371,16 @@ export const adminConnectServiceV2 = {
     request: AdminGetPostgresInfoRequest,
     context: ConnectContext
   ) {
-    const response = await getPostgresInfoDirect(request, context);
-    return decodeAdminJson(AdminGetPostgresInfoResponseSchema, response.json);
+    return getPostgresInfoDirect(request, context);
   },
   async getTables(request: AdminGetTablesRequest, context: ConnectContext) {
-    const response = await getTablesDirect(request, context);
-    return decodeAdminJson(AdminGetTablesResponseSchema, response.json);
+    return getTablesDirect(request, context);
   },
   async getColumns(request: AdminGetColumnsRequest, context: ConnectContext) {
-    const response = await getColumnsDirect(request, context);
-    return decodeAdminJson(AdminGetColumnsResponseSchema, response.json);
+    return getColumnsDirect(request, context);
   },
   async getRows(request: AdminGetRowsRequest, context: ConnectContext) {
-    const response = await getRowsDirect(
+    return getRowsDirect(
       {
         schema: request.schema,
         table: request.table,
@@ -398,7 +391,6 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminGetRowsResponseSchema, response.json);
   },
   async getRedisKeys(
     request: AdminGetRedisKeysRequest,

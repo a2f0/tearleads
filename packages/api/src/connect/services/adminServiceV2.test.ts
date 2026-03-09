@@ -116,17 +116,15 @@ describe('adminConnectServiceV2', () => {
     expect(response.defaultOrganizationId).toBeUndefined();
   });
 
-  it('decodes postgres info response', async () => {
+  it('returns typed postgres info response directly', async () => {
     mocks.getPostgresInfoDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        info: {
-          host: 'localhost',
-          port: 5432,
-          database: 'tearleads',
-          user: 'tearleads'
-        },
-        serverVersion: 'PostgreSQL 16.2'
-      })
+      info: {
+        host: 'localhost',
+        port: 5432,
+        database: 'tearleads',
+        user: 'tearleads'
+      },
+      serverVersion: 'PostgreSQL 16.2'
     });
 
     const response = await adminConnectServiceV2.getPostgresInfo(
@@ -141,18 +139,16 @@ describe('adminConnectServiceV2', () => {
 
   it('converts table numeric counters to bigint', async () => {
     mocks.getTablesDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        tables: [
-          {
-            schema: 'public',
-            name: 'users',
-            rowCount: 12,
-            totalBytes: 34,
-            tableBytes: 20,
-            indexBytes: 14
-          }
-        ]
-      })
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 12n,
+          totalBytes: 34n,
+          tableBytes: 20n,
+          indexBytes: 14n
+        }
+      ]
     });
 
     const response = await adminConnectServiceV2.getTables(
