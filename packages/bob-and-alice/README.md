@@ -86,6 +86,7 @@ Key methods: `queueCrdtOp()`, `flush()`, `sync()`, `syncSnapshot()`, `close()`
 | Bidirectional sync | `bidirectionalSync.test.ts` | Both actors create items independently, flush, sync, and converge to the same state |
 | Conflict resolution | `conflictResolution.test.ts` | Concurrent ACL grants from both actors merge correctly via CRDT semantics |
 | Container realtime subscriptions | `containerRealtimeSubscriptions.test.ts` | Actors derive per-container sync channels from local container clocks and only subscribe to newly observed containers after syncing |
+| DB-scaffold fresh login + cache reset rematerialization | `dbScaffoldFreshLoginCacheResetRematerialization.test.ts` | Bob/Alice scaffold data remains visible after Alice cache reset followed by fresh-login feed pull and local rematerialization |
 
 ## Related Client Integration Baselines
 
@@ -106,6 +107,7 @@ This matrix maps issue `#2959` runtime-switch invariants to the suites we keep h
 |----------|------------------|-----------|
 | Bob -> Alice -> Bob instance flips while preserving shared-note visibility | `packages/client/src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx`, `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | No stale reads from prior instance after switch commit; shared content remains visible |
 | Rematerialization bootstrap and retry paths | `packages/client/src/components/VfsRematerializationBootstrap.test.tsx`, `packages/client/src/lib/api.msw.scaffoldMaterialization.test.tsx` | No silent data loss when rematerialization or feed paging hits transient errors |
+| Fresh login + cache reset rematerialization guardrail | `packages/bob-and-alice/src/scenarios/dbScaffoldFreshLoginCacheResetRematerialization.test.ts` | After local cache reset, fresh-login rematerialization restores shared-note visibility and payload |
 | API-level multi-actor share/write convergence | `packages/bob-and-alice/src/scenarios/sharedNoteEditSync.test.ts`, `packages/bob-and-alice/src/scenarios/apiVfsLifecycle.test.ts` | Cross-actor writes are accepted and reflected after flush/sync without stale instance side effects |
 
 ## Hardened Suite Commands
@@ -118,6 +120,9 @@ pnpm --filter @tearleads/bob-and-alice testCi
 
 # Bob/Alice coverage gate
 pnpm --filter @tearleads/bob-and-alice test:coverage
+
+# Targeted Bob/Alice rematerialization guardrail
+pnpm --filter @tearleads/bob-and-alice test -- src/scenarios/dbScaffoldFreshLoginCacheResetRematerialization.test.ts
 
 # Targeted client runtime-switch/rematerialization baselines
 pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx
