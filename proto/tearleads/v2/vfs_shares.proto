@@ -155,6 +155,28 @@ message VfsSharesGetSharePolicyPreviewRequest {
   repeated string object_type = 8;
 }
 
+message VfsSharePolicyPreviewNodePayload {
+  string item_id = 1;
+  string object_type = 2;
+  int32 depth = 3;
+  string path = 4;
+  string state = 5;
+  optional string effective_access_level = 6;
+  repeated string source_policy_ids = 7;
+}
+
+message VfsSharePolicyPreviewSummaryPayload {
+  int32 total_matching_nodes = 1;
+  int32 returned_nodes = 2;
+  int32 direct_count = 3;
+  int32 derived_count = 4;
+  int32 denied_count = 5;
+  int32 included_count = 6;
+  int32 excluded_count = 7;
+}
+
 message VfsSharesGetSharePolicyPreviewResponse {
-  string json = 1;
+  repeated VfsSharePolicyPreviewNodePayload nodes = 1;
+  VfsSharePolicyPreviewSummaryPayload summary = 2;
+  optional string next_cursor = 3;
 }
