@@ -87,11 +87,11 @@ async function waitForConsoleGracePeriod(gracePeriodMs: number): Promise<void> {
   });
 }
 
-export interface ConsoleGuardAssertOptions {
+interface ConsoleGuardAssertOptions {
   gracePeriodMs?: number;
 }
 
-export interface ConsoleGuardRuntime {
+interface ConsoleGuardRuntime {
   startTestWindow(): void;
   assertCurrentWindowClean(options?: ConsoleGuardAssertOptions): Promise<void>;
   restore(): void;
