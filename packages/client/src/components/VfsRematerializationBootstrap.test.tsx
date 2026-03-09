@@ -33,12 +33,24 @@ describe('VfsRematerializationBootstrap', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    mockUseAuth.mockReturnValue({ isAuthenticated: true });
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: { id: 'user-1' }
+    });
     mockUseVfsOrchestrator.mockReturnValue({ isReady: true });
     mockUseDatabaseContext.mockReturnValue({
       currentInstanceId: 'instance-1',
       db: { name: 'db-1' },
-      isLoading: false
+      isLoading: false,
+      instances: [
+        {
+          id: 'instance-1',
+          name: 'Primary',
+          createdAt: 0,
+          lastAccessedAt: 0,
+          boundUserId: 'user-1'
+        }
+      ]
     });
     mockRematerializeRemoteVfsStateIfNeeded.mockResolvedValue(false);
     mockGetInstanceChangeSnapshot.mockReturnValue({
@@ -52,7 +64,7 @@ describe('VfsRematerializationBootstrap', () => {
   });
 
   it('does not trigger rematerialization when unauthenticated', async () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
 
     render(<VfsRematerializationBootstrap />);
     await Promise.resolve();
@@ -65,7 +77,16 @@ describe('VfsRematerializationBootstrap', () => {
     mockUseDatabaseContext.mockReturnValue({
       currentInstanceId: 'instance-1',
       db: null,
-      isLoading: true
+      isLoading: true,
+      instances: [
+        {
+          id: 'instance-1',
+          name: 'Primary',
+          createdAt: 0,
+          lastAccessedAt: 0,
+          boundUserId: 'user-1'
+        }
+      ]
     });
 
     render(<VfsRematerializationBootstrap />);
@@ -79,7 +100,8 @@ describe('VfsRematerializationBootstrap', () => {
     mockUseDatabaseContext.mockReturnValue({
       currentInstanceId: null,
       db: { name: 'db-1' },
-      isLoading: false
+      isLoading: false,
+      instances: []
     });
 
     render(<VfsRematerializationBootstrap />);
@@ -104,7 +126,7 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
 
     // Simulate logout before retry fires
-    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
     rerender(<VfsRematerializationBootstrap />);
 
     // Advance past retry delay — should NOT trigger another call
@@ -166,10 +188,20 @@ describe('VfsRematerializationBootstrap', () => {
     vi.useRealTimers();
     let currentInstanceId = 'instance-1';
     let db = { name: 'db-1' };
+    let instances = [
+      {
+        id: 'instance-1',
+        name: 'Primary',
+        createdAt: 0,
+        lastAccessedAt: 0,
+        boundUserId: 'user-1'
+      }
+    ];
     mockUseDatabaseContext.mockImplementation(() => ({
       currentInstanceId,
       db,
-      isLoading: false
+      isLoading: false,
+      instances
     }));
 
     const { rerender } = render(<VfsRematerializationBootstrap />);
@@ -179,6 +211,15 @@ describe('VfsRematerializationBootstrap', () => {
 
     currentInstanceId = 'instance-2';
     db = { name: 'db-2' };
+    instances = [
+      {
+        id: 'instance-2',
+        name: 'Secondary',
+        createdAt: 0,
+        lastAccessedAt: 0,
+        boundUserId: 'user-1'
+      }
+    ];
     mockGetInstanceChangeSnapshot.mockReturnValue({
       currentInstanceId,
       instanceEpoch: 2
@@ -245,5 +286,45 @@ describe('VfsRematerializationBootstrap', () => {
 
     await vi.advanceTimersByTimeAsync(5_000);
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits until the active instance is bound to the authenticated user', async () => {
+    vi.useRealTimers();
+    let instances = [
+      {
+        id: 'instance-1',
+        name: 'Primary',
+        createdAt: 0,
+        lastAccessedAt: 0,
+        boundUserId: null
+      }
+    ];
+    mockUseDatabaseContext.mockImplementation(() => ({
+      currentInstanceId: 'instance-1',
+      db: { name: 'db-1' },
+      isLoading: false,
+      instances
+    }));
+
+    const { rerender } = render(<VfsRematerializationBootstrap />);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+
+    instances = [
+      {
+        id: 'instance-1',
+        name: 'Primary',
+        createdAt: 0,
+        lastAccessedAt: 0,
+        boundUserId: 'user-1'
+      }
+    ];
+    rerender(<VfsRematerializationBootstrap />);
+
+    await waitFor(() => {
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
 } from '@tearleads/api-client/clientEntry';
 import {
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
 } from 'react';
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { logEvent } from '@/db/analytics';
+import { DatabaseContext } from '@/db/hooks/useDatabaseContext';
 import { createItemKeyStore } from '@/db/vfsItemKeys';
 import {
   loadVfsOrchestratorState,
@@ -33,6 +35,7 @@ import {
 } from '@/lib/orgStorage';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
+import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
 import { useAuth } from './AuthContext';
 
 function normalizeApiPrefix(value: string): string {
@@ -110,6 +113,7 @@ export function useVfsOrchestratorRuntime(
 ): UseVfsOrchestratorRuntimeResult {
   const orchestratorClientId = 'client';
   const { user, isAuthenticated } = useAuth();
+  const databaseContext = useContext(DatabaseContext);
   const runtimeSnapshot = useRuntimeSnapshot();
   const [orchestrator, setOrchestrator] = useState<VfsWriteOrchestrator | null>(
     null
@@ -120,9 +124,22 @@ export function useVfsOrchestratorRuntime(
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const initializeRunIdRef = useRef(0);
+  const hasDatabaseContextRef = useRef(false);
+  const databaseReadyRef = useRef(false);
+  const databaseInstanceIdRef = useRef<string | null>(null);
 
   const effectiveBaseUrl = input.baseUrl ?? import.meta.env.VITE_API_URL ?? '';
   const effectiveApiPrefix = normalizeApiPrefix(input.apiPrefix);
+  const hasDatabaseContext = databaseContext !== null;
+  const currentDatabaseInstanceId = databaseContext?.currentInstanceId ?? null;
+  const isDatabaseReady = isVfsRuntimeDatabaseReady({
+    databaseContext,
+    userId: user?.id ?? null
+  });
+
+  hasDatabaseContextRef.current = hasDatabaseContext;
+  databaseReadyRef.current = isDatabaseReady;
+  databaseInstanceIdRef.current = currentDatabaseInstanceId;
 
   const resetRuntime = useCallback(() => {
     setOrchestrator(null);
@@ -180,7 +197,10 @@ export function useVfsOrchestratorRuntime(
     if (
       !user ||
       !isAuthenticated ||
-      runtimeSnapshot.currentInstanceId === null
+      runtimeSnapshot.currentInstanceId === null ||
+      !isDatabaseReady ||
+      (hasDatabaseContext &&
+        currentDatabaseInstanceId !== runtimeSnapshot.currentInstanceId)
     ) {
       resetRuntime();
       setIsInitializing(false);
@@ -201,6 +221,14 @@ export function useVfsOrchestratorRuntime(
           },
           onRematerializationRequired: async () => {
             const rematerializationSnapshot = getInstanceChangeSnapshot();
+            if (
+              !databaseReadyRef.current ||
+              (hasDatabaseContextRef.current &&
+                databaseInstanceIdRef.current !==
+                  rematerializationSnapshot.currentInstanceId)
+            ) {
+              return null;
+            }
             try {
               await rematerializeRemoteVfsStateIfNeeded();
             } catch (rematerializationError) {
@@ -281,6 +309,9 @@ export function useVfsOrchestratorRuntime(
     runtimeSnapshot.instanceEpoch,
     effectiveBaseUrl,
     effectiveApiPrefix,
+    hasDatabaseContext,
+    currentDatabaseInstanceId,
+    isDatabaseReady,
     logBlobFlushOperationTelemetry,
     resetRuntime
   ]);
