@@ -11,12 +11,16 @@ import {
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { render, waitFor } from '@testing-library/react';
 import { act } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
 import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
+import {
+  installVfsConsoleGuard,
+  type VfsConsoleGuard
+} from '@/test/vfsConsoleGuard';
 import { fetchVfsConnectJson } from '../../../bob-and-alice/src/harness/vfsConnectClient';
 import type { JsonApiActor } from '../../../bob-and-alice/src/scaffolding/setupBobNotesShareForAlice';
 
@@ -29,6 +33,7 @@ interface AuthSnapshot {
 
 let latestAuthContext: ReturnType<typeof useAuth> | null = null;
 let latestDatabaseContext: ReturnType<typeof useDatabaseContext> | null = null;
+let vfsConsoleGuard: VfsConsoleGuard | null = null;
 const { mockApiLogout } = vi.hoisted(() => ({
   mockApiLogout: vi.fn(async () => undefined)
 }));
@@ -217,10 +222,23 @@ async function waitForCurrentInstance(instanceId: string): Promise<void> {
 
 describe('instance switch shared-note sync regression', () => {
   beforeEach(() => {
+    vfsConsoleGuard = installVfsConsoleGuard();
     latestAuthContext = null;
     latestDatabaseContext = null;
     clearStoredAuth();
     mockApiLogout.mockClear();
+  });
+
+  afterEach(() => {
+    if (!vfsConsoleGuard) {
+      return;
+    }
+    try {
+      vfsConsoleGuard.assertNoRegressions();
+    } finally {
+      vfsConsoleGuard.restore();
+      vfsConsoleGuard = null;
+    }
   });
 
   it(
