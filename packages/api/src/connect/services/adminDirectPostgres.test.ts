@@ -39,18 +39,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectPostgres', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +82,7 @@ describe('adminDirectPostgres', () => {
       '/admin/postgres/info',
       expect.any(Headers)
     );
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       info: {
         host: 'localhost',
         port: 5432
@@ -124,18 +112,16 @@ describe('adminDirectPostgres', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      tables: [
-        {
-          schema: 'public',
-          name: 'users',
-          rowCount: 12,
-          totalBytes: 1024,
-          tableBytes: 768,
-          indexBytes: 256
-        }
-      ]
-    });
+    expect(response.tables).toMatchObject([
+      {
+        schema: 'public',
+        name: 'users',
+        rowCount: 12n,
+        totalBytes: 1024n,
+        tableBytes: 768n,
+        indexBytes: 256n
+      }
+    ]);
   });
 
   it('returns not found for unknown table columns', async () => {
@@ -185,17 +171,15 @@ describe('adminDirectPostgres', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      columns: [
-        {
-          name: 'id',
-          type: 'text',
-          nullable: false,
-          defaultValue: null,
-          ordinalPosition: 1
-        }
-      ]
-    });
+    expect(response.columns).toMatchObject([
+      {
+        name: 'id',
+        type: 'text',
+        nullable: false,
+        ordinalPosition: 1
+      }
+    ]);
+    expect(response.columns[0]?.defaultValue).toBeUndefined();
   });
 
   it('normalizes row pagination and applies valid sorting', async () => {
@@ -234,12 +218,10 @@ describe('adminDirectPostgres', () => {
     expect(rowQuerySql).toContain('LIMIT $1 OFFSET $2');
     expect(rowQueryParams).toEqual([50, 0]);
 
-    expect(parseJson(response.json)).toEqual({
-      rows: [{ id: 'user-1', email: 'admin@example.com' }],
-      totalCount: 2,
-      limit: 50,
-      offset: 0
-    });
+    expect(response.rows).toEqual([{ id: 'user-1', email: 'admin@example.com' }]);
+    expect(response.totalCount).toBe(2n);
+    expect(response.limit).toBe(50);
+    expect(response.offset).toBe(0);
   });
 
   it('returns not found for row queries when table is missing', async () => {
