@@ -5,6 +5,7 @@ import { VfsRematerializationBootstrap } from './VfsRematerializationBootstrap';
 const mockUseAuth = vi.fn();
 const mockUseVfsOrchestrator = vi.fn();
 const mockRematerializeRemoteVfsStateIfNeeded = vi.fn();
+const mockGetInstanceChangeSnapshot = vi.fn();
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth()
@@ -19,6 +20,10 @@ vi.mock('@/lib/vfsRematerialization', () => ({
     mockRematerializeRemoteVfsStateIfNeeded(...args)
 }));
 
+vi.mock('@/hooks/app/useInstanceChange', () => ({
+  getInstanceChangeSnapshot: () => mockGetInstanceChangeSnapshot()
+}));
+
 describe('VfsRematerializationBootstrap', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -26,6 +31,10 @@ describe('VfsRematerializationBootstrap', () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: true });
     mockUseVfsOrchestrator.mockReturnValue({ isReady: true });
     mockRematerializeRemoteVfsStateIfNeeded.mockResolvedValue(false);
+    mockGetInstanceChangeSnapshot.mockReturnValue({
+      currentInstanceId: 'instance-1',
+      instanceEpoch: 1
+    });
   });
 
   afterEach(() => {
@@ -112,6 +121,37 @@ describe('VfsRematerializationBootstrap', () => {
 
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
 
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('ignores failed rematerialization attempts from stale instance epochs', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+    let rejectRematerialization: ((reason?: unknown) => void) | null = null;
+    mockRematerializeRemoteVfsStateIfNeeded.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((_resolve, reject) => {
+          rejectRematerialization = reject;
+        })
+    );
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+
+    mockGetInstanceChangeSnapshot.mockReturnValue({
+      currentInstanceId: 'instance-2',
+      instanceEpoch: 2
+    });
+    rejectRematerialization?.(new Error('stale epoch failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
     consoleWarnSpy.mockRestore();
   });
 });
