@@ -1,11 +1,15 @@
 import type { GroupWithMemberCount } from '@tearleads/shared';
-import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { ConfirmDialog } from '@tearleads/ui';
 import { Loader2, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
+import type { api } from '@/lib/api';
 import { useAdminUserGroups } from './useAdminUserGroups';
+
+type AdminUser = NonNullable<
+  Awaited<ReturnType<typeof api.adminV2.users.get>>['user']
+>;
 
 interface AdminUserGroupsProps {
   user: AdminUser;

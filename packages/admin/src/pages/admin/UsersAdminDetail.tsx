@@ -1,5 +1,4 @@
 import type { AdminUserUpdatePayload } from '@tearleads/shared';
-import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { BackLink } from '@tearleads/ui';
 import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -20,7 +19,10 @@ interface UsersAdminDetailProps {
   onViewAiRequests?: ((userId: string) => void) | undefined;
 }
 
-function requireAdminUser(user: AdminUser | undefined): AdminUser {
+type AdminGetUserResponse = Awaited<ReturnType<typeof api.adminV2.users.get>>;
+type AdminUser = NonNullable<AdminGetUserResponse['user']>;
+
+function requireAdminUser(user: AdminGetUserResponse['user']): AdminUser {
   if (!user) {
     throw new Error('Admin response missing user');
   }

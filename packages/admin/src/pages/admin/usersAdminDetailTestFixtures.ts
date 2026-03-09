@@ -38,7 +38,24 @@ const user2 = {
   }
 };
 
-type UserShape = typeof user1;
+interface UserShape {
+  id: string;
+  email: string;
+  emailConfirmed: boolean;
+  admin: boolean;
+  organizationIds: string[];
+  createdAt: string;
+  lastActiveAt?: string;
+  disabled: boolean;
+  accounting: {
+    totalPromptTokens: bigint;
+    totalCompletionTokens: bigint;
+    totalTokens: bigint;
+    requestCount: bigint;
+    lastUsedAt?: string;
+  };
+}
+
 type UserResponse = { user: AdminUser };
 
 type AccountingOverrides = Partial<UserShape['accounting']>;

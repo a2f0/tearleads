@@ -1,7 +1,6 @@
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
 import { formatNumber, formatTimestamp } from '@admin/lib/utils';
-import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { BackLink, RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -19,7 +18,11 @@ interface UsersAdminProps {
   onViewAiRequests?: (() => void) | undefined;
 }
 
-function formatUsageCount(value: bigint | undefined): string {
+type AdminUser = Awaited<
+  ReturnType<typeof api.adminV2.users.list>
+>['users'][number];
+
+function formatUsageCount(value: number | bigint | undefined): string {
   return value === undefined ? '—' : formatNumber(value);
 }
 

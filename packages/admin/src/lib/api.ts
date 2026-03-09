@@ -1,6 +1,7 @@
 import {
   type DescMessage,
   fromJson,
+  type JsonValue,
   type MessageShape
 } from '@bufbuild/protobuf';
 import type {
@@ -27,8 +28,11 @@ import type {
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
+  type AdminGetUserResponse,
   AdminGetUserResponseSchema,
+  type AdminListUsersResponse,
   AdminListUsersResponseSchema,
+  type AdminUpdateUserResponse,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
@@ -64,6 +68,15 @@ const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
 interface RequestParams {
   fetchOptions?: RequestInit;
+}
+
+interface AdminUsersApi {
+  list(options?: { organizationId?: string }): Promise<AdminListUsersResponse>;
+  get(id: string): Promise<AdminGetUserResponse>;
+  update(
+    id: string,
+    data: AdminUserUpdatePayload
+  ): Promise<AdminUpdateUserResponse>;
 }
 
 async function request<T>(
@@ -135,12 +148,9 @@ function requestAdminV2Proto<Desc extends DescMessage>(
   requestBody: Record<string, unknown>,
   schema: Desc
 ): Promise<MessageShape<Desc>> {
-  return request<Record<string, unknown>>(
-    `${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`,
-    {
-      fetchOptions: createConnectJsonPostInit(requestBody)
-    }
-  ).then((responseBody) => {
+  return request<JsonValue>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody)
+  }).then((responseBody) => {
     try {
       return fromJson(schema, responseBody, {
         ignoreUnknownFields: true
@@ -160,6 +170,51 @@ function requestAi<T>(
     fetchOptions: createConnectJsonPostInit(requestBody)
   });
 }
+
+const adminV2UsersApi: AdminUsersApi = {
+  list: (options?: {
+    organizationId?: string;
+  }): Promise<AdminListUsersResponse> => {
+    const requestBody: Record<string, unknown> = {};
+    if (options?.organizationId) {
+      requestBody['organizationId'] = options.organizationId;
+    }
+    return requestAdminV2Proto(
+      'ListUsers',
+      requestBody,
+      AdminListUsersResponseSchema
+    );
+  },
+  get: (id: string): Promise<AdminGetUserResponse> =>
+    requestAdminV2Proto('GetUser', { id }, AdminGetUserResponseSchema),
+  update: (
+    id: string,
+    data: AdminUserUpdatePayload
+  ): Promise<AdminUpdateUserResponse> =>
+    requestAdminV2Proto(
+      'UpdateUser',
+      {
+        id,
+        ...(data.email !== undefined ? { email: data.email } : {}),
+        ...(data.emailConfirmed !== undefined
+          ? { emailConfirmed: data.emailConfirmed }
+          : {}),
+        ...(data.admin !== undefined ? { admin: data.admin } : {}),
+        ...(data.organizationIds !== undefined
+          ? {
+              organizationIds: {
+                organizationIds: data.organizationIds
+              }
+            }
+          : {}),
+        ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
+        ...(data.markedForDeletion !== undefined
+          ? { markedForDeletion: data.markedForDeletion }
+          : {})
+      },
+      AdminUpdateUserResponseSchema
+    )
+};
 
 export const api = {
   adminV2: {
@@ -377,45 +432,7 @@ export const api = {
           mapDeleteOrganizationResponse
         )
     },
-    users: {
-      list: (options?: { organizationId?: string }) => {
-        const requestBody: Record<string, unknown> = {};
-        if (options?.organizationId) {
-          requestBody['organizationId'] = options.organizationId;
-        }
-        return requestAdminV2Proto(
-          'ListUsers',
-          requestBody,
-          AdminListUsersResponseSchema
-        );
-      },
-      get: (id: string) =>
-        requestAdminV2Proto('GetUser', { id }, AdminGetUserResponseSchema),
-      update: (id: string, data: AdminUserUpdatePayload) =>
-        requestAdminV2Proto(
-          'UpdateUser',
-          {
-            id,
-            ...(data.email !== undefined ? { email: data.email } : {}),
-            ...(data.emailConfirmed !== undefined
-              ? { emailConfirmed: data.emailConfirmed }
-              : {}),
-            ...(data.admin !== undefined ? { admin: data.admin } : {}),
-            ...(data.organizationIds !== undefined
-              ? {
-                  organizationIds: {
-                    organizationIds: data.organizationIds
-                  }
-                }
-              : {}),
-            ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
-            ...(data.markedForDeletion !== undefined
-              ? { markedForDeletion: data.markedForDeletion }
-              : {})
-          },
-          AdminUpdateUserResponseSchema
-        )
-    }
+    users: adminV2UsersApi
   },
   ai: {
     getUsage: (options?: {
