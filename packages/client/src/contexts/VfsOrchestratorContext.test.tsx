@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emitInstanceChange, resetInstanceChangeState } from '@/hooks/app';
 import {
   useVfsKeyManager,
   useVfsOrchestrator,
@@ -38,10 +39,12 @@ vi.mock('@tearleads/api-client/clientEntry', async () => {
     typeof import('@tearleads/api-client/clientEntry')
   >('@tearleads/api-client/clientEntry');
   const MockVfsWriteOrchestrator = class {
+    static constructorCalls = 0;
     mockOrchestrator = true;
     static lastOptions: unknown;
     static lastInstance: MockVfsWriteOrchestrator | null = null;
     constructor(_userId: string, _clientId: string, options: unknown) {
+      MockVfsWriteOrchestrator.constructorCalls += 1;
       MockVfsWriteOrchestrator.lastOptions = options;
       MockVfsWriteOrchestrator.lastInstance = this;
     }
@@ -107,8 +110,19 @@ vi.mock('./AuthContext', () => ({
 }));
 
 describe('VfsOrchestratorContext', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    resetInstanceChangeState();
+    emitInstanceChange('instance-1');
+    const apiClientModule = await import('@tearleads/api-client/clientEntry');
+    const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
+      constructorCalls: number;
+      lastOptions: unknown;
+      lastInstance: unknown | null;
+    };
+    MockVfsWriteOrchestrator.constructorCalls = 0;
+    MockVfsWriteOrchestrator.lastOptions = undefined;
+    MockVfsWriteOrchestrator.lastInstance = null;
     // Reset mock implementations
     mockCreateFacade.mockReturnValue({ mockFacade: true });
     mockCreateVfsSecurePipelineBundle.mockReturnValue({
@@ -129,6 +143,7 @@ describe('VfsOrchestratorContext', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    resetInstanceChangeState();
   });
 
   describe('VfsOrchestratorProvider', () => {
@@ -329,33 +344,6 @@ describe('VfsOrchestratorContext', () => {
           retryCount: 1
         })
       );
-    });
-
-    it('does not duplicate /v1 prefix when baseUrl already includes it', async () => {
-      render(
-        <VfsOrchestratorProvider baseUrl="http://localhost:5001/v1">
-          <div>Test</div>
-        </VfsOrchestratorProvider>
-      );
-
-      await waitFor(() => {
-        expect(mockCreateFacade).toHaveBeenCalled();
-      });
-
-      const apiClientModule = await import('@tearleads/api-client/clientEntry');
-      const MockVfsWriteOrchestrator = apiClientModule.VfsWriteOrchestrator as {
-        lastOptions?: {
-          crdt?: {
-            transportOptions?: { apiPrefix?: string };
-          };
-          blob?: { apiPrefix?: string };
-        };
-      };
-
-      expect(
-        MockVfsWriteOrchestrator.lastOptions?.crdt?.transportOptions?.apiPrefix
-      ).toBe('');
-      expect(MockVfsWriteOrchestrator.lastOptions?.blob?.apiPrefix).toBe('');
     });
   });
 

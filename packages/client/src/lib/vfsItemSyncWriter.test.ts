@@ -19,7 +19,12 @@ const readStoredAuthMock = vi.fn(() => ({
 }));
 const getFeatureFlagValueMock = vi.fn(() => true);
 const registerMock = vi.fn();
-const { getDatabaseMock, selectLimitMock, updateWhereMock } = vi.hoisted(() => {
+const {
+  getDatabaseMock,
+  mockGetInstanceChangeSnapshot,
+  selectLimitMock,
+  updateWhereMock
+} = vi.hoisted(() => {
   const selectLimitMock = vi.fn();
   const selectWhereMock = vi.fn(() => ({ limit: selectLimitMock }));
   const selectFromMock = vi.fn(() => ({ where: selectWhereMock }));
@@ -31,9 +36,14 @@ const { getDatabaseMock, selectLimitMock, updateWhereMock } = vi.hoisted(() => {
     select: selectMock,
     update: updateMock
   }));
+  const mockGetInstanceChangeSnapshot = vi.fn(() => ({
+    currentInstanceId: 'instance-1',
+    instanceEpoch: 1
+  }));
 
   return {
     getDatabaseMock,
+    mockGetInstanceChangeSnapshot,
     selectLimitMock,
     updateWhereMock
   };
@@ -60,6 +70,30 @@ vi.mock('@/db', () => ({
   getDatabase: () => getDatabaseMock()
 }));
 
+vi.mock('@/hooks/app/useInstanceChange', () => ({
+  getInstanceChangeSnapshot: () => mockGetInstanceChangeSnapshot()
+}));
+
+function setMockSyncRuntime(input: {
+  flushAll: ReturnType<typeof vi.fn>;
+  queueCrdtLocalOperationAndPersist: ReturnType<typeof vi.fn>;
+  queueEncryptedCrdtOpAndPersist: ReturnType<typeof vi.fn>;
+  currentInstanceId?: string | null;
+  instanceEpoch?: number;
+}): void {
+  setVfsItemSyncRuntime({
+    currentInstanceId: input.currentInstanceId ?? 'instance-1',
+    instanceEpoch: input.instanceEpoch ?? 1,
+    orchestrator: {
+      flushAll: input.flushAll,
+      queueCrdtLocalOperationAndPersist: input.queueCrdtLocalOperationAndPersist
+    },
+    secureFacade: {
+      queueEncryptedCrdtOpAndPersist: input.queueEncryptedCrdtOpAndPersist
+    }
+  });
+}
+
 describe('vfsItemSyncWriter', () => {
   beforeEach(() => {
     setVfsItemSyncRuntime(null);
@@ -68,6 +102,7 @@ describe('vfsItemSyncWriter', () => {
     getFeatureFlagValueMock.mockReset();
     registerMock.mockReset();
     getDatabaseMock.mockClear();
+    mockGetInstanceChangeSnapshot.mockReset();
     selectLimitMock.mockReset();
     updateWhereMock.mockReset();
 
@@ -78,6 +113,10 @@ describe('vfsItemSyncWriter', () => {
         id: 'user-1',
         email: 'user-1@example.com'
       }
+    });
+    mockGetInstanceChangeSnapshot.mockReturnValue({
+      currentInstanceId: 'instance-1',
+      instanceEpoch: 1
     });
     selectLimitMock.mockResolvedValue([]);
   });
@@ -128,9 +167,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await queueItemUpsertAndFlush({
@@ -167,9 +207,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await expect(
@@ -201,9 +242,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await expect(
@@ -233,9 +275,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     const snapshots: Array<{
@@ -276,9 +319,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await expect(
@@ -309,9 +353,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     registerMock.mockRejectedValueOnce(new Error('Temporary failure'));
@@ -351,9 +396,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await expect(
@@ -429,9 +475,10 @@ describe('vfsItemSyncWriter', () => {
       blob: { processed: 0, remainingQueued: 0 }
     });
 
-    setVfsItemSyncRuntime({
-      orchestrator: { flushAll, queueCrdtLocalOperationAndPersist },
-      secureFacade: { queueEncryptedCrdtOpAndPersist }
+    setMockSyncRuntime({
+      flushAll,
+      queueCrdtLocalOperationAndPersist,
+      queueEncryptedCrdtOpAndPersist
     });
 
     await queueItemDeleteAndFlush({
