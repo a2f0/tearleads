@@ -93,8 +93,8 @@ function useFlushWhenOrganizationReady(input: {
 }
 
 interface UseVfsOrchestratorRuntimeInput {
-  baseUrl?: string;
-  apiPrefix?: string;
+  baseUrl: string | undefined;
+  apiPrefix: string;
 }
 
 interface UseVfsOrchestratorRuntimeResult {
@@ -123,7 +123,7 @@ export function useVfsOrchestratorRuntime(
   const initializeRunIdRef = useRef(0);
 
   const effectiveBaseUrl = input.baseUrl ?? import.meta.env.VITE_API_URL ?? '';
-  const effectiveApiPrefix = normalizeApiPrefix(input.apiPrefix ?? '');
+  const effectiveApiPrefix = normalizeApiPrefix(input.apiPrefix);
 
   const resetRuntime = useCallback(() => {
     setOrchestrator(null);
