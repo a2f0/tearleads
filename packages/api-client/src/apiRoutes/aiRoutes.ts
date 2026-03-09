@@ -41,7 +41,7 @@ type AiV2CallOptions = Pick<CallOptions, 'headers'>;
 
 export type AiV2Client = Client<typeof AiService>;
 
-export interface AiRoutesDependencies {
+interface AiRoutesDependencies {
   resolveApiBaseUrl: () => string;
   normalizeConnectBaseUrl: (apiBaseUrl: string) => Promise<string>;
   buildHeaders: (
