@@ -345,7 +345,6 @@ describe('VfsOrchestratorContext', () => {
         })
       );
     });
-
   });
 
   describe('useVfsOrchestrator', () => {

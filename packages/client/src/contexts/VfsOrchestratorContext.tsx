@@ -40,11 +40,17 @@ export function VfsOrchestratorProvider({
   baseUrl,
   apiPrefix = ''
 }: VfsOrchestratorProviderProps) {
-  const { orchestrator, secureFacade, keyManager, isInitializing, error, initialize } =
-    useVfsOrchestratorRuntime({
-      baseUrl,
-      apiPrefix
-    });
+  const {
+    orchestrator,
+    secureFacade,
+    keyManager,
+    isInitializing,
+    error,
+    initialize
+  } = useVfsOrchestratorRuntime({
+    baseUrl,
+    apiPrefix
+  });
 
   const contextValue = useMemo<VfsOrchestratorContextValue>(
     () => ({

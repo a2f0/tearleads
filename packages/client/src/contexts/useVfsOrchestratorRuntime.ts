@@ -16,8 +16,8 @@ import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import {
   getInstanceChangeSnapshot,
-  subscribeToInstanceChange,
-  type InstanceChangeSnapshot
+  type InstanceChangeSnapshot,
+  subscribeToInstanceChange
 } from '@/hooks/app/useInstanceChange';
 import { ensureVfsKeys } from '@/hooks/vfs';
 import {
@@ -48,9 +48,8 @@ function formatEpochTrace(
 }
 
 function useRuntimeSnapshot(): InstanceChangeSnapshot {
-  const [runtimeSnapshot, setRuntimeSnapshot] = useState<InstanceChangeSnapshot>(
-    () => getInstanceChangeSnapshot()
-  );
+  const [runtimeSnapshot, setRuntimeSnapshot] =
+    useState<InstanceChangeSnapshot>(() => getInstanceChangeSnapshot());
 
   useEffect(() => {
     return subscribeToInstanceChange(() => {

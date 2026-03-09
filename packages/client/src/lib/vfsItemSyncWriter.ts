@@ -6,11 +6,11 @@ import type { VfsObjectType } from '@tearleads/shared';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { vfsRegistry } from '@/db/schema';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import {
   getInstanceChangeSnapshot,
   type InstanceChangeSnapshot
 } from '@/hooks/app/useInstanceChange';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
