@@ -1,36 +1,36 @@
+import type { WindowManagerContextValue } from '@tearleads/window-manager';
+import * as windowManager from '@tearleads/window-manager';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notificationStore } from '../stores/notificationStore';
 import { NotificationCenterTrigger } from './NotificationCenterTrigger';
 
-const mockOpenWindow = vi.fn();
-
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-  return {
-    ...actual,
-    useWindowManager: () => ({ openWindow: mockOpenWindow }),
-    DesktopContextMenu: ({ children }: { children: ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DesktopContextMenuItem: ({
-      children,
-      onClick
-    }: {
-      children: ReactNode;
-      onClick: () => void;
-    }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
-    )
-  };
-});
+const mockOpenWindow = vi.fn(() => 'notification-center');
+const windowManagerStub: WindowManagerContextValue = {
+  windows: [],
+  openWindow: (type, id) => {
+    mockOpenWindow(type, id);
+    return id ?? type;
+  },
+  closeWindow: () => {},
+  focusWindow: () => {},
+  minimizeWindow: () => {},
+  restoreWindow: () => {},
+  updateWindowDimensions: () => {},
+  saveWindowDimensionsForType: () => {},
+  renameWindow: () => {},
+  isWindowOpen: () => false,
+  getWindow: () => undefined
+};
 
 describe('NotificationCenterTrigger', () => {
+  beforeEach(() => {
+    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
+      windowManagerStub
+    );
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     mockOpenWindow.mockClear();
@@ -51,7 +51,10 @@ describe('NotificationCenterTrigger', () => {
       screen.getByRole('button', { name: /open notification center/i })
     );
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('notification-center');
+    expect(mockOpenWindow).toHaveBeenCalledWith(
+      'notification-center',
+      undefined
+    );
   });
 
   it('supports context menu actions', async () => {
@@ -92,9 +95,14 @@ describe('NotificationCenterTrigger', () => {
     });
     // The second one is the menu item (first is the trigger)
     const menuItem = menuItems[1];
-    expect(menuItem).toBeDefined();
-    await user.click(menuItem as HTMLElement);
-    expect(mockOpenWindow).toHaveBeenCalledWith('notification-center');
+    if (!menuItem) {
+      throw new Error('Expected context menu item');
+    }
+    await user.click(menuItem);
+    expect(mockOpenWindow).toHaveBeenCalledWith(
+      'notification-center',
+      undefined
+    );
   });
 
   it('subscribes on mount and unsubscribes on unmount', () => {

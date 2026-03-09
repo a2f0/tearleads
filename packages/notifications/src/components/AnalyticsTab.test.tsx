@@ -173,7 +173,7 @@ describe('AnalyticsTab', () => {
     await flushPromises();
   });
 
-  it('shows loading spinner during refresh when events already exist', async () => {
+  it('shows loading spinner and prevents duplicate refresh fetches while loading', async () => {
     const refreshDeferred = createDeferred<typeof mockEvents>();
 
     mockUseDatabaseContext.mockReturnValue({ isUnlocked: true });
@@ -197,6 +197,7 @@ describe('AnalyticsTab', () => {
     const icon = refreshButton.querySelector('svg');
     expect(icon).toHaveClass('animate-spin');
     expect(refreshButton).toBeDisabled();
+    // Call the handler directly so the loading guard is exercised even though the button is disabled.
     act(() => {
       refreshButton.onclick?.(new PointerEvent('click'));
     });
