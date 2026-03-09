@@ -214,7 +214,9 @@ describe('createVehicleRepository', () => {
   });
 
   it('creates normalized vehicles and persists them through the proxy', async () => {
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('created-vehicle');
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue(
+      '00000000-0000-4000-8000-000000000001'
+    );
 
     const { db, rows } = createTestDatabase();
     const repository = createVehicleRepository(db);
@@ -227,13 +229,13 @@ describe('createVehicleRepository', () => {
     });
 
     expect(created).toMatchObject({
-      id: 'created-vehicle',
+      id: '00000000-0000-4000-8000-000000000001',
       make: 'Tesla',
       model: 'Model Y',
       year: 2024,
       color: 'Blue'
     });
-    expect(rows.get('created-vehicle')).toMatchObject({
+    expect(rows.get('00000000-0000-4000-8000-000000000001')).toMatchObject({
       deleted: false,
       make: 'Tesla',
       model: 'Model Y'
