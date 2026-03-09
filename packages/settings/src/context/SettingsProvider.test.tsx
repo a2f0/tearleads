@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- test helpers (TestConsumer, wrapper) are colocated with provider tests
 /**
  * Unit tests for SettingsProvider.
  */
