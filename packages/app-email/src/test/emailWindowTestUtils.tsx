@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import type { RenderResult } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { expect, vi } from 'vitest';
 import type { EmailContactOperations, EmailFolderOperations } from '../context';
@@ -22,7 +23,7 @@ export const defaultProps: ComponentProps<typeof EmailWindow> = {
 export const renderWithProvider = (
   props: ComponentProps<typeof EmailWindow> = defaultProps,
   options?: RenderEmailWindowOptions
-) =>
+): RenderResult =>
   render(
     <TestEmailProvider
       {...(options?.contactOperations && {
@@ -39,7 +40,7 @@ export const renderWithProvider = (
 export const renderLoadedWindow = async (
   props: ComponentProps<typeof EmailWindow> = defaultProps,
   options?: RenderEmailWindowOptions
-) => {
+): Promise<void> => {
   (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     ok: true,
     json: async () => ({ emails: mockEmails })
