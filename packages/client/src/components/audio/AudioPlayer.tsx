@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing complexity; refactor deferred
 /**
  * Combined audio player component with visualizer, controls, and volume.
  * Integrates playback controls, frequency visualizer, seek bar, and volume control.

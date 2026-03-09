@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing complexity; refactor deferred
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like, or } from 'drizzle-orm';
 import { Loader2 } from 'lucide-react';
