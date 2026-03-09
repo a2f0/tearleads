@@ -1,21 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailBodyOperations } from '../context';
+import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
 import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
 import { mockEmails } from './emailWindowTestFixtures';
-
-vi.mock('@tearleads/window-manager', async () => {
-  const { windowManagerMock } = await import('./EmailWindowTestMocks');
-  return windowManagerMock;
-});
-
-vi.mock('./EmailWindowMenuBar', async () => {
-  const { EmailWindowMenuBarMock } = await import('./EmailWindowTestMocks');
-  return { EmailWindowMenuBar: EmailWindowMenuBarMock };
-});
 
 describe('EmailWindow body rendering', () => {
   const defaultProps: ComponentProps<typeof EmailWindow> = {
@@ -27,8 +18,12 @@ describe('EmailWindow body rendering', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    installEmailWindowModuleMocks();
     global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('renders clear-text email body when body operations return raw MIME', async () => {
