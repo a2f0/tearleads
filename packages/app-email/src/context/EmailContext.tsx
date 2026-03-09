@@ -1,4 +1,7 @@
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type {
@@ -106,11 +109,6 @@ export interface SaveDraftInput {
 
 export type EmailDatabaseState = HostRuntimeDatabaseState;
 
-const FALLBACK_DATABASE_STATE: EmailDatabaseState = {
-  isUnlocked: true,
-  isLoading: false,
-  currentInstanceId: null
-};
 
 /**
  * Email draft operations interface
@@ -152,10 +150,9 @@ export interface EmailContextValue {
 
 export const EmailContext = createContext<EmailContextValue | null>(null);
 
-export interface EmailProviderProps {
+export interface EmailProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
   apiBaseUrl: string;
-  databaseState?: EmailDatabaseState;
   getAuthHeader?: () => string | null;
   ui: EmailUIComponents;
   folderOperations?: EmailFolderOperations;
@@ -181,7 +178,7 @@ export function EmailProvider({
   const contextValue = useMemo<EmailContextValue>(
     () => ({
       apiBaseUrl,
-      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
+      databaseState,
       ui,
       ...(getAuthHeader !== undefined && { getAuthHeader }),
       ...(folderOperations !== undefined && { folderOperations }),

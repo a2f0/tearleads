@@ -1,5 +1,6 @@
 import type { Database } from '@tearleads/db/sqlite';
 import type {
+  HostRuntimeBaseProps,
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions,
   HostRuntimeTranslation
@@ -23,12 +24,6 @@ export interface NoteInfo {
  * Database context state shared with host-runtime adapters.
  */
 export type DatabaseState = HostRuntimeDatabaseState;
-
-const FALLBACK_DATABASE_STATE: DatabaseState = {
-  isUnlocked: true,
-  isLoading: false,
-  currentInstanceId: null
-};
 
 /**
  * VFS key management functions for registering notes in VFS
@@ -257,9 +252,8 @@ export interface NotesContextValue {
 
 const NotesContext = createContext<NotesContextValue | null>(null);
 
-export interface NotesProviderProps {
+export interface NotesProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState?: DatabaseState;
   getDatabase: () => Database;
   ui: NotesUIComponents;
   t: TranslationFunction;
@@ -296,7 +290,7 @@ export function NotesProvider({
 }: NotesProviderProps) {
   const value = useMemo<NotesContextValue>(
     () => ({
-      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
+      databaseState,
       getDatabase,
       ui,
       t,

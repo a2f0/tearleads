@@ -12,6 +12,15 @@ export interface HostRuntimeDatabaseState {
 }
 
 /**
+ * Base props contract that every feature runtime provider must extend.
+ * Does not include `children` because `@tearleads/shared` has no React dependency;
+ * each React provider already declares its own `children` prop.
+ */
+export interface HostRuntimeBaseProps {
+  databaseState: HostRuntimeDatabaseState;
+}
+
+/**
  * Generic translation function shape for feature runtime adapters.
  */
 export type HostRuntimeTranslation<TKey extends string = string> = (

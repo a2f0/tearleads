@@ -13,6 +13,7 @@ import businessesPackageJson from '@tearleads/app-businesses/package.json';
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 
 function BusinessesAboutMenuItem(props: AboutMenuItemProps) {
   return <AboutMenuItem {...props} version={businessesPackageJson.version} />;
@@ -31,8 +32,10 @@ interface ClientBusinessesProviderProps {
 export function ClientBusinessesProvider({
   children
 }: ClientBusinessesProviderProps) {
+  const databaseState = useHostRuntimeDatabaseState();
+
   return (
-    <BusinessesProvider ui={businessesUIComponents}>
+    <BusinessesProvider databaseState={databaseState} ui={businessesUIComponents}>
       {children}
     </BusinessesProvider>
   );

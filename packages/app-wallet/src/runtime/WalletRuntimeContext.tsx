@@ -1,4 +1,7 @@
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { WalletMediaFileOption } from '../lib/walletData';
@@ -23,37 +26,11 @@ export interface WalletRuntimeContextValue {
   InlineUnlock: ComponentType<InlineUnlockProps>;
 }
 
-const FALLBACK_DATABASE_STATE: WalletDatabaseState = {
-  isUnlocked: false,
-  isLoading: false,
-  currentInstanceId: null
-};
-
-const defaultContext: WalletRuntimeContextValue = {
-  databaseState: FALLBACK_DATABASE_STATE,
-  isUnlocked: FALLBACK_DATABASE_STATE.isUnlocked,
-  currentInstanceId: FALLBACK_DATABASE_STATE.currentInstanceId,
-  createTracker: () => {
-    throw new Error('WalletRuntimeProvider is required');
-  },
-  loadMediaPreview: async () => null,
-  InlineUnlock: DefaultInlineUnlock
-};
-
 const WalletRuntimeContext =
-  createContext<WalletRuntimeContextValue>(defaultContext);
+  createContext<WalletRuntimeContextValue | null>(null);
 
-export interface WalletRuntimeProviderProps {
+export interface WalletRuntimeProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState?: WalletDatabaseState;
-  /**
-   * @deprecated Prefer `databaseState` to align with shared host runtime contracts.
-   */
-  isUnlocked?: boolean;
-  /**
-   * @deprecated Prefer `databaseState` to align with shared host runtime contracts.
-   */
-  currentInstanceId?: string | null;
   createTracker: () => WalletTracker;
   loadMediaPreview: (
     file: WalletMediaFileOption,
@@ -62,44 +39,23 @@ export interface WalletRuntimeProviderProps {
   InlineUnlock?: ComponentType<InlineUnlockProps>;
 }
 
-function createFallbackDatabaseState(
-  isUnlocked: boolean | undefined,
-  currentInstanceId: string | null | undefined
-): WalletDatabaseState {
-  return {
-    ...FALLBACK_DATABASE_STATE,
-    isUnlocked: isUnlocked ?? FALLBACK_DATABASE_STATE.isUnlocked,
-    currentInstanceId:
-      currentInstanceId ?? FALLBACK_DATABASE_STATE.currentInstanceId
-  };
-}
-
 export function WalletRuntimeProvider({
   children,
   databaseState,
-  isUnlocked,
-  currentInstanceId,
   createTracker,
   loadMediaPreview,
   InlineUnlock = DefaultInlineUnlock
 }: WalletRuntimeProviderProps) {
-  const resolvedDatabaseState = useMemo(
-    () =>
-      databaseState ??
-      createFallbackDatabaseState(isUnlocked, currentInstanceId),
-    [databaseState, isUnlocked, currentInstanceId]
-  );
-
   const value = useMemo(
     () => ({
-      databaseState: resolvedDatabaseState,
-      isUnlocked: resolvedDatabaseState.isUnlocked,
-      currentInstanceId: resolvedDatabaseState.currentInstanceId,
+      databaseState,
+      isUnlocked: databaseState.isUnlocked,
+      currentInstanceId: databaseState.currentInstanceId,
       createTracker,
       loadMediaPreview,
       InlineUnlock
     }),
-    [resolvedDatabaseState, createTracker, loadMediaPreview, InlineUnlock]
+    [databaseState, createTracker, loadMediaPreview, InlineUnlock]
   );
 
   return (
@@ -110,5 +66,11 @@ export function WalletRuntimeProvider({
 }
 
 export function useWalletRuntime(): WalletRuntimeContextValue {
-  return useContext(WalletRuntimeContext);
+  const context = useContext(WalletRuntimeContext);
+  if (!context) {
+    throw new Error(
+      'useWalletRuntime must be used within a WalletRuntimeProvider'
+    );
+  }
+  return context;
 }

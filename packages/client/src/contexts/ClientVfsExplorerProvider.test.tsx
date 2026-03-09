@@ -32,7 +32,12 @@ vi.mock('@/db/hooks', () => ({
     isUnlocked: true,
     isLoading: false,
     currentInstanceId: 'instance-1'
-  }))
+  })),
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: true,
+    isLoading: false,
+    currentInstanceId: 'instance-1'
+  })
 }));
 
 vi.mock('@/db', () => ({

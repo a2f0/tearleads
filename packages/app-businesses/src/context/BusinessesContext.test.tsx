@@ -15,21 +15,20 @@ const uiComponents: BusinessesUIComponents = {
   AboutMenuItem: () => null
 };
 
+const defaultDatabaseState: BusinessesDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 const providedDatabaseState: BusinessesDatabaseState = {
   isUnlocked: false,
   isLoading: true,
   currentInstanceId: 'instance-42'
 };
 
-function createWrapper(databaseState?: BusinessesDatabaseState) {
+function createWrapper(databaseState: BusinessesDatabaseState = defaultDatabaseState) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    if (databaseState === undefined) {
-      return createElement(BusinessesProvider, {
-        children,
-        ui: uiComponents
-      });
-    }
-
     return createElement(BusinessesProvider, {
       children,
       databaseState,
@@ -50,15 +49,6 @@ describe('BusinessesContext', () => {
     expect(() => renderHook(() => useBusinesses())).toThrow(
       'Businesses context is not available. Ensure BusinessesProvider is configured.'
     );
-  });
-
-  it('provides fallback runtime database state when not passed', () => {
-    const { result } = renderHook(() => useBusinessesDatabaseState(), {
-      wrapper: createWrapper()
-    });
-    expect(result.current.currentInstanceId).toBeNull();
-    expect(result.current.isUnlocked).toBe(true);
-    expect(result.current.isLoading).toBe(false);
   });
 
   it('exposes passed runtime database state via context hooks', () => {

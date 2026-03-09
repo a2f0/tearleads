@@ -22,7 +22,7 @@ import {
   listEmailDraftsFromDb,
   saveEmailDraftToDb
 } from '@/db/emailDrafts';
-import { useDatabaseContext } from '@/db/hooks';
+import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contacts } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
@@ -46,6 +46,7 @@ interface ClientEmailProviderProps {
 
 export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const { isUnlocked } = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
 
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
@@ -133,6 +134,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
 
   const providerProps = {
     apiBaseUrl: API_BASE_URL,
+    databaseState,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
     ...(isUnlocked && { draftOperations }),

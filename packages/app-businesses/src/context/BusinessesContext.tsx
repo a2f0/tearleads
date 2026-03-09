@@ -1,4 +1,7 @@
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import {
   type ComponentType,
   createContext,
@@ -42,15 +45,8 @@ interface BusinessesContextValue {
 
 const BusinessesContext = createContext<BusinessesContextValue | null>(null);
 
-const FALLBACK_DATABASE_STATE: BusinessesDatabaseState = {
-  isUnlocked: true,
-  isLoading: false,
-  currentInstanceId: null
-};
-
-export interface BusinessesProviderProps {
+export interface BusinessesProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState?: BusinessesDatabaseState;
   ui: BusinessesUIComponents;
 }
 
@@ -62,7 +58,7 @@ export function BusinessesProvider({
   return (
     <BusinessesContext.Provider
       value={{
-        databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
+        databaseState,
         ui
       }}
     >

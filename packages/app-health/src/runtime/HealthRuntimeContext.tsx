@@ -1,4 +1,7 @@
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { HealthTracker } from '../lib/healthTracker';
@@ -17,64 +20,30 @@ export interface HealthRuntimeContextValue {
   InlineUnlock: ComponentType<InlineUnlockProps>;
 }
 
-const FALLBACK_DATABASE_STATE: HealthDatabaseState = {
-  isUnlocked: false,
-  isLoading: false,
-  currentInstanceId: null
-};
+const HealthRuntimeContext = createContext<HealthRuntimeContextValue | null>(
+  null
+);
 
-const defaultContext: HealthRuntimeContextValue = {
-  databaseState: FALLBACK_DATABASE_STATE,
-  isUnlocked: FALLBACK_DATABASE_STATE.isUnlocked,
-  createTracker: () => {
-    throw new Error('HealthRuntimeProvider is required');
-  },
-  InlineUnlock: DefaultInlineUnlock
-};
-
-const HealthRuntimeContext =
-  createContext<HealthRuntimeContextValue>(defaultContext);
-
-export interface HealthRuntimeProviderProps {
+export interface HealthRuntimeProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState?: HealthDatabaseState;
-  /**
-   * @deprecated Prefer `databaseState` to align with shared host runtime contracts.
-   */
-  isUnlocked?: boolean;
   createTracker: () => HealthTracker;
   InlineUnlock?: ComponentType<InlineUnlockProps>;
-}
-
-function createFallbackDatabaseState(
-  isUnlocked: boolean | undefined
-): HealthDatabaseState {
-  return {
-    ...FALLBACK_DATABASE_STATE,
-    isUnlocked: isUnlocked ?? FALLBACK_DATABASE_STATE.isUnlocked
-  };
 }
 
 export function HealthRuntimeProvider({
   children,
   databaseState,
-  isUnlocked,
   createTracker,
   InlineUnlock = DefaultInlineUnlock
 }: HealthRuntimeProviderProps) {
-  const resolvedDatabaseState = useMemo(
-    () => databaseState ?? createFallbackDatabaseState(isUnlocked),
-    [databaseState, isUnlocked]
-  );
-
   const value = useMemo(
     () => ({
-      databaseState: resolvedDatabaseState,
-      isUnlocked: resolvedDatabaseState.isUnlocked,
+      databaseState,
+      isUnlocked: databaseState.isUnlocked,
       createTracker,
       InlineUnlock
     }),
-    [resolvedDatabaseState, createTracker, InlineUnlock]
+    [databaseState, createTracker, InlineUnlock]
   );
 
   return (
@@ -85,5 +54,11 @@ export function HealthRuntimeProvider({
 }
 
 export function useHealthRuntime(): HealthRuntimeContextValue {
-  return useContext(HealthRuntimeContext);
+  const context = useContext(HealthRuntimeContext);
+  if (!context) {
+    throw new Error(
+      'useHealthRuntime must be used within a HealthRuntimeProvider'
+    );
+  }
+  return context;
 }

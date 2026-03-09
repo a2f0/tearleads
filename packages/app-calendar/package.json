@@ -23,6 +23,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh -- --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx"
   },
   "peerDependencies": {
+    "@tearleads/shared": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -33,6 +34,7 @@
     "rrule": "2.8.1"
   },
   "devDependencies": {
+    "@tearleads/shared": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",

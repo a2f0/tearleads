@@ -8,7 +8,6 @@ import {
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/app-notes';
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
@@ -30,7 +29,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
@@ -66,22 +65,9 @@ interface ClientNotesProviderProps {
 }
 
 export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
-  const databaseContext = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
   const { t } = useTypedTranslation('contextMenu');
   const navigateWithFrom = useNavigateWithFrom();
-
-  const databaseState = useMemo<HostRuntimeDatabaseState>(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
 
   const vfsKeys = useMemo(
     () => ({

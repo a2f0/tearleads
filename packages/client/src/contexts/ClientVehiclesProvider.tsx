@@ -1,11 +1,10 @@
 import {
   createVehicleRepository,
-  type VehiclesDatabaseState,
   VehiclesRuntimeProvider
 } from '@tearleads/app-vehicles';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
+import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
 
 interface ClientVehiclesProviderProps {
   children: ReactNode;
@@ -14,16 +13,8 @@ interface ClientVehiclesProviderProps {
 export function ClientVehiclesProvider({
   children
 }: ClientVehiclesProviderProps) {
-  const { db, isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-
-  const databaseState = useMemo<VehiclesDatabaseState>(
-    () => ({
-      isUnlocked,
-      isLoading,
-      currentInstanceId
-    }),
-    [isUnlocked, isLoading, currentInstanceId]
-  );
+  const { db } = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
 
   const repository = useMemo(
     () => (db ? createVehicleRepository(db) : null),

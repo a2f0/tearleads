@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { useDatabaseContext } from '@/db/hooks';
+import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
 import { useConversations, useLLM } from '@/hooks/ai';
 import { useTranslation } from '@/i18n';
 import { getAttachedImage, setAttachedImage } from '@/lib/llmRuntime';
@@ -60,6 +60,7 @@ export function ClientAIProvider({
   navigateToModels
 }: ClientAIProviderProps) {
   const databaseContext = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
   const { t } = useTranslation();
   const llm = useLLM();
   const conversations = useConversations({
@@ -73,19 +74,6 @@ export function ClientAIProvider({
   const [photoPickerResolve, setPhotoPickerResolve] = useState<
     ((value: string | null) => void) | null
   >(null);
-
-  const databaseState = useMemo(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
 
   const llmState = useMemo(
     () => ({

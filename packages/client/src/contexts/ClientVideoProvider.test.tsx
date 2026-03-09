@@ -23,7 +23,12 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockDatabaseState
+  useDatabaseContext: () => mockDatabaseState,
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: mockDatabaseState.isUnlocked,
+    isLoading: mockDatabaseState.isLoading,
+    currentInstanceId: mockDatabaseState.currentInstanceId
+  })
 }));
 
 vi.mock('@/video/VideoPlaylistContext', async (importOriginal) => {

@@ -3,11 +3,10 @@
  * for video playlist functionality.
  */
 
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import { and, eq, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { logStore } from '@/stores/logStore';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
@@ -18,20 +17,7 @@ interface ClientVideoProviderProps {
 }
 
 export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
-  const databaseContext = useDatabaseContext();
-
-  const databaseState = useMemo<HostRuntimeDatabaseState>(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
+  const databaseState = useHostRuntimeDatabaseState();
 
   const fetchPlaylists = useCallback(async (): Promise<VideoPlaylist[]> => {
     const db = getDatabase();
