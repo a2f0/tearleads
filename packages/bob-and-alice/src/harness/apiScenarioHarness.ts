@@ -186,10 +186,13 @@ export class ApiScenarioHarness {
             connectInit.headers,
             user.organizationId
           );
-          const connectResponse = await fetch(`${baseUrl}${connectMapping.path}`, {
-            ...connectInit,
-            headers: connectHeaders
-          }).then((response) => adaptConnectResponse(response, connectMapping));
+          const connectResponse = await fetch(
+            `${baseUrl}${connectMapping.path}`,
+            {
+              ...connectInit,
+              headers: connectHeaders
+            }
+          ).then((response) => adaptConnectResponse(response, connectMapping));
 
           const connectResponseBody = await connectResponse.clone().text();
           if (
