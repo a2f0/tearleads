@@ -1,21 +1,27 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
-  GroupDetailResponse,
-  GroupMembersResponse,
-  GroupsListResponse,
-  GroupWithMemberCount
-} from '@tearleads/shared';
+  AdminGetGroupMembersResponse,
+  AdminGetGroupResponse,
+  AdminGroup,
+  AdminGroupMember,
+  AdminGroupWithMemberCount,
+  AdminListGroupsResponse
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminGetGroupMembersResponseSchema,
+  AdminGetGroupResponseSchema,
+  AdminGroupMemberSchema,
+  AdminGroupSchema,
+  AdminGroupWithMemberCountSchema,
+  AdminListGroupsResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getPool } from '../../lib/postgres.js';
 import {
   requireScopedAdminAccess,
   type ScopedAdminAccess
 } from './adminDirectAuth.js';
-import {
-  type GroupMemberRow,
-  type GroupRow,
-  mapGroupMemberRow,
-  mapGroupRow
-} from './adminDirectGroupsShared.js';
+import type { GroupMemberRow, GroupRow } from './adminDirectGroupsShared.js';
 
 type ListGroupsRequest = { organizationId: string };
 type IdRequest = { id: string };
@@ -53,6 +59,16 @@ type GroupMemberCandidate = {
   joined_at: Date | null;
 };
 
+type GroupsListRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+  member_count: string;
+};
+
 function toGroupMemberRows<T extends GroupMemberCandidate>(
   rows: T[]
 ): GroupMemberRow[] {
@@ -68,10 +84,47 @@ function toGroupMemberRows<T extends GroupMemberCandidate>(
     }));
 }
 
+function toAdminGroup(groupRow: GroupRow): AdminGroup {
+  return create(AdminGroupSchema, {
+    id: groupRow.id,
+    organizationId: groupRow.organization_id,
+    name: groupRow.name,
+    ...(typeof groupRow.description === 'string'
+      ? { description: groupRow.description }
+      : {}),
+    createdAt: groupRow.created_at.toISOString(),
+    updatedAt: groupRow.updated_at.toISOString()
+  });
+}
+
+function toAdminGroupMember(groupMemberRow: GroupMemberRow): AdminGroupMember {
+  return create(AdminGroupMemberSchema, {
+    userId: groupMemberRow.user_id,
+    email: groupMemberRow.email,
+    joinedAt: groupMemberRow.joined_at.toISOString()
+  });
+}
+
+function toAdminGroupWithMemberCount(
+  listRow: GroupsListRow
+): AdminGroupWithMemberCount {
+  return create(AdminGroupWithMemberCountSchema, {
+    id: listRow.id,
+    organizationId: listRow.organization_id,
+    name: listRow.name,
+    ...(typeof listRow.description === 'string'
+      ? { description: listRow.description }
+      : {}),
+    createdAt: listRow.created_at.toISOString(),
+    updatedAt: listRow.updated_at.toISOString(),
+    memberCount: Number.parseInt(listRow.member_count, 10)
+  });
+}
+
 export async function listGroupsDirect(
   request: ListGroupsRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminListGroupsResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/groups',
     context.requestHeader
@@ -88,16 +141,6 @@ export async function listGroupsDirect(
 
   try {
     const pool = await getPool('read');
-    type GroupsListRow = {
-      id: string;
-      organization_id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-      member_count: string;
-    };
-
     const isRootWithoutOrgFilter =
       authorization.adminAccess.isRootAdmin && requestedOrganizationId === null;
     const queryParts = [
@@ -129,17 +172,9 @@ export async function listGroupsDirect(
       queryParams
     );
 
-    const groups: GroupWithMemberCount[] = result.rows.map((row) => ({
-      id: row.id,
-      organizationId: row.organization_id,
-      name: row.name,
-      description: row.description,
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString(),
-      memberCount: parseInt(row.member_count, 10)
-    }));
-    const response: GroupsListResponse = { groups };
-    return { json: JSON.stringify(response) };
+    return create(AdminListGroupsResponseSchema, {
+      groups: result.rows.map((row) => toAdminGroupWithMemberCount(row))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -152,7 +187,7 @@ export async function listGroupsDirect(
 export async function getGroupDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetGroupResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.id)}`,
     context.requestHeader
@@ -196,11 +231,10 @@ export async function getGroupDirect(
 
     const members = toGroupMemberRows(result.rows);
 
-    const response: GroupDetailResponse = {
-      group: mapGroupRow(groupRow),
-      members: members.map(mapGroupMemberRow)
-    };
-    return { json: JSON.stringify(response) };
+    return create(AdminGetGroupResponseSchema, {
+      group: toAdminGroup(groupRow),
+      members: members.map((row) => toAdminGroupMember(row))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -213,7 +247,7 @@ export async function getGroupDirect(
 export async function getGroupMembersDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetGroupMembersResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.id)}/members`,
     context.requestHeader
@@ -249,10 +283,9 @@ export async function getGroupMembersDirect(
 
     const members = toGroupMemberRows(result.rows);
 
-    const response: GroupMembersResponse = {
-      members: members.map(mapGroupMemberRow)
-    };
-    return { json: JSON.stringify(response) };
+    return create(AdminGetGroupMembersResponseSchema, {
+      members: members.map((row) => toAdminGroupMember(row))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

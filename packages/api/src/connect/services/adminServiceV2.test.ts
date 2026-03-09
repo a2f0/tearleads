@@ -99,13 +99,10 @@ describe('adminConnectServiceV2', () => {
     vi.clearAllMocks();
   });
 
-  it('decodes context response and drops null optional values', async () => {
+  it('returns typed context response directly', async () => {
     mocks.getContextDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        isRootAdmin: true,
-        organizations: [{ id: 'org-1', name: 'Org 1' }],
-        defaultOrganizationId: null
-      })
+      isRootAdmin: true,
+      organizations: [{ id: 'org-1', name: 'Org 1' }]
     });
 
     const response = await adminConnectServiceV2.getContext(

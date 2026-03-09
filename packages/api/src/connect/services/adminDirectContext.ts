@@ -1,12 +1,18 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  AdminAccessContextResponse,
-  AdminScopeOrganization
-} from '@tearleads/shared';
+import type { AdminGetContextResponse } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import { AdminGetContextResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getPool } from '../../lib/postgres.js';
 import { requireScopedAdminAccess } from './adminDirectAuth.js';
 
-async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
+type AdminScopeOrganizationInit = {
+  id: string;
+  name: string;
+};
+
+async function loadOrganizationsForRoot(): Promise<
+  AdminScopeOrganizationInit[]
+> {
   const pool = await getPool('read');
   const result = await pool.query<{ id: string; name: string }>(
     `SELECT id, name
@@ -18,7 +24,7 @@ async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
 
 async function loadOrganizationsForOrgAdmin(
   organizationIds: string[]
-): Promise<AdminScopeOrganization[]> {
+): Promise<AdminScopeOrganizationInit[]> {
   if (organizationIds.length === 0) {
     return [];
   }
@@ -37,7 +43,7 @@ async function loadOrganizationsForOrgAdmin(
 export async function getContextDirect(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetContextResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/context',
     context.requestHeader
@@ -50,17 +56,17 @@ export async function getContextDirect(
           authorization.adminAccess.organizationIds
         );
 
-    const response: AdminAccessContextResponse = {
+    const defaultOrganizationId = authorization.adminAccess.isRootAdmin
+      ? undefined
+      : organizations[0]?.id;
+
+    return create(AdminGetContextResponseSchema, {
       isRootAdmin: authorization.adminAccess.isRootAdmin,
       organizations,
-      defaultOrganizationId: authorization.adminAccess.isRootAdmin
-        ? null
-        : (organizations[0]?.id ?? null)
-    };
-
-    return {
-      json: JSON.stringify(response)
-    };
+      ...(typeof defaultOrganizationId === 'string'
+        ? { defaultOrganizationId }
+        : {})
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

@@ -41,9 +41,6 @@ import {
   AdminDeleteOrganizationResponseSchema,
   AdminDeleteRedisKeyResponseSchema,
   AdminGetColumnsResponseSchema,
-  AdminGetContextResponseSchema,
-  AdminGetGroupMembersResponseSchema,
-  AdminGetGroupResponseSchema,
   AdminGetOrganizationResponseSchema,
   AdminGetOrgGroupsResponseSchema,
   AdminGetOrgUsersResponseSchema,
@@ -54,7 +51,6 @@ import {
   AdminGetRowsResponseSchema,
   AdminGetTablesResponseSchema,
   AdminGetUserResponseSchema,
-  AdminListGroupsResponseSchema,
   AdminListOrganizationsResponseSchema,
   AdminListUsersResponseSchema,
   AdminRemoveGroupMemberResponseSchema,
@@ -190,21 +186,18 @@ function normalizeRedisValueResponseJson(json: string): string {
 
 export const adminConnectServiceV2 = {
   async getContext(request: AdminGetContextRequest, context: ConnectContext) {
-    const response = await getContextDirect(request, context);
-    return decodeAdminJson(AdminGetContextResponseSchema, response.json);
+    return getContextDirect(request, context);
   },
   async listGroups(request: AdminListGroupsRequest, context: ConnectContext) {
-    const response = await listGroupsDirect(
+    return listGroupsDirect(
       {
         organizationId: request.organizationId ?? ''
       },
       context
     );
-    return decodeAdminJson(AdminListGroupsResponseSchema, response.json);
   },
   async getGroup(request: AdminGetGroupRequest, context: ConnectContext) {
-    const response = await getGroupDirect(request, context);
-    return decodeAdminJson(AdminGetGroupResponseSchema, response.json);
+    return getGroupDirect(request, context);
   },
   async createGroup(request: AdminCreateGroupRequest, context: ConnectContext) {
     const response = await createGroupDirect(
@@ -237,8 +230,7 @@ export const adminConnectServiceV2 = {
     request: AdminGetGroupMembersRequest,
     context: ConnectContext
   ) {
-    const response = await getGroupMembersDirect(request, context);
-    return decodeAdminJson(AdminGetGroupMembersResponseSchema, response.json);
+    return getGroupMembersDirect(request, context);
   },
   async addGroupMember(
     request: AdminAddGroupMemberRequest,

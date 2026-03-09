@@ -32,18 +32,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectGroups', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -106,13 +94,12 @@ describe('adminDirectGroups', () => {
       expect.any(Headers)
     );
     expect(queryMock).toHaveBeenCalledTimes(1);
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       groups: [
         {
           id: 'group-1',
           organizationId: 'org-2',
           name: 'Engineering',
-          description: null,
           createdAt: '2026-03-02T00:00:00.000Z',
           updatedAt: '2026-03-02T00:05:00.000Z',
           memberCount: 3
@@ -145,7 +132,7 @@ describe('adminDirectGroups', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       groups: [
         {
           id: 'group-2',
@@ -260,7 +247,7 @@ describe('adminDirectGroups', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       group: {
         id: 'group-1',
         organizationId: 'org-1',
@@ -377,7 +364,7 @@ describe('adminDirectGroups', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       members: [
         {
           userId: 'user-2',
