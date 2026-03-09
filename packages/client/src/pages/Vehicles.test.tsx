@@ -4,11 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { Vehicles } from './Vehicles';
 
 vi.mock('@/contexts/ClientVehiclesProvider', () => ({
-  ClientVehiclesProvider: ({
-    children
-  }: {
-    children: React.ReactNode;
-  }) => <>{children}</>
+  ClientVehiclesProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 vi.mock('@/components/vehicles', () => ({

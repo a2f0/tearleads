@@ -6,7 +6,7 @@ import { VehiclesWindowNew } from './VehiclesWindowNew';
 
 const mockUseVehiclesRuntime = vi.fn();
 
-let instanceChangeCallback:
+let _instanceChangeCallback:
   | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
   | null = null;
 
@@ -28,7 +28,7 @@ vi.mock('@/hooks/app', () => ({
       previousInstanceId: string | null
     ) => void
   ) => {
-    instanceChangeCallback = callback;
+    _instanceChangeCallback = callback;
   }
 }));
 
@@ -95,7 +95,7 @@ describe('VehiclesWindowNew', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    instanceChangeCallback = null;
+    _instanceChangeCallback = null;
     mockUseVehiclesRuntime.mockReturnValue(
       createRuntime({
         repository: createRepository({
@@ -364,5 +364,4 @@ describe('VehiclesWindowNew', () => {
       expect(screen.queryByText('Creating...')).not.toBeInTheDocument();
     });
   });
-
 });

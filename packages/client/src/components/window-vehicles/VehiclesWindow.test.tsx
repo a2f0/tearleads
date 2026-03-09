@@ -4,11 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindow } from './VehiclesWindow';
 
 vi.mock('@/contexts/ClientVehiclesProvider', () => ({
-  ClientVehiclesProvider: ({
-    children
-  }: {
-    children: React.ReactNode;
-  }) => <>{children}</>
+  ClientVehiclesProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
 }));
 
 vi.mock('@tearleads/window-manager', async (importOriginal) => ({
