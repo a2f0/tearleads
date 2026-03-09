@@ -4,7 +4,13 @@ import {
   type VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
 } from '@tearleads/api-client/clientEntry';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from 'react';
 import { getDatabase, isDatabaseInitialized } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { createItemKeyStore } from '@/db/vfsItemKeys';
@@ -48,16 +54,10 @@ function formatEpochTrace(
 }
 
 function useRuntimeSnapshot(): InstanceChangeSnapshot {
-  const [runtimeSnapshot, setRuntimeSnapshot] =
-    useState<InstanceChangeSnapshot>(() => getInstanceChangeSnapshot());
-
-  useEffect(() => {
-    return subscribeToInstanceChange(() => {
-      setRuntimeSnapshot(getInstanceChangeSnapshot());
-    });
-  }, []);
-
-  return runtimeSnapshot;
+  return useSyncExternalStore(
+    (onStoreChange) => subscribeToInstanceChange(() => onStoreChange()),
+    getInstanceChangeSnapshot
+  );
 }
 
 function useFlushWhenOrganizationReady(input: {

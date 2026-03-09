@@ -18,6 +18,10 @@ export interface InstanceChangeSnapshot {
 const listeners = new Set<InstanceChangeCallback>();
 let lastInstanceId: string | null = null;
 let instanceEpoch = 0;
+let currentSnapshot: InstanceChangeSnapshot = {
+  currentInstanceId: null,
+  instanceEpoch: 0
+};
 
 /**
  * Emit an instance change event to all subscribers.
@@ -30,6 +34,10 @@ export function emitInstanceChange(newInstanceId: string | null): void {
   // Only emit if the instance actually changed
   if (previous !== newInstanceId) {
     instanceEpoch += 1;
+    currentSnapshot = {
+      currentInstanceId: newInstanceId,
+      instanceEpoch
+    };
     for (const listener of listeners) {
       try {
         listener(newInstanceId, previous);
@@ -71,10 +79,7 @@ export function getListenerCount(): number {
 }
 
 export function getInstanceChangeSnapshot(): InstanceChangeSnapshot {
-  return {
-    currentInstanceId: lastInstanceId,
-    instanceEpoch
-  };
+  return currentSnapshot;
 }
 
 /**
@@ -84,4 +89,8 @@ export function resetInstanceChangeState(): void {
   listeners.clear();
   lastInstanceId = null;
   instanceEpoch = 0;
+  currentSnapshot = {
+    currentInstanceId: null,
+    instanceEpoch: 0
+  };
 }
