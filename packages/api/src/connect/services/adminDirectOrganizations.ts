@@ -1,13 +1,32 @@
 import { randomUUID } from 'node:crypto';
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   CreateOrganizationRequest,
-  OrganizationGroupsResponse,
-  OrganizationResponse,
-  OrganizationsListResponse,
-  OrganizationUsersResponse,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
+import type {
+  AdminCreateOrganizationResponse,
+  AdminDeleteOrganizationResponse,
+  AdminGetOrganizationResponse,
+  AdminGetOrgGroupsResponse,
+  AdminGetOrgUsersResponse,
+  AdminListOrganizationsResponse,
+  AdminOrganizationGroup,
+  AdminOrganizationUser,
+  AdminUpdateOrganizationResponse
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminCreateOrganizationResponseSchema,
+  AdminDeleteOrganizationResponseSchema,
+  AdminGetOrganizationResponseSchema,
+  AdminGetOrgGroupsResponseSchema,
+  AdminGetOrgUsersResponseSchema,
+  AdminListOrganizationsResponseSchema,
+  AdminOrganizationGroupSchema,
+  AdminOrganizationUserSchema,
+  AdminUpdateOrganizationResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { buildRevenueCatAppUserId } from '../../lib/billing.js';
 import { getPool } from '../../lib/postgres.js';
 import {
@@ -54,6 +73,34 @@ function ensureRootAdmin(authorization: ScopedAdminAccess): void {
   }
 }
 
+function toOrganizationUser(row: {
+  id: string;
+  email: string;
+  joined_at: Date;
+}): AdminOrganizationUser {
+  return create(AdminOrganizationUserSchema, {
+    id: row.id,
+    email: row.email,
+    joinedAt: row.joined_at.toISOString()
+  });
+}
+
+function toOrganizationGroup(row: {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+}): AdminOrganizationGroup {
+  return create(AdminOrganizationGroupSchema, {
+    id: row.id,
+    name: row.name,
+    ...(typeof row.description === 'string'
+      ? { description: row.description }
+      : {}),
+    memberCount: row.member_count
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -80,7 +127,7 @@ async function ensureOrganizationExists(organizationId: string): Promise<void> {
 export async function listOrganizationsDirect(
   request: ListOrganizationsRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminListOrganizationsResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/organizations',
     context.requestHeader
@@ -116,10 +163,9 @@ export async function listOrganizationsDirect(
             ]
           );
 
-    const response: OrganizationsListResponse = {
+    return create(AdminListOrganizationsResponseSchema, {
       organizations: result.rows.map(mapOrganizationRow)
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -132,7 +178,7 @@ export async function listOrganizationsDirect(
 export async function getOrganizationDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetOrganizationResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/organizations/${encoded(request.id)}`,
     context.requestHeader
@@ -155,10 +201,9 @@ export async function getOrganizationDirect(
       throw new ConnectError('Organization not found', Code.NotFound);
     }
 
-    const response: OrganizationResponse = {
+    return create(AdminGetOrganizationResponseSchema, {
       organization: mapOrganizationRow(row)
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -171,7 +216,7 @@ export async function getOrganizationDirect(
 export async function createOrganizationDirect(
   request: CreateOrganizationInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminCreateOrganizationResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/organizations',
     context.requestHeader
@@ -222,10 +267,9 @@ export async function createOrganizationDirect(
       throw new ConnectError('Failed to create organization', Code.Internal);
     }
 
-    const response: OrganizationResponse = {
+    return create(AdminCreateOrganizationResponseSchema, {
       organization: mapOrganizationRow(row)
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -244,7 +288,7 @@ export async function createOrganizationDirect(
 export async function updateOrganizationDirect(
   request: UpdateOrganizationInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminUpdateOrganizationResponse> {
   const { id, ...payload } = request;
   const authorization = await requireScopedAdminAccess(
     `/admin/organizations/${encoded(id)}`,
@@ -296,10 +340,9 @@ export async function updateOrganizationDirect(
       throw new ConnectError('Organization not found', Code.NotFound);
     }
 
-    const response: OrganizationResponse = {
+    return create(AdminUpdateOrganizationResponseSchema, {
       organization: mapOrganizationRow(row)
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -318,7 +361,7 @@ export async function updateOrganizationDirect(
 export async function deleteOrganizationDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminDeleteOrganizationResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/organizations/${encoded(request.id)}`,
     context.requestHeader
@@ -334,7 +377,9 @@ export async function deleteOrganizationDirect(
 
     const organization = existing.rows[0];
     if (!organization) {
-      return { json: JSON.stringify({ deleted: false }) };
+      return create(AdminDeleteOrganizationResponseSchema, {
+        deleted: false
+      });
     }
 
     if (organization.is_personal) {
@@ -347,11 +392,9 @@ export async function deleteOrganizationDirect(
     const result = await pool.query('DELETE FROM organizations WHERE id = $1', [
       request.id
     ]);
-    return {
-      json: JSON.stringify({
-        deleted: result.rowCount !== null && result.rowCount > 0
-      })
-    };
+    return create(AdminDeleteOrganizationResponseSchema, {
+      deleted: result.rowCount !== null && result.rowCount > 0
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -364,7 +407,7 @@ export async function deleteOrganizationDirect(
 export async function getOrganizationUsersDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetOrgUsersResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/organizations/${encoded(request.id)}/users`,
     context.requestHeader
@@ -389,14 +432,9 @@ export async function getOrganizationUsersDirect(
       [request.id]
     );
 
-    const response: OrganizationUsersResponse = {
-      users: result.rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        joinedAt: row.joined_at.toISOString()
-      }))
-    };
-    return { json: JSON.stringify(response) };
+    return create(AdminGetOrgUsersResponseSchema, {
+      users: result.rows.map((row) => toOrganizationUser(row))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -409,7 +447,7 @@ export async function getOrganizationUsersDirect(
 export async function getOrganizationGroupsDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetOrgGroupsResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/organizations/${encoded(request.id)}/groups`,
     context.requestHeader
@@ -436,15 +474,9 @@ export async function getOrganizationGroupsDirect(
       [request.id]
     );
 
-    const response: OrganizationGroupsResponse = {
-      groups: result.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        memberCount: row.member_count
-      }))
-    };
-    return { json: JSON.stringify(response) };
+    return create(AdminGetOrgGroupsResponseSchema, {
+      groups: result.rows.map((row) => toOrganizationGroup(row))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

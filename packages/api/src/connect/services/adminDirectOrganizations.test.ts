@@ -36,18 +36,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected JSON object');
-  }
-  return parsed;
-}
-
 describe('adminDirectOrganizations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -105,17 +93,15 @@ describe('adminDirectOrganizations', () => {
       '/admin/organizations',
       expect.any(Headers)
     );
-    expect(parseJson(response.json)).toEqual({
-      organizations: [
-        {
-          id: 'org-1',
-          name: 'Org One',
-          description: null,
-          createdAt: '2026-03-03T00:00:00.000Z',
-          updatedAt: '2026-03-03T00:05:00.000Z'
-        }
-      ]
-    });
+    expect(response.organizations).toMatchObject([
+      {
+        id: 'org-1',
+        name: 'Org One',
+        createdAt: '2026-03-03T00:00:00.000Z',
+        updatedAt: '2026-03-03T00:05:00.000Z'
+      }
+    ]);
+    expect(response.organizations[0]?.description).toBeUndefined();
     expect(queryMock).toHaveBeenCalledTimes(1);
     const call = queryMock.mock.calls[0];
     expect(call?.[1]).toBeUndefined();
@@ -273,7 +259,7 @@ describe('adminDirectOrganizations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({ deleted: false });
+    expect(response.deleted).toBe(false);
   });
 
   it('rejects deleting personal organizations', async () => {
@@ -326,15 +312,13 @@ describe('adminDirectOrganizations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      users: [
-        {
-          id: 'user-1',
-          email: 'user1@example.com',
-          joinedAt: '2026-03-03T00:15:00.000Z'
-        }
-      ]
-    });
+    expect(response.users).toMatchObject([
+      {
+        id: 'user-1',
+        email: 'user1@example.com',
+        joinedAt: '2026-03-03T00:15:00.000Z'
+      }
+    ]);
   });
 
   it('returns organization groups for accessible organizations', async () => {
@@ -362,15 +346,13 @@ describe('adminDirectOrganizations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      groups: [
-        {
-          id: 'group-1',
-          name: 'Engineering',
-          description: null,
-          memberCount: 2
-        }
-      ]
-    });
+    expect(response.groups).toMatchObject([
+      {
+        id: 'group-1',
+        name: 'Engineering',
+        memberCount: 2
+      }
+    ]);
+    expect(response.groups[0]?.description).toBeUndefined();
   });
 });

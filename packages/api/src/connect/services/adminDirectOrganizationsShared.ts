@@ -1,4 +1,6 @@
-import type { Organization } from '@tearleads/shared';
+import { create } from '@bufbuild/protobuf';
+import type { AdminOrganization } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import { AdminOrganizationSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 
 export type OrganizationRow = {
   id: string;
@@ -8,12 +10,14 @@ export type OrganizationRow = {
   updated_at: Date;
 };
 
-export function mapOrganizationRow(row: OrganizationRow): Organization {
-  return {
+export function mapOrganizationRow(row: OrganizationRow): AdminOrganization {
+  return create(AdminOrganizationSchema, {
     id: row.id,
     name: row.name,
-    description: row.description,
+    ...(typeof row.description === 'string'
+      ? { description: row.description }
+      : {}),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
-  };
+  });
 }

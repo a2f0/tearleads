@@ -2,6 +2,7 @@ import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import {
   AdminGetContextRequestSchema,
+  AdminGetOrganizationRequestSchema,
   AdminGetRedisValueRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -121,6 +122,19 @@ describe('adminConnectServiceV2 error branches', () => {
     await expect(
       adminConnectServiceV2.getRedisValue(
         create(AdminGetRedisValueRequestSchema, { key: 'broken' }),
+        context
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('propagates organization handler errors without JSON decode wrapping', async () => {
+    mocks.getOrganizationDirect.mockRejectedValueOnce({
+      code: Code.Internal
+    });
+
+    await expect(
+      adminConnectServiceV2.getOrganization(
+        create(AdminGetOrganizationRequestSchema, { id: 'org-broken' }),
         context
       )
     ).rejects.toMatchObject({ code: Code.Internal });
