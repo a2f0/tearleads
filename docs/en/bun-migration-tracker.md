@@ -11,7 +11,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
 | Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
-| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, and vfs-explorer. Remaining work is long-term runner decisions and remediation for the packages that still stay Vitest-primary. |
+| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
 ## Compatibility Snapshot (2026-03-09)
@@ -21,6 +21,21 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 - Transitional bun auto-fallback scripts: 0
 - Vitest-primary `test` scripts: 8
 - High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 12
+
+## Remaining Vitest-Primary Decisions (2026-03-09)
+
+These decisions are based on the current compatibility inventory plus spot-checks on current `main` for `@tearleads/cli` and `@tearleads/app-audio`.
+
+| Package | Decision | Evidence | Revisit trigger |
+| --- | --- | --- | --- |
+| `@tearleads/client` | Keep `vitest-primary` | Highest remaining inventory footprint (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, `vi.mocked`, `vi.stubEnv`) plus heavy jsdom usage across 600+ tests. | Revisit after shared adapter/codemod work materially reduces the mock surface. |
+| `@tearleads/api` | Keep `vitest-primary` | Large env/module-mocking surface (`vi.hoisted`, `vi.importActual`, `vi.stubEnv`, `vi.resetModules`) across 150+ tests. | Revisit after shared server-side mock/env adapters land. |
+| `@tearleads/api-client` | Keep `vitest-primary` | High `vi.importActual`, `vi.resetModules`, `vi.mocked`, and `vi.stubEnv` counts combined with jsdom config. | Revisit after import/reset cleanup and a focused Bun pilot for read-only clients. |
+| `@tearleads/app-admin` | Keep `vitest-primary` | jsdom-heavy admin suites still depend on `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, and `vi.stubEnv`. | Revisit after admin route/mock cleanup removes the remaining Vitest-only patterns. |
+| `@tearleads/app-audio` | Keep `vitest-primary` | Current-main Bun smoke test hits top-level `window` access before setup plus unsupported `vi.resetModules` and `vi.stubGlobal` usage in `useAudioAnalyser` tests. | Revisit after shared DOM preload hardening and audio test helper cleanup. |
+| `@tearleads/app-backups` | Keep `vitest-primary` | Inventory still shows jsdom setup plus `vi.hoisted` and `vi.mocked` blockers across backup window/runtime suites. | Revisit after the hoisted mock is removed and the backup window gets a dedicated Bun smoke pilot. |
+| `@tearleads/app-keychain` | Keep `vitest-primary` | Native storage/platform tests still rely on `vi.hoisted`, `vi.importActual`, `vi.resetModules`, and large `vi.mocked` usage on top of jsdom. | Revisit after keychain native/storage helpers are split from the UI test surface. |
+| `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only `vi.mocked`/matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
 
 ## Merged Slices
 
@@ -102,6 +117,8 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#3061](https://github.com/a2f0/tearleads/pull/3061) | Chrome-extension Bun compatibility remediation and Bun-primary promotion |
 | [#3063](https://github.com/a2f0/tearleads/pull/3063) | Contacts Bun compatibility remediation and Bun-primary promotion |
 | [#3068](https://github.com/a2f0/tearleads/pull/3068) | App-email Bun compatibility remediation and Bun-primary promotion |
+| [#3069](https://github.com/a2f0/tearleads/pull/3069) | Refresh Bun migration tracker snapshot after latest Bun promotions |
+| [#3071](https://github.com/a2f0/tearleads/pull/3071) | VFS explorer Bun compatibility remediation and Bun-primary promotion |
 
 ## Node Pilot Package Status
 
@@ -121,5 +138,5 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters, codemods, and per-package runner decisions for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`).
-3. Decide the long-term runner strategy for the remaining Vitest-primary and high-remediation packages (`client`, `api`, `api-client`, `app-admin`, `app-audio`, `app-backups`, `app-keychain`, `cli`) now that no packages remain on transitional bun auto-fallback scripts.
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) and the recorded package decisions above to drive shared adapters/codemods for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`, `vi.stubGlobal`, native SQLite bindings).
+3. Re-open Bun-primary promotion only when a remaining Vitest-primary package crosses its documented revisit trigger rather than forcing another broad pilot.
