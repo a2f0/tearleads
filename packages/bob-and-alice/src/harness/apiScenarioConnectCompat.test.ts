@@ -15,12 +15,7 @@ describe('mapLegacyPathToConnect', () => {
 
     expect(mapping).not.toBeNull();
     expect(mapping?.path).toBe('/v1/connect/tearleads.v2.VfsService/Register');
-    expect(mapping?.body).toEqual({
-      id: 'note-1',
-      objectType: 'note',
-      encryptedSessionKey: 'wrapped-key',
-      json: JSON.stringify(payload)
-    });
+    expect(mapping?.body).toEqual(payload);
   });
 
   it('unwraps one level of double-encoded JSON for auth routes', () => {
@@ -38,7 +33,7 @@ describe('mapLegacyPathToConnect', () => {
     expect(mapping?.body).toEqual(payload);
   });
 
-  it('maps /vfs/items/:id/rekey with direct fields and json fallback', () => {
+  it('maps /vfs/items/:id/rekey with direct fields', () => {
     const payload = {
       reason: 'manual',
       newEpoch: 2,
@@ -61,8 +56,7 @@ describe('mapLegacyPathToConnect', () => {
     expect(mapping?.path).toBe('/v1/connect/tearleads.v2.VfsService/RekeyItem');
     expect(mapping?.body).toEqual({
       ...payload,
-      itemId: 'item-1',
-      json: JSON.stringify(payload)
+      itemId: 'item-1'
     });
   });
 
