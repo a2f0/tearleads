@@ -72,8 +72,6 @@ describe('VfsRematerializationBootstrap', () => {
     });
 
     render(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
 
     expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
   });
@@ -86,8 +84,6 @@ describe('VfsRematerializationBootstrap', () => {
     });
 
     render(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
 
     expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
   });
@@ -191,9 +187,6 @@ describe('VfsRematerializationBootstrap', () => {
       .mockImplementation(() => {});
 
     render(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
-
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).not.toHaveBeenCalled();
 
