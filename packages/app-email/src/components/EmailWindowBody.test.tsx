@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailBodyOperations } from '../context';
+import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
 import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
-import { installEmailWindowModuleMocks } from './emailWindowModuleMocks';
 import { mockEmails } from './emailWindowTestFixtures';
 
 describe('EmailWindow body rendering', () => {

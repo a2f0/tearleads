@@ -2,9 +2,13 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailContactOperations } from '../context';
-import { installEmailWindowModuleMocks } from './emailWindowModuleMocks';
-import { defaultProps, renderLoadedWindow, renderWithProvider } from './emailWindowTestUtils';
 import { mockFolderOperations } from './emailWindowTestFixtures';
+import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
+import {
+  defaultProps,
+  renderLoadedWindow,
+  renderWithProvider
+} from '../test/emailWindowTestUtils';
 
 describe('EmailWindow compose and folders', () => {
   beforeEach(() => {

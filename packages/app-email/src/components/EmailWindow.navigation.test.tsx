@@ -2,12 +2,16 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '../test/consoleMocks';
-import { installEmailWindowModuleMocks } from './emailWindowModuleMocks';
-import { defaultProps, renderLoadedWindow, renderWithProvider } from './emailWindowTestUtils';
 import {
   mockEmailLargeSize,
   mockEmailSmallSize
 } from './emailWindowTestFixtures';
+import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
+import {
+  defaultProps,
+  renderLoadedWindow,
+  renderWithProvider
+} from '../test/emailWindowTestUtils';
 
 describe('EmailWindow navigation', () => {
   beforeEach(() => {

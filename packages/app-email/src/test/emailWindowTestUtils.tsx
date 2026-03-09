@@ -2,9 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { expect, vi } from 'vitest';
 import type { EmailContactOperations, EmailFolderOperations } from '../context';
-import { TestEmailProvider } from '../test/testUtils';
-import { EmailWindow } from './EmailWindow';
-import { mockEmails } from './emailWindowTestFixtures';
+import { EmailWindow } from '../components/EmailWindow';
+import { mockEmails } from '../components/emailWindowTestFixtures';
+import { TestEmailProvider } from './testUtils';
 
 export interface RenderEmailWindowOptions {
   contactOperations?: EmailContactOperations;
