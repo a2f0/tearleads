@@ -426,7 +426,7 @@ describe('admin api client', () => {
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v1.AiService/GetUsage')
+        url.includes('/connect/tearleads.v2.AiService/GetUsage')
       )
     ).toBe(true);
     expect(

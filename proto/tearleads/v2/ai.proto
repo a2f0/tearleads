@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package tearleads.v2;
+
+service AiService {
+  rpc GetUsage(AiServiceGetUsageRequest) returns (AiServiceGetUsageResponse);
+  rpc GetUsageSummary(AiServiceGetUsageSummaryRequest)
+      returns (AiServiceGetUsageSummaryResponse);
+}
+
+message AiUsage {
+  string id = 1;
+  optional string conversation_id = 2;
+  optional string message_id = 3;
+  string user_id = 4;
+  optional string organization_id = 5;
+  string model_id = 6;
+  int32 prompt_tokens = 7;
+  int32 completion_tokens = 8;
+  int32 total_tokens = 9;
+  optional string openrouter_request_id = 10;
+  string created_at = 11;
+}
+
+message AiUsageSummary {
+  int32 total_prompt_tokens = 1;
+  int32 total_completion_tokens = 2;
+  int32 total_tokens = 3;
+  int32 request_count = 4;
+  string period_start = 5;
+  string period_end = 6;
+}
+
+message AiServiceGetUsageRequest {
+  string start_date = 1;
+  string end_date = 2;
+  string cursor = 3;
+  int32 limit = 4;
+}
+
+message AiServiceGetUsageResponse {
+  repeated AiUsage usage = 1;
+  AiUsageSummary summary = 2;
+  bool has_more = 3;
+  optional string cursor = 4;
+}
+
+message AiServiceGetUsageSummaryRequest {
+  string start_date = 1;
+  string end_date = 2;
+}
+
+message AiServiceGetUsageSummaryResponse {
+  AiUsageSummary summary = 1;
+  map<string, AiUsageSummary> by_model = 2;
+}
