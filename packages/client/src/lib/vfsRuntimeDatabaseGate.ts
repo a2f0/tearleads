@@ -1,6 +1,6 @@
 import type { InstanceMetadata } from '@/db/instanceRegistry';
 
-export interface VfsRuntimeDatabaseContext {
+interface VfsRuntimeDatabaseContext {
   currentInstanceId: string | null;
   db: object | null;
   instances: InstanceMetadata[];
