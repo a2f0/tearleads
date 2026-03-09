@@ -1,14 +1,16 @@
 import { Code, ConnectError, type Interceptor } from '@connectrpc/connect';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { verifyJwt } from '../../lib/jwt.js';
 import { getSession, updateSessionActivity } from '../../lib/sessions.js';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 
 const AUTH_HEADER_PREFIX = 'Bearer ';
+const AUTH_SERVICE_METHOD_PATH = AuthService.typeName;
 
 const AUTH_EXEMPT_METHODS = new Set([
-  'tearleads.v2.AuthService/Login',
-  'tearleads.v2.AuthService/Register',
-  'tearleads.v2.AuthService/RefreshToken'
+  `${AUTH_SERVICE_METHOD_PATH}/Login`,
+  `${AUTH_SERVICE_METHOD_PATH}/Register`,
+  `${AUTH_SERVICE_METHOD_PATH}/RefreshToken`
 ]);
 
 function extractBearerToken(authHeader: string | null): string | null {

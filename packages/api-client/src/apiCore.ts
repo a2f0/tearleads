@@ -1,5 +1,6 @@
 /// <reference path="./vite-env.d.ts" />
 import type { AuthResponse } from '@tearleads/shared';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { type ApiEventSlug, logApiEvent } from './apiLogger';
 import {
   clearStoredAuth,
@@ -14,8 +15,7 @@ import {
 } from './authStorage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
-const AUTH_CONNECT_REFRESH_PATH =
-  '/connect/tearleads.v2.AuthService/RefreshToken';
+const AUTH_CONNECT_REFRESH_PATH = `/connect/${AuthService.typeName}/RefreshToken`;
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION = new Set([
   'SetupKeys',
