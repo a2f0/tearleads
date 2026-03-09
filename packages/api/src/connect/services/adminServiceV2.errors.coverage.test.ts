@@ -4,7 +4,8 @@ import {
   AdminCreateGroupRequestSchema,
   AdminGetContextRequestSchema,
   AdminGetOrganizationRequestSchema,
-  AdminGetRedisValueRequestSchema
+  AdminGetRedisValueRequestSchema,
+  AdminGetUserRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -152,6 +153,19 @@ describe('adminConnectServiceV2 error branches', () => {
           organizationId: 'org-broken',
           name: 'Broken'
         }),
+        context
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('propagates user handler errors without JSON decode wrapping', async () => {
+    mocks.getUserDirect.mockRejectedValueOnce({
+      code: Code.Internal
+    });
+
+    await expect(
+      adminConnectServiceV2.getUser(
+        create(AdminGetUserRequestSchema, { id: 'user-broken' }),
         context
       )
     ).rejects.toMatchObject({ code: Code.Internal });

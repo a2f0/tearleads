@@ -45,18 +45,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected JSON object');
-  }
-  return parsed;
-}
-
 describe('adminDirectUsers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -131,7 +119,7 @@ describe('adminDirectUsers', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       users: [
         {
           id: 'user-1',
@@ -142,20 +130,20 @@ describe('adminDirectUsers', () => {
           createdAt: '2026-03-03T00:00:00.000Z',
           lastActiveAt: '2026-03-03T00:20:00.000Z',
           accounting: {
-            totalPromptTokens: 10,
-            totalCompletionTokens: 4,
-            totalTokens: 14,
-            requestCount: 2,
+            totalPromptTokens: 10n,
+            totalCompletionTokens: 4n,
+            totalTokens: 14n,
+            requestCount: 2n,
             lastUsedAt: '2026-03-03T00:10:00.000Z'
           },
-          disabled: false,
-          disabledAt: null,
-          disabledBy: null,
-          markedForDeletionAt: null,
-          markedForDeletionBy: null
+          disabled: false
         }
       ]
     });
+    expect(response.users[0]?.disabledAt).toBeUndefined();
+    expect(response.users[0]?.disabledBy).toBeUndefined();
+    expect(response.users[0]?.markedForDeletionAt).toBeUndefined();
+    expect(response.users[0]?.markedForDeletionBy).toBeUndefined();
 
     expect(requireScopedAdminAccessMock).toHaveBeenCalledWith(
       '/admin/users',
@@ -303,7 +291,7 @@ describe('adminDirectUsers', () => {
     );
 
     expect(deleteAllSessionsForUserMock).toHaveBeenCalledWith('user-1');
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       user: {
         id: 'user-1',
         email: 'user1@example.com',
@@ -313,19 +301,19 @@ describe('adminDirectUsers', () => {
         createdAt: '2026-03-03T00:00:00.000Z',
         lastActiveAt: '2026-03-03T00:20:00.000Z',
         accounting: {
-          totalPromptTokens: 8,
-          totalCompletionTokens: 2,
-          totalTokens: 10,
-          requestCount: 1,
+          totalPromptTokens: 8n,
+          totalCompletionTokens: 2n,
+          totalTokens: 10n,
+          requestCount: 1n,
           lastUsedAt: '2026-03-03T00:25:00.000Z'
         },
         disabled: true,
         disabledAt: '2026-03-03T00:30:00.000Z',
-        disabledBy: 'admin-root',
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
+        disabledBy: 'admin-root'
       }
     });
+    expect(response.user?.markedForDeletionAt).toBeUndefined();
+    expect(response.user?.markedForDeletionBy).toBeUndefined();
   });
 
   it('rolls back and returns not found when organizationIds include missing org', async () => {

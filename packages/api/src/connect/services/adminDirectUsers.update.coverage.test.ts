@@ -41,18 +41,6 @@ import { updateUserDirect } from './adminDirectUsers.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectUsers update coverage branches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -156,7 +144,7 @@ describe('adminDirectUsers update coverage branches', () => {
     expect(updateSql).toContain('"disabled_at" = NULL');
     expect(updateSql).toContain('"marked_for_deletion_at" = NULL');
     expect(deleteAllSessionsForUserMock).not.toHaveBeenCalled();
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       user: {
         id: 'user-1',
         email: 'user1@example.com',
@@ -164,21 +152,21 @@ describe('adminDirectUsers update coverage branches', () => {
         admin: false,
         organizationIds: ['org-1'],
         createdAt: '2026-03-03T02:15:00.000Z',
-        lastActiveAt: null,
         accounting: {
-          totalPromptTokens: 0,
-          totalCompletionTokens: 0,
-          totalTokens: 0,
-          requestCount: 0,
-          lastUsedAt: null
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n
         },
-        disabled: false,
-        disabledAt: null,
-        disabledBy: null,
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
+        disabled: false
       }
     });
+    expect(response.user?.lastActiveAt).toBeUndefined();
+    expect(response.user?.accounting?.lastUsedAt).toBeUndefined();
+    expect(response.user?.disabledAt).toBeUndefined();
+    expect(response.user?.disabledBy).toBeUndefined();
+    expect(response.user?.markedForDeletionAt).toBeUndefined();
+    expect(response.user?.markedForDeletionBy).toBeUndefined();
   });
 
   it('updates organization memberships and preserves personal organization', async () => {
@@ -234,7 +222,7 @@ describe('adminDirectUsers update coverage branches', () => {
       ['org-2', 'org-personal'],
       'org-personal'
     ]);
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       user: {
         id: 'user-1',
         email: 'user1@example.com',
@@ -242,21 +230,21 @@ describe('adminDirectUsers update coverage branches', () => {
         admin: false,
         organizationIds: ['org-2', 'org-personal'],
         createdAt: '2026-03-03T02:20:00.000Z',
-        lastActiveAt: null,
         accounting: {
-          totalPromptTokens: 0,
-          totalCompletionTokens: 0,
-          totalTokens: 0,
-          requestCount: 0,
-          lastUsedAt: null
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n
         },
-        disabled: false,
-        disabledAt: null,
-        disabledBy: null,
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
+        disabled: false
       }
     });
+    expect(response.user?.lastActiveAt).toBeUndefined();
+    expect(response.user?.accounting?.lastUsedAt).toBeUndefined();
+    expect(response.user?.disabledAt).toBeUndefined();
+    expect(response.user?.disabledBy).toBeUndefined();
+    expect(response.user?.markedForDeletionAt).toBeUndefined();
+    expect(response.user?.markedForDeletionBy).toBeUndefined();
   });
 
   it('returns internal and rolls back when personal organization is missing', async () => {

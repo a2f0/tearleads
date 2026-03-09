@@ -112,6 +112,9 @@ const emptyRemoveGroupMemberResponse = { removed: false };
 const emptyRedisKeysResponse = { keys: [], cursor: '', hasMore: false };
 const emptyDeleteRedisKeyResponse = { deleted: false };
 const emptyRedisDbSizeResponse = { count: 0n };
+const emptyListUsersResponse = { users: [] };
+const emptyGetUserResponse = {};
+const emptyUpdateUserResponse = {};
 
 describe('adminConnectServiceV2 coverage branches', () => {
   beforeEach(() => {
@@ -126,8 +129,8 @@ describe('adminConnectServiceV2 coverage branches', () => {
     mocks.removeGroupMemberDirect.mockResolvedValue(
       emptyRemoveGroupMemberResponse
     );
-    mocks.listUsersDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.getUserDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.listUsersDirect.mockResolvedValue(emptyListUsersResponse);
+    mocks.getUserDirect.mockResolvedValue(emptyGetUserResponse);
     mocks.getColumnsDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getRedisKeysDirect.mockResolvedValue(emptyRedisKeysResponse);
     mocks.deleteRedisKeyDirect.mockResolvedValue(emptyDeleteRedisKeyResponse);
@@ -272,7 +275,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
   });
 
   it('maps updateUser optional fields and empty updates', async () => {
-    mocks.updateUserDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.updateUserDirect.mockResolvedValue(emptyUpdateUserResponse);
 
     await adminConnectServiceV2.updateUser(
       create(AdminUpdateUserRequestSchema, {
