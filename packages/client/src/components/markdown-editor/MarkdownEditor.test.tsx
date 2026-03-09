@@ -27,7 +27,7 @@ vi.mock('@uiw/react-md-editor', () => ({
   }
 }));
 
-vi.mock('@tearleads/notes', () => ({
+vi.mock('@tearleads/app-notes', () => ({
   createMarkdownToolbarFilter: vi.fn(() => vi.fn())
 }));
 

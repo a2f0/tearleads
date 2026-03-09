@@ -1,4 +1,4 @@
-import { useMultiFileUpload } from '@tearleads/audio';
+import { useMultiFileUpload } from '@tearleads/app-audio';
 import {
   DesktopFloatingWindow as FloatingWindow,
   useWindowRefresh,

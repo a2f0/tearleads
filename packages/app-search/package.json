@@ -1,0 +1,39 @@
+{
+  "name": "@tearleads/app-search",
+  "version": "0.0.8",
+  "description": "Core full-text search functionality for Tearleads",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "bun test src/integration.documentFactories.test.ts src/integration.indexing.test.ts && bun test src/SearchStore.test.ts",
+    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh src/integration.documentFactories.test.ts src/integration.indexing.test.ts src/SearchStore.test.ts"
+  },
+  "peerDependencies": {
+    "@tearleads/shared": "workspace:*"
+  },
+  "dependencies": {
+    "@orama/orama": "3.1.18"
+  },
+  "devDependencies": {
+    "@tearleads/shared": "workspace:*",
+    "@types/node": "25.3.3",
+    "@vitest/coverage-v8": "4.0.18",
+    "cross-env": "10.1.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
+}

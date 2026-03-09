@@ -69,7 +69,7 @@ run_timed \
 
 run_timed \
   "pnpm + vitest (api/mock-heavy sample)" \
-  pnpm exec vitest run packages/mls-chat/src/hooks/useMlsRealtime.test.tsx
+  pnpm exec vitest run packages/app-mls-chat/src/hooks/useMlsRealtime.test.tsx
 
 run_timed \
   "bunx + vitest (node-only sample)" \
@@ -81,7 +81,7 @@ run_timed \
 
 run_timed \
   "bunx + vitest (api/mock-heavy sample)" \
-  mise x bun -- bunx vitest run packages/mls-chat/src/hooks/useMlsRealtime.test.tsx
+  mise x bun -- bunx vitest run packages/app-mls-chat/src/hooks/useMlsRealtime.test.tsx
 
 run_timed \
   "bun test (node-only sample)" \

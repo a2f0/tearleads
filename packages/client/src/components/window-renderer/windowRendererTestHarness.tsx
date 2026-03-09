@@ -135,7 +135,7 @@ vi.mock('@/components/window-models', () => ({
     minimizeDimensions: { x: 0, y: 0, width: 720, height: 600 }
   })
 }));
-vi.mock('@tearleads/keychain', () => ({
+vi.mock('@tearleads/app-keychain', () => ({
   KeychainWindow: createMockWindowComponent({
     testIdPrefix: 'keychain-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 500 }
@@ -231,7 +231,7 @@ vi.mock('@/components/window-health', () => ({
     minimizeDimensions: { x: 0, y: 0, width: 760, height: 560 }
   })
 }));
-vi.mock('@tearleads/analytics', () => ({
+vi.mock('@tearleads/app-analytics', () => ({
   AnalyticsWindow: createMockWindowComponent({
     testIdPrefix: 'analytics-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 550 }

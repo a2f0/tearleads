@@ -4,7 +4,7 @@ import {
   CALENDAR_CREATE_SUBMIT_EVENT,
   CalendarContent,
   type CalendarEventItem
-} from '@tearleads/calendar';
+} from '@tearleads/app-calendar';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,

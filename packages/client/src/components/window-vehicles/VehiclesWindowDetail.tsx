@@ -4,7 +4,7 @@ import {
   normalizeVehicleProfile,
   useVehiclesRuntime,
   type VehicleRecord
-} from '@tearleads/vehicles';
+} from '@tearleads/app-vehicles';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

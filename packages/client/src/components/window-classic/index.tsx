@@ -1,4 +1,4 @@
-import type { EntrySortOrder, TagSortOrder } from '@tearleads/classic';
+import type { EntrySortOrder, TagSortOrder } from '@tearleads/app-classic';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,

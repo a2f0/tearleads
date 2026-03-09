@@ -1,4 +1,4 @@
-import type { SearchableDocument } from '@tearleads/search';
+import type { SearchableDocument } from '@tearleads/app-search';
 import type { HelpDocId } from '@/constants/help';
 import { getHelpDocLabel, getHelpDocRouteSegment } from '@/constants/help';
 import backupRestoreDocumentationEn from '../../../../docs/en/backup-restore.md?raw';

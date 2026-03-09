@@ -15,7 +15,7 @@ import {
   useAudioAnalyser,
   VISUALIZER_HEIGHT,
   type VisualizerVisibility
-} from '@tearleads/audio';
+} from '@tearleads/app-audio';
 import {
   Pause,
   Play,

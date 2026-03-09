@@ -1,4 +1,4 @@
-import type { CameraPhotoRollItem } from '@tearleads/camera';
+import type { CameraPhotoRollItem } from '@tearleads/app-camera';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';

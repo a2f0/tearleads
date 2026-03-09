@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
 
-vi.mock('@tearleads/mls-chat/package.json', () => ({
+vi.mock('@tearleads/app-mls-chat/package.json', () => ({
   default: { version: '0.0.7' }
 }));
 

@@ -54,11 +54,11 @@ Failure rate excludes `cancelled` and `skipped` runs.
 
 Passes under `bun test` today:
 
-- Full-package passes: `@tearleads/local-write-orchestrator`, `@tearleads/remote-read-orchestrator`, `@tearleads/msw`, `@tearleads/tee-api`, `@tearleads/vehicles`, `@tearleads/photos`
+- Full-package passes: `@tearleads/local-write-orchestrator`, `@tearleads/remote-read-orchestrator`, `@tearleads/msw`, `@tearleads/tee-api`, `@tearleads/app-vehicles`, `@tearleads/app-photos`
 - Targeted-file passes:
   - `@tearleads/app-builder` (`src/generators/theme.test.ts`, `src/generators/utils.test.ts`)
   - `@tearleads/mls-core` (`src/mls.test.ts`)
-  - `@tearleads/search` (`src/integration.documentFactories.test.ts`, `src/SearchStore.test.ts`)
+  - `@tearleads/app-search` (`src/integration.documentFactories.test.ts`, `src/SearchStore.test.ts`)
 
 Common blockers from sampled failing packages:
 

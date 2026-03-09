@@ -1,6 +1,5 @@
-import { AudioProvider } from '@tearleads/audio';
-import { configureBackupsRuntime } from '@tearleads/backups';
-import { setKeychainDependencies } from '@tearleads/keychain/clientEntry';
+import { configureBackupsRuntime } from '@tearleads/app-backups';
+import { setKeychainDependencies } from '@tearleads/app-keychain/clientEntry';
 import { ThemeProvider } from '@tearleads/ui';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -8,6 +7,7 @@ import { I18nextProvider } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppRoutes } from './AppRoutes';
+import { AudioProvider } from './audio';
 import { clientBackupsRuntime } from './backups/backupsRuntime';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
 import { AuthInstanceBinding } from './components/AuthInstanceBinding';

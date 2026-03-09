@@ -1,4 +1,4 @@
-import { useSettings } from '@tearleads/settings';
+import { useSettings } from '@tearleads/app-settings';
 import {
   DesktopBackground as BaseDesktopBackground,
   type DesktopBackgroundProps as BaseDesktopBackgroundProps

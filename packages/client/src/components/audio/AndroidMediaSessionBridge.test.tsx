@@ -10,7 +10,7 @@ const mockUpdateCatalog = vi.fn();
 const mockClearMetadata = vi.fn();
 const mockIsAndroidNativePlatform = vi.fn();
 
-vi.mock('@tearleads/audio', () => ({
+vi.mock('@tearleads/app-audio', () => ({
   useAudio: () => mockUseAudio()
 }));
 

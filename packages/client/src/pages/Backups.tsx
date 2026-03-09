@@ -1,1 +1,1 @@
-export { Backups } from '@tearleads/backups';
+export { Backups } from '@tearleads/app-backups';

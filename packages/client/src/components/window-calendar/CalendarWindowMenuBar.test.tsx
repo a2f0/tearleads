@@ -1,14 +1,14 @@
 import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_ITEM_EVENT
-} from '@tearleads/calendar';
+} from '@tearleads/app-calendar';
 import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 
-vi.mock('@tearleads/calendar/package.json', () => ({
+vi.mock('@tearleads/app-calendar/package.json', () => ({
   default: { version: '4.5.6' }
 }));
 

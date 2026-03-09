@@ -39,7 +39,7 @@ const config: KnipConfig = {
     'packages/api': {
       entry: ['src/**/*.ts']
     },
-    'packages/audio': {},
+    'packages/app-audio': {},
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },
@@ -68,16 +68,13 @@ const config: KnipConfig = {
         'src/index.css'
       ]
     },
-    'packages/console': {
-      entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
-    },
-    'packages/classic': {
+    'packages/app-classic': {
       entry: ['src/test/**/*.ts']
     },
-    'packages/help': {
+    'packages/app-help': {
       entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
     },
-    'packages/health': {
+    'packages/app-health': {
       entry: ['src/test/**/*.ts']
     },
     'packages/shared': {

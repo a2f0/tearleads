@@ -43,7 +43,7 @@ get_suite_path() {
   case "$1" in
     node) printf '%s\n' "packages/app-builder/src/generators/theme.test.ts" ;;
     ui) printf '%s\n' "packages/ui/src/context/useTheme.test.tsx" ;;
-    api) printf '%s\n' "packages/mls-chat/src/hooks/useMlsRealtime.test.tsx" ;;
+    api) printf '%s\n' "packages/app-mls-chat/src/hooks/useMlsRealtime.test.tsx" ;;
     *)
       echo "Unknown suite '$1' (expected: node, ui, api)" >&2
       return 1

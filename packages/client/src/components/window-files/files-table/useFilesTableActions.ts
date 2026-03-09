@@ -2,7 +2,7 @@
  * Hook for files table actions (view, download, delete, restore, play).
  */
 
-import { useAudio } from '@tearleads/audio';
+import { useAudio } from '@tearleads/app-audio';
 import { eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDatabase } from '@/db';

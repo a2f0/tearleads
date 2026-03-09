@@ -1,4 +1,4 @@
-import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
+import { setAnalyticsAdapter } from '@tearleads/app-analytics/analyticsState';
 import { getKeyManagerForInstance } from './crypto';
 import { _getAdapterInstance, _setDatabaseInstance } from './state';
 

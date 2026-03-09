@@ -4,7 +4,7 @@ import { DesktopBackground } from './index';
 
 const mockGetSetting = vi.fn();
 
-vi.mock('@tearleads/settings', () => ({
+vi.mock('@tearleads/app-settings', () => ({
   useSettings: () => ({
     getSetting: mockGetSetting,
     setSetting: vi.fn()

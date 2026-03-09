@@ -132,9 +132,9 @@ export default mergeConfig(
           'src/components/window-notes/index.ts',
           'src/components/window-wallet/index.ts',
           'src/components/ui/drop-zone-overlay/index.ts',
-          // Wrapper component that delegates to @tearleads/audio package
+          // Wrapper component that delegates to @tearleads/app-audio package
           'src/components/window-audio/index.tsx',
-          // Wrapper component that delegates to @tearleads/photos package
+          // Wrapper component that delegates to @tearleads/app-photos package
           'src/components/window-photos/index.tsx',
           // Photos provider has database/file operations that require integration testing
           'src/contexts/ClientPhotosProvider.tsx',
@@ -216,7 +216,7 @@ export default mergeConfig(
           'src/db/vehicles.ts'
         ],
         thresholds: {
-          // Thresholds adjusted after moving analytics tests to packages/analytics
+          // Thresholds adjusted after moving analytics tests to packages/app-analytics
           statements: 90.2,
           branches: 82.2,
           functions: 91.4,

@@ -1,4 +1,4 @@
-import { useSettings } from '@tearleads/settings';
+import { useSettings } from '@tearleads/app-settings';
 import { TooltipProvider } from '@tearleads/ui';
 import type { ReactNode } from 'react';
 

@@ -53,7 +53,7 @@ const mockDb = {
 } as unknown as import('./index').Database;
 
 // Import after mocks
-import { dispatchSettingsSyncedEvent } from '@tearleads/settings';
+import { dispatchSettingsSyncedEvent } from '@tearleads/app-settings';
 import { getSettingsFromDb, saveSettingToDb } from './userSettings';
 
 describe('user-settings', () => {

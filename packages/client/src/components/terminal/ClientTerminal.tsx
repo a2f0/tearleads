@@ -1,7 +1,7 @@
 import {
   Terminal as TerminalBase,
   type TerminalUtilities
-} from '@tearleads/terminal';
+} from '@tearleads/app-terminal';
 import { useDatabaseContext } from '@/db/hooks';
 import { getErrorMessage } from '@/lib/errors';
 import {

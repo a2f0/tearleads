@@ -338,7 +338,7 @@ Windows may require authentication at different levels. Use consistent patterns:
 **Database + Login** (props approach - legacy, for packages without client access):
 
 ```tsx
-// In external package (e.g., @tearleads/email)
+// In external package (e.g., @tearleads/app-email)
 interface WindowProps {
   isUnlocked?: boolean;
   isDatabaseLoading?: boolean;
@@ -378,7 +378,7 @@ Admin windows (`admin-*`) should use `InlineRequiresLoginAndUnlock` because:
 2. They may cache/display data that needs local database access
 3. Consistent pattern across all protected features
 
-For admin windows in external packages (e.g., `@tearleads/admin`), create client wrappers:
+For admin windows in external packages (e.g., `@tearleads/app-admin`), create client wrappers:
 
 ```text
 packages/client/src/components/window-admin-users/

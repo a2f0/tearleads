@@ -5,7 +5,7 @@ import {
   DEFAULT_CLASSIC_NOTE_TITLE,
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
-} from '@tearleads/classic';
+} from '@tearleads/app-classic';
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';

@@ -2,7 +2,7 @@ import {
   Health as BaseHealth,
   createHealthTracker,
   HealthRuntimeProvider
-} from '@tearleads/health/clientEntry';
+} from '@tearleads/app-health/clientEntry';
 import { type ComponentProps, useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';

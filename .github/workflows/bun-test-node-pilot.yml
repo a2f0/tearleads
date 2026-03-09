@@ -9,11 +9,11 @@ on:
       - 'packages/local-write-orchestrator/**'
       - 'packages/mls-core/**'
       - 'packages/msw/**'
-      - 'packages/photos/**'
+      - 'packages/app-photos/**'
       - 'packages/remote-read-orchestrator/**'
-      - 'packages/search/**'
+      - 'packages/app-search/**'
       - 'packages/tee-api/**'
-      - 'packages/vehicles/**'
+      - 'packages/app-vehicles/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'mise.toml'
@@ -41,15 +41,15 @@ jobs:
             script: test
           - package: '@tearleads/msw'
             script: test
-          - package: '@tearleads/photos'
+          - package: '@tearleads/app-photos'
             script: test
           - package: '@tearleads/remote-read-orchestrator'
             script: test
-          - package: '@tearleads/search'
+          - package: '@tearleads/app-search'
             script: test
           - package: '@tearleads/tee-api'
             script: test
-          - package: '@tearleads/vehicles'
+          - package: '@tearleads/app-vehicles'
             script: test
     steps:
       - uses: actions/checkout@v6

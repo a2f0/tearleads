@@ -23,7 +23,7 @@ vi.mock('react-router-dom', async () => {
 
 const mockGetSetting = vi.fn();
 
-vi.mock('@tearleads/settings', () => ({
+vi.mock('@tearleads/app-settings', () => ({
   useSettings: () => ({
     getSetting: mockGetSetting,
     setSetting: vi.fn()

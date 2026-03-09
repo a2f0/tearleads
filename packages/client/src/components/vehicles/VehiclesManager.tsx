@@ -4,7 +4,7 @@ import {
   normalizeVehicleProfile,
   useVehiclesRuntime,
   type VehicleRecord
-} from '@tearleads/vehicles';
+} from '@tearleads/app-vehicles';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow

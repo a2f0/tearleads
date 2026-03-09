@@ -24,9 +24,9 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-// Mock @tearleads/audio: use real exports but stub components needing providers
-vi.mock('@tearleads/audio', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tearleads/audio')>()),
+// Mock @tearleads/app-audio: use real exports but stub components needing providers
+vi.mock('@tearleads/app-audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/app-audio')>()),
   useAudio: () => mockUseAudio(),
   ALL_AUDIO_ID: '__all__',
   AudioPlaylistsSidebar: () => (

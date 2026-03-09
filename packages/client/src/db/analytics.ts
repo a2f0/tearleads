@@ -1,12 +1,12 @@
 /**
- * Re-export analytics module from @tearleads/analytics package.
+ * Re-export analytics module from @tearleads/app-analytics package.
  */
 
 export type {
   AnalyticsEvent,
   AnalyticsEventSlug,
   DatabaseInsert
-} from '@tearleads/analytics/analytics';
+} from '@tearleads/app-analytics/analytics';
 export {
   clearEvents,
   getDistinctEventTypes,
@@ -16,4 +16,4 @@ export {
   logApiEvent,
   logEvent,
   measureOperation
-} from '@tearleads/analytics/analytics';
+} from '@tearleads/app-analytics/analytics';

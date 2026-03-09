@@ -1,4 +1,4 @@
-import { useAudioContext } from '@tearleads/audio';
+import { useAudioContext } from '@tearleads/app-audio';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem

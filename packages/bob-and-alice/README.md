@@ -95,7 +95,7 @@ These client tests are the closest user-facing baselines for Bob/Alice sharing r
 | Client scenario | File | What it verifies |
 |-----------------|------|------------------|
 | Instance switch + shared-note sync feed continuity | `packages/client/src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx` | Bob remains authenticated after switching Alice -> Bob instance and can still read Alice's CRDT `item_upsert` from server feed |
-| Instance switch + rematerialization + rendered note body | `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | Bob/Alice scaffolded share rematerializes into Bob local DB and renders updated note content in `@tearleads/notes` (`NotesWindowDetail`) |
+| Instance switch + rematerialization + rendered note body | `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | Bob/Alice scaffolded share rematerializes into Bob local DB and renders updated note content in `@tearleads/app-notes` (`NotesWindowDetail`) |
 | App shell route + note-body visibility across Bob -> Alice -> Bob | `packages/client/src/lib/api.msw.instanceSwitchAppShellNoteVisibility.test.tsx` | Full `AppRoutes` shell keeps shared note content visible after instance rebinding and rematerialized remote updates |
 | Scaffolded feed hydration/rematerialization edge cases | `packages/client/src/lib/api.msw.scaffoldMaterialization.test.tsx` | Local read-model hydration from scaffolded sync + CRDT pages, including rematerialization fallback behavior |
 | Bootstrap retry/error handling for rematerialization | `packages/client/src/components/VfsRematerializationBootstrap.test.tsx` | UI bootstrap behavior around rematerialization retries/failures so warnings/errors are surfaced predictably |

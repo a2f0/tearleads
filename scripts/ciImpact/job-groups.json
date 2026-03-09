@@ -7,7 +7,7 @@
   ],
   "ignoredExact": [
     "LICENSE",
-    "packages/health/vitest.config.ts"
+    "packages/app-health/vitest.config.ts"
   ],
   "ignoredSuffixes": [
     ".md"
@@ -29,20 +29,20 @@
     "@tearleads/shared",
     "@tearleads/ui",
     "@tearleads/window-manager",
-    "@tearleads/audio",
-    "@tearleads/calendar",
-    "@tearleads/classic",
-    "@tearleads/contacts",
+    "@tearleads/app-audio",
+    "@tearleads/app-calendar",
+    "@tearleads/app-classic",
+    "@tearleads/app-contacts",
     "@tearleads/db",
     "@tearleads/db-test-utils",
-    "@tearleads/email",
-    "@tearleads/help",
-    "@tearleads/keychain",
-    "@tearleads/mls-chat",
-    "@tearleads/notes",
-    "@tearleads/search",
+    "@tearleads/app-email",
+    "@tearleads/app-help",
+    "@tearleads/app-keychain",
+    "@tearleads/app-mls-chat",
+    "@tearleads/app-notes",
+    "@tearleads/app-search",
     "@tearleads/vfs-sync",
-    "@tearleads/terminal",
+    "@tearleads/app-terminal",
     "@tearleads/vfs-explorer"
   ],
   "jobNames": [

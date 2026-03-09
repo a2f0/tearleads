@@ -1,4 +1,4 @@
-import { clearInstanceSettings } from '@tearleads/settings';
+import { clearInstanceSettings } from '@tearleads/app-settings';
 import {
   clearWindowDimensionsForInstance,
   clearWindowSnapshot

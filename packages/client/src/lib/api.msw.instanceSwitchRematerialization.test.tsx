@@ -2,8 +2,8 @@ import '../test/setupIntegration';
 
 import { randomUUID } from 'node:crypto';
 import { seedTestUser } from '@tearleads/api-test-utils';
+import { NotesWindowDetail } from '@tearleads/app-notes';
 import { notes, vfsRegistry } from '@tearleads/db/sqlite';
-import { NotesWindowDetail } from '@tearleads/notes';
 import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import { setupBobNotesShareForAliceDb } from '@tearleads/shared/scaffolding';
 import { ThemeProvider } from '@tearleads/ui';

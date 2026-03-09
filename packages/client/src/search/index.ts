@@ -3,6 +3,6 @@
  * Provides encrypted, persistent search with Orama and OPFS.
  */
 
-export * from '@tearleads/search';
+export * from '@tearleads/app-search';
 export { SearchProvider } from './SearchProvider';
 export { useSearch } from './useSearch';

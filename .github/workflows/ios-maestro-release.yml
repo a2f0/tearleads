@@ -154,11 +154,11 @@ jobs:
 
       - name: Build notes
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/notes run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-notes run build
 
       - name: Build email
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/email run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-email run build
 
       - name: Build vfs-explorer
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -166,15 +166,15 @@ jobs:
 
       - name: Build ai
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/ai run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-ai run build
 
       - name: Build audio
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/audio run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-audio run build
 
       - name: Build contacts
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/contacts run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-contacts run build
 
       - name: Build db-test-utils
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
@@ -182,15 +182,15 @@ jobs:
 
       - name: Build health
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/health run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-health run build
 
       - name: Build calendar
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/calendar run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-calendar run build
 
       - name: Build photos
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/photos run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-photos run build
 
       - name: Generate app configs
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}

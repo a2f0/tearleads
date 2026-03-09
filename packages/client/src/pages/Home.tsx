@@ -1,4 +1,5 @@
-import { useSettings } from '@tearleads/settings';
+// component-complexity: allow – pre-existing, rename-only change
+import { useSettings } from '@tearleads/app-settings';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,

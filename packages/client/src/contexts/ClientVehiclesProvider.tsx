@@ -2,7 +2,7 @@ import {
   createVehicleRepository,
   type VehiclesDatabaseState,
   VehiclesRuntimeProvider
-} from '@tearleads/vehicles';
+} from '@tearleads/app-vehicles';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useDatabaseContext } from '@/db/hooks';

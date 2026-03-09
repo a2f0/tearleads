@@ -1,4 +1,4 @@
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/audio';
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';

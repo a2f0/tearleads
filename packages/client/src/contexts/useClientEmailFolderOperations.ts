@@ -2,8 +2,8 @@ import type {
   EmailFolder,
   EmailFolderOperations,
   EmailFolderType
-} from '@tearleads/email';
-import { SYSTEM_FOLDER_NAMES, SYSTEM_FOLDER_TYPES } from '@tearleads/email';
+} from '@tearleads/app-email';
+import { SYSTEM_FOLDER_NAMES, SYSTEM_FOLDER_TYPES } from '@tearleads/app-email';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { useCallback, useMemo } from 'react';
 import { getDatabase } from '@/db';

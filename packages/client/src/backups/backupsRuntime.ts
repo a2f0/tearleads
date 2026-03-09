@@ -1,4 +1,4 @@
-import type { BackupsRuntime } from '@tearleads/backups';
+import type { BackupsRuntime } from '@tearleads/app-backups';
 import { getCurrentInstanceId, getDatabaseAdapter } from '@/db';
 import {
   createBackup,

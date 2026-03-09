@@ -8,7 +8,7 @@
 ## Frequency
 
 - Execute at least annually as part of security assessment.
-- Execute after any changes to the `@tearleads/mls-chat` package cryptographic implementation.
+- Execute after any changes to the `@tearleads/app-mls-chat` package cryptographic implementation.
 - Execute after ciphersuite updates or cryptographic library upgrades.
 - Execute after any security incident involving messaging encryption.
 
@@ -28,90 +28,90 @@
 
 ```bash
 # Verify ciphersuite constant in MLS client
-grep -n "MLS_CIPHERSUITE" packages/mls-chat/src/lib/mls.ts
+grep -n "MLS_CIPHERSUITE" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify ChaCha20-Poly1305 is the configured AEAD (RFC 8439)
-grep -n "CHACHA20POLY1305" packages/mls-chat/src/lib/mls.ts
+grep -n "CHACHA20POLY1305" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify ciphersuite ID matches RFC 9420 0x0003
-grep -n "0x0003" packages/mls-chat/src/lib/mls.ts
+grep -n "0x0003" packages/app-mls-chat/src/lib/mls.ts
 
 # Run MLS encryption unit tests
-pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"
+pnpm --filter @tearleads/app-mls-chat test -- --grep "encrypt"
 ```
 
 ### SC-12/IA-5: Key Management (TL-NE2E-002)
 
 ```bash
 # Verify crypto.getRandomValues usage for secure key generation
-grep -n "crypto.getRandomValues" packages/mls-chat/src/lib/mls.ts
+grep -n "crypto.getRandomValues" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify credential generation implementation
-grep -n "generateCredential" packages/mls-chat/src/lib/mls.ts
+grep -n "generateCredential" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify key package generation with Ed25519 signing
-grep -n "generateKeyPackage" packages/mls-chat/src/lib/mls.ts
+grep -n "generateKeyPackage" packages/app-mls-chat/src/lib/mls.ts
 
 # Run credential generation tests
-pnpm --filter @tearleads/mls-chat test -- --grep "credential"
+pnpm --filter @tearleads/app-mls-chat test -- --grep "credential"
 ```
 
 ### SC-8(1): Forward Secrecy (TL-NE2E-003)
 
 ```bash
 # Verify epoch tracking in group state
-grep -n "epoch" packages/mls-chat/src/lib/mls.ts
+grep -n "epoch" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify key evolution on commit processing
-grep -n "processCommit" packages/mls-chat/src/lib/mls.ts
+grep -n "processCommit" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify epoch advancement on member changes
-grep -n "addMember\|removeMember" packages/mls-chat/src/lib/mls.ts
+grep -n "addMember\|removeMember" packages/app-mls-chat/src/lib/mls.ts
 
 # Run epoch evolution tests
-pnpm --filter @tearleads/mls-chat test -- --grep "epoch"
+pnpm --filter @tearleads/app-mls-chat test -- --grep "epoch"
 ```
 
 ### SC-28: Local Key Storage (TL-NE2E-004)
 
 ```bash
 # Verify IndexedDB storage implementation
-grep -n "IndexedDB\|openDB\|IDBPDatabase" packages/mls-chat/src/lib/storage.ts
+grep -n "IndexedDB\|openDB\|IDBPDatabase" packages/app-mls-chat/src/lib/storage.ts
 
 # Verify credentials store
-grep -n "credentials" packages/mls-chat/src/lib/storage.ts
+grep -n "credentials" packages/app-mls-chat/src/lib/storage.ts
 
 # Verify key packages store
-grep -n "keyPackages" packages/mls-chat/src/lib/storage.ts
+grep -n "keyPackages" packages/app-mls-chat/src/lib/storage.ts
 
 # Verify group states store
-grep -n "groupStates" packages/mls-chat/src/lib/storage.ts
+grep -n "groupStates" packages/app-mls-chat/src/lib/storage.ts
 
 # Verify private keys are not exported to server
-grep -rn "privateKey" packages/mls-chat/src/lib/ | grep -v "test"
+grep -rn "privateKey" packages/app-mls-chat/src/lib/ | grep -v "test"
 
 # Run storage tests
-pnpm --filter @tearleads/mls-chat test -- --grep "storage"
+pnpm --filter @tearleads/app-mls-chat test -- --grep "storage"
 ```
 
 ### SI-7: Message Integrity (TL-NE2E-001)
 
 ```bash
 # Verify authenticated encryption in message processing
-grep -n "authenticatedData\|DecryptedContent" packages/mls-chat/src/lib/mls.ts
+grep -n "authenticatedData\|DecryptedContent" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify signature algorithm (Ed25519 per RFC 8032)
-grep -n "Ed25519" packages/mls-chat/src/lib/mls.ts
+grep -n "Ed25519" packages/app-mls-chat/src/lib/mls.ts
 
 # Run integrity verification tests
-pnpm --filter @tearleads/mls-chat test -- --grep "integrity\|authenticate"
+pnpm --filter @tearleads/app-mls-chat test -- --grep "integrity\|authenticate"
 ```
 
 ## Ciphersuite Verification Checklist
 
 | Component | Algorithm | Standard | Verification |
 | --- | --- | --- | --- |
-| Ciphersuite ID | 0x0003 | RFC 9420 | `grep "0x0003" packages/mls-chat/src/lib/mls.ts` |
+| Ciphersuite ID | 0x0003 | RFC 9420 | `grep "0x0003" packages/app-mls-chat/src/lib/mls.ts` |
 | KEM | X25519 | RFC 7748 | Curve25519 ECDH |
 | AEAD | ChaCha20-Poly1305 | RFC 8439 | 256-bit key, 96-bit nonce |
 | Hash | SHA-256 | FIPS 180-4 | 256-bit output |
@@ -122,38 +122,38 @@ pnpm --filter @tearleads/mls-chat test -- --grep "integrity\|authenticate"
 ```bash
 # Verify MLS protocol operations are implemented
 echo "=== RFC 9420 Core Operations ==="
-grep -c "createGroup" packages/mls-chat/src/lib/mls.ts
-grep -c "joinGroup" packages/mls-chat/src/lib/mls.ts
-grep -c "addMember" packages/mls-chat/src/lib/mls.ts
-grep -c "removeMember" packages/mls-chat/src/lib/mls.ts
-grep -c "encryptMessage" packages/mls-chat/src/lib/mls.ts
-grep -c "decryptMessage" packages/mls-chat/src/lib/mls.ts
-grep -c "processCommit" packages/mls-chat/src/lib/mls.ts
+grep -c "createGroup" packages/app-mls-chat/src/lib/mls.ts
+grep -c "joinGroup" packages/app-mls-chat/src/lib/mls.ts
+grep -c "addMember" packages/app-mls-chat/src/lib/mls.ts
+grep -c "removeMember" packages/app-mls-chat/src/lib/mls.ts
+grep -c "encryptMessage" packages/app-mls-chat/src/lib/mls.ts
+grep -c "decryptMessage" packages/app-mls-chat/src/lib/mls.ts
+grep -c "processCommit" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify key schedule operations
 echo "=== Key Schedule (RFC 9420 Section 8) ==="
-grep -c "epoch" packages/mls-chat/src/lib/mls.ts
+grep -c "epoch" packages/app-mls-chat/src/lib/mls.ts
 
 # Verify credential handling
 echo "=== Credentials ==="
-grep -c "credential\|Credential" packages/mls-chat/src/lib/mls.ts
+grep -c "credential\|Credential" packages/app-mls-chat/src/lib/mls.ts
 ```
 
 ## Test Coverage Verification
 
 ```bash
 # Run full test suite with coverage
-pnpm --filter @tearleads/mls-chat test:coverage
+pnpm --filter @tearleads/app-mls-chat test:coverage
 
 # Verify coverage thresholds
-cat packages/mls-chat/vitest.config.ts | grep -A5 "coverage"
+cat packages/app-mls-chat/vitest.config.ts | grep -A5 "coverage"
 ```
 
 ## Evidence Template
 
 - Review date:
 - Reviewer:
-- Package version (`packages/mls-chat/package.json`):
+- Package version (`packages/app-mls-chat/package.json`):
 - RFC 9420 compliance level:
 - Controls verified:
   - SC-8, SC-13: `TL-NE2E-001`

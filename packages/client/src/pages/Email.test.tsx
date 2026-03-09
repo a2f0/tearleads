@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Email } from './Email';
 
-vi.mock('@tearleads/email', () => ({
+vi.mock('@tearleads/app-email', () => ({
   Email: (props: unknown) => {
     const typed = props as {
       isUnlocked?: boolean;

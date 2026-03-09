@@ -12,8 +12,8 @@ const mockAudioElementRef = { current: null };
 const mockUseAudio = vi.fn();
 const mockUseAudioAnalyser = vi.fn();
 
-vi.mock('@tearleads/audio', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tearleads/audio')>()),
+vi.mock('@tearleads/app-audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/app-audio')>()),
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => mockUseAudioAnalyser()
 }));

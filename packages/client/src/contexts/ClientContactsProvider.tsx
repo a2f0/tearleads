@@ -1,15 +1,15 @@
 // one-component-per-file: allow - keeps small local adapter components with provider wiring in this legacy file
 /**
  * Client-side ContactsProvider wrapper that supplies all dependencies
- * to the @tearleads/contacts package components.
+ * to the @tearleads/app-contacts package components.
  */
 import {
   ContactsProvider,
   type ContactsUIComponents,
   type ImportedContactRecord,
   type VfsRegistrationResult
-} from '@tearleads/contacts';
-import contactsPackageJson from '@tearleads/contacts/package.json';
+} from '@tearleads/app-contacts';
+import contactsPackageJson from '@tearleads/app-contacts/package.json';
 import { vfsRegistry } from '@tearleads/db/sqlite';
 import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {

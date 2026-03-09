@@ -45,8 +45,8 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-// Mock AudioPlaylistsSidebar from @tearleads/audio
-vi.mock('@tearleads/audio', () => ({
+// Mock AudioPlaylistsSidebar from @tearleads/app-audio
+vi.mock('@tearleads/app-audio', () => ({
   ALL_AUDIO_ID: '__all__',
   AudioPlaylistsSidebar: vi.fn(
     ({
@@ -103,8 +103,8 @@ vi.mock('@/contexts/ClientAudioProvider', () => ({
 }));
 
 // Mock the audio context
-vi.mock('@tearleads/audio', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tearleads/audio')>()),
+vi.mock('@tearleads/app-audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/app-audio')>()),
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => new Uint8Array(12)
 }));

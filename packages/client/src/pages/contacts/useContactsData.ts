@@ -2,7 +2,7 @@
  * Hook for fetching and managing contacts data.
  */
 
-import { ALL_CONTACTS_ID } from '@tearleads/contacts';
+import { ALL_CONTACTS_ID } from '@tearleads/app-contacts';
 import { and, asc, eq, isNull, like, or, type SQL } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOrg } from '@/contexts/OrgContext';

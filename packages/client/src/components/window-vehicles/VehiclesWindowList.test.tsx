@@ -1,4 +1,4 @@
-import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
+import type { VehicleRecord, VehicleRepository } from '@tearleads/app-vehicles';
 import {
   act,
   fireEvent,
@@ -16,10 +16,10 @@ let instanceChangeCallback:
   | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
   | null = null;
 
-vi.mock('@tearleads/vehicles', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
-    '@tearleads/vehicles'
-  );
+vi.mock('@tearleads/app-vehicles', async () => {
+  const actual = await vi.importActual<
+    typeof import('@tearleads/app-vehicles')
+  >('@tearleads/app-vehicles');
 
   return {
     ...actual,

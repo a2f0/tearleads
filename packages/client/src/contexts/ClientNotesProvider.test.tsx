@@ -10,7 +10,7 @@ beforeEach(() => {
   capturedNotesProviderProps = null;
 });
 
-vi.mock('@tearleads/notes', () => ({
+vi.mock('@tearleads/app-notes', () => ({
   NotesAboutMenuItem: () => <div>NotesAboutMenuItem</div>,
   NotesProvider: ({
     children,

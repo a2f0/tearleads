@@ -1,4 +1,4 @@
-import type { SearchableDocument } from '@tearleads/search';
+import type { SearchableDocument } from '@tearleads/app-search';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 
 interface SearchableAppDefinition {

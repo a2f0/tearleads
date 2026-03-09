@@ -1,4 +1,5 @@
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/audio';
+// component-complexity: allow – pre-existing, rename-only change
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
 import {
   Calendar,
   FileType,

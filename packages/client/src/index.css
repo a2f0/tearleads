@@ -16,30 +16,30 @@
   }
 }
 
-@source "../../admin/src";
-@source "../../ai/src";
-@source "../../analytics/src";
-@source "../../audio/src";
-@source "../../backups/src";
-@source "../../businesses/src";
-@source "../../calendar/src";
-@source "../../camera/src";
-@source "../../classic/src";
-@source "../../contacts/src";
-@source "../../email/src";
-@source "../../health/src";
-@source "../../keychain/src";
-@source "../../mls-chat/src";
-@source "../../notes/src";
-@source "../../notifications/src";
-@source "../../photos/src";
-@source "../../settings/src";
-@source "../../terminal/src";
+@source "../../app-admin/src";
+@source "../../app-ai/src";
+@source "../../app-analytics/src";
+@source "../../app-audio/src";
+@source "../../app-backups/src";
+@source "../../app-businesses/src";
+@source "../../app-calendar/src";
+@source "../../app-camera/src";
+@source "../../app-classic/src";
+@source "../../app-contacts/src";
+@source "../../app-email/src";
+@source "../../app-health/src";
+@source "../../app-keychain/src";
+@source "../../app-mls-chat/src";
+@source "../../app-notes/src";
+@source "../../app-notifications/src";
+@source "../../app-photos/src";
+@source "../../app-settings/src";
+@source "../../app-terminal/src";
 @source "../../ui/src";
-@source "../../vehicles/src";
+@source "../../app-vehicles/src";
 @source "../../vfs-explorer/src";
 @source "../../vfs-sync/src";
-@source "../../wallet/src";
+@source "../../app-wallet/src";
 @source "../../window-manager/src";
 
 :root.square-corners {

@@ -13,8 +13,8 @@ import {
   type DecodeResult,
   decode,
   type ImportResult
-} from '@tearleads/backups/format';
-import { restoreTableData } from '@tearleads/backups/runtime';
+} from '@tearleads/app-backups/format';
+import { restoreTableData } from '@tearleads/app-backups/runtime';
 import { initializeFileStorage } from '@/storage/opfs';
 import { getKeyManagerForInstance } from '../crypto';
 import { closeDatabase, getDatabaseAdapter, setupDatabase } from '../index';
@@ -24,7 +24,7 @@ import {
   updateInstance
 } from '../instanceRegistry';
 
-export { getBackupInfo } from '@tearleads/backups/runtime';
+export { getBackupInfo } from '@tearleads/app-backups/runtime';
 
 /**
  * Tables to skip during import.

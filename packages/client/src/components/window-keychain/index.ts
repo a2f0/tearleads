@@ -1,1 +1,1 @@
-export { KeychainWindow } from '@tearleads/keychain/clientEntry';
+export { KeychainWindow } from '@tearleads/app-keychain/clientEntry';

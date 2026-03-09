@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
 
-vi.mock('@tearleads/photos/package.json', () => ({
+vi.mock('@tearleads/app-photos/package.json', () => ({
   default: { version: '0.0.10' }
 }));
 

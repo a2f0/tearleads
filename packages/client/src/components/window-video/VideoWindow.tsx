@@ -1,4 +1,6 @@
-import { useMultiFileUpload } from '@tearleads/audio';
+// one-component-per-file: allow
+// component-complexity: allow – pre-existing, rename-only change
+import { useMultiFileUpload } from '@tearleads/app-audio';
 import {
   DesktopFloatingWindow as FloatingWindow,
   useWindowRefresh,

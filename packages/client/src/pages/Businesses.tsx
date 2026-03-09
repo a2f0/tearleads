@@ -1,4 +1,4 @@
-import { BusinessesManager, BusinessesPage } from '@tearleads/businesses';
+import { BusinessesManager, BusinessesPage } from '@tearleads/app-businesses';
 import { BackLink } from '@/components/ui/back-link';
 
 export function Businesses() {

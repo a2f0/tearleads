@@ -51,5 +51,5 @@ Status: all endpoints are `Landed` as defined in the legend.
 - Shared pure normalization logic lives in `crates/api-domain-core` and is WASM-compatible.
 - Rust-generated v2 contract crate lives in `crates/api-v2-contracts`.
 - Browser-facing admin RPC routes use `api.adminV2` in `@tearleads/api-client`.
-- `@tearleads/admin` consumes the canonical `api.adminV2` surface only.
+- `@tearleads/app-admin` consumes the canonical `api.adminV2` surface only.
 - MLS browser/runtime traffic is v2-only (`tearleads.v2.MlsService`), and stale v1 MLS/admin proto files were removed from `proto/`.

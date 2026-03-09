@@ -37,7 +37,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@tearleads/settings', () => ({
+vi.mock('@tearleads/app-settings', () => ({
   useSettings: () => ({
     getSetting: (key: string) => {
       switch (key) {

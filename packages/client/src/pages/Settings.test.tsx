@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import packageJson from '../../package.json';
 import { Settings } from './Settings';
 
-// Mock @tearleads/settings with a thin page component
-vi.mock('@tearleads/settings', () => ({
+// Mock @tearleads/app-settings with a thin page component
+vi.mock('@tearleads/app-settings', () => ({
   SettingsPage: ({
     backLink,
     featureFlagsSection,

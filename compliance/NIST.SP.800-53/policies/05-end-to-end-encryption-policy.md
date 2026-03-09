@@ -45,7 +45,7 @@ All MLS implementations must use ciphersuite `MLS_128_DHKEMX25519_CHACHA20POLY13
 ## Roles and Responsibilities
 
 1. Security Owner maintains this policy, approves cryptographic implementations, and reviews control evidence.
-2. Development leads implement and maintain MLS protocol in `@tearleads/mls-chat` package.
+2. Development leads implement and maintain MLS protocol in `@tearleads/app-mls-chat` package.
 3. Security engineers audit cryptographic implementations and key management procedures.
 4. Compliance owners retain evidence artifacts and conduct periodic security assessments.
 
@@ -101,9 +101,9 @@ All MLS implementations must use ciphersuite `MLS_128_DHKEMX25519_CHACHA20POLY13
 
 ## Control Baselines
 
-> **Implementation Note**: The `@tearleads/mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance is planned via ts-mls library integration.
+> **Implementation Note**: The `@tearleads/app-mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance is planned via ts-mls library integration.
 
-1. Planned baseline control: MLS group encryption via `@tearleads/mls-chat` package (`TL-NE2E-001`).
+1. Planned baseline control: MLS group encryption via `@tearleads/app-mls-chat` package (`TL-NE2E-001`).
 2. Planned baseline control: Ed25519 credential generation and key package signing (`TL-NE2E-002`).
 3. Planned baseline control: Epoch-based key evolution for forward secrecy (`TL-NE2E-003`).
 4. Implemented baseline control: IndexedDB storage for credentials and group states (`TL-NE2E-004`).
@@ -111,10 +111,10 @@ All MLS implementations must use ciphersuite `MLS_128_DHKEMX25519_CHACHA20POLY13
 
 ## Implementation Reference
 
-- **Package**: `@tearleads/mls-chat` (`packages/mls-chat/`)
-- **MLS Client**: `packages/mls-chat/src/lib/mls.ts`
-- **Key Storage**: `packages/mls-chat/src/lib/storage.ts` (IndexedDB)
-- **React Integration**: `packages/mls-chat/src/context/MlsChatContext.tsx`
+- **Package**: `@tearleads/app-mls-chat` (`packages/app-mls-chat/`)
+- **MLS Client**: `packages/app-mls-chat/src/lib/mls.ts`
+- **Key Storage**: `packages/app-mls-chat/src/lib/storage.ts` (IndexedDB)
+- **React Integration**: `packages/app-mls-chat/src/context/MlsChatContext.tsx`
 
 ## Framework Mapping
 

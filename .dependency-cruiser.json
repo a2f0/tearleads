@@ -116,10 +116,10 @@
       "severity": "error",
       "comment": "Packages should not traverse into other package app/src internals via relative local imports; use package exports.",
       "from": {
-        "path": "^packages/(?!admin/|ai/|analytics/|app-builder/|audio/|businesses/|calendar/|camera/|contacts/|email/|health/|keychain/|mls-chat/|notes/|notifications/|photos/|search/|settings/|terminal/|vfs-explorer/|vfs-sync/|wallet/|window-manager/)[^/]+/src"
+        "path": "^packages/(?!app-admin/|app-ai/|app-analytics/|app-builder/|app-audio/|app-businesses/|app-calendar/|app-camera/|app-contacts/|app-email/|app-health/|app-keychain/|app-mls-chat/|app-notes/|app-notifications/|app-photos/|app-search/|app-settings/|app-terminal/|vfs-explorer/|vfs-sync/|app-wallet/|window-manager/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/(admin|ai|analytics|app-builder|audio|businesses|calendar|camera|contacts|email|health|keychain|mls-chat|notes|notifications|photos|search|settings|terminal|vfs-explorer|vfs-sync|wallet|window-manager)/src",
+        "path": "^packages/(app-admin|app-ai|app-analytics|app-builder|app-audio|app-businesses|app-calendar|app-camera|app-contacts|app-email|app-health|app-keychain|app-mls-chat|app-notes|app-notifications|app-photos|app-search|app-settings|app-terminal|vfs-explorer|vfs-sync|app-wallet|window-manager)/src",
         "dependencyTypes": [
           "local"
         ]
@@ -163,10 +163,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import classic app internals.",
       "from": {
-        "path": "^packages/(?!client/|classic/)[^/]+/src"
+        "path": "^packages/(?!client/|app-classic/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/classic/src"
+        "path": "^packages/app-classic/src"
       }
     },
     {
@@ -218,10 +218,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import analytics window internals.",
       "from": {
-        "path": "^packages/(?!client/|analytics/)[^/]+/src"
+        "path": "^packages/(?!client/|app-analytics/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/analytics/src"
+        "path": "^packages/app-analytics/src"
       }
     },
     {
@@ -229,10 +229,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import health window internals.",
       "from": {
-        "path": "^packages/(?!client/|health/)[^/]+/src"
+        "path": "^packages/(?!client/|app-health/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/health/src"
+        "path": "^packages/app-health/src"
       }
     },
     {
@@ -240,10 +240,10 @@
       "severity": "error",
       "comment": "Client-only UI window packages should only be imported by client, not by other packages.",
       "from": {
-        "path": "^packages/(?!client/|audio/|camera/|contacts/|email/|help/|notes/|photos/|vehicles/)[^/]+/src"
+        "path": "^packages/(?!client/|app-audio/|app-camera/|app-contacts/|app-email/|app-help/|app-notes/|app-photos/|app-vehicles/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/(audio|camera|contacts|email|help|notes|photos|vehicles)/src"
+        "path": "^packages/(app-audio|app-camera|app-contacts|app-email|app-help|app-notes|app-photos|app-vehicles)/src"
       }
     },
     {
@@ -251,10 +251,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import ai window internals.",
       "from": {
-        "path": "^packages/(?!client/|ai/)[^/]+/src"
+        "path": "^packages/(?!client/|app-ai/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/ai/src"
+        "path": "^packages/app-ai/src"
       }
     },
     {
@@ -262,10 +262,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import businesses window internals.",
       "from": {
-        "path": "^packages/(?!client/|businesses/)[^/]+/src"
+        "path": "^packages/(?!client/|app-businesses/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/businesses/src"
+        "path": "^packages/app-businesses/src"
       }
     },
     {
@@ -273,10 +273,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import calendar window internals.",
       "from": {
-        "path": "^packages/(?!client/|calendar/)[^/]+/src"
+        "path": "^packages/(?!client/|app-calendar/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/calendar/src"
+        "path": "^packages/app-calendar/src"
       }
     },
     {
@@ -284,10 +284,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import mls-chat window internals.",
       "from": {
-        "path": "^packages/(?!client/|mls-chat/)[^/]+/src"
+        "path": "^packages/(?!client/|app-mls-chat/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/mls-chat/src"
+        "path": "^packages/app-mls-chat/src"
       }
     },
     {
@@ -295,10 +295,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import search window internals.",
       "from": {
-        "path": "^packages/(?!client/|search/)[^/]+/src"
+        "path": "^packages/(?!client/|app-search/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/search/src"
+        "path": "^packages/app-search/src"
       }
     },
     {
@@ -306,10 +306,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import settings window internals.",
       "from": {
-        "path": "^packages/(?!client/|settings/)[^/]+/src"
+        "path": "^packages/(?!client/|app-settings/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/settings/src"
+        "path": "^packages/app-settings/src"
       }
     },
     {
@@ -317,10 +317,10 @@
       "severity": "error",
       "comment": "Non-client packages should not import terminal window internals.",
       "from": {
-        "path": "^packages/(?!client/|terminal/)[^/]+/src"
+        "path": "^packages/(?!client/|app-terminal/)[^/]+/src"
       },
       "to": {
-        "path": "^packages/terminal/src"
+        "path": "^packages/app-terminal/src"
       }
     },
     {

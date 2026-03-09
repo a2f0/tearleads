@@ -23,8 +23,8 @@ import {
 } from './Contacts.testSetup';
 
 // vi.mock calls must be inline - they reference exported mock functions
-vi.mock('@tearleads/contacts', async () => {
-  const actual = await vi.importActual('@tearleads/contacts');
+vi.mock('@tearleads/app-contacts', async () => {
+  const actual = await vi.importActual('@tearleads/app-contacts');
   return {
     ...actual,
     ALL_CONTACTS_ID: '__all__',

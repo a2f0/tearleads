@@ -1,13 +1,13 @@
 /**
  * Client-side SettingsProvider wrapper that supplies database operations
- * to the @tearleads/settings package provider.
+ * to the @tearleads/app-settings package provider.
  */
 
-import type { SettingValueMap, UserSettingKey } from '@tearleads/settings';
+import type { SettingValueMap, UserSettingKey } from '@tearleads/app-settings';
 import {
   SettingsProvider,
   type SettingsProviderProps
-} from '@tearleads/settings';
+} from '@tearleads/app-settings';
 import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 import { useDatabaseContext } from '@/db/hooks';

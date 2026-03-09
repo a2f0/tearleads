@@ -1,9 +1,10 @@
+// one-component-per-file: allow
 import {
   type ActiveGroup,
   type DecryptedMessage,
   MemberList,
   MlsChatWindow as MlsChatWindowComponent
-} from '@tearleads/mls-chat';
+} from '@tearleads/app-mls-chat';
 import type { MlsGroupMember } from '@tearleads/shared';
 import type { FC, ReactElement } from 'react';
 import { useCallback, useState } from 'react';

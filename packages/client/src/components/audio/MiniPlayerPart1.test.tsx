@@ -13,7 +13,7 @@ const mockUseLocation = vi.fn();
 const mockUseWindowManager = vi.fn();
 const mockUseIsMobile = vi.fn();
 
-vi.mock('@tearleads/audio', () => ({
+vi.mock('@tearleads/app-audio', () => ({
   useAudioContext: () => mockUseAudioContext()
 }));
 

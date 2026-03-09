@@ -2,7 +2,7 @@
  * Hook for fetching and managing audio track data.
  */
 
-import { useAudio } from '@tearleads/audio';
+import { useAudio } from '@tearleads/app-audio';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';

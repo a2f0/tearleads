@@ -2,16 +2,16 @@
 
 This map ties end-to-end encryption policy controls to concrete implementation and test evidence, aligned with NIST SP 800-53 Revision 5 requirements.
 
-> **Implementation Status**: The `@tearleads/mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned via ts-mls library integration. Controls marked "Planned" are not yet cryptographically compliant.
+> **Implementation Status**: The `@tearleads/app-mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned via ts-mls library integration. Controls marked "Planned" are not yet cryptographically compliant.
 
 ## Sentinel Controls
 
 | Sentinel | NIST Control | Status | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- | --- |
-| `TL-NE2E-001` | SC-8, SC-13, SI-7 | Planned | MLS group encryption with ChaCha20-Poly1305 | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
-| `TL-NE2E-002` | SC-12, IA-5 | Planned | Ed25519 credential and key package management | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
-| `TL-NE2E-003` | SC-8(1) | Planned | Epoch-based key evolution for forward secrecy | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
-| `TL-NE2E-004` | SC-28, SC-12 | Implemented | IndexedDB local storage for private keys | [`packages/mls-core/src/storage.ts`](../../../packages/mls-core/src/storage.ts) | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
+| `TL-NE2E-001` | SC-8, SC-13, SI-7 | Planned | MLS group encryption with ChaCha20-Poly1305 | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) | `pnpm --filter @tearleads/app-mls-chat test -- --grep "encrypt"` |
+| `TL-NE2E-002` | SC-12, IA-5 | Planned | Ed25519 credential and key package management | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/app-mls-chat test -- --grep "credential"` |
+| `TL-NE2E-003` | SC-8(1) | Planned | Epoch-based key evolution for forward secrecy | [`packages/mls-core/src/mls.ts`](../../../packages/mls-core/src/mls.ts) (processCommit, epoch tracking) | `pnpm --filter @tearleads/app-mls-chat test -- --grep "epoch"` |
+| `TL-NE2E-004` | SC-28, SC-12 | Implemented | IndexedDB local storage for private keys | [`packages/mls-core/src/storage.ts`](../../../packages/mls-core/src/storage.ts) | `pnpm --filter @tearleads/app-mls-chat test -- --grep "storage"` |
 
 ## NIST SP 800-53 Rev 5 Control Mapping
 
@@ -49,7 +49,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 **Implementation:**
 
 - `packages/mls-core/src/mls.ts` - MLS client with encryption/decryption
-- `packages/mls-chat/src/hooks/useGroupMessages.ts` - React integration
+- `packages/app-mls-chat/src/hooks/useGroupMessages.ts` - React integration
 
 **Cryptographic Configuration (RFC 9420):**
 

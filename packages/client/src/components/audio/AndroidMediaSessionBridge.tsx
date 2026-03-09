@@ -1,4 +1,4 @@
-import { useAudio } from '@tearleads/audio';
+import { useAudio } from '@tearleads/app-audio';
 import { useEffect, useRef } from 'react';
 import {
   isAndroidNativePlatform,

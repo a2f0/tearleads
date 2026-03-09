@@ -5,7 +5,7 @@ import {
   IconDepthToggle,
   PatternSelector,
   ThemeSelector
-} from '@tearleads/settings';
+} from '@tearleads/app-settings';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar

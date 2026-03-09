@@ -2,4 +2,4 @@ export {
   Wallet,
   WalletDetail,
   WalletNewItem
-} from '@tearleads/wallet/clientEntry';
+} from '@tearleads/app-wallet/clientEntry';

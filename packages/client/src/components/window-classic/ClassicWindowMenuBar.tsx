@@ -3,8 +3,8 @@ import {
   type EntrySortOrder,
   TAG_SORT_OPTIONS,
   type TagSortOrder
-} from '@tearleads/classic';
-import classicPackageJson from '@tearleads/classic/package.json';
+} from '@tearleads/app-classic';
+import classicPackageJson from '@tearleads/app-classic/package.json';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { useTranslation } from 'react-i18next';
 import {
