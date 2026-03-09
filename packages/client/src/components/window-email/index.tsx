@@ -1,6 +1,5 @@
 import { EmailWindow as EmailWindowBase } from '@tearleads/email';
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,16 +30,12 @@ export function EmailWindow({
   const { isUnlocked: isDatabaseUnlocked } = useDatabaseContext();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
-  // Determine appropriate fallback based on which condition is not met
-  const lockedFallback = useMemo(() => {
-    if (!isDatabaseUnlocked) {
-      return <InlineUnlock description="email" />;
-    }
-    if (!isAuthenticated) {
-      return <InlineLogin description="email" />;
-    }
-    return null;
-  }, [isDatabaseUnlocked, isAuthenticated]);
+  // Determine appropriate fallback based on which condition is not met.
+  const lockedFallback = !isDatabaseUnlocked ? (
+    <InlineUnlock description="email" />
+  ) : !isAuthenticated ? (
+    <InlineLogin description="email" />
+  ) : null;
 
   return (
     <ClientEmailProvider>
