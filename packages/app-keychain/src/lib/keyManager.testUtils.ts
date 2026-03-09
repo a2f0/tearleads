@@ -102,7 +102,21 @@ export const createUtilsMock = () => ({
   detectPlatform: vi.fn(() => 'web')
 });
 
-export const sharedModuleMockFactory = () => createSharedMock();
+type SharedImportOriginal = () => Promise<typeof import('@tearleads/shared')>;
+
+export const sharedModuleMockFactory = async (
+  importOriginal?: SharedImportOriginal
+) => {
+  if (
+    typeof Reflect.get(globalThis, 'Bun') !== 'undefined' ||
+    importOriginal === undefined
+  ) {
+    return createSharedMock();
+  }
+
+  const originalModule = await importOriginal();
+  return { ...originalModule, ...createSharedMock() };
+};
 export const nativeStorageModuleMockFactory = () => createNativeStorageMock();
 export const detectPlatformModuleMockFactory = () => createUtilsMock();
 

@@ -11,11 +11,11 @@ vi.mock(
   '@tearleads/shared',
   typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
     ? () => createSharedMock()
-    : async () => {
+    : async (importOriginal) => {
         const { sharedModuleMockFactory } = await import(
           './keyManager.testUtils'
         );
-        return sharedModuleMockFactory();
+        return sharedModuleMockFactory(importOriginal);
       }
 );
 vi.mock(
