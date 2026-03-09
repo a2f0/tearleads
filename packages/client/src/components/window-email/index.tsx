@@ -30,13 +30,6 @@ export function EmailWindow({
   const { isUnlocked: isDatabaseUnlocked } = useDatabaseContext();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
-  // Determine appropriate fallback based on which condition is not met.
-  const lockedFallback = !isDatabaseUnlocked ? (
-    <InlineUnlock description="email" />
-  ) : !isAuthenticated ? (
-    <InlineLogin description="email" />
-  ) : null;
-
   return (
     <ClientEmailProvider>
       <EmailWindowBase
@@ -49,7 +42,13 @@ export function EmailWindow({
         initialDimensions={initialDimensions}
         isAuthenticated={isAuthenticated}
         isAuthLoading={isAuthLoading}
-        lockedFallback={lockedFallback}
+        lockedFallback={
+          !isDatabaseUnlocked ? (
+            <InlineUnlock description="email" />
+          ) : !isAuthenticated ? (
+            <InlineLogin description="email" />
+          ) : null
+        }
         openEmailId={openRequest?.emailId}
         openRequestId={openRequest?.requestId}
         {...(openRequest && { openComposeRequest: openRequest })}
