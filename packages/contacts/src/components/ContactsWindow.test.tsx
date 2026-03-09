@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as contactDetailHooks from './contact-detail';
 import * as contactsHooks from '../hooks';
 import * as useContactsModule from '../hooks/useContacts';
 import { TestContactsProvider } from '../test/testUtils';
 import { ContactsWindow } from './ContactsWindow';
+import * as contactDetailHooks from './contact-detail';
 
 const mockUseContactGroups = vi.fn();
 const mockUseContacts = vi.fn();
@@ -33,12 +33,12 @@ describe('ContactsWindow', () => {
     vi.spyOn(useContactsModule, 'useContacts').mockImplementation((...args) =>
       mockUseContacts(...args)
     );
-    vi
-      .spyOn(contactDetailHooks, 'useContactDetailData')
-      .mockImplementation((...args) => mockUseContactDetailData(...args));
-    vi
-      .spyOn(contactDetailHooks, 'useContactDetailForm')
-      .mockImplementation((...args) => mockUseContactDetailForm(...args));
+    vi.spyOn(contactDetailHooks, 'useContactDetailData').mockImplementation(
+      (...args) => mockUseContactDetailData(...args)
+    );
+    vi.spyOn(contactDetailHooks, 'useContactDetailForm').mockImplementation(
+      (...args) => mockUseContactDetailForm(...args)
+    );
 
     mockUseContactGroups.mockReset();
     mockUseContacts.mockReset();
@@ -120,11 +120,7 @@ describe('ContactsWindow', () => {
     vi.restoreAllMocks();
   });
 
-  function renderWindow({
-    isUnlocked = true
-  }: {
-    isUnlocked?: boolean;
-  } = {}) {
+  function renderWindow({ isUnlocked = true }: { isUnlocked?: boolean } = {}) {
     return render(
       <TestContactsProvider databaseState={{ isUnlocked }}>
         <ContactsWindow {...defaultProps} />

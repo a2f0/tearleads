@@ -7,6 +7,7 @@ import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar
 } from './ContactsGroupsSidebar';
+
 const mockUseContactGroups = vi.fn();
 
 describe('ContactsGroupsSidebar', () => {
