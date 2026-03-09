@@ -1,20 +1,19 @@
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesManager } from './VehiclesManager';
 
 const mockUseVehiclesRuntime = vi.fn();
 
-let instanceChangeCallback:
+let _instanceChangeCallback:
   | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
   | null = null;
 
 vi.mock('@tearleads/vehicles', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/vehicles')>(
-      '@tearleads/vehicles'
-    );
+  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
+    '@tearleads/vehicles'
+  );
 
   return {
     ...actual,
@@ -29,7 +28,7 @@ vi.mock('@/hooks/app', () => ({
       previousInstanceId: string | null
     ) => void
   ) => {
-    instanceChangeCallback = callback;
+    _instanceChangeCallback = callback;
   }
 }));
 
@@ -87,7 +86,7 @@ const BASE_VEHICLE = createVehicle();
 describe('VehiclesManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    instanceChangeCallback = null;
+    _instanceChangeCallback = null;
     mockUseVehiclesRuntime.mockReturnValue(
       createRuntime({
         repository: createRepository({
@@ -252,9 +251,9 @@ describe('VehiclesManager', () => {
     mockUseVehiclesRuntime.mockReturnValue(
       createRuntime({
         repository: createRepository({
-          listVehicles: vi.fn(
-            async () => [createVehicle({ year: null, color: null })]
-          )
+          listVehicles: vi.fn(async () => [
+            createVehicle({ year: null, color: null })
+          ])
         })
       })
     );

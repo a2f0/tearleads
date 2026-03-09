@@ -1,6 +1,6 @@
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindowNew } from './VehiclesWindowNew';
 
@@ -11,10 +11,9 @@ let instanceChangeCallback:
   | null = null;
 
 vi.mock('@tearleads/vehicles', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/vehicles')>(
-      '@tearleads/vehicles'
-    );
+  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
+    '@tearleads/vehicles'
+  );
 
   return {
     ...actual,

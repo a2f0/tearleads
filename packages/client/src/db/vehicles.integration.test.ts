@@ -4,7 +4,12 @@ import '../test/setupIntegration';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { createVehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getDatabase, getDatabaseAdapter, resetDatabase, setupDatabase } from './index';
+import {
+  getDatabase,
+  getDatabaseAdapter,
+  resetDatabase,
+  setupDatabase
+} from './index';
 
 const TEST_PASSWORD = 'test-password-123';
 const TEST_INSTANCE_ID = 'test-instance';

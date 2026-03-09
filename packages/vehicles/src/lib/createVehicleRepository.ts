@@ -3,10 +3,7 @@ import { vehicles } from '@tearleads/db/sqlite';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { VehicleProfileInput } from './vehicleProfile.js';
 import { normalizeVehicleProfile } from './vehicleProfile.js';
-import type {
-  VehicleRecord,
-  VehicleRepository
-} from './vehicleRepository.js';
+import type { VehicleRecord, VehicleRepository } from './vehicleRepository.js';
 
 function toVehicleRecord(row: typeof vehicles.$inferSelect): VehicleRecord {
   return {

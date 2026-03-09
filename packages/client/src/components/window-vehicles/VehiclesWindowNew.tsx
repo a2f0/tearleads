@@ -1,6 +1,9 @@
 // one-component-per-file: allow
 // Local JSX helpers keep the instance-scoped form logic readable in one place.
-import { normalizeVehicleProfile, useVehiclesRuntime } from '@tearleads/vehicles';
+import {
+  normalizeVehicleProfile,
+  useVehiclesRuntime
+} from '@tearleads/vehicles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';

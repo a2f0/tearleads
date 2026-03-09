@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
 import type { VehiclesRuntimeProviderProps } from '@tearleads/vehicles';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientVehiclesProvider } from './ClientVehiclesProvider';
 
@@ -9,17 +9,18 @@ const mockDb = { name: 'vehicles-db' };
 let lastProviderProps: VehiclesRuntimeProviderProps | null = null;
 
 vi.mock('@tearleads/vehicles', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/vehicles')>(
-      '@tearleads/vehicles'
-    );
+  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
+    '@tearleads/vehicles'
+  );
 
   return {
     ...actual,
     createVehicleRepository: (db: unknown) => mockCreateVehicleRepository(db),
     VehiclesRuntimeProvider: (props: VehiclesRuntimeProviderProps) => {
       lastProviderProps = props;
-      return <div data-testid="vehicles-runtime-provider">{props.children}</div>;
+      return (
+        <div data-testid="vehicles-runtime-provider">{props.children}</div>
+      );
     }
   };
 });

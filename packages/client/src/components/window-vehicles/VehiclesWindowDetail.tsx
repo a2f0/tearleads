@@ -2,8 +2,8 @@
 // The host-runtime rebinding changes are kept in this existing detail view for #3044.
 import {
   normalizeVehicleProfile,
-  type VehicleRecord,
-  useVehiclesRuntime
+  useVehiclesRuntime,
+  type VehicleRecord
 } from '@tearleads/vehicles';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -105,7 +105,12 @@ export function VehiclesWindowDetail({
         setLoading(false);
       }
     }
-  }, [databaseState.currentInstanceId, databaseState.isUnlocked, repository, vehicleId]);
+  }, [
+    databaseState.currentInstanceId,
+    databaseState.isUnlocked,
+    repository,
+    vehicleId
+  ]);
 
   useEffect(() => {
     if (databaseState.isUnlocked && repository && vehicleId) {

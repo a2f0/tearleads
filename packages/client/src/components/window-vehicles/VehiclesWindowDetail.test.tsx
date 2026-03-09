@@ -1,20 +1,19 @@
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindowDetail } from './VehiclesWindowDetail';
 
 const mockUseVehiclesRuntime = vi.fn();
 
-let instanceChangeCallback:
+let _instanceChangeCallback:
   | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
   | null = null;
 
 vi.mock('@tearleads/vehicles', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/vehicles')>(
-      '@tearleads/vehicles'
-    );
+  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
+    '@tearleads/vehicles'
+  );
 
   return {
     ...actual,
@@ -29,7 +28,7 @@ vi.mock('@/hooks/app', () => ({
       previousInstanceId: string | null
     ) => void
   ) => {
-    instanceChangeCallback = callback;
+    _instanceChangeCallback = callback;
   }
 }));
 
@@ -96,7 +95,7 @@ describe('VehiclesWindowDetail', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    instanceChangeCallback = null;
+    _instanceChangeCallback = null;
 
     const vehicle = createVehicle();
 

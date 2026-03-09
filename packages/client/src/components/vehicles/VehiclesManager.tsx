@@ -2,8 +2,8 @@
 // The host-runtime migration stays localized here to avoid a larger UI split in #3044.
 import {
   normalizeVehicleProfile,
-  type VehicleRecord,
-  useVehiclesRuntime
+  useVehiclesRuntime,
+  type VehicleRecord
 } from '@tearleads/vehicles';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
