@@ -23,6 +23,7 @@ import type { SettingValueMap, UserSettingKey } from '../types/userSettings.js';
 import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
+  migrateUnscopedSettings,
   SETTING_DEFAULTS,
   setSettingInStorage
 } from '../types/userSettings.js';
@@ -43,6 +44,8 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export interface SettingsProviderProps {
   children: ReactNode;
+  /** Optional instance ID for scoping settings in localStorage */
+  instanceId?: string | null;
   /** Optional function to get settings from database */
   getSettingsFromDb?: () => Promise<
     Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>
@@ -60,6 +63,7 @@ export interface SettingsProviderProps {
  */
 export function SettingsProvider({
   children,
+  instanceId,
   getSettingsFromDb,
   saveSettingToDb
 }: SettingsProviderProps) {
@@ -68,6 +72,22 @@ export function SettingsProvider({
     Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>
   >({});
   const hasSyncedRef = useRef(false);
+  const prevInstanceIdRef = useRef<string | null | undefined>(undefined);
+
+  // Migrate unscoped settings when instanceId changes to a new value
+  useEffect(() => {
+    if (instanceId && instanceId !== prevInstanceIdRef.current) {
+      migrateUnscopedSettings(instanceId);
+    }
+    prevInstanceIdRef.current = instanceId;
+  }, [instanceId]);
+
+  // Reset state when instanceId changes
+  useEffect(() => {
+    hasSyncedRef.current = false;
+    setSettings({});
+    setIsSynced(false);
+  }, [instanceId]);
 
   // Sync settings from DB when database operations are available
   useEffect(() => {
@@ -81,7 +101,7 @@ export function SettingsProvider({
         for (const key of Object.keys(dbSettings) as UserSettingKey[]) {
           const value = dbSettings[key];
           if (value !== undefined) {
-            setSettingInStorage(key, value);
+            setSettingInStorage(key, value, instanceId);
           }
         }
 
@@ -89,17 +109,16 @@ export function SettingsProvider({
         setIsSynced(true);
         hasSyncedRef.current = true;
 
-        // Dispatch event for ThemeProvider and i18n to react
-        if (Object.keys(dbSettings).length > 0) {
-          dispatchSettingsSyncedEvent(dbSettings);
-        }
+        // Build effective settings (DB merged with defaults) for the event
+        const effectiveSettings = { ...SETTING_DEFAULTS, ...dbSettings };
+        dispatchSettingsSyncedEvent(effectiveSettings);
       } catch (err) {
         console.warn('Failed to sync settings from database:', err);
       }
     }
 
     syncFromDb();
-  }, [getSettingsFromDb]);
+  }, [getSettingsFromDb, instanceId]);
 
   // Reset sync state when database operations become unavailable
   useEffect(() => {
@@ -115,15 +134,15 @@ export function SettingsProvider({
       if (settings[key] !== undefined) {
         return settings[key] as SettingValueMap[K];
       }
-      // Then check localStorage
-      const stored = getSettingFromStorage(key);
+      // Then check localStorage (instance-scoped)
+      const stored = getSettingFromStorage(key, instanceId);
       if (stored !== null) {
         return stored;
       }
       // Fall back to default
       return SETTING_DEFAULTS[key];
     },
-    [settings]
+    [settings, instanceId]
   );
 
   const setSetting = useCallback(
@@ -131,8 +150,8 @@ export function SettingsProvider({
       // Update in-memory state
       setSettings((prev) => ({ ...prev, [key]: value }));
 
-      // Always write to localStorage (for fast startup on next load)
-      setSettingInStorage(key, value);
+      // Always write to localStorage (instance-scoped, for fast startup)
+      setSettingInStorage(key, value, instanceId);
 
       // Write to DB if available
       if (saveSettingToDb) {
@@ -141,7 +160,7 @@ export function SettingsProvider({
         });
       }
     },
-    [saveSettingToDb]
+    [saveSettingToDb, instanceId]
   );
 
   const value = useMemo(

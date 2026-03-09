@@ -10,7 +10,7 @@ import {
 } from '@tearleads/settings';
 import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
-import { useDatabaseOptional } from '@/db/hooks';
+import { useDatabaseContext } from '@/db/hooks';
 import { getSettingsFromDb, saveSettingToDb } from '@/db/userSettings';
 
 interface ClientSettingsProviderProps {
@@ -20,7 +20,7 @@ interface ClientSettingsProviderProps {
 export function ClientSettingsProvider({
   children
 }: ClientSettingsProviderProps) {
-  const db = useDatabaseOptional();
+  const { db, currentInstanceId } = useDatabaseContext();
 
   // Wrap getSettingsFromDb to close over the current db instance
   const getSettingsFromDbFn = useMemo(() => {
@@ -41,6 +41,10 @@ export function ClientSettingsProvider({
   const providerProps: SettingsProviderProps = {
     children
   };
+
+  if (currentInstanceId) {
+    providerProps.instanceId = currentInstanceId;
+  }
 
   if (getSettingsFromDbFn) {
     providerProps.getSettingsFromDb = getSettingsFromDbFn;

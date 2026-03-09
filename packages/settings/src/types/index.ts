@@ -15,6 +15,7 @@ export type {
 
 export {
   BORDER_RADIUS_VALUES,
+  clearInstanceSettings,
   DESKTOP_ICON_BACKGROUND_VALUES,
   DESKTOP_ICON_DEPTH_VALUES,
   dispatchSettingsSyncedEvent,
@@ -28,6 +29,8 @@ export {
   isThemeValue,
   isTooltipsValue,
   isWindowOpacityValue,
+  migrateUnscopedSettings,
+  resolveStorageKey,
   SETTING_DEFAULTS,
   SETTING_STORAGE_KEYS,
   setSettingInStorage,
