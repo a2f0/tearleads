@@ -1,15 +1,15 @@
 import {
+  DesktopFloatingWindow as FloatingWindow,
   useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
+  type WindowDimensions,
   WindowStatusBar
 } from '@tearleads/window-manager';
 import { ArrowLeft, CarFront, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { VehiclesManager } from '@/components/vehicles';
-import type { WindowDimensions } from '@/components/window-floating';
-import { FloatingWindow } from '@/components/window-floating';
 import { VehiclesWindowDetail } from './VehiclesWindowDetail';
 import { VehiclesWindowList } from './VehiclesWindowList';
 import type { ViewMode } from './VehiclesWindowMenuBar';
