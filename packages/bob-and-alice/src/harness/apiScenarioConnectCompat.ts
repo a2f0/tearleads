@@ -56,12 +56,30 @@ function readBodyText(body: RequestInit['body']): string {
   return String(body);
 }
 
-function readJsonBody(body: RequestInit['body']): Record<string, unknown> {
-  const text = readBodyText(body).trim();
-  if (text.length === 0) {
-    return {};
+function normalizeJsonBodyText(rawBodyText: string): string {
+  const trimmed = rawBodyText.trim();
+  if (trimmed.length === 0) {
+    return '{}';
   }
-  const parsed = parseJson<unknown>(text);
+
+  try {
+    const parsed = parseJson<unknown>(trimmed);
+    if (typeof parsed !== 'string') {
+      return trimmed;
+    }
+
+    const nestedParsed = parseJson<unknown>(parsed);
+    if (typeof nestedParsed === 'string') {
+      return parsed;
+    }
+    return JSON.stringify(nestedParsed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function readJsonBody(body: RequestInit['body']): Record<string, unknown> {
+  const parsed = parseJson<unknown>(normalizeJsonBodyText(readBodyText(body)));
   return isRecord(parsed) ? parsed : {};
 }
 
@@ -120,7 +138,7 @@ export function mapLegacyPathToConnect(
   const pathname = url.pathname;
   const jsonBody = readJsonBody(init?.body);
   const bodyText = readBodyText(init?.body);
-  const jsonBodyText = bodyText.trim().length === 0 ? '{}' : bodyText;
+  const jsonBodyText = normalizeJsonBodyText(bodyText);
 
   if (pathname === '/auth/register' && method === 'POST') {
     return {
