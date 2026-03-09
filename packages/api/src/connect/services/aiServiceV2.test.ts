@@ -46,10 +46,9 @@ describe('aiConnectServiceV2', () => {
     });
 
     await expect(
-      aiConnectServiceV2.getUsage(
-        create(AiServiceGetUsageRequestSchema, {}),
-        { requestHeader: new Headers() }
-      )
+      aiConnectServiceV2.getUsage(create(AiServiceGetUsageRequestSchema, {}), {
+        requestHeader: new Headers()
+      })
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
     });

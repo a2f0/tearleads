@@ -124,7 +124,9 @@ export async function recordUsageForUser(
 
   const conversationId = normalizeOptionalString(request.conversationId);
   const messageId = normalizeOptionalString(request.messageId);
-  const openrouterRequestId = normalizeOptionalString(request.openrouterRequestId);
+  const openrouterRequestId = normalizeOptionalString(
+    request.openrouterRequestId
+  );
 
   try {
     const pool = await getPostgresPool();

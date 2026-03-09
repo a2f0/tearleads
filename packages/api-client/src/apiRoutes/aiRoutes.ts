@@ -16,24 +16,20 @@ import type {
   RecordAiUsageResponse
 } from '@tearleads/shared';
 import {
+  AiService,
   AiServiceGetUsageRequestSchema,
   type AiServiceGetUsageResponse,
   AiServiceGetUsageSummaryRequestSchema,
-  type AiServiceGetUsageSummaryResponse,
-  AiService
+  type AiServiceGetUsageSummaryResponse
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
-import { getAuthHeaderValue } from '../authStorage';
-import {
-  API_BASE_URL,
-  request,
-  tryRefreshToken
-} from '../apiCore';
+import { API_BASE_URL, request, tryRefreshToken } from '../apiCore';
 import { type ApiEventSlug, logApiEvent } from '../apiLogger';
 import {
   type ApiV2RequestHeaderOptions,
   buildApiV2RequestHeaders,
   normalizeApiV2ConnectBaseUrl
 } from '../apiV2ClientWasm';
+import { getAuthHeaderValue } from '../authStorage';
 
 const AI_V1_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
@@ -164,7 +160,9 @@ async function runWithEvent<T>(
   }
 }
 
-function mapAiUsageRow(usage: AiServiceGetUsageResponse['usage'][number]): AiUsage {
+function mapAiUsageRow(
+  usage: AiServiceGetUsageResponse['usage'][number]
+): AiUsage {
   return {
     id: usage.id,
     conversationId: usage.conversationId ?? null,
@@ -220,9 +218,7 @@ function mapAiGetUsageSummaryResponse(
   };
 }
 
-export function createAiRoutes(
-  overrides: Partial<AiRoutesDependencies> = {}
-) {
+export function createAiRoutes(overrides: Partial<AiRoutesDependencies> = {}) {
   const dependencies = {
     ...createDefaultDependencies(),
     ...overrides
@@ -255,8 +251,12 @@ export function createAiRoutes(
             ...(options?.startDate !== undefined
               ? { startDate: options.startDate }
               : {}),
-            ...(options?.endDate !== undefined ? { endDate: options.endDate } : {}),
-            ...(options?.cursor !== undefined ? { cursor: options.cursor } : {}),
+            ...(options?.endDate !== undefined
+              ? { endDate: options.endDate }
+              : {}),
+            ...(options?.cursor !== undefined
+              ? { cursor: options.cursor }
+              : {}),
             ...(options?.limit !== undefined ? { limit: options.limit } : {})
           }),
           callOptions
@@ -277,7 +277,9 @@ export function createAiRoutes(
             ...(options?.startDate !== undefined
               ? { startDate: options.startDate }
               : {}),
-            ...(options?.endDate !== undefined ? { endDate: options.endDate } : {})
+            ...(options?.endDate !== undefined
+              ? { endDate: options.endDate }
+              : {})
           }),
           callOptions
         );

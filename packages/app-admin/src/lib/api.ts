@@ -6,7 +6,6 @@ import {
 } from '@bufbuild/protobuf';
 import type {
   AdminUserUpdatePayload,
-  AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
   UpdateGroupRequest,
@@ -469,6 +468,7 @@ export const api = {
       endDate?: string;
       cursor?: string;
       limit?: number;
-    }) => requestAiV2Proto('GetUsage', options ?? {}).then(mapAiGetUsageResponse)
+    }) =>
+      requestAiV2Proto('GetUsage', options ?? {}).then(mapAiGetUsageResponse)
   }
 };

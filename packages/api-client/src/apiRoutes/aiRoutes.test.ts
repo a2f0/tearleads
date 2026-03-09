@@ -44,9 +44,7 @@ interface AiV2ClientOverrides {
   getUsageSummary?: AiV2Client['getUsageSummary'];
 }
 
-function createAiV2ClientStub(
-  overrides: AiV2ClientOverrides = {}
-): AiV2Client {
+function createAiV2ClientStub(overrides: AiV2ClientOverrides = {}): AiV2Client {
   return {
     getUsage:
       overrides.getUsage ??
@@ -187,7 +185,9 @@ describe('aiRoutes', () => {
   it('retries v2 summary reads after an unauthenticated response', async () => {
     const getUsageSummary = vi
       .fn()
-      .mockRejectedValueOnce(new ConnectError('Unauthorized', Code.Unauthenticated))
+      .mockRejectedValueOnce(
+        new ConnectError('Unauthorized', Code.Unauthenticated)
+      )
       .mockResolvedValueOnce({
         summary: {
           totalPromptTokens: 12,

@@ -278,9 +278,9 @@ describe('api with msw', () => {
 
     expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
     expect(wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_PATH)).toBe(true);
-    expect(
-      wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_SUMMARY_PATH)
-    ).toBe(true);
+    expect(wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_SUMMARY_PATH)).toBe(
+      true
+    );
     expect(recordResponse.usage.userId).toBe(seededUser.userId);
     expect(usageResponse.usage).toHaveLength(1);
     expect(usageResponse.hasMore).toBe(true);

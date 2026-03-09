@@ -3,11 +3,8 @@ import type {
   AiServiceGetUsageRequest,
   AiServiceGetUsageSummaryRequest
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
+import { getUsageForUser, getUsageSummaryForUser } from './aiUsageService.js';
 import { authenticate } from './connectRequestAuth.js';
-import {
-  getUsageForUser,
-  getUsageSummaryForUser
-} from './aiUsageService.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
 
 type ConnectContext = { requestHeader: Headers };
