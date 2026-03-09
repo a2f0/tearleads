@@ -48,9 +48,12 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-// Mock AudioPlaylistsSidebar from @tearleads/audio
-vi.mock('@tearleads/audio', () => ({
+// Mock @tearleads/audio: sidebar stub + audio hooks
+vi.mock('@tearleads/audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/audio')>()),
   ALL_AUDIO_ID: '__all__',
+  useAudio: () => mockUseAudio(),
+  useAudioAnalyser: () => new Uint8Array(12),
   AudioPlaylistsSidebar: vi.fn(
     ({
       selectedPlaylistId,
@@ -103,12 +106,6 @@ vi.mock('@/contexts/ClientAudioProvider', () => ({
   ClientAudioProvider: vi.fn(({ children }) => (
     <div data-testid="client-audio-provider">{children}</div>
   ))
-}));
-
-// Mock the audio context
-vi.mock('@/audio', () => ({
-  useAudio: () => mockUseAudio(),
-  useAudioAnalyser: () => new Uint8Array(12)
 }));
 
 // Mock the audio visualizer component to avoid Web Audio API in tests

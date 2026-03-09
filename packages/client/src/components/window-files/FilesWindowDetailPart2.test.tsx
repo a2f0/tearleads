@@ -140,7 +140,7 @@ const mockAudioContext = {
   resume: vi.fn()
 };
 
-vi.mock('@/audio', () => ({
+vi.mock('@tearleads/audio', () => ({
   useAudio: () => mockAudioContext
 }));
 

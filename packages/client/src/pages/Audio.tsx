@@ -7,7 +7,7 @@ import {
 import { Info, Music, Pause, Play, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAudio } from '@/audio';
+import { useAudio } from '@tearleads/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/RefreshButton';

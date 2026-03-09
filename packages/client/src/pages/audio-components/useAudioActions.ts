@@ -4,7 +4,7 @@
 
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
-import { useAudio } from '@/audio';
+import { useAudio } from '@tearleads/audio';
 import { getDatabase } from '@/db';
 import { files } from '@/db/schema';
 import { useNavigateWithFrom } from '@/lib/navigation';

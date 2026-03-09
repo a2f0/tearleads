@@ -22,20 +22,15 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-// Mock the audio playlists sidebar
-vi.mock('@tearleads/audio', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/audio')>(
-      '@tearleads/audio'
-    );
-  return {
-    ...actual,
-    ALL_AUDIO_ID: '__all__',
-    AudioPlaylistsSidebar: () => (
-      <div data-testid="audio-playlists-sidebar">Playlists Sidebar</div>
-    )
-  };
-});
+// Mock @tearleads/audio: use real exports but stub components needing providers
+vi.mock('@tearleads/audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/audio')>()),
+  useAudio: () => mockUseAudio(),
+  ALL_AUDIO_ID: '__all__',
+  AudioPlaylistsSidebar: () => (
+    <div data-testid="audio-playlists-sidebar">Playlists Sidebar</div>
+  )
+}));
 
 // Mock the database
 const mockSelect = vi.fn();
@@ -93,9 +88,6 @@ const mockPlay = vi.fn();
 const mockPause = vi.fn();
 const mockResume = vi.fn();
 const mockUseAudio = vi.fn();
-vi.mock('@/audio', () => ({
-  useAudio: () => mockUseAudio()
-}));
 
 const TEST_AUDIO = {
   id: 'audio-123',

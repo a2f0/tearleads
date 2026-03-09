@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAudio } from '@/audio';
+import { useAudio } from '@tearleads/audio';
 import { errorBoundaryRef } from '@/components/ui/ErrorBoundary';
 
 /**

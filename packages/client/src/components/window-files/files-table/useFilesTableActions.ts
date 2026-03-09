@@ -4,7 +4,7 @@
 
 import { eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAudio } from '@/audio';
+import { useAudio } from '@tearleads/audio';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';

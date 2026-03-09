@@ -7,7 +7,7 @@ import { I18nextProvider } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppRoutes } from './AppRoutes';
-import { AudioProvider } from './audio';
+import { AudioProvider } from '@tearleads/audio';
 import { clientBackupsRuntime } from './backups/backupsRuntime';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
 import { AuthInstanceBinding } from './components/AuthInstanceBinding';

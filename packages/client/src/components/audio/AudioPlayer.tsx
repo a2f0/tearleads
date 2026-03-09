@@ -14,17 +14,17 @@ import {
   VolumeX
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioTrack, useAudio, useAudioAnalyser } from '@/audio';
-import { Button } from '@/components/ui/button';
-import { LCDBar } from './LCDBar';
+import { type AudioTrack, useAudio, useAudioAnalyser } from '@tearleads/audio';
 import {
   BAR_COUNT,
   BAR_KEYS,
   getStoredVisibility,
+  LCDBar,
   setStoredVisibility,
   VISUALIZER_HEIGHT,
   type VisualizerVisibility
-} from './visualizer.utils';
+} from '@tearleads/audio';
+import { Button } from '@/components/ui/button';
 
 interface AudioPlayerProps {
   tracks: AudioTrack[];
