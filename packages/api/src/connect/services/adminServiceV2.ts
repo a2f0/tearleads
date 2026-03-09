@@ -39,13 +39,9 @@ import {
   AdminCreateOrganizationResponseSchema,
   AdminDeleteGroupResponseSchema,
   AdminDeleteOrganizationResponseSchema,
-  AdminDeleteRedisKeyResponseSchema,
   AdminGetOrganizationResponseSchema,
   AdminGetOrgGroupsResponseSchema,
   AdminGetOrgUsersResponseSchema,
-  AdminGetRedisDbSizeResponseSchema,
-  AdminGetRedisKeysResponseSchema,
-  AdminGetRedisValueResponseSchema,
   AdminGetUserResponseSchema,
   AdminListOrganizationsResponseSchema,
   AdminListUsersResponseSchema,
@@ -108,76 +104,6 @@ function decodeAdminJson<Desc extends DescMessage>(
     console.error('Failed to decode admin v2 response JSON', error);
     throw new ConnectError('Failed to decode admin response', Code.Internal);
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
-  );
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return Object.values(value).every((entry) => typeof entry === 'string');
-}
-
-function normalizeRedisValueResponseJson(json: string): string {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(json);
-  } catch (error) {
-    console.error('Failed to parse Redis response JSON', error);
-    throw new ConnectError('Failed to decode admin response', Code.Internal);
-  }
-
-  if (!isRecord(parsed)) {
-    throw new ConnectError('Failed to decode admin response', Code.Internal);
-  }
-
-  const normalized: Record<string, unknown> = {};
-
-  const key = parsed['key'];
-  if (typeof key === 'string') {
-    normalized['key'] = key;
-  }
-
-  const type = parsed['type'];
-  if (typeof type === 'string') {
-    normalized['type'] = type;
-  }
-
-  const ttl = parsed['ttl'];
-  if (typeof ttl === 'number' && Number.isFinite(ttl)) {
-    normalized['ttl'] = ttl;
-  }
-
-  const value = parsed['value'];
-  if (typeof value === 'string') {
-    normalized['value'] = {
-      stringValue: value
-    };
-  } else if (isStringArray(value)) {
-    normalized['value'] = {
-      listValue: {
-        values: value
-      }
-    };
-  } else if (isStringRecord(value)) {
-    normalized['value'] = {
-      mapValue: {
-        entries: value
-      }
-    };
-  }
-
-  return JSON.stringify(normalized);
 }
 
 export const adminConnectServiceV2 = {
@@ -396,31 +322,24 @@ export const adminConnectServiceV2 = {
     request: AdminGetRedisKeysRequest,
     context: ConnectContext
   ) {
-    const response = await getRedisKeysDirect(request, context);
-    return decodeAdminJson(AdminGetRedisKeysResponseSchema, response.json);
+    return getRedisKeysDirect(request, context);
   },
   async getRedisValue(
     request: AdminGetRedisValueRequest,
     context: ConnectContext
   ) {
-    const response = await getRedisValueDirect(request, context);
-    return decodeAdminJson(
-      AdminGetRedisValueResponseSchema,
-      normalizeRedisValueResponseJson(response.json)
-    );
+    return getRedisValueDirect(request, context);
   },
   async deleteRedisKey(
     request: AdminDeleteRedisKeyRequest,
     context: ConnectContext
   ) {
-    const response = await deleteRedisKeyDirect(request, context);
-    return decodeAdminJson(AdminDeleteRedisKeyResponseSchema, response.json);
+    return deleteRedisKeyDirect(request, context);
   },
   async getRedisDbSize(
     request: AdminGetRedisDbSizeRequest,
     context: ConnectContext
   ) {
-    const response = await getRedisDbSizeDirect(request, context);
-    return decodeAdminJson(AdminGetRedisDbSizeResponseSchema, response.json);
+    return getRedisDbSizeDirect(request, context);
   }
 };

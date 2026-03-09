@@ -112,7 +112,10 @@ const context = {
   requestHeader: new Headers()
 };
 
-const emptyResponse = { json: '{}' };
+const emptyJsonResponse = { json: '{}' };
+const emptyRedisKeysResponse = { keys: [], cursor: '', hasMore: false };
+const emptyDeleteRedisKeyResponse = { deleted: false };
+const emptyRedisDbSizeResponse = { count: 0n };
 
 describe('adminConnectServiceV2 coverage branches', () => {
   beforeEach(() => {
@@ -120,22 +123,22 @@ describe('adminConnectServiceV2 coverage branches', () => {
   });
 
   it('forwards list/get/delete handlers and applies organization defaults', async () => {
-    mocks.listGroupsDirect.mockResolvedValue(emptyResponse);
-    mocks.getGroupDirect.mockResolvedValue(emptyResponse);
-    mocks.deleteGroupDirect.mockResolvedValue(emptyResponse);
-    mocks.getGroupMembersDirect.mockResolvedValue(emptyResponse);
-    mocks.removeGroupMemberDirect.mockResolvedValue(emptyResponse);
-    mocks.listOrganizationsDirect.mockResolvedValue(emptyResponse);
-    mocks.getOrganizationDirect.mockResolvedValue(emptyResponse);
-    mocks.getOrganizationUsersDirect.mockResolvedValue(emptyResponse);
-    mocks.getOrganizationGroupsDirect.mockResolvedValue(emptyResponse);
-    mocks.deleteOrganizationDirect.mockResolvedValue(emptyResponse);
-    mocks.listUsersDirect.mockResolvedValue(emptyResponse);
-    mocks.getUserDirect.mockResolvedValue(emptyResponse);
-    mocks.getColumnsDirect.mockResolvedValue(emptyResponse);
-    mocks.getRedisKeysDirect.mockResolvedValue(emptyResponse);
-    mocks.deleteRedisKeyDirect.mockResolvedValue(emptyResponse);
-    mocks.getRedisDbSizeDirect.mockResolvedValue(emptyResponse);
+    mocks.listGroupsDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getGroupDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.deleteGroupDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getGroupMembersDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.removeGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.listOrganizationsDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getOrganizationDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getOrganizationUsersDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getOrganizationGroupsDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.deleteOrganizationDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.listUsersDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getUserDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getColumnsDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.getRedisKeysDirect.mockResolvedValue(emptyRedisKeysResponse);
+    mocks.deleteRedisKeyDirect.mockResolvedValue(emptyDeleteRedisKeyResponse);
+    mocks.getRedisDbSizeDirect.mockResolvedValue(emptyRedisDbSizeResponse);
 
     await adminConnectServiceV2.listGroups(
       create(AdminListGroupsRequestSchema),
@@ -264,11 +267,11 @@ describe('adminConnectServiceV2 coverage branches', () => {
   });
 
   it('maps group and organization mutation payloads', async () => {
-    mocks.createGroupDirect.mockResolvedValue(emptyResponse);
-    mocks.updateGroupDirect.mockResolvedValue(emptyResponse);
-    mocks.addGroupMemberDirect.mockResolvedValue(emptyResponse);
-    mocks.createOrganizationDirect.mockResolvedValue(emptyResponse);
-    mocks.updateOrganizationDirect.mockResolvedValue(emptyResponse);
+    mocks.createGroupDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.updateGroupDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.addGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.createOrganizationDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.updateOrganizationDirect.mockResolvedValue(emptyJsonResponse);
 
     await adminConnectServiceV2.createGroup(
       create(AdminCreateGroupRequestSchema, {
@@ -351,7 +354,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
   });
 
   it('maps updateUser optional fields and empty updates', async () => {
-    mocks.updateUserDirect.mockResolvedValue(emptyResponse);
+    mocks.updateUserDirect.mockResolvedValue(emptyJsonResponse);
 
     await adminConnectServiceV2.updateUser(
       create(AdminUpdateUserRequestSchema, {
@@ -387,7 +390,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
   });
 
   it('maps row sort values with explicit and default fallbacks', async () => {
-    mocks.getRowsDirect.mockResolvedValue(emptyResponse);
+    mocks.getRowsDirect.mockResolvedValue(emptyJsonResponse);
 
     await adminConnectServiceV2.getRows(
       create(AdminGetRowsRequestSchema, {
@@ -436,14 +439,19 @@ describe('adminConnectServiceV2 coverage branches', () => {
     );
   });
 
-  it('normalizes redis list values into oneof listValue shape', async () => {
+  it('passes through redis list values in oneof listValue shape', async () => {
     mocks.getRedisValueDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        key: 'letters',
-        type: 'list',
-        ttl: 2,
-        value: ['a', 'b']
-      })
+      key: 'letters',
+      type: 'list',
+      ttl: 2n,
+      value: {
+        value: {
+          case: 'listValue',
+          value: {
+            values: ['a', 'b']
+          }
+        }
+      }
     });
 
     const response = await adminConnectServiceV2.getRedisValue(
@@ -457,17 +465,22 @@ describe('adminConnectServiceV2 coverage branches', () => {
     }
   });
 
-  it('normalizes redis map values into oneof mapValue shape', async () => {
+  it('passes through redis map values in oneof mapValue shape', async () => {
     mocks.getRedisValueDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        key: 'flags',
-        type: 'hash',
-        ttl: 10,
+      key: 'flags',
+      type: 'hash',
+      ttl: 10n,
+      value: {
         value: {
-          featureA: 'on',
-          featureB: 'off'
+          case: 'mapValue',
+          value: {
+            entries: {
+              featureA: 'on',
+              featureB: 'off'
+            }
+          }
         }
-      })
+      }
     });
 
     const response = await adminConnectServiceV2.getRedisValue(
