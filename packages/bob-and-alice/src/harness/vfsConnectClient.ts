@@ -2,6 +2,7 @@ import {
   createConnectJsonPostInit,
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
+  parseConnectJsonString,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
@@ -122,9 +123,10 @@ function normalizeSyncPagePayload(
 
 function toParsedJson<T>(payload: unknown): T {
   if (isPlainRecord(payload)) {
-    return payload as T;
+    return parseConnectJsonString<T>(JSON.stringify(payload));
   }
 
+  // Harness transport should always decode to an object payload.
   throw new Error('transport returned non-object connect payload');
 }
 
