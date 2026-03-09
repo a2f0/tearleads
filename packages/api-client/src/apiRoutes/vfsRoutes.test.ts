@@ -199,6 +199,14 @@ describe('vfsRoutes', () => {
     );
   });
 
+  it('rejects null connect payloads for sync routes', async () => {
+    requestMock.mockResolvedValueOnce(null);
+
+    await expect(vfsRoutes.getSync()).rejects.toThrow(
+      'transport returned non-object connect payload'
+    );
+  });
+
   it('routes share-target search through Connect', async () => {
     await vfsRoutes.searchShareTargets('alice');
     await vfsRoutes.searchShareTargets('bob', 'user');

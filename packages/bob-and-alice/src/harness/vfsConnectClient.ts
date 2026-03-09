@@ -2,7 +2,6 @@ import {
   createConnectJsonPostInit,
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
-  parseConnectJsonString,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
@@ -122,17 +121,11 @@ function normalizeSyncPagePayload(
 }
 
 function toParsedJson<T>(payload: unknown): T {
-  if (typeof payload === 'string') {
-    return parseConnectJsonString<T>(payload);
+  if (isPlainRecord(payload)) {
+    return payload as T;
   }
-  if (payload === null || payload === undefined) {
-    return parseConnectJsonString<T>('{}');
-  }
-  try {
-    return parseConnectJsonString<T>(JSON.stringify(payload));
-  } catch {
-    return parseConnectJsonString<T>('{}');
-  }
+
+  throw new Error('transport returned non-object connect payload');
 }
 
 export async function fetchVfsConnectJson<T>(input: {
