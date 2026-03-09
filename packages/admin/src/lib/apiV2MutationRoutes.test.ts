@@ -1,5 +1,11 @@
 import { create } from '@bufbuild/protobuf';
-import { AdminUpdateUserResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminCreateGroupResponseSchema,
+  AdminCreateOrganizationResponseSchema,
+  AdminUpdateGroupResponseSchema,
+  AdminUpdateOrganizationResponseSchema,
+  AdminUpdateUserResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -65,16 +71,18 @@ describe('admin api client v2 mutation routes', () => {
         name: 'Core Team',
         description: 'Primary group'
       })
-    ).resolves.toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Core Team',
-        description: 'Primary group',
-        createdAt: '2026-02-01T00:00:00Z',
-        updatedAt: '2026-02-02T00:00:00Z'
-      }
-    });
+    ).resolves.toEqual(
+      create(AdminCreateGroupResponseSchema, {
+        group: {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Team',
+          description: 'Primary group',
+          createdAt: '2026-02-01T00:00:00Z',
+          updatedAt: '2026-02-02T00:00:00Z'
+        }
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -93,16 +101,18 @@ describe('admin api client v2 mutation routes', () => {
         name: 'Core Team Updated',
         description: 'Updated'
       })
-    ).resolves.toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Core Team Updated',
-        description: 'Updated',
-        createdAt: '2026-02-01T00:00:00Z',
-        updatedAt: '2026-02-03T00:00:00Z'
-      }
-    });
+    ).resolves.toEqual(
+      create(AdminUpdateGroupResponseSchema, {
+        group: {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Team Updated',
+          description: 'Updated',
+          createdAt: '2026-02-01T00:00:00Z',
+          updatedAt: '2026-02-03T00:00:00Z'
+        }
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     await expect(apiClient.adminV2.groups.delete('group-1')).resolves.toEqual({
@@ -139,15 +149,17 @@ describe('admin api client v2 mutation routes', () => {
         name: 'Platform',
         description: 'Platform org'
       })
-    ).resolves.toEqual({
-      organization: {
-        id: 'org-2',
-        name: 'Platform',
-        description: 'Platform org',
-        createdAt: '2026-02-01T00:00:00Z',
-        updatedAt: '2026-02-02T00:00:00Z'
-      }
-    });
+    ).resolves.toEqual(
+      create(AdminCreateOrganizationResponseSchema, {
+        organization: {
+          id: 'org-2',
+          name: 'Platform',
+          description: 'Platform org',
+          createdAt: '2026-02-01T00:00:00Z',
+          updatedAt: '2026-02-02T00:00:00Z'
+        }
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -165,15 +177,17 @@ describe('admin api client v2 mutation routes', () => {
         name: 'Platform Updated',
         description: 'Updated org'
       })
-    ).resolves.toEqual({
-      organization: {
-        id: 'org-2',
-        name: 'Platform Updated',
-        description: 'Updated org',
-        createdAt: '2026-02-01T00:00:00Z',
-        updatedAt: '2026-02-03T00:00:00Z'
-      }
-    });
+    ).resolves.toEqual(
+      create(AdminUpdateOrganizationResponseSchema, {
+        organization: {
+          id: 'org-2',
+          name: 'Platform Updated',
+          description: 'Updated org',
+          createdAt: '2026-02-01T00:00:00Z',
+          updatedAt: '2026-02-03T00:00:00Z'
+        }
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     await expect(

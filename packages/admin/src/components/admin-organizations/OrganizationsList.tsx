@@ -1,4 +1,3 @@
-import type { Organization } from '@tearleads/shared';
 import { ConfirmDialog } from '@tearleads/ui';
 import {
   DesktopContextMenu as ContextMenu,
@@ -13,6 +12,10 @@ import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
+type AdminOrganizationListItem = Awaited<
+  ReturnType<typeof api.adminV2.organizations.list>
+>['organizations'][number];
+
 // component-complexity: allow -- scheduled split into list/table/context-menu subcomponents.
 interface OrganizationsListProps {
   onCreateClick?: (() => void) | undefined;
@@ -26,15 +29,18 @@ export function OrganizationsList({
   organizationId
 }: OrganizationsListProps) {
   const { t } = useTypedTranslation('admin');
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizations, setOrganizations] = useState<
+    AdminOrganizationListItem[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    organization: Organization;
+    organization: AdminOrganizationListItem;
   } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<Organization | null>(null);
+  const [deleteDialog, setDeleteDialog] =
+    useState<AdminOrganizationListItem | null>(null);
 
   const fetchOrganizations = useCallback(async () => {
     try {
@@ -59,7 +65,7 @@ export function OrganizationsList({
 
   const handleContextMenu = (
     e: React.MouseEvent,
-    organization: Organization
+    organization: AdminOrganizationListItem
   ) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, organization });
@@ -74,7 +80,7 @@ export function OrganizationsList({
     );
   };
 
-  const handleCopyId = async (organization: Organization) => {
+  const handleCopyId = async (organization: AdminOrganizationListItem) => {
     try {
       await navigator.clipboard.writeText(organization.id);
       toast.success('Organization ID copied.');

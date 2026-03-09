@@ -1,5 +1,11 @@
 import { create } from '@bufbuild/protobuf';
-import { AdminGetUserResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminGetGroupMembersResponseSchema,
+  AdminGetOrganizationResponseSchema,
+  AdminGetOrgGroupsResponseSchema,
+  AdminGetOrgUsersResponseSchema,
+  AdminGetUserResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -45,15 +51,17 @@ describe('admin api client v2 detail read routes', () => {
     );
     await expect(
       apiClient.adminV2.groups.getMembers('group-1')
-    ).resolves.toEqual({
-      members: [
-        {
-          userId: 'user-1',
-          email: 'admin@example.com',
-          joinedAt: '2026-01-01T00:00:00Z'
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminGetGroupMembersResponseSchema, {
+        members: [
+          {
+            userId: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -67,7 +75,7 @@ describe('admin api client v2 detail read routes', () => {
       })
     );
     await expect(apiClient.adminV2.organizations.get('org-1')).resolves.toEqual(
-      {
+      create(AdminGetOrganizationResponseSchema, {
         organization: {
           id: 'org-1',
           name: 'Primary Org',
@@ -75,7 +83,7 @@ describe('admin api client v2 detail read routes', () => {
           createdAt: '2026-01-01T00:00:00Z',
           updatedAt: '2026-01-02T00:00:00Z'
         }
-      }
+      })
     );
 
     fetchMock.mockResolvedValueOnce(
@@ -91,15 +99,17 @@ describe('admin api client v2 detail read routes', () => {
     );
     await expect(
       apiClient.adminV2.organizations.getUsers('org-1')
-    ).resolves.toEqual({
-      users: [
-        {
-          id: 'user-1',
-          email: 'admin@example.com',
-          joinedAt: '2026-01-01T00:00:00Z'
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminGetOrgUsersResponseSchema, {
+        users: [
+          {
+            id: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -115,16 +125,18 @@ describe('admin api client v2 detail read routes', () => {
     );
     await expect(
       apiClient.adminV2.organizations.getGroups('org-1')
-    ).resolves.toEqual({
-      groups: [
-        {
-          id: 'group-1',
-          name: 'Ops',
-          description: 'Operators',
-          memberCount: 3
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminGetOrgGroupsResponseSchema, {
+        groups: [
+          {
+            id: 'group-1',
+            name: 'Ops',
+            description: 'Operators',
+            memberCount: 3
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({

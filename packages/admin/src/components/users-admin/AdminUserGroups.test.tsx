@@ -1,5 +1,4 @@
 import { create } from '@bufbuild/protobuf';
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import {
   type AdminUser,
   AdminUserSchema
@@ -27,7 +26,10 @@ describe('AdminUserGroups', () => {
       requestCount: 0n
     }
   });
-  const mockGroups: GroupWithMemberCount[] = [
+  type AdminManagedGroup = ReturnType<
+    typeof useAdminUserGroups
+  >['groups'][number];
+  const mockGroups: AdminManagedGroup[] = [
     {
       id: 'group-1',
       organizationId: 'org-1',

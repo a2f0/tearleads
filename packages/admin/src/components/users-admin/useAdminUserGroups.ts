@@ -1,9 +1,12 @@
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
+type AdminGroupListItem = Awaited<
+  ReturnType<typeof api.adminV2.groups.list>
+>['groups'][number];
+
 export function useAdminUserGroups(userId: string | null) {
-  const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
+  const [groups, setGroups] = useState<AdminGroupListItem[]>([]);
   const [groupMemberships, setGroupMemberships] = useState<
     Record<string, { isMember: boolean; joinedAt: string | undefined }>
   >({});

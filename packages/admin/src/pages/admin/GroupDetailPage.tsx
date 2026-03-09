@@ -1,4 +1,4 @@
-import type { Group, GroupMember, UpdateGroupRequest } from '@tearleads/shared';
+import type { UpdateGroupRequest } from '@tearleads/shared';
 import { BackLink, ConfirmDialog } from '@tearleads/ui';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -17,6 +17,10 @@ interface GroupDetailPageProps {
   onDelete?: () => void;
 }
 
+type AdminGroupResponse = Awaited<ReturnType<typeof api.adminV2.groups.get>>;
+type AdminGroup = NonNullable<AdminGroupResponse['group']>;
+type AdminGroupMember = AdminGroupResponse['members'][number];
+
 export function GroupDetailPage({
   groupId: propGroupId,
   backLink,
@@ -25,8 +29,8 @@ export function GroupDetailPage({
   const { t } = useTypedTranslation('admin');
   const { id: paramId } = useParams<{ id: string }>();
   const id = propGroupId ?? paramId;
-  const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [group, setGroup] = useState<AdminGroup | null>(null);
+  const [members, setMembers] = useState<AdminGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +41,7 @@ export function GroupDetailPage({
   const [addingMember, setAddingMember] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [removeMemberDialog, setRemoveMemberDialog] =
-    useState<GroupMember | null>(null);
+    useState<AdminGroupMember | null>(null);
 
   const fetchGroup = useCallback(async () => {
     if (!id) return;
@@ -46,11 +50,12 @@ export function GroupDetailPage({
       setLoading(true);
       setError(null);
       const response = await api.adminV2.groups.get(id);
-      setGroup(response.group);
+      const nextGroup = response.group ?? null;
+      setGroup(nextGroup);
       setMembers(response.members);
-      setName(response.group.name);
-      setOrganizationId(response.group.organizationId);
-      setDescription(response.group.description ?? '');
+      setName(nextGroup?.name ?? '');
+      setOrganizationId(nextGroup?.organizationId ?? '');
+      setDescription(nextGroup?.description ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch group');
     } finally {
@@ -81,8 +86,13 @@ export function GroupDetailPage({
         payload.organizationId = trimmedOrganizationId;
       }
       const response = await api.adminV2.groups.update(id, payload);
+      if (!response.group) {
+        throw new Error('Invalid group response');
+      }
       setGroup(response.group);
+      setName(response.group.name);
       setOrganizationId(response.group.organizationId);
+      setDescription(response.group.description ?? '');
     } catch (err) {
       if (err instanceof Error && err.message.includes('409')) {
         setError('A group with this name already exists');
