@@ -15,6 +15,7 @@ export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';
 export {
   type InlineUnlockProps,
   useWalletRuntime,
+  type WalletDatabaseState,
   type WalletRuntimeContextValue,
   WalletRuntimeProvider,
   type WalletRuntimeProviderProps
