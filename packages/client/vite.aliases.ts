@@ -258,11 +258,6 @@ export const createViteAliases = (
       dirname,
       '../window-manager/src/index.ts'
     ),
-    '@tearleads/console/package.json': path.resolve(
-      dirname,
-      '../console/package.json'
-    ),
-    '@tearleads/console': path.resolve(dirname, '../console/src/index.ts')
   };
 
   // Stub aliases come LAST to override base aliases for disabled packages

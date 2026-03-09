@@ -247,17 +247,6 @@
       }
     },
     {
-      "name": "no-console-imports",
-      "severity": "error",
-      "comment": "Non-client packages should not import console window internals.",
-      "from": {
-        "path": "^packages/(?!client/|console/)[^/]+/src"
-      },
-      "to": {
-        "path": "^packages/console/src"
-      }
-    },
-    {
       "name": "no-ai-imports",
       "severity": "error",
       "comment": "Non-client packages should not import ai window internals.",
@@ -328,7 +317,7 @@
       "severity": "error",
       "comment": "Non-client packages should not import terminal window internals.",
       "from": {
-        "path": "^packages/(?!client/|console/|terminal/)[^/]+/src"
+        "path": "^packages/(?!client/|terminal/)[^/]+/src"
       },
       "to": {
         "path": "^packages/terminal/src"

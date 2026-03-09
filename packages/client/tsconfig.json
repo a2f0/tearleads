@@ -33,8 +33,6 @@
       "@tearleads/calendar": ["../calendar/src/index.ts"],
       "@tearleads/camera/package.json": ["../camera/package.json"],
       "@tearleads/camera": ["../camera/src/index.ts"],
-      "@tearleads/console/package.json": ["../console/package.json"],
-      "@tearleads/console": ["../console/src/index.ts"],
       "@tearleads/classic/package.json": ["../classic/package.json"],
       "@tearleads/classic": ["../classic/src/index.ts"],
       "@tearleads/compliance/package.json": ["../compliance/package.json"],
