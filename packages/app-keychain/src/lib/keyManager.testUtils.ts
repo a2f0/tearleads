@@ -224,10 +224,12 @@ function setupGlobalMocks() {
     configurable: true
   });
 
-  vi.stubGlobal('indexedDB', {
-    open: indexedDbOpenMock
+  Object.defineProperty(globalThis, 'indexedDB', {
+    configurable: true,
+    writable: true,
+    value: {
+      open: indexedDbOpenMock
+    }
   });
 }
-
-// Auto-setup global mocks when this module is imported
-setupGlobalMocks();
+export { setupGlobalMocks };

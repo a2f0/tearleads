@@ -6,7 +6,7 @@ import {
   waitFor
 } from '@testing-library/react';
 import { createRef } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '../../test/consoleMocks';
 import './KeychainWindowContent.testHelpers';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';

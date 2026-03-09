@@ -5,28 +5,52 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock() calls must be in each test file (hoisted)
-vi.mock('@tearleads/shared', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@tearleads/shared')>();
-  const { createSharedMock } = await import('./keyManager.testUtils');
-  return { ...original, ...createSharedMock() };
-});
+vi.mock(
+  '@tearleads/shared',
+  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
+    ? () => createSharedMock()
+    : async () => {
+        const { createSharedMock } = await import('./keyManager.testUtils');
+        return createSharedMock();
+      }
+);
 
-vi.mock('./nativeSecureStorage', async () => {
-  const { createNativeStorageMock } = await import('./keyManager.testUtils');
-  return createNativeStorageMock();
-});
+vi.mock(
+  './nativeSecureStorage',
+  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
+    ? () => createNativeStorageMock()
+    : async () => {
+        const { createNativeStorageMock } = await import(
+          './keyManager.testUtils'
+        );
+        return createNativeStorageMock();
+      }
+);
 
-vi.mock('./detectPlatform', async () => {
-  const { createUtilsMock } = await import('./keyManager.testUtils');
-  return createUtilsMock();
-});
+vi.mock(
+  './detectPlatform',
+  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
+    ? () => createUtilsMock()
+    : async () => {
+        const { createUtilsMock } = await import('./keyManager.testUtils');
+        return createUtilsMock();
+      }
+);
 
 import {
   clearAllKeyManagers,
   getKeyStatusForInstance,
   KeyManager
 } from './keyManager';
-import { mockDB, mockIDBStore, resetKeyBytesMap } from './keyManager.testUtils';
+import {
+  createNativeStorageMock,
+  createSharedMock,
+  createUtilsMock,
+  mockDB,
+  mockIDBStore,
+  resetKeyBytesMap,
+  setupGlobalMocks
+} from './keyManager.testUtils';
 
 describe('ElectronKeyStorage session persistence', () => {
   const ELECTRON_INSTANCE_ID = 'electron-test-instance';
@@ -50,6 +74,7 @@ describe('ElectronKeyStorage session persistence', () => {
     vi.clearAllMocks();
     mockIDBStore.clear();
     resetKeyBytesMap();
+    setupGlobalMocks();
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 

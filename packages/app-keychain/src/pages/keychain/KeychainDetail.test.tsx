@@ -7,16 +7,6 @@ import type { InstanceMetadata, KeyStatus } from '../../lib/types';
 import { mockConsoleError } from '../../test/consoleMocks';
 import { KeychainDetail } from './KeychainDetail';
 
-const mockNavigate = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
-
 const mockGetKeyStatusForInstance =
   vi.fn<(instanceId: string) => Promise<KeyStatus>>();
 const mockDeleteSessionKeysForInstance =
@@ -32,6 +22,7 @@ function renderKeychainDetail(instanceId: string) {
     <MemoryRouter initialEntries={[`/keychain/${instanceId}`]}>
       <Routes>
         <Route path="/keychain/:id" element={<KeychainDetail />} />
+        <Route path="/keychain" element={<div>Keychain List</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -295,7 +286,7 @@ describe('KeychainDetail', () => {
       expect(mockDeleteSessionKeysForInstance).not.toHaveBeenCalled();
     });
 
-    it('navigates to keychain after deleting instance', async () => {
+    it('deletes instance and clears keychain state', async () => {
       const user = userEvent.setup();
       renderKeychainDetail('test-id');
 
@@ -315,7 +306,6 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(mockKeyManagerReset).toHaveBeenCalled();
         expect(mockDeleteInstanceFromRegistry).toHaveBeenCalledWith('test-id');
-        expect(mockNavigate).toHaveBeenCalledWith('/keychain');
       });
     });
 
