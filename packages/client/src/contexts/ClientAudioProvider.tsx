@@ -41,7 +41,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
-import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useFileUpload } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
@@ -84,7 +84,6 @@ interface ClientAudioProviderProps {
 }
 
 export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
-  const databaseContext = useDatabaseContext();
   const databaseState = useHostRuntimeDatabaseState();
   const { t } = useTypedTranslation('audio');
   const navigateWithFrom = useNavigateWithFrom();
@@ -157,13 +156,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
+      if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
         await initializeFileStorage(
           encryptionKey,
-          databaseContext.currentInstanceId
+          databaseState.currentInstanceId
         );
       }
 
@@ -214,7 +213,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
 
       return tracksWithUrls;
     },
-    [fetchAudioFiles, databaseContext.currentInstanceId]
+    [fetchAudioFiles, databaseState.currentInstanceId]
   );
 
   const fetchPlaylists = useCallback(async (): Promise<AudioPlaylist[]> => {
@@ -356,13 +355,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
+      if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
         await initializeFileStorage(
           encryptionKey,
-          databaseContext.currentInstanceId
+          databaseState.currentInstanceId
         );
       }
 
@@ -371,7 +370,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const logger = createRetrieveLogger(db);
       return storage.measureRetrieve(storagePath, logger);
     },
-    [databaseContext.currentInstanceId]
+    [databaseState.currentInstanceId]
   );
 
   const softDeleteAudio = useCallback(

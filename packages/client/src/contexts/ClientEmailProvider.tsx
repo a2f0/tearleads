@@ -22,7 +22,7 @@ import {
   listEmailDraftsFromDb,
   saveEmailDraftToDb
 } from '@/db/emailDrafts';
-import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contacts } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
@@ -45,7 +45,6 @@ interface ClientEmailProviderProps {
 }
 
 export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
-  const { isUnlocked } = useDatabaseContext();
   const databaseState = useHostRuntimeDatabaseState();
 
   if (!API_BASE_URL) {
@@ -137,10 +136,10 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     databaseState,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
-    ...(isUnlocked && { draftOperations }),
-    ...(isUnlocked && { contactOperations }),
-    ...(isUnlocked && { folderOperations: folderOps }),
-    ...(isUnlocked && { bodyOperations })
+    ...(databaseState.isUnlocked && { draftOperations }),
+    ...(databaseState.isUnlocked && { contactOperations }),
+    ...(databaseState.isUnlocked && { folderOperations: folderOps }),
+    ...(databaseState.isUnlocked && { bodyOperations })
   };
 
   return <EmailProvider {...providerProps}>{children}</EmailProvider>;

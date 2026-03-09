@@ -35,7 +35,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
-import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
@@ -139,7 +139,6 @@ async function registerInVfs(
 export function ClientContactsProvider({
   children
 }: ClientContactsProviderProps) {
-  const databaseContext = useDatabaseContext();
   const databaseState = useHostRuntimeDatabaseState();
   const { t: tContextMenu } = useTypedTranslation('contextMenu');
   const { t: tContacts } = useTypedTranslation('contacts');
@@ -171,7 +170,7 @@ export function ClientContactsProvider({
 
   const handleContactsImported = useCallback(
     async (importedContacts: ImportedContactRecord[]) => {
-      const instanceId = databaseContext.currentInstanceId;
+      const instanceId = databaseState.currentInstanceId;
       if (!instanceId || importedContacts.length === 0) {
         return;
       }
@@ -191,7 +190,7 @@ export function ClientContactsProvider({
         )
       );
     },
-    [databaseContext.currentInstanceId]
+    [databaseState.currentInstanceId]
   );
 
   const openEmailComposer = useCallback(

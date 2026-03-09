@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks';
 import { useConversations, useLLM } from '@/hooks/ai';
 import { useTranslation } from '@/i18n';
 import { getAttachedImage, setAttachedImage } from '@/lib/llmRuntime';
@@ -59,14 +59,13 @@ export function ClientAIProvider({
   children,
   navigateToModels
 }: ClientAIProviderProps) {
-  const databaseContext = useDatabaseContext();
   const databaseState = useHostRuntimeDatabaseState();
   const { t } = useTranslation();
   const llm = useLLM();
   const conversations = useConversations({
     autoStart: true,
     resumeLastConversation: true,
-    instanceId: databaseContext.currentInstanceId
+    instanceId: databaseState.currentInstanceId
   });
 
   // Photo picker state
