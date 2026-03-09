@@ -11,7 +11,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
@@ -28,6 +28,10 @@ import {
 } from '@/lib/instanceSwitchTestUtils';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { getSharedTestContext } from '@/test/testContext';
+import {
+  type VfsConsoleGuard,
+  installVfsConsoleGuard
+} from '@/test/vfsConsoleGuard';
 import { fetchVfsConnectJson } from '../../../bob-and-alice/src/harness/vfsConnectClient';
 
 const TEST_TIMEOUT_MS = 45000;
@@ -39,6 +43,7 @@ interface AuthSnapshot {
 
 let latestAuthContext: ReturnType<typeof useAuth> | null = null;
 let latestDatabaseContext: ReturnType<typeof useDatabaseContext> | null = null;
+let vfsConsoleGuard: VfsConsoleGuard | null = null;
 const { mockApiLogout } = vi.hoisted(() => ({
   mockApiLogout: vi.fn(async () => undefined)
 }));
@@ -129,6 +134,7 @@ async function waitForCurrentInstance(instanceId: string): Promise<void> {
 
 describe('instance switch shared-note sync regression', () => {
   beforeEach(() => {
+    vfsConsoleGuard = installVfsConsoleGuard();
     latestAuthContext = null;
     latestDatabaseContext = null;
     clearStoredAuth();
@@ -142,6 +148,18 @@ describe('instance switch shared-note sync regression', () => {
       publicSigningKey: 'seeded-signing-key'
     });
     vi.mocked(api.vfs.setupKeys).mockResolvedValue({ created: true });
+  });
+
+  afterEach(() => {
+    if (!vfsConsoleGuard) {
+      return;
+    }
+    try {
+      vfsConsoleGuard.assertNoRegressions();
+    } finally {
+      vfsConsoleGuard.restore();
+      vfsConsoleGuard = null;
+    }
   });
 
   it(

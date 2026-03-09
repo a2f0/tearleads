@@ -27,15 +27,31 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/db';
 import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';
 import { getSharedTestContext } from '@/test/testContext';
+import {
+  type VfsConsoleGuard,
+  installVfsConsoleGuard
+} from '@/test/vfsConsoleGuard';
+
+let vfsConsoleGuard: VfsConsoleGuard | null = null;
+
+beforeEach(() => {
+  vfsConsoleGuard = installVfsConsoleGuard();
+});
 
 afterEach(() => {
-  clearStoredAuth();
-  vi.unstubAllEnvs();
+  try {
+    vfsConsoleGuard?.assertNoRegressions();
+  } finally {
+    vfsConsoleGuard?.restore();
+    vfsConsoleGuard = null;
+    clearStoredAuth();
+    vi.unstubAllEnvs();
+  }
 });
 
 function expectCiphertext(value: string | null | undefined): void {
