@@ -31,12 +31,7 @@ export function VfsRematerializationBootstrap() {
       }
     };
 
-    if (
-      !isAuthenticated ||
-      !isReady ||
-      !isDatabaseReady ||
-      !currentInstanceId
-    ) {
+    if (!isAuthenticated || !isReady || !isDatabaseReady) {
       clearRetryTimer();
       retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
       inFlightRef.current = false;
@@ -46,7 +41,12 @@ export function VfsRematerializationBootstrap() {
     }
 
     const runRematerialization = () => {
-      if (cancelled || inFlightRef.current || retryTimerRef.current) {
+      if (
+        cancelled ||
+        inFlightRef.current ||
+        retryTimerRef.current ||
+        getInstanceChangeSnapshot().currentInstanceId !== currentInstanceId
+      ) {
         return;
       }
 
