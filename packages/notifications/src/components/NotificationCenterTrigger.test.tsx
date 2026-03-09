@@ -2,7 +2,7 @@ import type { WindowManagerContextValue } from '@tearleads/window-manager';
 import * as windowManager from '@tearleads/window-manager';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notificationStore } from '../stores/notificationStore';
 import { NotificationCenterTrigger } from './NotificationCenterTrigger';
 
@@ -25,15 +25,18 @@ const windowManagerStub: WindowManagerContextValue = {
 };
 
 describe('NotificationCenterTrigger', () => {
+  beforeEach(() => {
+    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
+      windowManagerStub
+    );
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     mockOpenWindow.mockClear();
   });
 
   it('renders trigger button', () => {
-    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
-      windowManagerStub
-    );
     render(<NotificationCenterTrigger />);
     expect(
       screen.getByRole('button', { name: /open notification center/i })
@@ -42,9 +45,6 @@ describe('NotificationCenterTrigger', () => {
 
   it('opens Notification Center window when clicked', async () => {
     const user = userEvent.setup();
-    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
-      windowManagerStub
-    );
     render(<NotificationCenterTrigger />);
 
     await user.click(
@@ -61,9 +61,6 @@ describe('NotificationCenterTrigger', () => {
     const user = userEvent.setup();
     const markAllAsReadSpy = vi.spyOn(notificationStore, 'markAllAsRead');
     const dismissAllSpy = vi.spyOn(notificationStore, 'dismissAll');
-    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
-      windowManagerStub
-    );
 
     render(<NotificationCenterTrigger />);
 
@@ -85,9 +82,6 @@ describe('NotificationCenterTrigger', () => {
 
   it('opens window from context menu', async () => {
     const user = userEvent.setup();
-    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
-      windowManagerStub
-    );
     render(<NotificationCenterTrigger />);
 
     await user.pointer({
@@ -117,9 +111,6 @@ describe('NotificationCenterTrigger', () => {
       .spyOn(notificationStore, 'subscribe')
       .mockReturnValue(unsubscribe);
     vi.spyOn(notificationStore, 'getUnreadCount').mockReturnValue(0);
-    vi.spyOn(windowManager, 'useWindowManager').mockReturnValue(
-      windowManagerStub
-    );
 
     const { unmount } = render(<NotificationCenterTrigger />);
 
