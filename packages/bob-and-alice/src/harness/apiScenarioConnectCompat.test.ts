@@ -71,4 +71,27 @@ describe('mapLegacyPathToConnect', () => {
     );
     expect(mapping?.legacyDefaults).toEqual({ shares: [], orgShares: [] });
   });
+
+  it('maps AI usage routes to the v2 ai service', () => {
+    const mapping = mapLegacyPathToConnect('/ai/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        modelId: 'openai/gpt-4o-mini',
+        promptTokens: 12,
+        completionTokens: 8,
+        totalTokens: 20
+      })
+    });
+
+    expect(mapping).not.toBeNull();
+    expect(mapping?.path).toBe(
+      '/v1/connect/tearleads.v2.AiService/RecordUsage'
+    );
+    expect(mapping?.body).toEqual({
+      modelId: 'openai/gpt-4o-mini',
+      promptTokens: 12,
+      completionTokens: 8,
+      totalTokens: 20
+    });
+  });
 });

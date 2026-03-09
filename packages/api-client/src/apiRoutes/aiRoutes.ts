@@ -20,9 +20,11 @@ import {
   AiServiceGetUsageRequestSchema,
   type AiServiceGetUsageResponse,
   AiServiceGetUsageSummaryRequestSchema,
-  type AiServiceGetUsageSummaryResponse
+  type AiServiceGetUsageSummaryResponse,
+  AiServiceRecordUsageRequestSchema,
+  type AiServiceRecordUsageResponse
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
-import { API_BASE_URL, request, tryRefreshToken } from '../apiCore';
+import { API_BASE_URL, tryRefreshToken } from '../apiCore';
 import { type ApiEventSlug, logApiEvent } from '../apiLogger';
 import {
   type ApiV2RequestHeaderOptions,
@@ -30,8 +32,6 @@ import {
   normalizeApiV2ConnectBaseUrl
 } from '../apiV2ClientWasm';
 import { getAuthHeaderValue } from '../authStorage';
-
-const AI_V1_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
 type AiV2CallOptions = Pick<CallOptions, 'headers'>;
 
@@ -161,8 +161,14 @@ async function runWithEvent<T>(
 }
 
 function mapAiUsageRow(
-  usage: AiServiceGetUsageResponse['usage'][number]
+  usage:
+    | AiServiceGetUsageResponse['usage'][number]
+    | AiServiceRecordUsageResponse['usage']
 ): AiUsage {
+  if (!usage) {
+    throw new Error('missing ai usage payload');
+  }
+
   return {
     id: usage.id,
     conversationId: usage.conversationId ?? null,
@@ -204,6 +210,14 @@ function mapAiGetUsageResponse(
   };
 }
 
+function mapAiRecordUsageResponse(
+  response: AiServiceRecordUsageResponse
+): RecordAiUsageResponse {
+  return {
+    usage: mapAiUsageRow(response.usage)
+  };
+}
+
 function mapAiGetUsageSummaryResponse(
   response: AiServiceGetUsageSummaryResponse
 ): AiUsageSummaryResponse {
@@ -226,14 +240,17 @@ export function createAiRoutes(overrides: Partial<AiRoutesDependencies> = {}) {
   const getClient = createClientResolver(dependencies);
 
   return {
-    recordUsage: (data: RecordAiUsageRequest) =>
-      request<RecordAiUsageResponse>(`${AI_V1_CONNECT_BASE_PATH}/RecordUsage`, {
-        fetchOptions: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        },
-        eventName: 'api_post_ai_usage'
+    recordUsage: (data: RecordAiUsageRequest): Promise<RecordAiUsageResponse> =>
+      runWithEvent(dependencies, 'api_post_ai_usage', async () => {
+        const { client, callOptions } = await buildCallContext(
+          dependencies,
+          getClient
+        );
+        const response = await client.recordUsage(
+          create(AiServiceRecordUsageRequestSchema, data),
+          callOptions
+        );
+        return mapAiRecordUsageResponse(response);
       }),
     getUsage: (options?: {
       startDate?: string;

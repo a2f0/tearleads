@@ -2,16 +2,19 @@ import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import {
   AiServiceGetUsageRequestSchema,
-  AiServiceGetUsageSummaryRequestSchema
+  AiServiceGetUsageSummaryRequestSchema,
+  AiServiceRecordUsageRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { aiConnectServiceV2 } from './aiServiceV2.js';
 
-const { authenticateMock, getPoolMock, queryMock } = vi.hoisted(() => ({
-  authenticateMock: vi.fn(),
-  getPoolMock: vi.fn(),
-  queryMock: vi.fn()
-}));
+const { authenticateMock, getPoolMock, getPostgresPoolMock, queryMock } =
+  vi.hoisted(() => ({
+    authenticateMock: vi.fn(),
+    getPoolMock: vi.fn(),
+    getPostgresPoolMock: vi.fn(),
+    queryMock: vi.fn()
+  }));
 
 vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args)
@@ -19,15 +22,14 @@ vi.mock('./connectRequestAuth.js', () => ({
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args),
-  getPostgresPool: () => {
-    throw new Error('getPostgresPool should not be used by ai v2 reads');
-  }
+  getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
 
 describe('aiConnectServiceV2', () => {
   beforeEach(() => {
     authenticateMock.mockReset();
     getPoolMock.mockReset();
+    getPostgresPoolMock.mockReset();
     queryMock.mockReset();
     authenticateMock.mockResolvedValue({
       ok: true,
@@ -36,6 +38,7 @@ describe('aiConnectServiceV2', () => {
       }
     });
     getPoolMock.mockResolvedValue({ query: queryMock });
+    getPostgresPoolMock.mockResolvedValue({ query: queryMock });
   });
 
   it('maps failed authentication to a connect unauthenticated error', async () => {
@@ -111,6 +114,71 @@ describe('aiConnectServiceV2', () => {
       1,
       expect.stringContaining('WHERE user_id = $1'),
       ['user-1', '2026-03-01', '2026-03-31', 26]
+    );
+  });
+
+  it('records usage for the authenticated user and normalizes optional fields', async () => {
+    const createdAt = new Date('2026-03-09T18:00:00.000Z');
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'usage-1',
+            conversation_id: null,
+            message_id: null,
+            user_id: 'user-1',
+            organization_id: 'org-1',
+            model_id: 'openai/gpt-4o-mini',
+            prompt_tokens: 12,
+            completion_tokens: 8,
+            total_tokens: 20,
+            openrouter_request_id: null,
+            created_at: createdAt
+          }
+        ]
+      });
+
+    const response = await aiConnectServiceV2.recordUsage(
+      create(AiServiceRecordUsageRequestSchema, {
+        conversationId: ' ',
+        messageId: '\t',
+        modelId: 'openai/gpt-4o-mini',
+        promptTokens: 12,
+        completionTokens: 8,
+        totalTokens: 20,
+        openrouterRequestId: '  '
+      }),
+      { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+    );
+
+    expect(response.usage).toMatchObject({
+      id: 'usage-1',
+      userId: 'user-1',
+      organizationId: 'org-1',
+      modelId: 'openai/gpt-4o-mini',
+      totalTokens: 20,
+      createdAt: createdAt.toISOString()
+    });
+    expect(response.usage?.conversationId).toBeUndefined();
+    expect(response.usage?.messageId).toBeUndefined();
+    expect(response.usage?.openrouterRequestId).toBeUndefined();
+    expect(queryMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('INSERT INTO ai_usage'),
+      [
+        expect.any(String),
+        null,
+        null,
+        'user-1',
+        'org-1',
+        'openai/gpt-4o-mini',
+        12,
+        8,
+        20,
+        null,
+        expect.any(Date)
+      ]
     );
   });
 

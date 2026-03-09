@@ -6,16 +6,13 @@ import {
   createDefaultAiV2Client
 } from './aiRoutes';
 
-const { requestMock, createClientMock, createGrpcWebTransportMock } =
-  vi.hoisted(() => ({
-    requestMock: vi.fn(),
-    createClientMock: vi.fn(),
-    createGrpcWebTransportMock: vi.fn()
-  }));
+const { createClientMock, createGrpcWebTransportMock } = vi.hoisted(() => ({
+  createClientMock: vi.fn(),
+  createGrpcWebTransportMock: vi.fn()
+}));
 
 vi.mock('../apiCore', () => ({
   API_BASE_URL: 'https://api.example.test',
-  request: requestMock,
   tryRefreshToken: vi.fn(async () => false)
 }));
 
@@ -40,12 +37,26 @@ vi.mock('@connectrpc/connect-web', async () => {
 });
 
 interface AiV2ClientOverrides {
+  recordUsage?: AiV2Client['recordUsage'];
   getUsage?: AiV2Client['getUsage'];
   getUsageSummary?: AiV2Client['getUsageSummary'];
 }
 
 function createAiV2ClientStub(overrides: AiV2ClientOverrides = {}): AiV2Client {
   return {
+    recordUsage:
+      overrides.recordUsage ??
+      vi.fn(async () => ({
+        usage: {
+          id: 'usage-1',
+          userId: 'user-1',
+          modelId: 'openai/gpt-4o-mini',
+          promptTokens: 12,
+          completionTokens: 8,
+          totalTokens: 20,
+          createdAt: '2026-03-09T18:00:00.000Z'
+        }
+      })),
     getUsage:
       overrides.getUsage ??
       vi.fn(async () => ({
@@ -86,7 +97,6 @@ function createRoutesForTest(
 
 describe('aiRoutes', () => {
   beforeEach(() => {
-    requestMock.mockReset();
     createClientMock.mockReset();
     createGrpcWebTransportMock.mockReset();
   });
@@ -250,22 +260,54 @@ describe('aiRoutes', () => {
     );
   });
 
-  it('keeps recordUsage on the legacy v1 connect path', async () => {
-    requestMock.mockResolvedValueOnce({ usage: { id: 'usage-1' } });
-    const routes = createAiRoutes();
+  it('routes recordUsage through the v2 client and preserves the existing shape', async () => {
+    const recordUsage = vi.fn(async () => ({
+      usage: {
+        id: 'usage-1',
+        userId: 'user-1',
+        organizationId: 'org-1',
+        modelId: 'openai/gpt-4o-mini',
+        promptTokens: 12,
+        completionTokens: 8,
+        totalTokens: 20,
+        createdAt: '2026-03-09T18:00:00.000Z'
+      }
+    }));
+    const client = createAiV2ClientStub({ recordUsage });
+    const { routes, logEvent } = createRoutesForTest(client);
 
-    await routes.recordUsage({
+    const response = await routes.recordUsage({
       modelId: 'openai/gpt-4o-mini',
       promptTokens: 12,
       completionTokens: 8,
       totalTokens: 20
     });
 
-    expect(requestMock).toHaveBeenCalledWith(
-      '/connect/tearleads.v1.AiService/RecordUsage',
-      expect.objectContaining({
-        eventName: 'api_post_ai_usage'
-      })
+    expect(response).toEqual({
+      usage: {
+        id: 'usage-1',
+        conversationId: null,
+        messageId: null,
+        userId: 'user-1',
+        organizationId: 'org-1',
+        modelId: 'openai/gpt-4o-mini',
+        promptTokens: 12,
+        completionTokens: 8,
+        totalTokens: 20,
+        openrouterRequestId: null,
+        createdAt: '2026-03-09T18:00:00.000Z'
+      }
+    });
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(recordUsage.mock.calls[0]?.[1]).toEqual({
+      headers: {
+        authorization: 'Bearer token-123'
+      }
+    });
+    expect(logEvent).toHaveBeenCalledWith(
+      'api_post_ai_usage',
+      expect.any(Number),
+      true
     );
   });
 });

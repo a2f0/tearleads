@@ -1,9 +1,14 @@
 import { ConnectError } from '@connectrpc/connect';
 import type {
   AiServiceGetUsageRequest,
-  AiServiceGetUsageSummaryRequest
+  AiServiceGetUsageSummaryRequest,
+  AiServiceRecordUsageRequest
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
-import { getUsageForUser, getUsageSummaryForUser } from './aiUsageService.js';
+import {
+  getUsageForUser,
+  getUsageSummaryForUser,
+  recordUsageForUser
+} from './aiUsageService.js';
 import { authenticate } from './connectRequestAuth.js';
 import { toConnectCode } from './httpStatusToConnectCode.js';
 
@@ -19,6 +24,15 @@ async function getAuthUserId(requestHeader: Headers): Promise<string> {
 }
 
 export const aiConnectServiceV2 = {
+  async recordUsage(
+    request: AiServiceRecordUsageRequest,
+    context: ConnectContext
+  ) {
+    return recordUsageForUser(
+      await getAuthUserId(context.requestHeader),
+      request
+    );
+  },
   async getUsage(request: AiServiceGetUsageRequest, context: ConnectContext) {
     return getUsageForUser(await getAuthUserId(context.requestHeader), request);
   },

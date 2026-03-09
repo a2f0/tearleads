@@ -1,5 +1,4 @@
 import type { ConnectRouter } from '@connectrpc/connect';
-import { AiService } from '@tearleads/shared/gen/tearleads/v1/ai_pb';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
 import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
 import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
@@ -11,7 +10,6 @@ import { MlsService as MlsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/m
 import { VfsService as VfsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { VfsSharesService as VfsSharesServiceV2 } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { adminConnectServiceV2 } from './services/adminServiceV2.js';
-import { aiConnectService } from './services/aiService.js';
 import { aiConnectServiceV2 } from './services/aiServiceV2.js';
 import { authConnectService } from './services/authService.js';
 import { billingConnectService } from './services/billingService.js';
@@ -25,7 +23,6 @@ import { vfsSharesConnectService } from './services/vfsSharesService.js';
 export function registerConnectRoutes(router: ConnectRouter): void {
   router.service(AdminServiceV2, adminConnectServiceV2);
   router.service(AiServiceV2, aiConnectServiceV2);
-  router.service(AiService, aiConnectService);
   router.service(AuthService, authConnectService);
   router.service(BillingService, billingConnectService);
   router.service(ChatService, chatConnectService);

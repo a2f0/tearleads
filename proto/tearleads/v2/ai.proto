@@ -3,6 +3,8 @@ syntax = "proto3";
 package tearleads.v2;
 
 service AiService {
+  rpc RecordUsage(AiServiceRecordUsageRequest)
+      returns (AiServiceRecordUsageResponse);
   rpc GetUsage(AiServiceGetUsageRequest) returns (AiServiceGetUsageResponse);
   rpc GetUsageSummary(AiServiceGetUsageSummaryRequest)
       returns (AiServiceGetUsageSummaryResponse);
@@ -29,6 +31,20 @@ message AiUsageSummary {
   int32 request_count = 4;
   string period_start = 5;
   string period_end = 6;
+}
+
+message AiServiceRecordUsageRequest {
+  string conversation_id = 1;
+  string message_id = 2;
+  string model_id = 3;
+  int32 prompt_tokens = 4;
+  int32 completion_tokens = 5;
+  int32 total_tokens = 6;
+  string openrouter_request_id = 7;
+}
+
+message AiServiceRecordUsageResponse {
+  AiUsage usage = 1;
 }
 
 message AiServiceGetUsageRequest {
