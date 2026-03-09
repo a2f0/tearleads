@@ -39,6 +39,7 @@ const config: KnipConfig = {
     'packages/api': {
       entry: ['src/**/*.ts']
     },
+    'packages/audio': {},
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },

@@ -11,8 +11,27 @@ const mockCycleRepeatMode = vi.fn();
 const mockSetOnTrackEnd = vi.fn();
 const mockUseAudio = vi.fn();
 
-vi.mock('@/audio', () => ({
+vi.mock('../../context/AudioContext', () => ({
   useAudio: () => mockUseAudio()
+}));
+
+vi.mock('../../context/AudioUIContext', () => ({
+  useAudioUI: () => ({
+    Button: ({
+      children,
+      onClick,
+      variant: _variant,
+      size: _size,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+      variant?: string;
+      size?: string;
+    }) => (
+      <button type="button" onClick={onClick} {...props}>
+        {children}
+      </button>
+    )
+  })
 }));
 
 const TEST_TRACKS = [

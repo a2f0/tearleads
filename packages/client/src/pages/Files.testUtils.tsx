@@ -115,7 +115,7 @@ export const mockPause = vi.fn();
 export const mockResume = vi.fn();
 export const mockCurrentTrack = { current: null as { id: string } | null };
 export const mockIsPlaying = { current: false };
-vi.mock('@/audio', () => ({
+vi.mock('@tearleads/audio', () => ({
   useAudio: () => ({
     currentTrack: mockCurrentTrack.current,
     isPlaying: mockIsPlaying.current,

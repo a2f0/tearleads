@@ -1,8 +1,21 @@
+// component-complexity: allow — pre-existing complexity; refactor deferred
 /**
  * Combined audio player component with visualizer, controls, and volume.
  * Integrates playback controls, frequency visualizer, seek bar, and volume control.
  */
 
+import {
+  type AudioTrack,
+  BAR_COUNT,
+  BAR_KEYS,
+  getStoredVisibility,
+  LCDBar,
+  setStoredVisibility,
+  useAudio,
+  useAudioAnalyser,
+  VISUALIZER_HEIGHT,
+  type VisualizerVisibility
+} from '@tearleads/audio';
 import {
   Pause,
   Play,
@@ -14,17 +27,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioTrack, useAudio, useAudioAnalyser } from '@/audio';
 import { Button } from '@/components/ui/button';
-import { LCDBar } from './LCDBar';
-import {
-  BAR_COUNT,
-  BAR_KEYS,
-  getStoredVisibility,
-  setStoredVisibility,
-  VISUALIZER_HEIGHT,
-  type VisualizerVisibility
-} from './visualizer.utils';
 
 interface AudioPlayerProps {
   tracks: AudioTrack[];

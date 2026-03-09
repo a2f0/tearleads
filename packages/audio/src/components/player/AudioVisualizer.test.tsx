@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioVisualizer } from './AudioVisualizer';
@@ -7,8 +7,39 @@ const mockAudioElementRef = { current: null };
 const mockUseAudio = vi.fn();
 const mockUseAudioAnalyser = vi.fn();
 
-vi.mock('@/audio', () => ({
-  useAudio: () => mockUseAudio(),
+vi.mock('../../context/AudioContext', () => ({
+  useAudio: () => mockUseAudio()
+}));
+
+vi.mock('../../context/AudioUIContext', () => ({
+  useAudioUI: () => ({
+    Button: ({
+      children,
+      onClick,
+      variant: _variant,
+      size: _size,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+      variant?: string;
+      size?: string;
+    }) => (
+      <button type="button" onClick={onClick} {...props}>
+        {children}
+      </button>
+    )
+  }),
+  useAudioUIContext: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        hideVisualizer: 'Hide visualizer',
+        showVisualizer: 'Show visualizer'
+      };
+      return translations[key] ?? key;
+    }
+  })
+}));
+
+vi.mock('../../hooks/useAudioAnalyser', () => ({
   useAudioAnalyser: () => mockUseAudioAnalyser()
 }));
 
@@ -110,7 +141,12 @@ describe('AudioVisualizer', () => {
       const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
+      await waitFor(() => {
+        expect(screen.getByTestId('visualizer-toggle')).toHaveAttribute(
+          'aria-label',
+          'Show visualizer'
+        );
+      });
     });
 
     it('saves visibility preference to localStorage', async () => {
@@ -214,7 +250,12 @@ describe('AudioVisualizer', () => {
       const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
+      await waitFor(() => {
+        expect(screen.getByTestId('visualizer-toggle')).toHaveAttribute(
+          'aria-label',
+          'Show visualizer'
+        );
+      });
     });
   });
 

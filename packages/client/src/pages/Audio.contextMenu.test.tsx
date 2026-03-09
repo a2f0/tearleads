@@ -99,7 +99,8 @@ vi.mock('@/contexts/ClientAudioProvider', () => ({
 }));
 
 // Mock the audio context
-vi.mock('@/audio', () => ({
+vi.mock('@tearleads/audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/audio')>()),
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => new Uint8Array(12)
 }));

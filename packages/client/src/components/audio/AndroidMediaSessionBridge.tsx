@@ -1,5 +1,5 @@
+import { useAudio } from '@tearleads/audio';
 import { useEffect, useRef } from 'react';
-import { useAudio } from '@/audio';
 import {
   isAndroidNativePlatform,
   MediaSessionBridge

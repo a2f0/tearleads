@@ -2,10 +2,10 @@
  * Hook for AudioDetail action handlers.
  */
 
+import { useAudio } from '@tearleads/audio';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAudio } from '@/audio';
 import type { ActionType } from '@/components/ui/ActionToolbar';
 import { getDatabase } from '@/db';
 import { files } from '@/db/schema';

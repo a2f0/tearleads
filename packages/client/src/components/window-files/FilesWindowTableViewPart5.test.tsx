@@ -44,7 +44,7 @@ const mockAudioState = {
   isPlaying: false
 };
 
-vi.mock('@/audio', () => ({
+vi.mock('@tearleads/audio', () => ({
   useAudio: () => ({
     currentTrack: mockAudioState.currentTrack,
     isPlaying: mockAudioState.isPlaying,
