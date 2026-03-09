@@ -1,5 +1,6 @@
 export { DefaultInlineUnlock } from './DefaultInlineUnlock';
 export {
+  type HealthDatabaseState,
   type HealthRuntimeContextValue,
   HealthRuntimeProvider,
   type HealthRuntimeProviderProps,
