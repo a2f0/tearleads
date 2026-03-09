@@ -30,6 +30,8 @@ const mockChrome = {
 vi.stubGlobal('chrome', mockChrome);
 globalThis.__tearleadsPopupInitialized = undefined;
 
+let popupModulePromise: Promise<typeof import('./index')> | undefined;
+
 function setupDOM() {
   document.body.innerHTML = `
     <div id="page-title">Loading...</div>
@@ -39,12 +41,11 @@ function setupDOM() {
   `;
 }
 
-function triggerDOMContentLoaded() {
-  const event = new Event('DOMContentLoaded', {
-    bubbles: true,
-    cancelable: true
-  });
-  document.dispatchEvent(event);
+async function initializePopupScript() {
+  popupModulePromise ??= import('./index');
+  const module = await popupModulePromise;
+  vi.clearAllMocks();
+  module.initializePopup();
 }
 
 async function flushAsyncWork() {
@@ -73,8 +74,8 @@ function defaultRuntimeMessageMock() {
 
 describe('popup script - tab info', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
     vi.useRealTimers();
     runtimeLastErrorMessage = undefined;
     setupDOM();
@@ -90,8 +91,7 @@ describe('popup script - tab info', () => {
   it('should request tab info on DOMContentLoaded', async () => {
     defaultRuntimeMessageMock();
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     expect(mockRuntimeSendMessage).toHaveBeenCalledWith(
@@ -103,8 +103,7 @@ describe('popup script - tab info', () => {
   it('should display tab info in DOM elements', async () => {
     defaultRuntimeMessageMock();
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     expect(document.getElementById('page-title')?.textContent).toBe(
@@ -127,8 +126,7 @@ describe('popup script - tab info', () => {
       runtimeLastErrorMessage = undefined;
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     expect(document.getElementById('page-title')?.textContent).toBe('Unknown');
@@ -145,8 +143,7 @@ describe('popup script - tab info', () => {
       callback(undefined);
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     expect(document.getElementById('page-title')?.textContent).toBe('Unknown');
@@ -163,8 +160,7 @@ describe('popup script - tab info', () => {
       callback(undefined);
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     expect(document.getElementById('page-title')?.textContent).toBe('Unknown');

@@ -13,10 +13,19 @@ const mockChrome = {
 
 vi.stubGlobal('chrome', mockChrome);
 
+let contentModulePromise: Promise<typeof import('./index')> | undefined;
+
+async function loadContentScriptModule() {
+  contentModulePromise ??= import('./index');
+  const module = await contentModulePromise;
+  vi.clearAllMocks();
+  return module;
+}
+
 describe('content script', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
     globalThis.__tearleadsContentScriptInitialized = undefined;
   });
 
@@ -26,7 +35,9 @@ describe('content script', () => {
   });
 
   it('should register onMessage listener when not initialized', async () => {
-    await import('./index');
+    const module = await loadContentScriptModule();
+    globalThis.__tearleadsContentScriptInitialized = undefined;
+    module.initializeContentScript();
 
     expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
     expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
@@ -35,15 +46,17 @@ describe('content script', () => {
   });
 
   it('should not register listener when content script is already initialized', async () => {
+    const module = await loadContentScriptModule();
     globalThis.__tearleadsContentScriptInitialized = true;
-
-    await import('./index');
+    module.initializeContentScript();
 
     expect(mockChrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
   });
 
   it('should respond to PING message with ok status', async () => {
-    await import('./index');
+    const module = await loadContentScriptModule();
+    globalThis.__tearleadsContentScriptInitialized = undefined;
+    module.initializeContentScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -62,7 +75,9 @@ describe('content script', () => {
   });
 
   it('should not respond to unknown message types', async () => {
-    await import('./index');
+    const module = await loadContentScriptModule();
+    globalThis.__tearleadsContentScriptInitialized = undefined;
+    module.initializeContentScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -81,7 +96,9 @@ describe('content script', () => {
   });
 
   it('should not respond to malformed messages', async () => {
-    await import('./index');
+    const module = await loadContentScriptModule();
+    globalThis.__tearleadsContentScriptInitialized = undefined;
+    module.initializeContentScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
