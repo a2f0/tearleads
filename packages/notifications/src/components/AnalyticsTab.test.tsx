@@ -173,7 +173,7 @@ describe('AnalyticsTab', () => {
     await flushPromises();
   });
 
-  it('shows loading spinner during refresh when events already exist', async () => {
+  it('shows loading spinner and blocks repeated refresh while loading', async () => {
     const refreshDeferred = createDeferred<typeof mockEvents>();
 
     mockUseDatabaseContext.mockReturnValue({ isUnlocked: true });
