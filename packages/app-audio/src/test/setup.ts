@@ -1,7 +1,14 @@
 import '@testing-library/jest-dom/vitest';
+import {
+  formatConsoleArg,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
+
+const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
+const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
 
 // Mock react-i18next to return translation keys with interpolated values
 vi.mock('react-i18next', () => ({
@@ -75,8 +82,64 @@ vi.mock('react-i18next', () => ({
   })
 }));
 
-failOnConsole();
+if (!isBunRuntime) {
+  failOnConsole();
+} else {
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  let consoleMessages: string[] = [];
+
+  beforeEach(() => {
+    consoleMessages = [];
+    console.error = (...args: unknown[]) => {
+      consoleMessages.push(`error: ${args.map(formatConsoleArg).join(' ')}`);
+      originalConsoleError(...args);
+    };
+    console.warn = (...args: unknown[]) => {
+      consoleMessages.push(`warn: ${args.map(formatConsoleArg).join(' ')}`);
+      originalConsoleWarn(...args);
+    };
+  });
+
+  afterEach(() => {
+    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
+
+    if (consoleMessages.length > 0) {
+      throw new Error(
+        `Unexpected console output:\n${consoleMessages.join('\n')}`
+      );
+    }
+  });
+}
+
+const htmlAudioElementCtor = Reflect.get(window, 'HTMLAudioElement');
+if (
+  typeof htmlAudioElementCtor === 'function' &&
+  typeof Reflect.get(globalThis, 'HTMLAudioElement') === 'undefined'
+) {
+  Object.defineProperty(globalThis, 'HTMLAudioElement', {
+    configurable: true,
+    writable: true,
+    value: htmlAudioElementCtor
+  });
+}
+
+const htmlMediaElementCtor = Reflect.get(window, 'HTMLMediaElement');
+if (
+  typeof htmlMediaElementCtor === 'function' &&
+  typeof Reflect.get(globalThis, 'HTMLMediaElement') === 'undefined'
+) {
+  Object.defineProperty(globalThis, 'HTMLMediaElement', {
+    configurable: true,
+    writable: true,
+    value: htmlMediaElementCtor
+  });
+}
 
 afterEach(() => {
+  if (hasCustomStubber) {
+    unstubAllGlobals();
+  }
   cleanup();
 });

@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError, mockConsoleWarn } from '../test/consoleMocks';
+import {
+  resetAudioAnalyserStateForTests,
+  useAudioAnalyser
+} from './useAudioAnalyser';
 
 // Mock Web Audio API
 const mockAnalyser = {
@@ -20,7 +24,6 @@ const mockSource = {
 };
 
 let mockAudioContext: MockAudioContext | null = null;
-let useAudioAnalyser: typeof import('./useAudioAnalyser').useAudioAnalyser;
 
 class MockAudioContext {
   state: AudioContextState = 'running';
@@ -41,10 +44,10 @@ const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
 
 describe('useAudioAnalyser', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    vi.resetModules();
+    resetAudioAnalyserStateForTests();
 
     // Mock AudioContext constructor
     vi.stubGlobal('AudioContext', MockAudioContext);
@@ -58,8 +61,6 @@ describe('useAudioAnalyser', () => {
     if (mockAudioContext) {
       mockAudioContext.state = 'running';
     }
-
-    ({ useAudioAnalyser } = await import('./useAudioAnalyser'));
   });
 
   afterEach(() => {
@@ -191,7 +192,7 @@ describe('useAudioAnalyser', () => {
     frameSpy.mockRestore();
   });
 
-  it('logs initialization errors', async () => {
+  it('logs initialization errors', () => {
     const consoleSpy = mockConsoleError();
 
     class ThrowingAudioContext {
@@ -201,8 +202,6 @@ describe('useAudioAnalyser', () => {
     }
 
     vi.stubGlobal('AudioContext', ThrowingAudioContext);
-    vi.resetModules();
-    ({ useAudioAnalyser } = await import('./useAudioAnalyser'));
     const audioElementRef = { current: document.createElement('audio') };
 
     renderHook(() => useAudioAnalyser(audioElementRef, true, 12));

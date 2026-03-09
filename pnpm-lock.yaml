@@ -512,6 +512,9 @@ importers:
       '@tearleads/app-builder':
         specifier: workspace:*
         version: link:../app-builder
+      '@tearleads/bun-dom-compat':
+        specifier: workspace:*
+        version: link:../bun-dom-compat
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui

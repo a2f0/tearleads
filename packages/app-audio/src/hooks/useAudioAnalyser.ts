@@ -126,3 +126,10 @@ export function useAudioAnalyser(
 
   return frequencyData;
 }
+
+export function resetAudioAnalyserStateForTests(): void {
+  globalState.audioContext = null;
+  globalState.analyser = null;
+  globalState.source = null;
+  globalState.connectedElement = null;
+}
