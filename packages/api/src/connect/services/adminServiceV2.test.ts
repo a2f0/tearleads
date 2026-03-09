@@ -162,14 +162,17 @@ describe('adminConnectServiceV2', () => {
     expect(response.tables[0]?.indexBytes).toBe(14n);
   });
 
-  it('normalizes redis string values into oneof wire shape', async () => {
+  it('returns typed redis string values directly', async () => {
     mocks.getRedisValueDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        key: 'feature_flag',
-        type: 'string',
-        ttl: 7,
-        value: 'enabled'
-      })
+      key: 'feature_flag',
+      type: 'string',
+      ttl: 7n,
+      value: {
+        value: {
+          case: 'stringValue',
+          value: 'enabled'
+        }
+      }
     });
 
     const response = await adminConnectServiceV2.getRedisValue(
@@ -177,6 +180,8 @@ describe('adminConnectServiceV2', () => {
       context
     );
 
+    expect(response.key).toBe('feature_flag');
+    expect(response.type).toBe('string');
     expect(response.ttl).toBe(7n);
     expect(response.value?.value.case).toBe('stringValue');
     if (response.value?.value.case === 'stringValue') {

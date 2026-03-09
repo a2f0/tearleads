@@ -1,9 +1,21 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
-  RedisKeyInfo,
-  RedisKeysResponse,
-  RedisKeyValueResponse
-} from '@tearleads/shared';
+  AdminDeleteRedisKeyResponse,
+  AdminGetRedisDbSizeResponse,
+  AdminGetRedisKeysResponse,
+  AdminGetRedisValueResponse,
+  AdminRedisKeyInfo,
+  AdminRedisValue
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminDeleteRedisKeyResponseSchema,
+  AdminGetRedisDbSizeResponseSchema,
+  AdminGetRedisKeysResponseSchema,
+  AdminGetRedisValueResponseSchema,
+  AdminRedisKeyInfoSchema,
+  AdminRedisValueSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getRedisClient } from '@tearleads/shared/redis';
 import { requireAdminSession } from './adminDirectAuth.js';
 
@@ -21,10 +33,61 @@ function normalizeLimit(limit: number): number {
   return Math.min(Math.floor(limit), 100);
 }
 
+function toInt64Value(value: number): bigint {
+  if (!Number.isFinite(value)) {
+    return 0n;
+  }
+  return BigInt(Math.trunc(value));
+}
+
+function toUint64Value(value: number): bigint {
+  if (!Number.isFinite(value) || value < 0) {
+    return 0n;
+  }
+  return BigInt(Math.trunc(value));
+}
+
+function toRedisValue(
+  value: string | string[] | Record<string, string> | null
+): AdminRedisValue | undefined {
+  if (typeof value === 'string') {
+    return create(AdminRedisValueSchema, {
+      value: {
+        case: 'stringValue',
+        value
+      }
+    });
+  }
+
+  if (Array.isArray(value)) {
+    return create(AdminRedisValueSchema, {
+      value: {
+        case: 'listValue',
+        value: {
+          values: value
+        }
+      }
+    });
+  }
+
+  if (value !== null) {
+    return create(AdminRedisValueSchema, {
+      value: {
+        case: 'mapValue',
+        value: {
+          entries: value
+        }
+      }
+    });
+  }
+
+  return undefined;
+}
+
 export async function getRedisKeysDirect(
   request: GetRedisKeysRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetRedisKeysResponse> {
   await requireAdminSession('/admin/redis/keys', context.requestHeader);
 
   try {
@@ -34,7 +97,7 @@ export async function getRedisKeysDirect(
       COUNT: normalizeLimit(request.limit)
     });
 
-    const keyInfos: RedisKeyInfo[] = [];
+    const keyInfos: AdminRedisKeyInfo[] = [];
     if (result.keys.length > 0) {
       const pipeline = client.multi();
       for (const key of result.keys) {
@@ -48,20 +111,21 @@ export async function getRedisKeysDirect(
         if (key === undefined) {
           continue;
         }
-        keyInfos.push({
-          key,
-          type: String(pipelineResults[index * 2] ?? 'unknown'),
-          ttl: Number(pipelineResults[index * 2 + 1] ?? -1)
-        });
+        keyInfos.push(
+          create(AdminRedisKeyInfoSchema, {
+            key,
+            type: String(pipelineResults[index * 2] ?? 'unknown'),
+            ttl: toInt64Value(Number(pipelineResults[index * 2 + 1] ?? -1))
+          })
+        );
       }
     }
 
-    const response: RedisKeysResponse = {
+    return create(AdminGetRedisKeysResponseSchema, {
       keys: keyInfos,
       cursor: String(result.cursor),
       hasMore: String(result.cursor) !== '0'
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     console.error('Redis error:', error);
     throw new ConnectError('Failed to connect to Redis', Code.Internal);
@@ -71,7 +135,7 @@ export async function getRedisKeysDirect(
 export async function getRedisValueDirect(
   request: KeyRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetRedisValueResponse> {
   await requireAdminSession(
     `/admin/redis/keys/${encodeURIComponent(request.key)}`,
     context.requestHeader
@@ -95,13 +159,13 @@ export async function getRedisValueDirect(
       value = await client.hGetAll(request.key);
     }
 
-    const response: RedisKeyValueResponse = {
+    const redisValue = toRedisValue(value);
+    return create(AdminGetRedisValueResponseSchema, {
       key: request.key,
       type,
-      ttl,
-      value
-    };
-    return { json: JSON.stringify(response) };
+      ttl: toInt64Value(ttl),
+      ...(redisValue ? { value: redisValue } : {})
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -114,7 +178,7 @@ export async function getRedisValueDirect(
 export async function deleteRedisKeyDirect(
   request: KeyRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminDeleteRedisKeyResponse> {
   await requireAdminSession(
     `/admin/redis/keys/${encodeURIComponent(request.key)}`,
     context.requestHeader
@@ -123,11 +187,9 @@ export async function deleteRedisKeyDirect(
   try {
     const client = await getRedisClient();
     const deletedCount = await client.del(request.key);
-    return {
-      json: JSON.stringify({
-        deleted: deletedCount > 0
-      })
-    };
+    return create(AdminDeleteRedisKeyResponseSchema, {
+      deleted: deletedCount > 0
+    });
   } catch (error) {
     console.error('Redis error:', error);
     throw new ConnectError('Failed to connect to Redis', Code.Internal);
@@ -137,13 +199,15 @@ export async function deleteRedisKeyDirect(
 export async function getRedisDbSizeDirect(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetRedisDbSizeResponse> {
   await requireAdminSession('/admin/redis/dbsize', context.requestHeader);
 
   try {
     const client = await getRedisClient();
     const count = await client.dbSize();
-    return { json: JSON.stringify({ count }) };
+    return create(AdminGetRedisDbSizeResponseSchema, {
+      count: toUint64Value(count)
+    });
   } catch (error) {
     console.error('Redis error:', error);
     throw new ConnectError('Failed to connect to Redis', Code.Internal);

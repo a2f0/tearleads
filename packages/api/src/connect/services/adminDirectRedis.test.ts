@@ -30,18 +30,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectRedis', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -101,14 +89,12 @@ describe('adminDirectRedis', () => {
     expect(ttlMock).toHaveBeenCalledWith('key-1');
     expect(ttlMock).toHaveBeenCalledWith('key-2');
 
-    expect(parseJson(response.json)).toEqual({
-      keys: [
-        { key: 'key-1', type: 'string', ttl: 60 },
-        { key: 'key-2', type: 'set', ttl: -1 }
-      ],
-      cursor: '7',
-      hasMore: true
-    });
+    expect(response.keys).toMatchObject([
+      { key: 'key-1', type: 'string', ttl: 60n },
+      { key: 'key-2', type: 'set', ttl: -1n }
+    ]);
+    expect(response.cursor).toBe('7');
+    expect(response.hasMore).toBe(true);
   });
 
   it('handles empty key pages without pipeline execution', async () => {
@@ -132,11 +118,9 @@ describe('adminDirectRedis', () => {
     );
 
     expect(multiMock).not.toHaveBeenCalled();
-    expect(parseJson(response.json)).toEqual({
-      keys: [],
-      cursor: '0',
-      hasMore: false
-    });
+    expect(response.keys).toEqual([]);
+    expect(response.cursor).toBe('0');
+    expect(response.hasMore).toBe(false);
   });
 
   it('reads redis values by key type', async () => {
@@ -156,12 +140,13 @@ describe('adminDirectRedis', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseJson(stringResponse.json)).toEqual({
-      key: 'str-key',
-      type: 'string',
-      ttl: 5,
-      value: 'hello'
-    });
+    expect(stringResponse.key).toBe('str-key');
+    expect(stringResponse.type).toBe('string');
+    expect(stringResponse.ttl).toBe(5n);
+    expect(stringResponse.value?.value.case).toBe('stringValue');
+    if (stringResponse.value?.value.case === 'stringValue') {
+      expect(stringResponse.value.value.value).toBe('hello');
+    }
 
     getRedisClientMock.mockResolvedValueOnce({
       type: vi.fn().mockResolvedValue('set'),
@@ -179,12 +164,13 @@ describe('adminDirectRedis', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseJson(setResponse.json)).toEqual({
-      key: 'set-key',
-      type: 'set',
-      ttl: 10,
-      value: ['a', 'b']
-    });
+    expect(setResponse.key).toBe('set-key');
+    expect(setResponse.type).toBe('set');
+    expect(setResponse.ttl).toBe(10n);
+    expect(setResponse.value?.value.case).toBe('listValue');
+    if (setResponse.value?.value.case === 'listValue') {
+      expect(setResponse.value.value.value.values).toEqual(['a', 'b']);
+    }
 
     getRedisClientMock.mockResolvedValueOnce({
       type: vi.fn().mockResolvedValue('hash'),
@@ -202,14 +188,15 @@ describe('adminDirectRedis', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseJson(hashResponse.json)).toEqual({
-      key: 'hash-key',
-      type: 'hash',
-      ttl: 20,
-      value: {
+    expect(hashResponse.key).toBe('hash-key');
+    expect(hashResponse.type).toBe('hash');
+    expect(hashResponse.ttl).toBe(20n);
+    expect(hashResponse.value?.value.case).toBe('mapValue');
+    if (hashResponse.value?.value.case === 'mapValue') {
+      expect(hashResponse.value.value.value.entries).toEqual({
         field: 'value'
-      }
-    });
+      });
+    }
 
     getRedisClientMock.mockResolvedValueOnce({
       type: vi.fn().mockResolvedValue('zset'),
@@ -227,12 +214,10 @@ describe('adminDirectRedis', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseJson(unsupportedResponse.json)).toEqual({
-      key: 'zset-key',
-      type: 'zset',
-      ttl: -1,
-      value: null
-    });
+    expect(unsupportedResponse.key).toBe('zset-key');
+    expect(unsupportedResponse.type).toBe('zset');
+    expect(unsupportedResponse.ttl).toBe(-1n);
+    expect(unsupportedResponse.value?.value.case).toBeUndefined();
   });
 
   it('returns not found when redis key does not exist', async () => {
@@ -272,9 +257,7 @@ describe('adminDirectRedis', () => {
       }
     );
 
-    expect(parseJson(deleteResponse.json)).toEqual({
-      deleted: true
-    });
+    expect(deleteResponse.deleted).toBe(true);
 
     getRedisClientMock.mockResolvedValueOnce({
       dbSize: vi.fn().mockResolvedValue(123)
@@ -286,9 +269,7 @@ describe('adminDirectRedis', () => {
         requestHeader: new Headers()
       }
     );
-    expect(parseJson(sizeResponse.json)).toEqual({
-      count: 123
-    });
+    expect(sizeResponse.count).toBe(123n);
   });
 
   it('maps unexpected redis failures to internal errors', async () => {

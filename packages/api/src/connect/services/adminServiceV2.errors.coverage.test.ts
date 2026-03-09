@@ -95,14 +95,11 @@ describe('adminConnectServiceV2 error branches', () => {
     vi.clearAllMocks();
   });
 
-  it('drops unsupported redis value payloads instead of mapping them', async () => {
+  it('passes through redis responses with no populated oneof case', async () => {
     mocks.getRedisValueDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        key: 1,
-        type: false,
-        ttl: null,
-        value: [1]
-      })
+      key: 'zset-key',
+      type: 'zset',
+      ttl: -1n
     });
 
     const response = await adminConnectServiceV2.getRedisValue(
@@ -110,29 +107,16 @@ describe('adminConnectServiceV2 error branches', () => {
       context
     );
 
-    expect(response.key).toBe('');
-    expect(response.type).toBe('');
+    expect(response.key).toBe('zset-key');
+    expect(response.type).toBe('zset');
+    expect(response.ttl).toBe(-1n);
     expect(response.value?.value.case).toBeUndefined();
   });
 
-  it('throws internal error when redis response JSON is invalid', async () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    mocks.getRedisValueDirect.mockResolvedValueOnce({ json: '{' });
-
-    await expect(
-      adminConnectServiceV2.getRedisValue(
-        create(AdminGetRedisValueRequestSchema, { key: 'broken' }),
-        context
-      )
-    ).rejects.toMatchObject({ code: Code.Internal });
-
-    consoleError.mockRestore();
-  });
-
-  it('throws internal error when redis response JSON is not an object', async () => {
-    mocks.getRedisValueDirect.mockResolvedValueOnce({ json: '42' });
+  it('propagates redis handler errors without JSON decode wrapping', async () => {
+    mocks.getRedisValueDirect.mockRejectedValueOnce({
+      code: Code.Internal
+    });
 
     await expect(
       adminConnectServiceV2.getRedisValue(
