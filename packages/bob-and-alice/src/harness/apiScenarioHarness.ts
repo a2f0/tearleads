@@ -173,7 +173,7 @@ export class ApiScenarioHarness {
       const user = await seedTestUser(ctx, { admin: def.admin ?? false });
       const baseUrl = `http://localhost:${String(ctx.port)}`;
 
-      const actorFetch = (
+      const actorFetch = async (
         path: string,
         init?: RequestInit
       ): Promise<Response> => {
@@ -186,10 +186,31 @@ export class ApiScenarioHarness {
             connectInit.headers,
             user.organizationId
           );
-          return fetch(`${baseUrl}${connectMapping.path}`, {
+          const connectResponse = await fetch(`${baseUrl}${connectMapping.path}`, {
             ...connectInit,
             headers: connectHeaders
           }).then((response) => adaptConnectResponse(response, connectMapping));
+
+          const connectResponseBody = await connectResponse.clone().text();
+          if (
+            isRetryableWriteValidationError(
+              path,
+              init,
+              connectResponse.status,
+              connectResponseBody
+            )
+          ) {
+            return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
+              ...init,
+              headers: mergeHeaders(
+                user.accessToken,
+                init?.headers,
+                user.organizationId
+              )
+            });
+          }
+
+          return connectResponse;
         }
 
         return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
