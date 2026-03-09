@@ -47,6 +47,8 @@ if [ ! -f "$TARGET_ASSET" ] || [ -n "$(find "$SVG_SOURCE" -newer "$TARGET_ASSET"
   ./scripts/buildAndroidImageAssets.sh
 fi
 
+export VITE_API_URL="${VITE_API_URL:-http://localhost:3000/v1}"
+
 # Build web assets and sync to native project
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync android
 
