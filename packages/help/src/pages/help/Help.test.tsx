@@ -9,15 +9,6 @@ function Pathname() {
   return <div data-testid="pathname">{location.pathname}</div>;
 }
 
-function renderHelp() {
-  render(
-    <MemoryRouter initialEntries={['/help']}>
-      <Help />
-      <Pathname />
-    </MemoryRouter>
-  );
-}
-
 describe('Help', () => {
   const docCases = [
     { label: 'CLI Reference', path: '/help/docs/cli-reference' },
@@ -29,7 +20,12 @@ describe('Help', () => {
   ] as const;
 
   it('renders help page with top-level help options', () => {
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     expect(screen.getByText('API Docs')).toBeInTheDocument();
@@ -39,7 +35,12 @@ describe('Help', () => {
 
   it('navigates to /help/api when API Docs is clicked', async () => {
     const user = userEvent.setup();
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByText('API Docs'));
 
@@ -48,7 +49,12 @@ describe('Help', () => {
 
   it('navigates to help documentation pages', async () => {
     const user = userEvent.setup();
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByText('Developer'));
 
@@ -60,7 +66,12 @@ describe('Help', () => {
 
   it('shows developer docs and returns to top-level help', async () => {
     const user = userEvent.setup();
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByText('Developer'));
     expect(screen.getByText('CI')).toBeInTheDocument();
@@ -71,7 +82,12 @@ describe('Help', () => {
 
   it('navigates to legal documentation pages', async () => {
     const user = userEvent.setup();
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByText('Legal'));
 
@@ -88,7 +104,12 @@ describe('Help', () => {
 
   it('shows legal docs and returns to top-level help', async () => {
     const user = userEvent.setup();
-    renderHelp();
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <Help />
+        <Pathname />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByText('Legal'));
     expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
