@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-backups",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Backups page and window for Tearleads",
   "type": "module",
   "main": "dist/index.js",

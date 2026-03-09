@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-camera",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Camera capture components for Tearleads",
   "type": "module",
   "main": "dist/index.js",

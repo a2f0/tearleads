@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-terminal",
-  "version": "0.0.33",
+  "version": "0.0.34",
   "description": "Terminal UI components and command engine for Tearleads",
   "type": "module",
   "main": "dist/index.js",
