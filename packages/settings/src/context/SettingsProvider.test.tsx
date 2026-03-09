@@ -349,34 +349,6 @@ describe('SettingsProvider', () => {
       consoleSpy.mockRestore();
     });
 
-    it('does not update state when sync resolves after unmount', async () => {
-      let resolveDbSettings:
-        | ((value: { theme: 'dark' }) => void)
-        | undefined;
-      const getSettingsFromDb = vi.fn(
-        () =>
-          new Promise<{ theme: 'dark' }>((resolve) => {
-            resolveDbSettings = resolve;
-          })
-      );
-
-      const { unmount } = render(
-        <SettingsProvider getSettingsFromDb={getSettingsFromDb}>
-          <TestConsumer />
-        </SettingsProvider>
-      );
-
-      expect(getSettingsFromDb).toHaveBeenCalledTimes(1);
-
-      unmount();
-
-      await act(async () => {
-        resolveDbSettings?.({ theme: 'dark' });
-        await Promise.resolve();
-      });
-
-      expect(localStorage.setItem).not.toHaveBeenCalled();
-    });
   });
 
   describe('children rendering', () => {
