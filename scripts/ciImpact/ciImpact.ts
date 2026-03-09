@@ -270,7 +270,7 @@ function main(): void {
   const head = args.head || 'HEAD';
 
   const config = readConfig(CONFIG_PATH);
-  const { lookup: { byName, byDir }, reverseGraph } = loadWorkspaceGraph();
+  const { lookup: { byDir }, reverseGraph } = loadWorkspaceGraph();
   const diffResult = detectChangedFiles(base, head, args.files);
   const changedFiles = diffResult.changedFiles;
 
