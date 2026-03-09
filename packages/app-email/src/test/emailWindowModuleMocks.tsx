@@ -1,6 +1,6 @@
+import * as windowManagerModule from '@tearleads/window-manager';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { vi } from 'vitest';
-import * as windowManagerModule from '@tearleads/window-manager';
 import * as emailWindowMenuBarModule from '../components/EmailWindowMenuBar';
 
 export function installEmailWindowModuleMocks() {

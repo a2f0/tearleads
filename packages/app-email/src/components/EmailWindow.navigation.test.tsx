@@ -2,16 +2,16 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '../test/consoleMocks';
-import {
-  mockEmailLargeSize,
-  mockEmailSmallSize
-} from './emailWindowTestFixtures';
 import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
 import {
   defaultProps,
   renderLoadedWindow,
   renderWithProvider
 } from '../test/emailWindowTestUtils';
+import {
+  mockEmailLargeSize,
+  mockEmailSmallSize
+} from './emailWindowTestFixtures';
 
 describe('EmailWindow navigation', () => {
   beforeEach(() => {
@@ -69,7 +69,9 @@ describe('EmailWindow navigation', () => {
     });
     const consoleSpy = mockConsoleError();
     renderWithProvider();
-    expect(await screen.findByText(/Failed to fetch emails/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Failed to fetch emails/)
+    ).toBeInTheDocument();
     expect(consoleSpy).toHaveBeenCalledWith(
       'Failed to fetch emails:',
       expect.any(Error)
@@ -121,9 +123,15 @@ describe('EmailWindow navigation', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Subject' })
     ).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'From' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Size' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'From' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Date' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Size' })
+    ).toBeInTheDocument();
   });
 
   it('displays email data in table view', async () => {

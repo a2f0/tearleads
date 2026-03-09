@@ -2,13 +2,13 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailContactOperations } from '../context';
-import { mockFolderOperations } from './emailWindowTestFixtures';
 import { installEmailWindowModuleMocks } from '../test/emailWindowModuleMocks';
 import {
   defaultProps,
   renderLoadedWindow,
   renderWithProvider
 } from '../test/emailWindowTestUtils';
+import { mockFolderOperations } from './emailWindowTestFixtures';
 
 describe('EmailWindow compose and folders', () => {
   beforeEach(() => {
@@ -67,9 +67,7 @@ describe('EmailWindow compose and folders', () => {
     await user.click(screen.getByTestId('compose'));
     expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
     await user.click(screen.getByTestId('compose-close'));
-    expect(
-      screen.queryByTestId('compose-dialog')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('tab', { name: 'New Message' })
     ).not.toBeInTheDocument();
@@ -148,7 +146,9 @@ describe('EmailWindow compose and folders', () => {
     await user.click(screen.getByTestId('compose'));
     expect(screen.queryByTestId('address-book-picker')).not.toBeInTheDocument();
     await user.click(screen.getByTestId('compose-to-address-book'));
-    expect(await screen.findByTestId('address-book-picker')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('address-book-picker')
+    ).toBeInTheDocument();
     await user.click(
       screen.getByRole('button', { name: /add ada lovelace to to/i })
     );
