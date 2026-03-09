@@ -226,6 +226,78 @@ describe('adminDirectPostgres', () => {
     expect(response.offset).toBe(0);
   });
 
+  it('coerces row values into protobuf-safe JSON', async () => {
+    const timestamp = new Date('2024-01-02T03:04:05.000Z');
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ column_name: 'payload' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [{ count: 'not-a-number' }]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            payload: {
+              nullable: null,
+              boolValue: true,
+              finiteNumber: 1.5,
+              nonFiniteNumber: Number.POSITIVE_INFINITY,
+              bigValue: 42n,
+              dateValue: timestamp,
+              arrayValue: [1, null, Number.NEGATIVE_INFINITY, 7n, timestamp],
+              objectValue: {
+                nestedDate: timestamp,
+                nestedArray: [false]
+              }
+            }
+          },
+          'invalid-row-shape'
+        ]
+      });
+
+    const response = await getRowsDirect(
+      {
+        schema: 'public',
+        table: 'users',
+        limit: 10,
+        offset: 0,
+        sortColumn: 'not_a_column',
+        sortDirection: 'asc'
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    const rowQueryCall = queryMock.mock.calls[2];
+    if (!rowQueryCall) {
+      throw new Error('Expected row query call');
+    }
+
+    const [rowQuerySql] = rowQueryCall;
+    expect(rowQuerySql).not.toContain('ORDER BY');
+    expect(response.totalCount).toBe(0n);
+    expect(response.rows).toEqual([
+      {
+        payload: {
+          nullable: null,
+          boolValue: true,
+          finiteNumber: 1.5,
+          nonFiniteNumber: null,
+          bigValue: '42',
+          dateValue: '2024-01-02T03:04:05.000Z',
+          arrayValue: [1, null, null, '7', '2024-01-02T03:04:05.000Z'],
+          objectValue: {
+            nestedDate: '2024-01-02T03:04:05.000Z',
+            nestedArray: [false]
+          }
+        }
+      },
+      {}
+    ]);
+  });
+
   it('returns not found for row queries when table is missing', async () => {
     queryMock.mockResolvedValueOnce({
       rows: []
