@@ -101,6 +101,18 @@ function parseOptionalInt(value: string | null): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function buildCompatPayload(
+  jsonBody: Record<string, unknown>,
+  jsonBodyText: string,
+  extraFields: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    ...jsonBody,
+    ...extraFields,
+    json: jsonBodyText
+  };
+}
+
 function buildGetUsageBody(
   searchParams: URLSearchParams
 ): Record<string, unknown> {
@@ -204,7 +216,7 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/keys' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/SetupKeys`,
-      body: { json: jsonBodyText },
+      body: buildCompatPayload(jsonBody, jsonBodyText),
       unwrapJsonEnvelope: true,
       successStatus: 201
     };
@@ -219,7 +231,7 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/register' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/Register`,
-      body: { json: jsonBodyText },
+      body: buildCompatPayload(jsonBody, jsonBodyText),
       unwrapJsonEnvelope: true
     };
   }
@@ -334,10 +346,9 @@ export function mapLegacyPathToConnect(
   if (rekeyMatch && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/RekeyItem`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(rekeyMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(rekeyMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -347,16 +358,16 @@ export function mapLegacyPathToConnect(
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/GetItemShares`,
       body: { itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1)) },
-      unwrapJsonEnvelope: true
+      unwrapJsonEnvelope: true,
+      legacyDefaults: { shares: [], orgShares: [] }
     };
   }
   if (itemSharesMatch && method === 'POST') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/CreateShare`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -365,10 +376,9 @@ export function mapLegacyPathToConnect(
   if (shareMatch && method === 'PATCH') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/UpdateShare`,
-      body: {
-        shareId: encodedSegment(requiredMatchGroup(shareMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        shareId: encodedSegment(requiredMatchGroup(shareMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -384,10 +394,9 @@ export function mapLegacyPathToConnect(
   if (orgSharesMatch && method === 'POST') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/CreateOrgShare`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(orgSharesMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(orgSharesMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
