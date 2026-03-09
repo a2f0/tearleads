@@ -92,7 +92,10 @@ export function encodeProtoBytes(value: Uint8Array): string {
   return Buffer.from(value).toString('base64');
 }
 
-function decodeBase64ToProtoBytes(value: string, fieldName: string): Uint8Array {
+function decodeBase64ToProtoBytes(
+  value: string,
+  fieldName: string
+): Uint8Array {
   const normalized = value.replace(/\s+/gu, '');
   if (normalized.length === 0) {
     throw new Error(`${fieldName} must be non-empty base64`);
