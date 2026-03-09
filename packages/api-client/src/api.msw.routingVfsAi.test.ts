@@ -3,9 +3,8 @@ import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_CONNECT_RECORD_USAGE_PATH,
-  AI_CONNECT_USAGE_PATH,
-  AI_CONNECT_USAGE_SUMMARY_PATH,
-  installAiUsageConnectSingleCapture
+  AI_V2_CONNECT_USAGE_PATH,
+  AI_V2_CONNECT_USAGE_SUMMARY_PATH
 } from './test/aiConnectTestUtils';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from './test/testContext';
@@ -239,43 +238,57 @@ describe('api with msw', () => {
     ).toBe(true);
   });
   it('routes ai usage requests through msw', async () => {
+    const ctx = getSharedTestContext();
+    await ctx.pool.query(
+      `INSERT INTO ai_usage (
+         id,
+         conversation_id,
+         message_id,
+         user_id,
+         organization_id,
+         model_id,
+         prompt_tokens,
+         completion_tokens,
+         total_tokens,
+         openrouter_request_id,
+         created_at
+       ) VALUES
+         ('usage-jan-1', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
+         ('usage-jan-2', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
+      [seededUser.userId, seededUser.organizationId]
+    );
+
     const api = await loadApi();
-    const capture = installAiUsageConnectSingleCapture(seededUser.userId);
-    await api.ai.recordUsage({
+    const recordResponse = await api.ai.recordUsage({
       modelId: 'mistralai/mistral-7b-instruct',
       promptTokens: 10,
       completionTokens: 5,
       totalTokens: 15
     });
-    await api.ai.getUsage({
+    const usageResponse = await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
       cursor: '2025-01-01T00:00:00.000Z',
-      limit: 10
+      limit: 1
     });
-    await api.ai.getUsageSummary({
+    const summaryResponse = await api.ai.getUsageSummary({
       startDate: '2024-01-01',
       endDate: '2024-01-31'
     });
+
     expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(true);
-    expect(capture.recordUsageRequestBody).toEqual({
-      modelId: 'mistralai/mistral-7b-instruct',
-      promptTokens: 10,
-      completionTokens: 5,
-      totalTokens: 15
-    });
-    expect(capture.getUsageRequestBody).toEqual({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: '2025-01-01T00:00:00.000Z',
-      limit: 10
-    });
-    expect(capture.getUsageSummaryRequestBody).toEqual({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31'
-    });
+    expect(wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_PATH)).toBe(true);
+    expect(
+      wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_SUMMARY_PATH)
+    ).toBe(true);
+    expect(recordResponse.usage.userId).toBe(seededUser.userId);
+    expect(usageResponse.usage).toHaveLength(1);
+    expect(usageResponse.hasMore).toBe(true);
+    expect(usageResponse.summary.totalTokens).toBe(25);
+    expect(summaryResponse.summary.totalTokens).toBe(25);
+    expect(
+      summaryResponse.byModel['mistralai/mistral-7b-instruct']?.totalTokens
+    ).toBe(15);
   });
   it('routes mls requests through msw', async () => {
     const ctx = getSharedTestContext();

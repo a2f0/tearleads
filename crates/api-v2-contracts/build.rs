@@ -6,6 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     let proto_root = manifest_dir.join("../../proto");
     let protos = [
+        proto_root.join("tearleads/v2/ai.proto"),
         proto_root.join("tearleads/v2/admin.proto"),
         proto_root.join("tearleads/v2/mls.proto"),
         proto_root.join("tearleads/v2/vfs.proto"),

@@ -60,11 +60,16 @@ import {
   type AdminUpdateUserResponse,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  type AiGetUsageResponse,
+  AiGetUsageResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/ai_pb';
+import { mapAiGetUsageResponse } from './aiUsageApiMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
 const ADMIN_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AdminService';
-const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
+const AI_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AiService';
 
 interface RequestParams {
   fetchOptions?: RequestInit;
@@ -189,12 +194,21 @@ function requestAdminV2Proto<Desc extends DescMessage>(
   });
 }
 
-function requestAi<T>(
+function requestAiV2Proto(
   methodName: string,
   requestBody: Record<string, unknown>
-): Promise<T> {
-  return request<T>(`${AI_CONNECT_BASE_PATH}/${methodName}`, {
+): Promise<AiGetUsageResponse> {
+  return request<JsonValue>(`${AI_V2_CONNECT_BASE_PATH}/${methodName}`, {
     fetchOptions: createConnectJsonPostInit(requestBody)
+  }).then((responseBody) => {
+    try {
+      return fromJson(AiGetUsageResponseSchema, responseBody ?? {}, {
+        ignoreUnknownFields: true
+      });
+    } catch (error) {
+      console.error('Failed to decode ai v2 response', error);
+      throw new Error('Invalid ai response');
+    }
   });
 }
 
@@ -455,6 +469,6 @@ export const api = {
       endDate?: string;
       cursor?: string;
       limit?: number;
-    }) => requestAi<AiUsageListResponse>('GetUsage', options ?? {})
+    }) => requestAiV2Proto('GetUsage', options ?? {}).then(mapAiGetUsageResponse)
   }
 };

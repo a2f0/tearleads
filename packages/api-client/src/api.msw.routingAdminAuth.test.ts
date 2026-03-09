@@ -140,7 +140,7 @@ describe('api with msw', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/v1/connect/tearleads.v1.AiService/GetUsageSummary'
+        '/v1/connect/tearleads.v2.AiService/GetUsageSummary'
       )
     ).toBe(true);
   });

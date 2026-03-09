@@ -1,9 +1,6 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
-  HttpResponse,
-  http,
-  server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,20 +49,9 @@ const getRequestsFor = (
 
 const AI_CONNECT_RECORD_USAGE_PATH =
   '/connect/tearleads.v1.AiService/RecordUsage';
-const AI_CONNECT_USAGE_PATH = '/connect/tearleads.v1.AiService/GetUsage';
-const AI_CONNECT_USAGE_SUMMARY_PATH =
-  '/connect/tearleads.v1.AiService/GetUsageSummary';
-const CONNECT_BASE_URL = 'http://localhost';
-const DEFAULT_USAGE_SUMMARY = {
-  totalPromptTokens: 0,
-  totalCompletionTokens: 0,
-  totalTokens: 0,
-  requestCount: 0,
-  periodStart: '2024-01-01T00:00:00.000Z',
-  periodEnd: '2024-01-01T00:00:00.000Z'
-};
-
-const toConnectUrl = (path: string): string => `${CONNECT_BASE_URL}${path}`;
+const AI_V2_CONNECT_USAGE_PATH = '/connect/tearleads.v2.AiService/GetUsage';
+const AI_V2_CONNECT_USAGE_SUMMARY_PATH =
+  '/connect/tearleads.v2.AiService/GetUsageSummary';
 
 let seededUser: SeededUser;
 
@@ -94,9 +80,6 @@ describe('api with msw', () => {
 
   it('routes vfs and ai requests through msw', async () => {
     const ctx = getSharedTestContext();
-    let recordUsageRequestBody: unknown;
-    let getUsageRequestBody: unknown;
-    let getUsageSummaryRequestBody: unknown;
 
     // Create second user in a shared org for share operations
     const secondUser = await seedTestUser(ctx);
@@ -121,44 +104,6 @@ describe('api with msw', () => {
     );
 
     const api = await loadApi();
-
-    server.use(
-      http.post(
-        toConnectUrl(AI_CONNECT_RECORD_USAGE_PATH),
-        async ({ request }) => {
-          recordUsageRequestBody = await request.json();
-          return HttpResponse.json({
-            usage: {
-              id: 'usage-1',
-              userId: seededUser.userId,
-              modelId: 'mistralai/mistral-7b-instruct',
-              promptTokens: 10,
-              completionTokens: 5,
-              totalTokens: 15,
-              createdAt: '2024-01-01T00:00:00.000Z'
-            }
-          });
-        }
-      ),
-      http.post(toConnectUrl(AI_CONNECT_USAGE_PATH), async ({ request }) => {
-        getUsageRequestBody = await request.json();
-        return HttpResponse.json({
-          usage: [],
-          summary: DEFAULT_USAGE_SUMMARY,
-          hasMore: false
-        });
-      }),
-      http.post(
-        toConnectUrl(AI_CONNECT_USAGE_SUMMARY_PATH),
-        async ({ request }) => {
-          getUsageSummaryRequestBody = await request.json();
-          return HttpResponse.json({
-            summary: DEFAULT_USAGE_SUMMARY,
-            byModel: {}
-          });
-        }
-      )
-    );
 
     // Setup keys first (real API returns 404 if keys don't exist)
     await api.vfs.setupKeys({
@@ -250,20 +195,39 @@ describe('api with msw', () => {
       })
     ).rejects.toThrow('Root item must be a container object type');
 
+    await ctx.pool.query(
+      `INSERT INTO ai_usage (
+         id,
+         conversation_id,
+         message_id,
+         user_id,
+         organization_id,
+         model_id,
+         prompt_tokens,
+         completion_tokens,
+         total_tokens,
+         openrouter_request_id,
+         created_at
+       ) VALUES
+         ('usage-jan-1', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
+         ('usage-jan-2', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
+      [seededUser.userId, seededUser.organizationId]
+    );
+
     // AI usage (no FK-violating conversationId/messageId)
-    await api.ai.recordUsage({
+    const recordResponse = await api.ai.recordUsage({
       modelId: 'mistralai/mistral-7b-instruct',
       promptTokens: 10,
       completionTokens: 5,
       totalTokens: 15
     });
-    await api.ai.getUsage({
+    const usageResponse = await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
       cursor: '2025-01-01T00:00:00.000Z',
-      limit: 10
+      limit: 1
     });
-    await api.ai.getUsageSummary({
+    const summaryResponse = await api.ai.getUsageSummary({
       startDate: '2024-01-01',
       endDate: '2024-01-31'
     });
@@ -330,24 +294,18 @@ describe('api with msw', () => {
     ).toBe(true);
 
     expect(wasApiRequestMade('POST', AI_CONNECT_RECORD_USAGE_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AI_CONNECT_USAGE_SUMMARY_PATH)).toBe(true);
-    expect(recordUsageRequestBody).toEqual({
-      modelId: 'mistralai/mistral-7b-instruct',
-      promptTokens: 10,
-      completionTokens: 5,
-      totalTokens: 15
-    });
-    expect(getUsageRequestBody).toEqual({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31',
-      cursor: '2025-01-01T00:00:00.000Z',
-      limit: 10
-    });
-    expect(getUsageSummaryRequestBody).toEqual({
-      startDate: '2024-01-01',
-      endDate: '2024-01-31'
-    });
+    expect(wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_PATH)).toBe(true);
+    expect(
+      wasApiRequestMade('POST', AI_V2_CONNECT_USAGE_SUMMARY_PATH)
+    ).toBe(true);
+    expect(recordResponse.usage.userId).toBe(seededUser.userId);
+    expect(usageResponse.usage).toHaveLength(1);
+    expect(usageResponse.hasMore).toBe(true);
+    expect(usageResponse.summary.totalTokens).toBe(25);
+    expect(summaryResponse.summary.totalTokens).toBe(25);
+    expect(
+      summaryResponse.byModel['mistralai/mistral-7b-instruct']?.totalTokens
+    ).toBe(15);
 
     const previewRequests = getRequestsFor(
       'POST',
@@ -357,30 +315,28 @@ describe('api with msw', () => {
   });
 
   it('builds query-string variants through msw request metadata', async () => {
-    const api = await loadApi();
-    const getUsageRequestBodies: unknown[] = [];
-    const getUsageSummaryRequestBodies: unknown[] = [];
-
-    server.use(
-      http.post(toConnectUrl(AI_CONNECT_USAGE_PATH), async ({ request }) => {
-        getUsageRequestBodies.push(await request.json());
-        return HttpResponse.json({
-          usage: [],
-          summary: DEFAULT_USAGE_SUMMARY,
-          hasMore: false
-        });
-      }),
-      http.post(
-        toConnectUrl(AI_CONNECT_USAGE_SUMMARY_PATH),
-        async ({ request }) => {
-          getUsageSummaryRequestBodies.push(await request.json());
-          return HttpResponse.json({
-            summary: DEFAULT_USAGE_SUMMARY,
-            byModel: {}
-          });
-        }
-      )
+    const ctx = getSharedTestContext();
+    await ctx.pool.query(
+      `INSERT INTO ai_usage (
+         id,
+         conversation_id,
+         message_id,
+         user_id,
+         organization_id,
+         model_id,
+         prompt_tokens,
+         completion_tokens,
+         total_tokens,
+         openrouter_request_id,
+         created_at
+       ) VALUES
+         ('usage-1', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 12, 8, 20, 'req-1', '2024-01-10T00:00:00.000Z'),
+         ('usage-2', NULL, NULL, $1, $2, 'openai/gpt-4o', 6, 4, 10, 'req-2', '2024-01-05T00:00:00.000Z'),
+         ('usage-3', NULL, NULL, $1, $2, 'openai/gpt-4.1', 7, 5, 12, 'req-3', '2024-02-10T00:00:00.000Z')`,
+      [seededUser.userId, seededUser.organizationId]
     );
+
+    const api = await loadApi();
 
     await api.adminV2.postgres.getRows('public', 'users', {
       limit: 10,
@@ -394,18 +350,24 @@ describe('api with msw', () => {
     await api.adminV2.redis.getKeys('5', 10);
     await api.adminV2.redis.getKeys();
 
-    await api.ai.getUsage({
+    const filteredUsage = await api.ai.getUsage({
       startDate: '2024-01-01',
       endDate: '2024-01-31',
       cursor: '2025-01-01T00:00:00.000Z',
       limit: 25
     });
-    await api.ai.getUsage();
-    await api.ai.getUsageSummary({
+    const allUsage = await api.ai.getUsage();
+    const filteredSummary = await api.ai.getUsageSummary({
       startDate: '2024-01-01',
       endDate: '2024-01-31'
     });
-    await api.ai.getUsageSummary();
+    const allSummary = await api.ai.getUsageSummary();
+
+    expect(filteredUsage.summary.totalTokens).toBe(30);
+    expect(allUsage.summary.totalTokens).toBe(42);
+    expect(filteredSummary.summary.totalTokens).toBe(30);
+    expect(filteredSummary.byModel['openai/gpt-4o-mini']?.totalTokens).toBe(20);
+    expect(allSummary.summary.totalTokens).toBe(42);
 
     const postgresRowsRequests = getRequestsFor(
       'POST',
@@ -413,30 +375,14 @@ describe('api with msw', () => {
     );
     expect(postgresRowsRequests).toHaveLength(4);
 
-    const aiUsageRequests = getRequestsFor('POST', AI_CONNECT_USAGE_PATH);
+    const aiUsageRequests = getRequestsFor('POST', AI_V2_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);
 
     const aiUsageSummaryRequests = getRequestsFor(
       'POST',
-      AI_CONNECT_USAGE_SUMMARY_PATH
+      AI_V2_CONNECT_USAGE_SUMMARY_PATH
     );
     expect(aiUsageSummaryRequests).toHaveLength(2);
-    expect(getUsageRequestBodies).toEqual([
-      {
-        startDate: '2024-01-01',
-        endDate: '2024-01-31',
-        cursor: '2025-01-01T00:00:00.000Z',
-        limit: 25
-      },
-      {}
-    ]);
-    expect(getUsageSummaryRequestBodies).toEqual([
-      {
-        startDate: '2024-01-01',
-        endDate: '2024-01-31'
-      },
-      {}
-    ]);
 
     const redisKeysRequests = getRequestsFor(
       'POST',
