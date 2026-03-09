@@ -1,23 +1,45 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindowList } from './VehiclesWindowList';
 
-const mockUseDatabaseContext = vi.fn();
-const mockListVehicles = vi.fn();
-const mockDeleteVehicle = vi.fn();
+const mockUseVehiclesRuntime = vi.fn();
 const mockUseVirtualizer = vi.fn();
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockUseDatabaseContext()
-}));
+let instanceChangeCallback:
+  | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
+  | null = null;
 
-vi.mock('@/db/vehicles', () => ({
-  listVehicles: () => mockListVehicles(),
-  deleteVehicle: (id: string) => mockDeleteVehicle(id)
-}));
+vi.mock('@tearleads/vehicles', async () => {
+  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
+    '@tearleads/vehicles'
+  );
+
+  return {
+    ...actual,
+    useVehiclesRuntime: () => mockUseVehiclesRuntime()
+  };
+});
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => mockUseVirtualizer()
+}));
+
+vi.mock('@/hooks/app', () => ({
+  useOnInstanceChange: (
+    callback: (
+      newInstanceId: string | null,
+      previousInstanceId: string | null
+    ) => void
+  ) => {
+    instanceChangeCallback = callback;
+  }
 }));
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
@@ -25,6 +47,64 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
     <div data-testid="inline-unlock">Unlock {description}</div>
   )
 }));
+
+interface VehiclesRuntimeState {
+  databaseState: {
+    isUnlocked: boolean;
+    isLoading: boolean;
+    currentInstanceId: string | null;
+  };
+  repository: VehicleRepository | null;
+}
+
+function createRepository(
+  overrides: Partial<VehicleRepository> = {}
+): VehicleRepository {
+  return {
+    getVehicleById: vi.fn(async () => null),
+    listVehicles: vi.fn(async () => []),
+    createVehicle: vi.fn(async () => null),
+    updateVehicle: vi.fn(async () => null),
+    deleteVehicle: vi.fn(async () => false),
+    ...overrides
+  };
+}
+
+function createRuntime(
+  overrides: Partial<VehiclesRuntimeState> = {}
+): VehiclesRuntimeState {
+  return {
+    databaseState: {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'instance-a',
+      ...overrides.databaseState
+    },
+    repository: overrides.repository ?? createRepository()
+  };
+}
+
+function createVehicle(overrides: Partial<VehicleRecord> = {}): VehicleRecord {
+  return {
+    id: 'vehicle-1',
+    make: 'Tesla',
+    model: 'Model Y',
+    year: 2024,
+    color: 'Midnight Silver',
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+    ...overrides
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
 
 describe('VehiclesWindowList', () => {
   const defaultProps = {
@@ -36,49 +116,65 @@ describe('VehiclesWindowList', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: true,
-      isLoading: false
-    });
+    instanceChangeCallback = null;
     mockUseVirtualizer.mockReturnValue({
       getVirtualItems: () => [{ index: 0, start: 0 }],
       getTotalSize: () => 56,
       measureElement: vi.fn()
     });
-    mockListVehicles.mockResolvedValue([
-      {
-        id: 'vehicle-1',
-        make: 'Tesla',
-        model: 'Model Y',
-        year: 2024,
-        color: 'Midnight Silver',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ]);
-    mockDeleteVehicle.mockResolvedValue(true);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [createVehicle()]),
+          deleteVehicle: vi.fn(async () => true)
+        })
+      })
+    );
   });
 
   it('renders loading state when database is loading', () => {
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: false,
-      isLoading: true
-    });
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        databaseState: {
+          isUnlocked: false,
+          isLoading: true,
+          currentInstanceId: null
+        }
+      })
+    );
+
     render(<VehiclesWindowList {...defaultProps} />);
+
     expect(screen.getByText('Loading database...')).toBeInTheDocument();
   });
 
   it('renders unlock prompt when database is locked', () => {
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: false,
-      isLoading: false
-    });
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        databaseState: {
+          isUnlocked: false,
+          isLoading: false,
+          currentInstanceId: null
+        },
+        repository: null
+      })
+    );
+
     render(<VehiclesWindowList {...defaultProps} />);
+
     expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
   });
 
-  it('renders empty state when no vehicles', async () => {
-    mockListVehicles.mockResolvedValue([]);
+  it('renders empty state when no vehicles exist', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [])
+        })
+      })
+    );
+
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -86,7 +182,7 @@ describe('VehiclesWindowList', () => {
     });
   });
 
-  it('renders vehicle list when data is available', async () => {
+  it('renders vehicle list data', async () => {
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -102,8 +198,37 @@ describe('VehiclesWindowList', () => {
     });
   });
 
-  it('calls onSelectVehicle when clicking a vehicle', async () => {
+  it('renders fallback year and color values when they are missing', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [
+            createVehicle({
+              year: null,
+              color: null
+            })
+          ])
+        })
+      })
+    );
+
+    render(<VehiclesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tesla Model Y')).toBeInTheDocument();
+      expect(screen.getByText('No color specified')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId('window-vehicles-search'), {
+      target: { value: 'Tesla' }
+    });
+
+    expect(screen.getByText('Tesla Model Y')).toBeInTheDocument();
+  });
+
+  it('calls onSelectVehicle when clicking a vehicle row', async () => {
     const onSelectVehicle = vi.fn();
+
     render(
       <VehiclesWindowList {...defaultProps} onSelectVehicle={onSelectVehicle} />
     );
@@ -119,6 +244,7 @@ describe('VehiclesWindowList', () => {
 
   it('calls onCreateVehicle when create button is clicked', async () => {
     const onCreateVehicle = vi.fn();
+
     render(
       <VehiclesWindowList {...defaultProps} onCreateVehicle={onCreateVehicle} />
     );
@@ -134,7 +260,7 @@ describe('VehiclesWindowList', () => {
     expect(onCreateVehicle).toHaveBeenCalled();
   });
 
-  it('opens context menu on right-click', async () => {
+  it('opens a context menu on right click', async () => {
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -142,14 +268,17 @@ describe('VehiclesWindowList', () => {
     });
 
     const vehicleButton = screen.getByText('2024 Tesla Model Y').closest('div');
-    if (vehicleButton) fireEvent.contextMenu(vehicleButton);
+    if (vehicleButton) {
+      fireEvent.contextMenu(vehicleButton);
+    }
 
     expect(screen.getByTestId('context-menu-view')).toBeInTheDocument();
     expect(screen.getByTestId('context-menu-delete')).toBeInTheDocument();
   });
 
-  it('selects vehicle when View is clicked from context menu', async () => {
+  it('selects a vehicle from the context menu', async () => {
     const onSelectVehicle = vi.fn();
+
     render(
       <VehiclesWindowList {...defaultProps} onSelectVehicle={onSelectVehicle} />
     );
@@ -159,13 +288,27 @@ describe('VehiclesWindowList', () => {
     });
 
     const vehicleButton = screen.getByText('2024 Tesla Model Y').closest('div');
-    if (vehicleButton) fireEvent.contextMenu(vehicleButton);
+    if (vehicleButton) {
+      fireEvent.contextMenu(vehicleButton);
+    }
+
     fireEvent.click(screen.getByTestId('context-menu-view'));
 
     expect(onSelectVehicle).toHaveBeenCalledWith('vehicle-1');
   });
 
-  it('deletes vehicle when Delete is clicked from context menu', async () => {
+  it('deletes a vehicle from the context menu', async () => {
+    const deleteVehicle = vi.fn(async () => true);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [createVehicle()]),
+          deleteVehicle
+        })
+      })
+    );
+
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -173,36 +316,18 @@ describe('VehiclesWindowList', () => {
     });
 
     const vehicleButton = screen.getByText('2024 Tesla Model Y').closest('div');
-    if (vehicleButton) fireEvent.contextMenu(vehicleButton);
+    if (vehicleButton) {
+      fireEvent.contextMenu(vehicleButton);
+    }
+
     fireEvent.click(screen.getByTestId('context-menu-delete'));
 
     await waitFor(() => {
-      expect(mockDeleteVehicle).toHaveBeenCalledWith('vehicle-1');
+      expect(deleteVehicle).toHaveBeenCalledWith('vehicle-1');
     });
   });
 
-  it('filters vehicles by search query', async () => {
-    mockListVehicles.mockResolvedValue([
-      {
-        id: 'vehicle-1',
-        make: 'Tesla',
-        model: 'Model Y',
-        year: 2024,
-        color: 'Silver',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: 'vehicle-2',
-        make: 'Ford',
-        model: 'F-150',
-        year: 2023,
-        color: 'Blue',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ]);
-
+  it('filters vehicles by the search query', async () => {
     mockUseVirtualizer.mockReturnValue({
       getVirtualItems: () => [
         { index: 0, start: 0 },
@@ -211,6 +336,23 @@ describe('VehiclesWindowList', () => {
       getTotalSize: () => 112,
       measureElement: vi.fn()
     });
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [
+            createVehicle({ color: 'Silver' }),
+            createVehicle({
+              id: 'vehicle-2',
+              make: 'Ford',
+              model: 'F-150',
+              year: 2023,
+              color: 'Blue'
+            })
+          ])
+        })
+      })
+    );
 
     render(<VehiclesWindowList {...defaultProps} />);
 
@@ -224,7 +366,7 @@ describe('VehiclesWindowList', () => {
     expect(searchInput).toHaveValue('Tesla');
   });
 
-  it('focuses search input on render', async () => {
+  it('focuses the search input on render', async () => {
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -234,8 +376,15 @@ describe('VehiclesWindowList', () => {
     });
   });
 
-  it('shows empty state context menu on right-click', async () => {
-    mockListVehicles.mockResolvedValue([]);
+  it('shows an empty-state context menu on right click', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [])
+        })
+      })
+    );
+
     render(<VehiclesWindowList {...defaultProps} />);
 
     await waitFor(() => {
@@ -243,14 +392,24 @@ describe('VehiclesWindowList', () => {
     });
 
     const emptyState = screen.getByText('No vehicles yet').closest('div');
-    if (emptyState) fireEvent.contextMenu(emptyState);
+    if (emptyState) {
+      fireEvent.contextMenu(emptyState);
+    }
 
     expect(screen.getByTestId('context-menu-new-vehicle')).toBeInTheDocument();
   });
 
-  it('calls onCreateVehicle from empty space context menu', async () => {
+  it('creates a vehicle from the empty-state context menu', async () => {
     const onCreateVehicle = vi.fn();
-    mockListVehicles.mockResolvedValue([]);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [])
+        })
+      })
+    );
+
     render(
       <VehiclesWindowList {...defaultProps} onCreateVehicle={onCreateVehicle} />
     );
@@ -260,9 +419,75 @@ describe('VehiclesWindowList', () => {
     });
 
     const emptyState = screen.getByText('No vehicles yet').closest('div');
-    if (emptyState) fireEvent.contextMenu(emptyState);
+    if (emptyState) {
+      fireEvent.contextMenu(emptyState);
+    }
+
     fireEvent.click(screen.getByTestId('context-menu-new-vehicle'));
 
     expect(onCreateVehicle).toHaveBeenCalled();
+  });
+
+  it('ignores stale list results after an instance switch', async () => {
+    const staleFetch = createDeferred<VehicleRecord[]>();
+    const activeFetch = createDeferred<VehicleRecord[]>();
+
+    const staleRepository = createRepository({
+      listVehicles: vi.fn(() => staleFetch.promise)
+    });
+    const activeRepository = createRepository({
+      listVehicles: vi.fn(() => activeFetch.promise)
+    });
+
+    let runtime = createRuntime({
+      databaseState: { currentInstanceId: 'instance-a' },
+      repository: staleRepository
+    });
+
+    mockUseVehiclesRuntime.mockImplementation(() => runtime);
+
+    const { rerender } = render(<VehiclesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(staleRepository.listVehicles).toHaveBeenCalledTimes(1);
+    });
+
+    runtime = createRuntime({
+      databaseState: { currentInstanceId: 'instance-b' },
+      repository: activeRepository
+    });
+
+    await act(async () => {
+      rerender(<VehiclesWindowList {...defaultProps} />);
+      instanceChangeCallback?.('instance-b', 'instance-a');
+    });
+
+    await waitFor(() => {
+      expect(activeRepository.listVehicles).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      staleFetch.resolve([createVehicle()]);
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('2024 Tesla Model Y')).not.toBeInTheDocument();
+
+    await act(async () => {
+      activeFetch.resolve([
+        createVehicle({
+          id: 'vehicle-2',
+          make: 'Ford',
+          model: 'F-150',
+          year: 2023,
+          color: 'Blue'
+        })
+      ]);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('2023 Ford F-150')).toBeInTheDocument();
+    });
   });
 });

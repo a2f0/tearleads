@@ -1,4 +1,7 @@
+// component-complexity: allow
+// The instance-switch regression fixes stay in this existing list view for #3044.
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVehiclesRuntime, type VehicleRecord } from '@tearleads/vehicles';
 import { CarFront, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -11,8 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { useDatabaseContext } from '@/db/hooks';
-import { deleteVehicle, listVehicles, type VehicleRecord } from '@/db/vehicles';
+import { useOnInstanceChange } from '@/hooks/app';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -29,7 +31,7 @@ export function VehiclesWindowList({
   refreshToken,
   onRefresh
 }: VehiclesWindowListProps) {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { databaseState, repository } = useVehiclesRuntime();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -46,30 +48,62 @@ export function VehiclesWindowList({
   } | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const currentInstanceIdRef = useRef(databaseState.currentInstanceId);
+
+  useEffect(() => {
+    currentInstanceIdRef.current = databaseState.currentInstanceId;
+  }, [databaseState.currentInstanceId]);
+
+  useOnInstanceChange(
+    useCallback(() => {
+      setVehicles([]);
+      setLoading(false);
+      setHasFetched(false);
+      setError(null);
+      setSearchQuery('');
+      setContextMenu(null);
+      setEmptySpaceContextMenu(null);
+    }, [])
+  );
 
   const fetchVehicles = useCallback(async () => {
-    if (!isUnlocked) return;
+    if (
+      !databaseState.isUnlocked ||
+      !repository ||
+      !databaseState.currentInstanceId
+    ) {
+      return;
+    }
 
+    const fetchInstanceId = databaseState.currentInstanceId;
     setLoading(true);
     setError(null);
     try {
-      const result = await listVehicles();
+      const result = await repository.listVehicles();
+      if (fetchInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       setVehicles(result);
       setHasFetched(true);
     } catch (err) {
+      if (fetchInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to load vehicles:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (fetchInstanceId === currentInstanceIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [isUnlocked]);
+  }, [databaseState.currentInstanceId, databaseState.isUnlocked, repository]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken triggers a re-fetch intentionally
   useEffect(() => {
-    if (isUnlocked) {
+    if (databaseState.isUnlocked && repository) {
       void fetchVehicles();
     }
-  }, [isUnlocked, fetchVehicles, refreshToken]);
+  }, [databaseState.isUnlocked, fetchVehicles, refreshToken, repository]);
 
   useEffect(() => {
     const focusTimer = window.setTimeout(() => {
@@ -136,18 +170,26 @@ export function VehiclesWindowList({
   }, [contextMenu, onSelectVehicle]);
 
   const handleDelete = useCallback(async () => {
-    if (!contextMenu) return;
+    if (!contextMenu || !repository) return;
 
+    const operationInstanceId = currentInstanceIdRef.current;
     try {
-      await deleteVehicle(contextMenu.vehicle.id);
+      await repository.deleteVehicle(contextMenu.vehicle.id);
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       setHasFetched(false);
       await fetchVehicles();
     } catch (err) {
-      console.error('Failed to delete vehicle:', err);
+      if (operationInstanceId === currentInstanceIdRef.current) {
+        console.error('Failed to delete vehicle:', err);
+      }
     } finally {
-      setContextMenu(null);
+      if (operationInstanceId === currentInstanceIdRef.current) {
+        setContextMenu(null);
+      }
     }
-  }, [contextMenu, fetchVehicles]);
+  }, [contextMenu, fetchVehicles, repository]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -209,13 +251,15 @@ export function VehiclesWindowList({
         </div>
       </div>
 
-      {isLoading && (
+      {databaseState.isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
           Loading database...
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="vehicles" />}
+      {!databaseState.isLoading && !databaseState.isUnlocked && (
+        <InlineUnlock description="vehicles" />
+      )}
 
       {error && (
         <div className="whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
@@ -223,7 +267,7 @@ export function VehiclesWindowList({
         </div>
       )}
 
-      {isUnlocked &&
+      {databaseState.isUnlocked &&
         !error &&
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">

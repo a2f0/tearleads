@@ -11,6 +11,7 @@ import type {
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions
 } from '@tearleads/shared';
+import type { VehiclesRuntimeProviderProps } from '@tearleads/vehicles';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
@@ -27,6 +28,9 @@ describe('host runtime contracts', () => {
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
     expectTypeOf<
       VideoPlaylistProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    expectTypeOf<
+      VehiclesRuntimeProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 

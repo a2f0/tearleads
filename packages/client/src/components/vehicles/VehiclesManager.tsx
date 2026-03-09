@@ -1,18 +1,20 @@
+// component-complexity: allow
+// The host-runtime migration stays localized here to avoid a larger UI split in #3044.
 import {
   normalizeVehicleProfile,
-  type VehicleRecord,
-  type VehicleRepository
+  useVehiclesRuntime,
+  type VehicleRecord
 } from '@tearleads/vehicles';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import { CarFront, Pencil, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { dbVehiclesRepository } from './vehiclesRepository';
+import { useOnInstanceChange } from '@/hooks/app';
 
 interface VehicleFormErrors {
   make?: string;
@@ -21,14 +23,9 @@ interface VehicleFormErrors {
   color?: string;
 }
 
-interface VehiclesManagerProps {
-  repository?: VehicleRepository;
-}
-
-export function VehiclesManager({
-  repository = dbVehiclesRepository
-}: VehiclesManagerProps = {}) {
+export function VehiclesManager() {
   const { t } = useTranslation('vehicles');
+  const { databaseState, repository } = useVehiclesRuntime();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,17 +40,11 @@ export function VehiclesManager({
 
   const [errors, setErrors] = useState<VehicleFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-
-  const refreshVehicles = useCallback(async () => {
-    setIsLoading(true);
-    const nextVehicles = await repository.listVehicles();
-    setVehicles(nextVehicles);
-    setIsLoading(false);
-  }, [repository]);
+  const currentInstanceIdRef = useRef(databaseState.currentInstanceId);
 
   useEffect(() => {
-    void refreshVehicles();
-  }, [refreshVehicles]);
+    currentInstanceIdRef.current = databaseState.currentInstanceId;
+  }, [databaseState.currentInstanceId]);
 
   const sortedVehicles = useMemo(
     () =>
@@ -86,6 +77,52 @@ export function VehiclesManager({
     setFormError(null);
   }, []);
 
+  useOnInstanceChange(
+    useCallback(() => {
+      setVehicles([]);
+      setIsLoading(false);
+      setIsSaving(false);
+      resetForm();
+    }, [resetForm])
+  );
+
+  const refreshVehicles = useCallback(async () => {
+    if (
+      !databaseState.isUnlocked ||
+      !repository ||
+      !databaseState.currentInstanceId
+    ) {
+      setVehicles([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchInstanceId = databaseState.currentInstanceId;
+    setIsLoading(true);
+
+    try {
+      const nextVehicles = await repository.listVehicles();
+      if (fetchInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
+      setVehicles(nextVehicles);
+    } finally {
+      if (fetchInstanceId === currentInstanceIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [databaseState.currentInstanceId, databaseState.isUnlocked, repository]);
+
+  useEffect(() => {
+    if (!databaseState.isUnlocked || !repository) {
+      setVehicles([]);
+      setIsLoading(false);
+      return;
+    }
+
+    void refreshVehicles();
+  }, [databaseState.isUnlocked, refreshVehicles, repository]);
+
   const setFormFromVehicle = useCallback((vehicle: VehicleRecord) => {
     setSelectedVehicleId(vehicle.id);
     setMake(vehicle.make);
@@ -99,6 +136,10 @@ export function VehiclesManager({
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+
+      if (!repository || !currentInstanceIdRef.current) {
+        return;
+      }
 
       const parsedYear = year.trim().length === 0 ? null : Number(year);
       const normalized = normalizeVehicleProfile({
@@ -132,20 +173,32 @@ export function VehiclesManager({
       setFormError(null);
       setIsSaving(true);
 
-      const savedVehicle =
-        selectedVehicleId === null
-          ? await repository.createVehicle(normalized.value)
-          : await repository.updateVehicle(selectedVehicleId, normalized.value);
+      const operationInstanceId = currentInstanceIdRef.current;
+      try {
+        const savedVehicle =
+          selectedVehicleId === null
+            ? await repository.createVehicle(normalized.value)
+            : await repository.updateVehicle(
+                selectedVehicleId,
+                normalized.value
+              );
 
-      setIsSaving(false);
+        if (operationInstanceId !== currentInstanceIdRef.current) {
+          return;
+        }
 
-      if (savedVehicle === null) {
-        setFormError(t('unableToSaveVehicle'));
-        return;
+        if (savedVehicle === null) {
+          setFormError(t('unableToSaveVehicle'));
+          return;
+        }
+
+        await refreshVehicles();
+        setFormFromVehicle(savedVehicle);
+      } finally {
+        if (operationInstanceId === currentInstanceIdRef.current) {
+          setIsSaving(false);
+        }
       }
-
-      await refreshVehicles();
-      setFormFromVehicle(savedVehicle);
     },
     [
       color,
@@ -162,7 +215,15 @@ export function VehiclesManager({
 
   const handleDelete = useCallback(
     async (id: string) => {
+      if (!repository || !currentInstanceIdRef.current) {
+        return;
+      }
+
+      const operationInstanceId = currentInstanceIdRef.current;
       await repository.deleteVehicle(id);
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       if (selectedVehicleId === id) {
         resetForm();
       }

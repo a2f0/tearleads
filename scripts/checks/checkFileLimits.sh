@@ -1,32 +1,24 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
-# Configuration
 LINE_LIMIT=500
 BYTE_LIMIT=20000
 
-# Files to ignore (regex patterns)
-# Documentation and AI skill definition directories are ignored as they
-# are often automatically generated or contain large meta-logic descriptions.
-IGNORE_PATTERNS=(
-  "^pnpm-lock\.yaml$"
-  # Rust lockfile for executable crates; cannot be meaningfully split
-  "^Cargo\.lock$"
-  "^ansible/vendor/"
-  "^package\.json$"
-  "^pnpm-workspace\.yaml$"
-  "^\.github/workflows/build\.yml$"
-  "^\.gemini/"
-  "^\.claude/"
-  "^\.codex/"
-  "^\.opencode/"
-  "^compliance/"
-  "^packages/website/src/data/releases\.json$"
-  "\.min\.js$"
-  "\.map$"
-  # Legal documents: terms of service translations cannot be split
-  "^docs/[a-z-]+/terms-of-service\.md$"
-)
+IGNORE_PATTERNS='^pnpm-lock\.yaml$
+^Cargo\.lock$
+^ansible/vendor/
+^package\.json$
+^pnpm-workspace\.yaml$
+^\.github/workflows/build\.yml$
+^\.gemini/
+^\.claude/
+^\.codex/
+^\.opencode/
+^compliance/
+^packages/website/src/data/releases\.json$
+\.min\.js$
+\.map$
+^docs/[a-z-]+/terms-of-service\.md$'
 
 usage() {
   echo "Usage: $0 --staged | --from-upstream | --all" >&2
@@ -37,15 +29,55 @@ if [ "$#" -ne 1 ]; then
   usage
 fi
 
-mode="$1"
+mode=$1
 
 is_ignored() {
-  local path="$1"
-  for pattern in "${IGNORE_PATTERNS[@]}"; do
-    if [[ "$path" =~ $pattern ]]; then
+  path=$1
+  old_ifs=$IFS
+  IFS='
+'
+
+  for pattern in $IGNORE_PATTERNS; do
+    if printf '%s\n' "$path" | grep -Eq "$pattern"; then
+      IFS=$old_ifs
       return 0
     fi
   done
+
+  IFS=$old_ifs
+  return 1
+}
+
+resolve_base_ref() {
+  if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+    printf '%s\n' "$upstream"
+    return 0
+  fi
+
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    base_ref="origin/$GITHUB_BASE_REF"
+
+    if ! git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+      git fetch --depth=1 origin \
+        "$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" >/dev/null 2>&1 || true
+    fi
+
+    if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+      printf '%s\n' "$base_ref"
+      return 0
+    fi
+  fi
+
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    printf '%s\n' 'origin/main'
+    return 0
+  fi
+
+  if git rev-parse --verify main >/dev/null 2>&1; then
+    printf '%s\n' 'main'
+    return 0
+  fi
+
   return 1
 }
 
@@ -61,20 +93,8 @@ collect_files() {
   fi
 
   if [ "$mode" = "--from-upstream" ]; then
-    if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-      git diff --name-only --diff-filter=AM "$upstream..HEAD"
-      return
-    fi
-
-    # Fallback for new branches without upstream: compare against origin/main
-    if git rev-parse --verify origin/main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "origin/main..HEAD"
-      return
-    fi
-
-    # Last resort: compare against local main
-    if git rev-parse --verify main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "main..HEAD"
+    if base_ref=$(resolve_base_ref); then
+      git diff --name-only --diff-filter=AM "$base_ref..HEAD"
       return
     fi
 
@@ -85,16 +105,18 @@ collect_files() {
   usage
 }
 
-mapfile -t files < <(collect_files)
+files=$(collect_files)
 
-if [ "${#files[@]}" -eq 0 ]; then
+if [ -z "$files" ]; then
   exit 0
 fi
 
-bad_files=()
+bad_files=''
+old_ifs=$IFS
+IFS='
+'
 
-for path in "${files[@]}"; do
-  # Skip if file was deleted in the meantime or is not a regular file
+for path in $files; do
   if [ ! -f "$path" ]; then
     continue
   fi
@@ -103,8 +125,7 @@ for path in "${files[@]}"; do
     continue
   fi
 
-  # Skip binary files as they are handled by checkBinaryFiles.sh
-  if file --mime "$path" | grep -q "charset=binary"; then
+  if file --mime "$path" | grep -q 'charset=binary'; then
     continue
   fi
 
@@ -112,17 +133,22 @@ for path in "${files[@]}"; do
   bytes=$(wc -c < "$path" | xargs)
 
   if [ "$lines" -gt "$LINE_LIMIT" ] || [ "$bytes" -gt "$BYTE_LIMIT" ]; then
-    bad_files+=("$path (Lines: $lines, Bytes: $bytes)")
+    bad_files="${bad_files}${path} (Lines: ${lines}, Bytes: ${bytes})
+"
   fi
 done
 
-if [ "${#bad_files[@]}" -eq 0 ]; then
+IFS=$old_ifs
+
+if [ -z "$bad_files" ]; then
   exit 0
 fi
 
-echo "Error: The following files exceed the project's size limits ($LINE_LIMIT lines or $BYTE_LIMIT bytes):" >&2
-printf '  - %s
-' "${bad_files[@]}" >&2
+echo "Error: The following files exceed the project's size limits (${LINE_LIMIT} lines or ${BYTE_LIMIT} bytes):" >&2
+printf '%s' "$bad_files" | while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  printf '  - %s\n' "$line" >&2
+done
 echo "" >&2
 echo "AGENT GUARDRAIL: These files exceed the project's size limits. As an expert AI agent, you must logically break these files apart into smaller, more modular components or modules. Follow existing project patterns for refactoring (e.g., extracting logic into separate files, splitting large components)." >&2
 exit 1

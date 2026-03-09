@@ -1,6 +1,7 @@
 import { VehiclesPage } from '@tearleads/vehicles';
 import { BackLink } from '@/components/ui/back-link';
 import { VehiclesManager } from '@/components/vehicles';
+import { ClientVehiclesProvider } from '@/contexts/ClientVehiclesProvider';
 
 interface VehiclesProps {
   showBackLink?: boolean;
@@ -8,14 +9,16 @@ interface VehiclesProps {
 
 export function Vehicles({ showBackLink = true }: VehiclesProps) {
   return (
-    <VehiclesPage
-      backLink={
-        showBackLink ? (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        ) : null
-      }
-    >
-      <VehiclesManager />
-    </VehiclesPage>
+    <ClientVehiclesProvider>
+      <VehiclesPage
+        backLink={
+          showBackLink ? (
+            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          ) : null
+        }
+      >
+        <VehiclesManager />
+      </VehiclesPage>
+    </ClientVehiclesProvider>
   );
 }

@@ -2,14 +2,14 @@
 import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
+import { createVehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getDatabaseAdapter, resetDatabase, setupDatabase } from './index';
 import {
-  createVehicle,
-  deleteVehicle,
-  listVehicles,
-  updateVehicle
-} from './vehicles';
+  getDatabase,
+  getDatabaseAdapter,
+  resetDatabase,
+  setupDatabase
+} from './index';
 
 const TEST_PASSWORD = 'test-password-123';
 const TEST_INSTANCE_ID = 'test-instance';
@@ -34,8 +34,9 @@ describe('vehicles integration', () => {
 
   it('creates, updates, and soft deletes vehicle rows', async () => {
     await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+    const repository = createVehicleRepository(getDatabase());
 
-    const created = await createVehicle({
+    const created = await repository.createVehicle({
       make: 'Tesla',
       model: 'Model 3',
       year: 2023,
@@ -46,7 +47,7 @@ describe('vehicles integration', () => {
     const createdId = created?.id;
     expect(typeof createdId).toBe('string');
 
-    const listedAfterCreate = await listVehicles();
+    const listedAfterCreate = await repository.listVehicles();
     expect(listedAfterCreate).toHaveLength(1);
     expect(listedAfterCreate[0]?.make).toBe('Tesla');
     expect(listedAfterCreate[0]?.model).toBe('Model 3');
@@ -55,7 +56,10 @@ describe('vehicles integration', () => {
       throw new Error('Expected created vehicle id');
     }
 
-    const updated = await updateVehicle(createdId, {
+    const fetched = await repository.getVehicleById(createdId);
+    expect(fetched?.id).toBe(createdId);
+
+    const updated = await repository.updateVehicle(createdId, {
       make: 'Tesla',
       model: 'Model 3 Performance',
       year: 2024,
@@ -65,10 +69,11 @@ describe('vehicles integration', () => {
     expect(updated?.model).toBe('Model 3 Performance');
     expect(updated?.year).toBe(2024);
 
-    const deleted = await deleteVehicle(createdId);
+    const deleted = await repository.deleteVehicle(createdId);
     expect(deleted).toBe(true);
+    await expect(repository.deleteVehicle(createdId)).resolves.toBe(false);
 
-    const listedAfterDelete = await listVehicles();
+    const listedAfterDelete = await repository.listVehicles();
     expect(listedAfterDelete).toEqual([]);
   });
 });

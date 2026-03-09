@@ -1,10 +1,14 @@
-import { normalizeVehicleProfile } from '@tearleads/vehicles';
-import { useCallback, useState } from 'react';
+// one-component-per-file: allow
+// Keep the local render helpers inline so the instance-scoped form flow stays together.
+import {
+  normalizeVehicleProfile,
+  useVehiclesRuntime
+} from '@tearleads/vehicles';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useDatabaseContext } from '@/db/hooks';
-import { createVehicle } from '@/db/vehicles';
+import { useOnInstanceChange } from '@/hooks/app';
 
 interface VehicleFormErrors {
   make?: string;
@@ -39,159 +43,11 @@ function mapValidationErrors(errors: { field: string; error: string }[]) {
   return nextErrors;
 }
 
-type VehicleFieldProps = {
-  id: string;
-  label: string;
-  value: string;
-  placeholder: string;
-  error: string | undefined;
-  autoFocus?: boolean;
-  onChange: (value: string) => void;
-};
-
-function renderVehicleField({
-  id,
-  label,
-  value,
-  placeholder,
-  error,
-  autoFocus = false,
-  onChange
-}: VehicleFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="font-medium text-muted-foreground text-sm">
-        {label}
-      </label>
-      <Input
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-invalid={Boolean(error)}
-        autoFocus={autoFocus}
-      />
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
-    </div>
-  );
-}
-
-function renderVehicleForm(
-  state: VehicleFormState,
-  onCancel: () => void,
-  onSave: () => void,
-  onMakeChange: (value: string) => void,
-  onModelChange: (value: string) => void,
-  onYearChange: (value: string) => void,
-  onColorChange: (value: string) => void
-) {
-  return (
-    <div className="space-y-4">
-      <h2 className="font-semibold text-sm">New Vehicle</h2>
-      <div className="space-y-3 rounded-md border p-3">
-        {renderVehicleField({
-          id: 'new-vehicle-make',
-          label: 'Make',
-          value: state.make,
-          placeholder: 'Tesla',
-          error: state.formErrors.make,
-          autoFocus: true,
-          onChange: onMakeChange
-        })}
-        {renderVehicleField({
-          id: 'new-vehicle-model',
-          label: 'Model',
-          value: state.model,
-          placeholder: 'Model Y',
-          error: state.formErrors.model,
-          onChange: onModelChange
-        })}
-        {renderVehicleField({
-          id: 'new-vehicle-year',
-          label: 'Year',
-          value: state.year,
-          placeholder: '2024',
-          error: state.formErrors.year,
-          onChange: onYearChange
-        })}
-        {renderVehicleField({
-          id: 'new-vehicle-color',
-          label: 'Color',
-          value: state.color,
-          placeholder: 'Midnight Silver',
-          error: state.formErrors.color,
-          onChange: onColorChange
-        })}
-
-        {state.formError ? (
-          <p className="text-destructive text-sm" role="alert">
-            {state.formError}
-          </p>
-        ) : null}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onCancel}
-            disabled={state.isSaving}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onSave}
-            disabled={state.isSaving}
-          >
-            {state.isSaving ? 'Creating...' : 'Create Vehicle'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function renderVehiclesNewContent(
-  isLoading: boolean,
-  isUnlocked: boolean,
-  form: VehicleFormState,
-  onCancel: () => void,
-  onSave: () => void,
-  onMakeChange: (value: string) => void,
-  onModelChange: (value: string) => void,
-  onYearChange: (value: string) => void,
-  onColorChange: (value: string) => void
-) {
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-        Loading database...
-      </div>
-    );
-  }
-
-  if (!isUnlocked) {
-    return <InlineUnlock description="to create vehicles" />;
-  }
-
-  return renderVehicleForm(
-    form,
-    onCancel,
-    onSave,
-    onMakeChange,
-    onModelChange,
-    onYearChange,
-    onColorChange
-  );
-}
-
 export function VehiclesWindowNew({
   onCreated,
   onCancel
 }: VehiclesWindowNewProps) {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { databaseState, repository } = useVehiclesRuntime();
   const [isSaving, setIsSaving] = useState(false);
 
   const [make, setMake] = useState('');
@@ -200,6 +56,23 @@ export function VehiclesWindowNew({
   const [color, setColor] = useState('');
   const [formErrors, setFormErrors] = useState<VehicleFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const currentInstanceIdRef = useRef(databaseState.currentInstanceId);
+
+  useEffect(() => {
+    currentInstanceIdRef.current = databaseState.currentInstanceId;
+  }, [databaseState.currentInstanceId]);
+
+  useOnInstanceChange(
+    useCallback(() => {
+      setMake('');
+      setModel('');
+      setYear('');
+      setColor('');
+      setIsSaving(false);
+      setFormErrors({});
+      setFormError(null);
+    }, [])
+  );
 
   const handleSave = useCallback(async () => {
     const parsedYear = year.trim().length === 0 ? null : Number(year);
@@ -219,20 +92,37 @@ export function VehiclesWindowNew({
     setFormError(null);
     setIsSaving(true);
 
+    let operationInstanceId: string | null = null;
+
     try {
-      const newVehicle = await createVehicle(normalized.value);
+      if (!repository || !currentInstanceIdRef.current) {
+        setFormError('Unable to create vehicle right now. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+
+      operationInstanceId = currentInstanceIdRef.current;
+      const newVehicle = await repository.createVehicle(normalized.value);
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       if (newVehicle === null) {
         setFormError('Unable to create vehicle right now. Please try again.');
         return;
       }
       onCreated(newVehicle.id);
     } catch (err) {
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to create vehicle:', err);
       setFormError(err instanceof Error ? err.message : 'Failed to create');
     } finally {
-      setIsSaving(false);
+      if (operationInstanceId === currentInstanceIdRef.current) {
+        setIsSaving(false);
+      }
     }
-  }, [make, model, year, color, onCreated]);
+  }, [color, make, model, onCreated, repository, year]);
 
   const formState: VehicleFormState = {
     make,
@@ -244,21 +134,122 @@ export function VehiclesWindowNew({
     formError
   };
 
+  const renderVehicleField = (
+    id: string,
+    label: string,
+    value: string,
+    placeholder: string,
+    error: string | undefined,
+    onChange: (nextValue: string) => void,
+    autoFocus = false
+  ) => {
+    return (
+      <div className="space-y-1">
+        <label
+          htmlFor={id}
+          className="font-medium text-muted-foreground text-sm"
+        >
+          {label}
+        </label>
+        <Input
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          aria-invalid={Boolean(error)}
+          autoFocus={autoFocus}
+        />
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (databaseState.isLoading) {
+      return (
+        <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
+          Loading database...
+        </div>
+      );
+    }
+
+    if (!databaseState.isUnlocked) {
+      return <InlineUnlock description="to create vehicles" />;
+    }
+
+    return (
+      <div className="space-y-4">
+        <h2 className="font-semibold text-sm">New Vehicle</h2>
+        <div className="space-y-3 rounded-md border p-3">
+          {renderVehicleField(
+            'new-vehicle-make',
+            'Make',
+            formState.make,
+            'Tesla',
+            formState.formErrors.make,
+            setMake,
+            true
+          )}
+          {renderVehicleField(
+            'new-vehicle-model',
+            'Model',
+            formState.model,
+            'Model Y',
+            formState.formErrors.model,
+            setModel
+          )}
+          {renderVehicleField(
+            'new-vehicle-year',
+            'Year',
+            formState.year,
+            '2024',
+            formState.formErrors.year,
+            setYear
+          )}
+          {renderVehicleField(
+            'new-vehicle-color',
+            'Color',
+            formState.color,
+            'Midnight Silver',
+            formState.formErrors.color,
+            setColor
+          )}
+
+          {formState.formError ? (
+            <p className="text-destructive text-sm" role="alert">
+              {formState.formError}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              disabled={formState.isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                void handleSave();
+              }}
+              disabled={formState.isSaving}
+            >
+              {formState.isSaving ? 'Creating...' : 'Create Vehicle'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-full flex-col space-y-3 overflow-auto p-3">
-      {renderVehiclesNewContent(
-        isLoading,
-        isUnlocked,
-        formState,
-        onCancel,
-        () => {
-          void handleSave();
-        },
-        setMake,
-        setModel,
-        setYear,
-        setColor
-      )}
+      {renderContent()}
     </div>
   );
 }
