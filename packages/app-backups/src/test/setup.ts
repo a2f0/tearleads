@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import {
   formatConsoleArg,
-  installBrowserGlobalsForBun,
   installVitestPolyfills
 } from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
@@ -9,7 +8,6 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
 const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
-installBrowserGlobalsForBun();
 const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
 
 if (!isBunRuntime) {
