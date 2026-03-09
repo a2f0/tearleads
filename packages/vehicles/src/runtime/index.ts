@@ -1,7 +1,7 @@
 export {
+  useVehiclesRuntime,
   type VehiclesDatabaseState,
   type VehiclesRuntimeContextValue,
   VehiclesRuntimeProvider,
-  type VehiclesRuntimeProviderProps,
-  useVehiclesRuntime
+  type VehiclesRuntimeProviderProps
 } from './VehiclesRuntimeContext.js';
