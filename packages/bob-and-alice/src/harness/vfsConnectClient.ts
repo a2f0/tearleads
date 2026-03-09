@@ -25,9 +25,9 @@ function unwrapConnectPayload(payload: unknown): unknown {
   if (
     isPlainRecord(current) &&
     Object.keys(current).length === 1 &&
-    ((('response' in current) && current['response'] !== undefined) ||
-      (('message' in current) && current['message'] !== undefined) ||
-      (('value' in current) && current['value'] !== undefined))
+    (('response' in current && current['response'] !== undefined) ||
+      ('message' in current && current['message'] !== undefined) ||
+      ('value' in current && current['value'] !== undefined))
   ) {
     throw new Error('transport returned unsupported connect wrapper payload');
   }
