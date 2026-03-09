@@ -3,8 +3,8 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { evaluateJobs } from './evaluateJobs.ts';
-import { loadWorkspaceGraph } from './turboGraph.ts';
 import type { StringSetMap } from './turboGraph.ts';
+import { loadWorkspaceGraph } from './turboGraph.ts';
 import type { JobName } from './workflowConfig.ts';
 
 interface CliArgs {
@@ -270,7 +270,10 @@ function main(): void {
   const head = args.head || 'HEAD';
 
   const config = readConfig(CONFIG_PATH);
-  const { lookup: { byDir }, reverseGraph } = loadWorkspaceGraph();
+  const {
+    lookup: { byDir },
+    reverseGraph
+  } = loadWorkspaceGraph();
   const diffResult = detectChangedFiles(base, head, args.files);
   const changedFiles = diffResult.changedFiles;
 

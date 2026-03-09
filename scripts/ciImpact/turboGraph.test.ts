@@ -66,9 +66,7 @@ test('parseTurboQueryResponse rejects item missing name', () => {
         JSON.stringify({
           data: {
             packages: {
-              items: [
-                { path: 'x', directDependents: { items: [] } }
-              ]
+              items: [{ path: 'x', directDependents: { items: [] } }]
             }
           }
         })

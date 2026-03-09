@@ -33,7 +33,9 @@ function isStringField(obj: object, key: string): boolean {
   return typeof Reflect.get(obj, key) === 'string';
 }
 
-export function parseTurboQueryResponse(raw: string): ReadonlyArray<TurboPackageItem> {
+export function parseTurboQueryResponse(
+  raw: string
+): ReadonlyArray<TurboPackageItem> {
   const parsed: unknown = JSON.parse(raw);
   if (!isObject(parsed)) {
     throw new Error('turbo query: expected object at root');
@@ -162,7 +164,11 @@ function loadFromPackageJson(): WorkspaceGraphResult {
     byDir.set(dir, name);
 
     const allDeps = new Set<string>();
-    for (const depKey of ['dependencies', 'devDependencies', 'peerDependencies']) {
+    for (const depKey of [
+      'dependencies',
+      'devDependencies',
+      'peerDependencies'
+    ]) {
       const depValue = Reflect.get(parsed, depKey);
       if (isObject(depValue)) {
         for (const depName of Object.keys(depValue)) {
