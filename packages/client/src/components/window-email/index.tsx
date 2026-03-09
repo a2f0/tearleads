@@ -1,5 +1,6 @@
 import { EmailWindow as EmailWindowBase } from '@tearleads/email';
 import type { WindowDimensions } from '@tearleads/window-manager';
+import { useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,8 +28,25 @@ export function EmailWindow({
   initialDimensions
 }: EmailWindowProps) {
   const openRequest = useWindowOpenRequest('email');
-  const { isUnlocked: isDatabaseUnlocked } = useDatabaseContext();
+  const { isUnlocked: isDatabaseUnlocked, isLoading: isDatabaseLoading } =
+    useDatabaseContext();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+
+  // Email requires both database unlock AND authentication
+  // Show unlock first, then login (unlock is required to store auth tokens)
+  const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
+  const isLoading = isDatabaseLoading || isAuthLoading;
+
+  // Determine appropriate fallback based on which condition is not met
+  const lockedFallback = useMemo(() => {
+    if (!isDatabaseUnlocked) {
+      return <InlineUnlock description="email" />;
+    }
+    if (!isAuthenticated) {
+      return <InlineLogin description="email" />;
+    }
+    return null;
+  }, [isDatabaseUnlocked, isAuthenticated]);
 
   return (
     <ClientEmailProvider>
@@ -40,15 +58,9 @@ export function EmailWindow({
         onFocus={onFocus}
         zIndex={zIndex}
         initialDimensions={initialDimensions}
-        isAuthenticated={isAuthenticated}
-        isAuthLoading={isAuthLoading}
-        lockedFallback={
-          !isDatabaseUnlocked ? (
-            <InlineUnlock description="email" />
-          ) : !isAuthenticated ? (
-            <InlineLogin description="email" />
-          ) : null
-        }
+        isUnlocked={isFullyUnlocked}
+        isDatabaseLoading={isLoading}
+        lockedFallback={lockedFallback}
         openEmailId={openRequest?.emailId}
         openRequestId={openRequest?.requestId}
         {...(openRequest && { openComposeRequest: openRequest })}

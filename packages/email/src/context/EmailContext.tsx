@@ -106,6 +106,12 @@ export interface SaveDraftInput {
 
 export type EmailDatabaseState = HostRuntimeDatabaseState;
 
+const FALLBACK_DATABASE_STATE: EmailDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 /**
  * Email draft operations interface
  */
@@ -149,7 +155,7 @@ export const EmailContext = createContext<EmailContextValue | null>(null);
 export interface EmailProviderProps {
   children: ReactNode;
   apiBaseUrl: string;
-  databaseState: EmailDatabaseState;
+  databaseState?: EmailDatabaseState;
   getAuthHeader?: () => string | null;
   ui: EmailUIComponents;
   folderOperations?: EmailFolderOperations;
@@ -175,7 +181,7 @@ export function EmailProvider({
   const contextValue = useMemo<EmailContextValue>(
     () => ({
       apiBaseUrl,
-      databaseState,
+      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
       ui,
       ...(getAuthHeader !== undefined && { getAuthHeader }),
       ...(folderOperations !== undefined && { folderOperations }),

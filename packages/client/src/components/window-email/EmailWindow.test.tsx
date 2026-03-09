@@ -66,12 +66,13 @@ describe('EmailWindow', () => {
     );
 
     expect(screen.getByText('Email Window')).toBeInTheDocument();
-    // Email package derives database state from context; client passes auth state.
+    // When database is loading OR auth is loading, isDatabaseLoading is true
+    // When database is locked OR not authenticated, isUnlocked is false
     expect(mockEmailWindowBase).toHaveBeenCalledWith(
       expect.objectContaining({
         openComposeRequest: { to: ['ada@example.com'], requestId: 1 },
-        isAuthenticated: false,
-        isAuthLoading: false,
+        isUnlocked: false,
+        isDatabaseLoading: true,
         lockedFallback: expect.anything()
       })
     );
@@ -139,7 +140,7 @@ describe('EmailWindow', () => {
     ).toBeTruthy();
   });
 
-  it('passes authenticated state to email window', () => {
+  it('sets isUnlocked to true when both authenticated and database unlocked', () => {
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
       isLoading: false
@@ -161,8 +162,8 @@ describe('EmailWindow', () => {
 
     expect(mockEmailWindowBase).toHaveBeenCalledWith(
       expect.objectContaining({
-        isAuthenticated: true,
-        isAuthLoading: false
+        isUnlocked: true,
+        isDatabaseLoading: false
       })
     );
   });

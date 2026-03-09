@@ -14,11 +14,19 @@ import { EmailContentPanel } from './EmailContentPanel.js';
 const DEFAULT_SIDEBAR_WIDTH = 200;
 
 interface EmailProps {
+  isUnlocked?: boolean;
+  isLoading?: boolean;
   lockedFallback?: ReactNode;
 }
 
-export function Email({ lockedFallback }: EmailProps = {}) {
+export function Email({
+  isUnlocked,
+  isLoading,
+  lockedFallback
+}: EmailProps = {}) {
   const databaseState = useEmailDatabaseState();
+  const resolvedIsUnlocked = isUnlocked ?? databaseState.isUnlocked;
+  const resolvedIsLoading = isLoading ?? databaseState.isLoading;
   const { BackLink, RefreshButton } = useEmailUI();
   const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
@@ -38,14 +46,14 @@ export function Email({ lockedFallback }: EmailProps = {}) {
   }, []);
 
   useEffect(() => {
-    if (!databaseState.isUnlocked) {
+    if (!resolvedIsUnlocked) {
       return;
     }
     if (!hasFetched) {
       setHasFetched(true);
       fetchEmails();
     }
-  }, [databaseState.isUnlocked, fetchEmails, hasFetched]);
+  }, [fetchEmails, hasFetched, resolvedIsUnlocked]);
 
   const handleFolderSelect = useCallback(
     (folderId: string | null, folder?: EmailFolder | null) => {
@@ -61,7 +69,7 @@ export function Email({ lockedFallback }: EmailProps = {}) {
   const isListBackedFolder =
     selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
 
-  if (databaseState.isLoading) {
+  if (resolvedIsLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         Loading database...
@@ -69,7 +77,7 @@ export function Email({ lockedFallback }: EmailProps = {}) {
     );
   }
 
-  if (!databaseState.isUnlocked) {
+  if (!resolvedIsUnlocked) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         {lockedFallback}

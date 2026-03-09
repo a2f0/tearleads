@@ -43,8 +43,8 @@ interface EmailWindowProps {
   openComposeRequest?: ComposeOpenRequest;
   openEmailId?: string | null | undefined;
   openRequestId?: number | undefined;
-  isAuthenticated?: boolean;
-  isAuthLoading?: boolean;
+  isUnlocked?: boolean;
+  isDatabaseLoading?: boolean;
   lockedFallback?: ReactNode;
 }
 
@@ -60,15 +60,16 @@ export function EmailWindow({
   openComposeRequest,
   openEmailId,
   openRequestId,
-  isAuthenticated = true,
-  isAuthLoading = false,
+  isUnlocked,
+  isDatabaseLoading,
   lockedFallback
 }: EmailWindowProps) {
   const databaseState = useEmailDatabaseState();
   const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
-  const isUnlocked = databaseState.isUnlocked && isAuthenticated;
-  const isDatabaseLoading = databaseState.isLoading || isAuthLoading;
+  const resolvedIsUnlocked = isUnlocked ?? databaseState.isUnlocked;
+  const resolvedIsDatabaseLoading =
+    isDatabaseLoading ?? databaseState.isLoading;
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
@@ -152,9 +153,9 @@ export function EmailWindow({
   );
 
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!resolvedIsUnlocked) return;
     fetchEmails();
-  }, [fetchEmails, isUnlocked]);
+  }, [fetchEmails, resolvedIsUnlocked]);
 
   useEffect(() => {
     if (!openComposeRequest) return;
@@ -207,7 +208,7 @@ export function EmailWindow({
           onClose={onClose}
           onCompose={handleCompose}
         />
-        {isUnlocked && (
+        {resolvedIsUnlocked && (
           <EmailWindowControlBar
             selectedEmailId={selectedEmailId}
             activeTab={activeTab}
@@ -219,7 +220,7 @@ export function EmailWindow({
           />
         )}
         <div className="flex flex-1 overflow-hidden">
-          {isUnlocked && hasFolderOperations && (
+          {resolvedIsUnlocked && hasFolderOperations && (
             <EmailFoldersSidebar
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
@@ -230,7 +231,7 @@ export function EmailWindow({
             />
           )}
           <div className="flex flex-1 flex-col overflow-hidden">
-            {isUnlocked && (
+            {resolvedIsUnlocked && (
               <EmailWindowTabBar
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
@@ -242,8 +243,8 @@ export function EmailWindow({
             )}
             <div className="flex-1 overflow-hidden">
               <EmailWindowContent
-                isDatabaseLoading={isDatabaseLoading}
-                isUnlocked={isUnlocked}
+                isDatabaseLoading={resolvedIsDatabaseLoading}
+                isUnlocked={resolvedIsUnlocked}
                 lockedFallback={lockedFallback}
                 activeTab={activeTab}
                 onCloseCompose={closeComposeTab}
