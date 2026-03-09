@@ -1,3 +1,11 @@
+import { create } from '@bufbuild/protobuf';
+import {
+  AdminGetContextResponseSchema,
+  AdminGetGroupResponseSchema,
+  AdminGetOrganizationResponseSchema,
+  AdminGetOrgGroupsResponseSchema,
+  AdminListOrganizationsResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -123,6 +131,135 @@ describe('admin api client', () => {
     });
     expect(updateResponse.user?.disabled).toBe(true);
     expect(updateResponse.user?.disabledAt).toBe('2024-03-01T00:00:00.000Z');
+  });
+
+  it('decodes admin context, group, and organization responses with generated proto types', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        isRootAdmin: false,
+        organizations: [{ id: 'org-1', name: 'Primary Org' }]
+      })
+    );
+    await expect(apiClient.adminV2.getContext()).resolves.toEqual(
+      create(AdminGetContextResponseSchema, {
+        isRootAdmin: false,
+        organizations: [{ id: 'org-1', name: 'Primary Org' }]
+      })
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        group: {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Admin',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        },
+        members: [
+          {
+            userId: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
+    await expect(apiClient.adminV2.groups.get('group-1')).resolves.toEqual(
+      create(AdminGetGroupResponseSchema, {
+        group: {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Admin',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        },
+        members: [
+          {
+            userId: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        organizations: [
+          {
+            id: 'org-1',
+            name: 'Primary Org',
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-02T00:00:00Z'
+          }
+        ]
+      })
+    );
+    await expect(
+      apiClient.adminV2.organizations.list({ organizationId: 'org-1' })
+    ).resolves.toEqual(
+      create(AdminListOrganizationsResponseSchema, {
+        organizations: [
+          {
+            id: 'org-1',
+            name: 'Primary Org',
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-02T00:00:00Z'
+          }
+        ]
+      })
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        organization: {
+          id: 'org-1',
+          name: 'Primary Org',
+          description: 'Main org',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        }
+      })
+    );
+    const organizationResponse =
+      await apiClient.adminV2.organizations.get('org-1');
+    expect(organizationResponse).toEqual(
+      create(AdminGetOrganizationResponseSchema, {
+        organization: {
+          id: 'org-1',
+          name: 'Primary Org',
+          description: 'Main org',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        }
+      })
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        groups: [
+          {
+            id: 'group-1',
+            name: 'Ops',
+            memberCount: 3
+          }
+        ]
+      })
+    );
+    await expect(
+      apiClient.adminV2.organizations.getGroups('org-1')
+    ).resolves.toEqual(
+      create(AdminGetOrgGroupsResponseSchema, {
+        groups: [
+          {
+            id: 'group-1',
+            name: 'Ops',
+            memberCount: 3
+          }
+        ]
+      })
+    );
   });
 
   it('calls all admin endpoint helpers with expected URL shape and method', async () => {

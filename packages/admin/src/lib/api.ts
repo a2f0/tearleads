@@ -5,18 +5,10 @@ import {
   type MessageShape
 } from '@bufbuild/protobuf';
 import type {
-  AdminAccessContextResponse,
   AdminUserUpdatePayload,
   AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
-  GroupDetailResponse,
-  GroupMembersResponse,
-  GroupsListResponse,
-  OrganizationGroupsResponse,
-  OrganizationResponse,
-  OrganizationsListResponse,
-  OrganizationUsersResponse,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
   PostgresRowsResponse,
@@ -28,10 +20,33 @@ import type {
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
+  type AdminCreateGroupResponse,
+  AdminCreateGroupResponseSchema,
+  type AdminCreateOrganizationResponse,
+  AdminCreateOrganizationResponseSchema,
+  AdminGetContextResponseSchema,
+  type AdminGetGroupMembersResponse,
+  AdminGetGroupMembersResponseSchema,
+  type AdminGetGroupResponse,
+  AdminGetGroupResponseSchema,
+  type AdminGetOrganizationResponse,
+  AdminGetOrganizationResponseSchema,
+  type AdminGetOrgGroupsResponse,
+  AdminGetOrgGroupsResponseSchema,
+  type AdminGetOrgUsersResponse,
+  AdminGetOrgUsersResponseSchema,
   type AdminGetUserResponse,
   AdminGetUserResponseSchema,
+  type AdminListGroupsResponse,
+  AdminListGroupsResponseSchema,
+  type AdminListOrganizationsResponse,
+  AdminListOrganizationsResponseSchema,
   type AdminListUsersResponse,
   AdminListUsersResponseSchema,
+  type AdminUpdateGroupResponse,
+  AdminUpdateGroupResponseSchema,
+  type AdminUpdateOrganizationResponse,
+  AdminUpdateOrganizationResponseSchema,
   type AdminUpdateUserResponse,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -49,17 +64,6 @@ import {
   mapRedisValueResponse,
   mapRemoveGroupMemberResponse
 } from './adminV2ApiMappers';
-import { mapContextResponse } from './adminV2ContextMapper';
-import { mapGroupsListResponse } from './adminV2GroupsMapper';
-import {
-  mapGroupDetailResponse,
-  mapGroupMembersResponse,
-  mapGroupResponse,
-  mapOrganizationGroupsResponse,
-  mapOrganizationResponse,
-  mapOrganizationsListResponse,
-  mapOrganizationUsersResponse
-} from './adminV2ReadMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -77,6 +81,37 @@ interface AdminUsersApi {
     id: string,
     data: AdminUserUpdatePayload
   ): Promise<AdminUpdateUserResponse>;
+}
+
+interface AdminGroupsApi {
+  list(options?: { organizationId?: string }): Promise<AdminListGroupsResponse>;
+  get(id: string): Promise<AdminGetGroupResponse>;
+  create(data: CreateGroupRequest): Promise<AdminCreateGroupResponse>;
+  update(
+    id: string,
+    data: UpdateGroupRequest
+  ): Promise<AdminUpdateGroupResponse>;
+  delete(id: string): Promise<{ deleted: boolean }>;
+  getMembers(id: string): Promise<AdminGetGroupMembersResponse>;
+  addMember(groupId: string, userId: string): Promise<{ added: boolean }>;
+  removeMember(groupId: string, userId: string): Promise<{ removed: boolean }>;
+}
+
+interface AdminOrganizationsApi {
+  list(options?: {
+    organizationId?: string;
+  }): Promise<AdminListOrganizationsResponse>;
+  get(id: string): Promise<AdminGetOrganizationResponse>;
+  getUsers(id: string): Promise<AdminGetOrgUsersResponse>;
+  getGroups(id: string): Promise<AdminGetOrgGroupsResponse>;
+  create(
+    data: CreateOrganizationRequest
+  ): Promise<AdminCreateOrganizationResponse>;
+  update(
+    id: string,
+    data: UpdateOrganizationRequest
+  ): Promise<AdminUpdateOrganizationResponse>;
+  delete(id: string): Promise<{ deleted: boolean }>;
 }
 
 async function request<T>(
@@ -216,14 +251,132 @@ const adminV2UsersApi: AdminUsersApi = {
     )
 };
 
+const adminV2GroupsApi: AdminGroupsApi = {
+  list: (options?: { organizationId?: string }) => {
+    const requestBody: Record<string, unknown> = {};
+    if (options?.organizationId) {
+      requestBody['organizationId'] = options.organizationId;
+    }
+    return requestAdminV2Proto(
+      'ListGroups',
+      requestBody,
+      AdminListGroupsResponseSchema
+    );
+  },
+  get: (id: string) =>
+    requestAdminV2Proto('GetGroup', { id }, AdminGetGroupResponseSchema),
+  create: (data: CreateGroupRequest) =>
+    requestAdminV2Proto(
+      'CreateGroup',
+      {
+        organizationId: data.organizationId,
+        name: data.name,
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {})
+      },
+      AdminCreateGroupResponseSchema
+    ),
+  update: (id: string, data: UpdateGroupRequest) =>
+    requestAdminV2Proto(
+      'UpdateGroup',
+      {
+        id,
+        ...(data.organizationId !== undefined
+          ? { organizationId: data.organizationId }
+          : {}),
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {})
+      },
+      AdminUpdateGroupResponseSchema
+    ),
+  delete: (id: string) =>
+    requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
+  getMembers: (id: string) =>
+    requestAdminV2Proto(
+      'GetGroupMembers',
+      { id },
+      AdminGetGroupMembersResponseSchema
+    ),
+  addMember: (groupId: string, userId: string) =>
+    requestAdminV2(
+      'AddGroupMember',
+      {
+        id: groupId,
+        userId
+      },
+      mapAddGroupMemberResponse
+    ),
+  removeMember: (groupId: string, userId: string) =>
+    requestAdminV2(
+      'RemoveGroupMember',
+      {
+        groupId,
+        userId
+      },
+      mapRemoveGroupMemberResponse
+    )
+};
+
+const adminV2OrganizationsApi: AdminOrganizationsApi = {
+  list: (options?: { organizationId?: string }) => {
+    const requestBody: Record<string, unknown> = {};
+    if (options?.organizationId) {
+      requestBody['organizationId'] = options.organizationId;
+    }
+    return requestAdminV2Proto(
+      'ListOrganizations',
+      requestBody,
+      AdminListOrganizationsResponseSchema
+    );
+  },
+  get: (id: string) =>
+    requestAdminV2Proto(
+      'GetOrganization',
+      { id },
+      AdminGetOrganizationResponseSchema
+    ),
+  getUsers: (id: string) =>
+    requestAdminV2Proto('GetOrgUsers', { id }, AdminGetOrgUsersResponseSchema),
+  getGroups: (id: string) =>
+    requestAdminV2Proto(
+      'GetOrgGroups',
+      { id },
+      AdminGetOrgGroupsResponseSchema
+    ),
+  create: (data: CreateOrganizationRequest) =>
+    requestAdminV2Proto(
+      'CreateOrganization',
+      {
+        name: data.name,
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {})
+      },
+      AdminCreateOrganizationResponseSchema
+    ),
+  update: (id: string, data: UpdateOrganizationRequest) =>
+    requestAdminV2Proto(
+      'UpdateOrganization',
+      {
+        id,
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {})
+      },
+      AdminUpdateOrganizationResponseSchema
+    ),
+  delete: (id: string) =>
+    requestAdminV2('DeleteOrganization', { id }, mapDeleteOrganizationResponse)
+};
+
 export const api = {
   adminV2: {
     getContext: () =>
-      requestAdminV2<AdminAccessContextResponse>(
-        'GetContext',
-        {},
-        mapContextResponse
-      ),
+      requestAdminV2Proto('GetContext', {}, AdminGetContextResponseSchema),
     postgres: {
       getInfo: () =>
         requestAdminV2<PostgresAdminInfoResponse>(
@@ -300,138 +453,8 @@ export const api = {
           mapRedisDbSizeResponse
         )
     },
-    groups: {
-      list: (options?: { organizationId?: string }) => {
-        const requestBody: Record<string, unknown> = {};
-        if (options?.organizationId) {
-          requestBody['organizationId'] = options.organizationId;
-        }
-        return requestAdminV2<GroupsListResponse>(
-          'ListGroups',
-          requestBody,
-          mapGroupsListResponse
-        );
-      },
-      get: (id: string) =>
-        requestAdminV2<GroupDetailResponse>(
-          'GetGroup',
-          { id },
-          mapGroupDetailResponse
-        ),
-      create: (data: CreateGroupRequest) =>
-        requestAdminV2(
-          'CreateGroup',
-          {
-            organizationId: data.organizationId,
-            name: data.name,
-            ...(data.description !== undefined
-              ? { description: data.description }
-              : {})
-          },
-          mapGroupResponse
-        ),
-      update: (id: string, data: UpdateGroupRequest) =>
-        requestAdminV2(
-          'UpdateGroup',
-          {
-            id,
-            ...(data.organizationId !== undefined
-              ? { organizationId: data.organizationId }
-              : {}),
-            ...(data.name !== undefined ? { name: data.name } : {}),
-            ...(data.description !== undefined
-              ? { description: data.description }
-              : {})
-          },
-          mapGroupResponse
-        ),
-      delete: (id: string) =>
-        requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
-      getMembers: (id: string) =>
-        requestAdminV2<GroupMembersResponse>(
-          'GetGroupMembers',
-          { id },
-          mapGroupMembersResponse
-        ),
-      addMember: (groupId: string, userId: string) =>
-        requestAdminV2(
-          'AddGroupMember',
-          {
-            id: groupId,
-            userId
-          },
-          mapAddGroupMemberResponse
-        ),
-      removeMember: (groupId: string, userId: string) =>
-        requestAdminV2(
-          'RemoveGroupMember',
-          {
-            groupId,
-            userId
-          },
-          mapRemoveGroupMemberResponse
-        )
-    },
-    organizations: {
-      list: (options?: { organizationId?: string }) => {
-        const requestBody: Record<string, unknown> = {};
-        if (options?.organizationId) {
-          requestBody['organizationId'] = options.organizationId;
-        }
-        return requestAdminV2<OrganizationsListResponse>(
-          'ListOrganizations',
-          requestBody,
-          mapOrganizationsListResponse
-        );
-      },
-      get: (id: string) =>
-        requestAdminV2<OrganizationResponse>(
-          'GetOrganization',
-          { id },
-          mapOrganizationResponse
-        ),
-      getUsers: (id: string) =>
-        requestAdminV2<OrganizationUsersResponse>(
-          'GetOrgUsers',
-          { id },
-          mapOrganizationUsersResponse
-        ),
-      getGroups: (id: string) =>
-        requestAdminV2<OrganizationGroupsResponse>(
-          'GetOrgGroups',
-          { id },
-          mapOrganizationGroupsResponse
-        ),
-      create: (data: CreateOrganizationRequest) =>
-        requestAdminV2(
-          'CreateOrganization',
-          {
-            name: data.name,
-            ...(data.description !== undefined
-              ? { description: data.description }
-              : {})
-          },
-          mapOrganizationResponse
-        ),
-      update: (id: string, data: UpdateOrganizationRequest) =>
-        requestAdminV2(
-          'UpdateOrganization',
-          {
-            id,
-            ...(data.name !== undefined ? { name: data.name } : {}),
-            ...(data.description !== undefined
-              ? { description: data.description }
-              : {})
-          },
-          mapOrganizationResponse
-        ),
-      delete: (id: string) =>
-        requestAdminV2(
-          'DeleteOrganization',
-          { id },
-          mapDeleteOrganizationResponse
-        )
-    },
+    groups: adminV2GroupsApi,
+    organizations: adminV2OrganizationsApi,
     users: adminV2UsersApi
   },
   ai: {

@@ -1,4 +1,3 @@
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import { ConfirmDialog } from '@tearleads/ui';
 import { Loader2, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
@@ -10,6 +9,9 @@ import { useAdminUserGroups } from './useAdminUserGroups';
 type AdminUser = NonNullable<
   Awaited<ReturnType<typeof api.adminV2.users.get>>['user']
 >;
+type AdminManagedGroup = ReturnType<
+  typeof useAdminUserGroups
+>['groups'][number];
 
 interface AdminUserGroupsProps {
   user: AdminUser;
@@ -30,7 +32,7 @@ export function AdminUserGroups({ user }: AdminUserGroupsProps) {
   } = useAdminUserGroups(user.id);
 
   const [removeGroupDialog, setRemoveGroupDialog] =
-    useState<GroupWithMemberCount | null>(null);
+    useState<AdminManagedGroup | null>(null);
 
   const handleConfirmRemoveFromGroup = async () => {
     if (!removeGroupDialog) return;

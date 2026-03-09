@@ -1,18 +1,17 @@
-import type { AdminAccessContextResponse } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
+type AdminScopeContext = Awaited<ReturnType<typeof api.adminV2.getContext>>;
+
 type UseAdminScopeResult = {
-  context: AdminAccessContextResponse | null;
+  context: AdminScopeContext | null;
   selectedOrganizationId: string | null;
   loading: boolean;
   error: string | null;
   setSelectedOrganizationId: (organizationId: string | null) => void;
 };
 
-function getDefaultOrganizationId(
-  context: AdminAccessContextResponse
-): string | null {
+function getDefaultOrganizationId(context: AdminScopeContext): string | null {
   if (context.isRootAdmin) {
     return null;
   }
@@ -20,9 +19,7 @@ function getDefaultOrganizationId(
 }
 
 export function useAdminScope(): UseAdminScopeResult {
-  const [context, setContext] = useState<AdminAccessContextResponse | null>(
-    null
-  );
+  const [context, setContext] = useState<AdminScopeContext | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationIdState] = useState<
     string | null
   >(null);

@@ -1,4 +1,3 @@
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import { ConfirmDialog } from '@tearleads/ui';
 import {
   DesktopContextMenu as ContextMenu,
@@ -11,6 +10,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
+
+type AdminGroupListItem = Awaited<
+  ReturnType<typeof api.adminV2.groups.list>
+>['groups'][number];
 
 // component-complexity: allow -- scheduled split into list/table/context-menu subcomponents.
 interface GroupsListProps {
@@ -25,15 +28,15 @@ export function GroupsList({
   organizationId
 }: GroupsListProps) {
   const { t } = useTypedTranslation('admin');
-  const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
+  const [groups, setGroups] = useState<AdminGroupListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    group: GroupWithMemberCount;
+    group: AdminGroupListItem;
   } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<GroupWithMemberCount | null>(
+  const [deleteDialog, setDeleteDialog] = useState<AdminGroupListItem | null>(
     null
   );
 
@@ -58,7 +61,7 @@ export function GroupsList({
 
   const handleContextMenu = (
     e: React.MouseEvent,
-    group: GroupWithMemberCount
+    group: AdminGroupListItem
   ) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, group });

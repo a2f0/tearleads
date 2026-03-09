@@ -1,5 +1,10 @@
 import { create } from '@bufbuild/protobuf';
-import { AdminListUsersResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminGetContextResponseSchema,
+  AdminGetGroupResponseSchema,
+  AdminListOrganizationsResponseSchema,
+  AdminListUsersResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -39,11 +44,13 @@ describe('admin api client v2 read routes', () => {
         defaultOrganizationId: 'org-1'
       })
     );
-    await expect(apiClient.adminV2.getContext()).resolves.toEqual({
-      isRootAdmin: true,
-      organizations: [{ id: 'org-1', name: 'Primary Org' }],
-      defaultOrganizationId: 'org-1'
-    });
+    await expect(apiClient.adminV2.getContext()).resolves.toEqual(
+      create(AdminGetContextResponseSchema, {
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Primary Org' }],
+        defaultOrganizationId: 'org-1'
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -64,23 +71,25 @@ describe('admin api client v2 read routes', () => {
         ]
       })
     );
-    await expect(apiClient.adminV2.groups.get('group-1')).resolves.toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Core Admin',
-        description: 'Operators',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-02T00:00:00Z'
-      },
-      members: [
-        {
-          userId: 'user-1',
-          email: 'admin@example.com',
-          joinedAt: '2026-01-01T00:00:00Z'
-        }
-      ]
-    });
+    await expect(apiClient.adminV2.groups.get('group-1')).resolves.toEqual(
+      create(AdminGetGroupResponseSchema, {
+        group: {
+          id: 'group-1',
+          organizationId: 'org-1',
+          name: 'Core Admin',
+          description: 'Operators',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-02T00:00:00Z'
+        },
+        members: [
+          {
+            userId: 'user-1',
+            email: 'admin@example.com',
+            joinedAt: '2026-01-01T00:00:00Z'
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -97,17 +106,19 @@ describe('admin api client v2 read routes', () => {
     );
     await expect(
       apiClient.adminV2.organizations.list({ organizationId: 'org-1' })
-    ).resolves.toEqual({
-      organizations: [
-        {
-          id: 'org-1',
-          name: 'Primary Org',
-          description: 'Main org',
-          createdAt: '2026-01-01T00:00:00Z',
-          updatedAt: '2026-01-02T00:00:00Z'
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminListOrganizationsResponseSchema, {
+        organizations: [
+          {
+            id: 'org-1',
+            name: 'Primary Org',
+            description: 'Main org',
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-02T00:00:00Z'
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -328,29 +339,19 @@ describe('admin api client v2 read routes', () => {
 
   it('falls back to safe defaults for incomplete v2 payloads', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.getContext()).resolves.toEqual({
-      isRootAdmin: false,
-      organizations: [],
-      defaultOrganizationId: null
-    });
+    await expect(apiClient.adminV2.getContext()).resolves.toEqual(
+      create(AdminGetContextResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.groups.get('')).resolves.toEqual({
-      group: {
-        id: '',
-        organizationId: '',
-        name: '',
-        description: null,
-        createdAt: '',
-        updatedAt: ''
-      },
-      members: []
-    });
+    await expect(apiClient.adminV2.groups.get('')).resolves.toEqual(
+      create(AdminGetGroupResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.organizations.list()).resolves.toEqual({
-      organizations: []
-    });
+    await expect(apiClient.adminV2.organizations.list()).resolves.toEqual(
+      create(AdminListOrganizationsResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(apiClient.adminV2.users.list()).resolves.toEqual(

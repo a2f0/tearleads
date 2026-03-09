@@ -1,9 +1,4 @@
-import type {
-  Organization,
-  OrganizationGroup,
-  OrganizationUser,
-  UpdateOrganizationRequest
-} from '@tearleads/shared';
+import type { UpdateOrganizationRequest } from '@tearleads/shared';
 import { BackLink, ConfirmDialog } from '@tearleads/ui';
 import {
   Building2,
@@ -43,6 +38,17 @@ interface OrganizationDetailPageProps {
   onGroupSelect?: (groupId: string) => void;
 }
 
+type AdminOrganizationResponse = Awaited<
+  ReturnType<typeof api.adminV2.organizations.get>
+>;
+type AdminOrganization = NonNullable<AdminOrganizationResponse['organization']>;
+type AdminOrganizationUser = Awaited<
+  ReturnType<typeof api.adminV2.organizations.getUsers>
+>['users'][number];
+type AdminOrganizationGroup = Awaited<
+  ReturnType<typeof api.adminV2.organizations.getGroups>
+>['groups'][number];
+
 export function OrganizationDetailPage({
   organizationId: organizationIdProp,
   backLink,
@@ -53,9 +59,11 @@ export function OrganizationDetailPage({
   const { t } = useTypedTranslation('admin');
   const { id: paramId } = useParams<{ id: string }>();
   const id = organizationIdProp ?? paramId;
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [users, setUsers] = useState<OrganizationUser[]>([]);
-  const [groups, setGroups] = useState<OrganizationGroup[]>([]);
+  const [organization, setOrganization] = useState<AdminOrganization | null>(
+    null
+  );
+  const [users, setUsers] = useState<AdminOrganizationUser[]>([]);
+  const [groups, setGroups] = useState<AdminOrganizationGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +86,7 @@ export function OrganizationDetailPage({
       ]);
 
       if (orgResult.status === 'fulfilled') {
-        setOrganization(orgResult.value.organization);
+        setOrganization(orgResult.value.organization ?? null);
       } else {
         setError(
           orgResult.reason instanceof Error
@@ -152,6 +160,9 @@ export function OrganizationDetailPage({
         payload.description = trimmedDescription;
       }
       const response = await api.adminV2.organizations.update(id, payload);
+      if (!response.organization) {
+        throw new Error('Invalid organization response');
+      }
       setOrganization(response.organization);
       setIsEditing(false);
       setFormData(null);

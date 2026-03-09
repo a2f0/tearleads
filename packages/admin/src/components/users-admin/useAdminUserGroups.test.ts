@@ -1,4 +1,3 @@
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
@@ -19,7 +18,10 @@ vi.mock('@/lib/api', () => ({
 
 describe('useAdminUserGroups', () => {
   const mockUserId = 'user-1';
-  const mockGroups: GroupWithMemberCount[] = [
+  type AdminGroupListItem = ReturnType<
+    typeof useAdminUserGroups
+  >['groups'][number];
+  const mockGroups: AdminGroupListItem[] = [
     {
       id: 'group-1',
       organizationId: 'org-1',
@@ -47,7 +49,13 @@ describe('useAdminUserGroups', () => {
     mockedGroupsApi.getMembers.mockImplementation((groupId: string) => {
       if (groupId === 'group-1') {
         return Promise.resolve({
-          members: [{ userId: mockUserId, joinedAt: '2024-01-01T00:00:00Z' }]
+          members: [
+            {
+              userId: mockUserId,
+              email: 'user-1@example.com',
+              joinedAt: '2024-01-01T00:00:00Z'
+            }
+          ]
         });
       }
       return Promise.resolve({ members: [] });
@@ -70,7 +78,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles adding a user to a group', async () => {
-    mockedGroupsApi.addMember.mockResolvedValue({});
+    mockedGroupsApi.addMember.mockResolvedValue({ added: true });
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -93,7 +101,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles removing a user from a group', async () => {
-    mockedGroupsApi.removeMember.mockResolvedValue({});
+    mockedGroupsApi.removeMember.mockResolvedValue({ removed: true });
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
