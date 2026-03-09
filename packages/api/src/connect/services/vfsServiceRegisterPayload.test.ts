@@ -16,7 +16,30 @@ vi.mock('./vfsDirectRegistry.js', () => ({
 
 import { vfsConnectService } from './vfsService.js';
 
-describe('vfsConnectService register payload parsing', () => {
+function createContext() {
+  return {
+    requestHeader: new Headers({
+      authorization: 'Bearer token-1',
+      'x-organization-id': 'org-1'
+    })
+  };
+}
+
+function callRegister(request: unknown, context: ReturnType<typeof createContext>) {
+  return Reflect.apply(vfsConnectService.register, vfsConnectService, [
+    request,
+    context
+  ]);
+}
+
+function callRekeyItem(request: unknown, context: ReturnType<typeof createContext>) {
+  return Reflect.apply(vfsConnectService.rekeyItem, vfsConnectService, [
+    request,
+    context
+  ]);
+}
+
+describe('vfsConnectService mutation payload parsing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     registerDirectMock.mockResolvedValue({
@@ -30,13 +53,8 @@ describe('vfsConnectService register payload parsing', () => {
     });
   });
 
-  it('unwraps nested json payloads before delegating register', async () => {
-    const context = {
-      requestHeader: new Headers({
-        authorization: 'Bearer token-1',
-        'x-organization-id': 'org-1'
-      })
-    };
+  it('rejects legacy json-wrapped register payloads', async () => {
+    const context = createContext();
     const wrappedPayload = {
       json: JSON.stringify({
         json: JSON.stringify({
@@ -47,44 +65,26 @@ describe('vfsConnectService register payload parsing', () => {
       })
     };
 
-    const response = await vfsConnectService.register(wrappedPayload, context);
-    expect(response).toEqual({
-      id: 'item-1',
-      createdAt: '2026-03-03T00:00:00.000Z'
-    });
-    expect(registerDirectMock).toHaveBeenCalledWith(
-      {
-        id: 'wrapped-item',
-        objectType: 'file',
-        encryptedSessionKey: 'wrapped-session-key'
-      },
-      context
+    await expect(callRegister(wrappedPayload, context)).rejects.toThrow(
+      'id, objectType, and encryptedSessionKey are required'
     );
+    expect(registerDirectMock).not.toHaveBeenCalled();
   });
 
-  it('accepts snake_case register payload aliases', async () => {
-    const context = {
-      requestHeader: new Headers({
-        authorization: 'Bearer token-1',
-        'x-organization-id': 'org-1'
-      })
-    };
-    const aliasedPayload = {
+  it('rejects legacy json-wrapped rekey payloads', async () => {
+    const context = createContext();
+    const wrappedPayload = {
+      itemId: 'item-1',
       json: JSON.stringify({
-        id: 'aliased-item',
-        object_type: 'folder',
-        encrypted_session_key: 'aliased-session-key'
+        reason: 'manual',
+        newEpoch: 2,
+        wrappedKeys: []
       })
     };
 
-    await vfsConnectService.register(aliasedPayload, context);
-    expect(registerDirectMock).toHaveBeenCalledWith(
-      {
-        id: 'aliased-item',
-        objectType: 'folder',
-        encryptedSessionKey: 'aliased-session-key'
-      },
-      context
+    await expect(callRekeyItem(wrappedPayload, context)).rejects.toThrow(
+      'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.'
     );
+    expect(rekeyItemDirectMock).not.toHaveBeenCalled();
   });
 });
