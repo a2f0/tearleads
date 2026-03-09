@@ -66,4 +66,19 @@ describe('Connect AiService v2 route registration', () => {
       code: Code.Unauthenticated
     });
   });
+
+  it('returns unauthenticated for RecordUsage without bearer token', async () => {
+    const client = createAiClient(server);
+
+    await expect(
+      client.recordUsage({
+        modelId: 'openai/gpt-4o-mini',
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2
+      })
+    ).rejects.toMatchObject({
+      code: Code.Unauthenticated
+    });
+  });
 });

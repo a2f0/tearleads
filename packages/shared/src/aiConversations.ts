@@ -3,7 +3,7 @@
  *
  * Conversations are VFS objects (objectType: 'conversation') stored in vfs_registry.
  * Messages are serialized into the conversation's CRDT encrypted payload.
- * Usage tracking remains as REST endpoints for admin token auditing.
+ * Usage tracking uses typed AI service routes for admin token auditing.
  */
 
 // =============================================================================

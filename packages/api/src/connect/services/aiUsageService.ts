@@ -110,14 +110,24 @@ async function getUserOrganizationId(userId: string): Promise<string | null> {
   return result.rows[0]?.organization_id ?? null;
 }
 
+function isNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
+
 export async function recordUsageForUser(
   userId: string,
   request: AiRecordUsageRequestLike
 ) {
   const modelId = normalizeOptionalString(request.modelId);
-  if (!modelId) {
+  const hasValidCounts =
+    isNonNegativeInteger(request.promptTokens) &&
+    isNonNegativeInteger(request.completionTokens) &&
+    isNonNegativeInteger(request.totalTokens) &&
+    request.totalTokens === request.promptTokens + request.completionTokens;
+
+  if (!modelId || !hasValidCounts) {
     throw new ConnectError(
-      'modelId, promptTokens, completionTokens, and totalTokens are required',
+      'modelId is required and token counts must be non-negative integers with totalTokens matching promptTokens + completionTokens',
       Code.InvalidArgument
     );
   }
