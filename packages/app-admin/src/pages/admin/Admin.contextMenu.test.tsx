@@ -1,14 +1,21 @@
-import type { RedisKeysResponse } from '@tearleads/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Admin } from './Admin';
 
+type RedisKeysResponse = {
+  keys: Array<{ key: string; type: string; ttl: bigint }>;
+  cursor: string;
+  hasMore: boolean;
+};
+type DeleteRedisKeyResponse = { deleted: boolean };
+type GetRedisDbSizeResponse = { count: bigint };
+
 const mockGetKeys =
   vi.fn<(cursor?: string, limit?: number) => Promise<RedisKeysResponse>>();
-const mockDeleteKey = vi.fn<(key: string) => Promise<{ deleted: boolean }>>();
-const mockGetDbSize = vi.fn<() => Promise<{ count: number }>>();
+const mockDeleteKey = vi.fn<(key: string) => Promise<DeleteRedisKeyResponse>>();
+const mockGetDbSize = vi.fn<() => Promise<GetRedisDbSizeResponse>>();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -83,12 +90,12 @@ describe('Admin (context menu)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetKeys.mockResolvedValue({
-      keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
+      keys: [{ key: 'test:key', type: 'string', ttl: -1n }],
       cursor: '0',
       hasMore: false
     });
     mockDeleteKey.mockResolvedValue({ deleted: true });
-    mockGetDbSize.mockResolvedValue({ count: 1 });
+    mockGetDbSize.mockResolvedValue({ count: 1n });
   });
 
   describe('expand/collapse functionality', () => {

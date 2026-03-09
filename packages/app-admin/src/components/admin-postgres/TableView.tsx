@@ -1,5 +1,4 @@
 import type { VirtualItem, Virtualizer } from '@tanstack/react-virtual';
-import type { PostgresColumnInfo } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -9,6 +8,7 @@ import type { RefObject } from 'react';
 import { formatCellValue, getRowKey } from './PostgresTableUtils';
 import type { SortState } from './usePostgresTableData';
 
+// component-complexity: allow -- virtualization and loader-row branching are kept together pending the planned table view split.
 type TableViewVirtualizer = Pick<
   Virtualizer<HTMLDivElement, Element>,
   'getVirtualItems' | 'getTotalSize' | 'measureElement'
@@ -18,7 +18,7 @@ interface TableViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
   virtualizer: TableViewVirtualizer;
   rows: Record<string, unknown>[];
-  visibleColumns: PostgresColumnInfo[];
+  visibleColumns: Array<{ name: string }>;
   sort: SortState;
   handleSort: (columnName: string) => void;
   loadingMore: boolean;

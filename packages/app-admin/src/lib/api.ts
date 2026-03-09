@@ -9,21 +9,23 @@ import type {
   AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
-  PostgresAdminInfoResponse,
-  PostgresColumnsResponse,
-  PostgresRowsResponse,
-  PostgresTablesResponse,
-  RedisKeysResponse,
-  RedisKeyValueResponse,
   UpdateGroupRequest,
   UpdateOrganizationRequest
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
+  type AdminAddGroupMemberResponse,
+  AdminAddGroupMemberResponseSchema,
   type AdminCreateGroupResponse,
   AdminCreateGroupResponseSchema,
   type AdminCreateOrganizationResponse,
   AdminCreateOrganizationResponseSchema,
+  type AdminDeleteGroupResponse,
+  AdminDeleteGroupResponseSchema,
+  type AdminDeleteOrganizationResponse,
+  AdminDeleteOrganizationResponseSchema,
+  AdminDeleteRedisKeyResponseSchema,
+  AdminGetColumnsResponseSchema,
   AdminGetContextResponseSchema,
   type AdminGetGroupMembersResponse,
   AdminGetGroupMembersResponseSchema,
@@ -35,6 +37,12 @@ import {
   AdminGetOrgGroupsResponseSchema,
   type AdminGetOrgUsersResponse,
   AdminGetOrgUsersResponseSchema,
+  AdminGetPostgresInfoResponseSchema,
+  AdminGetRedisDbSizeResponseSchema,
+  AdminGetRedisKeysResponseSchema,
+  AdminGetRedisValueResponseSchema,
+  AdminGetRowsResponseSchema,
+  AdminGetTablesResponseSchema,
   type AdminGetUserResponse,
   AdminGetUserResponseSchema,
   type AdminListGroupsResponse,
@@ -43,6 +51,8 @@ import {
   AdminListOrganizationsResponseSchema,
   type AdminListUsersResponse,
   AdminListUsersResponseSchema,
+  type AdminRemoveGroupMemberResponse,
+  AdminRemoveGroupMemberResponseSchema,
   type AdminUpdateGroupResponse,
   AdminUpdateGroupResponseSchema,
   type AdminUpdateOrganizationResponse,
@@ -50,20 +60,6 @@ import {
   type AdminUpdateUserResponse,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
-import {
-  mapAddGroupMemberResponse,
-  mapDeleteGroupResponse,
-  mapDeleteOrganizationResponse,
-  mapDeleteRedisKeyResponse,
-  mapPostgresColumnsResponse,
-  mapPostgresInfoResponse,
-  mapPostgresRowsResponse,
-  mapPostgresTablesResponse,
-  mapRedisDbSizeResponse,
-  mapRedisKeysResponse,
-  mapRedisValueResponse,
-  mapRemoveGroupMemberResponse
-} from './adminV2ApiMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -91,10 +87,16 @@ interface AdminGroupsApi {
     id: string,
     data: UpdateGroupRequest
   ): Promise<AdminUpdateGroupResponse>;
-  delete(id: string): Promise<{ deleted: boolean }>;
+  delete(id: string): Promise<AdminDeleteGroupResponse>;
   getMembers(id: string): Promise<AdminGetGroupMembersResponse>;
-  addMember(groupId: string, userId: string): Promise<{ added: boolean }>;
-  removeMember(groupId: string, userId: string): Promise<{ removed: boolean }>;
+  addMember(
+    groupId: string,
+    userId: string
+  ): Promise<AdminAddGroupMemberResponse>;
+  removeMember(
+    groupId: string,
+    userId: string
+  ): Promise<AdminRemoveGroupMemberResponse>;
 }
 
 interface AdminOrganizationsApi {
@@ -111,7 +113,7 @@ interface AdminOrganizationsApi {
     id: string,
     data: UpdateOrganizationRequest
   ): Promise<AdminUpdateOrganizationResponse>;
-  delete(id: string): Promise<{ deleted: boolean }>;
+  delete(id: string): Promise<AdminDeleteOrganizationResponse>;
 }
 
 async function request<T>(
@@ -168,16 +170,6 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
-function requestAdminV2<T>(
-  methodName: string,
-  requestBody: Record<string, unknown>,
-  mapResponse: (responseBody: unknown) => T
-): Promise<T> {
-  return request<unknown>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
-    fetchOptions: createConnectJsonPostInit(requestBody)
-  }).then((responseBody) => mapResponse(responseBody));
-}
-
 function requestAdminV2Proto<Desc extends DescMessage>(
   methodName: string,
   requestBody: Record<string, unknown>,
@@ -187,7 +179,7 @@ function requestAdminV2Proto<Desc extends DescMessage>(
     fetchOptions: createConnectJsonPostInit(requestBody)
   }).then((responseBody) => {
     try {
-      return fromJson(schema, responseBody, {
+      return fromJson(schema, responseBody ?? {}, {
         ignoreUnknownFields: true
       });
     } catch (error) {
@@ -293,7 +285,7 @@ const adminV2GroupsApi: AdminGroupsApi = {
       AdminUpdateGroupResponseSchema
     ),
   delete: (id: string) =>
-    requestAdminV2('DeleteGroup', { id }, mapDeleteGroupResponse),
+    requestAdminV2Proto('DeleteGroup', { id }, AdminDeleteGroupResponseSchema),
   getMembers: (id: string) =>
     requestAdminV2Proto(
       'GetGroupMembers',
@@ -301,22 +293,22 @@ const adminV2GroupsApi: AdminGroupsApi = {
       AdminGetGroupMembersResponseSchema
     ),
   addMember: (groupId: string, userId: string) =>
-    requestAdminV2(
+    requestAdminV2Proto(
       'AddGroupMember',
       {
         id: groupId,
         userId
       },
-      mapAddGroupMemberResponse
+      AdminAddGroupMemberResponseSchema
     ),
   removeMember: (groupId: string, userId: string) =>
-    requestAdminV2(
+    requestAdminV2Proto(
       'RemoveGroupMember',
       {
         groupId,
         userId
       },
-      mapRemoveGroupMemberResponse
+      AdminRemoveGroupMemberResponseSchema
     )
 };
 
@@ -370,7 +362,11 @@ const adminV2OrganizationsApi: AdminOrganizationsApi = {
       AdminUpdateOrganizationResponseSchema
     ),
   delete: (id: string) =>
-    requestAdminV2('DeleteOrganization', { id }, mapDeleteOrganizationResponse)
+    requestAdminV2Proto(
+      'DeleteOrganization',
+      { id },
+      AdminDeleteOrganizationResponseSchema
+    )
 };
 
 export const api = {
@@ -379,25 +375,21 @@ export const api = {
       requestAdminV2Proto('GetContext', {}, AdminGetContextResponseSchema),
     postgres: {
       getInfo: () =>
-        requestAdminV2<PostgresAdminInfoResponse>(
+        requestAdminV2Proto(
           'GetPostgresInfo',
           {},
-          mapPostgresInfoResponse
+          AdminGetPostgresInfoResponseSchema
         ),
       getTables: () =>
-        requestAdminV2<PostgresTablesResponse>(
-          'GetTables',
-          {},
-          mapPostgresTablesResponse
-        ),
+        requestAdminV2Proto('GetTables', {}, AdminGetTablesResponseSchema),
       getColumns: (schema: string, table: string) =>
-        requestAdminV2<PostgresColumnsResponse>(
+        requestAdminV2Proto(
           'GetColumns',
           {
             schema,
             table
           },
-          mapPostgresColumnsResponse
+          AdminGetColumnsResponseSchema
         ),
       getRows: (
         schema: string,
@@ -416,10 +408,10 @@ export const api = {
         if (options?.sortDirection) {
           requestBody['sortDirection'] = options.sortDirection;
         }
-        return requestAdminV2<PostgresRowsResponse>(
+        return requestAdminV2Proto(
           'GetRows',
           requestBody,
-          mapPostgresRowsResponse
+          AdminGetRowsResponseSchema
         );
       }
     },
@@ -428,29 +420,29 @@ export const api = {
         const requestBody: Record<string, unknown> = {};
         if (cursor) requestBody['cursor'] = cursor;
         if (limit) requestBody['limit'] = limit;
-        return requestAdminV2<RedisKeysResponse>(
+        return requestAdminV2Proto(
           'GetRedisKeys',
           requestBody,
-          mapRedisKeysResponse
+          AdminGetRedisKeysResponseSchema
         );
       },
       getValue: (key: string) =>
-        requestAdminV2<RedisKeyValueResponse>(
+        requestAdminV2Proto(
           'GetRedisValue',
           { key },
-          mapRedisValueResponse
+          AdminGetRedisValueResponseSchema
         ),
       deleteKey: (key: string) =>
-        requestAdminV2<{ deleted: boolean }>(
+        requestAdminV2Proto(
           'DeleteRedisKey',
           { key },
-          mapDeleteRedisKeyResponse
+          AdminDeleteRedisKeyResponseSchema
         ),
       getDbSize: () =>
-        requestAdminV2<{ count: number }>(
+        requestAdminV2Proto(
           'GetRedisDbSize',
           {},
-          mapRedisDbSizeResponse
+          AdminGetRedisDbSizeResponseSchema
         )
     },
     groups: adminV2GroupsApi,

@@ -1,4 +1,3 @@
-import type { PostgresTableInfo } from '@tearleads/shared';
 import { RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -12,18 +11,68 @@ import { api } from '@/lib/api';
 
 // component-complexity: allow -- table layout and routing split is tracked separately.
 const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const index = Math.floor(Math.log(bytes) / Math.log(k));
-  const value = bytes / k ** index;
-  return `${value.toFixed(value >= 10 ? 1 : 2)}${sizes[index]}`;
+interface PostgresTableInfoView {
+  schema: string;
+  name: string;
+  rowCount: bigint;
+  totalBytes: bigint;
 }
 
-function formatRowCount(count: number): string {
-  return ROW_COUNT_FORMATTER.format(count);
+function toBigInt(value: bigint | number): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
+function formatBytes(bytes: bigint | number): string {
+  const normalizedBytes = toBigInt(bytes);
+  if (normalizedBytes === 0n) return '0B';
+
+  let unitIndex = 0;
+  let unitDivisor = 1n;
+
+  while (
+    normalizedBytes / unitDivisor >= 1024n &&
+    unitIndex < BYTE_UNITS.length - 1
+  ) {
+    unitDivisor *= 1024n;
+    unitIndex += 1;
+  }
+
+  if (unitIndex === 0) {
+    return `${normalizedBytes.toString()}B`;
+  }
+
+  const decimals = normalizedBytes / unitDivisor >= 10n ? 1 : 2;
+  const scale = 10n ** BigInt(decimals);
+  const roundedValue =
+    (normalizedBytes * scale + unitDivisor / 2n) / unitDivisor;
+  const wholePart = roundedValue / scale;
+  const fractionPart = (roundedValue % scale)
+    .toString()
+    .padStart(decimals, '0');
+
+  return `${wholePart.toString()}.${fractionPart}${BYTE_UNITS[unitIndex]}`;
+}
+
+function formatRowCount(count: bigint | number): string {
+  const normalizedCount = toBigInt(count);
+  return normalizedCount <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? ROW_COUNT_FORMATTER.format(Number(normalizedCount))
+    : normalizedCount.toLocaleString('en-US');
+}
+
+function normalizePostgresTable(
+  table: Awaited<
+    ReturnType<typeof api.adminV2.postgres.getTables>
+  >['tables'][number]
+): PostgresTableInfoView {
+  return {
+    schema: table.schema,
+    name: table.name,
+    rowCount: toBigInt(table.rowCount),
+    totalBytes: toBigInt(table.totalBytes)
+  };
 }
 
 interface PostgresTableSizesProps {
@@ -33,7 +82,7 @@ interface PostgresTableSizesProps {
 export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   const { t } = useTypedTranslation('admin');
   const navigate = useNavigate();
-  const [tables, setTables] = useState<PostgresTableInfo[]>([]);
+  const [tables, setTables] = useState<PostgresTableInfoView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +100,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   );
 
   const totalBytes = useMemo(
-    () => tables.reduce((sum, table) => sum + table.totalBytes, 0),
+    () => tables.reduce((sum, table) => sum + toBigInt(table.totalBytes), 0n),
     [tables]
   );
 
@@ -60,13 +109,17 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
     setError(null);
     try {
       const response = await api.adminV2.postgres.getTables();
-      const sorted = [...response.tables].sort((a, b) => {
-        const schemaCompare = a.schema.localeCompare(b.schema, undefined, {
-          sensitivity: 'base'
+      const sorted = response.tables
+        .map(normalizePostgresTable)
+        .sort((a, b) => {
+          const schemaCompare = a.schema.localeCompare(b.schema, undefined, {
+            sensitivity: 'base'
+          });
+          if (schemaCompare !== 0) return schemaCompare;
+          return a.name.localeCompare(b.name, undefined, {
+            sensitivity: 'base'
+          });
         });
-        if (schemaCompare !== 0) return schemaCompare;
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-      });
       setTables(sorted);
     } catch (err) {
       console.error('Failed to fetch Postgres tables:', err);

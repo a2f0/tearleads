@@ -25,7 +25,6 @@ describe('PostgresConnectionPanel', () => {
 
   it('renders connection details', async () => {
     mockGetInfo.mockResolvedValue({
-      status: 'ok',
       info: {
         host: 'localhost',
         port: 5432,

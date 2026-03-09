@@ -66,6 +66,22 @@ describe('VirtualListStatus', () => {
       ).toBeInTheDocument();
     });
 
+    it('renders bigint totals without losing precision', () => {
+      render(
+        <VirtualListStatus
+          firstVisible={0}
+          lastVisible={49}
+          loadedCount={50}
+          totalCount={9007199254740993n}
+          itemLabel="key"
+        />
+      );
+
+      expect(
+        screen.getByText('Viewing 1-50 (9,007,199,254,740,993 total)')
+      ).toBeInTheDocument();
+    });
+
     it('renders hasMore indicator when no range', () => {
       render(
         <VirtualListStatus

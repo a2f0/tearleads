@@ -1,7 +1,11 @@
 import { create } from '@bufbuild/protobuf';
 import {
+  AdminAddGroupMemberResponseSchema,
   AdminCreateGroupResponseSchema,
   AdminCreateOrganizationResponseSchema,
+  AdminDeleteGroupResponseSchema,
+  AdminDeleteOrganizationResponseSchema,
+  AdminRemoveGroupMemberResponseSchema,
   AdminUpdateGroupResponseSchema,
   AdminUpdateOrganizationResponseSchema,
   AdminUpdateUserResponseSchema
@@ -115,23 +119,23 @@ describe('admin api client v2 mutation routes', () => {
     );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
-    await expect(apiClient.adminV2.groups.delete('group-1')).resolves.toEqual({
-      deleted: true
-    });
+    await expect(apiClient.adminV2.groups.delete('group-1')).resolves.toEqual(
+      create(AdminDeleteGroupResponseSchema, { deleted: true })
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ added: true }));
     await expect(
       apiClient.adminV2.groups.addMember('group-1', 'user-1')
-    ).resolves.toEqual({
-      added: true
-    });
+    ).resolves.toEqual(
+      create(AdminAddGroupMemberResponseSchema, { added: true })
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ removed: true }));
     await expect(
       apiClient.adminV2.groups.removeMember('group-1', 'user-1')
-    ).resolves.toEqual({
-      removed: true
-    });
+    ).resolves.toEqual(
+      create(AdminRemoveGroupMemberResponseSchema, { removed: true })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -192,9 +196,9 @@ describe('admin api client v2 mutation routes', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     await expect(
       apiClient.adminV2.organizations.delete('org-2')
-    ).resolves.toEqual({
-      deleted: true
-    });
+    ).resolves.toEqual(
+      create(AdminDeleteOrganizationResponseSchema, { deleted: true })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({

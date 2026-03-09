@@ -4,7 +4,7 @@ interface StickyVirtualListStatusProps {
   firstVisible: number | null;
   lastVisible: number | null;
   loadedCount: number;
-  totalCount: number | null;
+  totalCount: bigint | number | null;
   hasMore: boolean;
 }
 

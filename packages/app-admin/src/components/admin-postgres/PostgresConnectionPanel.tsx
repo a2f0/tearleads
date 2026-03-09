@@ -1,4 +1,3 @@
-import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import { RefreshButton } from '@tearleads/ui';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,9 +6,36 @@ import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
 
+interface PostgresConnectionInfoView {
+  host: string | null;
+  port: number | null;
+  database: string | null;
+  user: string | null;
+}
+
+interface PostgresInfoView {
+  info: PostgresConnectionInfoView;
+  serverVersion: string | null;
+}
+
+function normalizePostgresInfo(
+  response: Awaited<ReturnType<typeof api.adminV2.postgres.getInfo>>
+): PostgresInfoView {
+  const info = response.info;
+  return {
+    info: {
+      host: info?.host ?? null,
+      port: info?.port ?? null,
+      database: info?.database ?? null,
+      user: info?.user ?? null
+    },
+    serverVersion: response.serverVersion ?? null
+  };
+}
+
 export function PostgresConnectionPanel() {
   const { t } = useTypedTranslation('admin');
-  const [info, setInfo] = useState<PostgresAdminInfoResponse | null>(null);
+  const [info, setInfo] = useState<PostgresInfoView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +44,7 @@ export function PostgresConnectionPanel() {
     setError(null);
     try {
       const response = await api.adminV2.postgres.getInfo();
-      setInfo(response);
+      setInfo(normalizePostgresInfo(response));
     } catch (err) {
       console.error('Failed to fetch Postgres connection info:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -79,7 +105,7 @@ export function PostgresConnectionPanel() {
                 Host
               </div>
               <div className="font-mono">
-                {info?.info.host ?? FALLBACK_VALUE}
+                {info?.info?.host ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -87,7 +113,7 @@ export function PostgresConnectionPanel() {
                 Port
               </div>
               <div className="font-mono">
-                {info?.info.port ?? FALLBACK_VALUE}
+                {info?.info?.port ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -95,7 +121,7 @@ export function PostgresConnectionPanel() {
                 Database
               </div>
               <div className="font-mono">
-                {info?.info.database ?? FALLBACK_VALUE}
+                {info?.info?.database ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -103,7 +129,7 @@ export function PostgresConnectionPanel() {
                 User
               </div>
               <div className="font-mono">
-                {info?.info.user ?? FALLBACK_VALUE}
+                {info?.info?.user ?? FALLBACK_VALUE}
               </div>
             </div>
           </div>

@@ -1,14 +1,33 @@
 import { cn } from '../lib/utils.js';
 
+type CountValue = number | bigint;
+
+const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
+
 export interface VirtualListStatusProps {
   firstVisible: number | null;
   lastVisible: number | null;
   loadedCount: number;
-  totalCount?: number | null;
+  totalCount?: CountValue | null;
   hasMore?: boolean;
   itemLabel?: string;
   searchQuery?: string;
   className?: string;
+}
+
+function formatCount(value: CountValue): string {
+  return typeof value === 'bigint'
+    ? value.toLocaleString('en-US')
+    : NUMBER_FORMATTER.format(value);
+}
+
+function differsFromLoaded(
+  totalCount: CountValue,
+  loadedCount: number
+): boolean {
+  return typeof totalCount === 'bigint'
+    ? totalCount !== BigInt(loadedCount)
+    : totalCount !== loadedCount;
 }
 
 export function getVirtualListStatusText({
@@ -20,35 +39,34 @@ export function getVirtualListStatusText({
   itemLabel = 'item',
   searchQuery
 }: Omit<VirtualListStatusProps, 'className'>): string {
-  const formatNumber = new Intl.NumberFormat('en-US').format;
   const pluralLabel = loadedCount !== 1 ? `${itemLabel}s` : itemLabel;
 
   if (loadedCount === 0) {
-    return `${formatNumber(0)} ${pluralLabel}${searchQuery ? ' found' : ''}`;
+    return `${formatCount(0)} ${pluralLabel}${searchQuery ? ' found' : ''}`;
   }
 
   const hasMoreIndicator = hasMore ? '+' : '';
 
   if (firstVisible != null && lastVisible != null) {
-    const rangeText = `Viewing ${formatNumber(firstVisible + 1)}-${formatNumber(
+    const rangeText = `Viewing ${formatCount(firstVisible + 1)}-${formatCount(
       lastVisible + 1
     )}`;
 
-    if (totalCount != null && totalCount !== loadedCount) {
-      return `${rangeText} (${formatNumber(totalCount)} total)`;
+    if (totalCount != null && differsFromLoaded(totalCount, loadedCount)) {
+      return `${rangeText} (${formatCount(totalCount)} total)`;
     }
 
     const suffix = searchQuery ? ' found' : '';
-    return `${rangeText} of ${formatNumber(loadedCount)}${hasMoreIndicator} ${pluralLabel}${suffix}`;
+    return `${rangeText} of ${formatCount(loadedCount)}${hasMoreIndicator} ${pluralLabel}${suffix}`;
   }
 
-  if (totalCount != null && totalCount !== loadedCount) {
-    return `${formatNumber(loadedCount)} loaded${hasMoreIndicator} of ${formatNumber(
+  if (totalCount != null && differsFromLoaded(totalCount, loadedCount)) {
+    return `${formatCount(loadedCount)} loaded${hasMoreIndicator} of ${formatCount(
       totalCount
     )} total`;
   }
 
-  return `${formatNumber(loadedCount)} ${pluralLabel}${hasMoreIndicator}${searchQuery ? ' found' : ''}`;
+  return `${formatCount(loadedCount)} ${pluralLabel}${hasMoreIndicator}${searchQuery ? ' found' : ''}`;
 }
 
 export function VirtualListStatus({

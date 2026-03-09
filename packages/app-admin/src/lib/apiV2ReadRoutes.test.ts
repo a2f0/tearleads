@@ -1,7 +1,15 @@
 import { create } from '@bufbuild/protobuf';
 import {
+  AdminDeleteRedisKeyResponseSchema,
+  AdminGetColumnsResponseSchema,
   AdminGetContextResponseSchema,
   AdminGetGroupResponseSchema,
+  AdminGetPostgresInfoResponseSchema,
+  AdminGetRedisDbSizeResponseSchema,
+  AdminGetRedisKeysResponseSchema,
+  AdminGetRedisValueResponseSchema,
+  AdminGetRowsResponseSchema,
+  AdminGetTablesResponseSchema,
   AdminListOrganizationsResponseSchema,
   AdminListUsersResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -36,7 +44,7 @@ describe('admin api client v2 read routes', () => {
     vi.unstubAllGlobals();
   });
 
-  it('maps v2 postgres and redis payloads to admin DTO shapes', async () => {
+  it('decodes remaining postgres and redis responses with generated proto types', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         isRootAdmin: true,
@@ -180,15 +188,17 @@ describe('admin api client v2 read routes', () => {
         serverVersion: '16.2'
       })
     );
-    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
-      info: {
-        host: 'localhost',
-        port: 5432,
-        database: 'tearleads',
-        user: 'postgres'
-      },
-      serverVersion: '16.2'
-    });
+    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual(
+      create(AdminGetPostgresInfoResponseSchema, {
+        info: {
+          host: 'localhost',
+          port: 5432,
+          database: 'tearleads',
+          user: 'postgres'
+        },
+        serverVersion: '16.2'
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -204,18 +214,20 @@ describe('admin api client v2 read routes', () => {
         ]
       })
     );
-    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual({
-      tables: [
-        {
-          schema: 'public',
-          name: 'users',
-          rowCount: 42,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
-        }
-      ]
-    });
+    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual(
+      create(AdminGetTablesResponseSchema, {
+        tables: [
+          {
+            schema: 'public',
+            name: 'users',
+            rowCount: 42n,
+            totalBytes: 2048n,
+            tableBytes: 1024n,
+            indexBytes: 1024n
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -232,17 +244,19 @@ describe('admin api client v2 read routes', () => {
     );
     await expect(
       apiClient.adminV2.postgres.getColumns('public', 'users')
-    ).resolves.toEqual({
-      columns: [
-        {
-          name: 'email',
-          type: 'text',
-          nullable: false,
-          defaultValue: 'none',
-          ordinalPosition: 2
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminGetColumnsResponseSchema, {
+        columns: [
+          {
+            name: 'email',
+            type: 'text',
+            nullable: false,
+            defaultValue: 'none',
+            ordinalPosition: 2
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -257,12 +271,14 @@ describe('admin api client v2 read routes', () => {
         limit: 10,
         offset: 20
       })
-    ).resolves.toEqual({
-      rows: [{ id: 'u1' }],
-      totalCount: 3,
-      limit: 10,
-      offset: 20
-    });
+    ).resolves.toEqual(
+      create(AdminGetRowsResponseSchema, {
+        rows: [{ id: 'u1' }],
+        totalCount: 3n,
+        limit: 10,
+        offset: 20
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -271,11 +287,13 @@ describe('admin api client v2 read routes', () => {
         hasMore: true
       })
     );
-    await expect(apiClient.adminV2.redis.getKeys('1', 10)).resolves.toEqual({
-      keys: [{ key: 'session:1', type: 'string', ttl: 60 }],
-      cursor: '1',
-      hasMore: true
-    });
+    await expect(apiClient.adminV2.redis.getKeys('1', 10)).resolves.toEqual(
+      create(AdminGetRedisKeysResponseSchema, {
+        keys: [{ key: 'session:1', type: 'string', ttl: 60n }],
+        cursor: '1',
+        hasMore: true
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -285,12 +303,19 @@ describe('admin api client v2 read routes', () => {
         value: { stringValue: 'enabled' }
       })
     );
-    await expect(apiClient.adminV2.redis.getValue('profile')).resolves.toEqual({
-      key: 'profile',
-      type: 'string',
-      ttl: 120,
-      value: 'enabled'
-    });
+    await expect(apiClient.adminV2.redis.getValue('profile')).resolves.toEqual(
+      create(AdminGetRedisValueResponseSchema, {
+        key: 'profile',
+        type: 'string',
+        ttl: 120n,
+        value: {
+          value: {
+            case: 'stringValue',
+            value: 'enabled'
+          }
+        }
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -301,12 +326,17 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(apiClient.adminV2.redis.getValue('features')).resolves.toEqual(
-      {
+      create(AdminGetRedisValueResponseSchema, {
         key: 'features',
         type: 'list',
-        ttl: 30,
-        value: ['a', 'b']
-      }
+        ttl: 30n,
+        value: {
+          value: {
+            case: 'listValue',
+            value: { values: ['a', 'b'] }
+          }
+        }
+      })
     );
 
     fetchMock.mockResolvedValueOnce(
@@ -318,23 +348,28 @@ describe('admin api client v2 read routes', () => {
       })
     );
     await expect(apiClient.adminV2.redis.getValue('settings')).resolves.toEqual(
-      {
+      create(AdminGetRedisValueResponseSchema, {
         key: 'settings',
         type: 'hash',
-        ttl: 5,
-        value: { mode: 'strict' }
-      }
+        ttl: 5n,
+        value: {
+          value: {
+            case: 'mapValue',
+            value: { entries: { mode: 'strict' } }
+          }
+        }
+      })
     );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
-    await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual({
-      deleted: true
-    });
+    await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual(
+      create(AdminDeleteRedisKeyResponseSchema, { deleted: true })
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ count: '12' }));
-    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
-      count: 12
-    });
+    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual(
+      create(AdminGetRedisDbSizeResponseSchema, { count: 12n })
+    );
   });
 
   it('falls back to safe defaults for incomplete v2 payloads', async () => {
@@ -359,63 +394,43 @@ describe('admin api client v2 read routes', () => {
     );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({
-      info: {
-        host: null,
-        port: null,
-        database: null,
-        user: null
-      },
-      serverVersion: null
-    });
+    await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual(
+      create(AdminGetPostgresInfoResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual({
-      tables: []
-    });
+    await expect(apiClient.adminV2.postgres.getTables()).resolves.toEqual(
+      create(AdminGetTablesResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(
       apiClient.adminV2.postgres.getColumns('', '')
-    ).resolves.toEqual({
-      columns: []
-    });
+    ).resolves.toEqual(create(AdminGetColumnsResponseSchema));
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(
       apiClient.adminV2.postgres.getRows('public', 'users')
-    ).resolves.toEqual({
-      rows: [],
-      totalCount: 0,
-      limit: 0,
-      offset: 0
-    });
+    ).resolves.toEqual(create(AdminGetRowsResponseSchema));
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getKeys()).resolves.toEqual({
-      keys: [],
-      cursor: '',
-      hasMore: false
-    });
-
-    fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getValue('missing')).resolves.toEqual({
-      key: '',
-      type: '',
-      ttl: 0,
-      value: null
-    });
-
-    fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.deleteKey('missing')).resolves.toEqual(
-      {
-        deleted: false
-      }
+    await expect(apiClient.adminV2.redis.getKeys()).resolves.toEqual(
+      create(AdminGetRedisKeysResponseSchema)
     );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
-      count: 0
-    });
+    await expect(apiClient.adminV2.redis.getValue('missing')).resolves.toEqual(
+      create(AdminGetRedisValueResponseSchema)
+    );
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({}));
+    await expect(apiClient.adminV2.redis.deleteKey('missing')).resolves.toEqual(
+      create(AdminDeleteRedisKeyResponseSchema)
+    );
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({}));
+    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual(
+      create(AdminGetRedisDbSizeResponseSchema)
+    );
   });
 });
