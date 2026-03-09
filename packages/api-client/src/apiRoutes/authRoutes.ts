@@ -7,7 +7,7 @@ import type {
 import { createConnectJsonPostInit } from '@tearleads/shared';
 import { request } from '../apiCore';
 
-const AUTH_CONNECT_BASE_PATH = '/connect/tearleads.v1.AuthService';
+const AUTH_CONNECT_BASE_PATH = '/connect/tearleads.v2.AuthService';
 
 export const authRoutes = {
   login: (email: string, password: string) =>

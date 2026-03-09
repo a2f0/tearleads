@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package tearleads.v2;
+
+import "google/protobuf/timestamp.proto";
+
+service AuthService {
+  rpc Login(AuthServiceLoginRequest) returns (AuthServiceLoginResponse);
+  rpc Register(AuthServiceRegisterRequest) returns (AuthServiceRegisterResponse);
+  rpc RefreshToken(AuthServiceRefreshTokenRequest)
+      returns (AuthServiceRefreshTokenResponse);
+  rpc GetSessions(AuthServiceGetSessionsRequest)
+      returns (AuthServiceGetSessionsResponse);
+  rpc DeleteSession(AuthServiceDeleteSessionRequest)
+      returns (AuthServiceDeleteSessionResponse);
+  rpc Logout(AuthServiceLogoutRequest) returns (AuthServiceLogoutResponse);
+  rpc GetOrganizations(AuthServiceGetOrganizationsRequest)
+      returns (AuthServiceGetOrganizationsResponse);
+}
+
+message AuthVfsKeySetup {
+  string public_encryption_key = 1;
+  optional string public_signing_key = 2;
+  string encrypted_private_keys = 3;
+  string argon2_salt = 4;
+}
+
+message AuthUser {
+  string id = 1;
+  string email = 2;
+}
+
+message AuthSessionSummary {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  optional google.protobuf.Timestamp expires_at = 3;
+  optional google.protobuf.Timestamp last_active_at = 4;
+  bool is_current = 5;
+  bool is_admin = 6;
+  string ip_address = 7;
+}
+
+message AuthUserOrganization {
+  string id = 1;
+  string name = 2;
+  bool is_personal = 3;
+}
+
+message AuthServiceLoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message AuthServiceRegisterRequest {
+  string email = 1;
+  string password = 2;
+  optional AuthVfsKeySetup vfs_key_setup = 3;
+}
+
+message AuthServiceRefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message AuthServiceLoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message AuthServiceRegisterResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message AuthServiceRefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  int32 refresh_expires_in = 5;
+  AuthUser user = 6;
+}
+
+message AuthServiceGetSessionsRequest {}
+
+message AuthServiceGetSessionsResponse {
+  repeated AuthSessionSummary sessions = 1;
+}
+
+message AuthServiceDeleteSessionRequest {
+  string session_id = 1;
+}
+
+message AuthServiceDeleteSessionResponse {
+  bool deleted = 1;
+}
+
+message AuthServiceLogoutRequest {}
+
+message AuthServiceLogoutResponse {
+  bool logged_out = 1;
+}
+
+message AuthServiceGetOrganizationsRequest {}
+
+message AuthServiceGetOrganizationsResponse {
+  repeated AuthUserOrganization organizations = 1;
+  string personal_organization_id = 2;
+}

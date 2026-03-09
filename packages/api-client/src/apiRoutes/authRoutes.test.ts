@@ -27,7 +27,7 @@ describe('authRoutes', () => {
     await authRoutes.register('dev@tearleads.test', 'password-1', vfsKeySetup);
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v1.AuthService/Register');
+    expect(path).toBe('/connect/tearleads.v2.AuthService/Register');
 
     const body = params?.fetchOptions?.body;
     expect(typeof body).toBe('string');
@@ -46,7 +46,7 @@ describe('authRoutes', () => {
     await authRoutes.getOrganizations();
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v1.AuthService/GetOrganizations');
+    expect(path).toBe('/connect/tearleads.v2.AuthService/GetOrganizations');
     expect(params?.eventName).toBe('api_get_auth_organizations');
   });
 });

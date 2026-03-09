@@ -61,7 +61,7 @@ describe('api request context headers', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-token',

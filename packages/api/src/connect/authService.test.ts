@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { Code, ConnectError, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -220,7 +220,7 @@ describe('Connect AuthService', () => {
     });
 
     const response = await request(app)
-      .post('/v1/connect/tearleads.v1.AuthService/Login')
+      .post('/v1/connect/tearleads.v2.AuthService/Login')
       .set('Content-Type', 'application/json')
       .send({
         email: 'cookie-login@example.com',

@@ -92,7 +92,7 @@ describe('api with msw', () => {
           return HttpResponse.json(null, { status: 500 });
         }),
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () =>
             HttpResponse.json({
               accessToken: 'new-token',
@@ -154,7 +154,7 @@ describe('api with msw', () => {
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () => {
             refreshCalled = true;
             // Refresh succeeds but simulates another tab clearing auth
@@ -204,7 +204,7 @@ describe('api with msw', () => {
     it('handles 205 reset-content responses', async () => {
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/Logout',
+          'http://localhost/connect/tearleads.v2.AuthService/Logout',
           () => new HttpResponse(null, { status: 205 })
         )
       );
@@ -213,7 +213,7 @@ describe('api with msw', () => {
 
       await expect(api.auth.logout()).resolves.toBeUndefined();
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Logout')
+        wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Logout')
       ).toBe(true);
     });
 

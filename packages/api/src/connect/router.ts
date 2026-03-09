@@ -1,5 +1,5 @@
 import type { ConnectRouter } from '@connectrpc/connect';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
 import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
 import { NotificationService } from '@tearleads/shared/gen/tearleads/v1/notifications_pb';

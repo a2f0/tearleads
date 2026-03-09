@@ -29,7 +29,7 @@ describe('mapLegacyPathToConnect', () => {
     });
 
     expect(mapping).not.toBeNull();
-    expect(mapping?.path).toBe('/v1/connect/tearleads.v1.AuthService/Register');
+    expect(mapping?.path).toBe('/v1/connect/tearleads.v2.AuthService/Register');
     expect(mapping?.body).toEqual(payload);
   });
 

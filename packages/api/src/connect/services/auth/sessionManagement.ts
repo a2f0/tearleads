@@ -1,10 +1,10 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import type {
-  DeleteSessionRequest,
-  GetOrganizationsRequest,
-  GetSessionsRequest,
-  LogoutRequest
-} from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+  AuthServiceDeleteSessionRequest,
+  AuthServiceGetOrganizationsRequest,
+  AuthServiceGetSessionsRequest,
+  AuthServiceLogoutRequest
+} from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { getPostgresPool } from '../../../lib/postgres.js';
 import {
   deleteSession as deleteStoredSession,
@@ -20,7 +20,7 @@ import {
 } from './shared.js';
 
 export async function getSessionsHandler(
-  _request: GetSessionsRequest,
+  _request: AuthServiceGetSessionsRequest,
   context: HandlerContext
 ) {
   const authContext = getAuthContextOrThrow({
@@ -49,7 +49,7 @@ export async function getSessionsHandler(
 }
 
 export async function deleteSessionHandler(
-  request: DeleteSessionRequest,
+  request: AuthServiceDeleteSessionRequest,
   context: HandlerContext
 ) {
   const authContext = getAuthContextOrThrow({
@@ -84,7 +84,10 @@ export async function deleteSessionHandler(
   }
 }
 
-export async function logout(_request: LogoutRequest, context: HandlerContext) {
+export async function logout(
+  _request: AuthServiceLogoutRequest,
+  context: HandlerContext
+) {
   const authContext = getAuthContextOrThrow({
     values: getRequiredConnectAuthContext(context)
   });
@@ -102,7 +105,7 @@ export async function logout(_request: LogoutRequest, context: HandlerContext) {
 }
 
 export async function getOrganizations(
-  _request: GetOrganizationsRequest,
+  _request: AuthServiceGetOrganizationsRequest,
   context: HandlerContext
 ) {
   const authContext = getAuthContextOrThrow({

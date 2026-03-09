@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { LoginRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import type { AuthServiceLoginRequest } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { createJwt } from '../../../lib/jwt.js';
 import { verifyPassword } from '../../../lib/passwords.js';
 import { getPostgresPool } from '../../../lib/postgres.js';
@@ -14,7 +14,10 @@ import {
   setRefreshTokenCookie
 } from './shared.js';
 
-export async function login(request: LoginRequest, context: HandlerContext) {
+export async function login(
+  request: AuthServiceLoginRequest,
+  context: HandlerContext
+) {
   const payload = parseAuthPayload({
     email: request.email,
     password: request.password

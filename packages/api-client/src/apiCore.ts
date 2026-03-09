@@ -15,7 +15,7 @@ import {
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH =
-  '/connect/tearleads.v1.AuthService/RefreshToken';
+  '/connect/tearleads.v2.AuthService/RefreshToken';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION = new Set([
   'SetupKeys',

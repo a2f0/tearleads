@@ -6,9 +6,9 @@ import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 const AUTH_HEADER_PREFIX = 'Bearer ';
 
 const AUTH_EXEMPT_METHODS = new Set([
-  'tearleads.v1.AuthService/Login',
-  'tearleads.v1.AuthService/Register',
-  'tearleads.v1.AuthService/RefreshToken'
+  'tearleads.v2.AuthService/Login',
+  'tearleads.v2.AuthService/Register',
+  'tearleads.v2.AuthService/RefreshToken'
 ]);
 
 function extractBearerToken(authHeader: string | null): string | null {
