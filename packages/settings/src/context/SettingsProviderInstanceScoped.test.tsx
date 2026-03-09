@@ -129,6 +129,48 @@ describe('SettingsProvider instance-scoped', () => {
     expect(getSettingsFromDb2).toHaveBeenCalled();
   });
 
+  it('dispatches defaults on instance switch', async () => {
+    const getSettingsFromDb = vi.fn().mockResolvedValue({
+      theme: 'dark'
+    });
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+    const { rerender } = render(
+      <SettingsProvider
+        instanceId="inst-1"
+        getSettingsFromDb={getSettingsFromDb}
+      >
+        <TestConsumer />
+      </SettingsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('synced')).toHaveTextContent('yes');
+    });
+
+    dispatchSpy.mockClear();
+
+    rerender(
+      <SettingsProvider instanceId="inst-2">
+        <TestConsumer />
+      </SettingsProvider>
+    );
+
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'settings-synced',
+        detail: {
+          settings: expect.objectContaining({
+            theme: 'light',
+            language: 'en'
+          })
+        }
+      })
+    );
+
+    dispatchSpy.mockRestore();
+  });
+
   it('migrates unscoped settings on first use of instanceId', () => {
     localStorageData['theme'] = 'dark';
     localStorageData['i18nextLng'] = 'es';
@@ -149,7 +191,7 @@ describe('SettingsProvider instance-scoped', () => {
     );
   });
 
-  it('dispatches settings-synced with effective values', async () => {
+  it('dispatches settings-synced with DB values only', async () => {
     const getSettingsFromDb = vi.fn().mockResolvedValue({
       theme: 'dark'
     });
@@ -169,11 +211,7 @@ describe('SettingsProvider instance-scoped', () => {
         expect.objectContaining({
           type: 'settings-synced',
           detail: {
-            settings: expect.objectContaining({
-              theme: 'dark',
-              language: 'en',
-              font: 'system'
-            })
+            settings: { theme: 'dark' }
           }
         })
       );

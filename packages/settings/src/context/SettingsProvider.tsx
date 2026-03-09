@@ -76,6 +76,10 @@ export function SettingsProvider({
 
   // Reset state and migrate unscoped settings when instanceId changes
   useEffect(() => {
+    const isInstanceSwitch =
+      prevInstanceIdRef.current !== undefined &&
+      instanceId !== prevInstanceIdRef.current;
+
     hasSyncedRef.current = false;
     setSettings({});
     setIsSynced(false);
@@ -84,6 +88,12 @@ export function SettingsProvider({
       migrateUnscopedSettings(instanceId);
     }
     prevInstanceIdRef.current = instanceId;
+
+    // On instance switch, reset ThemeProvider/i18n to defaults immediately
+    // so stale values from the previous instance don't persist.
+    if (isInstanceSwitch) {
+      dispatchSettingsSyncedEvent({ ...SETTING_DEFAULTS });
+    }
   }, [instanceId]);
 
   // Sync settings from DB when database operations are available
@@ -106,9 +116,10 @@ export function SettingsProvider({
         setIsSynced(true);
         hasSyncedRef.current = true;
 
-        // Build effective settings (DB merged with defaults) for the event
-        const effectiveSettings = { ...SETTING_DEFAULTS, ...dbSettings };
-        dispatchSettingsSyncedEvent(effectiveSettings);
+        // Dispatch only DB settings so we don't override locally-set values
+        // with defaults when the DB write hasn't completed yet.
+        // Defaults are dispatched separately on instance switch (reset effect).
+        dispatchSettingsSyncedEvent(dbSettings);
       } catch (err) {
         console.warn('Failed to sync settings from database:', err);
       }

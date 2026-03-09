@@ -263,10 +263,7 @@ describe('SettingsProvider', () => {
           expect.objectContaining({
             type: 'settings-synced',
             detail: {
-              settings: expect.objectContaining({
-                theme: 'dark',
-                language: 'es'
-              })
+              settings: { theme: 'dark', language: 'es' }
             }
           })
         );
@@ -275,7 +272,7 @@ describe('SettingsProvider', () => {
       dispatchSpy.mockRestore();
     });
 
-    it('dispatches event with defaults when no settings in database', async () => {
+    it('dispatches event with empty settings when no settings in database', async () => {
       const getSettingsFromDb = vi.fn().mockResolvedValue({});
       const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
@@ -293,10 +290,7 @@ describe('SettingsProvider', () => {
         expect.objectContaining({
           type: 'settings-synced',
           detail: {
-            settings: expect.objectContaining({
-              theme: 'light',
-              language: 'en'
-            })
+            settings: {}
           }
         })
       );
