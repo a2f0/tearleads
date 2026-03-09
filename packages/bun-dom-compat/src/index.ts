@@ -177,9 +177,7 @@ interface VitestPolyfillResult {
  * purely for TypeScript type narrowing (`Mocked<T>`). The polyfill
  * mirrors that behaviour exactly.
  */
-export function installVitestPolyfills(
-  vi: Record<string, unknown>
-): VitestPolyfillResult {
+export function installVitestPolyfills(vi: object): VitestPolyfillResult {
   if (typeof Reflect.get(vi, 'hoisted') !== 'function') {
     Reflect.set(vi, 'hoisted', <T>(factory: () => T): T => factory());
   }
@@ -197,6 +195,10 @@ export function installVitestPolyfills(
       string,
       { hadValue: boolean; value: unknown }
     >();
+    const stubbedWindowGlobals = new Map<
+      string,
+      { hadValue: boolean; value: unknown }
+    >();
 
     Reflect.set(vi, 'stubGlobal', (name: string, value: unknown) => {
       if (!stubbedGlobals.has(name)) {
@@ -210,6 +212,27 @@ export function installVitestPolyfills(
         writable: true,
         value
       });
+
+      const windowObject = Reflect.get(globalThis, 'window');
+      if (typeof windowObject === 'object' && windowObject !== null) {
+        if (
+          Reflect.has(windowObject, name) &&
+          !stubbedWindowGlobals.has(name)
+        ) {
+          stubbedWindowGlobals.set(name, {
+            hadValue: Reflect.has(windowObject, name),
+            value: Reflect.get(windowObject, name)
+          });
+        }
+
+        if (Reflect.has(windowObject, name)) {
+          Object.defineProperty(windowObject, name, {
+            configurable: true,
+            writable: true,
+            value
+          });
+        }
+      }
     });
 
     cleanup = () => {
@@ -225,6 +248,22 @@ export function installVitestPolyfills(
         }
       }
       stubbedGlobals.clear();
+
+      const windowObject = Reflect.get(globalThis, 'window');
+      if (typeof windowObject === 'object' && windowObject !== null) {
+        for (const [name, original] of stubbedWindowGlobals) {
+          if (original.hadValue) {
+            Object.defineProperty(windowObject, name, {
+              configurable: true,
+              writable: true,
+              value: original.value
+            });
+          } else {
+            Reflect.deleteProperty(windowObject, name);
+          }
+        }
+      }
+      stubbedWindowGlobals.clear();
     };
 
     Reflect.set(vi, 'unstubAllGlobals', cleanup);
