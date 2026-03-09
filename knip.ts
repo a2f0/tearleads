@@ -67,8 +67,14 @@ const config: KnipConfig = {
         'src/index.css'
       ]
     },
+    'packages/console': {
+      entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
+    },
     'packages/classic': {
       entry: ['src/test/**/*.ts']
+    },
+    'packages/help': {
+      entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
     },
     'packages/health': {
       entry: ['src/test/**/*.ts']

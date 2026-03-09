@@ -17,10 +17,10 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Compatibility Snapshot (2026-03-09)
 
 - Packages with tests: 49
-- Bun-primary `test` scripts: 31
-- Transitional bun auto-fallback scripts: 9
+- Bun-primary `test` scripts: 33
+- Transitional bun auto-fallback scripts: 7
 - Vitest-primary `test` scripts: 8
-- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 16
+- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 14
 
 ## Merged Slices
 
@@ -95,6 +95,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#3002](https://github.com/a2f0/tearleads/pull/3002) | Compatibility inventory `vi.mock(importOriginal)` blocker detection |
 | [#3007](https://github.com/a2f0/tearleads/pull/3007) | Compatibility inventory `vi.waitFor` blocker detection |
 | [#3031](https://github.com/a2f0/tearleads/pull/3031) | Promote analytics/compliance/ui to Bun-primary `test` scripts |
+| [#3037](https://github.com/a2f0/tearleads/pull/3037) | Refresh Bun migration tracker snapshot + merged slices ledger |
 
 ## Node Pilot Package Status
 
@@ -115,4 +116,4 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
 2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`).
-3. Burn down the 9 packages still using `bun-auto-fallback` in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
+3. Burn down the 7 packages still using `bun-auto-fallback` in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
