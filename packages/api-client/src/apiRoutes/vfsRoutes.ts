@@ -56,10 +56,11 @@ function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
   ) {
     return parsedPayload as TResponse;
   }
-  if (typeof parsedPayload === 'string') {
-    return parseConnectJsonString<TResponse>(parsedPayload);
+  if (parsedPayload === null || parsedPayload === undefined) {
+    return parseConnectJsonString<TResponse>('{}');
   }
-  return parseConnectJsonString<TResponse>('{}');
+
+  throw new Error('transport returned non-object connect payload');
 }
 
 function normalizeSyncPage<TItem>(page: {
