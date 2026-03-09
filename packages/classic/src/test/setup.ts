@@ -1,5 +1,13 @@
 import '@testing-library/jest-dom/vitest';
+import { installVitestPolyfills } from '@tearleads/bun-dom-compat';
+import { waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
+
+installVitestPolyfills(vi);
+
+if (typeof Reflect.get(vi, 'waitFor') !== 'function') {
+  Reflect.set(vi, 'waitFor', waitFor);
+}
 
 // Mock react-i18next to return the key as the translated string
 vi.mock('react-i18next', () => ({
