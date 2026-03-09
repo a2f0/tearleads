@@ -10,31 +10,20 @@ let mockDatabaseState: HostRuntimeDatabaseState = {
   isLoading: false,
   currentInstanceId: 'instance-a'
 };
-let useLegacyRuntime = false;
-let legacyIsUnlocked = false;
-
 const mockCreateTracker = vi.fn(() => ({
   listWeightReadings: vi.fn(),
   addWeightReading: vi.fn()
 }));
 
 describe('useHealthTracker', () => {
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    useLegacyRuntime ? (
-      <HealthRuntimeProvider
-        isUnlocked={legacyIsUnlocked}
-        createTracker={mockCreateTracker}
-      >
-        {children}
-      </HealthRuntimeProvider>
-    ) : (
-      <HealthRuntimeProvider
-        databaseState={mockDatabaseState}
-        createTracker={mockCreateTracker}
-      >
-        {children}
-      </HealthRuntimeProvider>
-    );
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <HealthRuntimeProvider
+      databaseState={mockDatabaseState}
+      createTracker={mockCreateTracker}
+    >
+      {children}
+    </HealthRuntimeProvider>
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,8 +32,6 @@ describe('useHealthTracker', () => {
       isLoading: false,
       currentInstanceId: 'instance-a'
     };
-    useLegacyRuntime = false;
-    legacyIsUnlocked = false;
   });
 
   it('returns null when database is locked', () => {
@@ -118,23 +105,5 @@ describe('useHealthTracker', () => {
 
     expect(result.current).not.toBe(firstTracker);
     expect(mockCreateTracker).toHaveBeenCalledTimes(2);
-  });
-
-  it('supports legacy isUnlocked runtime provider prop', () => {
-    useLegacyRuntime = true;
-    legacyIsUnlocked = false;
-
-    mockCreateTracker.mockClear();
-    const { result, rerender } = renderHook(() => useHealthTracker(), {
-      wrapper
-    });
-    expect(result.current).toBeNull();
-    expect(mockCreateTracker).not.toHaveBeenCalled();
-
-    legacyIsUnlocked = true;
-    rerender();
-
-    expect(result.current).not.toBeNull();
-    expect(mockCreateTracker).toHaveBeenCalledTimes(1);
   });
 });
