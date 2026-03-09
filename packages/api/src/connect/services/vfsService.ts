@@ -46,6 +46,12 @@ import {
 } from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
+type RegisterPayloadRequest = {
+  id: string;
+  objectType: string;
+  encryptedSessionKey: string;
+  encryptedName?: string;
+};
 type GetSyncRequest = { cursor: string; limit: number; rootId: string };
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };
@@ -71,10 +77,18 @@ type RunCrdtSessionRequest = {
 };
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
+type RegisterServiceRequest = VfsRegisterRpcRequest | RegisterPayloadRequest;
+type RekeyItemPayloadRequest = {
+  itemId: string;
+  reason: string;
+  newEpoch: number;
+  wrappedKeys: unknown[];
+};
 type RekeyItemDirectRequest = { itemId: string } & VfsRekeyRequest;
+type RekeyItemServiceRequest = VfsRekeyItemRpcRequest | RekeyItemPayloadRequest;
 
 function parseRegisterDirectRequest(
-  request: VfsRegisterRpcRequest
+  request: RegisterServiceRequest
 ): VfsRegisterRequest {
   const payload = parseRegisterPayload(request);
   if (!payload) {
@@ -88,7 +102,7 @@ function parseRegisterDirectRequest(
 }
 
 function parseRekeyItemDirectRequest(
-  request: VfsRekeyItemRpcRequest
+  request: RekeyItemServiceRequest
 ): RekeyItemDirectRequest {
   const payload = parseRekeyPayload(request);
   if (!payload) {
@@ -112,7 +126,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => setupKeysDirect(request, context),
   register: async (
-    request: VfsRegisterRpcRequest,
+    request: RegisterServiceRequest,
     context: { requestHeader: Headers }
   ) => registerDirect(parseRegisterDirectRequest(request), context),
   getBlob: async (
@@ -144,7 +158,7 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => commitBlobDirect(request, context),
   rekeyItem: async (
-    request: VfsRekeyItemRpcRequest,
+    request: RekeyItemServiceRequest,
     context: { requestHeader: Headers }
   ) => rekeyItemDirect(parseRekeyItemDirectRequest(request), context),
   pushCrdtOps: async (
