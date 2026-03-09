@@ -48,13 +48,10 @@ describe('consoleGuardRuntime', () => {
     runtime.startTestWindow();
 
     setTimeout(() => {
-      fakeConsole.warn(
-        'Initial VFS orchestrator flush failed:',
-        {
-          name: 'VfsCrdtFeedReplayError',
-          message: 'CRDT feed item 0 is not strictly newer than local cursor'
-        }
-      );
+      fakeConsole.warn('Initial VFS orchestrator flush failed:', {
+        name: 'VfsCrdtFeedReplayError',
+        message: 'CRDT feed item 0 is not strictly newer than local cursor'
+      });
     }, 0);
 
     await expect(runtime.assertCurrentWindowClean()).rejects.toThrow(
