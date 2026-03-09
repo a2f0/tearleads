@@ -77,6 +77,7 @@ describe('popup script - content script activation', () => {
     vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });

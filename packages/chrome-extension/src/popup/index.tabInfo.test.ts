@@ -77,6 +77,7 @@ describe('popup script - tab info', () => {
     vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });

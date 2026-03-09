@@ -77,6 +77,7 @@ describe('popup script - DOM edge cases', () => {
     vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });

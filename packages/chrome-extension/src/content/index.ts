@@ -33,4 +33,6 @@ export function initializeContentScript(): void {
   );
 }
 
-initializeContentScript();
+if (!import.meta.vitest) {
+  initializeContentScript();
+}

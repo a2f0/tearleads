@@ -10,6 +10,7 @@ import {
 
 declare global {
   var __tearleadsPopupInitialized: boolean | undefined;
+  var __tearleadsPopupListenerRegistered: boolean | undefined;
 }
 
 const STATUS_TIMEOUT_MS = 3000;
@@ -158,6 +159,12 @@ async function ensureContentScriptActive(tabId: number): Promise<boolean> {
 }
 
 export function initializePopup() {
+  if (globalThis.__tearleadsPopupInitialized) {
+    return;
+  }
+
+  globalThis.__tearleadsPopupInitialized = true;
+
   const titleEl = document.getElementById('page-title');
   const urlEl = document.getElementById('page-url');
   const actionBtn = document.getElementById('action-btn');
@@ -201,7 +208,7 @@ export function initializePopup() {
   });
 }
 
-if (!globalThis.__tearleadsPopupInitialized) {
-  globalThis.__tearleadsPopupInitialized = true;
+if (!import.meta.vitest && !globalThis.__tearleadsPopupListenerRegistered) {
+  globalThis.__tearleadsPopupListenerRegistered = true;
   document.addEventListener('DOMContentLoaded', initializePopup);
 }

@@ -39,6 +39,7 @@ async function registerBackgroundScript() {
   backgroundModulePromise ??= import('./index');
   const module = await backgroundModulePromise;
   vi.clearAllMocks();
+  globalThis.__tearleadsBackgroundInitialized = undefined;
   module.registerBackgroundListeners();
 }
 
@@ -55,11 +56,13 @@ describe('background script', () => {
   beforeEach(() => {
     vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
     runtimeLastErrorMessage = undefined;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
     runtimeLastErrorMessage = undefined;
   });
 

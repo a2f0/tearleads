@@ -6,6 +6,10 @@ import {
   type TabInfoResponse
 } from '../messages';
 
+declare global {
+  var __tearleadsBackgroundInitialized: boolean | undefined;
+}
+
 function hasMessageType(message: unknown): message is { type: unknown } {
   return typeof message === 'object' && message !== null && 'type' in message;
 }
@@ -69,6 +73,12 @@ function handleInjectContentScript(
 }
 
 export function registerBackgroundListeners(): void {
+  if (globalThis.__tearleadsBackgroundInitialized) {
+    return;
+  }
+
+  globalThis.__tearleadsBackgroundInitialized = true;
+
   globalThis.chrome.runtime.onInstalled.addListener(() => {
     console.log('Tearleads extension installed');
   });
@@ -94,4 +104,6 @@ export function registerBackgroundListeners(): void {
   );
 }
 
-registerBackgroundListeners();
+if (!import.meta.vitest) {
+  registerBackgroundListeners();
+}
