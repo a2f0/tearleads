@@ -345,6 +345,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Returns `{status, conclusion, jobs: [{name, status, conclusion}, ...]}`.
 
+   **Note**: Impacted coverage tests (`runImpactedTests`) no longer run in the pre-push hook (see issue #3033). CI is the sole gate for coverage test failures. Pay close attention to `build` job failures related to coverage.
+
    **Job priority order** (process failures in this order - fastest jobs first):
    1. `build` (~15 min) - lint, types, coverage
    2. `web-e2e` (~10 min) - Playwright tests
