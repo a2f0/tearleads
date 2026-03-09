@@ -106,7 +106,7 @@ vi.mock('@/components/window-notes', () => ({
     includeResizeControls: true
   })
 }));
-vi.mock('@tearleads/console', () => ({
+vi.mock('@/components/window-console', () => ({
   ConsoleWindow: createMockWindowComponent({
     testIdPrefix: 'console-window',
     minimizeDimensions: { x: 0, y: 0, width: 600, height: 400 },

@@ -188,8 +188,18 @@ async function reloadSharedNoteRoute(noteId: string): Promise<void> {
 }
 
 describe('app shell instance-switch note visibility regression', () => {
+  let originalConsoleError: typeof console.error;
+
   beforeEach(() => {
     vfsConsoleGuard = installVfsConsoleGuard();
+    originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      const msg = typeof args[0] === 'string' ? args[0] : '';
+      if (msg.includes('not configured to support act')) {
+        return;
+      }
+      originalConsoleError.call(console, ...args);
+    };
     latestAuthContext = null;
     latestDatabaseContext = null;
     latestNavigate = null;
@@ -207,6 +217,7 @@ describe('app shell instance-switch note visibility regression', () => {
   });
 
   afterEach(async () => {
+    console.error = originalConsoleError;
     if (!vfsConsoleGuard) {
       return;
     }
