@@ -54,7 +54,9 @@ describe('DesktopFloatingWindow', () => {
       y: 184
     });
 
-    fireEvent.doubleClick(screen.getByTestId('floating-window-window-1-title-bar'));
+    fireEvent.doubleClick(
+      screen.getByTestId('floating-window-window-1-title-bar')
+    );
     expect(dialog).toHaveStyle({
       height: `${768 - DESKTOP_WINDOW_FOOTER_HEIGHT}px`
     });

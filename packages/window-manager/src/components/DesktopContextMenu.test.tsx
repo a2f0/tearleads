@@ -28,12 +28,7 @@ describe('DesktopContextMenu', () => {
       top: '200px',
       zIndex: `${DESKTOP_CONTEXT_MENU_Z_INDEX}`
     });
-    expect(menu).toHaveClass(
-      'min-w-40',
-      'bg-background',
-      'py-1',
-      'shadow-lg'
-    );
+    expect(menu).toHaveClass('min-w-40', 'bg-background', 'py-1', 'shadow-lg');
     expect(backdrop).toHaveStyle({
       zIndex: `${DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX}`
     });
