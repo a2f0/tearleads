@@ -192,27 +192,23 @@ export async function getUsageForUser(
       WHERE user_id = $1
     `;
     const params: (string | number)[] = [userId];
-    let paramIndex = 2;
 
     if (startDate) {
-      query += ` AND created_at >= $${paramIndex}`;
+      query += ` AND created_at >= $${params.length + 1}`;
       params.push(startDate);
-      paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND created_at < $${paramIndex}`;
+      query += ` AND created_at < $${params.length + 1}`;
       params.push(endDate);
-      paramIndex++;
     }
 
     if (cursor) {
-      query += ` AND created_at < $${paramIndex}`;
+      query += ` AND created_at < $${params.length + 1}`;
       params.push(cursor);
-      paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
     params.push(limit + 1);
 
     const usageResult = await pool.query<UsageRow>(query, params);

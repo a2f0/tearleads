@@ -247,18 +247,7 @@ export function createAiRoutes(overrides: Partial<AiRoutesDependencies> = {}) {
           getClient
         );
         const response = await client.getUsage(
-          create(AiServiceGetUsageRequestSchema, {
-            ...(options?.startDate !== undefined
-              ? { startDate: options.startDate }
-              : {}),
-            ...(options?.endDate !== undefined
-              ? { endDate: options.endDate }
-              : {}),
-            ...(options?.cursor !== undefined
-              ? { cursor: options.cursor }
-              : {}),
-            ...(options?.limit !== undefined ? { limit: options.limit } : {})
-          }),
+          create(AiServiceGetUsageRequestSchema, options ?? {}),
           callOptions
         );
         return mapAiGetUsageResponse(response);
@@ -273,14 +262,7 @@ export function createAiRoutes(overrides: Partial<AiRoutesDependencies> = {}) {
           getClient
         );
         const response = await client.getUsageSummary(
-          create(AiServiceGetUsageSummaryRequestSchema, {
-            ...(options?.startDate !== undefined
-              ? { startDate: options.startDate }
-              : {}),
-            ...(options?.endDate !== undefined
-              ? { endDate: options.endDate }
-              : {})
-          }),
+          create(AiServiceGetUsageSummaryRequestSchema, options ?? {}),
           callOptions
         );
         return mapAiGetUsageSummaryResponse(response);
