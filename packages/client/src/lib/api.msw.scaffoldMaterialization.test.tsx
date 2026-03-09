@@ -43,9 +43,9 @@ beforeEach(() => {
   vfsConsoleGuard = installVfsConsoleGuard();
 });
 
-afterEach(() => {
+afterEach(async () => {
   try {
-    vfsConsoleGuard?.assertNoRegressions();
+    await vfsConsoleGuard?.assertNoRegressions({ gracePeriodMs: 25 });
   } finally {
     vfsConsoleGuard?.restore();
     vfsConsoleGuard = null;

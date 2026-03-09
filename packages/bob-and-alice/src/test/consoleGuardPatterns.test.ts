@@ -13,6 +13,11 @@ describe('consoleGuardPatterns', () => {
         'Initial VFS orchestrator flush failed: Error: transport returned invalid hasMore'
       )
     ).toBe(true);
+    expect(
+      shouldFailOnConsoleMessage(
+        'VfsCrdtFeedReplayError: CRDT feed item 0 is not strictly newer than local cursor'
+      )
+    ).toBe(true);
   });
 
   it('ignores unrelated logs', () => {

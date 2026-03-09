@@ -150,12 +150,12 @@ describe('instance switch shared-note sync regression', () => {
     vi.mocked(api.vfs.setupKeys).mockResolvedValue({ created: true });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (!vfsConsoleGuard) {
       return;
     }
     try {
-      vfsConsoleGuard.assertNoRegressions();
+      await vfsConsoleGuard.assertNoRegressions({ gracePeriodMs: 25 });
     } finally {
       vfsConsoleGuard.restore();
       vfsConsoleGuard = null;
