@@ -92,8 +92,13 @@ function parseRegisterDirectRequest(
 ): VfsRegisterRequest {
   const requestPayload: unknown =
     'json' in request
-      ? parseJsonRecord(request.json, 'register payload')
-      : request;
+      ? normalizeRegisterPayloadAliases(
+          unwrapNestedJsonPayload(
+            parseJsonRecord(request.json, 'register payload'),
+            'register payload'
+          )
+        )
+      : normalizeRegisterPayloadAliases(request);
   const payload = parseRegisterPayload(requestPayload);
   if (!payload) {
     throw new ConnectError(
@@ -131,6 +136,49 @@ function parseJsonRecord(
   }
 
   return parsed;
+}
+
+function unwrapNestedJsonPayload(
+  value: unknown,
+  contextLabel: string
+): unknown {
+  let currentValue = value;
+  for (let index = 0; index < 2; index += 1) {
+    if (!isRecord(currentValue)) {
+      return currentValue;
+    }
+
+    const nestedJson = currentValue['json'];
+    if (typeof nestedJson !== 'string') {
+      return currentValue;
+    }
+    currentValue = parseJsonRecord(
+      nestedJson,
+      `${contextLabel} nested payload`
+    );
+  }
+  return currentValue;
+}
+
+function normalizeRegisterPayloadAliases(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const normalized: Record<string, unknown> = { ...value };
+  if (
+    normalized['objectType'] === undefined &&
+    typeof value['object_type'] === 'string'
+  ) {
+    normalized['objectType'] = value['object_type'];
+  }
+  if (
+    normalized['encryptedSessionKey'] === undefined &&
+    typeof value['encrypted_session_key'] === 'string'
+  ) {
+    normalized['encryptedSessionKey'] = value['encrypted_session_key'];
+  }
+  return normalized;
 }
 
 function parseRekeyItemDirectRequest(

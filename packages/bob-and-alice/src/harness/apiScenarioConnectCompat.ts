@@ -56,12 +56,30 @@ function readBodyText(body: RequestInit['body']): string {
   return String(body);
 }
 
-function readJsonBody(body: RequestInit['body']): Record<string, unknown> {
-  const text = readBodyText(body).trim();
-  if (text.length === 0) {
-    return {};
+function normalizeJsonBodyText(rawBodyText: string): string {
+  const trimmed = rawBodyText.trim();
+  if (trimmed.length === 0) {
+    return '{}';
   }
-  const parsed = parseJson<unknown>(text);
+
+  try {
+    const parsed = parseJson<unknown>(trimmed);
+    if (typeof parsed !== 'string') {
+      return trimmed;
+    }
+
+    const nestedParsed = parseJson<unknown>(parsed);
+    if (typeof nestedParsed === 'string') {
+      return parsed;
+    }
+    return JSON.stringify(nestedParsed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function readJsonBody(body: RequestInit['body']): Record<string, unknown> {
+  const parsed = parseJson<unknown>(normalizeJsonBodyText(readBodyText(body)));
   return isRecord(parsed) ? parsed : {};
 }
 
@@ -81,6 +99,18 @@ function parseOptionalInt(value: string | null): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildCompatPayload(
+  jsonBody: Record<string, unknown>,
+  jsonBodyText: string,
+  extraFields: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    ...jsonBody,
+    ...extraFields,
+    json: jsonBodyText
+  };
 }
 
 function buildGetUsageBody(
@@ -120,7 +150,7 @@ export function mapLegacyPathToConnect(
   const pathname = url.pathname;
   const jsonBody = readJsonBody(init?.body);
   const bodyText = readBodyText(init?.body);
-  const jsonBodyText = bodyText.trim().length === 0 ? '{}' : bodyText;
+  const jsonBodyText = normalizeJsonBodyText(bodyText);
 
   if (pathname === '/auth/register' && method === 'POST') {
     return {
@@ -186,7 +216,7 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/keys' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/SetupKeys`,
-      body: { json: jsonBodyText },
+      body: buildCompatPayload(jsonBody, jsonBodyText),
       unwrapJsonEnvelope: true,
       successStatus: 201
     };
@@ -201,7 +231,7 @@ export function mapLegacyPathToConnect(
   if (pathname === '/vfs/register' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/Register`,
-      body: { json: jsonBodyText },
+      body: buildCompatPayload(jsonBody, jsonBodyText),
       unwrapJsonEnvelope: true
     };
   }
@@ -316,10 +346,9 @@ export function mapLegacyPathToConnect(
   if (rekeyMatch && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/RekeyItem`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(rekeyMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(rekeyMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -329,16 +358,16 @@ export function mapLegacyPathToConnect(
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/GetItemShares`,
       body: { itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1)) },
-      unwrapJsonEnvelope: true
+      unwrapJsonEnvelope: true,
+      legacyDefaults: { shares: [], orgShares: [] }
     };
   }
   if (itemSharesMatch && method === 'POST') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/CreateShare`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -347,10 +376,9 @@ export function mapLegacyPathToConnect(
   if (shareMatch && method === 'PATCH') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/UpdateShare`,
-      body: {
-        shareId: encodedSegment(requiredMatchGroup(shareMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        shareId: encodedSegment(requiredMatchGroup(shareMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }
@@ -366,10 +394,9 @@ export function mapLegacyPathToConnect(
   if (orgSharesMatch && method === 'POST') {
     return {
       path: `${VFS_SHARES_SERVICE_PATH}/CreateOrgShare`,
-      body: {
-        itemId: encodedSegment(requiredMatchGroup(orgSharesMatch, 1)),
-        json: jsonBodyText
-      },
+      body: buildCompatPayload(jsonBody, jsonBodyText, {
+        itemId: encodedSegment(requiredMatchGroup(orgSharesMatch, 1))
+      }),
       unwrapJsonEnvelope: true
     };
   }

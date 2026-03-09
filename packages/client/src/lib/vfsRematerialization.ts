@@ -18,6 +18,7 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { api } from './api';
+import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
 import {
   buildMaterializedAlbumRows,
   buildMaterializedFileRows
@@ -323,7 +324,19 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     position: null,
     createdAt: new Date(0)
   }));
-  const aclRows = Array.from(aclByKey.values()).map((entry) => ({
+  const hasRootLink = linkRows.some(
+    (entry) => entry.parentId === VFS_ROOT_ID || entry.childId === VFS_ROOT_ID
+  );
+  if (hasRootLink && !registryRows.some((entry) => entry.id === VFS_ROOT_ID)) {
+    registryRows.unshift({
+      id: VFS_ROOT_ID,
+      objectType: 'folder',
+      encryptedName: 'VFS Root',
+      ownerId: null,
+      createdAt: new Date(0)
+    });
+  }
+  const rawAclRows = Array.from(aclByKey.values()).map((entry) => ({
     id: entry.sourceId,
     itemId: entry.itemId,
     principalType: entry.principalType,
@@ -338,6 +351,11 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     expiresAt: null,
     revokedAt: null
   }));
+  const aclGrantorCandidates = rawAclRows
+    .map((entry) => entry.grantedBy)
+    .filter(
+      (value): value is string => typeof value === 'string' && value.length > 0
+    );
   const itemStateRows = Array.from(itemStateById.values()).map((entry) => ({
     itemId: entry.itemId,
     encryptedPayload: entry.encryptedPayload,
@@ -376,95 +394,90 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   await materializeFilePayloadsToStorage(fileRows, itemStateByItemId);
 
   const db = getDatabase();
-  const adapter = getDatabaseAdapter();
   const hasItemStateTable = await tableExists('vfs_item_state');
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const hasNotesTable = await tableExists('notes');
   const hasAlbumsTable = await tableExists('albums');
   const hasFilesTable = await tableExists('files');
-  // Disable FK checks during bulk rebuild — grantedBy may reference users not
-  // yet present locally. The server guarantees referential integrity.
-  await adapter.execute('PRAGMA foreign_keys = OFF', []);
-  try {
-    await runLocalWrite(async () => {
-      await db.transaction(async (tx) => {
-        await tx.delete(vfsLinks);
-        if (hasAlbumsTable) {
-          await tx.delete(albums);
-        }
-        if (hasFilesTable) {
-          await tx.delete(files);
-        }
-        if (hasAclEntriesTable) {
-          await tx.delete(vfsAclEntries);
-        }
-        if (hasItemStateTable) {
-          await tx.delete(vfsItemState);
-        }
-        if (hasNotesTable) {
-          await tx.delete(notes);
-        }
-        await tx.delete(vfsRegistry);
-
-        for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
-          if (chunk.length > 0) {
-            await tx.insert(vfsRegistry).values(chunk);
-          }
-        }
-        if (hasAlbumsTable) {
-          for (const chunk of chunkArray(albumRows, INSERT_BATCH_SIZE)) {
-            if (chunk.length > 0) {
-              await tx.insert(albums).values(chunk);
-            }
-          }
-        }
-        if (hasFilesTable) {
-          for (const chunk of chunkArray(fileRows, INSERT_BATCH_SIZE)) {
-            if (chunk.length > 0) {
-              await tx.insert(files).values(chunk);
-            }
-          }
-        }
-        if (hasItemStateTable) {
-          for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
-            if (chunk.length > 0) {
-              await tx.insert(vfsItemState).values(chunk);
-            }
-          }
-        }
-        if (hasAclEntriesTable) {
-          for (const chunk of chunkArray(aclRows, INSERT_BATCH_SIZE)) {
-            if (chunk.length > 0) {
-              await tx.insert(vfsAclEntries).values(chunk);
-            }
-          }
-        }
-        if (hasNotesTable) {
-          for (const chunk of chunkArray(noteRows, INSERT_BATCH_SIZE)) {
-            if (chunk.length > 0) {
-              await tx.insert(notes).values(
-                chunk.map((entry) => ({
-                  id: entry.id,
-                  title: entry.title,
-                  content: entry.content,
-                  createdAt: new Date(entry.createdAtMs),
-                  updatedAt: new Date(entry.updatedAtMs),
-                  deleted: entry.deleted
-                }))
-              );
-            }
-          }
-        }
-        for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
-          if (chunk.length > 0) {
-            await tx.insert(vfsLinks).values(chunk);
-          }
-        }
-      });
-    });
-  } finally {
-    await adapter.execute('PRAGMA foreign_keys = ON', []);
+  if (hasAclEntriesTable) {
+    await ensureGrantorUsersExist(aclGrantorCandidates, INSERT_BATCH_SIZE);
   }
+  await runLocalWrite(async () => {
+    await db.transaction(async (tx) => {
+      await tx.delete(vfsLinks);
+      if (hasAlbumsTable) {
+        await tx.delete(albums);
+      }
+      if (hasFilesTable) {
+        await tx.delete(files);
+      }
+      if (hasAclEntriesTable) {
+        await tx.delete(vfsAclEntries);
+      }
+      if (hasItemStateTable) {
+        await tx.delete(vfsItemState);
+      }
+      if (hasNotesTable) {
+        await tx.delete(notes);
+      }
+      await tx.delete(vfsRegistry);
+
+      for (const chunk of chunkArray(registryRows, INSERT_BATCH_SIZE)) {
+        if (chunk.length > 0) {
+          await tx.insert(vfsRegistry).values(chunk);
+        }
+      }
+      if (hasAlbumsTable) {
+        for (const chunk of chunkArray(albumRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(albums).values(chunk);
+          }
+        }
+      }
+      if (hasFilesTable) {
+        for (const chunk of chunkArray(fileRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(files).values(chunk);
+          }
+        }
+      }
+      if (hasItemStateTable) {
+        for (const chunk of chunkArray(itemStateRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(vfsItemState).values(chunk);
+          }
+        }
+      }
+      if (hasAclEntriesTable) {
+        for (const chunk of chunkArray(rawAclRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(vfsAclEntries).values(chunk);
+          }
+        }
+      }
+      if (hasNotesTable) {
+        for (const chunk of chunkArray(noteRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(notes).values(
+              chunk.map((entry) => ({
+                id: entry.id,
+                title: entry.title,
+                content: entry.content,
+                createdAt: new Date(entry.createdAtMs),
+                updatedAt: new Date(entry.updatedAtMs),
+                deleted: entry.deleted
+              }))
+            );
+          }
+        }
+      }
+      for (const chunk of chunkArray(linkRows, INSERT_BATCH_SIZE)) {
+        if (chunk.length > 0) {
+          await tx.insert(vfsLinks).values(chunk);
+        }
+      }
+    });
+  });
 
   return true;
 }
