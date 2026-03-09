@@ -1,8 +1,17 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureBackupsRuntime } from '../../runtime/backupsRuntime';
 import { BackupManagerView } from './BackupManagerView';
+
+const mockGetBackupInfo = vi.fn();
+const mockRestoreBackup = vi.fn();
 
 const {
   mockListStoredBackups,
@@ -36,27 +45,11 @@ const {
   })
 }));
 
-vi.mock('./RestoreBackupForm', () => ({
-  RestoreBackupForm: ({
-    backupName,
-    onClear
-  }: {
-    backupName: string;
-    backupData: Uint8Array;
-    onClear?: () => void;
-  }) => (
-    <div data-testid="restore-backup-form">
-      Restoring: {backupName}
-      <button type="button" onClick={onClear}>
-        Clear
-      </button>
-    </div>
-  )
-}));
-
 describe('BackupManagerView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetBackupInfo.mockReset();
+    mockRestoreBackup.mockReset();
     mockListStoredBackups.mockResolvedValue([
       {
         name: 'test-backup.tbu',
@@ -68,8 +61,8 @@ describe('BackupManagerView', () => {
       estimateBackupSize: (includeBlobs) =>
         mockEstimateBackupSize(includeBlobs),
       createBackup: (input) => mockCreateBackup(input),
-      getBackupInfo: vi.fn(),
-      restoreBackup: vi.fn(),
+      getBackupInfo: (...args) => mockGetBackupInfo(...args),
+      restoreBackup: (...args) => mockRestoreBackup(...args),
       refreshInstances: vi.fn(),
       isBackupStorageSupported: () => true,
       listStoredBackups: () => mockListStoredBackups(),
@@ -224,7 +217,8 @@ describe('BackupManagerView', () => {
 
     await waitFor(() => {
       expect(mockReadBackupFromStorage).toHaveBeenCalledWith('test-backup.tbu');
-      expect(screen.getByTestId('restore-backup-form')).toBeInTheDocument();
+      expect(screen.getByLabelText('Backup Password')).toBeInTheDocument();
+      expect(screen.getByText('Restoring from')).toBeInTheDocument();
     });
   });
 
@@ -305,8 +299,21 @@ describe('BackupManagerView', () => {
     });
   });
 
-  it('clears restore form when Clear is clicked', async () => {
+  it('clears restore form after a successful restore', async () => {
     const user = userEvent.setup();
+    mockGetBackupInfo.mockResolvedValue({
+      manifest: {
+        createdAt: '2024-01-02T10:00:00.000Z',
+        appVersion: '1.2.3',
+        platform: 'web',
+        formatVersion: 1,
+        blobCount: 0,
+        blobTotalSize: 0
+      },
+      suggestedName: 'Restored Instance'
+    });
+    mockRestoreBackup.mockResolvedValue({ instanceName: 'Restored Instance' });
+
     render(<BackupManagerView />);
 
     await waitFor(() => {
@@ -318,14 +325,33 @@ describe('BackupManagerView', () => {
     await user.click(screen.getByRole('button', { name: 'Restore' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('restore-backup-form')).toBeInTheDocument();
+      expect(screen.getByLabelText('Backup Password')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.type(screen.getByLabelText('Backup Password'), 'secret');
+    await user.click(screen.getByRole('button', { name: 'Validate Backup' }));
 
     await waitFor(() => {
       expect(
-        screen.queryByTestId('restore-backup-form')
+        screen.getByLabelText('New Instance Password')
+      ).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText('New Instance Password'), 'new-pass');
+    await user.type(screen.getByLabelText('Confirm Password'), 'new-pass');
+
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Restore Backup' }));
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(3000);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText('Backup Password')
       ).not.toBeInTheDocument();
     });
   });

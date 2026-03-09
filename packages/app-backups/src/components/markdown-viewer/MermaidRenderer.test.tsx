@@ -2,10 +2,26 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MermaidRenderer } from './MermaidRenderer';
 
+const mermaidInitializeMock = vi.fn();
+const mermaidRenderMock = vi.fn();
+
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: (...args: unknown[]) => mermaidInitializeMock(...args),
+    render: (...args: unknown[]) => mermaidRenderMock(...args)
+  }
+}));
+
 describe('MermaidRenderer', () => {
   let previousGetBBox: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    mermaidInitializeMock.mockReset();
+    mermaidRenderMock.mockReset();
+    mermaidRenderMock.mockResolvedValue({
+      svg: '<svg><title>diagram</title></svg>'
+    });
+
     previousGetBBox = Object.getOwnPropertyDescriptor(
       SVGElement.prototype,
       'getBBox'
@@ -27,6 +43,10 @@ describe('MermaidRenderer', () => {
   });
 
   it('shows loading before diagram resolves', () => {
+    mermaidRenderMock.mockImplementationOnce(
+      () => new Promise(() => undefined)
+    );
+
     render(<MermaidRenderer code="graph TD; A-->B;" theme="light" />);
 
     expect(screen.getByText('Loading diagram...')).toBeInTheDocument();
@@ -34,7 +54,7 @@ describe('MermaidRenderer', () => {
 
   it('renders svg output when mermaid succeeds', async () => {
     const { container } = render(
-      <MermaidRenderer code="graph TD; A-->B;" theme="dark" />
+      <MermaidRenderer code="graph TD; A-->B;" theme="light" />
     );
 
     await waitFor(() => {
@@ -48,11 +68,16 @@ describe('MermaidRenderer', () => {
   });
 
   it('shows error details when mermaid render fails', async () => {
+    mermaidRenderMock.mockRejectedValueOnce(
+      new Error('mock mermaid render error')
+    );
+
     render(<MermaidRenderer code="this is not mermaid syntax" theme="light" />);
 
     expect(
       await screen.findByText('Failed to render Mermaid diagram')
     ).toBeInTheDocument();
+    expect(screen.getByText('mock mermaid render error')).toBeInTheDocument();
     expect(screen.getByText('this is not mermaid syntax')).toBeInTheDocument();
   });
 });
