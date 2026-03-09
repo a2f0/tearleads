@@ -41,7 +41,7 @@ function defaultSleep(ms: number): Promise<void> {
 }
 
 function retryDelayMs(retryAttempt: number): number {
-  return Math.min(250, 20 * 2 ** (retryAttempt - 1));
+  return Math.min(500, 50 * 2 ** (retryAttempt - 1));
 }
 
 async function normalizeRequestBodyForRetries(
@@ -124,7 +124,7 @@ export async function fetchWithRetryableWriteValidationError(
   init?: RequestInit,
   options: RetryableWriteOptions = {}
 ): Promise<Response> {
-  const maxRetryAttempts = options.maxRetryAttempts ?? 8;
+  const maxRetryAttempts = options.maxRetryAttempts ?? 20;
   const sleep = options.sleep ?? defaultSleep;
   const retryInit = await normalizeRequestInitForRetries(init);
 
