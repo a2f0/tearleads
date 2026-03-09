@@ -141,7 +141,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
         }
       )
     ).rejects.toThrow(
-      'API error 400 Bad Request: {"error":"id, objectType, and encryptedSessionKey are required"}'
+      /API error 400 Bad Request: \{"error":"id, objectType, and encryptedSessionKey are required"\}/
     );
     expect(callCount).toBe(3);
     expect(sleeps).toEqual([25, 50]);

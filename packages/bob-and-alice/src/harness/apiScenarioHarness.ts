@@ -135,6 +135,31 @@ function cloneRequestInitForRetry(
   return clonedInit;
 }
 
+function formatRetryRequestBody(body: RequestInit['body']): string {
+  const maxPreviewLength = 200;
+  if (body === null) {
+    return 'null';
+  }
+  if (body === undefined) {
+    return 'undefined';
+  }
+  if (typeof body === 'string' || body instanceof String) {
+    const preview = body.toString().slice(0, maxPreviewLength);
+    return `string:${preview}`;
+  }
+  if (body instanceof URLSearchParams) {
+    const preview = body.toString().slice(0, maxPreviewLength);
+    return `urlsearchparams:${preview}`;
+  }
+  if (body instanceof ArrayBuffer) {
+    return `arraybuffer:${String(body.byteLength)}`;
+  }
+  if (ArrayBuffer.isView(body)) {
+    return `view:${String(body.byteLength)}`;
+  }
+  return `type:${typeof body}`;
+}
+
 export function isRetryableWriteValidationError(
   path: string,
   init: RequestInit | undefined,
@@ -172,7 +197,10 @@ export async function fetchWithRetryableWriteValidationError(
   const retryInitTemplate = await normalizeRequestInitForRetries(init);
 
   let retryAttempts = 0;
-  let response = await actorFetch(path, cloneRequestInitForRetry(retryInitTemplate));
+  let response = await actorFetch(
+    path,
+    cloneRequestInitForRetry(retryInitTemplate)
+  );
   while (!response.ok) {
     const responseBody = await response.text();
     const shouldRetry = isRetryableWriteValidationError(
@@ -183,13 +211,16 @@ export async function fetchWithRetryableWriteValidationError(
     );
     if (!shouldRetry || retryAttempts >= maxRetryAttempts) {
       throw new Error(
-        `API error ${String(response.status)} ${response.statusText}: ${responseBody}`
+        `API error ${String(response.status)} ${response.statusText}: ${responseBody} (path=${path} requestBody=${formatRetryRequestBody(retryInitTemplate?.body)})`
       );
     }
 
     retryAttempts += 1;
     await sleep(retryDelayMs(retryAttempts));
-    response = await actorFetch(path, cloneRequestInitForRetry(retryInitTemplate));
+    response = await actorFetch(
+      path,
+      cloneRequestInitForRetry(retryInitTemplate)
+    );
   }
 
   return response;
