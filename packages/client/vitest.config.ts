@@ -128,7 +128,6 @@ export default mergeConfig(
           'src/components/files/index.ts',
           'src/components/window-files/index.ts',
           'src/components/window-search/index.ts',
-          'src/components/window-floating/index.ts',
           'src/components/window-contacts/index.tsx',
           'src/components/window-notes/index.ts',
           'src/components/window-wallet/index.ts',

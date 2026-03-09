@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindow } from './VehiclesWindow';
 
-vi.mock('@/components/window-floating', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/window-manager')>()),
+  DesktopFloatingWindow: ({
     children,
     title,
     onClose,
