@@ -4,10 +4,9 @@ import { VFS_ROOT_ID } from '../constants';
 import { createMockDatabase, createWrapper } from '../test/testUtils';
 import { useCreateVfsFolder } from './useCreateVfsFolder';
 
-// Mock crypto.randomUUID
-vi.stubGlobal('crypto', {
-  randomUUID: vi.fn(() => 'test-uuid-1234')
-});
+const TEST_FOLDER_ID = 'test-folder-id';
+const TEST_LINK_ID = 'test-link-id';
+const mockRandomUUID = vi.fn();
 
 describe('useCreateVfsFolder', () => {
   let mockDb: ReturnType<typeof createMockDatabase>;
@@ -16,6 +15,13 @@ describe('useCreateVfsFolder', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRandomUUID.mockReset();
+    mockRandomUUID
+      .mockReturnValueOnce(TEST_FOLDER_ID)
+      .mockReturnValueOnce(TEST_LINK_ID);
+    vi.stubGlobal('crypto', {
+      randomUUID: mockRandomUUID
+    });
 
     mockInsert = vi.fn(() => ({
       values: vi.fn(() => ({
@@ -56,7 +62,7 @@ describe('useCreateVfsFolder', () => {
     });
 
     expect(folderResult).toEqual({
-      id: 'test-uuid-1234',
+      id: TEST_FOLDER_ID,
       name: 'Test Folder'
     });
     expect(result.current.isCreating).toBe(false);
@@ -67,22 +73,18 @@ describe('useCreateVfsFolder', () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
 
-    await expect(
-      act(async () => {
-        await result.current.createFolder('');
-      })
-    ).rejects.toThrow('Folder name is required');
+    await expect(result.current.createFolder('')).rejects.toThrow(
+      'Folder name is required'
+    );
   });
 
   it('throws error for whitespace-only name', async () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
 
-    await expect(
-      act(async () => {
-        await result.current.createFolder('   ');
-      })
-    ).rejects.toThrow('Folder name is required');
+    await expect(result.current.createFolder('   ')).rejects.toThrow(
+      'Folder name is required'
+    );
   });
 
   it('trims folder name', async () => {
@@ -239,7 +241,7 @@ describe('useCreateVfsFolder', () => {
     expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
 
     // Second insert should be for the new folder
-    expect(insertedIds[1]).toBe('test-uuid-1234');
+    expect(insertedIds[1]).toBe(TEST_FOLDER_ID);
     expect(insertedValues[1]?.['encryptedName']).toBe('New Folder');
   });
 
@@ -282,7 +284,7 @@ describe('useCreateVfsFolder', () => {
     expect(insertCount).toBe(2);
 
     // First insert should be the new folder, not the VFS root
-    expect(insertedIds[0]).toBe('test-uuid-1234');
+    expect(insertedIds[0]).toBe(TEST_FOLDER_ID);
     expect(insertedValues[0]?.['encryptedName']).toBe('New Folder');
   });
 });

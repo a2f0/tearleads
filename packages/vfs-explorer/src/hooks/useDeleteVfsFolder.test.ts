@@ -60,11 +60,9 @@ describe('useDeleteVfsFolder', () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useDeleteVfsFolder(), { wrapper });
 
-    await expect(
-      act(async () => {
-        await result.current.deleteFolder('');
-      })
-    ).rejects.toThrow('Folder ID is required');
+    await expect(result.current.deleteFolder('')).rejects.toThrow(
+      'Folder ID is required'
+    );
   });
 
   it('fails closed when folder does not exist', async () => {

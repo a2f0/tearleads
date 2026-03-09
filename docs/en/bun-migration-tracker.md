@@ -11,17 +11,16 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
 | Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
-| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, and app-email; `vfs-explorer` remains the last bun auto-fallback package. |
+| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, and vfs-explorer. Remaining work is long-term runner decisions and remediation for the packages that still stay Vitest-primary. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
 ## Compatibility Snapshot (2026-03-09)
 
 - Packages with tests: 48
-- Bun-primary `test` scripts: 38
-- Transitional bun auto-fallback scripts: 1
+- Bun-primary `test` scripts: 39
+- Transitional bun auto-fallback scripts: 0
 - Vitest-primary `test` scripts: 8
 - High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 12
-- Remaining bun auto-fallback package: `@tearleads/vfs-explorer`
 
 ## Merged Slices
 
@@ -123,4 +122,4 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
 2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters, codemods, and per-package runner decisions for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`).
-3. Decompose `@tearleads/vfs-explorer` Bun-only failures into smaller compatibility slices and remove the final `bun-auto-fallback` `test` script once Bun and Vitest paths both pass.
+3. Decide the long-term runner strategy for the remaining Vitest-primary and high-remediation packages (`client`, `api`, `api-client`, `app-admin`, `app-audio`, `app-backups`, `app-keychain`, `cli`) now that no packages remain on transitional bun auto-fallback scripts.
