@@ -1,6 +1,15 @@
 export type { ActorHarnessConfig } from './harness/actorHarness.js';
 export { ActorHarness } from './harness/actorHarness.js';
-export type { ApiActorDefinition } from './harness/apiScenarioHarness.js';
+export type { ApiActorFetchInterceptor } from './harness/apiActorCrdtSync.js';
+export {
+  createApiActorCrdtTransport,
+  createApiActorSyncClient,
+  withApiActorFetchInterceptor
+} from './harness/apiActorCrdtSync.js';
+export type {
+  ApiActor,
+  ApiActorDefinition
+} from './harness/apiScenarioHarness.js';
 export { ApiScenarioHarness } from './harness/apiScenarioHarness.js';
 export type {
   AssertLocalVfsRegistryHasInput,

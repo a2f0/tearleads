@@ -23,7 +23,7 @@ interface RetryableWriteOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-interface ApiActor {
+export interface ApiActor {
   alias: string;
   user: SeededUser;
   fetch(path: string, init?: RequestInit): Promise<Response>;
