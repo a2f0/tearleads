@@ -51,7 +51,9 @@ function compareVehicles(left: VehicleRow, right: VehicleRow): number {
 
 function createTestDatabase(initialRows: VehicleRow[] = []) {
   const rows = new Map(
-    initialRows.map((row) => [row.id, { ...row }] satisfies [string, VehicleRow])
+    initialRows.map(
+      (row) => [row.id, { ...row }] satisfies [string, VehicleRow]
+    )
   );
 
   const connection = vi.fn(
@@ -66,10 +68,7 @@ function createTestDatabase(initialRows: VehicleRow[] = []) {
         const row = rows.get(String(id));
 
         return {
-          rows:
-            row && !row.deleted
-              ? [toVehicleArray(row)]
-              : []
+          rows: row && !row.deleted ? [toVehicleArray(row)] : []
         };
       }
 
@@ -199,11 +198,13 @@ describe('createVehicleRepository', () => {
     const { db } = createTestDatabase([createVehicleRow(), newest, deleted]);
     const repository = createVehicleRepository(db);
 
-    await expect(repository.getVehicleById('vehicle-1')).resolves.toMatchObject({
-      id: 'vehicle-1',
-      make: 'Tesla',
-      model: 'Model Y'
-    });
+    await expect(repository.getVehicleById('vehicle-1')).resolves.toMatchObject(
+      {
+        id: 'vehicle-1',
+        make: 'Tesla',
+        model: 'Model Y'
+      }
+    );
     await expect(repository.getVehicleById('vehicle-3')).resolves.toBeNull();
     await expect(repository.getVehicleById('missing')).resolves.toBeNull();
 
