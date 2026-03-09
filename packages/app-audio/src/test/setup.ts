@@ -113,29 +113,22 @@ if (!isBunRuntime) {
   });
 }
 
-const htmlAudioElementCtor = Reflect.get(window, 'HTMLAudioElement');
-if (
-  typeof htmlAudioElementCtor === 'function' &&
-  typeof Reflect.get(globalThis, 'HTMLAudioElement') === 'undefined'
-) {
-  Object.defineProperty(globalThis, 'HTMLAudioElement', {
-    configurable: true,
-    writable: true,
-    value: htmlAudioElementCtor
-  });
+function polyfillGlobalFromWindow(name: string): void {
+  const ctor = Reflect.get(window, name);
+  if (
+    typeof ctor === 'function' &&
+    typeof Reflect.get(globalThis, name) === 'undefined'
+  ) {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value: ctor
+    });
+  }
 }
 
-const htmlMediaElementCtor = Reflect.get(window, 'HTMLMediaElement');
-if (
-  typeof htmlMediaElementCtor === 'function' &&
-  typeof Reflect.get(globalThis, 'HTMLMediaElement') === 'undefined'
-) {
-  Object.defineProperty(globalThis, 'HTMLMediaElement', {
-    configurable: true,
-    writable: true,
-    value: htmlMediaElementCtor
-  });
-}
+polyfillGlobalFromWindow('HTMLAudioElement');
+polyfillGlobalFromWindow('HTMLMediaElement');
 
 afterEach(() => {
   if (hasCustomStubber) {
