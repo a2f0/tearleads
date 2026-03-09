@@ -1,7 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { EmailBodyOperations, EmailUIComponents } from '../context';
+import type {
+  EmailBodyOperations,
+  EmailDatabaseState,
+  EmailUIComponents
+} from '../context';
 import { EmailProvider } from '../context';
 import type { ParsedEmailBody } from '../types/emailBody';
 import { useEmailBody } from './useEmailBody';
@@ -37,6 +41,12 @@ const MULTIPART_BODY: ParsedEmailBody = {
   attachments: []
 };
 
+const defaultDatabaseState: EmailDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 describe('useEmailBody', () => {
   beforeEach(async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -50,7 +60,11 @@ describe('useEmailBody', () => {
 
   it('returns null body when emailId is null', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+      <EmailProvider
+        apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
+        ui={mockUI}
+      >
         {children}
       </EmailProvider>
     );
@@ -64,7 +78,11 @@ describe('useEmailBody', () => {
 
   it('sets error when bodyOperations are not provided', async () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+      <EmailProvider
+        apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
+        ui={mockUI}
+      >
         {children}
       </EmailProvider>
     );
@@ -88,6 +106,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >
@@ -120,6 +139,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >
@@ -146,6 +166,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >
@@ -171,6 +192,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >
@@ -209,6 +231,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >
@@ -241,6 +264,7 @@ describe('useEmailBody', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl="http://test"
+        databaseState={defaultDatabaseState}
         ui={mockUI}
         bodyOperations={mockBodyOps}
       >

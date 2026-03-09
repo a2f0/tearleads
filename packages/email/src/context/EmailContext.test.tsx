@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EmailContext,
   type EmailContextValue,
+  type EmailDatabaseState,
   EmailProvider,
   type EmailUIComponents,
   useEmailContactOperations,
@@ -32,6 +33,12 @@ const mockUI: EmailUIComponents = {
   RefreshButton: () => null
 };
 
+const defaultDatabaseState: EmailDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 describe('EmailContext', () => {
   describe('useEmailContext', () => {
     it('throws error when used outside provider', () => {
@@ -43,6 +50,7 @@ describe('EmailContext', () => {
     it('returns context value when inside provider', () => {
       const contextValue: EmailContextValue = {
         apiBaseUrl: 'http://test',
+        databaseState: defaultDatabaseState,
         ui: mockUI
       };
 
@@ -63,7 +71,11 @@ describe('EmailContext', () => {
   describe('useEmailFolderOperations', () => {
     it('throws error when folderOperations not provided', () => {
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+        <EmailProvider
+          apiBaseUrl="http://test"
+          databaseState={defaultDatabaseState}
+          ui={mockUI}
+        >
           {children}
         </EmailProvider>
       );
@@ -86,6 +98,7 @@ describe('EmailContext', () => {
 
       const contextValue: EmailContextValue = {
         apiBaseUrl: 'http://test',
+        databaseState: defaultDatabaseState,
         ui: mockUI,
         folderOperations: mockFolderOps
       };
@@ -107,7 +120,11 @@ describe('EmailContext', () => {
   describe('useHasEmailFolderOperations', () => {
     it('returns false when folderOperations not provided', () => {
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+        <EmailProvider
+          apiBaseUrl="http://test"
+          databaseState={defaultDatabaseState}
+          ui={mockUI}
+        >
           {children}
         </EmailProvider>
       );
@@ -132,6 +149,7 @@ describe('EmailContext', () => {
 
       const contextValue: EmailContextValue = {
         apiBaseUrl: 'http://test',
+        databaseState: defaultDatabaseState,
         ui: mockUI,
         folderOperations: mockFolderOps
       };
@@ -153,7 +171,11 @@ describe('EmailContext', () => {
   describe('useEmailContactOperations', () => {
     it('throws error when contactOperations not provided', () => {
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+        <EmailProvider
+          apiBaseUrl="http://test"
+          databaseState={defaultDatabaseState}
+          ui={mockUI}
+        >
           {children}
         </EmailProvider>
       );
@@ -170,6 +192,7 @@ describe('EmailContext', () => {
 
       const contextValue: EmailContextValue = {
         apiBaseUrl: 'http://test',
+        databaseState: defaultDatabaseState,
         ui: mockUI,
         contactOperations: mockContactOps
       };
@@ -191,7 +214,11 @@ describe('EmailContext', () => {
   describe('useHasEmailContactOperations', () => {
     it('returns false when contactOperations not provided', () => {
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+        <EmailProvider
+          apiBaseUrl="http://test"
+          databaseState={defaultDatabaseState}
+          ui={mockUI}
+        >
           {children}
         </EmailProvider>
       );
@@ -210,6 +237,7 @@ describe('EmailContext', () => {
 
       const contextValue: EmailContextValue = {
         apiBaseUrl: 'http://test',
+        databaseState: defaultDatabaseState,
         ui: mockUI,
         contactOperations: mockContactOps
       };

@@ -1,3 +1,4 @@
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type {
@@ -103,6 +104,14 @@ export interface SaveDraftInput {
   attachments: Attachment[];
 }
 
+export type EmailDatabaseState = HostRuntimeDatabaseState;
+
+const FALLBACK_DATABASE_STATE: EmailDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 /**
  * Email draft operations interface
  */
@@ -125,6 +134,8 @@ export interface EmailDraftOperations {
 export interface EmailContextValue {
   /** API base URL for fetching emails */
   apiBaseUrl: string;
+  /** Database lifecycle state provided by the host runtime */
+  databaseState: EmailDatabaseState;
   /** Function to get auth header value */
   getAuthHeader?: () => string | null;
   /** UI components */
@@ -144,6 +155,7 @@ export const EmailContext = createContext<EmailContextValue | null>(null);
 export interface EmailProviderProps {
   children: ReactNode;
   apiBaseUrl: string;
+  databaseState?: EmailDatabaseState;
   getAuthHeader?: () => string | null;
   ui: EmailUIComponents;
   folderOperations?: EmailFolderOperations;
@@ -158,6 +170,7 @@ export interface EmailProviderProps {
 export function EmailProvider({
   children,
   apiBaseUrl,
+  databaseState,
   getAuthHeader,
   ui,
   folderOperations,
@@ -168,6 +181,7 @@ export function EmailProvider({
   const contextValue = useMemo<EmailContextValue>(
     () => ({
       apiBaseUrl,
+      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
       ui,
       ...(getAuthHeader !== undefined && { getAuthHeader }),
       ...(folderOperations !== undefined && { folderOperations }),
@@ -177,6 +191,7 @@ export function EmailProvider({
     }),
     [
       apiBaseUrl,
+      databaseState,
       getAuthHeader,
       ui,
       folderOperations,
@@ -211,6 +226,14 @@ export function useEmailContext(): EmailContextValue {
 export function useEmailUI(): EmailUIComponents {
   const { ui } = useEmailContext();
   return ui;
+}
+
+/**
+ * Hook to access host runtime database state.
+ */
+export function useEmailDatabaseState(): EmailDatabaseState {
+  const { databaseState } = useEmailContext();
+  return databaseState;
 }
 
 /**
