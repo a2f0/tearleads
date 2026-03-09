@@ -96,6 +96,7 @@ These client tests are the closest user-facing baselines for Bob/Alice sharing r
 |-----------------|------|------------------|
 | Instance switch + shared-note sync feed continuity | `packages/client/src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx` | Bob remains authenticated after switching Alice -> Bob instance and can still read Alice's CRDT `item_upsert` from server feed |
 | Instance switch + rematerialization + rendered note body | `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | Bob/Alice scaffolded share rematerializes into Bob local DB and renders updated note content in `@tearleads/notes` (`NotesWindowDetail`) |
+| App shell route + note-body visibility across Bob -> Alice -> Bob | `packages/client/src/lib/api.msw.instanceSwitchAppShellNoteVisibility.test.tsx` | Full `AppRoutes` shell keeps shared note content visible after instance rebinding and rematerialized remote updates |
 | Scaffolded feed hydration/rematerialization edge cases | `packages/client/src/lib/api.msw.scaffoldMaterialization.test.tsx` | Local read-model hydration from scaffolded sync + CRDT pages, including rematerialization fallback behavior |
 | Bootstrap retry/error handling for rematerialization | `packages/client/src/components/VfsRematerializationBootstrap.test.tsx` | UI bootstrap behavior around rematerialization retries/failures so warnings/errors are surfaced predictably |
 
@@ -106,6 +107,7 @@ This matrix maps issue `#2959` runtime-switch invariants to the suites we keep h
 | Scenario | Primary suite(s) | Invariant |
 |----------|------------------|-----------|
 | Bob -> Alice -> Bob instance flips while preserving shared-note visibility | `packages/client/src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx`, `packages/client/src/lib/api.msw.instanceSwitchRematerialization.test.tsx` | No stale reads from prior instance after switch commit; shared content remains visible |
+| App-shell route-level note visibility after runtime rebinding | `packages/client/src/lib/api.msw.instanceSwitchAppShellNoteVisibility.test.tsx` | Mounted route components rebind to active runtime and keep note payload visibility across Bob/Alice flips |
 | Rematerialization bootstrap and retry paths | `packages/client/src/components/VfsRematerializationBootstrap.test.tsx`, `packages/client/src/lib/api.msw.scaffoldMaterialization.test.tsx` | No silent data loss when rematerialization or feed paging hits transient errors |
 | Fresh login + cache reset rematerialization guardrail | `packages/bob-and-alice/src/scenarios/dbScaffoldFreshLoginCacheResetRematerialization.test.ts` | After local cache reset, fresh-login rematerialization restores shared-note visibility and payload |
 | API-level multi-actor share/write convergence | `packages/bob-and-alice/src/scenarios/sharedNoteEditSync.test.ts`, `packages/bob-and-alice/src/scenarios/apiVfsLifecycle.test.ts` | Cross-actor writes are accepted and reflected after flush/sync without stale instance side effects |
@@ -127,6 +129,7 @@ pnpm --filter @tearleads/bob-and-alice test -- src/scenarios/dbScaffoldFreshLogi
 # Targeted client runtime-switch/rematerialization baselines
 pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchSharedNoteSync.test.tsx
 pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchRematerialization.test.tsx
+pnpm --filter @tearleads/client test -- src/lib/api.msw.instanceSwitchAppShellNoteVisibility.test.tsx
 pnpm --filter @tearleads/client test -- src/lib/api.msw.scaffoldMaterialization.test.tsx
 pnpm --filter @tearleads/client test -- src/components/VfsRematerializationBootstrap.test.tsx
 ```
