@@ -1,3 +1,5 @@
+import { create } from '@bufbuild/protobuf';
+import { AdminUpdateUserResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -210,29 +212,27 @@ describe('admin api client v2 mutation routes', () => {
         disabled: false,
         markedForDeletion: false
       })
-    ).resolves.toEqual({
-      user: {
-        id: 'user-1',
-        email: 'admin@example.com',
-        emailConfirmed: true,
-        admin: true,
-        organizationIds: ['org-1', 'org-2'],
-        createdAt: '2026-02-01T00:00:00Z',
-        lastActiveAt: '2026-02-03T00:00:00Z',
-        accounting: {
-          totalPromptTokens: 11,
-          totalCompletionTokens: 22,
-          totalTokens: 33,
-          requestCount: 4,
-          lastUsedAt: '2026-02-03T00:00:00Z'
-        },
-        disabled: false,
-        disabledAt: null,
-        disabledBy: null,
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
-      }
-    });
+    ).resolves.toEqual(
+      create(AdminUpdateUserResponseSchema, {
+        user: {
+          id: 'user-1',
+          email: 'admin@example.com',
+          emailConfirmed: true,
+          admin: true,
+          organizationIds: ['org-1', 'org-2'],
+          createdAt: '2026-02-01T00:00:00Z',
+          lastActiveAt: '2026-02-03T00:00:00Z',
+          accounting: {
+            totalPromptTokens: 11n,
+            totalCompletionTokens: 22n,
+            totalTokens: 33n,
+            requestCount: 4n,
+            lastUsedAt: '2026-02-03T00:00:00Z'
+          },
+          disabled: false
+        }
+      })
+    );
   });
 
   it('routes admin mutations through v2 service paths and typed payloads', async () => {

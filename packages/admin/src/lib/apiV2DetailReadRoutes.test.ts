@@ -1,3 +1,5 @@
+import { create } from '@bufbuild/protobuf';
+import { AdminGetUserResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -145,29 +147,27 @@ describe('admin api client v2 detail read routes', () => {
         }
       })
     );
-    await expect(apiClient.adminV2.users.get('user-1')).resolves.toEqual({
-      user: {
-        id: 'user-1',
-        email: 'admin@example.com',
-        emailConfirmed: true,
-        admin: true,
-        organizationIds: ['org-1'],
-        createdAt: '2026-01-01T00:00:00Z',
-        lastActiveAt: '2026-01-02T00:00:00Z',
-        accounting: {
-          totalPromptTokens: 10,
-          totalCompletionTokens: 20,
-          totalTokens: 30,
-          requestCount: 4,
-          lastUsedAt: '2026-01-03T00:00:00Z'
-        },
-        disabled: false,
-        disabledAt: null,
-        disabledBy: null,
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
-      }
-    });
+    await expect(apiClient.adminV2.users.get('user-1')).resolves.toEqual(
+      create(AdminGetUserResponseSchema, {
+        user: {
+          id: 'user-1',
+          email: 'admin@example.com',
+          emailConfirmed: true,
+          admin: true,
+          organizationIds: ['org-1'],
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActiveAt: '2026-01-02T00:00:00Z',
+          accounting: {
+            totalPromptTokens: 10n,
+            totalCompletionTokens: 20n,
+            totalTokens: 30n,
+            requestCount: 4n,
+            lastUsedAt: '2026-01-03T00:00:00Z'
+          },
+          disabled: false
+        }
+      })
+    );
   });
 
   it('routes detail reads through v2 admin service paths', async () => {
