@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 
 installVitestPolyfills(vi);
 
+// Reflect avoids TypeScript assertions while we patch missing Bun-only helpers onto `vi`.
 if (typeof Reflect.get(vi, 'waitFor') !== 'function') {
   Reflect.set(vi, 'waitFor', waitFor);
 }
