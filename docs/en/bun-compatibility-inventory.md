@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-09T22:37:22.749Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-09T22:43:50.305Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -15,21 +15,21 @@ Generated: `2026-03-09T22:37:22.749Z` via `node --experimental-strip-types scrip
 
 | Package | Risk score | Blockers |
 | --- | ---: | --- |
-| `@tearleads/client` | 30 | vi.hoisted (72), vi.importActual (85), vi.mock(importOriginal) (100), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (444), vi.stubEnv (22), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
+| `@tearleads/client` | 30 | vi.hoisted (72), vi.importActual (85), vi.mock(importOriginal) (100), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (444), vi.stubEnv (22), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/api` | 25 | vi.hoisted (61), vi.importActual (19), vi.mock(importOriginal) (1), vi.waitFor (3), vi.resetModules (9), vi.mocked (4), vi.stubEnv (41), test script is vitest-primary |
-| `@tearleads/app-keychain` | 23 | vi.hoisted (3), vi.importActual (1), vi.mock(importOriginal) (6), vi.resetModules (2), vi.mocked (50), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
-| `@tearleads/api-client` | 20 | vi.hoisted (11), vi.importActual (13), vi.resetModules (28), vi.mocked (43), vi.stubEnv (30), DOM setup (DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
-| `@tearleads/app-admin` | 19 | vi.importActual (7), vi.mock(importOriginal) (9), vi.resetModules (5), vi.mocked (4), vi.stubEnv (5), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency), test script is vitest-primary |
-| `@tearleads/app-backups` | 9 | vi.hoisted (1), vi.mocked (8), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-analytics` | 8 | vi.mock(importOriginal) (11), vi.mocked (2), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-mls-chat` | 7 | vi.hoisted (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-notifications` | 6 | vi.mock(importOriginal) (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-classic` | 5 | vi.waitFor (5), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
+| `@tearleads/app-keychain` | 23 | vi.hoisted (3), vi.importActual (1), vi.mock(importOriginal) (6), vi.resetModules (2), vi.mocked (50), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/api-client` | 20 | vi.hoisted (11), vi.importActual (13), vi.resetModules (28), vi.mocked (43), vi.stubEnv (30), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/app-admin` | 19 | vi.importActual (7), vi.mock(importOriginal) (9), vi.resetModules (5), vi.mocked (4), vi.stubEnv (5), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/app-backups` | 9 | vi.hoisted (1), vi.mocked (8), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-analytics` | 8 | vi.mock(importOriginal) (11), vi.mocked (2), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-mls-chat` | 7 | vi.hoisted (1), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-notifications` | 6 | vi.mock(importOriginal) (1), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-classic` | 5 | vi.waitFor (5), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/cli` | 5 | vi.mocked (7), test script is vitest-primary |
-| `@tearleads/app-email` | 4 | vi.mocked (2), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/app-notes` | 4 | vi.mocked (1), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
-| `@tearleads/vfs-explorer` | 4 | vi.mocked (36), DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency) |
+| `@tearleads/app-email` | 4 | vi.mocked (2), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-notes` | 4 | vi.mocked (1), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/vfs-explorer` | 4 | vi.mocked (36), DOM setup (4 indicators; see Package Inventory) |
 
 ## Package Inventory
 

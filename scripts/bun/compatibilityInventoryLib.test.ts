@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { detectCompatibilityPatternCounts } from './compatibilityInventoryLib.ts';
+import {
+  buildCompatibilityInventoryMarkdown,
+  detectCompatibilityPatternCounts,
+  type CompatibilityInventoryReport
+} from './compatibilityInventoryLib.ts';
 
 describe('detectCompatibilityPatternCounts', () => {
   it('counts vi.mock(importOriginal) variants', () => {
@@ -73,5 +77,63 @@ describe('detectCompatibilityPatternCounts', () => {
     const counts = detectCompatibilityPatternCounts(source);
 
     assert.equal(counts.importMetaGlob, 2);
+  });
+});
+
+describe('buildCompatibilityInventoryMarkdown', () => {
+  it('summarizes DOM setup blockers in top blockers table', () => {
+    const report: CompatibilityInventoryReport = {
+      generatedAt: '2026-03-09T00:00:00.000Z',
+      summary: {
+        packagesWithTests: 1,
+        bunPrimaryPackages: 0,
+        bunAutoFallbackPackages: 0,
+        vitestPrimaryPackages: 1,
+        packagesWithJsdomIndicators: 1,
+        packagesWithHighRiskVitestApis: 1
+      },
+      packages: [
+        {
+          packageName: '@tearleads/demo',
+          testFileCount: 2,
+          testScriptMode: 'vitest-primary',
+          hasTestVitestScript: false,
+          jsdomIndicators: [
+            '@testing-library/jest-dom dependency',
+            '@testing-library/jest-dom/vitest import',
+            'DOM test environment in vitest config',
+            'jsdom dependency'
+          ],
+          compatPatternCounts: {
+            viHoisted: 0,
+            viImportActual: 0,
+            viMockImportOriginal: 0,
+            viWaitFor: 0,
+            importMetaGlob: 0,
+            viResetModules: 0,
+            viMocked: 0,
+            viStubEnv: 0,
+            viStubGlobal: 0
+          },
+          riskScore: 5,
+          readiness: 'high-remediation',
+          blockers: [
+            'DOM setup (@testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency)',
+            'test script is vitest-primary'
+          ]
+        }
+      ]
+    };
+
+    const markdown = buildCompatibilityInventoryMarkdown(report);
+
+    assert.match(
+      markdown,
+      /\| `@tearleads\/demo` \| 5 \| DOM setup \(4 indicators; see Package Inventory\), test script is vitest-primary \|/
+    );
+    assert.match(
+      markdown,
+      /@testing-library\/jest-dom dependency; @testing-library\/jest-dom\/vitest import; DOM test environment in vitest config; jsdom dependency/
+    );
   });
 });
