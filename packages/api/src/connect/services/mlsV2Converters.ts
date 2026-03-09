@@ -88,29 +88,26 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
-export function encodeProtoBytes(value: Uint8Array | string): string {
-  if (typeof value === 'string') {
-    return value;
-  }
+export function encodeProtoBytes(value: Uint8Array): string {
   return Buffer.from(value).toString('base64');
 }
 
-function decodeDirectStringToProtoBytes(value: string): Uint8Array {
-  const normalized = value.trim();
-  if (
-    normalized.length > 0 &&
-    normalized.length % 4 === 0 &&
-    /^[A-Za-z0-9+/]+={0,2}$/.test(normalized)
-  ) {
-    const decoded = Buffer.from(normalized, 'base64');
-    if (
-      decoded.toString('base64').replace(/=+$/u, '') ===
-      normalized.replace(/=+$/u, '')
-    ) {
-      return new Uint8Array(decoded);
-    }
+function decodeBase64ToProtoBytes(value: string, fieldName: string): Uint8Array {
+  const normalized = value.replace(/\s+/gu, '');
+  if (normalized.length === 0) {
+    throw new Error(`${fieldName} must be non-empty base64`);
   }
-  return new TextEncoder().encode(value);
+
+  const decoded = Buffer.from(normalized, 'base64');
+  if (
+    decoded.length === 0 ||
+    decoded.toString('base64').replace(/=+$/u, '') !==
+      normalized.replace(/=+$/u, '')
+  ) {
+    throw new Error(`${fieldName} must be valid base64`);
+  }
+
+  return new Uint8Array(decoded);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +118,10 @@ export function toProtoKeyPackage(kp: MlsKeyPackage) {
   return {
     id: kp.id,
     userId: kp.userId,
-    keyPackageData: decodeDirectStringToProtoBytes(kp.keyPackageData),
+    keyPackageData: decodeBase64ToProtoBytes(
+      kp.keyPackageData,
+      'keyPackageData'
+    ),
     keyPackageRef: kp.keyPackageRef,
     cipherSuite: toProtoCipherSuite(kp.cipherSuite),
     createdAt: kp.createdAt,
@@ -165,7 +165,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: decodeDirectStringToProtoBytes(msg.ciphertext),
+    ciphertext: decodeBase64ToProtoBytes(msg.ciphertext, 'ciphertext'),
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -179,7 +179,10 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: decodeDirectStringToProtoBytes(s.encryptedState),
+    encryptedState: decodeBase64ToProtoBytes(
+      s.encryptedState,
+      'encryptedState'
+    ),
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -190,7 +193,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: decodeDirectStringToProtoBytes(w.welcome),
+    welcome: decodeBase64ToProtoBytes(w.welcome, 'welcome'),
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt
