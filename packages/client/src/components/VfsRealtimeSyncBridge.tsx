@@ -94,9 +94,9 @@ export function VfsRealtimeSyncBridge() {
     void remoteReadOrchestratorRef.current
       .schedule(
         async () => {
+          const executionSnapshot = getInstanceChangeSnapshot();
           if (
-            getInstanceChangeSnapshot().instanceEpoch !==
-            scheduledSnapshot.instanceEpoch
+            executionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
           ) {
             return;
           }
@@ -104,18 +104,18 @@ export function VfsRealtimeSyncBridge() {
           await withDownloadTracking(async () => {
             await orchestrator.syncCrdt();
             await hydrateLocalReadModelFromRemoteFeeds();
+            const refreshSnapshot = getInstanceChangeSnapshot();
             if (
-              getInstanceChangeSnapshot().instanceEpoch !==
-              scheduledSnapshot.instanceEpoch
+              refreshSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
             ) {
               return;
             }
             refreshSyncState();
           });
 
+          const completionSnapshot = getInstanceChangeSnapshot();
           if (
-            getInstanceChangeSnapshot().instanceEpoch !==
-            scheduledSnapshot.instanceEpoch
+            completionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
           ) {
             return;
           }
