@@ -182,6 +182,40 @@ describe('aiConnectServiceV2', () => {
     );
   });
 
+  it('rejects negative usage counts before touching the database', async () => {
+    await expect(
+      aiConnectServiceV2.recordUsage(
+        create(AiServiceRecordUsageRequestSchema, {
+          modelId: 'openai/gpt-4o-mini',
+          promptTokens: -1,
+          completionTokens: 8,
+          totalTokens: 7
+        }),
+        { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects inconsistent total token counts before touching the database', async () => {
+    await expect(
+      aiConnectServiceV2.recordUsage(
+        create(AiServiceRecordUsageRequestSchema, {
+          modelId: 'openai/gpt-4o-mini',
+          promptTokens: 12,
+          completionTokens: 8,
+          totalTokens: 19
+        }),
+        { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
   it('returns grouped summary results for the authenticated user', async () => {
     const usageTime = new Date('2026-03-09T18:00:00.000Z');
     queryMock
