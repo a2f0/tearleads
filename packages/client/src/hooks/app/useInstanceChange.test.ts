@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emitInstanceChange,
+  getInstanceChangeSnapshot,
   getListenerCount,
   resetInstanceChangeState,
   subscribeToInstanceChange,
@@ -151,6 +152,34 @@ describe('useInstanceChange', () => {
     });
   });
 
+  describe('getInstanceChangeSnapshot', () => {
+    it('tracks a monotonic epoch for real instance changes', () => {
+      expect(getInstanceChangeSnapshot()).toEqual({
+        currentInstanceId: null,
+        instanceEpoch: 0
+      });
+
+      emitInstanceChange('instance-1');
+      expect(getInstanceChangeSnapshot()).toEqual({
+        currentInstanceId: 'instance-1',
+        instanceEpoch: 1
+      });
+
+      // Re-emitting the same instance should not advance the epoch.
+      emitInstanceChange('instance-1');
+      expect(getInstanceChangeSnapshot()).toEqual({
+        currentInstanceId: 'instance-1',
+        instanceEpoch: 1
+      });
+
+      emitInstanceChange('instance-2');
+      expect(getInstanceChangeSnapshot()).toEqual({
+        currentInstanceId: 'instance-2',
+        instanceEpoch: 2
+      });
+    });
+  });
+
   describe('resetInstanceChangeState', () => {
     it('clears all listeners and resets last instance ID', () => {
       subscribeToInstanceChange(() => {
@@ -163,6 +192,10 @@ describe('useInstanceChange', () => {
       resetInstanceChangeState();
 
       expect(getListenerCount()).toBe(0);
+      expect(getInstanceChangeSnapshot()).toEqual({
+        currentInstanceId: null,
+        instanceEpoch: 0
+      });
 
       // After reset, the next emit should have null as previous
       const callback = vi.fn();

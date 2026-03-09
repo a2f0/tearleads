@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
+import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
 import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { withDownloadTracking } from '@/lib/vfsItemSyncWriter';
@@ -89,14 +90,35 @@ export function VfsRealtimeSyncBridge() {
       return;
     }
 
+    const scheduledSnapshot = getInstanceChangeSnapshot();
     void remoteReadOrchestratorRef.current
       .schedule(
         async () => {
+          const executionSnapshot = getInstanceChangeSnapshot();
+          if (
+            executionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
+          ) {
+            return;
+          }
+
           await withDownloadTracking(async () => {
             await orchestrator.syncCrdt();
             await hydrateLocalReadModelFromRemoteFeeds();
+            const refreshSnapshot = getInstanceChangeSnapshot();
+            if (
+              refreshSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
+            ) {
+              return;
+            }
             refreshSyncState();
           });
+
+          const completionSnapshot = getInstanceChangeSnapshot();
+          if (
+            completionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
+          ) {
+            return;
+          }
           retryAttemptRef.current = 0;
         },
         {
@@ -106,6 +128,11 @@ export function VfsRealtimeSyncBridge() {
         }
       )
       .catch(() => {
+        const currentSnapshot = getInstanceChangeSnapshot();
+        if (currentSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch) {
+          return;
+        }
+
         if (retryTimerRef.current) {
           return;
         }
@@ -115,7 +142,7 @@ export function VfsRealtimeSyncBridge() {
         );
         logStore.warn(
           'VFS CRDT sync failed after SSE trigger; scheduling retry',
-          `attempt=${retryAttemptRef.current + 1}, retryDelayMs=${retryDelayMs}`
+          `attempt=${retryAttemptRef.current + 1}, retryDelayMs=${retryDelayMs}, instanceEpoch=${scheduledSnapshot.instanceEpoch}`
         );
         retryAttemptRef.current += 1;
         retryTimerRef.current = setTimeout(() => {

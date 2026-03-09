@@ -29,6 +29,10 @@ import {
 } from '@/db/vfsOrchestratorState';
 import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
+import {
+  getInstanceChangeSnapshot,
+  type InstanceChangeSnapshot
+} from '@/hooks/app/useInstanceChange';
 import { ensureVfsKeys } from '@/hooks/vfs';
 import {
   getActiveOrganizationId,
@@ -50,6 +54,13 @@ function normalizeApiPrefix(value: string): string {
     : withLeadingSlash;
 }
 
+function formatEpochTrace(
+  startedSnapshot: InstanceChangeSnapshot,
+  currentSnapshot: InstanceChangeSnapshot
+): string {
+  return `instanceEpoch=${startedSnapshot.instanceEpoch}, currentInstanceEpoch=${currentSnapshot.instanceEpoch}, instanceId=${startedSnapshot.currentInstanceId ?? 'none'}, currentInstanceId=${currentSnapshot.currentInstanceId ?? 'none'}`;
+}
+
 function useFlushWhenOrganizationReady(input: {
   orchestrator: VfsWriteOrchestrator | null;
   isAuthenticated: boolean;
@@ -66,8 +77,13 @@ function useFlushWhenOrganizationReady(input: {
         return;
       }
 
+      const flushSnapshot = getInstanceChangeSnapshot();
       void orchestrator.flushAll().catch((flushErr) => {
-        console.warn('Initial VFS orchestrator flush failed:', flushErr);
+        console.warn(
+          'Initial VFS orchestrator flush failed:',
+          formatEpochTrace(flushSnapshot, getInstanceChangeSnapshot()),
+          flushErr
+        );
       });
     };
 
@@ -186,11 +202,16 @@ export function VfsOrchestratorProvider({
             getOrganizationId: getActiveOrganizationId
           },
           onRematerializationRequired: async () => {
+            const rematerializationSnapshot = getInstanceChangeSnapshot();
             try {
               await rematerializeRemoteVfsStateIfNeeded();
             } catch (rematerializationError) {
               console.warn(
                 'VFS rematerialization callback failed; continuing with sync fallback state reset:',
+                formatEpochTrace(
+                  rematerializationSnapshot,
+                  getInstanceChangeSnapshot()
+                ),
                 rematerializationError
               );
             }
@@ -268,8 +289,13 @@ export function VfsOrchestratorProvider({
     }
 
     const flushOnOnline = () => {
+      const onlineFlushSnapshot = getInstanceChangeSnapshot();
       void orchestrator.flushAll().catch((err) => {
-        console.warn('VFS flush on reconnect failed:', err);
+        console.warn(
+          'VFS flush on reconnect failed:',
+          formatEpochTrace(onlineFlushSnapshot, getInstanceChangeSnapshot()),
+          err
+        );
       });
     };
 

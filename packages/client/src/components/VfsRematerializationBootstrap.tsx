@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVfsOrchestrator } from '@/contexts/VfsOrchestratorContext';
+import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 
 const INITIAL_RETRY_DELAY_MS = 2_000;
@@ -36,13 +37,31 @@ export function VfsRematerializationBootstrap() {
         return;
       }
 
+      const operationSnapshot = getInstanceChangeSnapshot();
       inFlightRef.current = true;
       void rematerializeRemoteVfsStateIfNeeded()
         .then(() => {
+          if (
+            getInstanceChangeSnapshot().instanceEpoch !==
+            operationSnapshot.instanceEpoch
+          ) {
+            return;
+          }
           retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
         })
         .catch((error) => {
-          console.warn('VFS rematerialization bootstrap failed:', error);
+          const currentSnapshot = getInstanceChangeSnapshot();
+          if (
+            currentSnapshot.instanceEpoch !== operationSnapshot.instanceEpoch
+          ) {
+            return;
+          }
+
+          console.warn(
+            'VFS rematerialization bootstrap failed:',
+            `instanceEpoch=${operationSnapshot.instanceEpoch}, currentInstanceEpoch=${currentSnapshot.instanceEpoch}, instanceId=${operationSnapshot.currentInstanceId ?? 'none'}`,
+            error
+          );
           const delayMs = retryDelayMsRef.current;
           retryDelayMsRef.current = Math.min(
             retryDelayMsRef.current * 2,

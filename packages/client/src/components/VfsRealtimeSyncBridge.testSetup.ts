@@ -6,6 +6,7 @@ export const mockHydrateLocalReadModelFromRemoteFeeds = vi.fn();
 export const mockLogInfo = vi.fn();
 export const mockLogWarn = vi.fn();
 export const mockGetActiveOrganizationId = vi.fn();
+export const mockGetInstanceChangeSnapshot = vi.fn();
 export const orgChangeListeners = new Set<() => void>();
 
 vi.mock('@/sse', () => ({
@@ -43,9 +44,17 @@ vi.mock('@/lib/orgStorage', () => ({
   }
 }));
 
+vi.mock('@/hooks/app/useInstanceChange', () => ({
+  getInstanceChangeSnapshot: () => mockGetInstanceChangeSnapshot()
+}));
+
 export function resetVfsRealtimeSyncBridgeTestMocks(): void {
   vi.clearAllMocks();
   orgChangeListeners.clear();
   mockGetActiveOrganizationId.mockReturnValue(null);
+  mockGetInstanceChangeSnapshot.mockReturnValue({
+    currentInstanceId: 'instance-1',
+    instanceEpoch: 1
+  });
   mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
 }
