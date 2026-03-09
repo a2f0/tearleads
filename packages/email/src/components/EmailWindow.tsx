@@ -3,7 +3,10 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { useHasEmailFolderOperations } from '../context/EmailContext.js';
+import {
+  useEmailDatabaseState,
+  useHasEmailFolderOperations
+} from '../context/EmailContext.js';
 import { useEmailBody, useEmails } from '../hooks';
 import type { EmailItem } from '../lib/email.js';
 import type { ComposeMode } from '../lib/quoteText.js';
@@ -40,8 +43,8 @@ interface EmailWindowProps {
   openComposeRequest?: ComposeOpenRequest;
   openEmailId?: string | null | undefined;
   openRequestId?: number | undefined;
-  isUnlocked?: boolean;
-  isDatabaseLoading?: boolean;
+  isAuthenticated?: boolean;
+  isAuthLoading?: boolean;
   lockedFallback?: ReactNode;
 }
 
@@ -57,12 +60,15 @@ export function EmailWindow({
   openComposeRequest,
   openEmailId,
   openRequestId,
-  isUnlocked = true,
-  isDatabaseLoading = false,
+  isAuthenticated = true,
+  isAuthLoading = false,
   lockedFallback
 }: EmailWindowProps) {
+  const databaseState = useEmailDatabaseState();
   const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
+  const isUnlocked = databaseState.isUnlocked && isAuthenticated;
+  const isDatabaseLoading = databaseState.isLoading || isAuthLoading;
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);

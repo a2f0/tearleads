@@ -60,6 +60,11 @@ function createMockContext(
 
   return {
     apiBaseUrl: 'http://test',
+    databaseState: {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: null
+    },
     ui: {
       BackLink: () => null,
       RefreshButton: () => null,
@@ -85,6 +90,11 @@ function createMockContext(
 function createMockContextWithoutFolderOps(): EmailContextValue {
   return {
     apiBaseUrl: 'http://test',
+    databaseState: {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: null
+    },
     ui: {
       BackLink: () => null,
       RefreshButton: () => null,

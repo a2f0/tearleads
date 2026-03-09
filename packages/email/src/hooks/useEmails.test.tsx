@@ -1,7 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmailProvider, type EmailUIComponents } from '../context';
+import {
+  type EmailDatabaseState,
+  EmailProvider,
+  type EmailUIComponents
+} from '../context';
 import { mockConsoleError } from '../test/consoleMocks';
 import { useEmails } from './useEmails';
 
@@ -31,6 +35,12 @@ const defaultGetEmailsRequestBody = JSON.stringify({
   limit: 50
 });
 
+const defaultDatabaseState: EmailDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 describe('useEmails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -42,6 +52,7 @@ describe('useEmails', () => {
     ({ children }: { children: ReactNode }) => (
       <EmailProvider
         apiBaseUrl={options?.apiBaseUrl ?? 'http://localhost:5001/v1'}
+        databaseState={defaultDatabaseState}
         ui={mockUIComponents}
         {...(options?.getAuthHeader !== undefined && {
           getAuthHeader: options.getAuthHeader

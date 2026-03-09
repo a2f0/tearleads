@@ -28,14 +28,8 @@ export function EmailWindow({
   initialDimensions
 }: EmailWindowProps) {
   const openRequest = useWindowOpenRequest('email');
-  const { isUnlocked: isDatabaseUnlocked, isLoading: isDatabaseLoading } =
-    useDatabaseContext();
+  const { isUnlocked: isDatabaseUnlocked } = useDatabaseContext();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-
-  // Email requires both database unlock AND authentication
-  // Show unlock first, then login (unlock is required to store auth tokens)
-  const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
-  const isLoading = isDatabaseLoading || isAuthLoading;
 
   // Determine appropriate fallback based on which condition is not met
   const lockedFallback = useMemo(() => {
@@ -58,8 +52,8 @@ export function EmailWindow({
         onFocus={onFocus}
         zIndex={zIndex}
         initialDimensions={initialDimensions}
-        isUnlocked={isFullyUnlocked}
-        isDatabaseLoading={isLoading}
+        isAuthenticated={isAuthenticated}
+        isAuthLoading={isAuthLoading}
         lockedFallback={lockedFallback}
         openEmailId={openRequest?.emailId}
         openRequestId={openRequest?.requestId}

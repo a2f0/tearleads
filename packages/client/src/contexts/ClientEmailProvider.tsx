@@ -1,6 +1,7 @@
 import {
   EmailAboutMenuItem,
   type EmailContactOperations,
+  type EmailDatabaseState,
   type EmailDraftOperations,
   EmailProvider,
   type EmailUIComponents
@@ -45,7 +46,7 @@ interface ClientEmailProviderProps {
 }
 
 export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
-  const { isUnlocked } = useDatabaseContext();
+  const databaseContext = useDatabaseContext();
 
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
@@ -131,14 +132,28 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
 
   const bodyOperations = useClientEmailBodyOperations();
 
+  const databaseState = useMemo<EmailDatabaseState>(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
+
   const providerProps = {
     apiBaseUrl: API_BASE_URL,
+    databaseState,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
-    ...(isUnlocked && { draftOperations }),
-    ...(isUnlocked && { contactOperations }),
-    ...(isUnlocked && { folderOperations: folderOps }),
-    ...(isUnlocked && { bodyOperations })
+    ...(databaseState.isUnlocked && { draftOperations }),
+    ...(databaseState.isUnlocked && { contactOperations }),
+    ...(databaseState.isUnlocked && { folderOperations: folderOps }),
+    ...(databaseState.isUnlocked && { bodyOperations })
   };
 
   return <EmailProvider {...providerProps}>{children}</EmailProvider>;

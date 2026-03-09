@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import {
   type EmailBodyOperations,
   type EmailContactOperations,
+  type EmailDatabaseState,
   type EmailFolderOperations,
   EmailProvider,
   type EmailUIComponents
@@ -11,6 +12,7 @@ import { mockUIComponents } from './mockUIComponents';
 interface TestEmailProviderProps {
   children: ReactNode;
   apiBaseUrl?: string;
+  databaseState?: EmailDatabaseState;
   getAuthHeader?: () => string | null;
   ui?: EmailUIComponents;
   contactOperations?: EmailContactOperations;
@@ -21,6 +23,11 @@ interface TestEmailProviderProps {
 export function TestEmailProvider({
   children,
   apiBaseUrl = 'http://localhost:5001/v1',
+  databaseState = {
+    isUnlocked: true,
+    isLoading: false,
+    currentInstanceId: null
+  },
   getAuthHeader,
   ui = mockUIComponents,
   contactOperations,
@@ -30,6 +37,7 @@ export function TestEmailProvider({
   return (
     <EmailProvider
       apiBaseUrl={apiBaseUrl}
+      databaseState={databaseState}
       ui={ui}
       {...(getAuthHeader !== undefined && { getAuthHeader })}
       {...(contactOperations !== undefined && { contactOperations })}
