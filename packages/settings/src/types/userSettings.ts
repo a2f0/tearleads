@@ -158,13 +158,29 @@ export interface SettingsSyncedDetail {
 }
 
 /**
+ * Resolve the localStorage key for a setting, optionally scoped to an instance.
+ */
+export function resolveStorageKey(
+  key: UserSettingKey,
+  instanceId?: string | null
+): string {
+  const baseKey = SETTING_STORAGE_KEYS[key];
+  if (instanceId) {
+    return `setting:${instanceId}:${baseKey}`;
+  }
+  return baseKey;
+}
+
+/**
  * Get a setting value from localStorage.
  */
 export function getSettingFromStorage<K extends UserSettingKey>(
-  key: K
+  key: K,
+  instanceId?: string | null
 ): SettingValueMap[K] | null {
   try {
-    const value = localStorage.getItem(SETTING_STORAGE_KEYS[key]);
+    const storageKey = resolveStorageKey(key, instanceId);
+    const value = localStorage.getItem(storageKey);
     if (value === null) return null;
 
     const validator = SETTING_VALIDATORS[key];
@@ -183,10 +199,55 @@ export function getSettingFromStorage<K extends UserSettingKey>(
  */
 export function setSettingInStorage<K extends UserSettingKey>(
   key: K,
-  value: SettingValueMap[K]
+  value: SettingValueMap[K],
+  instanceId?: string | null
 ): void {
   try {
-    localStorage.setItem(SETTING_STORAGE_KEYS[key], value);
+    const storageKey = resolveStorageKey(key, instanceId);
+    localStorage.setItem(storageKey, value);
+  } catch {
+    // localStorage may not be available
+  }
+}
+
+/**
+ * Clear all instance-scoped settings from localStorage.
+ */
+export function clearInstanceSettings(instanceId: string): void {
+  try {
+    const prefix = `setting:${instanceId}:`;
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // localStorage may not be available
+  }
+}
+
+/**
+ * Migrate unscoped (global) settings to instance-scoped keys.
+ * Only copies if the scoped key doesn't already exist.
+ */
+export function migrateUnscopedSettings(instanceId: string): void {
+  try {
+    const settingKeys = Object.keys(SETTING_STORAGE_KEYS) as UserSettingKey[];
+    for (const key of settingKeys) {
+      const scopedKey = resolveStorageKey(key, instanceId);
+      if (localStorage.getItem(scopedKey) !== null) continue;
+
+      const unscopedKey = SETTING_STORAGE_KEYS[key];
+      const value = localStorage.getItem(unscopedKey);
+      if (value !== null) {
+        localStorage.setItem(scopedKey, value);
+      }
+    }
   } catch {
     // localStorage may not be available
   }

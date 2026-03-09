@@ -1,3 +1,4 @@
+// one-component-per-file: allow -- test helpers (TestConsumer, wrapper) are colocated with provider tests
 /**
  * Unit tests for SettingsProvider.
  */
@@ -271,7 +272,7 @@ describe('SettingsProvider', () => {
       dispatchSpy.mockRestore();
     });
 
-    it('does not dispatch event when no settings in database', async () => {
+    it('dispatches event with empty settings when no settings in database', async () => {
       const getSettingsFromDb = vi.fn().mockResolvedValue({});
       const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
@@ -285,8 +286,13 @@ describe('SettingsProvider', () => {
         expect(screen.getByTestId('synced')).toHaveTextContent('yes');
       });
 
-      expect(dispatchSpy).not.toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'settings-synced' })
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'settings-synced',
+          detail: {
+            settings: {}
+          }
+        })
       );
 
       dispatchSpy.mockRestore();

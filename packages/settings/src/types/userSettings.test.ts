@@ -7,19 +7,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Store for mocked localStorage
 let localStorageData: Record<string, string> = {};
 
+// Implementation functions for mock restoration
+const getItemImpl = (key: string) => localStorageData[key] ?? null;
+const setItemImpl = (key: string, value: string) => {
+  localStorageData[key] = value;
+};
+const removeItemImpl = (key: string) => {
+  delete localStorageData[key];
+};
+const clearImpl = () => {
+  localStorageData = {};
+};
+const keyImpl = (i: number) => Object.keys(localStorageData)[i] ?? null;
+
 // Mock localStorage before imports
 Object.defineProperty(window, 'localStorage', {
   value: {
-    getItem: vi.fn((key: string) => localStorageData[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => {
-      localStorageData[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete localStorageData[key];
-    }),
-    clear: vi.fn(() => {
-      localStorageData = {};
-    })
+    getItem: vi.fn(getItemImpl),
+    setItem: vi.fn(setItemImpl),
+    removeItem: vi.fn(removeItemImpl),
+    clear: vi.fn(clearImpl),
+    key: vi.fn(keyImpl),
+    get length() {
+      return Object.keys(localStorageData).length;
+    }
   },
   writable: true
 });
@@ -46,6 +57,13 @@ describe('user-settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorageData = {};
+    // Restore implementations that error-handling tests may have overwritten
+    (localStorage.getItem as ReturnType<typeof vi.fn>).mockImplementation(
+      getItemImpl
+    );
+    (localStorage.setItem as ReturnType<typeof vi.fn>).mockImplementation(
+      setItemImpl
+    );
   });
 
   describe('type guards', () => {

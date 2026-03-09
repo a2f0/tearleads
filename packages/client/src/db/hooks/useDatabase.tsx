@@ -8,11 +8,8 @@ import {
   wasSessionActive
 } from '@/hooks/app';
 import { toError } from '@/lib/errors';
+import { clearInstanceStorage } from '@/storage/instanceStorageCleanup';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
-import {
-  clearWindowDimensionsForInstance,
-  clearWindowSnapshot
-} from '@/storage/windowSnapshotStorage';
 import { databaseSetupProgressStore } from '@/stores/databaseSetupProgressStore';
 import type { Database } from '../index';
 import {
@@ -423,8 +420,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
 
         await deleteFileStorageForInstance(instanceId);
 
-        clearWindowSnapshot(instanceId);
-        clearWindowDimensionsForInstance(instanceId);
+        clearInstanceStorage(instanceId);
 
         await deleteInstanceFromRegistry(instanceId);
 
