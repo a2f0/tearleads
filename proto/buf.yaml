@@ -23,6 +23,7 @@ breaking:
   use:
     - FILE
   ignore:
+    - tearleads/v1/ai.proto
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
     - tearleads/v2/vfs.proto
