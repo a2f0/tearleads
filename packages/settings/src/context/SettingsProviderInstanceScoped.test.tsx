@@ -3,12 +3,7 @@
  * Unit tests for SettingsProvider instance-scoped behavior.
  */
 
-import {
-  act,
-  render,
-  screen,
-  waitFor
-} from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Store for mocked localStorage

@@ -367,5 +367,4 @@ describe('SettingsProvider', () => {
       expect(screen.getByTestId('child')).toHaveTextContent('Hello World');
     });
   });
-
 });
