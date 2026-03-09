@@ -35,6 +35,7 @@ describe('VfsRematerializationBootstrap', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
+      token: 'token-1',
       user: { id: 'user-1' }
     });
     mockUseVfsOrchestrator.mockReturnValue({ isReady: true });
@@ -64,7 +65,25 @@ describe('VfsRematerializationBootstrap', () => {
   });
 
   it('does not trigger rematerialization when unauthenticated', async () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      token: null,
+      user: null
+    });
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+  });
+
+  it('does not trigger rematerialization without an auth token', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      token: null,
+      user: { id: 'user-1' }
+    });
 
     render(<VfsRematerializationBootstrap />);
     await Promise.resolve();
@@ -126,7 +145,11 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
 
     // Simulate logout before retry fires
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      token: null,
+      user: null
+    });
     rerender(<VfsRematerializationBootstrap />);
 
     // Advance past retry delay — should NOT trigger another call
@@ -155,6 +178,31 @@ describe('VfsRematerializationBootstrap', () => {
 
     consoleWarnSpy.mockRestore();
   });
+
+  it.each(['Unauthorized', 'API error: 401'])(
+    'suppresses %s failures and avoids retrying until auth recovers',
+    async (errorMessage) => {
+      mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
+        new Error(errorMessage)
+      );
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+
+      render(<VfsRematerializationBootstrap />);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+    }
+  );
 
   it('clears pending retry timer when readiness changes and reruns immediately', async () => {
     let isReady = true;

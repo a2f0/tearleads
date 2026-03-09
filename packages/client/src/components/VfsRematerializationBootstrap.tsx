@@ -9,8 +9,70 @@ import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
 const INITIAL_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function hasExactNumericField(
+  value: Record<string, unknown>,
+  field: string,
+  expected: number
+): boolean {
+  return typeof value[field] === 'number' && value[field] === expected;
+}
+
+function renderErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+
+  if (!isRecord(error)) {
+    return '';
+  }
+
+  const name = typeof error['name'] === 'string' ? error['name'] : '';
+  const message =
+    typeof error['message'] === 'string' ? error['message'] : '';
+
+  return `${name} ${message}`.trim();
+}
+
+function isUnauthorizedBootstrapError(error: unknown): boolean {
+  if (isRecord(error)) {
+    if (
+      hasExactNumericField(error, 'status', 401) ||
+      hasExactNumericField(error, 'statusCode', 401) ||
+      hasExactNumericField(error, 'code', 401)
+    ) {
+      return true;
+    }
+
+    const code = error['code'];
+    if (typeof code === 'string') {
+      const normalizedCode = code.toLowerCase();
+      if (
+        normalizedCode === 'unauthorized' ||
+        normalizedCode === 'unauthenticated'
+      ) {
+        return true;
+      }
+    }
+  }
+
+  const renderedMessage = renderErrorMessage(error).toLowerCase();
+  return (
+    renderedMessage.includes('unauthorized') ||
+    renderedMessage.includes('unauthenticated') ||
+    /api error:\s*401\b/ui.test(renderedMessage)
+  );
+}
+
 export function VfsRematerializationBootstrap() {
-  const { user } = useAuth();
+  const { isAuthenticated, token, user } = useAuth();
   const { isReady } = useVfsOrchestrator();
   const databaseContext = useDatabaseContext();
   const currentInstanceId = databaseContext.currentInstanceId;
@@ -31,7 +93,7 @@ export function VfsRematerializationBootstrap() {
       }
     };
 
-    if (!isReady || !isDatabaseReady) {
+    if (!isReady || !isDatabaseReady || !isAuthenticated || !token) {
       clearRetryTimer();
       retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
       inFlightRef.current = false;
@@ -69,6 +131,10 @@ export function VfsRematerializationBootstrap() {
           ) {
             return;
           }
+          if (isUnauthorizedBootstrapError(error)) {
+            retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
+            return;
+          }
 
           console.warn(
             'VFS rematerialization bootstrap failed:',
@@ -100,7 +166,7 @@ export function VfsRematerializationBootstrap() {
       clearRetryTimer();
       inFlightRef.current = false;
     };
-  }, [currentInstanceId, isDatabaseReady, isReady]);
+  }, [currentInstanceId, isAuthenticated, isDatabaseReady, isReady, token]);
 
   return null;
 }
