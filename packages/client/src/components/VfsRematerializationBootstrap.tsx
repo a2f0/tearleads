@@ -10,7 +10,7 @@ const INITIAL_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 
 export function VfsRematerializationBootstrap() {
-  const { isAuthenticated, user } = useAuth();
+  const { user } = useAuth();
   const { isReady } = useVfsOrchestrator();
   const databaseContext = useDatabaseContext();
   const currentInstanceId = databaseContext.currentInstanceId;
@@ -31,7 +31,7 @@ export function VfsRematerializationBootstrap() {
       }
     };
 
-    if (!isAuthenticated || !isReady || !isDatabaseReady) {
+    if (!isReady || !isDatabaseReady) {
       clearRetryTimer();
       retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
       inFlightRef.current = false;
@@ -100,7 +100,7 @@ export function VfsRematerializationBootstrap() {
       clearRetryTimer();
       inFlightRef.current = false;
     };
-  }, [currentInstanceId, isAuthenticated, isDatabaseReady, isReady]);
+  }, [currentInstanceId, isDatabaseReady, isReady]);
 
   return null;
 }
