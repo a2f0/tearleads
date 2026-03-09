@@ -102,39 +102,9 @@ export const createUtilsMock = () => ({
   detectPlatform: vi.fn(() => 'web')
 });
 
-const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
-
-type MockModuleFactory<ModuleShape> = () => ModuleShape | Promise<ModuleShape>;
-
-const createRunnerAwareMockFactory = <ModuleShape>(
-  bunFactory: () => ModuleShape,
-  vitestFactory: () => Promise<ModuleShape>
-): MockModuleFactory<ModuleShape> =>
-  isBunRuntime ? bunFactory : vitestFactory;
-
-export const sharedModuleMockFactory = createRunnerAwareMockFactory(
-  () => createSharedMock(),
-  async () => {
-    const { createSharedMock } = await import('./keyManager.testUtils');
-    return createSharedMock();
-  }
-);
-
-export const nativeStorageModuleMockFactory = createRunnerAwareMockFactory(
-  () => createNativeStorageMock(),
-  async () => {
-    const { createNativeStorageMock } = await import('./keyManager.testUtils');
-    return createNativeStorageMock();
-  }
-);
-
-export const detectPlatformModuleMockFactory = createRunnerAwareMockFactory(
-  () => createUtilsMock(),
-  async () => {
-    const { createUtilsMock } = await import('./keyManager.testUtils');
-    return createUtilsMock();
-  }
-);
+export const sharedModuleMockFactory = () => createSharedMock();
+export const nativeStorageModuleMockFactory = () => createNativeStorageMock();
+export const detectPlatformModuleMockFactory = () => createUtilsMock();
 
 // Mock crypto.subtle for KCV generation
 const mockEncrypt = vi.fn(async (_algo, key) => {
