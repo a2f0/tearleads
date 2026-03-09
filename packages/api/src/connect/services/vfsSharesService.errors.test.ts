@@ -23,6 +23,16 @@ vi.mock('./vfsSharesDirectOrgMutations.js', () => ({
 
 import { vfsSharesConnectService } from './vfsSharesService.js';
 
+function getMutationMethod(
+  name: 'createShare' | 'updateShare' | 'createOrgShare'
+): (...args: readonly unknown[]) => unknown {
+  const method = Reflect.get(vfsSharesConnectService, name);
+  if (typeof method !== 'function') {
+    throw new Error(`Expected ${name} to be callable`);
+  }
+  return (...args) => Reflect.apply(method, vfsSharesConnectService, args);
+}
+
 describe('vfsSharesConnectService parse errors', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -75,6 +85,61 @@ describe('vfsSharesConnectService parse errors', () => {
           sourceOrgId: '',
           targetOrgId: 'org-2',
           permissionLevel: 'view'
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+
+    expect(createShareDirectMock).not.toHaveBeenCalled();
+    expect(updateShareDirectMock).not.toHaveBeenCalled();
+    expect(createOrgShareDirectMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects legacy json-wrapped mutation payloads', async () => {
+    const context = { requestHeader: new Headers() };
+    const createShare = getMutationMethod('createShare');
+    const updateShare = getMutationMethod('updateShare');
+    const createOrgShare = getMutationMethod('createOrgShare');
+
+    await expect(
+      createShare(
+        {
+          itemId: 'item-1',
+          json: JSON.stringify({
+            shareType: 'user',
+            targetId: 'user-2',
+            permissionLevel: 'view'
+          })
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    await expect(
+      updateShare(
+        {
+          shareId: 'share-1',
+          json: JSON.stringify({
+            permissionLevel: 'view'
+          })
+        },
+        context
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    await expect(
+      createOrgShare(
+        {
+          itemId: 'item-1',
+          json: JSON.stringify({
+            sourceOrgId: 'org-1',
+            targetOrgId: 'org-2',
+            permissionLevel: 'view'
+          })
         },
         context
       )
