@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsRematerializationBootstrap } from './VfsRematerializationBootstrap';
 
@@ -149,6 +149,7 @@ describe('VfsRematerializationBootstrap', () => {
   });
 
   it('reruns rematerialization when the active database instance changes', async () => {
+    vi.useRealTimers();
     let currentInstanceId = 'instance-1';
     let db = { name: 'db-1' };
     mockUseDatabaseContext.mockImplementation(() => ({
@@ -158,10 +159,9 @@ describe('VfsRematerializationBootstrap', () => {
     }));
 
     const { rerender } = render(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    });
 
     currentInstanceId = 'instance-2';
     db = { name: 'db-2' };
@@ -171,10 +171,9 @@ describe('VfsRematerializationBootstrap', () => {
     });
 
     rerender(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('ignores failed rematerialization attempts from stale instance epochs', async () => {
