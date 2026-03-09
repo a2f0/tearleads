@@ -71,6 +71,7 @@ describe('vehicles integration', () => {
 
     const deleted = await repository.deleteVehicle(createdId);
     expect(deleted).toBe(true);
+    await expect(repository.deleteVehicle(createdId)).resolves.toBe(false);
 
     const listedAfterDelete = await repository.listVehicles();
     expect(listedAfterDelete).toEqual([]);

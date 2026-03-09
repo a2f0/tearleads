@@ -144,6 +144,17 @@ describe('VehiclesManager', () => {
   });
 
   it('shows year validation errors before save', async () => {
+    const createVehicleFn = vi.fn(async () => BASE_VEHICLE);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => []),
+          createVehicle: createVehicleFn
+        })
+      })
+    );
+
     const user = userEvent.setup();
 
     render(<VehiclesManager />);
@@ -156,6 +167,7 @@ describe('VehiclesManager', () => {
     expect(
       await screen.findByText('Year must be a whole number')
     ).toBeInTheDocument();
+    expect(createVehicleFn).not.toHaveBeenCalled();
   });
 
   it('loads an existing vehicle into the form and updates it', async () => {

@@ -116,6 +116,16 @@ export function createVehicleRepository(db: Database): VehicleRepository {
         return false;
       }
 
+      const existing = await db
+        .select({ id: vehicles.id })
+        .from(vehicles)
+        .where(and(eq(vehicles.id, id), eq(vehicles.deleted, false)))
+        .limit(1);
+
+      if (existing[0] === undefined) {
+        return false;
+      }
+
       await db
         .update(vehicles)
         .set({

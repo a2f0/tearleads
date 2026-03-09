@@ -1,5 +1,5 @@
 // one-component-per-file: allow
-// Local JSX helpers keep the instance-scoped form logic readable in one place.
+// Keep the local render helpers inline so the instance-scoped form flow stays together.
 import {
   normalizeVehicleProfile,
   useVehiclesRuntime
