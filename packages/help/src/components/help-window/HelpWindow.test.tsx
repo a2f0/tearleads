@@ -1,12 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpWindow } from './HelpWindow';
 
-vi.mock('@tearleads/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tearleads/ui')>();
+vi.mock('@tearleads/ui', () => {
   return {
-    ...actual,
+    OPENAPI_JSON_PATH: '/api/openapi.json',
     ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
       <div data-testid="api-docs">{spec.info.title}</div>
     ),
@@ -24,25 +24,54 @@ vi.mock('@tearleads/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
+vi.mock('@tearleads/window-manager', () => {
   return {
-    ...actual,
     DesktopFloatingWindow: ({
       children,
       title
     }: {
-      children: React.ReactNode;
+      children: ReactNode;
       title: string;
     }) => (
       <div data-testid="floating-window">
         <div data-testid="window-title">{title}</div>
         {children}
       </div>
+    ),
+    WindowControlBar: ({ children }: { children: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    WindowControlGroup: ({ children }: { children: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    WindowControlButton: ({
+      children,
+      icon,
+      onClick,
+      'data-testid': dataTestId
+    }: {
+      children?: ReactNode;
+      icon?: ReactNode;
+      onClick?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <button type="button" onClick={onClick} data-testid={dataTestId}>
+        {icon}
+        {children}
+      </button>
     )
   };
 });
+
+vi.mock('./HelpWindowMenuBar', () => ({
+  HelpWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="help-menu-bar">
+      <button type="button" onClick={onClose}>
+        Close
+      </button>
+    </div>
+  )
+}));
 
 vi.mock('../help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (

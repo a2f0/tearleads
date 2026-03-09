@@ -1,66 +1,75 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect, useRef } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setConsoleTerminalDependencies } from '../../lib/terminalDependencies';
 import { ConsoleWindow } from './ConsoleWindow';
 
-// Mock FloatingWindow
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-  return {
-    ...actual,
-    DesktopFloatingWindow: ({
-      children,
-      title,
-      onClose
-    }: {
-      children: React.ReactNode;
-      title: string;
-      onClose: () => void;
-    }) => (
-      <div data-testid="floating-window">
-        <div data-testid="window-title">{title}</div>
-        <button type="button" onClick={onClose} data-testid="close-window">
-          Close
-        </button>
-        {children}
-      </div>
-    )
-  };
-});
+vi.mock('@tearleads/window-manager', () => ({
+  DesktopFloatingWindow: ({
+    children,
+    title,
+    onClose
+  }: {
+    children: ReactNode;
+    title: string;
+    onClose: () => void;
+  }) => (
+    <div data-testid="floating-window">
+      <div data-testid="window-title">{title}</div>
+      <button type="button" onClick={onClose} data-testid="close-window">
+        Close
+      </button>
+      {children}
+    </div>
+  ),
+  WindowControlBar: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  WindowControlGroup: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    icon,
+    onClick,
+    'data-testid': dataTestId
+  }: {
+    children?: ReactNode;
+    icon?: ReactNode;
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => (
+    <button type="button" onClick={onClick} data-testid={dataTestId}>
+      {icon}
+      {children}
+    </button>
+  )
+}));
 
-// Mock Terminal component
-vi.mock('@tearleads/terminal', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tearleads/terminal')>();
-  return {
-    ...actual,
-    Terminal: ({
-      className,
-      autoFocus
-    }: {
-      className?: string;
-      autoFocus?: boolean;
-    }) => {
-      const inputRef = useRef<HTMLInputElement>(null);
-      useEffect(() => {
-        if (autoFocus) {
-          inputRef.current?.focus();
-        }
-      }, [autoFocus]);
-      return (
-        <div data-testid="terminal" className={className}>
-          <input
-            ref={inputRef}
-            data-testid="terminal-input"
-            data-autofocus={autoFocus ? 'true' : 'false'}
-          />
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@tearleads/terminal', () => ({
+  Terminal: ({
+    className,
+    autoFocus
+  }: {
+    className?: string;
+    autoFocus?: boolean;
+  }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+      if (autoFocus) {
+        inputRef.current?.focus();
+      }
+    }, [autoFocus]);
+    return (
+      <div data-testid="terminal" className={className}>
+        <input
+          ref={inputRef}
+          data-testid="terminal-input"
+          data-autofocus={autoFocus ? 'true' : 'false'}
+        />
+      </div>
+    );
+  }
+}));
 
 vi.mock('./ConsoleDocumentation', () => ({
   ConsoleDocumentation: () => (
@@ -68,7 +77,6 @@ vi.mock('./ConsoleDocumentation', () => ({
   )
 }));
 
-// Mock ConsoleWindowMenuBar
 vi.mock('./ConsoleWindowMenuBar', () => ({
   ConsoleWindowMenuBar: ({
     onNewTab,

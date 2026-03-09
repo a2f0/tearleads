@@ -2,14 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConsoleDocumentation } from './ConsoleDocumentation';
 
-vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
-  return {
-    ...actual,
-    useTheme: () => ({ resolvedTheme: 'light' })
-  };
-});
+vi.mock('@tearleads/ui', () => ({
+  useTheme: () => ({ resolvedTheme: 'light' })
+}));
 
 vi.mock('@tearleads/backups', () => ({
   MarkdownWithToc: ({ source }: { source: string }) => (
