@@ -65,7 +65,7 @@ describe('fetchVfsConnectJson', () => {
     expect(response).toEqual(createCrdtResponse());
   });
 
-  it('unwraps nested connect transport wrappers', async () => {
+  it('rejects unsupported nested wrapper chains', async () => {
     const actor = {
       fetchJson: vi.fn().mockResolvedValue({
         result: {
@@ -80,13 +80,13 @@ describe('fetchVfsConnectJson', () => {
       })
     };
 
-    const response = await fetchVfsConnectJson<VfsCrdtSyncResponse>({
-      actor,
-      methodName: 'GetCrdtSync',
-      requestBody: { limit: 500 }
-    });
-
-    expect(response).toEqual(createCrdtResponse());
+    await expect(
+      fetchVfsConnectJson<VfsCrdtSyncResponse>({
+        actor,
+        methodName: 'GetCrdtSync',
+        requestBody: { limit: 500 }
+      })
+    ).rejects.toThrow('transport returned unsupported connect wrapper payload');
   });
 
   it('unwraps envelopes with non-string json values', async () => {

@@ -13,41 +13,23 @@ interface ConnectJsonApiActor {
 function unwrapConnectPayload(payload: unknown): unknown {
   let current = parseConnectJsonEnvelopeBody(payload);
 
-  for (let depth = 0; depth < 8; depth += 1) {
-    if (!isPlainRecord(current)) {
-      return current;
-    }
+  while (
+    isPlainRecord(current) &&
+    Object.keys(current).length === 1 &&
+    'result' in current &&
+    current['result'] !== undefined
+  ) {
+    current = parseConnectJsonEnvelopeBody(current['result']);
+  }
 
-    if ('result' in current && current['result'] !== undefined) {
-      current = parseConnectJsonEnvelopeBody(current['result']);
-      continue;
-    }
-
-    if ('response' in current && current['response'] !== undefined) {
-      current = parseConnectJsonEnvelopeBody(current['response']);
-      continue;
-    }
-
-    if ('message' in current && current['message'] !== undefined) {
-      current = parseConnectJsonEnvelopeBody(current['message']);
-      continue;
-    }
-
-    if (
-      'value' in current &&
-      current['value'] !== undefined &&
-      Object.keys(current).length === 1
-    ) {
-      current = parseConnectJsonEnvelopeBody(current['value']);
-      continue;
-    }
-
-    if ('json' in current && current['json'] !== undefined) {
-      current = parseConnectJsonEnvelopeBody(current['json']);
-      continue;
-    }
-
-    return current;
+  if (
+    isPlainRecord(current) &&
+    Object.keys(current).length === 1 &&
+    ((('response' in current) && current['response'] !== undefined) ||
+      (('message' in current) && current['message'] !== undefined) ||
+      (('value' in current) && current['value'] !== undefined))
+  ) {
+    throw new Error('transport returned unsupported connect wrapper payload');
   }
 
   return current;
