@@ -23,6 +23,7 @@ import type {
 import {
   createConnectJsonPostInit,
   parseConnectJsonEnvelopeBody,
+  parseConnectJsonString,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -54,6 +55,9 @@ function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
     typeof parsedPayload === 'object'
   ) {
     return parsedPayload as TResponse;
+  }
+  if (parsedPayload === null || parsedPayload === undefined) {
+    return parseConnectJsonString<TResponse>('{}');
   }
   throw new Error('transport returned non-object connect payload');
 }

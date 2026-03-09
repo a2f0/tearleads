@@ -199,12 +199,14 @@ describe('vfsRoutes', () => {
     );
   });
 
-  it('rejects null connect payloads for sync routes', async () => {
+  it('normalizes null connect payloads to sync defaults', async () => {
     requestMock.mockResolvedValueOnce(null);
 
-    await expect(vfsRoutes.getSync()).rejects.toThrow(
-      'transport returned non-object connect payload'
-    );
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
   });
 
   it('routes share-target search through Connect', async () => {
