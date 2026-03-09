@@ -218,7 +218,9 @@ describe('adminDirectPostgres', () => {
     expect(rowQuerySql).toContain('LIMIT $1 OFFSET $2');
     expect(rowQueryParams).toEqual([50, 0]);
 
-    expect(response.rows).toEqual([{ id: 'user-1', email: 'admin@example.com' }]);
+    expect(response.rows).toEqual([
+      { id: 'user-1', email: 'admin@example.com' }
+    ]);
     expect(response.totalCount).toBe(2n);
     expect(response.limit).toBe(50);
     expect(response.offset).toBe(0);
