@@ -1,49 +1,18 @@
 import '@testing-library/jest-dom/vitest';
+import {
+  formatConsoleArg,
+  installBrowserGlobalsForBun,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
 const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
-
-if (typeof Reflect.get(vi, 'mocked') !== 'function') {
-  Reflect.set(vi, 'mocked', <T>(value: T) => value);
-}
-
-if (typeof Reflect.get(vi, 'stubGlobal') !== 'function') {
-  const stubbedGlobals = new Map<
-    string,
-    { hadValue: boolean; value: unknown }
-  >();
-
-  Reflect.set(vi, 'stubGlobal', (name: string, value: unknown) => {
-    if (!stubbedGlobals.has(name)) {
-      stubbedGlobals.set(name, {
-        hadValue: Reflect.has(globalThis, name),
-        value: Reflect.get(globalThis, name)
-      });
-    }
-    Object.defineProperty(globalThis, name, {
-      configurable: true,
-      writable: true,
-      value
-    });
-  });
-
-  Reflect.set(vi, 'unstubAllGlobals', () => {
-    for (const [name, original] of stubbedGlobals) {
-      if (original.hadValue) {
-        Object.defineProperty(globalThis, name, {
-          configurable: true,
-          writable: true,
-          value: original.value
-        });
-      } else {
-        Reflect.deleteProperty(globalThis, name);
-      }
-    }
-    stubbedGlobals.clear();
-  });
-}
+installBrowserGlobalsForBun();
+const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(
+  vi as unknown as Record<string, unknown>
+);
 
 if (!isBunRuntime) {
   failOnConsole();
@@ -51,20 +20,6 @@ if (!isBunRuntime) {
   const originalConsoleError = console.error;
   const originalConsoleWarn = console.warn;
   let consoleMessages: string[] = [];
-
-  function formatConsoleArg(arg: unknown): string {
-    if (typeof arg === 'string') {
-      return arg;
-    }
-    if (arg instanceof Error) {
-      return arg.stack ?? arg.message;
-    }
-    try {
-      return JSON.stringify(arg);
-    } catch {
-      return String(arg);
-    }
-  }
 
   beforeEach(() => {
     consoleMessages = [];
@@ -91,9 +46,8 @@ if (!isBunRuntime) {
 }
 
 afterEach(() => {
-  const unstubAllGlobals = Reflect.get(vi, 'unstubAllGlobals');
-  if (typeof unstubAllGlobals === 'function') {
-    Reflect.apply(unstubAllGlobals, vi, []);
+  if (hasCustomStubber) {
+    unstubAllGlobals();
   }
   cleanup();
 });

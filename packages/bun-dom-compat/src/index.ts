@@ -23,6 +23,7 @@ const WINDOW_GLOBAL_NAMES: ReadonlyArray<string> = [
   'Event',
   'CustomEvent',
   'MouseEvent',
+  'TouchEvent',
   'KeyboardEvent',
   'FocusEvent',
   'PointerEvent',
@@ -70,33 +71,79 @@ function defineGlobalFromWindow(windowObject: object, name: string): void {
   defineGlobal(name, value);
 }
 
-export function installBrowserGlobalsForBun(): void {
-  if (installedDom) {
+interface TouchLike {
+  clientX?: number;
+  clientY?: number;
+  identifier?: number;
+  pageX?: number;
+  pageY?: number;
+  screenX?: number;
+  screenY?: number;
+  target?: EventTarget | null;
+}
+
+type TouchEventInitWithTouches = EventInit & {
+  changedTouches?: ReadonlyArray<TouchLike>;
+  targetTouches?: ReadonlyArray<TouchLike>;
+  touches?: ReadonlyArray<TouchLike>;
+};
+
+function installTouchEventPolyfill(windowObject: object): void {
+  if (typeof Reflect.get(globalThis, 'TouchEvent') === 'function') {
     return;
   }
 
+  const eventCtor = Reflect.get(windowObject, 'Event');
+  if (typeof eventCtor !== 'function') {
+    return;
+  }
+
+  class BunTouchEvent extends Event {
+    changedTouches: ReadonlyArray<TouchLike>;
+    targetTouches: ReadonlyArray<TouchLike>;
+    touches: ReadonlyArray<TouchLike>;
+
+    constructor(type: string, init: TouchEventInitWithTouches = {}) {
+      super(type, init);
+      this.changedTouches = Array.from(init.changedTouches ?? []);
+      this.targetTouches = Array.from(init.targetTouches ?? []);
+      this.touches = Array.from(init.touches ?? []);
+    }
+  }
+
+  defineGlobal('TouchEvent', BunTouchEvent);
+  definePropertyIfMissing(windowObject, 'TouchEvent', BunTouchEvent);
+}
+
+export function installBrowserGlobalsForBun(): void {
   let windowObject: object;
 
-  if (
-    typeof globalThis.window === 'undefined' ||
-    typeof globalThis.document === 'undefined'
-  ) {
-    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-      url: 'http://localhost/'
-    });
-    windowObject = dom.window;
+  if (!installedDom) {
+    if (
+      typeof globalThis.window === 'undefined' ||
+      typeof globalThis.document === 'undefined'
+    ) {
+      const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+        url: 'http://localhost/'
+      });
+      windowObject = dom.window;
 
-    defineGlobal('window', dom.window);
-    defineGlobal('document', dom.window.document);
-    defineGlobal('navigator', dom.window.navigator);
-    Object.defineProperty(globalThis, 'localStorage', {
-      configurable: true,
-      get: () => dom.window.localStorage
-    });
-    Object.defineProperty(globalThis, 'sessionStorage', {
-      configurable: true,
-      get: () => dom.window.sessionStorage
-    });
+      defineGlobal('window', dom.window);
+      defineGlobal('document', dom.window.document);
+      defineGlobal('navigator', dom.window.navigator);
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        get: () => dom.window.localStorage
+      });
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        configurable: true,
+        get: () => dom.window.sessionStorage
+      });
+    } else {
+      windowObject = globalThis.window;
+    }
+
+    installedDom = true;
   } else {
     windowObject = globalThis.window;
   }
@@ -105,6 +152,7 @@ export function installBrowserGlobalsForBun(): void {
   for (const name of WINDOW_GLOBAL_NAMES) {
     defineGlobalFromWindow(windowObject, name);
   }
+  installTouchEventPolyfill(windowObject);
 
   const getComputedStyleFn = Reflect.get(windowObject, 'getComputedStyle');
   if (typeof getComputedStyleFn === 'function') {
@@ -159,8 +207,6 @@ export function installBrowserGlobalsForBun(): void {
       });
     }
   }
-
-  installedDom = true;
 }
 
 interface VitestPolyfillResult {
