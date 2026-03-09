@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ClassicState } from '../lib/types';
 import { ClassicApp } from './ClassicApp';
 
@@ -20,6 +20,14 @@ function createState(activeTagId: string | null = 'tag-1'): ClassicState {
     },
     activeTagId
   };
+}
+
+async function flushFocusTimers(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  });
 }
 
 describe('ClassicApp - Focus management', () => {
@@ -65,16 +73,14 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Edit tag Work'));
 
     const editInput = screen.getByLabelText('Edit tag Work');
-    await vi.waitFor(() => {
-      expect(editInput).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
 
     fireEvent.change(editInput, { target: { value: 'Work Updated' } });
-    fireEvent.keyDown(editInput, { key: 'Enter' });
+    fireEvent.click(screen.getByLabelText('Save tag name'));
 
-    await vi.waitFor(() => {
-      expect(tagSearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(tagSearch).toHaveFocus();
   });
 
   it('restores focus to tag search after canceling tag edit', async () => {
@@ -87,11 +93,12 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Edit tag Work'));
 
     const editInput = screen.getByLabelText('Edit tag Work');
-    fireEvent.keyDown(editInput, { key: 'Escape' });
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
+    fireEvent.click(screen.getByLabelText('Cancel editing'));
 
-    await vi.waitFor(() => {
-      expect(tagSearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(tagSearch).toHaveFocus();
   });
 
   it('restores focus to entry search after updating a note', async () => {
@@ -105,16 +112,14 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Edit note Alpha'));
 
     const editInput = screen.getByLabelText('Edit entry title');
-    await vi.waitFor(() => {
-      expect(editInput).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
 
     fireEvent.change(editInput, { target: { value: 'Alpha Updated' } });
-    fireEvent.keyDown(editInput, { key: 'Enter' });
+    fireEvent.click(screen.getByLabelText('Save entry'));
 
-    await vi.waitFor(() => {
-      expect(entrySearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(entrySearch).toHaveFocus();
   });
 
   it('restores focus to entry search after canceling note edit', async () => {
@@ -127,15 +132,13 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Edit note Alpha'));
 
     const editInput = screen.getByLabelText('Edit entry title');
-    await vi.waitFor(() => {
-      expect(editInput).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
 
-    fireEvent.keyDown(editInput, { key: 'Escape' });
+    fireEvent.click(screen.getByLabelText('Cancel editing'));
 
-    await vi.waitFor(() => {
-      expect(entrySearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(entrySearch).toHaveFocus();
   });
 
   it('restores focus to tag search after creating and naming a new tag', async () => {
@@ -154,12 +157,13 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Create new tag'));
 
     const editInput = screen.getByLabelText(/Edit tag/);
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
     fireEvent.change(editInput, { target: { value: 'My New Tag' } });
-    fireEvent.keyDown(editInput, { key: 'Enter' });
+    fireEvent.click(screen.getByLabelText('Save tag name'));
 
-    await vi.waitFor(() => {
-      expect(tagSearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(tagSearch).toHaveFocus();
   });
 
   it('restores focus to entry search after creating and naming a new note', async () => {
@@ -178,16 +182,14 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Create new entry'));
 
     const editInput = screen.getByLabelText('Edit entry title');
-    await vi.waitFor(() => {
-      expect(editInput).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
 
     fireEvent.change(editInput, { target: { value: 'My New Note' } });
-    fireEvent.keyDown(editInput, { key: 'Enter' });
+    fireEvent.click(screen.getByLabelText('Save entry'));
 
-    await vi.waitFor(() => {
-      expect(entrySearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(entrySearch).toHaveFocus();
   });
 
   it('defaults to tag search when editing starts with no search focused', async () => {
@@ -199,11 +201,12 @@ describe('ClassicApp - Focus management', () => {
     fireEvent.click(screen.getByLabelText('Edit tag Work'));
 
     const editInput = screen.getByLabelText('Edit tag Work');
+    await flushFocusTimers();
+    expect(editInput).toHaveFocus();
     fireEvent.change(editInput, { target: { value: 'Work Updated' } });
-    fireEvent.keyDown(editInput, { key: 'Enter' });
+    fireEvent.click(screen.getByLabelText('Save tag name'));
 
-    await vi.waitFor(() => {
-      expect(tagSearch).toHaveFocus();
-    });
+    await flushFocusTimers();
+    expect(tagSearch).toHaveFocus();
   });
 });

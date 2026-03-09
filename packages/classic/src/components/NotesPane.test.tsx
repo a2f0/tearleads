@@ -385,4 +385,64 @@ describe('NotesPane', () => {
 
     expect(onCancelEditNote).toHaveBeenCalledTimes(1);
   });
+
+  it('calls onUpdateNote when Enter is pressed in the title input', () => {
+    const onUpdateNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        editingNoteId="note-1"
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onUpdateNote={onUpdateNote}
+        onCancelEditNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const titleInput = screen.getByLabelText('Edit entry title');
+    const bodyInput = screen.getByLabelText('Edit entry body');
+    fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
+    fireEvent.change(bodyInput, { target: { value: 'Updated Body' } });
+    fireEvent.keyDown(titleInput, { key: 'Enter' });
+
+    expect(onUpdateNote).toHaveBeenCalledWith(
+      'note-1',
+      'Updated Title',
+      'Updated Body'
+    );
+  });
+
+  it('calls onCancelEditNote when Escape is pressed', () => {
+    const onCancelEditNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        editingNoteId="note-1"
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onUpdateNote={() => {}}
+        onCancelEditNote={onCancelEditNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByLabelText('Edit entry title'), {
+      key: 'Escape'
+    });
+
+    expect(onCancelEditNote).toHaveBeenCalledTimes(1);
+  });
 });

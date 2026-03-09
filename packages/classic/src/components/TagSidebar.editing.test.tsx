@@ -70,6 +70,56 @@ describe('TagSidebar editing', () => {
     expect(onCancelEditTag).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onRenameTag when Enter is pressed', () => {
+    const onRenameTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        editingTagId="tag-1"
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onRenameTag={onRenameTag}
+        onCancelEditTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const editInput = screen.getByLabelText('Edit tag Work');
+    fireEvent.change(editInput, { target: { value: 'Updated Work' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    expect(onRenameTag).toHaveBeenCalledWith('tag-1', 'Updated Work');
+  });
+
+  it('calls onCancelEditTag when Escape is pressed', () => {
+    const onCancelEditTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        editingTagId="tag-1"
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onRenameTag={() => {}}
+        onCancelEditTag={onCancelEditTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByLabelText('Edit tag Work'), {
+      key: 'Escape'
+    });
+
+    expect(onCancelEditTag).toHaveBeenCalledTimes(1);
+  });
+
   it('does not auto-commit when clicking Save button (blur should not trigger)', async () => {
     const onRenameTag = vi.fn();
 
