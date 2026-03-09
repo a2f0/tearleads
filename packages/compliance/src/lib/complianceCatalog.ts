@@ -30,11 +30,37 @@ const FRAMEWORK_LABELS: Record<string, string> = {
   'NIST.SP.800-53': 'NIST SP 800-53'
 };
 
-const markdownModules = import.meta.glob('../../../../compliance/**/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true
-});
+const COMPLIANCE_MARKDOWN_MODULES_GLOBAL =
+  '__TEARLEADS_COMPLIANCE_MARKDOWN_MODULES__';
+
+function copyModuleRecord(value: object): Record<string, unknown> {
+  const modules: Record<string, unknown> = {};
+  for (const [modulePath, source] of Object.entries(value)) {
+    modules[modulePath] = source;
+  }
+  return modules;
+}
+
+function getInjectedMarkdownModules(): Record<string, unknown> | null {
+  const injectedModules = Reflect.get(
+    globalThis,
+    COMPLIANCE_MARKDOWN_MODULES_GLOBAL
+  );
+  if (typeof injectedModules !== 'object' || injectedModules === null) {
+    return null;
+  }
+  return copyModuleRecord(injectedModules);
+}
+
+const markdownModules =
+  getInjectedMarkdownModules() ??
+  (typeof Reflect.get(import.meta, 'glob') === 'function'
+    ? import.meta.glob('../../../../compliance/**/*.md', {
+        query: '?raw',
+        import: 'default',
+        eager: true
+      })
+    : {});
 
 const complianceDocuments = buildComplianceDocuments(markdownModules);
 

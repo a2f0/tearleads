@@ -5,10 +5,24 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ComplianceDocPage } from './ComplianceDocPage';
 
-vi.mock('@tearleads/ui', async () => {
-  const actual = await vi.importActual('@tearleads/ui');
+vi.mock('@tearleads/ui', () => {
+  function MockBackLink({
+    defaultTo,
+    defaultLabel
+  }: {
+    defaultTo: string;
+    defaultLabel: string;
+  }) {
+    return <a href={defaultTo}>{defaultLabel}</a>;
+  }
+
+  function cn(...classNames: Array<string | false | null | undefined>) {
+    return classNames.filter(Boolean).join(' ');
+  }
+
   return {
-    ...actual,
+    BackLink: MockBackLink,
+    cn,
     useTheme: () => ({ resolvedTheme: 'light' })
   };
 });

@@ -1,27 +1,25 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
 import { Compliance } from './Compliance';
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location-path">{location.pathname}</div>;
+}
 
 describe('Compliance', () => {
-  beforeEach(() => {
-    mockNavigate.mockClear();
-  });
-
   it('renders known framework launch tiles', () => {
     render(
-      <MemoryRouter>
-        <Compliance />
+      <MemoryRouter initialEntries={['/compliance']}>
+        <Routes>
+          <Route path="/compliance" element={<Compliance />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<div>Framework Page</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
@@ -35,14 +33,24 @@ describe('Compliance', () => {
 
   it('navigates to the selected framework', async () => {
     const user = userEvent.setup();
+
     render(
-      <MemoryRouter>
-        <Compliance />
+      <MemoryRouter initialEntries={['/compliance']}>
+        <Routes>
+          <Route path="/compliance" element={<Compliance />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<div>Framework Page</div>}
+          />
+        </Routes>
+        <LocationDisplay />
       </MemoryRouter>
     );
 
     await user.click(screen.getByText('SOC 2'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/compliance/SOC2');
+    expect(screen.getByTestId('location-path')).toHaveTextContent(
+      '/compliance/SOC2'
+    );
   });
 });
