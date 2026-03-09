@@ -11,6 +11,7 @@ export interface VehicleRecord {
 }
 
 export interface VehicleRepository {
+  getVehicleById: (id: string) => Promise<VehicleRecord | null>;
   listVehicles: () => Promise<VehicleRecord[]>;
   createVehicle: (input: VehicleProfileInput) => Promise<VehicleRecord | null>;
   updateVehicle: (

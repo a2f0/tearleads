@@ -1,21 +1,36 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindowDetail } from './VehiclesWindowDetail';
 
-const mockUseDatabaseContext = vi.fn();
-const mockGetVehicleById = vi.fn();
-const mockUpdateVehicle = vi.fn();
-const mockDeleteVehicle = vi.fn();
+const mockUseVehiclesRuntime = vi.fn();
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockUseDatabaseContext()
-}));
+let instanceChangeCallback:
+  | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
+  | null = null;
 
-vi.mock('@/db/vehicles', () => ({
-  getVehicleById: (id: string) => mockGetVehicleById(id),
-  updateVehicle: (id: string, data: unknown) => mockUpdateVehicle(id, data),
-  deleteVehicle: (id: string) => mockDeleteVehicle(id)
+vi.mock('@tearleads/vehicles', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/vehicles')>(
+      '@tearleads/vehicles'
+    );
+
+  return {
+    ...actual,
+    useVehiclesRuntime: () => mockUseVehiclesRuntime()
+  };
+});
+
+vi.mock('@/hooks/app', () => ({
+  useOnInstanceChange: (
+    callback: (
+      newInstanceId: string | null,
+      previousInstanceId: string | null
+    ) => void
+  ) => {
+    instanceChangeCallback = callback;
+  }
 }));
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
@@ -24,17 +39,56 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
   )
 }));
 
-describe('VehiclesWindowDetail', () => {
-  const mockVehicle = {
+interface VehiclesRuntimeState {
+  databaseState: {
+    isUnlocked: boolean;
+    isLoading: boolean;
+    currentInstanceId: string | null;
+  };
+  repository: VehicleRepository | null;
+}
+
+function createRepository(
+  overrides: Partial<VehicleRepository> = {}
+): VehicleRepository {
+  return {
+    getVehicleById: vi.fn(async () => null),
+    listVehicles: vi.fn(async () => []),
+    createVehicle: vi.fn(async () => null),
+    updateVehicle: vi.fn(async () => null),
+    deleteVehicle: vi.fn(async () => false),
+    ...overrides
+  };
+}
+
+function createRuntime(
+  overrides: Partial<VehiclesRuntimeState> = {}
+): VehiclesRuntimeState {
+  return {
+    databaseState: {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'instance-a',
+      ...overrides.databaseState
+    },
+    repository: overrides.repository ?? createRepository()
+  };
+}
+
+function createVehicle(overrides: Partial<VehicleRecord> = {}): VehicleRecord {
+  return {
     id: 'vehicle-1',
     make: 'Tesla',
     model: 'Model Y',
     year: 2024,
     color: 'Midnight Silver',
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-15')
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-15T00:00:00.000Z'),
+    ...overrides
   };
+}
 
+describe('VehiclesWindowDetail', () => {
   const defaultProps = {
     vehicleId: 'vehicle-1',
     onDeleted: vi.fn()
@@ -42,35 +96,64 @@ describe('VehiclesWindowDetail', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: true,
-      isLoading: false
-    });
-    mockGetVehicleById.mockResolvedValue(mockVehicle);
-    mockUpdateVehicle.mockResolvedValue(mockVehicle);
-    mockDeleteVehicle.mockResolvedValue(true);
+    instanceChangeCallback = null;
+
+    const vehicle = createVehicle();
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => vehicle),
+          updateVehicle: vi.fn(async () => vehicle),
+          deleteVehicle: vi.fn(async () => true)
+        })
+      })
+    );
   });
 
-  it('renders loading state when database is loading', () => {
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: false,
-      isLoading: true
-    });
+  it('renders loading state when the database is loading', () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        databaseState: {
+          isUnlocked: false,
+          isLoading: true,
+          currentInstanceId: null
+        },
+        repository: null
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} />);
+
     expect(screen.getByText('Loading database...')).toBeInTheDocument();
   });
 
-  it('renders unlock prompt when database is locked', () => {
-    mockUseDatabaseContext.mockReturnValue({
-      isUnlocked: false,
-      isLoading: false
-    });
+  it('renders unlock prompt when the database is locked', () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        databaseState: {
+          isUnlocked: false,
+          isLoading: false,
+          currentInstanceId: null
+        },
+        repository: null
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} />);
+
     expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
   });
 
-  it('renders vehicle not found error', async () => {
-    mockGetVehicleById.mockResolvedValue(null);
+  it('renders a vehicle not found error', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => null)
+        })
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -99,8 +182,9 @@ describe('VehiclesWindowDetail', () => {
     });
   });
 
-  it('switches to edit mode when edit button is clicked', async () => {
+  it('switches to edit mode when edit is clicked', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -116,8 +200,9 @@ describe('VehiclesWindowDetail', () => {
     expect(screen.getByLabelText('Color')).toHaveValue('Midnight Silver');
   });
 
-  it('cancels edit and restores original values', async () => {
+  it('cancels edit and restores the original values', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -129,7 +214,6 @@ describe('VehiclesWindowDetail', () => {
     const makeInput = screen.getByLabelText('Make');
     await user.clear(makeInput);
     await user.type(makeInput, 'Ford');
-
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
@@ -138,10 +222,20 @@ describe('VehiclesWindowDetail', () => {
     });
   });
 
-  it('saves changes when save button is clicked', async () => {
+  it('saves changes when save is clicked', async () => {
     const user = userEvent.setup();
-    const updatedVehicle = { ...mockVehicle, make: 'Ford' };
-    mockUpdateVehicle.mockResolvedValue(updatedVehicle);
+    const updatedVehicle = createVehicle({ make: 'Ford' });
+    const updateVehicleFn = vi.fn(async () => updatedVehicle);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => createVehicle()),
+          updateVehicle: updateVehicleFn,
+          deleteVehicle: vi.fn(async () => true)
+        })
+      })
+    );
 
     render(<VehiclesWindowDetail {...defaultProps} />);
 
@@ -154,16 +248,21 @@ describe('VehiclesWindowDetail', () => {
     const makeInput = screen.getByLabelText('Make');
     await user.clear(makeInput);
     await user.type(makeInput, 'Ford');
-
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(mockUpdateVehicle).toHaveBeenCalled();
+      expect(updateVehicleFn).toHaveBeenCalledWith('vehicle-1', {
+        make: 'Ford',
+        model: 'Model Y',
+        year: 2024,
+        color: 'Midnight Silver'
+      });
     });
   });
 
   it('shows validation errors on invalid input', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -171,13 +270,8 @@ describe('VehiclesWindowDetail', () => {
     });
 
     await user.click(screen.getByTestId('vehicle-edit-button'));
-
-    const makeInput = screen.getByLabelText('Make');
-    await user.clear(makeInput);
-
-    const modelInput = screen.getByLabelText('Model');
-    await user.clear(modelInput);
-
+    await user.clear(screen.getByLabelText('Make'));
+    await user.clear(screen.getByLabelText('Model'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
@@ -185,8 +279,9 @@ describe('VehiclesWindowDetail', () => {
     });
   });
 
-  it('opens delete confirmation dialog', async () => {
+  it('opens the delete confirmation dialog', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -201,8 +296,9 @@ describe('VehiclesWindowDetail', () => {
     ).toBeInTheDocument();
   });
 
-  it('cancels delete when cancel button is clicked', async () => {
+  it('cancels delete when cancel is clicked', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -217,9 +313,21 @@ describe('VehiclesWindowDetail', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('deletes vehicle when confirmed', async () => {
+  it('deletes the vehicle when confirmed', async () => {
     const user = userEvent.setup();
     const onDeleted = vi.fn();
+    const deleteVehicleFn = vi.fn(async () => true);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => createVehicle()),
+          updateVehicle: vi.fn(async () => createVehicle()),
+          deleteVehicle: deleteVehicleFn
+        })
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} onDeleted={onDeleted} />);
 
     await waitFor(() => {
@@ -231,13 +339,20 @@ describe('VehiclesWindowDetail', () => {
     await user.click(deleteButtons[1] as HTMLElement);
 
     await waitFor(() => {
-      expect(mockDeleteVehicle).toHaveBeenCalledWith('vehicle-1');
+      expect(deleteVehicleFn).toHaveBeenCalledWith('vehicle-1');
       expect(onDeleted).toHaveBeenCalled();
     });
   });
 
-  it('displays "Not specified" for null year', async () => {
-    mockGetVehicleById.mockResolvedValue({ ...mockVehicle, year: null });
+  it('displays Not specified for a null year', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => createVehicle({ year: null }))
+        })
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -245,8 +360,15 @@ describe('VehiclesWindowDetail', () => {
     });
   });
 
-  it('displays "Not specified" for null color', async () => {
-    mockGetVehicleById.mockResolvedValue({ ...mockVehicle, color: null });
+  it('displays Not specified for a null color', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          getVehicleById: vi.fn(async () => createVehicle({ color: null }))
+        })
+      })
+    );
+
     render(<VehiclesWindowDetail {...defaultProps} />);
 
     await waitFor(() => {

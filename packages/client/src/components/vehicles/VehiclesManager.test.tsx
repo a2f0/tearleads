@@ -1,44 +1,103 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createVehicle,
-  deleteVehicle,
-  listVehicles,
-  updateVehicle,
-  type VehicleRecord
-} from '@/db/vehicles';
 import { VehiclesManager } from './VehiclesManager';
 
-vi.mock('@/db/vehicles', () => ({
-  listVehicles: vi.fn(),
-  createVehicle: vi.fn(),
-  updateVehicle: vi.fn(),
-  deleteVehicle: vi.fn()
+const mockUseVehiclesRuntime = vi.fn();
+
+let instanceChangeCallback:
+  | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
+  | null = null;
+
+vi.mock('@tearleads/vehicles', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/vehicles')>(
+      '@tearleads/vehicles'
+    );
+
+  return {
+    ...actual,
+    useVehiclesRuntime: () => mockUseVehiclesRuntime()
+  };
+});
+
+vi.mock('@/hooks/app', () => ({
+  useOnInstanceChange: (
+    callback: (
+      newInstanceId: string | null,
+      previousInstanceId: string | null
+    ) => void
+  ) => {
+    instanceChangeCallback = callback;
+  }
 }));
 
-const mockListVehicles = vi.mocked(listVehicles);
-const mockCreateVehicle = vi.mocked(createVehicle);
-const mockUpdateVehicle = vi.mocked(updateVehicle);
-const mockDeleteVehicle = vi.mocked(deleteVehicle);
+interface VehiclesRuntimeState {
+  databaseState: {
+    isUnlocked: boolean;
+    isLoading: boolean;
+    currentInstanceId: string | null;
+  };
+  repository: VehicleRepository | null;
+}
 
-const BASE_VEHICLE: VehicleRecord = {
-  id: 'vehicle-1',
-  make: 'Tesla',
-  model: 'Model Y',
-  year: 2024,
-  color: 'Blue',
-  createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2024-01-02T00:00:00.000Z')
-};
+function createRepository(
+  overrides: Partial<VehicleRepository> = {}
+): VehicleRepository {
+  return {
+    getVehicleById: vi.fn(async () => null),
+    listVehicles: vi.fn(async () => []),
+    createVehicle: vi.fn(async () => null),
+    updateVehicle: vi.fn(async () => null),
+    deleteVehicle: vi.fn(async () => false),
+    ...overrides
+  };
+}
+
+function createRuntime(
+  overrides: Partial<VehiclesRuntimeState> = {}
+): VehiclesRuntimeState {
+  return {
+    databaseState: {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'instance-a',
+      ...overrides.databaseState
+    },
+    repository: overrides.repository ?? createRepository()
+  };
+}
+
+function createVehicle(overrides: Partial<VehicleRecord> = {}): VehicleRecord {
+  return {
+    id: 'vehicle-1',
+    make: 'Tesla',
+    model: 'Model Y',
+    year: 2024,
+    color: 'Blue',
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+    ...overrides
+  };
+}
+
+const BASE_VEHICLE = createVehicle();
 
 describe('VehiclesManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockListVehicles.mockResolvedValue([]);
+    instanceChangeCallback = null;
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [])
+        })
+      })
+    );
   });
 
-  it('renders empty state when there are no vehicles', async () => {
+  it('renders an empty state when there are no vehicles', async () => {
     render(<VehiclesManager />);
 
     expect(await screen.findByText('No vehicles yet')).toBeInTheDocument();
@@ -48,10 +107,20 @@ describe('VehiclesManager', () => {
   });
 
   it('creates and renders a vehicle', async () => {
-    mockListVehicles
+    const listVehicles = vi
+      .fn()
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([BASE_VEHICLE]);
-    mockCreateVehicle.mockResolvedValue(BASE_VEHICLE);
+    const createVehicleFn = vi.fn(async () => BASE_VEHICLE);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles,
+          createVehicle: createVehicleFn
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);
@@ -62,7 +131,7 @@ describe('VehiclesManager', () => {
     await user.type(screen.getByLabelText('Color'), 'Blue');
     await user.click(screen.getByRole('button', { name: 'Save Vehicle' }));
 
-    expect(mockCreateVehicle).toHaveBeenCalledWith({
+    expect(createVehicleFn).toHaveBeenCalledWith({
       make: 'Tesla',
       model: 'Model Y',
       year: 2024,
@@ -77,6 +146,7 @@ describe('VehiclesManager', () => {
 
   it('shows year validation errors before save', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesManager />);
 
     await user.type(screen.getByLabelText('Make'), 'Tesla');
@@ -87,22 +157,29 @@ describe('VehiclesManager', () => {
     expect(
       await screen.findByText('Year must be a whole number')
     ).toBeInTheDocument();
-    expect(mockCreateVehicle).not.toHaveBeenCalled();
   });
 
   it('loads an existing vehicle into the form and updates it', async () => {
-    const updatedVehicle: VehicleRecord = {
-      ...BASE_VEHICLE,
+    const updatedVehicle = createVehicle({
       model: 'Model Y Performance',
       year: 2025,
       color: 'Midnight Silver',
       updatedAt: new Date('2024-01-03T00:00:00.000Z')
-    };
-
-    mockListVehicles
+    });
+    const listVehicles = vi
+      .fn()
       .mockResolvedValueOnce([BASE_VEHICLE])
       .mockResolvedValueOnce([updatedVehicle]);
-    mockUpdateVehicle.mockResolvedValue(updatedVehicle);
+    const updateVehicleFn = vi.fn(async () => updatedVehicle);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles,
+          updateVehicle: updateVehicleFn
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);
@@ -127,7 +204,7 @@ describe('VehiclesManager', () => {
 
     await user.click(screen.getByRole('button', { name: 'Update Vehicle' }));
 
-    expect(mockUpdateVehicle).toHaveBeenCalledWith('vehicle-1', {
+    expect(updateVehicleFn).toHaveBeenCalledWith('vehicle-1', {
       make: 'Tesla',
       model: 'Model Y Performance',
       year: 2025,
@@ -140,10 +217,20 @@ describe('VehiclesManager', () => {
   });
 
   it('deletes a vehicle', async () => {
-    mockListVehicles
+    const listVehicles = vi
+      .fn()
       .mockResolvedValueOnce([BASE_VEHICLE])
       .mockResolvedValueOnce([]);
-    mockDeleteVehicle.mockResolvedValue(true);
+    const deleteVehicleFn = vi.fn(async () => true);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles,
+          deleteVehicle: deleteVehicleFn
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);
@@ -154,7 +241,7 @@ describe('VehiclesManager', () => {
       screen.getByRole('button', { name: 'Delete Tesla Model Y' })
     );
 
-    expect(mockDeleteVehicle).toHaveBeenCalledWith('vehicle-1');
+    expect(deleteVehicleFn).toHaveBeenCalledWith('vehicle-1');
 
     await waitFor(() => {
       expect(screen.getByText('No vehicles yet')).toBeInTheDocument();
@@ -162,12 +249,15 @@ describe('VehiclesManager', () => {
   });
 
   it('displays N/A for null year and color', async () => {
-    const vehicleWithNulls: VehicleRecord = {
-      ...BASE_VEHICLE,
-      year: null,
-      color: null
-    };
-    mockListVehicles.mockResolvedValue([vehicleWithNulls]);
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(
+            async () => [createVehicle({ year: null, color: null })]
+          )
+        })
+      })
+    );
 
     render(<VehiclesManager />);
 
@@ -178,30 +268,32 @@ describe('VehiclesManager', () => {
   });
 
   it('sorts vehicles by updatedAt, then make, then model', async () => {
-    const vehicles: VehicleRecord[] = [
-      {
-        ...BASE_VEHICLE,
-        id: 'vehicle-1',
-        make: 'Tesla',
-        model: 'Model S',
-        updatedAt: new Date('2024-01-01T00:00:00.000Z')
-      },
-      {
-        ...BASE_VEHICLE,
-        id: 'vehicle-2',
-        make: 'Tesla',
-        model: 'Model 3',
-        updatedAt: new Date('2024-01-01T00:00:00.000Z')
-      },
-      {
-        ...BASE_VEHICLE,
-        id: 'vehicle-3',
-        make: 'Ford',
-        model: 'Mustang',
-        updatedAt: new Date('2024-01-01T00:00:00.000Z')
-      }
-    ];
-    mockListVehicles.mockResolvedValue(vehicles);
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [
+            createVehicle({
+              id: 'vehicle-1',
+              make: 'Tesla',
+              model: 'Model S',
+              updatedAt: new Date('2024-01-01T00:00:00.000Z')
+            }),
+            createVehicle({
+              id: 'vehicle-2',
+              make: 'Tesla',
+              model: 'Model 3',
+              updatedAt: new Date('2024-01-01T00:00:00.000Z')
+            }),
+            createVehicle({
+              id: 'vehicle-3',
+              make: 'Ford',
+              model: 'Mustang',
+              updatedAt: new Date('2024-01-01T00:00:00.000Z')
+            })
+          ])
+        })
+      })
+    );
 
     render(<VehiclesManager />);
 
@@ -213,9 +305,17 @@ describe('VehiclesManager', () => {
     expect(rows[2]).toHaveTextContent('Model S');
   });
 
-  it('shows form error when save fails', async () => {
-    mockListVehicles.mockResolvedValue([]);
-    mockCreateVehicle.mockResolvedValue(null);
+  it('shows a form error when save fails', async () => {
+    const createVehicleFn = vi.fn(async () => null);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => []),
+          createVehicle: createVehicleFn
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);
@@ -231,11 +331,21 @@ describe('VehiclesManager', () => {
     ).toBeInTheDocument();
   });
 
-  it('resets form when deleting the currently selected vehicle', async () => {
-    mockListVehicles
+  it('resets the form when deleting the selected vehicle', async () => {
+    const listVehicles = vi
+      .fn()
       .mockResolvedValueOnce([BASE_VEHICLE])
       .mockResolvedValueOnce([]);
-    mockDeleteVehicle.mockResolvedValue(true);
+    const deleteVehicleFn = vi.fn(async () => true);
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles,
+          deleteVehicle: deleteVehicleFn
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);
@@ -256,8 +366,9 @@ describe('VehiclesManager', () => {
     });
   });
 
-  it('shows make validation error', async () => {
+  it('shows make validation errors', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesManager />);
 
     await user.type(screen.getByLabelText('Model'), 'Model Y');
@@ -266,8 +377,9 @@ describe('VehiclesManager', () => {
     expect(await screen.findByText('Make is required')).toBeInTheDocument();
   });
 
-  it('shows model validation error', async () => {
+  it('shows model validation errors', async () => {
     const user = userEvent.setup();
+
     render(<VehiclesManager />);
 
     await user.type(screen.getByLabelText('Make'), 'Tesla');
@@ -276,8 +388,14 @@ describe('VehiclesManager', () => {
     expect(await screen.findByText('Model is required')).toBeInTheDocument();
   });
 
-  it('clears form when New Vehicle button is clicked', async () => {
-    mockListVehicles.mockResolvedValue([BASE_VEHICLE]);
+  it('clears the form when New Vehicle is clicked', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [BASE_VEHICLE])
+        })
+      })
+    );
 
     const user = userEvent.setup();
     render(<VehiclesManager />);

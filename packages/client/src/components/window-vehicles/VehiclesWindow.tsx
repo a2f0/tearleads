@@ -10,6 +10,7 @@ import {
 import { ArrowLeft, CarFront, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { VehiclesManager } from '@/components/vehicles';
+import { ClientVehiclesProvider } from '@/contexts/ClientVehiclesProvider';
 import { VehiclesWindowDetail } from './VehiclesWindowDetail';
 import { VehiclesWindowList } from './VehiclesWindowList';
 import type { ViewMode } from './VehiclesWindowMenuBar';
@@ -145,28 +146,30 @@ export function VehiclesWindow({
           </WindowControlGroup>
         </WindowControlBar>
         <div className="relative flex-1 overflow-hidden">
-          {currentView === 'detail' && selectedVehicleId ? (
-            <VehiclesWindowDetail
-              vehicleId={selectedVehicleId}
-              onDeleted={handleVehicleDeleted}
-            />
-          ) : currentView === 'create' ? (
-            <VehiclesWindowNew
-              onCreated={handleVehicleCreated}
-              onCancel={handleBack}
-            />
-          ) : viewMode === 'list' ? (
-            <VehiclesWindowList
-              onSelectVehicle={handleSelectVehicle}
-              onCreateVehicle={handleCreateVehicle}
-              refreshToken={refreshToken}
-              onRefresh={handleRefresh}
-            />
-          ) : (
-            <div className="min-h-0 flex-1 p-3">
-              <VehiclesManager />
-            </div>
-          )}
+          <ClientVehiclesProvider>
+            {currentView === 'detail' && selectedVehicleId ? (
+              <VehiclesWindowDetail
+                vehicleId={selectedVehicleId}
+                onDeleted={handleVehicleDeleted}
+              />
+            ) : currentView === 'create' ? (
+              <VehiclesWindowNew
+                onCreated={handleVehicleCreated}
+                onCancel={handleBack}
+              />
+            ) : viewMode === 'list' ? (
+              <VehiclesWindowList
+                onSelectVehicle={handleSelectVehicle}
+                onCreateVehicle={handleCreateVehicle}
+                refreshToken={refreshToken}
+                onRefresh={handleRefresh}
+              />
+            ) : (
+              <div className="min-h-0 flex-1 p-3">
+                <VehiclesManager />
+              </div>
+            )}
+          </ClientVehiclesProvider>
         </div>
         <WindowStatusBar>{statusText}</WindowStatusBar>
       </div>

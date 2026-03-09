@@ -1,10 +1,9 @@
-import { normalizeVehicleProfile } from '@tearleads/vehicles';
-import { useCallback, useState } from 'react';
+import { normalizeVehicleProfile, useVehiclesRuntime } from '@tearleads/vehicles';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useDatabaseContext } from '@/db/hooks';
-import { createVehicle } from '@/db/vehicles';
+import { useOnInstanceChange } from '@/hooks/app';
 
 interface VehicleFormErrors {
   make?: string;
@@ -191,7 +190,7 @@ export function VehiclesWindowNew({
   onCreated,
   onCancel
 }: VehiclesWindowNewProps) {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { databaseState, repository } = useVehiclesRuntime();
   const [isSaving, setIsSaving] = useState(false);
 
   const [make, setMake] = useState('');
@@ -200,6 +199,23 @@ export function VehiclesWindowNew({
   const [color, setColor] = useState('');
   const [formErrors, setFormErrors] = useState<VehicleFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const currentInstanceIdRef = useRef(databaseState.currentInstanceId);
+
+  useEffect(() => {
+    currentInstanceIdRef.current = databaseState.currentInstanceId;
+  }, [databaseState.currentInstanceId]);
+
+  useOnInstanceChange(
+    useCallback(() => {
+      setMake('');
+      setModel('');
+      setYear('');
+      setColor('');
+      setIsSaving(false);
+      setFormErrors({});
+      setFormError(null);
+    }, [])
+  );
 
   const handleSave = useCallback(async () => {
     const parsedYear = year.trim().length === 0 ? null : Number(year);
@@ -219,20 +235,37 @@ export function VehiclesWindowNew({
     setFormError(null);
     setIsSaving(true);
 
+    let operationInstanceId: string | null = null;
+
     try {
-      const newVehicle = await createVehicle(normalized.value);
+      if (!repository || !currentInstanceIdRef.current) {
+        setFormError('Unable to create vehicle right now. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+
+      operationInstanceId = currentInstanceIdRef.current;
+      const newVehicle = await repository.createVehicle(normalized.value);
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       if (newVehicle === null) {
         setFormError('Unable to create vehicle right now. Please try again.');
         return;
       }
       onCreated(newVehicle.id);
     } catch (err) {
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to create vehicle:', err);
       setFormError(err instanceof Error ? err.message : 'Failed to create');
     } finally {
-      setIsSaving(false);
+      if (operationInstanceId === currentInstanceIdRef.current) {
+        setIsSaving(false);
+      }
     }
-  }, [make, model, year, color, onCreated]);
+  }, [color, make, model, onCreated, repository, year]);
 
   const formState: VehicleFormState = {
     make,
@@ -247,8 +280,8 @@ export function VehiclesWindowNew({
   return (
     <div className="flex h-full flex-col space-y-3 overflow-auto p-3">
       {renderVehiclesNewContent(
-        isLoading,
-        isUnlocked,
+        databaseState.isLoading,
+        databaseState.isUnlocked,
         formState,
         onCancel,
         () => {

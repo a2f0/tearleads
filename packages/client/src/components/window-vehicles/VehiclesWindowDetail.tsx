@@ -1,16 +1,14 @@
-import { normalizeVehicleProfile } from '@tearleads/vehicles';
+import {
+  normalizeVehicleProfile,
+  type VehicleRecord,
+  useVehiclesRuntime
+} from '@tearleads/vehicles';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useDatabaseContext } from '@/db/hooks';
-import {
-  deleteVehicle,
-  getVehicleById,
-  updateVehicle,
-  type VehicleRecord
-} from '@/db/vehicles';
+import { useOnInstanceChange } from '@/hooks/app';
 
 interface VehicleFormErrors {
   make?: string;
@@ -28,7 +26,7 @@ export function VehiclesWindowDetail({
   vehicleId,
   onDeleted
 }: VehiclesWindowDetailProps) {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { databaseState, repository } = useVehiclesRuntime();
   const [vehicle, setVehicle] = useState<VehicleRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,16 +40,50 @@ export function VehiclesWindowDetail({
   const [color, setColor] = useState('');
   const [formErrors, setFormErrors] = useState<VehicleFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const currentInstanceIdRef = useRef(databaseState.currentInstanceId);
+
+  useEffect(() => {
+    currentInstanceIdRef.current = databaseState.currentInstanceId;
+  }, [databaseState.currentInstanceId]);
+
+  useOnInstanceChange(
+    useCallback(() => {
+      setVehicle(null);
+      setLoading(false);
+      setError(null);
+      setIsEditing(false);
+      setIsSaving(false);
+      setDeleteDialogOpen(false);
+      setMake('');
+      setModel('');
+      setYear('');
+      setColor('');
+      setFormErrors({});
+      setFormError(null);
+    }, [])
+  );
 
   const fetchVehicle = useCallback(async () => {
-    if (!isUnlocked || !vehicleId) return;
+    if (
+      !databaseState.isUnlocked ||
+      !repository ||
+      !databaseState.currentInstanceId ||
+      !vehicleId
+    ) {
+      return;
+    }
 
+    const fetchInstanceId = databaseState.currentInstanceId;
     setLoading(true);
     setError(null);
 
     try {
-      const result = await getVehicleById(vehicleId);
+      const result = await repository.getVehicleById(vehicleId);
+      if (fetchInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       if (!result) {
+        setVehicle(null);
         setError('Vehicle not found');
         return;
       }
@@ -61,18 +93,23 @@ export function VehiclesWindowDetail({
       setYear(result.year === null ? '' : String(result.year));
       setColor(result.color ?? '');
     } catch (err) {
+      if (fetchInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to fetch vehicle:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (fetchInstanceId === currentInstanceIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [isUnlocked, vehicleId]);
+  }, [databaseState.currentInstanceId, databaseState.isUnlocked, repository, vehicleId]);
 
   useEffect(() => {
-    if (isUnlocked && vehicleId) {
+    if (databaseState.isUnlocked && repository && vehicleId) {
       void fetchVehicle();
     }
-  }, [isUnlocked, vehicleId, fetchVehicle]);
+  }, [databaseState.isUnlocked, fetchVehicle, repository, vehicleId]);
 
   const handleEdit = useCallback(() => {
     setIsEditing(true);
@@ -117,8 +154,23 @@ export function VehiclesWindowDetail({
     setFormError(null);
     setIsSaving(true);
 
+    let operationInstanceId: string | null = null;
+
     try {
-      const updatedVehicle = await updateVehicle(vehicleId, normalized.value);
+      if (!repository || !currentInstanceIdRef.current) {
+        setFormError('Unable to save vehicle right now. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+
+      operationInstanceId = currentInstanceIdRef.current;
+      const updatedVehicle = await repository.updateVehicle(
+        vehicleId,
+        normalized.value
+      );
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       if (updatedVehicle === null) {
         setFormError('Unable to save vehicle right now. Please try again.');
         return;
@@ -126,22 +178,38 @@ export function VehiclesWindowDetail({
       setVehicle(updatedVehicle);
       setIsEditing(false);
     } catch (err) {
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to update vehicle:', err);
       setFormError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
-      setIsSaving(false);
+      if (operationInstanceId === currentInstanceIdRef.current) {
+        setIsSaving(false);
+      }
     }
-  }, [vehicleId, make, model, year, color]);
+  }, [color, make, model, repository, vehicleId, year]);
 
   const handleDelete = useCallback(async () => {
+    if (!repository || !currentInstanceIdRef.current) {
+      return;
+    }
+
+    const operationInstanceId = currentInstanceIdRef.current;
     try {
-      await deleteVehicle(vehicleId);
+      await repository.deleteVehicle(vehicleId);
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       onDeleted();
     } catch (err) {
+      if (operationInstanceId !== currentInstanceIdRef.current) {
+        return;
+      }
       console.error('Failed to delete vehicle:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete');
     }
-  }, [vehicleId, onDeleted]);
+  }, [onDeleted, repository, vehicleId]);
 
   const handleDeleteConfirm = useCallback(() => {
     setDeleteDialogOpen(true);
@@ -168,13 +236,15 @@ export function VehiclesWindowDetail({
 
   return (
     <div className="flex h-full flex-col space-y-3 overflow-auto p-3">
-      {isLoading && (
+      {databaseState.isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
           Loading database...
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="this vehicle" />}
+      {!databaseState.isLoading && !databaseState.isUnlocked && (
+        <InlineUnlock description="this vehicle" />
+      )}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
@@ -182,14 +252,14 @@ export function VehiclesWindowDetail({
         </div>
       )}
 
-      {isUnlocked && loading && (
+      {databaseState.isUnlocked && loading && (
         <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading vehicle...
         </div>
       )}
 
-      {isUnlocked && !loading && !error && vehicle && (
+      {databaseState.isUnlocked && !loading && !error && vehicle && (
         <div className="flex min-h-0 flex-1 flex-col space-y-4">
           {isEditing ? (
             <div className="space-y-4">
