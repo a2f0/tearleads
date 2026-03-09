@@ -110,27 +110,14 @@ export function createApiActorSyncClient(input: {
   >;
   clientOptions?: VfsBackgroundSyncClientOptions;
 }): VfsBackgroundSyncClient {
-  const baseTransport = createApiActorCrdtTransport(
-    input.intercept
-      ? input.transportOptions
-        ? {
-            actor: input.actor,
-            intercept: input.intercept,
-            transportOptions: input.transportOptions
-          }
-        : {
-            actor: input.actor,
-            intercept: input.intercept
-          }
-      : input.transportOptions
-        ? {
-            actor: input.actor,
-            transportOptions: input.transportOptions
-          }
-        : {
-            actor: input.actor
-          }
-  );
+  const transportInput = {
+    actor: input.actor,
+    ...(input.intercept ? { intercept: input.intercept } : {}),
+    ...(input.transportOptions
+      ? { transportOptions: input.transportOptions }
+      : {})
+  };
+  const baseTransport = createApiActorCrdtTransport(transportInput);
   const transport: VfsCrdtSyncTransport =
     input.includeReconcileState === false
       ? {
