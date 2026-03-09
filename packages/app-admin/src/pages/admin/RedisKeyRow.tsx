@@ -9,18 +9,93 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // one-component-per-file: allow -- helper renderers share row-local translation and typing context.
-type AdminRedisKeyInfo = Awaited<
-  ReturnType<typeof api.adminV2.redis.getKeys>
->['keys'][number];
-type AdminRedisValueResponse = Awaited<
-  ReturnType<typeof api.adminV2.redis.getValue>
->;
+export interface RedisKeyInfoView {
+  key: string;
+  type: string;
+  ttl: bigint;
+}
+
+interface RedisValueView {
+  key: string;
+  type: string;
+  ttl: bigint;
+  value: string | string[] | Record<string, string> | null;
+}
 
 interface RedisKeyRowProps {
-  keyInfo: AdminRedisKeyInfo;
+  keyInfo: RedisKeyInfoView;
   isExpanded: boolean;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+}
+
+type RedisTranslationKey =
+  | 'field'
+  | 'members'
+  | 'value'
+  | 'valueDisplayNotSupported';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  );
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) => typeof entry === 'string')
+  );
+}
+
+function toBigInt(value: number | bigint): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
+function normalizeRedisValue(
+  response: Awaited<ReturnType<typeof api.adminV2.redis.getValue>>
+): RedisValueView {
+  const rawValue = response.value;
+  let value: RedisValueView['value'] = null;
+
+  if (
+    typeof rawValue === 'string' ||
+    isStringArray(rawValue) ||
+    isStringRecord(rawValue)
+  ) {
+    value = rawValue;
+  } else if (isRecord(rawValue) && isRecord(rawValue['value'])) {
+    const protoValue = rawValue['value'];
+    const protoCase = protoValue['case'];
+    const protoPayload = protoValue['value'];
+
+    if (protoCase === 'stringValue' && typeof protoPayload === 'string') {
+      value = protoPayload;
+    } else if (
+      protoCase === 'listValue' &&
+      isRecord(protoPayload) &&
+      isStringArray(protoPayload['values'])
+    ) {
+      value = protoPayload['values'];
+    } else if (
+      protoCase === 'mapValue' &&
+      isRecord(protoPayload) &&
+      isStringRecord(protoPayload['entries'])
+    ) {
+      value = protoPayload['entries'];
+    }
+  }
+
+  return {
+    key: response.key,
+    type: response.type,
+    ttl: toBigInt(response.ttl),
+    value
+  };
 }
 
 function getTypeBadgeColor(type: string): string {
@@ -51,7 +126,10 @@ function formatTtl(ttl: bigint): string {
   return `${ttl / 86400n}d`;
 }
 
-function renderStringValue(value: string, t: (key: string) => string) {
+function renderStringValue(
+  value: string,
+  t: (key: RedisTranslationKey) => string
+) {
   return (
     <div className="mt-2">
       <p className="mb-1 font-medium text-muted-foreground text-xs">
@@ -64,7 +142,10 @@ function renderStringValue(value: string, t: (key: string) => string) {
   );
 }
 
-function renderSetValue(value: string[], t: (key: string) => string) {
+function renderSetValue(
+  value: string[],
+  t: (key: RedisTranslationKey) => string
+) {
   return (
     <div className="mt-2">
       <p className="mb-1 font-medium text-muted-foreground text-xs">
@@ -86,7 +167,7 @@ function renderSetValue(value: string[], t: (key: string) => string) {
 
 function renderHashValue(
   value: Record<string, string>,
-  t: (key: string) => string
+  t: (key: RedisTranslationKey) => string
 ) {
   const entries = Object.entries(value);
   return (
@@ -122,12 +203,10 @@ function renderHashValue(
 }
 
 function renderValue(
-  data: AdminRedisValueResponse,
-  t: (key: string) => string
+  data: RedisValueView,
+  t: (key: RedisTranslationKey) => string
 ) {
-  const redisValue = data.value?.value;
-
-  if (!redisValue?.case) {
+  if (data.value === null) {
     return (
       <p className="mt-2 text-muted-foreground text-xs italic">
         {t('valueDisplayNotSupported')}
@@ -137,18 +216,18 @@ function renderValue(
 
   switch (data.type) {
     case 'string':
-      if (redisValue.case === 'stringValue') {
-        return renderStringValue(redisValue.value, t);
+      if (typeof data.value === 'string') {
+        return renderStringValue(data.value, t);
       }
       break;
     case 'set':
-      if (redisValue.case === 'listValue') {
-        return renderSetValue(redisValue.value.values, t);
+      if (Array.isArray(data.value)) {
+        return renderSetValue(data.value, t);
       }
       break;
     case 'hash':
-      if (redisValue.case === 'mapValue') {
-        return renderHashValue(redisValue.value.entries, t);
+      if (typeof data.value === 'object' && !Array.isArray(data.value)) {
+        return renderHashValue(data.value, t);
       }
       break;
   }
@@ -163,9 +242,8 @@ export function RedisKeyRow({
   onContextMenu
 }: RedisKeyRowProps) {
   const { t } = useTypedTranslation('admin');
-  const [valueData, setValueData] = useState<AdminRedisValueResponse | null>(
-    null
-  );
+  const translate = (key: RedisTranslationKey) => t(key);
+  const [valueData, setValueData] = useState<RedisValueView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,7 +260,7 @@ export function RedisKeyRow({
       try {
         const data = await api.adminV2.redis.getValue(keyInfo.key);
         if (!isCancelled) {
-          setValueData(data);
+          setValueData(normalizeRedisValue(data));
         }
       } catch (err) {
         if (!isCancelled) {
@@ -261,7 +339,7 @@ export function RedisKeyRow({
             <div className="text-destructive text-xs">Error: {error}</div>
           )}
 
-          {valueData && renderValue(valueData, t as (key: string) => string)}
+          {valueData && renderValue(valueData, translate)}
         </div>
       )}
     </div>

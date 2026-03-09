@@ -19,9 +19,26 @@ import { RedisKeyRow } from './RedisKeyRow';
 // component-complexity: allow -- redis list, context menu, and virtualization will be split in follow-up refactor.
 const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 48;
-type AdminRedisKeyInfo = Awaited<
-  ReturnType<typeof api.adminV2.redis.getKeys>
->['keys'][number];
+
+interface RedisKeyInfoView {
+  key: string;
+  type: string;
+  ttl: bigint;
+}
+
+function toBigInt(value: number | bigint): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
+function normalizeRedisKey(
+  keyInfo: Awaited<ReturnType<typeof api.adminV2.redis.getKeys>>['keys'][number]
+): RedisKeyInfoView {
+  return {
+    key: keyInfo.key,
+    type: keyInfo.type,
+    ttl: toBigInt(keyInfo.ttl)
+  };
+}
 
 interface AdminProps {
   showBackLink?: boolean;
@@ -30,18 +47,18 @@ interface AdminProps {
 export function Admin({ showBackLink = true }: AdminProps) {
   const { t } = useTypedTranslation('admin');
   const { t: tContext } = useTypedTranslation('contextMenu');
-  const [keys, setKeys] = useState<AdminRedisKeyInfo[]>([]);
+  const [keys, setKeys] = useState<RedisKeyInfoView[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
-    keyInfo: AdminRedisKeyInfo;
+    keyInfo: RedisKeyInfoView;
     x: number;
     y: number;
   } | null>(null);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [totalCount, setTotalCount] = useState<bigint | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ key: string } | null>(
     null
   );
@@ -52,7 +69,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
   const fetchTotalCount = useCallback(async () => {
     try {
       const response = await api.adminV2.redis.getDbSize();
-      setTotalCount(Number(response.count));
+      setTotalCount(toBigInt(response.count));
     } catch (err) {
       console.error('Failed to fetch Redis db size:', err);
     }
@@ -76,11 +93,12 @@ export function Admin({ showBackLink = true }: AdminProps) {
           currentCursor,
           PAGE_SIZE
         );
+        const normalizedKeys = response.keys.map(normalizeRedisKey);
 
         if (reset) {
-          setKeys(response.keys);
+          setKeys(normalizedKeys);
         } else {
-          setKeys((prev) => [...prev, ...response.keys]);
+          setKeys((prev) => [...prev, ...normalizedKeys]);
         }
         cursorRef.current = response.cursor;
         setHasMore(response.hasMore);
@@ -135,7 +153,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
   };
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, keyInfo: AdminRedisKeyInfo) => {
+    (e: React.MouseEvent, keyInfo: RedisKeyInfoView) => {
       e.preventDefault();
       setContextMenu({ keyInfo, x: e.clientX, y: e.clientY });
     },
@@ -167,7 +185,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
           next.delete(keyToDelete);
           return next;
         });
-        setTotalCount((prev) => (prev !== null ? prev - 1 : null));
+        setTotalCount((prev) => (prev !== null ? prev - 1n : null));
       }
     } catch (err) {
       console.error('Failed to delete key:', err);

@@ -1,21 +1,48 @@
-export function createCsv(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) {
-    return '';
+function formatCsvValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+  ) {
+    return String(value);
   }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
-  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
-  const escapeCell = (value: unknown): string => {
-    const text = value == null ? '' : String(value);
-    const escaped = text.replaceAll('"', '""');
-    return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
-  };
+function escapeCsvValue(value: string): string {
+  const shouldQuote =
+    value.includes('"') ||
+    value.includes(',') ||
+    value.includes('\n') ||
+    value.includes('\r') ||
+    /^\s|\s$/.test(value);
 
+  if (!shouldQuote) return value;
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+export function createCsv(
+  headers: string[],
+  rows: ReadonlyArray<ReadonlyArray<unknown>>
+): string {
+  if (headers.length === 0) return '';
   const lines = [
-    headers.map((header) => escapeCell(header)).join(','),
-    ...rows.map((row) =>
-      headers.map((header) => escapeCell(row[header])).join(',')
-    )
+    headers.map((header) => escapeCsvValue(formatCsvValue(header))).join(',')
   ];
 
-  return `${lines.join('\n')}\n`;
+  for (const row of rows) {
+    const values = row.map((value) => escapeCsvValue(formatCsvValue(value)));
+    lines.push(values.join(','));
+  }
+
+  return lines.join('\r\n');
 }

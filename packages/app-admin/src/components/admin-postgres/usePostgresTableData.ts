@@ -2,12 +2,32 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 
 const PAGE_SIZE = 50;
-type AdminPostgresColumn = Awaited<
-  ReturnType<typeof api.adminV2.postgres.getColumns>
->['columns'][number];
-type AdminPostgresRow = Awaited<
-  ReturnType<typeof api.adminV2.postgres.getRows>
->['rows'][number];
+
+interface PostgresColumnView {
+  name: string;
+  type: string;
+  nullable: boolean;
+  defaultValue?: string | null;
+  ordinalPosition: number;
+}
+
+function toBigInt(value: number | bigint): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
+function normalizeColumn(
+  column: Awaited<
+    ReturnType<typeof api.adminV2.postgres.getColumns>
+  >['columns'][number]
+): PostgresColumnView {
+  return {
+    name: column.name,
+    type: column.type,
+    nullable: column.nullable,
+    defaultValue: column.defaultValue ?? null,
+    ordinalPosition: column.ordinalPosition
+  };
+}
 
 export type SortDirection = 'asc' | 'desc' | null;
 
@@ -20,13 +40,13 @@ export function usePostgresTableData(
   schema: string | null,
   tableName: string | null
 ) {
-  const [columns, setColumns] = useState<AdminPostgresColumn[]>([]);
-  const [rows, setRows] = useState<AdminPostgresRow[]>([]);
+  const [columns, setColumns] = useState<PostgresColumnView[]>([]);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [totalCount, setTotalCount] = useState<bigint | null>(null);
   const offsetRef = useRef<number>(0);
   const isLoadingMoreRef = useRef(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -59,7 +79,7 @@ export function usePostgresTableData(
             schema,
             tableName
           );
-          setColumns(columnsResponse.columns);
+          setColumns(columnsResponse.columns.map(normalizeColumn));
         }
 
         const rowsOptions: {
@@ -86,9 +106,10 @@ export function usePostgresTableData(
           setRows((prev) => [...prev, ...rowsResponse.rows]);
         }
 
-        setTotalCount(Number(rowsResponse.totalCount));
+        const normalizedTotalCount = toBigInt(rowsResponse.totalCount);
+        setTotalCount(normalizedTotalCount);
         offsetRef.current += rowsResponse.rows.length;
-        setHasMore(BigInt(offsetRef.current) < rowsResponse.totalCount);
+        setHasMore(BigInt(offsetRef.current) < normalizedTotalCount);
       } catch (err) {
         console.error('Failed to fetch Postgres table data:', err);
         setError(err instanceof Error ? err.message : String(err));

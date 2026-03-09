@@ -5,13 +5,37 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
-type AdminPostgresInfoResponse = Awaited<
-  ReturnType<typeof api.adminV2.postgres.getInfo>
->;
+
+interface PostgresConnectionInfoView {
+  host: string | null;
+  port: number | null;
+  database: string | null;
+  user: string | null;
+}
+
+interface PostgresInfoView {
+  info: PostgresConnectionInfoView;
+  serverVersion: string | null;
+}
+
+function normalizePostgresInfo(
+  response: Awaited<ReturnType<typeof api.adminV2.postgres.getInfo>>
+): PostgresInfoView {
+  const info = response.info;
+  return {
+    info: {
+      host: info?.host ?? null,
+      port: info?.port ?? null,
+      database: info?.database ?? null,
+      user: info?.user ?? null
+    },
+    serverVersion: response.serverVersion ?? null
+  };
+}
 
 export function PostgresConnectionPanel() {
   const { t } = useTypedTranslation('admin');
-  const [info, setInfo] = useState<AdminPostgresInfoResponse | null>(null);
+  const [info, setInfo] = useState<PostgresInfoView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +44,7 @@ export function PostgresConnectionPanel() {
     setError(null);
     try {
       const response = await api.adminV2.postgres.getInfo();
-      setInfo(response);
+      setInfo(normalizePostgresInfo(response));
     } catch (err) {
       console.error('Failed to fetch Postgres connection info:', err);
       setError(err instanceof Error ? err.message : String(err));

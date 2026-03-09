@@ -9,7 +9,7 @@ describe('StickyVirtualListStatus', () => {
         firstVisible={0}
         lastVisible={10}
         loadedCount={20}
-        totalCount={100}
+        totalCount={100n}
         hasMore={true}
       />
     );

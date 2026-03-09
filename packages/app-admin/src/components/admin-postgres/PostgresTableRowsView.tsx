@@ -22,6 +22,10 @@ import { usePostgresTableData } from './usePostgresTableData';
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
 
+function toBigInt(value: number | bigint): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
 interface PostgresTableRowsViewProps {
   schema: string | null;
   tableName: string | null;
@@ -213,22 +217,19 @@ export function PostgresTableRowsView({
         }
 
         offset += response.rows.length;
-        hasMoreData = offset < response.totalCount;
+        hasMoreData = BigInt(offset) < toBigInt(response.totalCount);
       }
 
-      const csvContent = createCsv(
-        allRows.map((row) => {
-          const csvRow: Record<string, unknown> = {};
-          for (const column of columns) {
-            const value = row[column.name];
-            csvRow[column.name] =
-              value !== null && typeof value === 'object'
-                ? JSON.stringify(value)
-                : value;
-          }
-          return csvRow;
+      const headers = columns.map((col) => col.name);
+      const csvRows = allRows.map((row) =>
+        columns.map((column) => {
+          const value = row[column.name];
+          return value !== null && typeof value === 'object'
+            ? JSON.stringify(value)
+            : value;
         })
       );
+      const csvContent = createCsv(headers, csvRows);
       downloadFile(csvContent, `${schema}.${tableName}.csv`, 'text/csv');
     } catch (err) {
       console.error('Failed to export CSV:', err);

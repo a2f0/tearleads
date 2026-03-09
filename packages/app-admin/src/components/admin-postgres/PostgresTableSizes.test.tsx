@@ -67,6 +67,29 @@ describe('PostgresTableSizes', () => {
     expect(screen.getByText('0B')).toBeInTheDocument();
   });
 
+  it('formats very large table sizes without precision loss', async () => {
+    mockGetTables.mockResolvedValue({
+      tables: [
+        {
+          schema: 'public',
+          name: 'warehouse',
+          rowCount: 1n,
+          totalBytes: 9007199254740993n,
+          tableBytes: 9007199254740993n,
+          indexBytes: 0n
+        }
+      ]
+    });
+
+    renderWithRouter(<PostgresTableSizes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('public.warehouse')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('8.00PB')).toHaveLength(2);
+  });
+
   it('shows error when table fetch fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockGetTables.mockRejectedValueOnce(new Error('No access'));
