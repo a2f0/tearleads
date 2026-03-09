@@ -43,11 +43,18 @@ const navigate = vi.fn();
 const navigateWithFrom = vi.fn();
 const formatDate = vi.fn((date: Date) => date.toISOString());
 
-describe('ContactsContext fallback database state', () => {
-  it('uses fallback database state when provider omits databaseState', () => {
+describe('ContactsContext database state', () => {
+  it('exposes provided database state through context', () => {
+    const databaseState = {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: null
+    };
+
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(ContactsProvider, {
         children,
+        databaseState,
         getDatabase,
         getDatabaseAdapter,
         saveFile,
@@ -60,10 +67,6 @@ describe('ContactsContext fallback database state', () => {
       });
 
     const { result } = renderHook(() => useDatabaseState(), { wrapper });
-    expect(result.current).toEqual({
-      isUnlocked: true,
-      isLoading: false,
-      currentInstanceId: null
-    });
+    expect(result.current).toEqual(databaseState);
   });
 });

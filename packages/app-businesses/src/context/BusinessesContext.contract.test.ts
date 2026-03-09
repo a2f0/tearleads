@@ -8,8 +8,6 @@ import type {
 describe('BusinessesContext contract', () => {
   it('aligns runtime database state with shared host runtime contract', () => {
     expectTypeOf<BusinessesDatabaseState>().toEqualTypeOf<HostRuntimeDatabaseState>();
-    expectTypeOf<BusinessesProviderProps['databaseState']>().toEqualTypeOf<
-      HostRuntimeDatabaseState | undefined
-    >();
+    expectTypeOf<BusinessesProviderProps['databaseState']>().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 });
