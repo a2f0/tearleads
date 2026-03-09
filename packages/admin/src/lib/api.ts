@@ -1,9 +1,12 @@
+import {
+  type DescMessage,
+  fromJson,
+  type JsonValue,
+  type MessageShape
+} from '@bufbuild/protobuf';
 import type {
   AdminAccessContextResponse,
-  AdminUserResponse,
-  AdminUsersResponse,
   AdminUserUpdatePayload,
-  AdminUserUpdateResponse,
   AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
@@ -24,6 +27,14 @@ import type {
   UpdateOrganizationRequest
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
+import {
+  type AdminGetUserResponse,
+  AdminGetUserResponseSchema,
+  type AdminListUsersResponse,
+  AdminListUsersResponseSchema,
+  type AdminUpdateUserResponse,
+  AdminUpdateUserResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
   mapAddGroupMemberResponse,
   mapDeleteGroupResponse,
@@ -47,9 +58,7 @@ import {
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsListResponse,
-  mapOrganizationUsersResponse,
-  mapUserResponse,
-  mapUsersListResponse
+  mapOrganizationUsersResponse
 } from './adminV2ReadMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
@@ -59,6 +68,15 @@ const AI_CONNECT_BASE_PATH = '/connect/tearleads.v1.AiService';
 
 interface RequestParams {
   fetchOptions?: RequestInit;
+}
+
+interface AdminUsersApi {
+  list(options?: { organizationId?: string }): Promise<AdminListUsersResponse>;
+  get(id: string): Promise<AdminGetUserResponse>;
+  update(
+    id: string,
+    data: AdminUserUpdatePayload
+  ): Promise<AdminUpdateUserResponse>;
 }
 
 async function request<T>(
@@ -125,6 +143,25 @@ function requestAdminV2<T>(
   }).then((responseBody) => mapResponse(responseBody));
 }
 
+function requestAdminV2Proto<Desc extends DescMessage>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  schema: Desc
+): Promise<MessageShape<Desc>> {
+  return request<JsonValue>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
+    fetchOptions: createConnectJsonPostInit(requestBody)
+  }).then((responseBody) => {
+    try {
+      return fromJson(schema, responseBody, {
+        ignoreUnknownFields: true
+      });
+    } catch (error) {
+      console.error('Failed to decode admin v2 response', error);
+      throw new Error('Invalid admin response');
+    }
+  });
+}
+
 function requestAi<T>(
   methodName: string,
   requestBody: Record<string, unknown>
@@ -133,6 +170,51 @@ function requestAi<T>(
     fetchOptions: createConnectJsonPostInit(requestBody)
   });
 }
+
+const adminV2UsersApi: AdminUsersApi = {
+  list: (options?: {
+    organizationId?: string;
+  }): Promise<AdminListUsersResponse> => {
+    const requestBody: Record<string, unknown> = {};
+    if (options?.organizationId) {
+      requestBody['organizationId'] = options.organizationId;
+    }
+    return requestAdminV2Proto(
+      'ListUsers',
+      requestBody,
+      AdminListUsersResponseSchema
+    );
+  },
+  get: (id: string): Promise<AdminGetUserResponse> =>
+    requestAdminV2Proto('GetUser', { id }, AdminGetUserResponseSchema),
+  update: (
+    id: string,
+    data: AdminUserUpdatePayload
+  ): Promise<AdminUpdateUserResponse> =>
+    requestAdminV2Proto(
+      'UpdateUser',
+      {
+        id,
+        ...(data.email !== undefined ? { email: data.email } : {}),
+        ...(data.emailConfirmed !== undefined
+          ? { emailConfirmed: data.emailConfirmed }
+          : {}),
+        ...(data.admin !== undefined ? { admin: data.admin } : {}),
+        ...(data.organizationIds !== undefined
+          ? {
+              organizationIds: {
+                organizationIds: data.organizationIds
+              }
+            }
+          : {}),
+        ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
+        ...(data.markedForDeletion !== undefined
+          ? { markedForDeletion: data.markedForDeletion }
+          : {})
+      },
+      AdminUpdateUserResponseSchema
+    )
+};
 
 export const api = {
   adminV2: {
@@ -350,45 +432,7 @@ export const api = {
           mapDeleteOrganizationResponse
         )
     },
-    users: {
-      list: (options?: { organizationId?: string }) => {
-        const requestBody: Record<string, unknown> = {};
-        if (options?.organizationId) {
-          requestBody['organizationId'] = options.organizationId;
-        }
-        return requestAdminV2<AdminUsersResponse>(
-          'ListUsers',
-          requestBody,
-          mapUsersListResponse
-        );
-      },
-      get: (id: string) =>
-        requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
-      update: (id: string, data: AdminUserUpdatePayload) =>
-        requestAdminV2<AdminUserUpdateResponse>(
-          'UpdateUser',
-          {
-            id,
-            ...(data.email !== undefined ? { email: data.email } : {}),
-            ...(data.emailConfirmed !== undefined
-              ? { emailConfirmed: data.emailConfirmed }
-              : {}),
-            ...(data.admin !== undefined ? { admin: data.admin } : {}),
-            ...(data.organizationIds !== undefined
-              ? {
-                  organizationIds: {
-                    organizationIds: data.organizationIds
-                  }
-                }
-              : {}),
-            ...(data.disabled !== undefined ? { disabled: data.disabled } : {}),
-            ...(data.markedForDeletion !== undefined
-              ? { markedForDeletion: data.markedForDeletion }
-              : {})
-          },
-          mapUserResponse
-        )
-    }
+    users: adminV2UsersApi
   },
   ai: {
     getUsage: (options?: {

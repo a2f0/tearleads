@@ -116,6 +116,20 @@ describe('UsersAdminDetail (basic)', () => {
     consoleSpy.mockRestore();
   });
 
+  it('shows error when response omits the user payload', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGet.mockResolvedValueOnce({});
+
+    renderWithRouter('user-1');
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Admin response missing user')
+      ).toBeInTheDocument();
+    });
+    consoleSpy.mockRestore();
+  });
+
   it('updates email and saves', async () => {
     const user = userEvent.setup();
     mockUpdate.mockResolvedValueOnce(
@@ -144,10 +158,10 @@ describe('UsersAdminDetail (basic)', () => {
       buildUserResponse(user2, {
         organizationIds: ['org-1', 'org-2'],
         accounting: {
-          totalPromptTokens: 10,
-          totalCompletionTokens: 5,
-          totalTokens: 15,
-          requestCount: 1,
+          totalPromptTokens: 10n,
+          totalCompletionTokens: 5n,
+          totalTokens: 15n,
+          requestCount: 1n,
           lastUsedAt: '2024-02-15T08:15:00.000Z'
         }
       })

@@ -1,3 +1,5 @@
+import { create } from '@bufbuild/protobuf';
+import { AdminListUsersResponseSchema } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -132,31 +134,29 @@ describe('admin api client v2 read routes', () => {
     );
     await expect(
       apiClient.adminV2.users.list({ organizationId: 'org-1' })
-    ).resolves.toEqual({
-      users: [
-        {
-          id: 'user-1',
-          email: 'admin@example.com',
-          emailConfirmed: true,
-          admin: true,
-          organizationIds: ['org-1'],
-          createdAt: '2026-01-01T00:00:00Z',
-          lastActiveAt: '2026-01-03T00:00:00Z',
-          accounting: {
-            totalPromptTokens: 10,
-            totalCompletionTokens: 20,
-            totalTokens: 30,
-            requestCount: 3,
-            lastUsedAt: '2026-01-03T00:00:00Z'
-          },
-          disabled: false,
-          disabledAt: null,
-          disabledBy: null,
-          markedForDeletionAt: null,
-          markedForDeletionBy: null
-        }
-      ]
-    });
+    ).resolves.toEqual(
+      create(AdminListUsersResponseSchema, {
+        users: [
+          {
+            id: 'user-1',
+            email: 'admin@example.com',
+            emailConfirmed: true,
+            admin: true,
+            organizationIds: ['org-1'],
+            createdAt: '2026-01-01T00:00:00Z',
+            lastActiveAt: '2026-01-03T00:00:00Z',
+            accounting: {
+              totalPromptTokens: 10n,
+              totalCompletionTokens: 20n,
+              totalTokens: 30n,
+              requestCount: 3n,
+              lastUsedAt: '2026-01-03T00:00:00Z'
+            },
+            disabled: false
+          }
+        ]
+      })
+    );
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -353,9 +353,9 @@ describe('admin api client v2 read routes', () => {
     });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
-    await expect(apiClient.adminV2.users.list()).resolves.toEqual({
-      users: []
-    });
+    await expect(apiClient.adminV2.users.list()).resolves.toEqual(
+      create(AdminListUsersResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(jsonResponse({}));
     await expect(apiClient.adminV2.postgres.getInfo()).resolves.toEqual({

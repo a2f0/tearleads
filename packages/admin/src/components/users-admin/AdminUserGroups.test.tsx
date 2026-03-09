@@ -1,4 +1,9 @@
-import type { AdminUser, GroupWithMemberCount } from '@tearleads/shared';
+import { create } from '@bufbuild/protobuf';
+import type { GroupWithMemberCount } from '@tearleads/shared';
+import {
+  type AdminUser,
+  AdminUserSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUserGroups } from './AdminUserGroups';
@@ -7,27 +12,21 @@ import { useAdminUserGroups } from './useAdminUserGroups';
 vi.mock('./useAdminUserGroups');
 
 describe('AdminUserGroups', () => {
-  const mockUser: AdminUser = {
+  const mockUser: AdminUser = create(AdminUserSchema, {
     id: 'user-1',
     email: 'test@example.com',
     emailConfirmed: true,
     admin: false,
     organizationIds: [],
     createdAt: '2024-01-01T00:00:00Z',
-    lastActiveAt: null,
-    accounting: {
-      totalTokens: 0,
-      totalPromptTokens: 0,
-      totalCompletionTokens: 0,
-      requestCount: 0,
-      lastUsedAt: null
-    },
     disabled: false,
-    disabledAt: null,
-    disabledBy: null,
-    markedForDeletionAt: null,
-    markedForDeletionBy: null
-  };
+    accounting: {
+      totalTokens: 0n,
+      totalPromptTokens: 0n,
+      totalCompletionTokens: 0n,
+      requestCount: 0n
+    }
+  });
   const mockGroups: GroupWithMemberCount[] = [
     {
       id: 'group-1',

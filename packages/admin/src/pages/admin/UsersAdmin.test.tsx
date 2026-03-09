@@ -52,11 +52,12 @@ describe('UsersAdmin', () => {
         organizationIds: ['org-1'],
         createdAt: '2024-01-01T12:00:00.000Z',
         lastActiveAt: '2024-01-10T18:30:00.000Z',
+        disabled: false,
         accounting: {
-          totalPromptTokens: 120,
-          totalCompletionTokens: 80,
-          totalTokens: 200,
-          requestCount: 3,
+          totalPromptTokens: 120n,
+          totalCompletionTokens: 80n,
+          totalTokens: 200n,
+          requestCount: 3n,
           lastUsedAt: '2024-01-09T12:00:00.000Z'
         }
       },
@@ -67,13 +68,12 @@ describe('UsersAdmin', () => {
         admin: false,
         organizationIds: [],
         createdAt: '2024-02-14T08:15:00.000Z',
-        lastActiveAt: null,
+        disabled: false,
         accounting: {
-          totalPromptTokens: 0,
-          totalCompletionTokens: 0,
-          totalTokens: 0,
-          requestCount: 0,
-          lastUsedAt: null
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n
         }
       }
     ]
@@ -218,11 +218,12 @@ describe('UsersAdmin', () => {
           organizationIds: ['org-2'],
           createdAt: '2024-03-01T09:00:00.000Z',
           lastActiveAt: '2024-03-05T12:30:00.000Z',
+          disabled: false,
           accounting: {
-            totalPromptTokens: 20,
-            totalCompletionTokens: 10,
-            totalTokens: 30,
-            requestCount: 1,
+            totalPromptTokens: 20n,
+            totalCompletionTokens: 10n,
+            totalTokens: 30n,
+            requestCount: 1n,
             lastUsedAt: '2024-03-04T12:30:00.000Z'
           }
         }

@@ -1,30 +1,29 @@
-import type { AdminUser } from '@tearleads/shared';
+import { create } from '@bufbuild/protobuf';
+import {
+  type AdminUser,
+  AdminUserSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminUserAiUsage } from './AdminUserAiUsage';
 
 describe('AdminUserAiUsage', () => {
-  const mockUser: AdminUser = {
+  const mockUser: AdminUser = create(AdminUserSchema, {
     id: 'user-1',
     email: 'test@example.com',
     emailConfirmed: true,
     admin: false,
     organizationIds: [],
     createdAt: '2024-01-01T00:00:00Z',
-    lastActiveAt: null,
-    accounting: {
-      totalTokens: 1000,
-      totalPromptTokens: 600,
-      totalCompletionTokens: 400,
-      requestCount: 10,
-      lastUsedAt: '2024-01-01T12:00:00Z'
-    },
     disabled: false,
-    disabledAt: null,
-    disabledBy: null,
-    markedForDeletionAt: null,
-    markedForDeletionBy: null
-  };
+    accounting: {
+      totalTokens: 1000n,
+      totalPromptTokens: 600n,
+      totalCompletionTokens: 400n,
+      requestCount: 10n,
+      lastUsedAt: '2024-01-01T12:00:00Z'
+    }
+  });
 
   it('renders accounting information correctly', () => {
     render(<AdminUserAiUsage user={mockUser} onViewAiRequests={() => {}} />);
