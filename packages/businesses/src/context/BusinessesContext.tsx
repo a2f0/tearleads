@@ -1,3 +1,4 @@
+import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   type ComponentType,
   createContext,
@@ -32,20 +33,39 @@ export interface BusinessesUIComponents {
   AboutMenuItem: AboutMenuItemComponent;
 }
 
+export type BusinessesDatabaseState = HostRuntimeDatabaseState;
+
 interface BusinessesContextValue {
+  databaseState: BusinessesDatabaseState;
   ui: BusinessesUIComponents;
 }
 
 const BusinessesContext = createContext<BusinessesContextValue | null>(null);
 
+const FALLBACK_DATABASE_STATE: BusinessesDatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 export interface BusinessesProviderProps {
   children: ReactNode;
+  databaseState?: BusinessesDatabaseState;
   ui: BusinessesUIComponents;
 }
 
-export function BusinessesProvider({ children, ui }: BusinessesProviderProps) {
+export function BusinessesProvider({
+  children,
+  databaseState,
+  ui
+}: BusinessesProviderProps) {
   return (
-    <BusinessesContext.Provider value={{ ui }}>
+    <BusinessesContext.Provider
+      value={{
+        databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
+        ui
+      }}
+    >
       {children}
     </BusinessesContext.Provider>
   );
@@ -59,4 +79,9 @@ export function useBusinesses(): BusinessesContextValue {
     );
   }
   return context;
+}
+
+export function useBusinessesDatabaseState(): BusinessesDatabaseState {
+  const { databaseState } = useBusinesses();
+  return databaseState;
 }

@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
+  type BusinessesDatabaseState,
   BusinessesProvider,
   type BusinessesUIComponents,
-  useBusinesses
+  useBusinesses,
+  useBusinessesDatabaseState
 } from './BusinessesContext.js';
 
 const uiComponents: BusinessesUIComponents = {
@@ -30,6 +32,34 @@ function ContextConsumer() {
   return <span>{ui === uiComponents ? 'has-ui' : 'missing-ui'}</span>;
 }
 
+function DefaultDatabaseStateConsumer() {
+  const databaseState = useBusinessesDatabaseState();
+  return (
+    <span>
+      {databaseState.currentInstanceId === null
+        ? 'default-state'
+        : 'unexpected-state'}
+    </span>
+  );
+}
+
+function ProvidedDatabaseStateConsumer() {
+  const { databaseState } = useBusinesses();
+  return (
+    <span>
+      {databaseState.currentInstanceId === 'instance-42'
+        ? 'provided-state'
+        : 'unexpected-state'}
+    </span>
+  );
+}
+
+const providedDatabaseState: BusinessesDatabaseState = {
+  isUnlocked: false,
+  isLoading: true,
+  currentInstanceId: 'instance-42'
+};
+
 describe('BusinessesContext', () => {
   it('provides ui components through BusinessesProvider', () => {
     render(
@@ -45,5 +75,28 @@ describe('BusinessesContext', () => {
     expect(() => render(<ContextConsumer />)).toThrow(
       'Businesses context is not available. Ensure BusinessesProvider is configured.'
     );
+  });
+
+  it('provides fallback runtime database state when not passed', () => {
+    render(
+      <BusinessesProvider ui={uiComponents}>
+        <DefaultDatabaseStateConsumer />
+      </BusinessesProvider>
+    );
+
+    expect(screen.getByText('default-state')).toBeInTheDocument();
+  });
+
+  it('exposes passed runtime database state via context hooks', () => {
+    render(
+      <BusinessesProvider
+        databaseState={providedDatabaseState}
+        ui={uiComponents}
+      >
+        <ProvidedDatabaseStateConsumer />
+      </BusinessesProvider>
+    );
+
+    expect(screen.getByText('provided-state')).toBeInTheDocument();
   });
 });
