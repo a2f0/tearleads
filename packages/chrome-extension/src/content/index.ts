@@ -13,16 +13,28 @@ function isPingMessage(message: unknown): boolean {
   );
 }
 
-if (!globalThis.__tearleadsContentScriptInitialized) {
+export function initializeContentScript(): void {
+  if (globalThis.__tearleadsContentScriptInitialized) {
+    return;
+  }
+
   globalThis.__tearleadsContentScriptInitialized = true;
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (!isPingMessage(message)) {
-      return false;
-    }
+  globalThis.chrome.runtime.onMessage.addListener(
+    (message, _sender, sendResponse) => {
+      if (!isPingMessage(message)) {
+        return false;
+      }
 
-    const response: PingResponse = { status: 'ok' };
-    sendResponse(response);
-    return true;
-  });
+      const response: PingResponse = { status: 'ok' };
+      sendResponse(response);
+      return true;
+    }
+  );
 }
+
+/* v8 ignore start */
+if (!import.meta.vitest) {
+  initializeContentScript();
+}
+/* v8 ignore stop */

@@ -30,6 +30,8 @@ const mockChrome = {
 vi.stubGlobal('chrome', mockChrome);
 globalThis.__tearleadsPopupInitialized = undefined;
 
+let popupModulePromise: Promise<typeof import('./index')> | undefined;
+
 function setupDOM() {
   document.body.innerHTML = `
     <div id="page-title">Loading...</div>
@@ -39,12 +41,11 @@ function setupDOM() {
   `;
 }
 
-function triggerDOMContentLoaded() {
-  const event = new Event('DOMContentLoaded', {
-    bubbles: true,
-    cancelable: true
-  });
-  document.dispatchEvent(event);
+async function initializePopupScript() {
+  popupModulePromise ??= import('./index');
+  const module = await popupModulePromise;
+  vi.clearAllMocks();
+  module.initializePopup();
 }
 
 async function flushAsyncWork() {
@@ -73,9 +74,10 @@ function defaultRuntimeMessageMock() {
 
 describe('popup script - injection errors', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });
@@ -111,8 +113,7 @@ describe('popup script - injection errors', () => {
       runtimeLastErrorMessage = undefined;
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -144,8 +145,7 @@ describe('popup script - injection errors', () => {
       runtimeLastErrorMessage = undefined;
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -186,8 +186,7 @@ describe('popup script - injection errors', () => {
       callback(undefined);
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -232,8 +231,7 @@ describe('popup script - injection errors', () => {
       runtimeLastErrorMessage = undefined;
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -274,8 +272,7 @@ describe('popup script - injection errors', () => {
       throw 'ping-failed';
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();

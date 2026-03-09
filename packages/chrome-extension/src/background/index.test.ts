@@ -33,6 +33,20 @@ const mockChrome = {
 
 vi.stubGlobal('chrome', mockChrome);
 
+let backgroundModulePromise: Promise<typeof import('./index')> | undefined;
+
+async function loadBackgroundScriptModule() {
+  backgroundModulePromise ??= import('./index');
+  return backgroundModulePromise;
+}
+
+async function registerBackgroundScript() {
+  const module = await loadBackgroundScriptModule();
+  vi.clearAllMocks();
+  globalThis.__tearleadsBackgroundInitialized = undefined;
+  module.registerBackgroundListeners();
+}
+
 function withRuntimeLastError(
   message: string | undefined,
   callback: () => void
@@ -44,18 +58,20 @@ function withRuntimeLastError(
 
 describe('background script', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
     runtimeLastErrorMessage = undefined;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
     runtimeLastErrorMessage = undefined;
   });
 
   it('should register onInstalled listener', async () => {
-    await import('./index');
+    await registerBackgroundScript();
 
     expect(mockChrome.runtime.onInstalled.addListener).toHaveBeenCalledTimes(1);
     expect(mockChrome.runtime.onInstalled.addListener).toHaveBeenCalledWith(
@@ -65,7 +81,7 @@ describe('background script', () => {
 
   it('should log message when extension is installed', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onInstalled.addListener.mock.calls[0];
     if (!firstCall) {
@@ -80,12 +96,24 @@ describe('background script', () => {
   });
 
   it('should register onMessage listener', async () => {
-    await import('./index');
+    await registerBackgroundScript();
 
     expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
     expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
       expect.any(Function)
     );
+  });
+
+  it('should not register duplicate listeners when already initialized', async () => {
+    const module = await loadBackgroundScriptModule();
+    vi.clearAllMocks();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
+
+    module.registerBackgroundListeners();
+    module.registerBackgroundListeners();
+
+    expect(mockChrome.runtime.onInstalled.addListener).toHaveBeenCalledTimes(1);
+    expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
   });
 
   it('should handle GET_TAB_INFO message and return tab info', async () => {
@@ -94,7 +122,7 @@ describe('background script', () => {
       callback([mockTab]);
     });
 
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -124,7 +152,7 @@ describe('background script', () => {
       callback([]);
     });
 
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -148,7 +176,7 @@ describe('background script', () => {
       withRuntimeLastError(undefined, callback);
     });
 
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -178,7 +206,7 @@ describe('background script', () => {
       callback([{}]);
     });
 
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -207,7 +235,7 @@ describe('background script', () => {
       withRuntimeLastError('Cannot access contents of this page.', callback);
     });
 
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -228,7 +256,7 @@ describe('background script', () => {
   });
 
   it('should return false for unknown message types', async () => {
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -247,7 +275,7 @@ describe('background script', () => {
   });
 
   it('should return false for PING messages sent to background', async () => {
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {
@@ -266,7 +294,7 @@ describe('background script', () => {
   });
 
   it('should return false for non-object messages', async () => {
-    await import('./index');
+    await registerBackgroundScript();
 
     const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
     if (!firstCall) {

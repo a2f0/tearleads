@@ -6,6 +6,10 @@ import {
   type TabInfoResponse
 } from '../messages';
 
+declare global {
+  var __tearleadsBackgroundInitialized: boolean | undefined;
+}
+
 function hasMessageType(message: unknown): message is { type: unknown } {
   return typeof message === 'object' && message !== null && 'type' in message;
 }
@@ -17,9 +21,12 @@ function isExtensionMessage(message: unknown): message is ExtensionMessage {
 function getActiveTab(
   callback: (tab: chrome.tabs.Tab | undefined) => void
 ): void {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    callback(tabs[0]);
-  });
+  globalThis.chrome.tabs.query(
+    { active: true, currentWindow: true },
+    (tabs) => {
+      callback(tabs[0]);
+    }
+  );
 }
 
 function handleGetTabInfo(sendResponse: (response: TabInfoResponse) => void) {
@@ -44,13 +51,13 @@ function handleInjectContentScript(
       return;
     }
 
-    chrome.scripting.executeScript(
+    globalThis.chrome.scripting.executeScript(
       {
         target: { tabId: tab.id },
         files: ['content.js']
       },
       () => {
-        const errorMessage = chrome.runtime.lastError?.message;
+        const errorMessage = globalThis.chrome.runtime.lastError?.message;
         if (errorMessage) {
           sendResponse({
             status: 'failed',
@@ -65,24 +72,40 @@ function handleInjectContentScript(
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Tearleads extension installed');
-});
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!isExtensionMessage(message)) {
-    return false;
+export function registerBackgroundListeners(): void {
+  if (globalThis.__tearleadsBackgroundInitialized) {
+    return;
   }
 
-  if (message.type === MessageType.GET_TAB_INFO) {
-    handleGetTabInfo(sendResponse);
-    return true;
-  }
+  globalThis.__tearleadsBackgroundInitialized = true;
 
-  if (message.type === MessageType.INJECT_CONTENT_SCRIPT) {
-    handleInjectContentScript(sendResponse);
-    return true;
-  }
+  globalThis.chrome.runtime.onInstalled.addListener(() => {
+    console.log('Tearleads extension installed');
+  });
 
-  return false;
-});
+  globalThis.chrome.runtime.onMessage.addListener(
+    (message, _sender, sendResponse) => {
+      if (!isExtensionMessage(message)) {
+        return false;
+      }
+
+      if (message.type === MessageType.GET_TAB_INFO) {
+        handleGetTabInfo(sendResponse);
+        return true;
+      }
+
+      if (message.type === MessageType.INJECT_CONTENT_SCRIPT) {
+        handleInjectContentScript(sendResponse);
+        return true;
+      }
+
+      return false;
+    }
+  );
+}
+
+/* v8 ignore start */
+if (!import.meta.vitest) {
+  registerBackgroundListeners();
+}
+/* v8 ignore stop */

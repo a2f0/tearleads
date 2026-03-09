@@ -30,6 +30,13 @@ const mockChrome = {
 vi.stubGlobal('chrome', mockChrome);
 globalThis.__tearleadsPopupInitialized = undefined;
 
+let popupModulePromise: Promise<typeof import('./index')> | undefined;
+
+async function loadPopupModule() {
+  popupModulePromise ??= import('./index');
+  return popupModulePromise;
+}
+
 function setupDOM() {
   document.body.innerHTML = `
     <div id="page-title">Loading...</div>
@@ -39,12 +46,10 @@ function setupDOM() {
   `;
 }
 
-function triggerDOMContentLoaded() {
-  const event = new Event('DOMContentLoaded', {
-    bubbles: true,
-    cancelable: true
-  });
-  document.dispatchEvent(event);
+async function initializePopupScript() {
+  const module = await loadPopupModule();
+  vi.clearAllMocks();
+  module.initializePopup();
 }
 
 async function flushAsyncWork() {
@@ -73,9 +78,10 @@ function defaultRuntimeMessageMock() {
 
 describe('popup script - content script activation', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });
@@ -96,8 +102,7 @@ describe('popup script - content script activation', () => {
       callback({ status: 'ok' });
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -156,8 +161,7 @@ describe('popup script - content script activation', () => {
       callback({ status: 'ok' });
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -201,8 +205,7 @@ describe('popup script - content script activation', () => {
       callback({ status: 'ok' });
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -217,5 +220,34 @@ describe('popup script - content script activation', () => {
     const statusEl = document.getElementById('status');
     expect(statusEl?.textContent).toBe('Content script is active on this tab.');
     expect(statusEl?.className).toBe('status success');
+  });
+
+  it('should not register duplicate click handlers when already initialized', async () => {
+    defaultRuntimeMessageMock();
+    mockTabsQuery.mockImplementation((_query, callback) => {
+      callback([{ id: 123 }]);
+    });
+    mockTabsSendMessage.mockImplementation((_tabId, _message, callback) => {
+      callback({ status: 'ok' });
+    });
+
+    const module = await loadPopupModule();
+    vi.clearAllMocks();
+    globalThis.__tearleadsPopupInitialized = undefined;
+
+    module.initializePopup();
+    module.initializePopup();
+    await flushAsyncWork();
+
+    document.getElementById('action-btn')?.click();
+    await flushAsyncWork();
+
+    const tabInfoCalls = mockRuntimeSendMessage.mock.calls.filter(
+      ([message]) => message.type === MessageType.GET_TAB_INFO
+    );
+
+    expect(tabInfoCalls).toHaveLength(1);
+    expect(mockTabsQuery).toHaveBeenCalledTimes(1);
+    expect(mockTabsSendMessage).toHaveBeenCalledTimes(1);
   });
 });

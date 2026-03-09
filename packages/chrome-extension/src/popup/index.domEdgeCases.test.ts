@@ -30,6 +30,8 @@ const mockChrome = {
 vi.stubGlobal('chrome', mockChrome);
 globalThis.__tearleadsPopupInitialized = undefined;
 
+let popupModulePromise: Promise<typeof import('./index')> | undefined;
+
 function setupDOM() {
   document.body.innerHTML = `
     <div id="page-title">Loading...</div>
@@ -39,12 +41,11 @@ function setupDOM() {
   `;
 }
 
-function triggerDOMContentLoaded() {
-  const event = new Event('DOMContentLoaded', {
-    bubbles: true,
-    cancelable: true
-  });
-  document.dispatchEvent(event);
+async function initializePopupScript() {
+  popupModulePromise ??= import('./index');
+  const module = await popupModulePromise;
+  vi.clearAllMocks();
+  module.initializePopup();
 }
 
 async function flushAsyncWork() {
@@ -73,9 +74,10 @@ function defaultRuntimeMessageMock() {
 
 describe('popup script - DOM edge cases', () => {
   beforeEach(() => {
+    vi.stubGlobal('chrome', mockChrome);
     vi.clearAllMocks();
-    vi.resetModules();
     vi.useRealTimers();
+    globalThis.__tearleadsPopupInitialized = undefined;
     runtimeLastErrorMessage = undefined;
     setupDOM();
   });
@@ -96,8 +98,7 @@ describe('popup script - DOM edge cases', () => {
     `;
     defaultRuntimeMessageMock();
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.dispatchEvent(new Event('click'));
@@ -115,8 +116,7 @@ describe('popup script - DOM edge cases', () => {
       callback({ status: 'ok' });
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('status')?.remove();
@@ -136,8 +136,7 @@ describe('popup script - DOM edge cases', () => {
       callback({ status: 'ok' });
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
 
     document.getElementById('action-btn')?.click();
@@ -155,8 +154,7 @@ describe('popup script - DOM edge cases', () => {
     document.body.innerHTML = '';
     defaultRuntimeMessageMock();
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
   });
 
@@ -176,8 +174,7 @@ describe('popup script - DOM edge cases', () => {
       runtimeLastErrorMessage = undefined;
     });
 
-    await import('./index');
-    triggerDOMContentLoaded();
+    await initializePopupScript();
     await flushAsyncWork();
   });
 });

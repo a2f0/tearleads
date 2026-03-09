@@ -10,6 +10,7 @@ import {
 
 declare global {
   var __tearleadsPopupInitialized: boolean | undefined;
+  var __tearleadsPopupListenerRegistered: boolean | undefined;
 }
 
 const STATUS_TIMEOUT_MS = 3000;
@@ -44,29 +45,37 @@ function sendRuntimeMessage<TResponse>(
   message: TabInfoRequest | InjectContentScriptRequest
 ): Promise<TResponse | undefined> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response: TResponse | undefined) => {
-      const runtimeErrorMessage = chrome.runtime.lastError?.message;
-      if (runtimeErrorMessage) {
-        reject(new Error(runtimeErrorMessage));
-        return;
-      }
+    globalThis.chrome.runtime.sendMessage(
+      message,
+      (response: TResponse | undefined) => {
+        const runtimeErrorMessage =
+          globalThis.chrome.runtime.lastError?.message;
+        if (runtimeErrorMessage) {
+          reject(new Error(runtimeErrorMessage));
+          return;
+        }
 
-      resolve(response);
-    });
+        resolve(response);
+      }
+    );
   });
 }
 
 function queryActiveTab(): Promise<chrome.tabs.Tab | undefined> {
   return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const runtimeErrorMessage = chrome.runtime.lastError?.message;
-      if (runtimeErrorMessage) {
-        reject(new Error(runtimeErrorMessage));
-        return;
-      }
+    globalThis.chrome.tabs.query(
+      { active: true, currentWindow: true },
+      (tabs) => {
+        const runtimeErrorMessage =
+          globalThis.chrome.runtime.lastError?.message;
+        if (runtimeErrorMessage) {
+          reject(new Error(runtimeErrorMessage));
+          return;
+        }
 
-      resolve(tabs[0]);
-    });
+        resolve(tabs[0]);
+      }
+    );
   });
 }
 
@@ -75,11 +84,12 @@ function sendTabMessage<TResponse>(
   message: PingRequest
 ): Promise<TResponse | undefined> {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(
+    globalThis.chrome.tabs.sendMessage(
       tabId,
       message,
       (response: TResponse | undefined) => {
-        const runtimeErrorMessage = chrome.runtime.lastError?.message;
+        const runtimeErrorMessage =
+          globalThis.chrome.runtime.lastError?.message;
         if (runtimeErrorMessage) {
           reject(new Error(runtimeErrorMessage));
           return;
@@ -148,7 +158,13 @@ async function ensureContentScriptActive(tabId: number): Promise<boolean> {
   return false;
 }
 
-function onDomContentLoaded() {
+export function initializePopup() {
+  if (globalThis.__tearleadsPopupInitialized) {
+    return;
+  }
+
+  globalThis.__tearleadsPopupInitialized = true;
+
   const titleEl = document.getElementById('page-title');
   const urlEl = document.getElementById('page-url');
   const actionBtn = document.getElementById('action-btn');
@@ -192,7 +208,9 @@ function onDomContentLoaded() {
   });
 }
 
-if (!globalThis.__tearleadsPopupInitialized) {
-  globalThis.__tearleadsPopupInitialized = true;
-  document.addEventListener('DOMContentLoaded', onDomContentLoaded);
+/* v8 ignore start */
+if (!import.meta.vitest && !globalThis.__tearleadsPopupListenerRegistered) {
+  globalThis.__tearleadsPopupListenerRegistered = true;
+  document.addEventListener('DOMContentLoaded', initializePopup);
 }
+/* v8 ignore stop */
