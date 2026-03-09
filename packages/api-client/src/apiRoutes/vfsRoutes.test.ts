@@ -199,6 +199,16 @@ describe('vfsRoutes', () => {
     );
   });
 
+  it('normalizes null connect payloads to sync defaults', async () => {
+    requestMock.mockResolvedValueOnce(null);
+
+    await expect(vfsRoutes.getSync()).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+  });
+
   it('routes share-target search through Connect', async () => {
     await vfsRoutes.searchShareTargets('alice');
     await vfsRoutes.searchShareTargets('bob', 'user');

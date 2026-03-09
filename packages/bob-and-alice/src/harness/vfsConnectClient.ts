@@ -122,17 +122,12 @@ function normalizeSyncPagePayload(
 }
 
 function toParsedJson<T>(payload: unknown): T {
-  if (typeof payload === 'string') {
-    return parseConnectJsonString<T>(payload);
-  }
-  if (payload === null || payload === undefined) {
-    return parseConnectJsonString<T>('{}');
-  }
-  try {
+  if (isPlainRecord(payload)) {
     return parseConnectJsonString<T>(JSON.stringify(payload));
-  } catch {
-    return parseConnectJsonString<T>('{}');
   }
+
+  // Harness transport should always decode to an object payload.
+  throw new Error('transport returned non-object connect payload');
 }
 
 export async function fetchVfsConnectJson<T>(input: {

@@ -176,4 +176,27 @@ describe('fetchVfsConnectJson', () => {
 
     expect(response).toEqual({ created: true });
   });
+
+  it('rejects non-object connect payloads', async () => {
+    const stringActor = {
+      fetchJson: vi.fn().mockResolvedValue('{"created": true}')
+    };
+    const nullActor = {
+      fetchJson: vi.fn().mockResolvedValue(null)
+    };
+
+    await expect(
+      fetchVfsConnectJson<{ created: boolean }>({
+        actor: stringActor,
+        methodName: 'SetupKeys'
+      })
+    ).rejects.toThrow('transport returned non-object connect payload');
+
+    await expect(
+      fetchVfsConnectJson<{ created: boolean }>({
+        actor: nullActor,
+        methodName: 'SetupKeys'
+      })
+    ).rejects.toThrow('transport returned non-object connect payload');
+  });
 });

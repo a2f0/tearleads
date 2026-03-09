@@ -57,9 +57,9 @@ function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
     return parsedPayload as TResponse;
   }
   if (parsedPayload === null || parsedPayload === undefined) {
+    // Connect no-content responses are normalized to an empty object payload.
     return parseConnectJsonString<TResponse>('{}');
   }
-
   throw new Error('transport returned non-object connect payload');
 }
 
