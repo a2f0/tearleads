@@ -4,6 +4,7 @@
 
 import type { QueryParams, QueryResultData } from '../sqlite.worker.interface';
 import type { SQLite3Module, SQLiteDatabase } from './types';
+import { buildSqlBatch, EXECUTE_MANY_SAVEPOINT } from '@/db/sql/sqlBatch';
 
 /**
  * Debug logging for SQLite worker.
@@ -87,11 +88,7 @@ export function executeMany(
     throw new Error('Database not initialized');
   }
 
-  const batchedSql = statements
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-    .map((statement) => statement.replace(/;+\s*$/u, ''))
-    .join(';\n');
+  const batchedSql = buildSqlBatch(statements);
 
   if (batchedSql.length === 0) {
     return;
@@ -99,13 +96,13 @@ export function executeMany(
 
   // Use SAVEPOINT instead of BEGIN/COMMIT so executeMany() is nestable
   // inside an outer transaction (e.g. the migration runner's transaction).
-  db.exec('SAVEPOINT sp_execute_many');
+  db.exec(`SAVEPOINT ${EXECUTE_MANY_SAVEPOINT}`);
   try {
     db.exec(batchedSql);
-    db.exec('RELEASE sp_execute_many');
+    db.exec(`RELEASE ${EXECUTE_MANY_SAVEPOINT}`);
   } catch (error) {
-    db.exec('ROLLBACK TO sp_execute_many');
-    db.exec('RELEASE sp_execute_many');
+    db.exec(`ROLLBACK TO ${EXECUTE_MANY_SAVEPOINT}`);
+    db.exec(`RELEASE ${EXECUTE_MANY_SAVEPOINT}`);
     throw error;
   }
 }
