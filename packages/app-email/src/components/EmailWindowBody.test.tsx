@@ -18,8 +18,6 @@ describe('EmailWindow body rendering', () => {
   };
 
   beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
     installEmailWindowModuleMocks();
     global.fetch = vi.fn();
   });

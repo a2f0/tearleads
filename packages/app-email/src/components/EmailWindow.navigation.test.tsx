@@ -15,8 +15,6 @@ import {
 
 describe('EmailWindow navigation', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
     installEmailWindowModuleMocks();
     global.fetch = vi.fn();
   });

@@ -12,8 +12,6 @@ import { mockFolderOperations } from './emailWindowTestFixtures';
 
 describe('EmailWindow compose and folders', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
     installEmailWindowModuleMocks();
     global.fetch = vi.fn();
   });
