@@ -53,21 +53,16 @@ describe('useRenameVfsFolder', () => {
     const { result } = renderHook(() => useRenameVfsFolder(), { wrapper });
 
     await expect(
-      act(async () => {
-        await result.current.renameFolder('folder-1', '   ');
-      })
+      result.current.renameFolder('folder-1', '   ')
     ).rejects.toThrow('Folder name is required');
   });
 
   it('throws for missing folder ID', async () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useRenameVfsFolder(), { wrapper });
+    const renamePromise = result.current.renameFolder('', 'Valid Name');
 
-    await expect(
-      act(async () => {
-        await result.current.renameFolder('', 'Valid Name');
-      })
-    ).rejects.toThrow('Folder ID is required');
+    await expect(renamePromise).rejects.toThrow('Folder ID is required');
   });
 
   it('sets error state when transaction fails', async () => {
