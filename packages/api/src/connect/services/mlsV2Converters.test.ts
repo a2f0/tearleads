@@ -47,19 +47,17 @@ describe('mlsV2Converters', () => {
     expect(converted.encryptedState).toEqual(bytes);
   });
 
-  it('converts direct string payloads to UTF-8 bytes', () => {
-    const converted = toProtoGroupState({
-      id: 'state-1',
-      groupId: 'group-1',
-      epoch: 2,
-      encryptedState: 'not-base64***',
-      stateHash: 'hash',
-      createdAt: '2024-01-01T00:00:00.000Z'
-    });
-
-    expect(converted.encryptedState).toEqual(
-      new TextEncoder().encode('not-base64***')
-    );
+  it('rejects invalid base64 direct payloads', () => {
+    expect(() =>
+      toProtoGroupState({
+        id: 'state-1',
+        groupId: 'group-1',
+        epoch: 2,
+        encryptedState: 'not-base64***',
+        stateHash: 'hash',
+        createdAt: '2024-01-01T00:00:00.000Z'
+      })
+    ).toThrow('encryptedState must be valid base64');
   });
 
   it('maps key package payloads to bytes', () => {
