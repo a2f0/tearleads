@@ -34,6 +34,13 @@ npm-debug.log*
 # OS files
 .DS_Store
 
+# Turborepo
+.turbo/
+
+# Generated dependency graph artifacts
+scripts/ciImpact/depGraph.dot
+scripts/ciImpact/depGraph.svg
+
 # Temporary files
 *.tmp
 .cache/

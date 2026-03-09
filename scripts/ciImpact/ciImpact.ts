@@ -3,9 +3,9 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { evaluateJobs } from './evaluateJobs.ts';
+import type { StringSetMap } from './turboGraph.ts';
+import { loadWorkspaceGraph } from './turboGraph.ts';
 import type { JobName } from './workflowConfig.ts';
-
-type StringSetMap = Map<string, Set<string>>;
 
 interface CliArgs {
   base?: string;
@@ -20,28 +20,6 @@ interface Config {
   workflowCriticalPrefixes: string[];
   clientRuntimePackages: string[];
   jobNames: JobName[];
-}
-
-interface PackageJsonShape {
-  name?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-}
-type PackageDependencyKey =
-  | 'dependencies'
-  | 'devDependencies'
-  | 'peerDependencies';
-
-interface WorkspacePackage {
-  name: string;
-  dir: string;
-  json: PackageJsonShape;
-}
-
-interface WorkspaceLookup {
-  byName: Map<string, WorkspacePackage>;
-  byDir: Map<string, string>;
 }
 
 interface JobState {
@@ -104,15 +82,6 @@ function run(cmd: string): string {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   }).trim();
-}
-
-function hasPath(filePath: string): boolean {
-  try {
-    fs.accessSync(filePath, fs.constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function isStringArray(value: object, key: string): boolean {
@@ -196,111 +165,6 @@ function readConfig(filePath: string): Config {
     clientRuntimePackages: readStringArray(parsed, 'clientRuntimePackages'),
     jobNames: rawJobNames
   };
-}
-
-function readPackageJson(filePath: string): PackageJsonShape {
-  const text = fs.readFileSync(filePath, 'utf8');
-  const parsed = JSON.parse(text);
-  if (typeof parsed !== 'object' || parsed === null) {
-    return {};
-  }
-
-  const data: PackageJsonShape = {};
-  const name = Reflect.get(parsed, 'name');
-  if (typeof name === 'string') {
-    data.name = name;
-  }
-
-  const depKeys: ReadonlyArray<PackageDependencyKey> = [
-    'dependencies',
-    'devDependencies',
-    'peerDependencies'
-  ];
-  for (const depKey of depKeys) {
-    const depValue = Reflect.get(parsed, depKey);
-    if (typeof depValue === 'object' && depValue !== null) {
-      const rec: Record<string, string> = {};
-      for (const depName of Object.keys(depValue)) {
-        const depVersion = Reflect.get(depValue, depName);
-        if (typeof depVersion === 'string') {
-          rec[depName] = depVersion;
-        }
-      }
-      if (Object.keys(rec).length > 0) {
-        data[depKey] = rec;
-      }
-    }
-  }
-
-  return data;
-}
-
-function listWorkspacePackages(): WorkspaceLookup {
-  const packagesDir = path.join(ROOT, 'packages');
-  const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
-  const byName = new Map<string, WorkspacePackage>();
-  const byDir = new Map<string, string>();
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const dir = path.join('packages', entry.name);
-    const packageJsonPath = path.join(ROOT, dir, 'package.json');
-    if (!hasPath(packageJsonPath)) {
-      continue;
-    }
-    const pkgJson = readPackageJson(packageJsonPath);
-    if (pkgJson.name === undefined) {
-      continue;
-    }
-
-    const pkg: WorkspacePackage = {
-      name: pkgJson.name,
-      dir,
-      json: pkgJson
-    };
-
-    byName.set(pkg.name, pkg);
-    byDir.set(dir, pkg.name);
-  }
-
-  return { byName, byDir };
-}
-
-function unionDeps(pkg: PackageJsonShape): Record<string, string> {
-  return {
-    ...(pkg.dependencies || {}),
-    ...(pkg.devDependencies || {}),
-    ...(pkg.peerDependencies || {})
-  };
-}
-
-function buildReverseGraph(
-  packagesByName: Map<string, WorkspacePackage>
-): StringSetMap {
-  const reverse: StringSetMap = new Map<string, Set<string>>();
-
-  for (const pkgName of packagesByName.keys()) {
-    reverse.set(pkgName, new Set<string>());
-  }
-
-  for (const [fromPkg, pkgInfo] of packagesByName.entries()) {
-    const deps = unionDeps(pkgInfo.json);
-    for (const depName of Object.keys(deps)) {
-      if (!packagesByName.has(depName)) {
-        continue;
-      }
-      const existing = reverse.get(depName);
-      if (existing === undefined) {
-        reverse.set(depName, new Set<string>([fromPkg]));
-      } else {
-        existing.add(fromPkg);
-      }
-    }
-  }
-
-  return reverse;
 }
 
 function splitCsv(value: string): string[] {
@@ -406,8 +270,10 @@ function main(): void {
   const head = args.head || 'HEAD';
 
   const config = readConfig(CONFIG_PATH);
-  const { byName, byDir } = listWorkspacePackages();
-  const reverseGraph = buildReverseGraph(byName);
+  const {
+    lookup: { byDir },
+    reverseGraph
+  } = loadWorkspaceGraph();
   const diffResult = detectChangedFiles(base, head, args.files);
   const changedFiles = diffResult.changedFiles;
 
