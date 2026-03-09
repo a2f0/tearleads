@@ -12,9 +12,7 @@ interface ClientHealthProviderProps {
   children: ReactNode;
 }
 
-export function ClientHealthProvider({
-  children
-}: ClientHealthProviderProps) {
+export function ClientHealthProvider({ children }: ClientHealthProviderProps) {
   const { db, isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
 
   const databaseState = useMemo<HealthDatabaseState>(
