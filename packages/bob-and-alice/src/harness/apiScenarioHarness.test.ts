@@ -95,7 +95,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     expect(response.ok).toBe(true);
     expect(callCount).toBe(3);
-    expect(sleeps).toEqual([50, 100]);
+    expect(sleeps).toEqual([25, 50]);
   });
 
   it('throws after the retry limit is reached', async () => {
@@ -144,7 +144,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
       'API error 400 Bad Request: {"error":"id, objectType, and encryptedSessionKey are required"}'
     );
     expect(callCount).toBe(3);
-    expect(sleeps).toEqual([50, 100]);
+    expect(sleeps).toEqual([25, 50]);
   });
 
   it('normalizes stream request bodies so retries keep the payload', async () => {
