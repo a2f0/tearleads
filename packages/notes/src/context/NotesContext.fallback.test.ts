@@ -2,7 +2,11 @@ import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { NotesProvider, type NotesUIComponents, useDatabaseState } from './NotesContext';
+import {
+  NotesProvider,
+  type NotesUIComponents,
+  useDatabaseState
+} from './NotesContext';
 
 const mockUi: NotesUIComponents = {
   Button: () => null,

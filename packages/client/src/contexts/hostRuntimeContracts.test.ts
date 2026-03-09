@@ -16,12 +16,12 @@ import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
 describe('host runtime contracts', () => {
   it('keeps feature database runtime shapes aligned', () => {
-    expectTypeOf<
-      NotesProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState | undefined>();
-    expectTypeOf<
-      ContactsProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState | undefined>();
+    expectTypeOf<NotesProviderProps['databaseState']>().toEqualTypeOf<
+      HostRuntimeDatabaseState | undefined
+    >();
+    expectTypeOf<ContactsProviderProps['databaseState']>().toEqualTypeOf<
+      HostRuntimeDatabaseState | undefined
+    >();
     expectTypeOf<
       AudioUIProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
