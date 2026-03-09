@@ -11,16 +11,17 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
 | Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
-| Phase 5: jsdom/UI-heavy strategy | Not started | Pending pilot package decisions. |
+| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, and app-email; `vfs-explorer` remains the last bun auto-fallback package. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
 ## Compatibility Snapshot (2026-03-09)
 
-- Packages with tests: 49
-- Bun-primary `test` scripts: 33
-- Transitional bun auto-fallback scripts: 7
+- Packages with tests: 48
+- Bun-primary `test` scripts: 38
+- Transitional bun auto-fallback scripts: 1
 - Vitest-primary `test` scripts: 8
-- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 14
+- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 12
+- Remaining bun auto-fallback package: `@tearleads/vfs-explorer`
 
 ## Merged Slices
 
@@ -96,6 +97,12 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#3007](https://github.com/a2f0/tearleads/pull/3007) | Compatibility inventory `vi.waitFor` blocker detection |
 | [#3031](https://github.com/a2f0/tearleads/pull/3031) | Promote analytics/compliance/ui to Bun-primary `test` scripts |
 | [#3037](https://github.com/a2f0/tearleads/pull/3037) | Refresh Bun migration tracker snapshot + merged slices ledger |
+| [#3053](https://github.com/a2f0/tearleads/pull/3053) | Window-manager Bun compatibility remediation and Bun-primary promotion |
+| [#3056](https://github.com/a2f0/tearleads/pull/3056) | Notifications Bun compatibility remediation and Bun-primary promotion |
+| [#3058](https://github.com/a2f0/tearleads/pull/3058) | Classic Bun compatibility remediation and Bun-primary promotion |
+| [#3061](https://github.com/a2f0/tearleads/pull/3061) | Chrome-extension Bun compatibility remediation and Bun-primary promotion |
+| [#3063](https://github.com/a2f0/tearleads/pull/3063) | Contacts Bun compatibility remediation and Bun-primary promotion |
+| [#3068](https://github.com/a2f0/tearleads/pull/3068) | App-email Bun compatibility remediation and Bun-primary promotion |
 
 ## Node Pilot Package Status
 
@@ -115,5 +122,5 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters and codemods for top blockers (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`).
-3. Burn down the 7 packages still using `bun-auto-fallback` in `test` scripts by converting only validated packages to explicit Bun-primary + `testVitest` fallback.
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) to drive shared adapters, codemods, and per-package runner decisions for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`).
+3. Decompose `@tearleads/vfs-explorer` Bun-only failures into smaller compatibility slices and remove the final `bun-auto-fallback` `test` script once Bun and Vitest paths both pass.
