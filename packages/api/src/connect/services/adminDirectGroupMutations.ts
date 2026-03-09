@@ -1,6 +1,23 @@
 import { randomUUID } from 'node:crypto';
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { CreateGroupRequest, UpdateGroupRequest } from '@tearleads/shared';
+import type {
+  AdminAddGroupMemberResponse,
+  AdminCreateGroupResponse,
+  AdminDeleteGroupResponse,
+  AdminGroup,
+  AdminRemoveGroupMemberResponse,
+  AdminUpdateGroupResponse
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminAddGroupMemberResponseSchema,
+  AdminCreateGroupResponseSchema,
+  AdminDeleteGroupResponseSchema,
+  AdminGroupSchema,
+  AdminRemoveGroupMemberResponseSchema,
+  AdminUpdateGroupResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import type { Pool } from 'pg';
 import { getPool } from '../../lib/postgres.js';
 import {
@@ -9,8 +26,7 @@ import {
 } from './adminDirectAuth.js';
 import {
   type GroupRow,
-  getGroupOrganizationId,
-  mapGroupRow
+  getGroupOrganizationId
 } from './adminDirectGroupsShared.js';
 import type { OptionalWithUndefined } from './adminDirectTypes.js';
 
@@ -48,6 +64,19 @@ function isDuplicateConstraintError(error: unknown): error is Error {
   return typeof code === 'string' && code === '23505';
 }
 
+function toAdminGroup(row: GroupRow): AdminGroup {
+  return create(AdminGroupSchema, {
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    ...(typeof row.description === 'string'
+      ? { description: row.description }
+      : {}),
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString()
+  });
+}
+
 async function ensureOrganizationExists(
   pool: Pool,
   organizationId: string
@@ -64,7 +93,7 @@ async function ensureOrganizationExists(
 export async function createGroupDirect(
   request: CreateGroupInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminCreateGroupResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/groups',
     context.requestHeader
@@ -106,11 +135,9 @@ export async function createGroupDirect(
       throw new ConnectError('Failed to create group', Code.Internal);
     }
 
-    return {
-      json: JSON.stringify({
-        group: mapGroupRow(row)
-      })
-    };
+    return create(AdminCreateGroupResponseSchema, {
+      group: toAdminGroup(row)
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -126,7 +153,7 @@ export async function createGroupDirect(
 export async function updateGroupDirect(
   request: UpdateGroupInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminUpdateGroupResponse> {
   const { id, ...payload } = request;
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(id)}`,
@@ -200,11 +227,9 @@ export async function updateGroupDirect(
       throw new ConnectError('Group not found', Code.NotFound);
     }
 
-    return {
-      json: JSON.stringify({
-        group: mapGroupRow(row)
-      })
-    };
+    return create(AdminUpdateGroupResponseSchema, {
+      group: toAdminGroup(row)
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -220,7 +245,7 @@ export async function updateGroupDirect(
 export async function deleteGroupDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminDeleteGroupResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.id)}`,
     context.requestHeader
@@ -239,11 +264,9 @@ export async function deleteGroupDirect(
     const result = await pool.query('DELETE FROM groups WHERE id = $1', [
       request.id
     ]);
-    return {
-      json: JSON.stringify({
-        deleted: result.rowCount !== null && result.rowCount > 0
-      })
-    };
+    return create(AdminDeleteGroupResponseSchema, {
+      deleted: result.rowCount !== null && result.rowCount > 0
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -256,7 +279,7 @@ export async function deleteGroupDirect(
 export async function addGroupMemberDirect(
   request: AddGroupMemberInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminAddGroupMemberResponse> {
   const { id, userId } = request;
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(id)}/members`,
@@ -310,9 +333,7 @@ export async function addGroupMemberDirect(
       client.release();
     }
 
-    return {
-      json: JSON.stringify({ added: true })
-    };
+    return create(AdminAddGroupMemberResponseSchema, { added: true });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -331,7 +352,7 @@ export async function addGroupMemberDirect(
 export async function removeGroupMemberDirect(
   request: RemoveGroupMemberRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminRemoveGroupMemberResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/groups/${encoded(request.groupId)}/members/${encoded(request.userId)}`,
     context.requestHeader
@@ -351,11 +372,9 @@ export async function removeGroupMemberDirect(
       'DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2',
       [request.groupId, request.userId]
     );
-    return {
-      json: JSON.stringify({
-        removed: result.rowCount !== null && result.rowCount > 0
-      })
-    };
+    return create(AdminRemoveGroupMemberResponseSchema, {
+      removed: result.rowCount !== null && result.rowCount > 0
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

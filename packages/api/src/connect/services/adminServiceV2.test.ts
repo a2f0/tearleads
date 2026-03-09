@@ -220,18 +220,16 @@ describe('adminConnectServiceV2', () => {
 
   it('forwards createGroup payload fields directly to group mutations', async () => {
     mocks.createGroupDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        group: {
-          id: 'group-1',
-          organizationId: 'org-1',
-          name: 'Engineering',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z'
-        }
-      })
+      group: {
+        id: 'group-1',
+        organizationId: 'org-1',
+        name: 'Engineering',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
     });
 
-    await adminConnectServiceV2.createGroup(
+    const response = await adminConnectServiceV2.createGroup(
       create(AdminCreateGroupRequestSchema, {
         organizationId: 'org-1',
         name: 'Engineering'
@@ -239,6 +237,9 @@ describe('adminConnectServiceV2', () => {
       context
     );
 
+    expect(response.group?.id).toBe('group-1');
+    expect(response.group?.organizationId).toBe('org-1');
+    expect(response.group?.description).toBeUndefined();
     const firstCall = mocks.createGroupDirect.mock.calls[0];
     expect(firstCall).toBeDefined();
     const requestArg = firstCall?.[0];

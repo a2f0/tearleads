@@ -40,18 +40,6 @@ import {
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected JSON object');
-  }
-  return parsed;
-}
-
 describe('adminDirectGroupMutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,16 +104,14 @@ describe('adminDirectGroupMutations', () => {
       '/admin/groups',
       expect.any(Headers)
     );
-    expect(parseJson(response.json)).toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Engineering',
-        description: null,
-        createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:00:00.000Z'
-      }
+    expect(response.group).toMatchObject({
+      id: 'group-1',
+      organizationId: 'org-1',
+      name: 'Engineering',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:00:00.000Z'
     });
+    expect(response.group?.description).toBeUndefined();
   });
 
   it('rejects createGroup when name is missing', async () => {
@@ -221,15 +207,13 @@ describe('adminDirectGroupMutations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Product',
-        description: 'Core',
-        createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:05:00.000Z'
-      }
+    expect(response.group).toMatchObject({
+      id: 'group-1',
+      organizationId: 'org-1',
+      name: 'Product',
+      description: 'Core',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:05:00.000Z'
     });
   });
 
@@ -290,9 +274,7 @@ describe('adminDirectGroupMutations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      deleted: true
-    });
+    expect(response.deleted).toBe(true);
   });
 
   it('adds a group member when group and user are valid', async () => {
@@ -329,9 +311,7 @@ describe('adminDirectGroupMutations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      added: true
-    });
+    expect(response.added).toBe(true);
   });
 
   it('rejects addGroupMember when user does not exist', async () => {
@@ -418,9 +398,7 @@ describe('adminDirectGroupMutations', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
-      removed: true
-    });
+    expect(response.removed).toBe(true);
   });
 
   it('rejects removeGroupMember when group cannot be found', async () => {
