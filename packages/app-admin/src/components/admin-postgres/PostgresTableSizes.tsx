@@ -59,11 +59,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   );
 
   const totalBytes = useMemo(
-    () =>
-      tables.reduce(
-        (sum, table) => sum + toBigInt(table.totalBytes),
-        0n
-      ),
+    () => tables.reduce((sum, table) => sum + toBigInt(table.totalBytes), 0n),
     [tables]
   );
 
