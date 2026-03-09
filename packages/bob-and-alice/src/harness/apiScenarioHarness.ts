@@ -193,26 +193,6 @@ export class ApiScenarioHarness {
               headers: connectHeaders
             }
           ).then((response) => adaptConnectResponse(response, connectMapping));
-
-          const connectResponseBody = await connectResponse.clone().text();
-          if (
-            isRetryableWriteValidationError(
-              path,
-              init,
-              connectResponse.status,
-              connectResponseBody
-            )
-          ) {
-            return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
-              ...init,
-              headers: mergeHeaders(
-                user.accessToken,
-                init?.headers,
-                user.organizationId
-              )
-            });
-          }
-
           return connectResponse;
         }
 
