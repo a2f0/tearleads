@@ -142,19 +142,16 @@ describe('adminConnectServiceV2 error branches', () => {
     ).rejects.toMatchObject({ code: Code.Internal });
   });
 
-  it('throws internal error when decoded JSON is invalid for protobuf', async () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    mocks.getContextDirect.mockResolvedValueOnce({ json: '{' });
+  it('propagates context handler errors without JSON decode wrapping', async () => {
+    mocks.getContextDirect.mockRejectedValueOnce({
+      code: Code.PermissionDenied
+    });
 
     await expect(
       adminConnectServiceV2.getContext(
         create(AdminGetContextRequestSchema),
         context
       )
-    ).rejects.toMatchObject({ code: Code.Internal });
-
-    consoleError.mockRestore();
+    ).rejects.toMatchObject({ code: Code.PermissionDenied });
   });
 });

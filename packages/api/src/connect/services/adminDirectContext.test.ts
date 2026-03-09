@@ -28,18 +28,6 @@ import { getContextDirect } from './adminDirectContext.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -86,14 +74,14 @@ describe('adminDirectContext', () => {
       '/admin/context',
       expect.any(Headers)
     );
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       isRootAdmin: true,
       organizations: [
         { id: 'org-1', name: 'Org One' },
         { id: 'org-2', name: 'Org Two' }
-      ],
-      defaultOrganizationId: null
+      ]
     });
+    expect(response.defaultOrganizationId).toBeUndefined();
   });
 
   it('returns first org as default for org admins', async () => {
@@ -118,7 +106,7 @@ describe('adminDirectContext', () => {
       }
     );
 
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       isRootAdmin: false,
       organizations: [
         { id: 'org-2', name: 'Org Two' },
