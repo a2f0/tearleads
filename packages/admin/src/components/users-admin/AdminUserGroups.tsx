@@ -1,4 +1,5 @@
-import type { AdminUser, GroupWithMemberCount } from '@tearleads/shared';
+import type { GroupWithMemberCount } from '@tearleads/shared';
+import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { ConfirmDialog } from '@tearleads/ui';
 import { Loader2, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';

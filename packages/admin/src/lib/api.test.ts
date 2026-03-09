@@ -75,6 +75,56 @@ describe('admin api client', () => {
     });
   });
 
+  it('decodes admin user responses with generated proto types', async () => {
+    const userJson = {
+      id: 'user-1',
+      email: 'admin@example.com',
+      emailConfirmed: true,
+      admin: false,
+      organizationIds: ['org-1'],
+      createdAt: '2024-01-01T12:00:00.000Z',
+      disabled: false,
+      accounting: {
+        totalPromptTokens: '120',
+        totalCompletionTokens: '80',
+        totalTokens: '200',
+        requestCount: '3'
+      }
+    };
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ users: [userJson] }));
+    const listResponse = await apiClient.adminV2.users.list({
+      organizationId: 'org-1'
+    });
+    expect(listResponse.users).toHaveLength(1);
+    expect(listResponse.users[0]?.accounting?.totalTokens).toBe(200n);
+    expect(typeof listResponse.users[0]?.accounting?.totalTokens).toBe(
+      'bigint'
+    );
+    expect(listResponse.users[0]?.lastActiveAt).toBeUndefined();
+    expect(listResponse.users[0]?.accounting?.lastUsedAt).toBeUndefined();
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ user: userJson }));
+    const getResponse = await apiClient.adminV2.users.get('user-1');
+    expect(getResponse.user?.email).toBe('admin@example.com');
+    expect(getResponse.user?.accounting?.requestCount).toBe(3n);
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        user: {
+          ...userJson,
+          disabled: true,
+          disabledAt: '2024-03-01T00:00:00.000Z'
+        }
+      })
+    );
+    const updateResponse = await apiClient.adminV2.users.update('user-1', {
+      disabled: true
+    });
+    expect(updateResponse.user?.disabled).toBe(true);
+    expect(updateResponse.user?.disabledAt).toBe('2024-03-01T00:00:00.000Z');
+  });
+
   it('calls all admin endpoint helpers with expected URL shape and method', async () => {
     const calls: Array<() => Promise<unknown>> = [
       () => apiClient.adminV2.getContext(),

@@ -1,7 +1,7 @@
 import { OrganizationScopeSelector } from '@admin/components/admin-scope';
 import { useAdminScope } from '@admin/hooks/useAdminScope';
 import { formatNumber, formatTimestamp } from '@admin/lib/utils';
-import type { AdminUser } from '@tearleads/shared';
+import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { BackLink, RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -17,6 +17,10 @@ interface UsersAdminProps {
   showBackLink?: boolean;
   onUserSelect: (userId: string) => void;
   onViewAiRequests?: (() => void) | undefined;
+}
+
+function formatUsageCount(value: bigint | undefined): string {
+  return value === undefined ? '—' : formatNumber(value);
 }
 
 // component-complexity: allow - legacy admin table page pending split into smaller views.
@@ -178,63 +182,68 @@ export function UsersAdmin({
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
-                <WindowTableRow
-                  key={user.id}
-                  onClick={() => handleUserClick(user.id)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleUserClick(user.id);
-                    }
-                  }}
-                >
-                  <td
-                    className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} max-w-[140px]`}
+              users.map((user) => {
+                const accounting = user.accounting;
+                return (
+                  <WindowTableRow
+                    key={user.id}
+                    onClick={() => handleUserClick(user.id)}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleUserClick(user.id);
+                      }
+                    }}
                   >
-                    <span className="block truncate font-mono">{user.id}</span>
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                    <span className="block truncate">{user.email}</span>
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    {formatTimestamp(user.createdAt)}
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    {formatTimestamp(user.lastActiveAt)}
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    <div className="flex items-center gap-1">
-                      {user.emailConfirmed ? (
-                        <Check className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-muted-foreground/50" />
-                      )}
-                      {user.emailConfirmed ? t('yes') : t('no')}
-                    </div>
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    <div className="flex items-center gap-1">
-                      {user.admin ? (
-                        <Check className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-muted-foreground/50" />
-                      )}
-                      {user.admin ? t('yes') : t('no')}
-                    </div>
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    {formatNumber(user.accounting.totalTokens)}
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    {formatNumber(user.accounting.requestCount)}
-                  </td>
-                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                    {formatTimestamp(user.accounting.lastUsedAt)}
-                  </td>
-                </WindowTableRow>
-              ))
+                    <td
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} max-w-[140px]`}
+                    >
+                      <span className="block truncate font-mono">
+                        {user.id}
+                      </span>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                      <span className="block truncate">{user.email}</span>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatTimestamp(user.createdAt)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatTimestamp(user.lastActiveAt)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      <div className="flex items-center gap-1">
+                        {user.emailConfirmed ? (
+                          <Check className="h-3 w-3 text-green-600" />
+                        ) : (
+                          <X className="h-3 w-3 text-muted-foreground/50" />
+                        )}
+                        {user.emailConfirmed ? t('yes') : t('no')}
+                      </div>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      <div className="flex items-center gap-1">
+                        {user.admin ? (
+                          <Check className="h-3 w-3 text-green-600" />
+                        ) : (
+                          <X className="h-3 w-3 text-muted-foreground/50" />
+                        )}
+                        {user.admin ? t('yes') : t('no')}
+                      </div>
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatUsageCount(accounting?.totalTokens)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatUsageCount(accounting?.requestCount)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatTimestamp(accounting?.lastUsedAt)}
+                    </td>
+                  </WindowTableRow>
+                );
+              })
             )}
           </tbody>
         </table>

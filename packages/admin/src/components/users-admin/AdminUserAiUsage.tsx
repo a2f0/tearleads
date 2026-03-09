@@ -1,5 +1,5 @@
 import { formatNumber, formatTimestamp } from '@admin/lib/utils';
-import type { AdminUser } from '@tearleads/shared';
+import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 
@@ -8,11 +8,16 @@ interface AdminUserAiUsageProps {
   onViewAiRequests: () => void;
 }
 
+function formatUsageCount(value: bigint | undefined): string {
+  return value === undefined ? '—' : formatNumber(value);
+}
+
 export function AdminUserAiUsage({
   user,
   onViewAiRequests
 }: AdminUserAiUsageProps) {
   const { t } = useTypedTranslation('admin');
+  const accounting = user.accounting;
 
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
@@ -33,7 +38,7 @@ export function AdminUserAiUsage({
             Total Tokens
           </p>
           <p className="mt-1 font-semibold text-lg">
-            {formatNumber(user.accounting.totalTokens)}
+            {formatUsageCount(accounting?.totalTokens)}
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-3">
@@ -41,7 +46,7 @@ export function AdminUserAiUsage({
             Prompt Tokens
           </p>
           <p className="mt-1 font-semibold text-lg">
-            {formatNumber(user.accounting.totalPromptTokens)}
+            {formatUsageCount(accounting?.totalPromptTokens)}
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-3">
@@ -49,7 +54,7 @@ export function AdminUserAiUsage({
             Completion Tokens
           </p>
           <p className="mt-1 font-semibold text-lg">
-            {formatNumber(user.accounting.totalCompletionTokens)}
+            {formatUsageCount(accounting?.totalCompletionTokens)}
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-3">
@@ -57,7 +62,7 @@ export function AdminUserAiUsage({
             Requests
           </p>
           <p className="mt-1 font-semibold text-lg">
-            {formatNumber(user.accounting.requestCount)}
+            {formatUsageCount(accounting?.requestCount)}
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-3">
@@ -65,7 +70,7 @@ export function AdminUserAiUsage({
             Last Usage
           </p>
           <p className="mt-1 text-muted-foreground text-sm">
-            {formatTimestamp(user.accounting.lastUsedAt)}
+            {formatTimestamp(accounting?.lastUsedAt)}
           </p>
         </div>
       </div>

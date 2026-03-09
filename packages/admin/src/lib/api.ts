@@ -1,9 +1,11 @@
+import {
+  type DescMessage,
+  fromJson,
+  type MessageShape
+} from '@bufbuild/protobuf';
 import type {
   AdminAccessContextResponse,
-  AdminUserResponse,
-  AdminUsersResponse,
   AdminUserUpdatePayload,
-  AdminUserUpdateResponse,
   AiUsageListResponse,
   CreateGroupRequest,
   CreateOrganizationRequest,
@@ -24,6 +26,11 @@ import type {
   UpdateOrganizationRequest
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
+import {
+  AdminGetUserResponseSchema,
+  AdminListUsersResponseSchema,
+  AdminUpdateUserResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
   mapAddGroupMemberResponse,
   mapDeleteGroupResponse,
@@ -47,9 +54,7 @@ import {
   mapOrganizationGroupsResponse,
   mapOrganizationResponse,
   mapOrganizationsListResponse,
-  mapOrganizationUsersResponse,
-  mapUserResponse,
-  mapUsersListResponse
+  mapOrganizationUsersResponse
 } from './adminV2ReadMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
@@ -123,6 +128,28 @@ function requestAdminV2<T>(
   return request<unknown>(`${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`, {
     fetchOptions: createConnectJsonPostInit(requestBody)
   }).then((responseBody) => mapResponse(responseBody));
+}
+
+function requestAdminV2Proto<Desc extends DescMessage>(
+  methodName: string,
+  requestBody: Record<string, unknown>,
+  schema: Desc
+): Promise<MessageShape<Desc>> {
+  return request<Record<string, unknown>>(
+    `${ADMIN_V2_CONNECT_BASE_PATH}/${methodName}`,
+    {
+      fetchOptions: createConnectJsonPostInit(requestBody)
+    }
+  ).then((responseBody) => {
+    try {
+      return fromJson(schema, responseBody, {
+        ignoreUnknownFields: true
+      });
+    } catch (error) {
+      console.error('Failed to decode admin v2 response', error);
+      throw new Error('Invalid admin response');
+    }
+  });
 }
 
 function requestAi<T>(
@@ -356,16 +383,16 @@ export const api = {
         if (options?.organizationId) {
           requestBody['organizationId'] = options.organizationId;
         }
-        return requestAdminV2<AdminUsersResponse>(
+        return requestAdminV2Proto(
           'ListUsers',
           requestBody,
-          mapUsersListResponse
+          AdminListUsersResponseSchema
         );
       },
       get: (id: string) =>
-        requestAdminV2<AdminUserResponse>('GetUser', { id }, mapUserResponse),
+        requestAdminV2Proto('GetUser', { id }, AdminGetUserResponseSchema),
       update: (id: string, data: AdminUserUpdatePayload) =>
-        requestAdminV2<AdminUserUpdateResponse>(
+        requestAdminV2Proto(
           'UpdateUser',
           {
             id,
@@ -386,7 +413,7 @@ export const api = {
               ? { markedForDeletion: data.markedForDeletion }
               : {})
           },
-          mapUserResponse
+          AdminUpdateUserResponseSchema
         )
     }
   },

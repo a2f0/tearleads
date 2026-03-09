@@ -1,6 +1,4 @@
 import type {
-  AdminUserResponse,
-  AdminUsersResponse,
   Group,
   GroupDetailResponse,
   GroupMembersResponse,
@@ -174,79 +172,5 @@ export function mapOrganizationUsersResponse(
         email: typeof user['email'] === 'string' ? user['email'] : '',
         joinedAt: typeof user['joinedAt'] === 'string' ? user['joinedAt'] : ''
       }))
-  };
-}
-
-function mapAdminUser(user: unknown): AdminUserResponse['user'] {
-  const userRecord = isRecord(user) ? user : {};
-  const accounting = isRecord(userRecord['accounting'])
-    ? userRecord['accounting']
-    : {};
-  const organizationIds = Array.isArray(userRecord['organizationIds'])
-    ? userRecord['organizationIds'].filter(
-        (organizationId): organizationId is string =>
-          typeof organizationId === 'string'
-      )
-    : [];
-
-  return {
-    id: typeof userRecord['id'] === 'string' ? userRecord['id'] : '',
-    email: typeof userRecord['email'] === 'string' ? userRecord['email'] : '',
-    emailConfirmed: Boolean(userRecord['emailConfirmed']),
-    admin: Boolean(userRecord['admin']),
-    organizationIds,
-    createdAt:
-      typeof userRecord['createdAt'] === 'string'
-        ? userRecord['createdAt']
-        : null,
-    lastActiveAt:
-      typeof userRecord['lastActiveAt'] === 'string'
-        ? userRecord['lastActiveAt']
-        : null,
-    accounting: {
-      totalPromptTokens: toSafeNumber(accounting['totalPromptTokens']),
-      totalCompletionTokens: toSafeNumber(accounting['totalCompletionTokens']),
-      totalTokens: toSafeNumber(accounting['totalTokens']),
-      requestCount: toSafeNumber(accounting['requestCount']),
-      lastUsedAt:
-        typeof accounting['lastUsedAt'] === 'string'
-          ? accounting['lastUsedAt']
-          : null
-    },
-    disabled: Boolean(userRecord['disabled']),
-    disabledAt:
-      typeof userRecord['disabledAt'] === 'string'
-        ? userRecord['disabledAt']
-        : null,
-    disabledBy:
-      typeof userRecord['disabledBy'] === 'string'
-        ? userRecord['disabledBy']
-        : null,
-    markedForDeletionAt:
-      typeof userRecord['markedForDeletionAt'] === 'string'
-        ? userRecord['markedForDeletionAt']
-        : null,
-    markedForDeletionBy:
-      typeof userRecord['markedForDeletionBy'] === 'string'
-        ? userRecord['markedForDeletionBy']
-        : null
-  };
-}
-
-export function mapUsersListResponse(
-  responseBody: unknown
-): AdminUsersResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  const users = Array.isArray(response['users']) ? response['users'] : [];
-
-  return {
-    users: users.map((user) => mapAdminUser(user))
-  };
-}
-
-export function mapUserResponse(responseBody: unknown): AdminUserResponse {
-  const response = isRecord(responseBody) ? responseBody : {};
-  return {
-    user: mapAdminUser(response['user'])
   };
 }

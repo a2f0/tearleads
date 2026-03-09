@@ -1,4 +1,5 @@
-import type { AdminUser, AdminUserUpdatePayload } from '@tearleads/shared';
+import type { AdminUserUpdatePayload } from '@tearleads/shared';
+import type { AdminUser } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { BackLink } from '@tearleads/ui';
 import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -17,6 +18,13 @@ interface UsersAdminDetailProps {
   userId?: string | null;
   backLink?: ReactNode;
   onViewAiRequests?: ((userId: string) => void) | undefined;
+}
+
+function requireAdminUser(user: AdminUser | undefined): AdminUser {
+  if (!user) {
+    throw new Error('Admin response missing user');
+  }
+  return user;
 }
 
 export function UsersAdminDetail({
@@ -49,9 +57,10 @@ export function UsersAdminDetail({
     setError(null);
     try {
       const response = await api.adminV2.users.get(userId);
-      setUser(response.user);
-      setDraft(response.user);
-      setOrganizationIdsInput(response.user.organizationIds.join(', '));
+      const nextUser = requireAdminUser(response.user);
+      setUser(nextUser);
+      setDraft(nextUser);
+      setOrganizationIdsInput(nextUser.organizationIds.join(', '));
     } catch (err) {
       console.error('Failed to fetch user:', err);
       const message = err instanceof Error ? err.message : String(err);
@@ -118,9 +127,10 @@ export function UsersAdminDetail({
     setSaving(true);
     try {
       const response = await api.adminV2.users.update(user.id, payload);
-      setUser(response.user);
-      setDraft(response.user);
-      setOrganizationIdsInput(response.user.organizationIds.join(', '));
+      const nextUser = requireAdminUser(response.user);
+      setUser(nextUser);
+      setDraft(nextUser);
+      setOrganizationIdsInput(nextUser.organizationIds.join(', '));
     } catch (err) {
       console.error('Failed to update user:', err);
       setSaveError(err instanceof Error ? err.message : String(err));

@@ -2,11 +2,11 @@ import { cn } from '@tearleads/ui';
 
 export { cn };
 
-export function formatNumber(value: number): string {
+export function formatNumber(value: number | bigint): string {
   return new Intl.NumberFormat().format(value);
 }
 
-export function formatTimestamp(value: string | null): string {
+export function formatTimestamp(value: string | null | undefined): string {
   if (!value) return '—';
   return formatDate(new Date(value));
 }
