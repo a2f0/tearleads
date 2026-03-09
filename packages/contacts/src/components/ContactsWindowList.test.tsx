@@ -1,22 +1,23 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as useContactsModule from '../hooks/useContacts';
 import { TestContactsProvider } from '../test/testUtils';
 import { ContactsWindowList } from './ContactsWindowList';
 
 const mockUseContacts = vi.fn();
 const mockUseVirtualizer = vi.fn();
 
-vi.mock('../hooks/useContacts', () => ({
-  useContacts: () => mockUseContacts()
-}));
-
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: () => mockUseVirtualizer()
+  useVirtualizer: (...args: unknown[]) => mockUseVirtualizer(...args)
 }));
 
 describe('ContactsWindowList', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.spyOn(useContactsModule, 'useContacts').mockImplementation((...args) =>
+      mockUseContacts(...args)
+    );
+    mockUseContacts.mockReset();
+    mockUseVirtualizer.mockReset();
     mockUseVirtualizer.mockReturnValue({
       getVirtualItems: () => [{ index: 0, start: 0 }],
       getTotalSize: () => 56,
@@ -38,6 +39,10 @@ describe('ContactsWindowList', () => {
       fetchContacts: vi.fn(),
       setHasFetched: vi.fn()
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('sends email to the primary email from context menu', () => {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as contactsHooks from '../hooks';
 import { createMockDatabase, TestContactsProvider } from '../test/testUtils';
 import {
   ALL_CONTACTS_ID,
@@ -9,14 +10,6 @@ import {
 
 const mockUseContactGroups = vi.fn();
 
-vi.mock('../hooks', async () => {
-  const actual = await vi.importActual('../hooks');
-  return {
-    ...actual,
-    useContactGroups: () => mockUseContactGroups()
-  };
-});
-
 describe('ContactsGroupsSidebar', () => {
   const createGroup = vi.fn(async () => 'group-3');
   const renameGroup = vi.fn(async () => undefined);
@@ -24,7 +17,14 @@ describe('ContactsGroupsSidebar', () => {
   const refetch = vi.fn(async () => undefined);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.spyOn(contactsHooks, 'useContactGroups').mockImplementation(() =>
+      mockUseContactGroups()
+    );
+    mockUseContactGroups.mockReset();
+    createGroup.mockClear();
+    renameGroup.mockClear();
+    deleteGroup.mockClear();
+    refetch.mockClear();
     mockUseContactGroups.mockReturnValue({
       groups: [
         { id: 'group-1', name: 'Family', contactCount: 2 },
@@ -38,6 +38,10 @@ describe('ContactsGroupsSidebar', () => {
       renameGroup,
       deleteGroup
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('renders groups and handles selection', async () => {
@@ -272,7 +276,6 @@ describe('ContactsGroupsSidebar', () => {
     fireEvent.contextMenu(groupButton);
     await user.click(screen.getByText('sendEmail'));
 
-    // openEmailComposer should not be called with empty recipients
     expect(openEmailComposer).not.toHaveBeenCalled();
   });
 
@@ -375,10 +378,7 @@ describe('ContactsGroupsSidebar', () => {
       );
     });
 
-    // openEmailComposer should not be called on error
     expect(openEmailComposer).not.toHaveBeenCalled();
-
-    // Context menu should still close
     await waitFor(() => {
       expect(screen.queryByText('sendEmail')).not.toBeInTheDocument();
     });
@@ -488,7 +488,6 @@ describe('ContactsGroupsSidebar', () => {
     fireEvent.contextMenu(groupButton);
     await user.click(screen.getByText('sendEmail'));
 
-    // Should deduplicate - only unique emails
     expect(openEmailComposer).toHaveBeenCalledWith([
       'same@example.com',
       'different@example.com'
