@@ -10,7 +10,9 @@ type AdminScopeOrganizationInit = {
   name: string;
 };
 
-async function loadOrganizationsForRoot(): Promise<AdminScopeOrganizationInit[]> {
+async function loadOrganizationsForRoot(): Promise<
+  AdminScopeOrganizationInit[]
+> {
   const pool = await getPool('read');
   const result = await pool.query<{ id: string; name: string }>(
     `SELECT id, name
