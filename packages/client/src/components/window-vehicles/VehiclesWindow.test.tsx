@@ -3,6 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindow } from './VehiclesWindow';
 
+vi.mock('@/contexts/ClientVehiclesProvider', () => ({
+  ClientVehiclesProvider: ({
+    children
+  }: {
+    children: React.ReactNode;
+  }) => <>{children}</>
+}));
+
 vi.mock('@tearleads/window-manager', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tearleads/window-manager')>()),
   DesktopFloatingWindow: ({

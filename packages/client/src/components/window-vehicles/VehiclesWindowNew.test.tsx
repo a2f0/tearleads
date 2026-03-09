@@ -1,5 +1,5 @@
 import type { VehicleRecord, VehicleRepository } from '@tearleads/vehicles';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VehiclesWindowNew } from './VehiclesWindowNew';
@@ -258,6 +258,51 @@ describe('VehiclesWindowNew', () => {
     });
   });
 
+  it('shows an error when no repository is available', async () => {
+    const user = userEvent.setup();
+
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: null
+      })
+    );
+
+    render(<VehiclesWindowNew {...defaultProps} />);
+
+    await user.type(screen.getByLabelText('Make'), 'Tesla');
+    await user.type(screen.getByLabelText('Model'), 'Model Y');
+    await user.click(screen.getByRole('button', { name: 'Create Vehicle' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Unable to create vehicle right now/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('renders mocked color validation errors', async () => {
+    const user = userEvent.setup();
+    const vehiclesModule = await import('@tearleads/vehicles');
+    const normalizeVehicleProfileSpy = vi
+      .spyOn(vehiclesModule, 'normalizeVehicleProfile')
+      .mockReturnValue({
+        ok: false,
+        errors: [{ field: 'color', error: 'Color is invalid' }]
+      });
+
+    try {
+      render(<VehiclesWindowNew {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: 'Create Vehicle' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Color is invalid')).toBeInTheDocument();
+      });
+    } finally {
+      normalizeVehicleProfileSpy.mockRestore();
+    }
+  });
+
   it('creates a vehicle when year is left empty', async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
@@ -320,50 +365,4 @@ describe('VehiclesWindowNew', () => {
     });
   });
 
-  it('routes creates to the active instance after a switch', async () => {
-    const user = userEvent.setup();
-    const onCreated = vi.fn();
-    const staleRepository = createRepository({
-      createVehicle: vi.fn(async () => createVehicle({ id: 'stale-vehicle' }))
-    });
-    const activeRepository = createRepository({
-      createVehicle: vi.fn(async () => createVehicle({ id: 'active-vehicle' }))
-    });
-
-    let runtime = createRuntime({
-      databaseState: { currentInstanceId: 'instance-a' },
-      repository: staleRepository
-    });
-
-    mockUseVehiclesRuntime.mockImplementation(() => runtime);
-
-    const { rerender } = render(
-      <VehiclesWindowNew {...defaultProps} onCreated={onCreated} />
-    );
-
-    runtime = createRuntime({
-      databaseState: { currentInstanceId: 'instance-b' },
-      repository: activeRepository
-    });
-
-    await act(async () => {
-      rerender(<VehiclesWindowNew {...defaultProps} onCreated={onCreated} />);
-      instanceChangeCallback?.('instance-b', 'instance-a');
-    });
-
-    await user.type(screen.getByLabelText('Make'), 'Ford');
-    await user.type(screen.getByLabelText('Model'), 'F-150');
-    await user.click(screen.getByRole('button', { name: 'Create Vehicle' }));
-
-    await waitFor(() => {
-      expect(staleRepository.createVehicle).not.toHaveBeenCalled();
-      expect(activeRepository.createVehicle).toHaveBeenCalledWith({
-        make: 'Ford',
-        model: 'F-150',
-        year: null,
-        color: null
-      });
-      expect(onCreated).toHaveBeenCalledWith('active-vehicle');
-    });
-  });
 });

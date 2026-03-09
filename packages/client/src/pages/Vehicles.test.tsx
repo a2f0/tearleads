@@ -3,6 +3,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { Vehicles } from './Vehicles';
 
+vi.mock('@/contexts/ClientVehiclesProvider', () => ({
+  ClientVehiclesProvider: ({
+    children
+  }: {
+    children: React.ReactNode;
+  }) => <>{children}</>
+}));
+
 vi.mock('@/components/vehicles', () => ({
   VehiclesManager: () => (
     <div data-testid="vehicles-manager">Vehicles Manager</div>

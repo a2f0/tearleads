@@ -198,6 +198,34 @@ describe('VehiclesWindowList', () => {
     });
   });
 
+  it('renders fallback year and color values when they are missing', async () => {
+    mockUseVehiclesRuntime.mockReturnValue(
+      createRuntime({
+        repository: createRepository({
+          listVehicles: vi.fn(async () => [
+            createVehicle({
+              year: null,
+              color: null
+            })
+          ])
+        })
+      })
+    );
+
+    render(<VehiclesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tesla Model Y')).toBeInTheDocument();
+      expect(screen.getByText('No color specified')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId('window-vehicles-search'), {
+      target: { value: 'Tesla' }
+    });
+
+    expect(screen.getByText('Tesla Model Y')).toBeInTheDocument();
+  });
+
   it('calls onSelectVehicle when clicking a vehicle row', async () => {
     const onSelectVehicle = vi.fn();
 
