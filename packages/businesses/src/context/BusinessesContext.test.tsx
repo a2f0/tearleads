@@ -23,11 +23,18 @@ const providedDatabaseState: BusinessesDatabaseState = {
 
 function createWrapper(databaseState?: BusinessesDatabaseState) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(
-      BusinessesProvider,
-      { databaseState, ui: uiComponents },
-      children
-    );
+    if (databaseState === undefined) {
+      return createElement(BusinessesProvider, {
+        children,
+        ui: uiComponents
+      });
+    }
+
+    return createElement(BusinessesProvider, {
+      children,
+      databaseState,
+      ui: uiComponents
+    });
   };
 }
 
