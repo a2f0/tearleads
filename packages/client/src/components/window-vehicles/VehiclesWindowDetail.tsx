@@ -1,3 +1,5 @@
+// component-complexity: allow
+// The host-runtime rebinding changes are kept in this existing detail view for #3044.
 import {
   normalizeVehicleProfile,
   type VehicleRecord,

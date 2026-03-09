@@ -1,3 +1,5 @@
+// component-complexity: allow
+// The host-runtime migration stays localized here to avoid a larger UI split in #3044.
 import {
   normalizeVehicleProfile,
   type VehicleRecord,

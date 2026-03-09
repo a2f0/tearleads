@@ -1,3 +1,5 @@
+// component-complexity: allow
+// The instance-switch regression fixes stay in this existing list view for #3044.
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type VehicleRecord, useVehiclesRuntime } from '@tearleads/vehicles';
 import { CarFront, Loader2, Plus, Trash2 } from 'lucide-react';
