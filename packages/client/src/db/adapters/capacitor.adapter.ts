@@ -5,12 +5,12 @@
 
 import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { normalizeSqlStatements } from '@/db/sql/sqlBatch';
-import { SavepointTransactionManager } from './savepointTransactionManager';
 import {
   getSQLiteConnection,
   isIgnorableDeleteDbError,
   resetSQLiteConnectionCache
 } from './capacitorAdapterHelpers';
+import { SavepointTransactionManager } from './savepointTransactionManager';
 import type {
   DatabaseAdapter,
   DatabaseConfig,
