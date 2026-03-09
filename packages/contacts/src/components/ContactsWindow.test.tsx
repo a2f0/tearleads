@@ -13,6 +13,89 @@ const mockUseVirtualizer = vi.fn();
 const mockUseContactDetailData = vi.fn();
 const mockUseContactDetailForm = vi.fn();
 
+function createMockContactGroupsState() {
+  return {
+    groups: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn(),
+    createGroup: vi.fn(),
+    renameGroup: vi.fn(),
+    deleteGroup: vi.fn()
+  };
+}
+
+function createMockVirtualizerState() {
+  return {
+    getVirtualItems: () => [{ index: 0, start: 0 }],
+    getTotalSize: () => 56,
+    measureElement: vi.fn()
+  };
+}
+
+function createMockContactsState() {
+  return {
+    contactsList: [
+      {
+        id: 'contact-1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        primaryEmail: 'ada@example.com',
+        primaryPhone: null
+      }
+    ],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    fetchContacts: vi.fn(),
+    setHasFetched: vi.fn()
+  };
+}
+
+function createMockDetailDataState() {
+  return {
+    contact: {
+      id: 'contact-1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      birthday: null,
+      createdAt: new Date('2026-03-09T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-09T00:00:00.000Z')
+    },
+    emails: [],
+    phones: [],
+    loading: false,
+    error: null,
+    setError: vi.fn(),
+    fetchContact: vi.fn()
+  };
+}
+
+function createMockDetailFormState() {
+  return {
+    isEditing: false,
+    formData: null,
+    emailsForm: [],
+    phonesForm: [],
+    saving: false,
+    deleting: false,
+    handleEditClick: vi.fn(),
+    handleCancel: vi.fn(),
+    handleFormChange: vi.fn(),
+    handleEmailChange: vi.fn(),
+    handleEmailPrimaryChange: vi.fn(),
+    handleDeleteEmail: vi.fn(),
+    handleAddEmail: vi.fn(),
+    handlePhoneChange: vi.fn(),
+    handlePhonePrimaryChange: vi.fn(),
+    handleDeletePhone: vi.fn(),
+    handleAddPhone: vi.fn(),
+    handleSave: vi.fn(),
+    handleDelete: vi.fn()
+  };
+}
+
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (...args: unknown[]) => mockUseVirtualizer(...args)
 }));
@@ -46,74 +129,11 @@ describe('ContactsWindow', () => {
     mockUseContactDetailData.mockReset();
     mockUseContactDetailForm.mockReset();
 
-    mockUseContactGroups.mockReturnValue({
-      groups: [],
-      loading: false,
-      error: null,
-      hasFetched: true,
-      refetch: vi.fn(),
-      createGroup: vi.fn(),
-      renameGroup: vi.fn(),
-      deleteGroup: vi.fn()
-    });
-    mockUseVirtualizer.mockReturnValue({
-      getVirtualItems: () => [{ index: 0, start: 0 }],
-      getTotalSize: () => 56,
-      measureElement: vi.fn()
-    });
-    mockUseContacts.mockImplementation(() => ({
-      contactsList: [
-        {
-          id: 'contact-1',
-          firstName: 'Ada',
-          lastName: 'Lovelace',
-          primaryEmail: 'ada@example.com',
-          primaryPhone: null
-        }
-      ],
-      loading: false,
-      error: null,
-      hasFetched: true,
-      fetchContacts: vi.fn(),
-      setHasFetched: vi.fn()
-    }));
-    mockUseContactDetailData.mockReturnValue({
-      contact: {
-        id: 'contact-1',
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        birthday: null,
-        createdAt: new Date('2026-03-09T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-09T00:00:00.000Z')
-      },
-      emails: [],
-      phones: [],
-      loading: false,
-      error: null,
-      setError: vi.fn(),
-      fetchContact: vi.fn()
-    });
-    mockUseContactDetailForm.mockReturnValue({
-      isEditing: false,
-      formData: null,
-      emailsForm: [],
-      phonesForm: [],
-      saving: false,
-      deleting: false,
-      handleEditClick: vi.fn(),
-      handleCancel: vi.fn(),
-      handleFormChange: vi.fn(),
-      handleEmailChange: vi.fn(),
-      handleEmailPrimaryChange: vi.fn(),
-      handleDeleteEmail: vi.fn(),
-      handleAddEmail: vi.fn(),
-      handlePhoneChange: vi.fn(),
-      handlePhonePrimaryChange: vi.fn(),
-      handleDeletePhone: vi.fn(),
-      handleAddPhone: vi.fn(),
-      handleSave: vi.fn(),
-      handleDelete: vi.fn()
-    });
+    mockUseContactGroups.mockReturnValue(createMockContactGroupsState());
+    mockUseVirtualizer.mockReturnValue(createMockVirtualizerState());
+    mockUseContacts.mockImplementation(() => createMockContactsState());
+    mockUseContactDetailData.mockReturnValue(createMockDetailDataState());
+    mockUseContactDetailForm.mockReturnValue(createMockDetailFormState());
   });
 
   afterEach(() => {
