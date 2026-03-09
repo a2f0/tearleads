@@ -473,5 +473,4 @@ describe('user-settings', () => {
       dispatchSpy.mockRestore();
     });
   });
-
 });

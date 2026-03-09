@@ -74,19 +74,16 @@ export function SettingsProvider({
   const hasSyncedRef = useRef(false);
   const prevInstanceIdRef = useRef<string | null | undefined>(undefined);
 
-  // Migrate unscoped settings when instanceId changes to a new value
-  useEffect(() => {
-    if (instanceId && instanceId !== prevInstanceIdRef.current) {
-      migrateUnscopedSettings(instanceId);
-    }
-    prevInstanceIdRef.current = instanceId;
-  }, [instanceId]);
-
-  // Reset state when instanceId changes
+  // Reset state and migrate unscoped settings when instanceId changes
   useEffect(() => {
     hasSyncedRef.current = false;
     setSettings({});
     setIsSynced(false);
+
+    if (instanceId && instanceId !== prevInstanceIdRef.current) {
+      migrateUnscopedSettings(instanceId);
+    }
+    prevInstanceIdRef.current = instanceId;
   }, [instanceId]);
 
   // Sync settings from DB when database operations are available

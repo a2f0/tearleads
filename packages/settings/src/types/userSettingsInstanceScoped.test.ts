@@ -67,9 +67,7 @@ describe('instance-scoped user-settings', () => {
     });
 
     it('returns scoped key when instanceId is provided', () => {
-      expect(resolveStorageKey('theme', 'inst-1')).toBe(
-        'setting:inst-1:theme'
-      );
+      expect(resolveStorageKey('theme', 'inst-1')).toBe('setting:inst-1:theme');
       expect(resolveStorageKey('language', 'inst-1')).toBe(
         'setting:inst-1:i18nextLng'
       );
