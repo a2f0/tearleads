@@ -5,6 +5,7 @@ import {
   AdminGetPostgresInfoRequestSchema,
   AdminGetRedisValueRequestSchema,
   AdminGetTablesRequestSchema,
+  AdminListOrganizationsRequestSchema,
   AdminUpdateUserOrganizationIdsSchema,
   AdminUpdateUserRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -187,6 +188,34 @@ describe('adminConnectServiceV2', () => {
     if (response.value?.value.case === 'stringValue') {
       expect(response.value.value.value).toBe('enabled');
     }
+  });
+
+  it('returns typed organization responses directly', async () => {
+    mocks.listOrganizationsDirect.mockResolvedValueOnce({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Org One',
+          createdAt: '2026-03-09T00:00:00.000Z',
+          updatedAt: '2026-03-09T00:05:00.000Z'
+        }
+      ]
+    });
+
+    const response = await adminConnectServiceV2.listOrganizations(
+      create(AdminListOrganizationsRequestSchema),
+      context
+    );
+
+    expect(response.organizations).toMatchObject([
+      {
+        id: 'org-1',
+        name: 'Org One',
+        createdAt: '2026-03-09T00:00:00.000Z',
+        updatedAt: '2026-03-09T00:05:00.000Z'
+      }
+    ]);
+    expect(response.organizations[0]?.description).toBeUndefined();
   });
 
   it('forwards createGroup payload fields directly to group mutations', async () => {

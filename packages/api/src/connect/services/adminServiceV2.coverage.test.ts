@@ -2,27 +2,20 @@ import { create } from '@bufbuild/protobuf';
 import {
   AdminAddGroupMemberRequestSchema,
   AdminCreateGroupRequestSchema,
-  AdminCreateOrganizationRequestSchema,
   AdminDeleteGroupRequestSchema,
-  AdminDeleteOrganizationRequestSchema,
   AdminDeleteRedisKeyRequestSchema,
   AdminGetColumnsRequestSchema,
   AdminGetGroupMembersRequestSchema,
   AdminGetGroupRequestSchema,
-  AdminGetOrganizationRequestSchema,
-  AdminGetOrgGroupsRequestSchema,
-  AdminGetOrgUsersRequestSchema,
   AdminGetRedisDbSizeRequestSchema,
   AdminGetRedisKeysRequestSchema,
   AdminGetRedisValueRequestSchema,
   AdminGetRowsRequestSchema,
   AdminGetUserRequestSchema,
   AdminListGroupsRequestSchema,
-  AdminListOrganizationsRequestSchema,
   AdminListUsersRequestSchema,
   AdminRemoveGroupMemberRequestSchema,
   AdminUpdateGroupRequestSchema,
-  AdminUpdateOrganizationRequestSchema,
   AdminUpdateUserOrganizationIdsSchema,
   AdminUpdateUserRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
@@ -122,17 +115,12 @@ describe('adminConnectServiceV2 coverage branches', () => {
     vi.clearAllMocks();
   });
 
-  it('forwards list/get/delete handlers and applies organization defaults', async () => {
+  it('forwards group, user, postgres, and redis handlers', async () => {
     mocks.listGroupsDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getGroupDirect.mockResolvedValue(emptyJsonResponse);
     mocks.deleteGroupDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getGroupMembersDirect.mockResolvedValue(emptyJsonResponse);
     mocks.removeGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.listOrganizationsDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.getOrganizationDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.getOrganizationUsersDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.getOrganizationGroupsDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.deleteOrganizationDirect.mockResolvedValue(emptyJsonResponse);
     mocks.listUsersDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getUserDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getColumnsDirect.mockResolvedValue(emptyJsonResponse);
@@ -158,37 +146,6 @@ describe('adminConnectServiceV2 coverage branches', () => {
     );
     await adminConnectServiceV2.getGroupMembers(
       create(AdminGetGroupMembersRequestSchema, { id: 'group-1' }),
-      context
-    );
-    await adminConnectServiceV2.removeGroupMember(
-      create(AdminRemoveGroupMemberRequestSchema, {
-        groupId: 'group-1',
-        userId: 'user-1'
-      }),
-      context
-    );
-    await adminConnectServiceV2.listOrganizations(
-      create(AdminListOrganizationsRequestSchema),
-      context
-    );
-    await adminConnectServiceV2.listOrganizations(
-      create(AdminListOrganizationsRequestSchema, { organizationId: 'org-1' }),
-      context
-    );
-    await adminConnectServiceV2.getOrganization(
-      create(AdminGetOrganizationRequestSchema, { id: 'org-1' }),
-      context
-    );
-    await adminConnectServiceV2.getOrgUsers(
-      create(AdminGetOrgUsersRequestSchema, { id: 'org-1' }),
-      context
-    );
-    await adminConnectServiceV2.getOrgGroups(
-      create(AdminGetOrgGroupsRequestSchema, { id: 'org-1' }),
-      context
-    );
-    await adminConnectServiceV2.deleteOrganization(
-      create(AdminDeleteOrganizationRequestSchema, { id: 'org-1' }),
       context
     );
     await adminConnectServiceV2.listUsers(
@@ -217,6 +174,13 @@ describe('adminConnectServiceV2 coverage branches', () => {
       }),
       context
     );
+    await adminConnectServiceV2.removeGroupMember(
+      create(AdminRemoveGroupMemberRequestSchema, {
+        groupId: 'group-1',
+        userId: 'user-1'
+      }),
+      context
+    );
     await adminConnectServiceV2.deleteRedisKey(
       create(AdminDeleteRedisKeyRequestSchema, { key: 'feature_flag' }),
       context
@@ -236,16 +200,6 @@ describe('adminConnectServiceV2 coverage branches', () => {
       { organizationId: 'org-1' },
       context
     );
-    expect(mocks.listOrganizationsDirect).toHaveBeenNthCalledWith(
-      1,
-      { organizationId: '' },
-      context
-    );
-    expect(mocks.listOrganizationsDirect).toHaveBeenNthCalledWith(
-      2,
-      { organizationId: 'org-1' },
-      context
-    );
     expect(mocks.listUsersDirect).toHaveBeenNthCalledWith(
       1,
       { organizationId: '' },
@@ -254,24 +208,14 @@ describe('adminConnectServiceV2 coverage branches', () => {
     expect(mocks.listUsersDirect).toHaveBeenNthCalledWith(
       2,
       { organizationId: 'org-1' },
-      context
-    );
-    expect(mocks.getOrganizationUsersDirect).toHaveBeenCalledWith(
-      { id: 'org-1' },
-      context
-    );
-    expect(mocks.getOrganizationGroupsDirect).toHaveBeenCalledWith(
-      { id: 'org-1' },
       context
     );
   });
 
-  it('maps group and organization mutation payloads', async () => {
+  it('maps group mutation payloads', async () => {
     mocks.createGroupDirect.mockResolvedValue(emptyJsonResponse);
     mocks.updateGroupDirect.mockResolvedValue(emptyJsonResponse);
     mocks.addGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.createOrganizationDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.updateOrganizationDirect.mockResolvedValue(emptyJsonResponse);
 
     await adminConnectServiceV2.createGroup(
       create(AdminCreateGroupRequestSchema, {
@@ -301,25 +245,6 @@ describe('adminConnectServiceV2 coverage branches', () => {
       }),
       context
     );
-    await adminConnectServiceV2.createOrganization(
-      create(AdminCreateOrganizationRequestSchema, {
-        name: 'Org 2',
-        description: 'Org description'
-      }),
-      context
-    );
-    await adminConnectServiceV2.updateOrganization(
-      create(AdminUpdateOrganizationRequestSchema, {
-        id: 'org-2',
-        name: 'Org 2 Updated',
-        description: 'Updated org'
-      }),
-      context
-    );
-    await adminConnectServiceV2.updateOrganization(
-      create(AdminUpdateOrganizationRequestSchema, { id: 'org-3' }),
-      context
-    );
 
     expect(mocks.createGroupDirect.mock.calls[0]?.[0]).toEqual({
       organizationId: 'org-2',
@@ -338,18 +263,6 @@ describe('adminConnectServiceV2 coverage branches', () => {
     expect(mocks.addGroupMemberDirect.mock.calls[0]?.[0]).toEqual({
       id: 'group-2',
       userId: 'user-2'
-    });
-    expect(mocks.createOrganizationDirect.mock.calls[0]?.[0]).toEqual({
-      name: 'Org 2',
-      description: 'Org description'
-    });
-    expect(mocks.updateOrganizationDirect.mock.calls[0]?.[0]).toEqual({
-      id: 'org-2',
-      name: 'Org 2 Updated',
-      description: 'Updated org'
-    });
-    expect(mocks.updateOrganizationDirect.mock.calls[1]?.[0]).toEqual({
-      id: 'org-3'
     });
   });
 

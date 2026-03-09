@@ -36,18 +36,11 @@ import type {
 import {
   AdminAddGroupMemberResponseSchema,
   AdminCreateGroupResponseSchema,
-  AdminCreateOrganizationResponseSchema,
   AdminDeleteGroupResponseSchema,
-  AdminDeleteOrganizationResponseSchema,
-  AdminGetOrganizationResponseSchema,
-  AdminGetOrgGroupsResponseSchema,
-  AdminGetOrgUsersResponseSchema,
   AdminGetUserResponseSchema,
-  AdminListOrganizationsResponseSchema,
   AdminListUsersResponseSchema,
   AdminRemoveGroupMemberResponseSchema,
   AdminUpdateGroupResponseSchema,
-  AdminUpdateOrganizationResponseSchema,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getContextDirect } from './adminDirectContext.js';
@@ -178,63 +171,55 @@ export const adminConnectServiceV2 = {
     request: AdminListOrganizationsRequest,
     context: ConnectContext
   ) {
-    const response = await listOrganizationsDirect(
+    return listOrganizationsDirect(
       {
         organizationId: request.organizationId ?? ''
       },
       context
     );
-    return decodeAdminJson(AdminListOrganizationsResponseSchema, response.json);
   },
   async getOrganization(
     request: AdminGetOrganizationRequest,
     context: ConnectContext
   ) {
-    const response = await getOrganizationDirect(request, context);
-    return decodeAdminJson(AdminGetOrganizationResponseSchema, response.json);
+    return getOrganizationDirect(request, context);
   },
   async getOrgUsers(request: AdminGetOrgUsersRequest, context: ConnectContext) {
-    const response = await getOrganizationUsersDirect(
+    return getOrganizationUsersDirect(
       {
         id: request.id
       },
       context
     );
-    return decodeAdminJson(AdminGetOrgUsersResponseSchema, response.json);
   },
   async getOrgGroups(
     request: AdminGetOrgGroupsRequest,
     context: ConnectContext
   ) {
-    const response = await getOrganizationGroupsDirect(
+    return getOrganizationGroupsDirect(
       {
         id: request.id
       },
       context
     );
-    return decodeAdminJson(AdminGetOrgGroupsResponseSchema, response.json);
   },
   async createOrganization(
     request: AdminCreateOrganizationRequest,
     context: ConnectContext
   ) {
-    const response = await createOrganizationDirect(
+    return createOrganizationDirect(
       {
         name: request.name,
         description: request.description
       },
       context
     );
-    return decodeAdminJson(
-      AdminCreateOrganizationResponseSchema,
-      response.json
-    );
   },
   async updateOrganization(
     request: AdminUpdateOrganizationRequest,
     context: ConnectContext
   ) {
-    const response = await updateOrganizationDirect(
+    return updateOrganizationDirect(
       {
         id: request.id,
         name: request.name,
@@ -242,20 +227,12 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(
-      AdminUpdateOrganizationResponseSchema,
-      response.json
-    );
   },
   async deleteOrganization(
     request: AdminDeleteOrganizationRequest,
     context: ConnectContext
   ) {
-    const response = await deleteOrganizationDirect(request, context);
-    return decodeAdminJson(
-      AdminDeleteOrganizationResponseSchema,
-      response.json
-    );
+    return deleteOrganizationDirect(request, context);
   },
   async listUsers(request: AdminListUsersRequest, context: ConnectContext) {
     const response = await listUsersDirect(
