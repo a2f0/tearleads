@@ -5,6 +5,37 @@ import { RedisKeyRow } from './RedisKeyRow';
 
 const mockGetValue = vi.fn();
 
+function buildStringValue(value: string) {
+  return {
+    value: {
+      case: 'stringValue',
+      value
+    }
+  };
+}
+
+function buildListValue(values: string[]) {
+  return {
+    value: {
+      case: 'listValue',
+      value: {
+        values
+      }
+    }
+  };
+}
+
+function buildMapValue(entries: Record<string, string>) {
+  return {
+    value: {
+      case: 'mapValue',
+      value: {
+        entries
+      }
+    }
+  };
+}
+
 vi.mock('@/lib/api', () => ({
   api: {
     adminV2: {
@@ -21,7 +52,7 @@ vi.mock('@/lib/api', () => ({
 
 describe('RedisKeyRow', () => {
   const defaultProps = {
-    keyInfo: { key: 'test:key', type: 'string', ttl: -1 },
+    keyInfo: { key: 'test:key', type: 'string', ttl: -1n },
     isExpanded: false,
     onToggle: vi.fn(),
     onContextMenu: vi.fn()
@@ -54,7 +85,7 @@ describe('RedisKeyRow', () => {
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type: 'string', ttl: 30 }}
+          keyInfo={{ key: 'test', type: 'string', ttl: 30n }}
         />
       );
 
@@ -65,7 +96,7 @@ describe('RedisKeyRow', () => {
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type: 'string', ttl: 120 }}
+          keyInfo={{ key: 'test', type: 'string', ttl: 120n }}
         />
       );
 
@@ -76,7 +107,7 @@ describe('RedisKeyRow', () => {
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type: 'string', ttl: 7200 }}
+          keyInfo={{ key: 'test', type: 'string', ttl: 7200n }}
         />
       );
 
@@ -87,7 +118,7 @@ describe('RedisKeyRow', () => {
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type: 'string', ttl: 172800 }}
+          keyInfo={{ key: 'test', type: 'string', ttl: 172800n }}
         />
       );
 
@@ -107,7 +138,7 @@ describe('RedisKeyRow', () => {
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type, ttl: -1 }}
+          keyInfo={{ key: 'test', type, ttl: -1n }}
         />
       );
 
@@ -137,8 +168,8 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:key',
         type: 'string',
-        ttl: -1,
-        value: 'test value'
+        ttl: -1n,
+        value: buildStringValue('test value')
       });
 
       render(<RedisKeyRow {...defaultProps} isExpanded={true} />);
@@ -156,14 +187,14 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test',
         type: 'string',
-        ttl: 3600,
-        value: 'test value'
+        ttl: 3600n,
+        value: buildStringValue('test value')
       });
 
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test', type: 'string', ttl: 3600 }}
+          keyInfo={{ key: 'test', type: 'string', ttl: 3600n }}
           isExpanded={true}
         />
       );
@@ -189,8 +220,8 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:key',
         type: 'string',
-        ttl: -1,
-        value: 'hello world'
+        ttl: -1n,
+        value: buildStringValue('hello world')
       });
 
       render(<RedisKeyRow {...defaultProps} isExpanded={true} />);
@@ -225,8 +256,8 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:key',
         type: 'string',
-        ttl: -1,
-        value: 'hello world'
+        ttl: -1n,
+        value: buildStringValue('hello world')
       });
 
       render(<RedisKeyRow {...defaultProps} isExpanded={true} />);
@@ -243,14 +274,14 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:set',
         type: 'set',
-        ttl: -1,
-        value: ['member1', 'member2', 'member3']
+        ttl: -1n,
+        value: buildListValue(['member1', 'member2', 'member3'])
       });
 
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test:set', type: 'set', ttl: -1 }}
+          keyInfo={{ key: 'test:set', type: 'set', ttl: -1n }}
           isExpanded={true}
         />
       );
@@ -269,14 +300,14 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:hash',
         type: 'hash',
-        ttl: -1,
-        value: { field1: 'value1', field2: 'value2' }
+        ttl: -1n,
+        value: buildMapValue({ field1: 'value1', field2: 'value2' })
       });
 
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test:hash', type: 'hash', ttl: -1 }}
+          keyInfo={{ key: 'test:hash', type: 'hash', ttl: -1n }}
           isExpanded={true}
         />
       );
@@ -296,14 +327,14 @@ describe('RedisKeyRow', () => {
       mockGetValue.mockResolvedValue({
         key: 'test:list',
         type: 'list',
-        ttl: -1,
+        ttl: -1n,
         value: null
       });
 
       render(
         <RedisKeyRow
           {...defaultProps}
-          keyInfo={{ key: 'test:list', type: 'list', ttl: -1 }}
+          keyInfo={{ key: 'test:list', type: 'list', ttl: -1n }}
           isExpanded={true}
         />
       );

@@ -35,10 +35,10 @@ describe('PostgresTableSizes', () => {
         {
           schema: 'public',
           name: 'users',
-          rowCount: 12,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
+          rowCount: 12n,
+          totalBytes: 2048n,
+          tableBytes: 1024n,
+          indexBytes: 1024n
         }
       ]
     });
@@ -87,26 +87,26 @@ describe('PostgresTableSizes', () => {
         {
           schema: 'public',
           name: 'zeta_table',
-          rowCount: 5,
-          totalBytes: 1024,
-          tableBytes: 512,
-          indexBytes: 512
+          rowCount: 5n,
+          totalBytes: 1024n,
+          tableBytes: 512n,
+          indexBytes: 512n
         },
         {
           schema: 'admin',
           name: 'alpha_table',
-          rowCount: 100,
-          totalBytes: 10240,
-          tableBytes: 8192,
-          indexBytes: 2048
+          rowCount: 100n,
+          totalBytes: 10240n,
+          tableBytes: 8192n,
+          indexBytes: 2048n
         },
         {
           schema: 'public',
           name: 'alpha_table',
-          rowCount: 8,
-          totalBytes: 2048,
-          tableBytes: 1536,
-          indexBytes: 512
+          rowCount: 8n,
+          totalBytes: 2048n,
+          tableBytes: 1536n,
+          indexBytes: 512n
         }
       ]
     });
@@ -133,10 +133,10 @@ describe('PostgresTableSizes', () => {
         {
           schema: 'public',
           name: 'users',
-          rowCount: 12,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
+          rowCount: 12n,
+          totalBytes: 2048n,
+          tableBytes: 1024n,
+          indexBytes: 1024n
         }
       ]
     });
@@ -160,10 +160,10 @@ describe('PostgresTableSizes', () => {
         {
           schema: 'public',
           name: 'users',
-          rowCount: 12,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
+          rowCount: 12n,
+          totalBytes: 2048n,
+          tableBytes: 1024n,
+          indexBytes: 1024n
         }
       ]
     });
@@ -185,10 +185,10 @@ describe('PostgresTableSizes', () => {
         {
           schema: 'public',
           name: 'users',
-          rowCount: 12,
-          totalBytes: 2048,
-          tableBytes: 1024,
-          indexBytes: 1024
+          rowCount: 12n,
+          totalBytes: 2048n,
+          tableBytes: 1024n,
+          indexBytes: 1024n
         }
       ]
     });

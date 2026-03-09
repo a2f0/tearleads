@@ -1,4 +1,3 @@
-import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import { RefreshButton } from '@tearleads/ui';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -6,10 +5,13 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
+type AdminPostgresInfoResponse = Awaited<
+  ReturnType<typeof api.adminV2.postgres.getInfo>
+>;
 
 export function PostgresConnectionPanel() {
   const { t } = useTypedTranslation('admin');
-  const [info, setInfo] = useState<PostgresAdminInfoResponse | null>(null);
+  const [info, setInfo] = useState<AdminPostgresInfoResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +81,7 @@ export function PostgresConnectionPanel() {
                 Host
               </div>
               <div className="font-mono">
-                {info?.info.host ?? FALLBACK_VALUE}
+                {info?.info?.host ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -87,7 +89,7 @@ export function PostgresConnectionPanel() {
                 Port
               </div>
               <div className="font-mono">
-                {info?.info.port ?? FALLBACK_VALUE}
+                {info?.info?.port ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -95,7 +97,7 @@ export function PostgresConnectionPanel() {
                 Database
               </div>
               <div className="font-mono">
-                {info?.info.database ?? FALLBACK_VALUE}
+                {info?.info?.database ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
@@ -103,7 +105,7 @@ export function PostgresConnectionPanel() {
                 User
               </div>
               <div className="font-mono">
-                {info?.info.user ?? FALLBACK_VALUE}
+                {info?.info?.user ?? FALLBACK_VALUE}
               </div>
             </div>
           </div>

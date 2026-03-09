@@ -18,8 +18,8 @@ describe('usePostgresTableData', () => {
   const mockSchema = 'public';
   const mockTable = 'users';
   const mockColumns = [
-    { name: 'id', type: 'integer' },
-    { name: 'email', type: 'text' }
+    { name: 'id', type: 'integer', nullable: false, ordinalPosition: 1 },
+    { name: 'email', type: 'text', nullable: false, ordinalPosition: 2 }
   ];
   const mockRows = [{ id: 1, email: 'test@example.com' }];
   const mockedGetColumns = vi.mocked(api.adminV2.postgres.getColumns);
@@ -30,7 +30,9 @@ describe('usePostgresTableData', () => {
     mockedGetColumns.mockResolvedValue({ columns: mockColumns });
     mockedGetRows.mockResolvedValue({
       rows: mockRows,
-      totalCount: 1
+      totalCount: 1n,
+      limit: 50,
+      offset: 0
     });
   });
 

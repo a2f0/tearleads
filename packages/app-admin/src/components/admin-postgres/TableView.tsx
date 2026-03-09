@@ -1,5 +1,4 @@
 import type { VirtualItem, Virtualizer } from '@tanstack/react-virtual';
-import type { PostgresColumnInfo } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -18,7 +17,7 @@ interface TableViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
   virtualizer: TableViewVirtualizer;
   rows: Record<string, unknown>[];
-  visibleColumns: PostgresColumnInfo[];
+  visibleColumns: Array<{ name: string }>;
   sort: SortState;
   handleSort: (columnName: string) => void;
   loadingMore: boolean;

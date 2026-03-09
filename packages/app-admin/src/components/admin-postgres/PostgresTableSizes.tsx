@@ -1,4 +1,3 @@
-import type { PostgresTableInfo } from '@tearleads/shared';
 import { RefreshButton } from '@tearleads/ui';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -12,18 +11,27 @@ import { api } from '@/lib/api';
 
 // component-complexity: allow -- table layout and routing split is tracked separately.
 const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
+type AdminPostgresTableInfo = Awaited<
+  ReturnType<typeof api.adminV2.postgres.getTables>
+>['tables'][number];
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0B';
+function toBigInt(value: bigint | number): bigint {
+  return typeof value === 'bigint' ? value : BigInt(value);
+}
+
+function formatBytes(bytes: bigint | number): string {
+  const normalizedBytes = toBigInt(bytes);
+  if (normalizedBytes === 0n) return '0B';
   const k = 1024;
+  const numericBytes = Number(normalizedBytes);
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const index = Math.floor(Math.log(bytes) / Math.log(k));
-  const value = bytes / k ** index;
+  const index = Math.floor(Math.log(numericBytes) / Math.log(k));
+  const value = numericBytes / k ** index;
   return `${value.toFixed(value >= 10 ? 1 : 2)}${sizes[index]}`;
 }
 
-function formatRowCount(count: number): string {
-  return ROW_COUNT_FORMATTER.format(count);
+function formatRowCount(count: bigint | number): string {
+  return ROW_COUNT_FORMATTER.format(Number(toBigInt(count)));
 }
 
 interface PostgresTableSizesProps {
@@ -33,7 +41,7 @@ interface PostgresTableSizesProps {
 export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   const { t } = useTypedTranslation('admin');
   const navigate = useNavigate();
-  const [tables, setTables] = useState<PostgresTableInfo[]>([]);
+  const [tables, setTables] = useState<AdminPostgresTableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +59,11 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   );
 
   const totalBytes = useMemo(
-    () => tables.reduce((sum, table) => sum + table.totalBytes, 0),
+    () =>
+      tables.reduce(
+        (sum, table) => sum + toBigInt(table.totalBytes),
+        0n
+      ),
     [tables]
   );
 

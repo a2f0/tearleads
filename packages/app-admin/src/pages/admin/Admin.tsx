@@ -1,5 +1,4 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { RedisKeyInfo } from '@tearleads/shared';
 import {
   BackLink,
   ConfirmDialog,
@@ -20,6 +19,9 @@ import { RedisKeyRow } from './RedisKeyRow';
 // component-complexity: allow -- redis list, context menu, and virtualization will be split in follow-up refactor.
 const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 48;
+type AdminRedisKeyInfo = Awaited<
+  ReturnType<typeof api.adminV2.redis.getKeys>
+>['keys'][number];
 
 interface AdminProps {
   showBackLink?: boolean;
@@ -28,14 +30,14 @@ interface AdminProps {
 export function Admin({ showBackLink = true }: AdminProps) {
   const { t } = useTypedTranslation('admin');
   const { t: tContext } = useTypedTranslation('contextMenu');
-  const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
+  const [keys, setKeys] = useState<AdminRedisKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
-    keyInfo: RedisKeyInfo;
+    keyInfo: AdminRedisKeyInfo;
     x: number;
     y: number;
   } | null>(null);
@@ -50,7 +52,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
   const fetchTotalCount = useCallback(async () => {
     try {
       const response = await api.adminV2.redis.getDbSize();
-      setTotalCount(response.count);
+      setTotalCount(Number(response.count));
     } catch (err) {
       console.error('Failed to fetch Redis db size:', err);
     }
@@ -133,7 +135,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
   };
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, keyInfo: RedisKeyInfo) => {
+    (e: React.MouseEvent, keyInfo: AdminRedisKeyInfo) => {
       e.preventDefault();
       setContextMenu({ keyInfo, x: e.clientX, y: e.clientY });
     },

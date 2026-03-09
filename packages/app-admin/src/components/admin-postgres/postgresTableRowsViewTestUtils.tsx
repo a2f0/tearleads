@@ -7,7 +7,7 @@ const defaultColumns = [
 
 const defaultRowsResponse = {
   rows: [],
-  totalCount: 0,
+  totalCount: 0n,
   limit: 50,
   offset: 0
 };
@@ -16,7 +16,7 @@ type ColumnsResponse = { columns: typeof defaultColumns };
 
 type RowsResponse = {
   rows: Record<string, unknown>[];
-  totalCount: number;
+  totalCount: bigint;
   limit: number;
   offset: number;
 };

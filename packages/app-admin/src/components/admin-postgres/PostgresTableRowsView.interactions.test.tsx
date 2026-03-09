@@ -168,7 +168,7 @@ describe('PostgresTableRowsView (interactions)', () => {
     const user = userEvent.setup();
     mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: singleNameRow, totalCount: 1 })
+      buildRowsResponse({ rows: singleNameRow, totalCount: 1n })
     );
 
     render(
@@ -197,7 +197,7 @@ describe('PostgresTableRowsView (interactions)', () => {
 
   it('fetches more rows after scrolling', async () => {
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: singleIdRow, totalCount: 1000 })
+      buildRowsResponse({ rows: singleIdRow, totalCount: 1000n })
     );
 
     await renderAndWait();
@@ -217,7 +217,7 @@ describe('PostgresTableRowsView (interactions)', () => {
     const user = userEvent.setup();
     mockGetColumns.mockResolvedValue(buildColumnsResponse(emailColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: singleNameRow, totalCount: 1 })
+      buildRowsResponse({ rows: singleNameRow, totalCount: 1n })
     );
 
     await renderAndWait();

@@ -1,8 +1,13 @@
-import type { PostgresColumnInfo } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 
 const PAGE_SIZE = 50;
+type AdminPostgresColumn = Awaited<
+  ReturnType<typeof api.adminV2.postgres.getColumns>
+>['columns'][number];
+type AdminPostgresRow = Awaited<
+  ReturnType<typeof api.adminV2.postgres.getRows>
+>['rows'][number];
 
 export type SortDirection = 'asc' | 'desc' | null;
 
@@ -15,8 +20,8 @@ export function usePostgresTableData(
   schema: string | null,
   tableName: string | null
 ) {
-  const [columns, setColumns] = useState<PostgresColumnInfo[]>([]);
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [columns, setColumns] = useState<AdminPostgresColumn[]>([]);
+  const [rows, setRows] = useState<AdminPostgresRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,9 +86,9 @@ export function usePostgresTableData(
           setRows((prev) => [...prev, ...rowsResponse.rows]);
         }
 
-        setTotalCount(rowsResponse.totalCount);
+        setTotalCount(Number(rowsResponse.totalCount));
         offsetRef.current += rowsResponse.rows.length;
-        setHasMore(offsetRef.current < rowsResponse.totalCount);
+        setHasMore(BigInt(offsetRef.current) < rowsResponse.totalCount);
       } catch (err) {
         console.error('Failed to fetch Postgres table data:', err);
         setError(err instanceof Error ? err.message : String(err));

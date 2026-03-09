@@ -140,7 +140,7 @@ describe('PostgresTableRowsView (basic)', () => {
 
   it('shows total count in status', async () => {
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: singleIdRow, totalCount: 100 })
+      buildRowsResponse({ rows: singleIdRow, totalCount: 100n })
     );
 
     await renderAndWait();
@@ -163,7 +163,7 @@ describe('PostgresTableRowsView (basic)', () => {
 
   it('renders with hasMore when more rows available', async () => {
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: singleIdRow, totalCount: 1000 })
+      buildRowsResponse({ rows: singleIdRow, totalCount: 1000n })
     );
 
     await renderAndWait();

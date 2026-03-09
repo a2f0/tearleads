@@ -1,4 +1,3 @@
-import type { RedisKeysResponse } from '@tearleads/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -6,10 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { Admin } from './Admin';
 
+type RedisKeysResponse = {
+  keys: Array<{ key: string; type: string; ttl: bigint }>;
+  cursor: string;
+  hasMore: boolean;
+};
+type DeleteRedisKeyResponse = { deleted: boolean };
+type GetRedisDbSizeResponse = { count: bigint };
+
 const mockGetKeys =
   vi.fn<(cursor?: string, limit?: number) => Promise<RedisKeysResponse>>();
-const mockDeleteKey = vi.fn<(key: string) => Promise<{ deleted: boolean }>>();
-const mockGetDbSize = vi.fn<() => Promise<{ count: number }>>();
+const mockDeleteKey = vi.fn<(key: string) => Promise<DeleteRedisKeyResponse>>();
+const mockGetDbSize = vi.fn<() => Promise<GetRedisDbSizeResponse>>();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -79,7 +86,7 @@ describe('Admin (basic)', () => {
     vi.clearAllMocks();
     mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
     mockDeleteKey.mockResolvedValue({ deleted: true });
-    mockGetDbSize.mockResolvedValue({ count: 0 });
+    mockGetDbSize.mockResolvedValue({ count: 0n });
   });
 
   describe('page rendering', () => {
@@ -105,7 +112,7 @@ describe('Admin (basic)', () => {
   describe('empty state', () => {
     it('shows empty state message and count', async () => {
       mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
-      mockGetDbSize.mockResolvedValue({ count: 0 });
+      mockGetDbSize.mockResolvedValue({ count: 0n });
 
       renderAdmin();
 
@@ -118,8 +125,8 @@ describe('Admin (basic)', () => {
 
   describe('with key data', () => {
     const testKeys = [
-      { key: 'user:1', type: 'hash', ttl: -1 },
-      { key: 'session:abc', type: 'string', ttl: 3600 }
+      { key: 'user:1', type: 'hash', ttl: -1n },
+      { key: 'session:abc', type: 'string', ttl: 3600n }
     ];
 
     beforeEach(() => {
@@ -144,7 +151,7 @@ describe('Admin (basic)', () => {
     });
 
     it('displays key count in header', async () => {
-      mockGetDbSize.mockResolvedValue({ count: 2 });
+      mockGetDbSize.mockResolvedValue({ count: 2n });
       renderAdmin();
 
       await waitFor(() => {
@@ -155,12 +162,12 @@ describe('Admin (basic)', () => {
 
   describe('key count display', () => {
     it.each([
-      ['1 key', [{ key: 'only', type: 'string', ttl: -1 }], 1],
+      ['1 key', [{ key: 'only', type: 'string', ttl: -1n }], 1],
       [
         '2 keys',
         [
-          { key: 'first', type: 'string', ttl: -1 },
-          { key: 'second', type: 'string', ttl: -1 }
+          { key: 'first', type: 'string', ttl: -1n },
+          { key: 'second', type: 'string', ttl: -1n }
         ],
         2
       ]
@@ -170,7 +177,7 @@ describe('Admin (basic)', () => {
         cursor: '0',
         hasMore: false
       });
-      mockGetDbSize.mockResolvedValue({ count });
+      mockGetDbSize.mockResolvedValue({ count: BigInt(count) });
 
       renderAdmin();
 
@@ -253,11 +260,11 @@ describe('Admin (basic)', () => {
   describe('total count display', () => {
     it('shows total count from dbsize', async () => {
       mockGetKeys.mockResolvedValue({
-        keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
+        keys: [{ key: 'test:key', type: 'string', ttl: -1n }],
         cursor: '0',
         hasMore: false
       });
-      mockGetDbSize.mockResolvedValue({ count: 100 });
+      mockGetDbSize.mockResolvedValue({ count: 100n });
 
       renderAdmin();
 
@@ -277,7 +284,7 @@ describe('Admin (basic)', () => {
     it('shows hasMore indicator when dbsize fails', async () => {
       const consoleSpy = mockConsoleError();
       mockGetKeys.mockResolvedValue({
-        keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
+        keys: [{ key: 'test:key', type: 'string', ttl: -1n }],
         cursor: '0',
         hasMore: true
       });
@@ -298,14 +305,14 @@ describe('Admin (basic)', () => {
     it('shows viewing range when total count is available', async () => {
       mockGetKeys.mockResolvedValue({
         keys: [
-          { key: 'key:1', type: 'string', ttl: -1 },
-          { key: 'key:2', type: 'string', ttl: -1 },
-          { key: 'key:3', type: 'string', ttl: -1 }
+          { key: 'key:1', type: 'string', ttl: -1n },
+          { key: 'key:2', type: 'string', ttl: -1n },
+          { key: 'key:3', type: 'string', ttl: -1n }
         ],
         cursor: '0',
         hasMore: false
       });
-      mockGetDbSize.mockResolvedValue({ count: 3 });
+      mockGetDbSize.mockResolvedValue({ count: 3n });
 
       renderAdmin();
 

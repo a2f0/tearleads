@@ -66,7 +66,7 @@ describe('PostgresTableRowsView (rendering)', () => {
     vi.clearAllMocks();
     mockGetColumns.mockResolvedValue(buildColumnsResponse(jsonColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: jsonRow, totalCount: 1 })
+      buildRowsResponse({ rows: jsonRow, totalCount: 1n })
     );
   });
 
@@ -79,7 +79,7 @@ describe('PostgresTableRowsView (rendering)', () => {
   it('renders multiple rows', async () => {
     mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: nameRows, totalCount: 2 })
+      buildRowsResponse({ rows: nameRows, totalCount: 2n })
     );
     await renderAndWait();
 
@@ -90,7 +90,7 @@ describe('PostgresTableRowsView (rendering)', () => {
   it('renders placeholder for null data', async () => {
     mockGetColumns.mockResolvedValue(buildColumnsResponse(jsonColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: [{ json: null }], totalCount: 1 })
+      buildRowsResponse({ rows: [{ json: null }], totalCount: 1n })
     );
 
     await renderAndWait();
@@ -101,7 +101,7 @@ describe('PostgresTableRowsView (rendering)', () => {
   it('renders row count in status', async () => {
     mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: nameRows, totalCount: 2 })
+      buildRowsResponse({ rows: nameRows, totalCount: 2n })
     );
 
     await renderAndWait();

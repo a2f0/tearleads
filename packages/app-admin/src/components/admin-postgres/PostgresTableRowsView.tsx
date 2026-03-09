@@ -216,17 +216,19 @@ export function PostgresTableRowsView({
         hasMoreData = offset < response.totalCount;
       }
 
-      const headers = columns.map((col) => col.name);
-      const csvRows = allRows.map((row) =>
-        columns.map((col) => {
-          const value = row[col.name];
-          if (value === null || value === undefined) return '';
-          if (typeof value === 'object') return JSON.stringify(value);
-          return String(value);
+      const csvContent = createCsv(
+        allRows.map((row) => {
+          const csvRow: Record<string, unknown> = {};
+          for (const column of columns) {
+            const value = row[column.name];
+            csvRow[column.name] =
+              value !== null && typeof value === 'object'
+                ? JSON.stringify(value)
+                : value;
+          }
+          return csvRow;
         })
       );
-
-      const csvContent = createCsv(headers, csvRows);
       downloadFile(csvContent, `${schema}.${tableName}.csv`, 'text/csv');
     } catch (err) {
       console.error('Failed to export CSV:', err);

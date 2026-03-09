@@ -1,9 +1,11 @@
 import { create } from '@bufbuild/protobuf';
 import {
   AdminGetContextResponseSchema,
+  AdminDeleteRedisKeyResponseSchema,
   AdminGetGroupResponseSchema,
   AdminGetOrganizationResponseSchema,
   AdminGetOrgGroupsResponseSchema,
+  AdminGetRedisDbSizeResponseSchema,
   AdminListOrganizationsResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -73,14 +75,14 @@ describe('admin api client', () => {
 
   it('handles empty successful responses', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual({
-      deleted: false
-    });
+    await expect(apiClient.adminV2.redis.deleteKey('k')).resolves.toEqual(
+      create(AdminDeleteRedisKeyResponseSchema)
+    );
 
     fetchMock.mockResolvedValueOnce(new Response('', { status: 200 }));
-    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual({
-      count: 0
-    });
+    await expect(apiClient.adminV2.redis.getDbSize()).resolves.toEqual(
+      create(AdminGetRedisDbSizeResponseSchema)
+    );
   });
 
   it('decodes admin user responses with generated proto types', async () => {

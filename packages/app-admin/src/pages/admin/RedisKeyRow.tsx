@@ -1,4 +1,3 @@
-import type { RedisKeyInfo, RedisKeyValueResponse } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
@@ -10,8 +9,15 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // one-component-per-file: allow -- helper renderers share row-local translation and typing context.
+type AdminRedisKeyInfo = Awaited<
+  ReturnType<typeof api.adminV2.redis.getKeys>
+>['keys'][number];
+type AdminRedisValueResponse = Awaited<
+  ReturnType<typeof api.adminV2.redis.getValue>
+>;
+
 interface RedisKeyRowProps {
-  keyInfo: RedisKeyInfo;
+  keyInfo: AdminRedisKeyInfo;
   isExpanded: boolean;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -36,13 +42,13 @@ function getTypeBadgeColor(type: string): string {
   }
 }
 
-function formatTtl(ttl: number): string {
-  if (ttl === -1) return 'No expiry';
-  if (ttl === -2) return 'Key not found';
-  if (ttl < 60) return `${ttl}s`;
-  if (ttl < 3600) return `${Math.floor(ttl / 60)}m`;
-  if (ttl < 86400) return `${Math.floor(ttl / 3600)}h`;
-  return `${Math.floor(ttl / 86400)}d`;
+function formatTtl(ttl: bigint): string {
+  if (ttl === -1n) return 'No expiry';
+  if (ttl === -2n) return 'Key not found';
+  if (ttl < 60n) return `${ttl}s`;
+  if (ttl < 3600n) return `${ttl / 60n}m`;
+  if (ttl < 86400n) return `${ttl / 3600n}h`;
+  return `${ttl / 86400n}d`;
 }
 
 function renderStringValue(value: string, t: (key: string) => string) {
@@ -115,10 +121,13 @@ function renderHashValue(
   );
 }
 
-function renderValue(data: RedisKeyValueResponse, t: (key: string) => string) {
-  const { type, value } = data;
+function renderValue(
+  data: AdminRedisValueResponse,
+  t: (key: string) => string
+) {
+  const redisValue = data.value?.value;
 
-  if (value === null) {
+  if (!redisValue?.case) {
     return (
       <p className="mt-2 text-muted-foreground text-xs italic">
         {t('valueDisplayNotSupported')}
@@ -126,20 +135,20 @@ function renderValue(data: RedisKeyValueResponse, t: (key: string) => string) {
     );
   }
 
-  switch (type) {
+  switch (data.type) {
     case 'string':
-      if (typeof value === 'string') {
-        return renderStringValue(value, t);
+      if (redisValue.case === 'stringValue') {
+        return renderStringValue(redisValue.value, t);
       }
       break;
     case 'set':
-      if (Array.isArray(value)) {
-        return renderSetValue(value, t);
+      if (redisValue.case === 'listValue') {
+        return renderSetValue(redisValue.value.values, t);
       }
       break;
     case 'hash':
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        return renderHashValue(value, t);
+      if (redisValue.case === 'mapValue') {
+        return renderHashValue(redisValue.value.entries, t);
       }
       break;
   }
@@ -154,7 +163,7 @@ export function RedisKeyRow({
   onContextMenu
 }: RedisKeyRowProps) {
   const { t } = useTypedTranslation('admin');
-  const [valueData, setValueData] = useState<RedisKeyValueResponse | null>(
+  const [valueData, setValueData] = useState<AdminRedisValueResponse | null>(
     null
   );
   const [loading, setLoading] = useState(false);
@@ -233,9 +242,9 @@ export function RedisKeyRow({
             </p>
             <p>
               <span className="font-medium">{t('ttl')}:</span>{' '}
-              {keyInfo.ttl === -1
+              {keyInfo.ttl === -1n
                 ? t('noExpiry')
-                : keyInfo.ttl === -2
+                : keyInfo.ttl === -2n
                   ? t('keyNotFound')
                   : `${keyInfo.ttl} seconds`}
             </p>
