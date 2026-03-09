@@ -8,7 +8,7 @@ import { type ComponentProps, useCallback } from 'react';
 
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 
 type WalletWindowProps = ComponentProps<typeof BaseWalletWindow>;
 

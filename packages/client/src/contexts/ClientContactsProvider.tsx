@@ -35,7 +35,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';

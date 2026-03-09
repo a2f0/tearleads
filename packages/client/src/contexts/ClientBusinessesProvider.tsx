@@ -13,7 +13,7 @@ import businessesPackageJson from '@tearleads/app-businesses/package.json';
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 
 function BusinessesAboutMenuItem(props: AboutMenuItemProps) {
   return <AboutMenuItem {...props} version={businessesPackageJson.version} />;

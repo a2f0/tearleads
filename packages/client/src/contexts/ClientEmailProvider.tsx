@@ -22,7 +22,7 @@ import {
   listEmailDraftsFromDb,
   saveEmailDraftToDb
 } from '@/db/emailDrafts';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { runLocalWrite } from '@/db/localWrite';
 import { contactEmails, contacts } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';

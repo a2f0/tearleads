@@ -29,7 +29,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';

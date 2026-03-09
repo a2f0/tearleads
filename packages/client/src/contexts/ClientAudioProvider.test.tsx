@@ -35,7 +35,10 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockDatabaseState,
+  useDatabaseContext: () => mockDatabaseState
+}));
+
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   useHostRuntimeDatabaseState: () => ({
     isUnlocked: mockDatabaseState.isUnlocked,
     isLoading: mockDatabaseState.isLoading,

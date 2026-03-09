@@ -6,7 +6,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback } from 'react';
 import { getDatabase } from '@/db';
-import { useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { logStore } from '@/stores/logStore';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';

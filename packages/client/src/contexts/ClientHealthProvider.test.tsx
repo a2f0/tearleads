@@ -48,7 +48,10 @@ vi.mock('@/db', () => ({
 }));
 
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockDatabaseContext,
+  useDatabaseContext: () => mockDatabaseContext
+}));
+
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   useHostRuntimeDatabaseState: () => ({
     isUnlocked: mockDatabaseContext.isUnlocked,
     isLoading: mockDatabaseContext.isLoading,

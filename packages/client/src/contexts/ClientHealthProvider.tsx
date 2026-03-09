@@ -5,7 +5,8 @@ import {
 import type { ReactNode } from 'react';
 import { useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { useDatabaseContext, useHostRuntimeDatabaseState } from '@/db/hooks';
+import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 
 interface ClientHealthProviderProps {
   children: ReactNode;
