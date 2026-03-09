@@ -1,10 +1,11 @@
 import {
   WalletWindow as BaseWalletWindow,
   createWalletTracker,
+  type WalletDatabaseState,
   type WalletMediaFileOption,
   WalletRuntimeProvider
 } from '@tearleads/wallet/clientEntry';
-import { type ComponentProps, useCallback } from 'react';
+import { type ComponentProps, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -12,7 +13,11 @@ import { useDatabaseContext } from '@/db/hooks';
 type WalletWindowProps = ComponentProps<typeof BaseWalletWindow>;
 
 export function WalletWindow(props: WalletWindowProps) {
-  const { isUnlocked, currentInstanceId } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const databaseState = useMemo<WalletDatabaseState>(
+    () => ({ isUnlocked, isLoading, currentInstanceId }),
+    [isUnlocked, isLoading, currentInstanceId]
+  );
   const createTracker = useCallback(
     () => createWalletTracker(getDatabase()),
     []
@@ -25,8 +30,7 @@ export function WalletWindow(props: WalletWindowProps) {
 
   return (
     <WalletRuntimeProvider
-      isUnlocked={isUnlocked}
-      currentInstanceId={currentInstanceId}
+      databaseState={databaseState}
       createTracker={createTracker}
       loadMediaPreview={loadMediaPreview}
       InlineUnlock={InlineUnlock}

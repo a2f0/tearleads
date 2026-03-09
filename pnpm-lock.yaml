@@ -2831,6 +2831,9 @@ importers:
 
   packages/wallet:
     dependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
