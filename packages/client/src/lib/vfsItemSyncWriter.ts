@@ -7,12 +7,21 @@ import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { vfsRegistry } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
+import {
+  getInstanceChangeSnapshot,
+  type InstanceChangeSnapshot
+} from '@/hooks/app/useInstanceChange';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
-interface VfsSyncRuntime {
+interface VfsSyncRuntimeBinding {
+  currentInstanceId: string | null;
+  instanceEpoch: number;
+}
+
+interface VfsSyncRuntime extends VfsSyncRuntimeBinding {
   orchestrator: Pick<
     VfsWriteOrchestrator,
     'flushAll' | 'queueCrdtLocalOperationAndPersist'
@@ -43,6 +52,14 @@ let uploadInflightCount = 0;
 let downloadInflightCount = 0;
 let lastSyncError: Error | null = null;
 const syncActivityListeners = new Set<() => void>();
+
+function resetRuntimeState(): void {
+  serverRegisteredItemIds.clear();
+  uploadInflightCount = 0;
+  downloadInflightCount = 0;
+  lastSyncError = null;
+  notifySyncActivityListeners();
+}
 
 function notifySyncActivityListeners(): void {
   for (const listener of syncActivityListeners) {
@@ -80,13 +97,35 @@ function getSyncRuntimeOrThrow(): VfsSyncRuntime {
 
 export function setVfsItemSyncRuntime(runtime: VfsSyncRuntime | null): void {
   syncRuntime = runtime;
-  if (runtime === null) {
-    serverRegisteredItemIds.clear();
-    uploadInflightCount = 0;
-    downloadInflightCount = 0;
-    lastSyncError = null;
-    notifySyncActivityListeners();
+  resetRuntimeState();
+}
+
+function snapshotsMatch(
+  left: VfsSyncRuntimeBinding,
+  right: VfsSyncRuntimeBinding
+): boolean {
+  return (
+    left.currentInstanceId === right.currentInstanceId &&
+    left.instanceEpoch === right.instanceEpoch
+  );
+}
+
+function formatRuntimeSnapshot(snapshot: VfsSyncRuntimeBinding): string {
+  return `instanceId=${snapshot.currentInstanceId ?? 'none'}, instanceEpoch=${snapshot.instanceEpoch}`;
+}
+
+function assertRuntimeMatchesActiveInstance(
+  runtime: VfsSyncRuntime,
+  phase: string
+): InstanceChangeSnapshot {
+  const activeSnapshot = getInstanceChangeSnapshot();
+  if (snapshotsMatch(runtime, activeSnapshot)) {
+    return activeSnapshot;
   }
+
+  throw new Error(
+    `VFS sync runtime is stale during ${phase}. runtime(${formatRuntimeSnapshot(runtime)}), active(${formatRuntimeSnapshot(activeSnapshot)})`
+  );
 }
 
 async function readLocalRegistryRow(itemId: string): Promise<{
@@ -264,11 +303,13 @@ export async function queueItemUpsertAndFlush(
 
   await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
+    assertRuntimeMatchesActiveInstance(runtime, 'preflight');
     const localKeyContext = await ensureLocalEncryptedSessionKey(
       input.itemId,
       input.objectType,
       input.encryptedSessionKey
     );
+    assertRuntimeMatchesActiveInstance(runtime, 'register');
     await ensureServerRegistration(
       input.itemId,
       input.objectType,
@@ -310,6 +351,7 @@ export async function queueItemUpsertAndFlush(
         opPayload: input.payload
       });
     }
+    assertRuntimeMatchesActiveInstance(runtime, 'flush');
     await runtime.orchestrator.flushAll();
   });
 }
@@ -323,11 +365,13 @@ export async function queueItemDeleteAndFlush(
 
   await withSyncTracking(async () => {
     const runtime = getSyncRuntimeOrThrow();
+    assertRuntimeMatchesActiveInstance(runtime, 'preflight');
     const localKeyContext = await ensureLocalEncryptedSessionKey(
       input.itemId,
       input.objectType,
       input.encryptedSessionKey
     );
+    assertRuntimeMatchesActiveInstance(runtime, 'register');
     await ensureServerRegistration(
       input.itemId,
       input.objectType,
@@ -338,6 +382,7 @@ export async function queueItemDeleteAndFlush(
       itemId: input.itemId,
       opType: 'item_delete'
     });
+    assertRuntimeMatchesActiveInstance(runtime, 'flush');
     await runtime.orchestrator.flushAll();
   });
 }

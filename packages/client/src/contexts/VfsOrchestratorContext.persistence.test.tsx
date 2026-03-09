@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { emitInstanceChange, resetInstanceChangeState } from '@/hooks/app';
 import {
   clearActiveOrganizationId,
   setActiveOrganizationId
@@ -135,8 +136,13 @@ vi.mock('./AuthContext', () => ({
 }));
 
 describe('VfsOrchestratorContext persistence', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    resetInstanceChangeState();
+    emitInstanceChange('instance-1');
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    mockVfsWriteOrchestrator.lastOptions = undefined;
+    mockVfsWriteOrchestrator.lastInstance = null;
     clearActiveOrganizationId();
     mockUseAuth.mockReturnValue({
       user: mockUser,

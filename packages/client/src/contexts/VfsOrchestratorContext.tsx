@@ -18,6 +18,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react';
 import { getDatabase, isDatabaseInitialized } from '@/db';
@@ -31,6 +32,7 @@ import { createRecipientPublicKeyResolver } from '@/db/vfsRecipientKeyResolver';
 import { createUserKeyProvider } from '@/db/vfsUserKeyProvider';
 import {
   getInstanceChangeSnapshot,
+  subscribeToInstanceChange,
   type InstanceChangeSnapshot
 } from '@/hooks/app/useInstanceChange';
 import { ensureVfsKeys } from '@/hooks/vfs';
@@ -127,6 +129,9 @@ export function VfsOrchestratorProvider({
 }: VfsOrchestratorProviderProps) {
   const orchestratorClientId = 'client';
   const { user, isAuthenticated } = useAuth();
+  const [runtimeSnapshot, setRuntimeSnapshot] = useState<InstanceChangeSnapshot>(
+    () => getInstanceChangeSnapshot()
+  );
   const [orchestrator, setOrchestrator] = useState<VfsWriteOrchestrator | null>(
     null
   );
@@ -135,9 +140,23 @@ export function VfsOrchestratorProvider({
   const [keyManager, setKeyManager] = useState<VfsKeyManager | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const initializeRunIdRef = useRef(0);
 
   const effectiveBaseUrl = baseUrl ?? import.meta.env.VITE_API_URL ?? '';
   const effectiveApiPrefix = normalizeApiPrefix(apiPrefix);
+
+  useEffect(() => {
+    return subscribeToInstanceChange(() => {
+      setRuntimeSnapshot(getInstanceChangeSnapshot());
+    });
+  }, []);
+
+  const resetRuntime = useCallback(() => {
+    setOrchestrator(null);
+    setSecureFacade(null);
+    setKeyManager(null);
+    setVfsItemSyncRuntime(null);
+  }, []);
 
   const logBlobFlushOperationTelemetry = useCallback(
     async (event: {
@@ -182,14 +201,20 @@ export function VfsOrchestratorProvider({
   );
 
   const initialize = useCallback(async () => {
-    if (!user || !isAuthenticated) {
-      setOrchestrator(null);
-      setSecureFacade(null);
-      setKeyManager(null);
-      setVfsItemSyncRuntime(null);
+    const runId = initializeRunIdRef.current + 1;
+    initializeRunIdRef.current = runId;
+
+    if (
+      !user ||
+      !isAuthenticated ||
+      runtimeSnapshot.currentInstanceId === null
+    ) {
+      resetRuntime();
+      setIsInitializing(false);
       return;
     }
 
+    resetRuntime();
     setIsInitializing(true);
     setError(null);
 
@@ -232,6 +257,9 @@ export function VfsOrchestratorProvider({
         }
       });
       await newOrchestrator.hydrateFromPersistence();
+      if (initializeRunIdRef.current !== runId) {
+        return;
+      }
 
       const itemKeyStore = createItemKeyStore();
       const userKeyProvider = createUserKeyProvider(() => user);
@@ -254,24 +282,34 @@ export function VfsOrchestratorProvider({
       setSecureFacade(facade);
       setKeyManager(bundle.keyManager);
       setVfsItemSyncRuntime({
+        currentInstanceId: runtimeSnapshot.currentInstanceId,
+        instanceEpoch: runtimeSnapshot.instanceEpoch,
         orchestrator: newOrchestrator,
         secureFacade: facade
       });
     } catch (err) {
+      if (initializeRunIdRef.current !== runId) {
+        return;
+      }
       const initError =
         err instanceof Error ? err : new Error('Failed to initialize VFS');
       setError(initError);
       console.error('VFS orchestrator initialization failed:', err);
-      setVfsItemSyncRuntime(null);
+      resetRuntime();
     } finally {
-      setIsInitializing(false);
+      if (initializeRunIdRef.current === runId) {
+        setIsInitializing(false);
+      }
     }
   }, [
     user,
     isAuthenticated,
+    runtimeSnapshot.currentInstanceId,
+    runtimeSnapshot.instanceEpoch,
     effectiveBaseUrl,
     effectiveApiPrefix,
-    logBlobFlushOperationTelemetry
+    logBlobFlushOperationTelemetry,
+    resetRuntime
   ]);
 
   useEffect(() => {
@@ -307,6 +345,7 @@ export function VfsOrchestratorProvider({
 
   useEffect(() => {
     return () => {
+      initializeRunIdRef.current += 1;
       setOrchestrator(null);
       setSecureFacade(null);
       setKeyManager(null);
