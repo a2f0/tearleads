@@ -3,10 +3,14 @@
  * Uses SQLCipher for encryption on iOS and Android.
  */
 
-import type {
-  SQLiteConnection,
-  SQLiteDBConnection
-} from '@capacitor-community/sqlite';
+import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
+import { normalizeSqlStatements } from '@/db/sql/sqlBatch';
+import {
+  getSQLiteConnection,
+  isIgnorableDeleteDbError,
+  resetSQLiteConnectionCache
+} from './capacitorAdapterHelpers';
+import { SavepointTransactionManager } from './savepointTransactionManager';
 import type {
   DatabaseAdapter,
   DatabaseConfig,
@@ -15,58 +19,31 @@ import type {
 } from './types';
 import { convertRowsToArrays } from './utils';
 
-/**
- * Error messages that can be safely ignored when deleting a database.
- * These occur when the database doesn't exist (fresh install, already deleted, etc.)
- * or when there's no active connection to it.
- */
-const IGNORABLE_DELETE_DB_ERRORS = [
-  'not found',
-  'does not exist',
-  'no available connection'
-];
-
-/**
- * Check if a database deletion error should be ignored.
- * Returns true if the error indicates the database simply doesn't exist.
- */
-function isIgnorableDeleteDbError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message.toLowerCase() : '';
-  return IGNORABLE_DELETE_DB_ERRORS.some((msg) => message.includes(msg));
-}
-
-let sqliteConnection: SQLiteConnection | null = null;
-
-async function getSQLiteConnection(): Promise<SQLiteConnection> {
-  if (sqliteConnection) return sqliteConnection;
-
-  const { CapacitorSQLite, SQLiteConnection } = await import(
-    '@capacitor-community/sqlite'
-  );
-
-  // Test that the plugin is properly initialized by calling echo
-  // This catches the "CapacitorSQLitePlugin: null" error early with a better message
-  try {
-    await CapacitorSQLite.echo({ value: 'test' });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('CapacitorSQLitePlugin') && message.includes('null')) {
-      throw new Error(
-        'SQLite plugin failed to initialize. Try clearing app data in Settings > Apps > Tearleads > Clear Storage, then reopen the app.'
-      );
-    }
-    throw err;
-  }
-
-  const connection = new SQLiteConnection(CapacitorSQLite);
-  sqliteConnection = connection;
-  return sqliteConnection;
-}
-
 export class CapacitorAdapter implements DatabaseAdapter {
   private dbName: string | null = null;
   private db: SQLiteDBConnection | null = null;
   private isInitialized = false;
+  private readonly transactionManager = new SavepointTransactionManager(
+    {
+      beginRoot: async () => {
+        await this.requireOpenDb().beginTransaction();
+      },
+      commitRoot: async () => {
+        await this.requireOpenDb().commitTransaction();
+      },
+      rollbackRoot: async () => {
+        await this.requireOpenDb().rollbackTransaction();
+      },
+      executeSql: async (sql: string) => {
+        await this.execute(sql);
+      },
+      isRootTransactionActive: async () => {
+        const { result } = await this.requireOpenDb().isTransactionActive();
+        return result === true;
+      }
+    },
+    'sp_cap_tx'
+  );
 
   async initialize(config: DatabaseConfig): Promise<void> {
     this.dbName = config.name;
@@ -167,6 +144,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
     // configured at the native level.
 
     this.isInitialized = true;
+    this.transactionManager.reset();
   }
 
   async close(): Promise<void> {
@@ -180,16 +158,22 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
     this.db = null;
     this.dbName = null;
+    this.transactionManager.reset();
   }
 
   isOpen(): boolean {
     return this.isInitialized;
   }
 
-  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
+  private requireOpenDb(): SQLiteDBConnection {
     if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized');
     }
+    return this.db;
+  }
+
+  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
+    const db = this.requireOpenDb();
 
     // Determine if this is a SELECT query
     const isSelect =
@@ -197,13 +181,13 @@ export class CapacitorAdapter implements DatabaseAdapter {
       sql.trim().toUpperCase().startsWith('PRAGMA');
 
     if (isSelect) {
-      const result = await this.db.query(sql, params);
+      const result = await db.query(sql, params);
       return {
         rows: result.values ?? []
       };
     }
 
-    const result = await this.db.run(sql, params, false);
+    const result = await db.run(sql, params, false);
 
     const queryResult: QueryResult = {
       rows: []
@@ -218,27 +202,31 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   async executeMany(statements: string[]): Promise<void> {
-    if (!this.db || !this.isInitialized) {
-      throw new Error('Database not initialized');
+    const db = this.requireOpenDb();
+    const normalizedStatements = normalizeSqlStatements(statements);
+    if (normalizedStatements.length === 0) {
+      return;
     }
 
+    const { result: isTransactionActive } = await db.isTransactionActive();
+
     // Plugin requires 'values' array even if empty
-    await this.db.executeSet(
-      statements.map((statement) => ({ statement, values: [] })),
-      true
+    await db.executeSet(
+      normalizedStatements.map((statement) => ({ statement, values: [] })),
+      !isTransactionActive
     );
   }
 
   async beginTransaction(): Promise<void> {
-    await this.execute('BEGIN TRANSACTION');
+    await this.transactionManager.begin();
   }
 
   async commitTransaction(): Promise<void> {
-    await this.execute('COMMIT');
+    await this.transactionManager.commit();
   }
 
   async rollbackTransaction(): Promise<void> {
-    await this.execute('ROLLBACK');
+    await this.transactionManager.rollback();
   }
 
   async rekeyDatabase(newKey: Uint8Array, oldKey?: Uint8Array): Promise<void> {
@@ -277,6 +265,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
     );
 
     await this.db.open();
+    this.transactionManager.reset();
   }
 
   getConnection(): DrizzleConnection {
@@ -331,11 +320,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
-    sqliteConnection = null;
+    resetSQLiteConnectionCache();
 
     this.db = null;
     this.dbName = null;
     this.isInitialized = false;
+    this.transactionManager.reset();
   }
 
   async exportDatabase(): Promise<Uint8Array> {

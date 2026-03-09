@@ -6,6 +6,8 @@
  * It runs SQLite WASM directly in Node.js without Web Workers.
  */
 
+import { buildSqlBatch, EXECUTE_MANY_SAVEPOINT } from '@/db/sql/sqlBatch';
+import { SavepointTransactionManager } from './savepointTransactionManager';
 import type {
   DatabaseAdapter,
   DatabaseConfig,
@@ -29,6 +31,23 @@ export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;
   private encryptionKey: string | null = null;
   private options: WasmNodeAdapterOptions;
+  private readonly transactionManager = new SavepointTransactionManager(
+    {
+      beginRoot: async () => {
+        await this.execute('BEGIN TRANSACTION');
+      },
+      commitRoot: async () => {
+        await this.execute('COMMIT');
+      },
+      rollbackRoot: async () => {
+        await this.execute('ROLLBACK');
+      },
+      executeSql: async (sql: string) => {
+        await this.execute(sql);
+      }
+    },
+    'sp_wasm_tx'
+  );
 
   constructor(options: WasmNodeAdapterOptions = {}) {
     this.options = {
@@ -41,6 +60,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     if (this.db) {
       throw new Error('Database already initialized');
     }
+    this.transactionManager.reset();
 
     // Initialize the WASM module
     const sqlite = await initializeSqliteWasm();
@@ -80,6 +100,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       this.db = null;
       this.encryptionKey = null;
     }
+    this.transactionManager.reset();
   }
 
   isOpen(): boolean {
@@ -137,31 +158,34 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       throw new Error('Database not initialized');
     }
 
+    const batchedSql = buildSqlBatch(statements);
+    if (batchedSql.length === 0) {
+      return;
+    }
+
     // Use SAVEPOINT instead of BEGIN/COMMIT so executeMany() is nestable
     // inside an outer transaction (e.g. the migration runner's transaction).
-    this.db.exec('SAVEPOINT sp_execute_many;');
+    this.db.exec(`SAVEPOINT ${EXECUTE_MANY_SAVEPOINT};`);
     try {
-      for (const sql of statements) {
-        this.db.exec(sql);
-      }
-      this.db.exec('RELEASE sp_execute_many;');
+      this.db.exec(batchedSql);
+      this.db.exec(`RELEASE ${EXECUTE_MANY_SAVEPOINT};`);
     } catch (error) {
-      this.db.exec('ROLLBACK TO sp_execute_many;');
-      this.db.exec('RELEASE sp_execute_many;');
+      this.db.exec(`ROLLBACK TO ${EXECUTE_MANY_SAVEPOINT};`);
+      this.db.exec(`RELEASE ${EXECUTE_MANY_SAVEPOINT};`);
       throw error;
     }
   }
 
   async beginTransaction(): Promise<void> {
-    await this.execute('BEGIN TRANSACTION');
+    await this.transactionManager.begin();
   }
 
   async commitTransaction(): Promise<void> {
-    await this.execute('COMMIT');
+    await this.transactionManager.commit();
   }
 
   async rollbackTransaction(): Promise<void> {
-    await this.execute('ROLLBACK');
+    await this.transactionManager.rollback();
   }
 
   async rekeyDatabase(newKey: Uint8Array, _oldKey?: Uint8Array): Promise<void> {

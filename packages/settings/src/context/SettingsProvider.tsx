@@ -98,11 +98,16 @@ export function SettingsProvider({
 
   // Sync settings from DB when database operations are available
   useEffect(() => {
+    let isCancelled = false;
+
     async function syncFromDb() {
       if (!getSettingsFromDb || hasSyncedRef.current) return;
 
       try {
         const dbSettings = await getSettingsFromDb();
+        if (isCancelled) {
+          return;
+        }
 
         // Write DB values to localStorage (DB is source of truth for restore)
         for (const key of Object.keys(dbSettings) as UserSettingKey[]) {
@@ -126,6 +131,10 @@ export function SettingsProvider({
     }
 
     syncFromDb();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [getSettingsFromDb, instanceId]);
 
   // Reset sync state when database operations become unavailable
