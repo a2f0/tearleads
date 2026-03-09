@@ -60,6 +60,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     if (this.db) {
       throw new Error('Database already initialized');
     }
+    this.transactionManager.reset();
 
     // Initialize the WASM module
     const sqlite = await initializeSqliteWasm();

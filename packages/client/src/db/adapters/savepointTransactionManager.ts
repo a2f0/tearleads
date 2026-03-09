@@ -21,6 +21,7 @@ function noActiveTransactionError(action: 'commit' | 'rollback'): Error {
 export class SavepointTransactionManager {
   private nestedSavepoints: string[] = [];
   private rootTransactionStarted = false;
+  private operationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly driver: TransactionDriver,
@@ -28,49 +29,55 @@ export class SavepointTransactionManager {
   ) {}
 
   async begin(): Promise<void> {
-    if (this.nestedSavepoints.length > 0) {
-      await this.beginNestedSavepoint();
-      return;
-    }
+    await this.runExclusive(async () => {
+      if (this.nestedSavepoints.length > 0) {
+        await this.beginNestedSavepoint();
+        return;
+      }
 
-    if (this.rootTransactionStarted || (await this.isRootActive())) {
-      await this.beginNestedSavepoint();
-      return;
-    }
+      if (this.rootTransactionStarted || (await this.isRootActive())) {
+        await this.beginNestedSavepoint();
+        return;
+      }
 
-    await this.driver.beginRoot();
-    this.rootTransactionStarted = true;
+      await this.driver.beginRoot();
+      this.rootTransactionStarted = true;
+    });
   }
 
   async commit(): Promise<void> {
-    const savepoint = this.nestedSavepoints.pop();
-    if (savepoint) {
-      await this.driver.executeSql(`RELEASE ${savepoint}`);
-      return;
-    }
+    await this.runExclusive(async () => {
+      const savepoint = this.nestedSavepoints.pop();
+      if (savepoint) {
+        await this.driver.executeSql(`RELEASE ${savepoint}`);
+        return;
+      }
 
-    if (!this.rootTransactionStarted && !(await this.isRootActive())) {
-      throw noActiveTransactionError('commit');
-    }
+      if (!this.rootTransactionStarted && !(await this.isRootActive())) {
+        throw noActiveTransactionError('commit');
+      }
 
-    await this.driver.commitRoot();
-    this.rootTransactionStarted = false;
+      await this.driver.commitRoot();
+      this.rootTransactionStarted = false;
+    });
   }
 
   async rollback(): Promise<void> {
-    const savepoint = this.nestedSavepoints.pop();
-    if (savepoint) {
-      await this.driver.executeSql(`ROLLBACK TO ${savepoint}`);
-      await this.driver.executeSql(`RELEASE ${savepoint}`);
-      return;
-    }
+    await this.runExclusive(async () => {
+      const savepoint = this.nestedSavepoints.pop();
+      if (savepoint) {
+        await this.driver.executeSql(`ROLLBACK TO ${savepoint}`);
+        await this.driver.executeSql(`RELEASE ${savepoint}`);
+        return;
+      }
 
-    if (!this.rootTransactionStarted && !(await this.isRootActive())) {
-      throw noActiveTransactionError('rollback');
-    }
+      if (!this.rootTransactionStarted && !(await this.isRootActive())) {
+        throw noActiveTransactionError('rollback');
+      }
 
-    await this.driver.rollbackRoot();
-    this.rootTransactionStarted = false;
+      await this.driver.rollbackRoot();
+      this.rootTransactionStarted = false;
+    });
   }
 
   reset(): void {
@@ -89,5 +96,14 @@ export class SavepointTransactionManager {
     const savepoint = `${this.savepointPrefix}_${this.nestedSavepoints.length + 1}`;
     await this.driver.executeSql(`SAVEPOINT ${savepoint}`);
     this.nestedSavepoints.push(savepoint);
+  }
+
+  private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const nextOperation = this.operationQueue.then(operation, operation);
+    this.operationQueue = nextOperation.then(
+      () => undefined,
+      () => undefined
+    );
+    return nextOperation;
   }
 }

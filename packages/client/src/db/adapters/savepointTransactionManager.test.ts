@@ -125,4 +125,72 @@ describe('SavepointTransactionManager', () => {
       'No active transaction to rollback'
     );
   });
+
+  it('serializes concurrent begin calls to avoid duplicate root transactions', async () => {
+    let resolveRootBegin: (() => void) | undefined;
+    const beginRoot = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRootBegin = resolve;
+        })
+    );
+    const commitRoot = vi.fn(async () => undefined);
+    const rollbackRoot = vi.fn(async () => undefined);
+    const executeSql = vi.fn(async (_sql: string) => undefined);
+    const isRootTransactionActive = vi.fn(async () => false);
+
+    const manager = new SavepointTransactionManager(
+      {
+        beginRoot,
+        commitRoot,
+        rollbackRoot,
+        executeSql,
+        isRootTransactionActive
+      },
+      'sp_test_tx'
+    );
+
+    const firstBegin = manager.begin();
+    const secondBegin = manager.begin();
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(beginRoot).toHaveBeenCalledTimes(1);
+
+    resolveRootBegin?.();
+    await firstBegin;
+    await secondBegin;
+
+    expect(beginRoot).toHaveBeenCalledTimes(1);
+    expect(executeSql).toHaveBeenCalledWith('SAVEPOINT sp_test_tx_1');
+  });
+
+  it('reset clears nested and root transaction state', async () => {
+    const beginRoot = vi.fn(async () => undefined);
+    const commitRoot = vi.fn(async () => undefined);
+    const rollbackRoot = vi.fn(async () => undefined);
+    const executeSql = vi.fn(async (_sql: string) => undefined);
+    const isRootTransactionActive = vi.fn(async () => false);
+
+    const manager = new SavepointTransactionManager(
+      {
+        beginRoot,
+        commitRoot,
+        rollbackRoot,
+        executeSql,
+        isRootTransactionActive
+      },
+      'sp_test_tx'
+    );
+
+    await manager.begin();
+    await manager.begin();
+    manager.reset();
+    await manager.begin();
+    await manager.commit();
+
+    expect(beginRoot).toHaveBeenCalledTimes(2);
+    expect(commitRoot).toHaveBeenCalledTimes(1);
+  });
 });
