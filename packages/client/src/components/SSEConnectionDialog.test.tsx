@@ -66,7 +66,7 @@ describe('SSEConnectionDialog', () => {
       />
     );
     expect(
-      screen.getByText('/connect/tearleads.v1.NotificationService/Subscribe')
+      screen.getByText('/connect/tearleads.v2.NotificationService/Subscribe')
     ).toBeInTheDocument();
   });
 
