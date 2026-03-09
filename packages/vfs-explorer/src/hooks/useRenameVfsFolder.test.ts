@@ -52,9 +52,9 @@ describe('useRenameVfsFolder', () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useRenameVfsFolder(), { wrapper });
 
-    await expect(result.current.renameFolder('folder-1', '   ')).rejects.toThrow(
-      'Folder name is required'
-    );
+    await expect(
+      result.current.renameFolder('folder-1', '   ')
+    ).rejects.toThrow('Folder name is required');
   });
 
   it('throws for missing folder ID', async () => {
