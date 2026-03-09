@@ -25,12 +25,12 @@ import { vfsSharesConnectService } from './vfsSharesService.js';
 
 function getMutationMethod(
   name: 'createShare' | 'updateShare' | 'createOrgShare'
-) {
+): (...args: readonly unknown[]) => unknown {
   const method = Reflect.get(vfsSharesConnectService, name);
   if (typeof method !== 'function') {
     throw new Error(`Expected ${name} to be callable`);
   }
-  return method;
+  return (...args) => Reflect.apply(method, vfsSharesConnectService, args);
 }
 
 describe('vfsSharesConnectService parse errors', () => {

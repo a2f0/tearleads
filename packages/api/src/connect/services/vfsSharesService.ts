@@ -4,11 +4,6 @@ import type {
   CreateVfsShareRequest,
   UpdateVfsShareRequest
 } from '@tearleads/shared';
-import type {
-  VfsSharesCreateOrgShareRequest,
-  VfsSharesCreateShareRequest,
-  VfsSharesUpdateShareRequest
-} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import {
   deleteOrgShareDirect,
   deleteShareDirect,
@@ -28,7 +23,29 @@ import {
 } from './vfsSharesDirectShared.js';
 
 type GetItemSharesRequest = { itemId: string };
+type CreateShareServiceRequest = {
+  itemId: string;
+  shareType: string;
+  targetId: string;
+  permissionLevel: string;
+  expiresAt?: string;
+  wrappedKey?: CreateVfsShareRequest['wrappedKey'];
+};
+type UpdateShareServiceRequest = {
+  shareId: string;
+  permissionLevel?: string;
+  expiresAt?: string;
+  clearExpiresAt: boolean;
+};
 type ShareIdRequest = { shareId: string };
+type CreateOrgShareServiceRequest = {
+  itemId: string;
+  sourceOrgId: string;
+  targetOrgId: string;
+  permissionLevel: string;
+  expiresAt?: string;
+  wrappedKey?: CreateOrgShareRequest['wrappedKey'];
+};
 type SearchShareTargetsRequest = { q: string; type: string };
 type GetSharePolicyPreviewRequest = {
   rootItemId: string;
@@ -44,7 +61,7 @@ type GetSharePolicyPreviewRequest = {
 type UpdateShareDirectRequest = { shareId: string } & UpdateVfsShareRequest;
 
 function parseCreateShareDirectRequest(
-  request: VfsSharesCreateShareRequest
+  request: CreateShareServiceRequest
 ): CreateVfsShareRequest {
   const payload = parseCreateSharePayload(request);
   if (!payload) {
@@ -57,7 +74,7 @@ function parseCreateShareDirectRequest(
 }
 
 function parseUpdateShareDirectRequest(
-  request: VfsSharesUpdateShareRequest
+  request: UpdateShareServiceRequest
 ): UpdateShareDirectRequest {
   if (request.clearExpiresAt && request.expiresAt !== undefined) {
     throw new ConnectError(
@@ -85,7 +102,7 @@ function parseUpdateShareDirectRequest(
 }
 
 function parseCreateOrgShareDirectRequest(
-  request: VfsSharesCreateOrgShareRequest
+  request: CreateOrgShareServiceRequest
 ): CreateOrgShareRequest {
   const payload = parseCreateOrgSharePayload(request);
   if (!payload) {
@@ -103,17 +120,17 @@ export const vfsSharesConnectService = {
     context: { requestHeader: Headers }
   ) => getItemSharesDirect(request, context),
   createShare: async (
-    request: VfsSharesCreateShareRequest,
+    request: CreateShareServiceRequest,
     context: { requestHeader: Headers }
   ) => createShareDirect(parseCreateShareDirectRequest(request), context),
   updateShare: async (
-    request: VfsSharesUpdateShareRequest,
+    request: UpdateShareServiceRequest,
     context: { requestHeader: Headers }
   ) => updateShareDirect(parseUpdateShareDirectRequest(request), context),
   deleteShare: (request: ShareIdRequest, context: { requestHeader: Headers }) =>
     deleteShareDirect(request, context),
   createOrgShare: async (
-    request: VfsSharesCreateOrgShareRequest,
+    request: CreateOrgShareServiceRequest,
     context: { requestHeader: Headers }
   ) => createOrgShareDirect(parseCreateOrgShareDirectRequest(request), context),
   deleteOrgShare: (
