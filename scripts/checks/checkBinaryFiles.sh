@@ -21,6 +21,39 @@ is_allowed() {
   return 1
 }
 
+resolve_base_ref() {
+  if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+    printf '%s\n' "$upstream"
+    return 0
+  fi
+
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    base_ref="origin/$GITHUB_BASE_REF"
+
+    if ! git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+      git fetch --depth=1 origin \
+        "$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" >/dev/null 2>&1 || true
+    fi
+
+    if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+      printf '%s\n' "$base_ref"
+      return 0
+    fi
+  fi
+
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    printf '%s\n' 'origin/main'
+    return 0
+  fi
+
+  if git rev-parse --verify main >/dev/null 2>&1; then
+    printf '%s\n' 'main'
+    return 0
+  fi
+
+  return 1
+}
+
 collect_files() {
   if [ "$mode" = "--staged" ]; then
     git diff --name-only --diff-filter=AM --cached
@@ -28,18 +61,8 @@ collect_files() {
   fi
 
   if [ "$mode" = "--from-upstream" ]; then
-    if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-      git diff --name-only --diff-filter=AM "$upstream..HEAD"
-      return
-    fi
-
-    if git rev-parse --verify origin/main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "origin/main..HEAD"
-      return
-    fi
-
-    if git rev-parse --verify main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "main..HEAD"
+    if base_ref=$(resolve_base_ref); then
+      git diff --name-only --diff-filter=AM "$base_ref..HEAD"
       return
     fi
 
