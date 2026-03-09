@@ -33,6 +33,8 @@ TARGET_ASSET="android/app/src/main/res/mipmap-mdpi/ic_launcher.png"
 if [ ! -f "$TARGET_ASSET" ] || [ -n "$(find "$SVG_SOURCE" -newer "$TARGET_ASSET" 2>/dev/null)" ]; then
   ./scripts/buildAndroidImageAssets.sh
 fi
+export VITE_API_URL="${VITE_API_URL:-http://localhost:3000/v1}"
+
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync android
 adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
 # Note: Don't uninstall - it wipes app data. Use resetAndroidEmulator.sh for clean slate.
