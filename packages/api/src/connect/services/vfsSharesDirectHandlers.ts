@@ -6,10 +6,16 @@ import {
   type VfsShareType
 } from '@tearleads/shared';
 import type {
+  VfsSharePolicyPreviewNodePayload,
+  VfsSharePolicyPreviewSummaryPayload,
+  VfsSharesGetSharePolicyPreviewResponse,
   VfsSharesSearchShareTargetsResponse,
   VfsShareTargetPayload
 } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import {
+  VfsSharePolicyPreviewNodePayloadSchema,
+  VfsSharePolicyPreviewSummaryPayloadSchema,
+  VfsSharesGetSharePolicyPreviewResponseSchema,
   VfsSharesSearchShareTargetsResponseSchema,
   VfsShareTargetPayloadSchema
 } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
@@ -98,6 +104,48 @@ function toShareTargetPayload(
     name: result.name,
     ...(typeof result.description === 'string'
       ? { description: result.description }
+      : {})
+  });
+}
+
+function toSharePolicyPreviewNodePayload(
+  node: Awaited<ReturnType<typeof buildSharePolicyPreviewTree>>['nodes'][number]
+): VfsSharePolicyPreviewNodePayload {
+  return create(VfsSharePolicyPreviewNodePayloadSchema, {
+    itemId: node.itemId,
+    objectType: node.objectType,
+    depth: node.depth,
+    path: node.path,
+    state: node.state,
+    ...(typeof node.effectiveAccessLevel === 'string'
+      ? { effectiveAccessLevel: node.effectiveAccessLevel }
+      : {}),
+    sourcePolicyIds: node.sourcePolicyIds
+  });
+}
+
+function toSharePolicyPreviewSummaryPayload(
+  summary: Awaited<ReturnType<typeof buildSharePolicyPreviewTree>>['summary']
+): VfsSharePolicyPreviewSummaryPayload {
+  return create(VfsSharePolicyPreviewSummaryPayloadSchema, {
+    totalMatchingNodes: summary.totalMatchingNodes,
+    returnedNodes: summary.returnedNodes,
+    directCount: summary.directCount,
+    derivedCount: summary.derivedCount,
+    deniedCount: summary.deniedCount,
+    includedCount: summary.includedCount,
+    excludedCount: summary.excludedCount
+  });
+}
+
+function toSharePolicyPreviewResponse(
+  preview: Awaited<ReturnType<typeof buildSharePolicyPreviewTree>>
+): VfsSharesGetSharePolicyPreviewResponse {
+  return create(VfsSharesGetSharePolicyPreviewResponseSchema, {
+    nodes: preview.nodes.map((node) => toSharePolicyPreviewNodePayload(node)),
+    summary: toSharePolicyPreviewSummaryPayload(preview.summary),
+    ...(typeof preview.nextCursor === 'string'
+      ? { nextCursor: preview.nextCursor }
       : {})
   });
 }
@@ -341,7 +389,7 @@ export async function getSharePolicyPreviewDirect(
     objectType: string[];
   },
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesGetSharePolicyPreviewResponse> {
   const claims = await requireVfsSharesClaims(
     '/vfs/share-policies/preview',
     context.requestHeader
@@ -408,9 +456,7 @@ export async function getSharePolicyPreviewDirect(
       objectTypes
     });
 
-    return {
-      json: JSON.stringify(preview)
-    };
+    return toSharePolicyPreviewResponse(preview);
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

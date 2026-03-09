@@ -33,18 +33,6 @@ vi.mock('../../lib/vfsSharePolicyPreviewTree.js', () => ({
 
 import { getSharePolicyPreviewDirect } from './vfsSharesDirectHandlers.js';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseResponseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected record JSON payload');
-  }
-  return parsed;
-}
-
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('vfsSharesDirectHandlers preview', () => {
@@ -239,8 +227,27 @@ describe('vfsSharesDirectHandlers preview', () => {
       rows: [{ owner_id: 'user-1', object_type: 'folder' }]
     });
     buildSharePolicyPreviewTreeMock.mockResolvedValueOnce({
-      rows: [{ itemId: 'root-1' }],
-      nextCursor: null
+      nodes: [
+        {
+          itemId: 'root-1',
+          objectType: 'folder',
+          depth: 0,
+          path: 'root-1',
+          state: 'direct',
+          effectiveAccessLevel: 'read',
+          sourcePolicyIds: ['policy-1']
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 1,
+        returnedNodes: 1,
+        directCount: 1,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 1,
+        excludedCount: 0
+      },
+      nextCursor: 'cursor-2'
     });
 
     const response = await getSharePolicyPreviewDirect(
@@ -259,9 +266,28 @@ describe('vfsSharesDirectHandlers preview', () => {
       }
     );
 
-    expect(parseResponseJson(response.json)).toEqual({
-      rows: [{ itemId: 'root-1' }],
-      nextCursor: null
+    expect(response).toMatchObject({
+      nodes: [
+        {
+          itemId: 'root-1',
+          objectType: 'folder',
+          depth: 0,
+          path: 'root-1',
+          state: 'direct',
+          effectiveAccessLevel: 'read',
+          sourcePolicyIds: ['policy-1']
+        }
+      ],
+      summary: {
+        totalMatchingNodes: 1,
+        returnedNodes: 1,
+        directCount: 1,
+        derivedCount: 0,
+        deniedCount: 0,
+        includedCount: 1,
+        excludedCount: 0
+      },
+      nextCursor: 'cursor-2'
     });
     expect(buildSharePolicyPreviewTreeMock).toHaveBeenCalledWith(
       expect.anything(),
