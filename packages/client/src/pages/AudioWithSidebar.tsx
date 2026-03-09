@@ -5,7 +5,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { getDatabase } from '@/db';
 import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { BackLink } from '@/components/ui/back-link';
-import { AudioPage } from './Audio';
+import { AudioPage } from './AudioPage';
 
 export function AudioWithSidebar() {
   const { playlistId } = useParams<{ playlistId?: string }>();
