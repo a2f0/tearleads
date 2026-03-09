@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { Code, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -308,7 +308,7 @@ describe('Connect AuthService session operations', () => {
 
     try {
       const response = await request(app)
-        .post('/v1/connect/tearleads.v1.AuthService/RefreshToken')
+        .post('/v1/connect/tearleads.v2.AuthService/RefreshToken')
         .set('Content-Type', 'application/json')
         .set(
           'Cookie',

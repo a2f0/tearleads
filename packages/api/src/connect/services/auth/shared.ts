@@ -7,7 +7,10 @@ import {
   passwordMeetsComplexity,
   type VfsKeySetupRequest
 } from '@tearleads/shared';
-import type { DeleteSessionRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import {
+  AuthService,
+  type AuthServiceDeleteSessionRequest
+} from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import {
   getAccessTokenTtlSeconds,
   getRefreshTokenTtlSeconds
@@ -17,7 +20,7 @@ import type { ConnectAuthContext } from '../../context.js';
 export const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 export const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
 const REFRESH_COOKIE_NAME = 'tearleads_refresh_token';
-const REFRESH_COOKIE_PATH = '/v1/connect/tearleads.v1.AuthService';
+const REFRESH_COOKIE_PATH = `/v1/connect/${AuthService.typeName}`;
 // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
 export const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
 export { PASSWORD_COMPLEXITY_ERROR, passwordMeetsComplexity };
@@ -313,7 +316,9 @@ export function toOptionalTimestamp(
   return timestampFromDate(new Date(parsedMs));
 }
 
-export function parseRequiredSessionId(request: DeleteSessionRequest): string {
+export function parseRequiredSessionId(
+  request: AuthServiceDeleteSessionRequest
+): string {
   const sessionId = request.sessionId.trim();
   if (sessionId.length === 0) {
     throw new ConnectError('Session ID is required', Code.InvalidArgument);

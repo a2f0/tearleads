@@ -5,9 +5,10 @@ import type {
   VfsKeySetupRequest
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { request } from '../apiCore';
 
-const AUTH_CONNECT_BASE_PATH = '/connect/tearleads.v1.AuthService';
+const AUTH_CONNECT_BASE_PATH = `/connect/${AuthService.typeName}`;
 
 export const authRoutes = {
   login: (email: string, password: string) =>

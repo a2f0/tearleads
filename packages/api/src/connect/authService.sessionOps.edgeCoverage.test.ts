@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { Code, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt } from '../lib/jwt.js';

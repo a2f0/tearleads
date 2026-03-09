@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { RegisterRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import type { AuthServiceRegisterRequest } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { buildRevenueCatAppUserId } from '../../../lib/billing.js';
 import {
   buildPersonalOrganizationId,
@@ -25,7 +25,7 @@ import {
 } from './shared.js';
 
 export async function register(
-  request: RegisterRequest,
+  request: AuthServiceRegisterRequest,
   context: HandlerContext
 ) {
   const parsedPayload = parseRegisterPayload({

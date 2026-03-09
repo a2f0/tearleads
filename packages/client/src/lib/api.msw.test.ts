@@ -125,7 +125,7 @@ describe('api with msw', () => {
     it('extracts error message from response body', async () => {
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/Register',
+          'http://localhost/connect/tearleads.v2.AuthService/Register',
           () =>
             HttpResponse.json(
               { error: 'Email already registered' },
@@ -140,7 +140,7 @@ describe('api with msw', () => {
         api.auth.register('existing@example.com', 'password123')
       ).rejects.toThrow('Email already registered');
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Register')
+        wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Register')
       ).toBe(true);
     });
   });
@@ -187,7 +187,7 @@ describe('api with msw', () => {
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () => HttpResponse.json(null, { status: 500 })
         )
       );
@@ -204,7 +204,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AuthService/RefreshToken'
+          '/connect/tearleads.v2.AuthService/RefreshToken'
         )
       ).toBe(true);
     });
@@ -242,7 +242,7 @@ describe('api with msw', () => {
       );
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () => HttpResponse.json(null, { status: 401 })
         )
       );
@@ -258,7 +258,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AuthService/RefreshToken'
+          '/connect/tearleads.v2.AuthService/RefreshToken'
         )
       ).toBe(true);
     });
@@ -277,7 +277,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AuthService/RefreshToken'
+          '/connect/tearleads.v2.AuthService/RefreshToken'
         )
       ).toBe(true);
     });
@@ -289,7 +289,7 @@ describe('api with msw', () => {
 
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () => HttpResponse.error()
         )
       );
@@ -304,7 +304,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AuthService/RefreshToken'
+          '/connect/tearleads.v2.AuthService/RefreshToken'
         )
       ).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -322,7 +322,7 @@ describe('api with msw', () => {
 
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
           () => HttpResponse.json(null, { status: 500 })
         )
       );
@@ -335,7 +335,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v1.AuthService/RefreshToken'
+          '/connect/tearleads.v2.AuthService/RefreshToken'
         )
       ).toBe(true);
     });

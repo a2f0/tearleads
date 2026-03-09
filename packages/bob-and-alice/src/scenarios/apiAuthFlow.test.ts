@@ -32,7 +32,7 @@ describe('API auth flow', () => {
       getApiDeps
     );
     const alice = harness.actor('alice');
-    const connectBaseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
+    const connectBaseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v2.AuthService`;
     const apiBaseUrl = `http://localhost:${String(harness.ctx.port)}`;
 
     // Register a brand-new user (goes through real bcrypt hashing)
@@ -126,7 +126,7 @@ describe('API auth flow', () => {
 
   it('rejects login with wrong password', async () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
-    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
+    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v2.AuthService`;
 
     // Register a user first
     await fetch(`${baseUrl}/Register`, {
@@ -153,7 +153,7 @@ describe('API auth flow', () => {
 
   it('rejects duplicate registration', async () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
-    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v1.AuthService`;
+    const baseUrl = `http://localhost:${String(harness.ctx.port)}/v1/connect/tearleads.v2.AuthService`;
 
     // Register first user
     const firstResponse = await fetch(`${baseUrl}/Register`, {

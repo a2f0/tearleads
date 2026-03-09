@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { RefreshTokenRequest } from '@tearleads/shared/gen/tearleads/v1/auth_pb';
+import type { AuthServiceRefreshTokenRequest } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { createJwt, verifyRefreshJwt } from '../../../lib/jwt.js';
 import {
   deleteRefreshToken,
@@ -19,7 +19,7 @@ import {
 } from './shared.js';
 
 export async function refreshToken(
-  request: RefreshTokenRequest,
+  request: AuthServiceRefreshTokenRequest,
   context: HandlerContext
 ) {
   const payload = parseRefreshPayload({

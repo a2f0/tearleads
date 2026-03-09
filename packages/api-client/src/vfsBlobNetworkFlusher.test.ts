@@ -29,7 +29,7 @@ describe('vfsBlobNetworkFlusher', () => {
     vi.mocked(global.fetch).mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v1.AuthService/RefreshToken')) {
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-access-token',

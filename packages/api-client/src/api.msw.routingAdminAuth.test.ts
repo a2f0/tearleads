@@ -41,7 +41,7 @@ describe('api with msw', () => {
   it('routes auth requests through msw', async () => {
     // Login/register need server.use() overrides (require bcrypt password verification)
     server.use(
-      http.post('http://localhost/connect/tearleads.v1.AuthService/Login', () =>
+      http.post('http://localhost/connect/tearleads.v2.AuthService/Login', () =>
         HttpResponse.json({
           accessToken: 'login-access-token',
           refreshToken: 'login-refresh-token',
@@ -52,7 +52,7 @@ describe('api with msw', () => {
         })
       ),
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/Register',
+        'http://localhost/connect/tearleads.v2.AuthService/Register',
         () =>
           HttpResponse.json({
             accessToken: 'register-access-token',
@@ -77,16 +77,16 @@ describe('api with msw', () => {
     expect(sessionsResponse.sessions.length).toBeGreaterThanOrEqual(1);
     expect(logoutResponse.loggedOut).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Login')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Login')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Register')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Register')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/GetSessions')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/GetSessions')
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Logout')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Logout')
     ).toBe(true);
   });
   it('supports /v1-prefixed API base URLs', async () => {
@@ -96,7 +96,7 @@ describe('api with msw', () => {
     // Login and VFS keys need server.use() overrides
     server.use(
       http.post(
-        'http://localhost/v1/connect/tearleads.v1.AuthService/Login',
+        'http://localhost/v1/connect/tearleads.v2.AuthService/Login',
         () =>
           HttpResponse.json({
             accessToken: 'login-access-token',
@@ -126,7 +126,7 @@ describe('api with msw', () => {
     await api.vfs.getMyKeys();
     await api.ai.getUsageSummary();
     expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v1.AuthService/Login')
+      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.AuthService/Login')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -150,7 +150,7 @@ describe('api with msw', () => {
     let refreshPayload: unknown = null;
     server.use(
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/GetSessions',
+        'http://localhost/connect/tearleads.v2.AuthService/GetSessions',
         ({ request }) => {
           sessionsAttemptCount += 1;
           const authHeader = request.headers.get('authorization');
@@ -166,7 +166,7 @@ describe('api with msw', () => {
         }
       ),
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+        'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
         async ({ request }) => {
           refreshPayload = await request.json();
           return HttpResponse.json({
@@ -192,15 +192,15 @@ describe('api with msw', () => {
         (request) => `${request.method} ${request.pathname}`
       )
     ).toEqual([
-      'POST /connect/tearleads.v1.AuthService/GetSessions',
-      'POST /connect/tearleads.v1.AuthService/RefreshToken',
-      'POST /connect/tearleads.v1.AuthService/GetSessions'
+      'POST /connect/tearleads.v2.AuthService/GetSessions',
+      'POST /connect/tearleads.v2.AuthService/RefreshToken',
+      'POST /connect/tearleads.v2.AuthService/GetSessions'
     ]);
   });
   it('does not attempt refresh for login 401 responses', async () => {
     const api = await loadApi();
     server.use(
-      http.post('http://localhost/connect/tearleads.v1.AuthService/Login', () =>
+      http.post('http://localhost/connect/tearleads.v2.AuthService/Login', () =>
         HttpResponse.json(
           { error: 'Invalid email or password' },
           { status: 401 }
@@ -211,12 +211,12 @@ describe('api with msw', () => {
       api.auth.login('user@example.com', 'bad-password')
     ).rejects.toThrow('Invalid email or password');
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v1.AuthService/Login')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Login')
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v1.AuthService/RefreshToken'
+        '/connect/tearleads.v2.AuthService/RefreshToken'
       )
     ).toBe(false);
   });
@@ -228,11 +228,11 @@ describe('api with msw', () => {
     );
     server.use(
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/GetSessions',
+        'http://localhost/connect/tearleads.v2.AuthService/GetSessions',
         () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })
       ),
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+        'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
         () => {
           return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
         }
@@ -247,8 +247,8 @@ describe('api with msw', () => {
         (request) => `${request.method} ${request.pathname}`
       )
     ).toEqual([
-      'POST /connect/tearleads.v1.AuthService/GetSessions',
-      'POST /connect/tearleads.v1.AuthService/RefreshToken'
+      'POST /connect/tearleads.v2.AuthService/GetSessions',
+      'POST /connect/tearleads.v2.AuthService/RefreshToken'
     ]);
   });
   it('deduplicates concurrent refresh attempts for parallel 401 responses', async () => {
@@ -265,7 +265,7 @@ describe('api with msw', () => {
     });
     server.use(
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/GetSessions',
+        'http://localhost/connect/tearleads.v2.AuthService/GetSessions',
         () => {
           sessionsRequestCount += 1;
           if (sessionsRequestCount <= 2) {
@@ -281,7 +281,7 @@ describe('api with msw', () => {
         }
       ),
       http.post(
-        'http://localhost/connect/tearleads.v1.AuthService/RefreshToken',
+        'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
         async () => {
           refreshRequestCount += 1;
           await refreshGate;
@@ -309,7 +309,7 @@ describe('api with msw', () => {
     expect(
       requestSequence.filter(
         (request) =>
-          request === 'POST /connect/tearleads.v1.AuthService/RefreshToken'
+          request === 'POST /connect/tearleads.v2.AuthService/RefreshToken'
       )
     ).toHaveLength(1);
   });

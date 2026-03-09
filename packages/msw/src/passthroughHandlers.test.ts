@@ -104,7 +104,7 @@ describe('createExpressPassthroughHandlers', () => {
     );
 
     const v1Response = await fetch(
-      'http://example.test/connect/tearleads.v1.AuthService/Login'
+      'http://example.test/connect/tearleads.v2.AuthService/Login'
     );
     const v2Response = await fetch(
       'http://example.test/connect/tearleads.v2.AdminService/GetTables'
@@ -113,7 +113,7 @@ describe('createExpressPassthroughHandlers', () => {
     expect(v1Response.ok).toBe(true);
     expect(v2Response.ok).toBe(true);
     expect(v1Target.hits).toEqual([
-      '/v1/connect/tearleads.v1.AuthService/Login'
+      '/v1/connect/tearleads.v2.AuthService/Login'
     ]);
     expect(v2Target.hits).toEqual([
       '/connect/tearleads.v2.AdminService/GetTables'
