@@ -75,6 +75,20 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
   });
 
+  it('does not trigger rematerialization without an active database instance', async () => {
+    mockUseDatabaseContext.mockReturnValue({
+      currentInstanceId: null,
+      db: { name: 'db-1' },
+      isLoading: false
+    });
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+  });
+
   it('clears retry timer when auth goes false', async () => {
     mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
       new Error('bootstrap failed')
@@ -205,5 +219,31 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     consoleWarnSpy.mockRestore();
+  });
+
+  it('ignores successful rematerialization attempts from stale instance epochs', async () => {
+    let resolveRematerialization: ((value: boolean) => void) | null = null;
+    mockRematerializeRemoteVfsStateIfNeeded.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveRematerialization = resolve;
+        })
+    );
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+
+    mockGetInstanceChangeSnapshot.mockReturnValue({
+      currentInstanceId: 'instance-2',
+      instanceEpoch: 2
+    });
+    resolveRematerialization?.(false);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
   });
 });
