@@ -27,7 +27,9 @@ const providedDatabaseState: BusinessesDatabaseState = {
   currentInstanceId: 'instance-42'
 };
 
-function createWrapper(databaseState: BusinessesDatabaseState = defaultDatabaseState) {
+function createWrapper(
+  databaseState: BusinessesDatabaseState = defaultDatabaseState
+) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return createElement(BusinessesProvider, {
       children,

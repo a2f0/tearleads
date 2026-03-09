@@ -6,9 +6,7 @@ import type { BusinessesProviderProps } from '@tearleads/app-businesses';
 import type { CalendarUIProviderProps } from '@tearleads/app-calendar';
 import type { ContactsProviderProps } from '@tearleads/app-contacts';
 import type { EmailProviderProps } from '@tearleads/app-email';
-import type {
-  HealthRuntimeProviderProps
-} from '@tearleads/app-health/clientEntry';
+import type { HealthRuntimeProviderProps } from '@tearleads/app-health/clientEntry';
 import type {
   NavigateToNoteOptions,
   NotesProviderProps

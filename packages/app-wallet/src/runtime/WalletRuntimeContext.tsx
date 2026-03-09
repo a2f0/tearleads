@@ -26,8 +26,9 @@ export interface WalletRuntimeContextValue {
   InlineUnlock: ComponentType<InlineUnlockProps>;
 }
 
-const WalletRuntimeContext =
-  createContext<WalletRuntimeContextValue | null>(null);
+const WalletRuntimeContext = createContext<WalletRuntimeContextValue | null>(
+  null
+);
 
 export interface WalletRuntimeProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;

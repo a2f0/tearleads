@@ -35,7 +35,10 @@ export function ClientBusinessesProvider({
   const databaseState = useHostRuntimeDatabaseState();
 
   return (
-    <BusinessesProvider databaseState={databaseState} ui={businessesUIComponents}>
+    <BusinessesProvider
+      databaseState={databaseState}
+      ui={businessesUIComponents}
+    >
       {children}
     </BusinessesProvider>
   );

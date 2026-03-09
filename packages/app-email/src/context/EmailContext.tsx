@@ -109,7 +109,6 @@ export interface SaveDraftInput {
 
 export type EmailDatabaseState = HostRuntimeDatabaseState;
 
-
 /**
  * Email draft operations interface
  */
