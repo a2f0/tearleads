@@ -35,8 +35,7 @@ function renderErrorMessage(error: unknown): string {
   }
 
   const name = typeof error['name'] === 'string' ? error['name'] : '';
-  const message =
-    typeof error['message'] === 'string' ? error['message'] : '';
+  const message = typeof error['message'] === 'string' ? error['message'] : '';
 
   return `${name} ${message}`.trim();
 }
@@ -67,7 +66,7 @@ function isUnauthorizedBootstrapError(error: unknown): boolean {
   return (
     renderedMessage.includes('unauthorized') ||
     renderedMessage.includes('unauthenticated') ||
-    /api error:\s*401\b/ui.test(renderedMessage)
+    /api error:\s*401\b/iu.test(renderedMessage)
   );
 }
 

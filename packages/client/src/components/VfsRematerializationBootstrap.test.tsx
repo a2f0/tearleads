@@ -179,30 +179,30 @@ describe('VfsRematerializationBootstrap', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it.each(['Unauthorized', 'API error: 401'])(
-    'suppresses %s failures and avoids retrying until auth recovers',
-    async (errorMessage) => {
-      mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
-        new Error(errorMessage)
-      );
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => {});
+  it.each([
+    'Unauthorized',
+    'API error: 401'
+  ])('suppresses %s failures and avoids retrying until auth recovers', async (errorMessage) => {
+    mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
+      new Error(errorMessage)
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
 
-      render(<VfsRematerializationBootstrap />);
-      await Promise.resolve();
-      await Promise.resolve();
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
 
-      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-      await vi.advanceTimersByTimeAsync(5_000);
-      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-      consoleWarnSpy.mockRestore();
-    }
-  );
+    consoleWarnSpy.mockRestore();
+  });
 
   it('clears pending retry timer when readiness changes and reruns immediately', async () => {
     let isReady = true;
