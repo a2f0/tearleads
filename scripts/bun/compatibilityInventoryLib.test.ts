@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   buildCompatibilityInventoryMarkdown,
-  detectCompatibilityPatternCounts,
-  type CompatibilityInventoryReport
+  type CompatibilityInventoryReport,
+  detectCompatibilityPatternCounts
 } from './compatibilityInventoryLib.ts';
 
 describe('detectCompatibilityPatternCounts', () => {
