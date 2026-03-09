@@ -1,135 +1,20 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import React, { type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as contactDetailHooks from './contact-detail';
+import * as contactsHooks from '../hooks';
+import * as useContactsModule from '../hooks/useContacts';
+import { TestContactsProvider } from '../test/testUtils';
 import { ContactsWindow } from './ContactsWindow';
 
-const mockUseContactsContext = vi.fn();
-const mockLinkContactsToGroup = vi.fn();
+const mockUseContactGroups = vi.fn();
+const mockUseContacts = vi.fn();
+const mockUseVirtualizer = vi.fn();
+const mockUseContactDetailData = vi.fn();
+const mockUseContactDetailForm = vi.fn();
 
-vi.mock('@tearleads/window-manager', () => ({
-  FloatingWindow: ({
-    children,
-    title
-  }: {
-    children: ReactNode;
-    title: string;
-  }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      {children}
-    </div>
-  ),
-  WindowControlBar: ({ children }: { children: ReactNode }) => (
-    <div data-testid="control-bar">{children}</div>
-  ),
-  WindowControlGroup: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  useWindowRefresh: () => {
-    const [refreshToken, setRefreshToken] = React.useState(0);
-    const triggerRefresh = () => {
-      setRefreshToken((value) => value + 1);
-    };
-    return { refreshToken, triggerRefresh };
-  },
-  WindowControlButton: ({
-    children,
-    onClick,
-    ...props
-  }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" onClick={onClick} {...props}>
-      {children}
-    </button>
-  )
-}));
-
-vi.mock('../context', () => ({
-  useContactsContext: () => mockUseContactsContext()
-}));
-
-vi.mock('../lib/linkContactsToGroup', () => ({
-  linkContactsToGroup: (db: unknown, groupId: string, contactIds: string[]) =>
-    mockLinkContactsToGroup(db, groupId, contactIds)
-}));
-
-vi.mock('./ContactsWindowContent', () => ({
-  ALL_CONTACTS_ID: '__all__',
-  ContactsWindowContent: ({
-    controlBar,
-    children
-  }: {
-    controlBar?: ReactNode;
-    children: ReactNode;
-  }) => (
-    <div data-testid="contacts-window-content-shell">
-      {controlBar}
-      {children}
-    </div>
-  )
-}));
-
-vi.mock('./ContactsWindowList', () => ({
-  ContactsWindowList: ({
-    onSelectContact,
-    refreshToken
-  }: {
-    onSelectContact: (contactId: string) => void;
-    refreshToken: number;
-  }) => (
-    <div data-testid="contacts-list">
-      <span data-testid="contacts-refresh-token">{refreshToken}</span>
-      <button
-        type="button"
-        data-testid="select-contact"
-        onClick={() => onSelectContact('contact-1')}
-      >
-        Select Contact
-      </button>
-    </div>
-  )
-}));
-
-vi.mock('./ContactsWindowTableView', () => ({
-  ContactsWindowTableView: () => <div data-testid="contacts-table-view" />
-}));
-
-vi.mock('./ContactsWindowDetail', () => ({
-  ContactsWindowDetail: ({
-    contactId
-  }: {
-    contactId: string;
-    onDeleted: () => void;
-  }) => (
-    <div data-testid="contacts-detail">
-      <span data-testid="contact-id">{contactId}</span>
-    </div>
-  )
-}));
-
-vi.mock('./ContactsWindowNew', () => ({
-  ContactsWindowNew: ({
-    onBack
-  }: {
-    onBack: () => void;
-    onCreated: () => void;
-  }) => (
-    <div data-testid="contacts-new">
-      <button type="button" data-testid="new-back" onClick={onBack}>
-        Back
-      </button>
-    </div>
-  )
-}));
-
-vi.mock('./ContactsWindowImport', () => ({
-  ContactsWindowImport: ({
-    file
-  }: {
-    file: File | null;
-    onDone: () => void;
-    onImported: () => void;
-  }) => <div data-testid="contacts-import-view">{file?.name ?? 'no-file'}</div>
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (...args: unknown[]) => mockUseVirtualizer(...args)
 }));
 
 describe('ContactsWindow', () => {
@@ -142,18 +27,114 @@ describe('ContactsWindow', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockLinkContactsToGroup.mockResolvedValue(0);
-    mockUseContactsContext.mockReturnValue({
-      databaseState: { isUnlocked: true },
-      getDatabase: vi.fn(() => ({}))
+    vi.spyOn(contactsHooks, 'useContactGroups').mockImplementation(() =>
+      mockUseContactGroups()
+    );
+    vi.spyOn(useContactsModule, 'useContacts').mockImplementation((...args) =>
+      mockUseContacts(...args)
+    );
+    vi
+      .spyOn(contactDetailHooks, 'useContactDetailData')
+      .mockImplementation((...args) => mockUseContactDetailData(...args));
+    vi
+      .spyOn(contactDetailHooks, 'useContactDetailForm')
+      .mockImplementation((...args) => mockUseContactDetailForm(...args));
+
+    mockUseContactGroups.mockReset();
+    mockUseContacts.mockReset();
+    mockUseVirtualizer.mockReset();
+    mockUseContactDetailData.mockReset();
+    mockUseContactDetailForm.mockReset();
+
+    mockUseContactGroups.mockReturnValue({
+      groups: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch: vi.fn(),
+      createGroup: vi.fn(),
+      renameGroup: vi.fn(),
+      deleteGroup: vi.fn()
+    });
+    mockUseVirtualizer.mockReturnValue({
+      getVirtualItems: () => [{ index: 0, start: 0 }],
+      getTotalSize: () => 56,
+      measureElement: vi.fn()
+    });
+    mockUseContacts.mockImplementation(() => ({
+      contactsList: [
+        {
+          id: 'contact-1',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          primaryEmail: 'ada@example.com',
+          primaryPhone: null
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      fetchContacts: vi.fn(),
+      setHasFetched: vi.fn()
+    }));
+    mockUseContactDetailData.mockReturnValue({
+      contact: {
+        id: 'contact-1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        birthday: null,
+        createdAt: new Date('2026-03-09T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-09T00:00:00.000Z')
+      },
+      emails: [],
+      phones: [],
+      loading: false,
+      error: null,
+      setError: vi.fn(),
+      fetchContact: vi.fn()
+    });
+    mockUseContactDetailForm.mockReturnValue({
+      isEditing: false,
+      formData: null,
+      emailsForm: [],
+      phonesForm: [],
+      saving: false,
+      deleting: false,
+      handleEditClick: vi.fn(),
+      handleCancel: vi.fn(),
+      handleFormChange: vi.fn(),
+      handleEmailChange: vi.fn(),
+      handleEmailPrimaryChange: vi.fn(),
+      handleDeleteEmail: vi.fn(),
+      handleAddEmail: vi.fn(),
+      handlePhoneChange: vi.fn(),
+      handlePhonePrimaryChange: vi.fn(),
+      handleDeletePhone: vi.fn(),
+      handleAddPhone: vi.fn(),
+      handleSave: vi.fn(),
+      handleDelete: vi.fn()
     });
   });
 
-  it('renders control bar list actions when unlocked', () => {
-    render(<ContactsWindow {...defaultProps} />);
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
+  function renderWindow({
+    isUnlocked = true
+  }: {
+    isUnlocked?: boolean;
+  } = {}) {
+    return render(
+      <TestContactsProvider databaseState={{ isUnlocked }}>
+        <ContactsWindow {...defaultProps} />
+      </TestContactsProvider>
+    );
+  }
+
+  it('renders control bar list actions when unlocked', () => {
+    renderWindow();
+
     expect(
       screen.getByTestId('contacts-window-control-new')
     ).toBeInTheDocument();
@@ -170,18 +151,21 @@ describe('ContactsWindow', () => {
 
   it('opens create view from control bar and returns with control back', async () => {
     const user = userEvent.setup();
-    render(<ContactsWindow {...defaultProps} />);
+    renderWindow();
 
     await user.click(screen.getByTestId('contacts-window-control-new'));
 
-    expect(screen.getByTestId('contacts-new')).toBeInTheDocument();
+    expect(screen.getByTestId('window-new-contact-back')).toBeInTheDocument();
     expect(
       screen.getByTestId('contacts-window-control-back')
     ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('contacts-window-control-back'));
 
-    expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('window-new-contact-back')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('window-contacts-search')).toBeInTheDocument();
     expect(
       screen.queryByTestId('contacts-window-control-back')
     ).not.toBeInTheDocument();
@@ -189,7 +173,7 @@ describe('ContactsWindow', () => {
 
   it('opens the file picker from control bar import action', async () => {
     const user = userEvent.setup();
-    render(<ContactsWindow {...defaultProps} />);
+    renderWindow();
 
     const fileInput = screen.getByTestId('contacts-import-input');
     const clickSpy = vi.spyOn(fileInput, 'click');
@@ -200,41 +184,47 @@ describe('ContactsWindow', () => {
   });
 
   it('disables control bar import action when database is locked', () => {
-    mockUseContactsContext.mockReturnValue({
-      databaseState: { isUnlocked: false },
-      getDatabase: vi.fn(() => ({}))
-    });
+    renderWindow({ isUnlocked: false });
 
-    render(<ContactsWindow {...defaultProps} />);
-
-    expect(screen.getByTestId('contacts-window-control-import')).toBeDisabled();
+    expect(
+      screen.queryByTestId('contacts-window-control-import')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('menuitem-importCsv')).toBeDisabled();
   });
 
   it('refreshes list view from control bar refresh action', async () => {
     const user = userEvent.setup();
-    render(<ContactsWindow {...defaultProps} />);
+    renderWindow();
 
-    expect(screen.getByTestId('contacts-refresh-token')).toHaveTextContent('0');
+    expect(mockUseContacts).toHaveBeenCalledWith({
+      groupId: undefined,
+      refreshToken: 0
+    });
 
     await user.click(screen.getByTestId('contacts-window-control-refresh'));
 
-    expect(screen.getByTestId('contacts-refresh-token')).toHaveTextContent('1');
+    await waitFor(() => {
+      expect(mockUseContacts).toHaveBeenCalledWith({
+        groupId: undefined,
+        refreshToken: 1
+      });
+    });
   });
 
   it('returns from detail view using control bar back action', async () => {
     const user = userEvent.setup();
-    render(<ContactsWindow {...defaultProps} />);
+    renderWindow();
 
-    await user.click(screen.getByTestId('select-contact'));
+    await user.click(screen.getByText('Ada Lovelace'));
 
-    expect(screen.getByTestId('contacts-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
     expect(
       screen.getByTestId('contacts-window-control-back')
     ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('contacts-window-control-back'));
 
-    expect(screen.queryByTestId('contacts-detail')).not.toBeInTheDocument();
-    expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('window-contact-edit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('window-contacts-search')).toBeInTheDocument();
   });
 });

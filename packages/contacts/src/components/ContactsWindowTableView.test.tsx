@@ -1,17 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as useContactsModule from '../hooks/useContacts';
 import { TestContactsProvider } from '../test/testUtils';
 import { ContactsWindowTableView } from './ContactsWindowTableView';
 
 const mockUseContacts = vi.fn();
 
-vi.mock('../hooks/useContacts', () => ({
-  useContacts: () => mockUseContacts()
-}));
-
 describe('ContactsWindowTableView', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.spyOn(useContactsModule, 'useContacts').mockImplementation((...args) =>
+      mockUseContacts(...args)
+    );
+    mockUseContacts.mockReset();
     mockUseContacts.mockReturnValue({
       contactsList: [
         {
@@ -28,6 +28,10 @@ describe('ContactsWindowTableView', () => {
       fetchContacts: vi.fn(),
       setHasFetched: vi.fn()
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('sends email to the primary email from context menu', () => {
