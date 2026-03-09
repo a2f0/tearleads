@@ -363,7 +363,7 @@
     },
     "tsPreCompilationDeps": true,
     "doNotFollow": {
-      "path": "(^|/)node_modules/|(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/"
+      "path": "(^|/)node_modules/|(\\.test|\\.spec)\\.(ts|tsx)$|/src/test/|/src/__tests__/|(^|/)(dist|dist-tests|build|out)/|^packages/client/android/app/src/main/assets/|^packages/client/android/app/build/|^packages/client/ios/App/App/public/"
     },
     "enhancedResolveOptions": {
       "extensions": [
