@@ -373,8 +373,14 @@ export function buildCompatibilityInventoryMarkdown(
     lines.push('| _none_ | 0 | _none_ |');
   } else {
     for (const pkg of blockers) {
+      const topBlockers = pkg.blockers.map((blocker) => {
+        if (blocker.startsWith('DOM setup (')) {
+          return `DOM setup (${pkg.jsdomIndicators.length} indicators; see Package Inventory)`;
+        }
+        return blocker;
+      });
       lines.push(
-        `| \`${pkg.packageName}\` | ${pkg.riskScore} | ${pkg.blockers.join(', ')} |`
+        `| \`${pkg.packageName}\` | ${pkg.riskScore} | ${topBlockers.join(', ')} |`
       );
     }
   }
