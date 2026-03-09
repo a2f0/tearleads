@@ -1,9 +1,45 @@
 import '@testing-library/jest-dom/vitest';
+import {
+  formatConsoleArg,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
-failOnConsole();
+const isBunRuntime = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
+const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
+
+if (!isBunRuntime) {
+  failOnConsole();
+} else {
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  let consoleMessages: string[] = [];
+
+  beforeEach(() => {
+    consoleMessages = [];
+    console.error = (...args: unknown[]) => {
+      consoleMessages.push(`error: ${args.map(formatConsoleArg).join(' ')}`);
+      originalConsoleError(...args);
+    };
+    console.warn = (...args: unknown[]) => {
+      consoleMessages.push(`warn: ${args.map(formatConsoleArg).join(' ')}`);
+      originalConsoleWarn(...args);
+    };
+  });
+
+  afterEach(() => {
+    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
+
+    if (consoleMessages.length > 0) {
+      throw new Error(
+        `Unexpected console output:\n${consoleMessages.join('\n')}`
+      );
+    }
+  });
+}
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
@@ -28,15 +64,29 @@ class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin = '';
   readonly thresholds: ReadonlyArray<number> = [];
+
   observe(): void {}
+
   unobserve(): void {}
+
   disconnect(): void {}
+
   takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
 }
 
-vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+Object.defineProperty(globalThis, 'IntersectionObserver', {
+  configurable: true,
+  writable: true,
+  value: MockIntersectionObserver
+});
+
+Object.defineProperty(window, 'IntersectionObserver', {
+  configurable: true,
+  writable: true,
+  value: MockIntersectionObserver
+});
 
 class MockResizeObserver implements ResizeObserver {
   observe = vi.fn();
@@ -44,8 +94,21 @@ class MockResizeObserver implements ResizeObserver {
   disconnect = vi.fn();
 }
 
-vi.stubGlobal('ResizeObserver', MockResizeObserver);
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  configurable: true,
+  writable: true,
+  value: MockResizeObserver
+});
+
+Object.defineProperty(window, 'ResizeObserver', {
+  configurable: true,
+  writable: true,
+  value: MockResizeObserver
+});
 
 afterEach(() => {
+  if (hasCustomStubber) {
+    unstubAllGlobals();
+  }
   cleanup();
 });

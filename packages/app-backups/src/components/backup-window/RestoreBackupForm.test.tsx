@@ -102,7 +102,9 @@ describe('RestoreBackupForm', () => {
     vi.useFakeTimers();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Restore Backup' }));
-      await vi.runAllTimersAsync();
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(3000);
     });
 
     expect(mockRestoreBackup).toHaveBeenCalled();
