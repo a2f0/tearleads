@@ -25,14 +25,20 @@ function createContext() {
   };
 }
 
-function callRegister(request: unknown, context: ReturnType<typeof createContext>) {
+function callRegister(
+  request: unknown,
+  context: ReturnType<typeof createContext>
+) {
   return Reflect.apply(vfsConnectService.register, vfsConnectService, [
     request,
     context
   ]);
 }
 
-function callRekeyItem(request: unknown, context: ReturnType<typeof createContext>) {
+function callRekeyItem(
+  request: unknown,
+  context: ReturnType<typeof createContext>
+) {
   return Reflect.apply(vfsConnectService.rekeyItem, vfsConnectService, [
     request,
     context

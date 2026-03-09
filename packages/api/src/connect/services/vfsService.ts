@@ -1,13 +1,13 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  VfsKeySetupRequest,
+  VfsRegisterRequest,
+  VfsRekeyRequest
+} from '@tearleads/shared';
+import type {
   VfsRegisterRequest as VfsRegisterRpcRequest,
   VfsRekeyItemRequest as VfsRekeyItemRpcRequest
 } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
-import {
-  type VfsKeySetupRequest,
-  type VfsRegisterRequest,
-  type VfsRekeyRequest
-} from '@tearleads/shared';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
   abandonBlobDirect,
