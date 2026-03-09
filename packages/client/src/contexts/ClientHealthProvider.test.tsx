@@ -18,6 +18,14 @@ let mockDatabaseContext = {
 
 let lastProviderProps: HealthRuntimeProviderProps | null = null;
 
+function requireProviderProps(): HealthRuntimeProviderProps {
+  if (!lastProviderProps) {
+    throw new Error('Expected HealthRuntimeProvider props to be captured');
+  }
+
+  return lastProviderProps;
+}
+
 vi.mock('@tearleads/app-health/clientEntry', async () => {
   const actual = await vi.importActual<
     typeof import('@tearleads/app-health/clientEntry')
@@ -74,16 +82,12 @@ describe('ClientHealthProvider', () => {
       </ClientHealthProvider>
     );
 
-    if (!lastProviderProps) {
-      throw new Error('Expected HealthRuntimeProvider props to be captured');
-    }
-
-    expect(lastProviderProps.databaseState).toEqual({
+    expect(requireProviderProps().databaseState).toEqual({
       isUnlocked: true,
       isLoading: false,
       currentInstanceId: 'instance-a'
     });
-    expect(lastProviderProps.InlineUnlock).toBe(InlineUnlock);
+    expect(requireProviderProps().InlineUnlock).toBe(InlineUnlock);
   });
 
   it('rebinds tracker creation to the active database context', () => {
@@ -93,11 +97,7 @@ describe('ClientHealthProvider', () => {
       </ClientHealthProvider>
     );
 
-    if (!lastProviderProps) {
-      throw new Error('Expected HealthRuntimeProvider props to be captured');
-    }
-
-    expect(lastProviderProps.createTracker()).toEqual({ db: mockDbA });
+    expect(requireProviderProps().createTracker()).toEqual({ db: mockDbA });
     expect(mockCreateHealthTracker).toHaveBeenCalledWith(mockDbA);
 
     mockDatabaseContext = {
@@ -113,16 +113,12 @@ describe('ClientHealthProvider', () => {
       </ClientHealthProvider>
     );
 
-    if (!lastProviderProps) {
-      throw new Error('Expected HealthRuntimeProvider props to be captured');
-    }
-
-    expect(lastProviderProps.databaseState).toEqual({
+    expect(requireProviderProps().databaseState).toEqual({
       isUnlocked: true,
       isLoading: false,
       currentInstanceId: 'instance-b'
     });
-    expect(lastProviderProps.createTracker()).toEqual({ db: mockDbB });
+    expect(requireProviderProps().createTracker()).toEqual({ db: mockDbB });
     expect(mockCreateHealthTracker).toHaveBeenLastCalledWith(mockDbB);
   });
 });
