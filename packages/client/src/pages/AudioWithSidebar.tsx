@@ -1,10 +1,10 @@
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/audio';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/audio';
-import { useDatabaseContext } from '@/db/hooks';
-import { getDatabase } from '@/db';
-import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { BackLink } from '@/components/ui/back-link';
+import { getDatabase } from '@/db';
+import { useDatabaseContext } from '@/db/hooks';
+import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { AudioPage } from './AudioPage';
 
 export function AudioWithSidebar() {

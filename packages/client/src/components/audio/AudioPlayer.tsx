@@ -5,6 +5,18 @@
  */
 
 import {
+  type AudioTrack,
+  BAR_COUNT,
+  BAR_KEYS,
+  getStoredVisibility,
+  LCDBar,
+  setStoredVisibility,
+  useAudio,
+  useAudioAnalyser,
+  VISUALIZER_HEIGHT,
+  type VisualizerVisibility
+} from '@tearleads/audio';
+import {
   Pause,
   Play,
   RotateCcw,
@@ -15,16 +27,6 @@ import {
   VolumeX
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioTrack, useAudio, useAudioAnalyser } from '@tearleads/audio';
-import {
-  BAR_COUNT,
-  BAR_KEYS,
-  getStoredVisibility,
-  LCDBar,
-  setStoredVisibility,
-  VISUALIZER_HEIGHT,
-  type VisualizerVisibility
-} from '@tearleads/audio';
 import { Button } from '@/components/ui/button';
 
 interface AudioPlayerProps {

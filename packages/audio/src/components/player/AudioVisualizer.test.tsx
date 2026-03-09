@@ -142,9 +142,10 @@ describe('AudioVisualizer', () => {
       await user.click(toggle);
 
       await waitFor(() => {
-        expect(
-          screen.getByTestId('visualizer-toggle')
-        ).toHaveAttribute('aria-label', 'Show visualizer');
+        expect(screen.getByTestId('visualizer-toggle')).toHaveAttribute(
+          'aria-label',
+          'Show visualizer'
+        );
       });
     });
 
@@ -250,9 +251,10 @@ describe('AudioVisualizer', () => {
       await user.click(toggle);
 
       await waitFor(() => {
-        expect(
-          screen.getByTestId('visualizer-toggle')
-        ).toHaveAttribute('aria-label', 'Show visualizer');
+        expect(screen.getByTestId('visualizer-toggle')).toHaveAttribute(
+          'aria-label',
+          'Show visualizer'
+        );
       });
     });
   });

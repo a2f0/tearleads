@@ -1,9 +1,10 @@
 // component-complexity: allow — pre-existing complexity; refactor deferred
+
+import { useAudio } from '@tearleads/audio';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like, or } from 'drizzle-orm';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAudio } from '@tearleads/audio';
 import { DeleteFileDialog } from '@/components/DeleteFileDialog';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
