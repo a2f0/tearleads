@@ -12,14 +12,19 @@ interface ConnectJsonApiActor {
 
 function unwrapConnectPayload(payload: unknown): unknown {
   let current = parseConnectJsonEnvelopeBody(payload);
+  const maxResultUnwrapDepth = 8;
+  let resultUnwrapDepth = 0;
 
   while (
     isPlainRecord(current) &&
-    Object.keys(current).length === 1 &&
     'result' in current &&
     current['result'] !== undefined
   ) {
+    if (resultUnwrapDepth >= maxResultUnwrapDepth) {
+      throw new Error('transport returned cyclic connect result wrapper');
+    }
     current = parseConnectJsonEnvelopeBody(current['result']);
+    resultUnwrapDepth += 1;
   }
 
   if (
@@ -27,7 +32,8 @@ function unwrapConnectPayload(payload: unknown): unknown {
     Object.keys(current).length === 1 &&
     (('response' in current && current['response'] !== undefined) ||
       ('message' in current && current['message'] !== undefined) ||
-      ('value' in current && current['value'] !== undefined))
+      ('value' in current && current['value'] !== undefined) ||
+      ('json' in current && current['json'] !== undefined))
   ) {
     throw new Error('transport returned unsupported connect wrapper payload');
   }

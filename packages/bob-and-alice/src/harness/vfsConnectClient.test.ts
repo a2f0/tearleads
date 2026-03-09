@@ -65,6 +65,23 @@ describe('fetchVfsConnectJson', () => {
     expect(response).toEqual(createCrdtResponse());
   });
 
+  it('unwraps result wrappers when metadata keys are present', async () => {
+    const actor = {
+      fetchJson: vi.fn().mockResolvedValue({
+        result: createCrdtResponse(),
+        metadata: { traceId: 'trace-1' }
+      })
+    };
+
+    const response = await fetchVfsConnectJson<VfsCrdtSyncResponse>({
+      actor,
+      methodName: 'GetCrdtSync',
+      requestBody: { limit: 500 }
+    });
+
+    expect(response).toEqual(createCrdtResponse());
+  });
+
   it('rejects unsupported nested wrapper chains', async () => {
     const actor = {
       fetchJson: vi.fn().mockResolvedValue({
@@ -87,6 +104,25 @@ describe('fetchVfsConnectJson', () => {
         requestBody: { limit: 500 }
       })
     ).rejects.toThrow('transport returned unsupported connect wrapper payload');
+  });
+
+  it('rejects excessive nested result wrappers', async () => {
+    let nestedResult: unknown = createCrdtResponse();
+    for (let i = 0; i < 9; i += 1) {
+      nestedResult = { result: nestedResult };
+    }
+
+    const actor = {
+      fetchJson: vi.fn().mockResolvedValue(nestedResult)
+    };
+
+    await expect(
+      fetchVfsConnectJson<VfsCrdtSyncResponse>({
+        actor,
+        methodName: 'GetCrdtSync',
+        requestBody: { limit: 500 }
+      })
+    ).rejects.toThrow('transport returned cyclic connect result wrapper');
   });
 
   it('unwraps envelopes with non-string json values', async () => {
