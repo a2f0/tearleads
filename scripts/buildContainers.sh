@@ -56,12 +56,12 @@ fi
 
 # Source environment secrets
 ENV_FILE="$REPO_ROOT/.secrets/${ENV}.env"
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Error: Missing secrets file: $ENV_FILE"
-  exit 1
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck source=/dev/null
+  source "$ENV_FILE"
+else
+  echo "Warning: Missing secrets file: $ENV_FILE — falling back to exported environment variables"
 fi
-# shellcheck source=/dev/null
-source "$ENV_FILE"
 
 require_var() {
   local name="$1"
