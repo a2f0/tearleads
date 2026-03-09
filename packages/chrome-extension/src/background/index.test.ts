@@ -35,9 +35,13 @@ vi.stubGlobal('chrome', mockChrome);
 
 let backgroundModulePromise: Promise<typeof import('./index')> | undefined;
 
-async function registerBackgroundScript() {
+async function loadBackgroundScriptModule() {
   backgroundModulePromise ??= import('./index');
-  const module = await backgroundModulePromise;
+  return backgroundModulePromise;
+}
+
+async function registerBackgroundScript() {
+  const module = await loadBackgroundScriptModule();
   vi.clearAllMocks();
   globalThis.__tearleadsBackgroundInitialized = undefined;
   module.registerBackgroundListeners();
@@ -98,6 +102,18 @@ describe('background script', () => {
     expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
       expect.any(Function)
     );
+  });
+
+  it('should not register duplicate listeners when already initialized', async () => {
+    const module = await loadBackgroundScriptModule();
+    vi.clearAllMocks();
+    globalThis.__tearleadsBackgroundInitialized = undefined;
+
+    module.registerBackgroundListeners();
+    module.registerBackgroundListeners();
+
+    expect(mockChrome.runtime.onInstalled.addListener).toHaveBeenCalledTimes(1);
+    expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
   });
 
   it('should handle GET_TAB_INFO message and return tab info', async () => {

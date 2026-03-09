@@ -33,6 +33,8 @@ export function initializeContentScript(): void {
   );
 }
 
+/* v8 ignore start */
 if (!import.meta.vitest) {
   initializeContentScript();
 }
+/* v8 ignore stop */

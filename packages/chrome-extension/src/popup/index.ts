@@ -208,7 +208,9 @@ export function initializePopup() {
   });
 }
 
+/* v8 ignore start */
 if (!import.meta.vitest && !globalThis.__tearleadsPopupListenerRegistered) {
   globalThis.__tearleadsPopupListenerRegistered = true;
   document.addEventListener('DOMContentLoaded', initializePopup);
 }
+/* v8 ignore stop */

@@ -104,6 +104,8 @@ export function registerBackgroundListeners(): void {
   );
 }
 
+/* v8 ignore start */
 if (!import.meta.vitest) {
   registerBackgroundListeners();
 }
+/* v8 ignore stop */
