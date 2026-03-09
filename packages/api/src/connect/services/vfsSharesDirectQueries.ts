@@ -1,13 +1,23 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   VfsOrgShare,
   VfsOrgWrappedKeyPayload,
   VfsShare,
-  VfsSharesResponse,
   VfsShareType,
   VfsWrappedKeyPayload
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
+import type {
+  VfsOrgSharePayload,
+  VfsSharePayload,
+  VfsSharesGetItemSharesResponse
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
+import {
+  VfsOrgSharePayloadSchema,
+  VfsSharePayloadSchema,
+  VfsSharesGetItemSharesResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { getPool } from '../../lib/postgres.js';
 import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
@@ -125,10 +135,47 @@ function buildWrappedKeyForOrgShare(input: {
   };
 }
 
+function toSharePayload(share: VfsShare): VfsSharePayload {
+  return create(VfsSharePayloadSchema, {
+    id: share.id,
+    itemId: share.itemId,
+    shareType: share.shareType,
+    targetId: share.targetId,
+    targetName: share.targetName,
+    permissionLevel: share.permissionLevel,
+    createdBy: share.createdBy,
+    createdByEmail: share.createdByEmail,
+    createdAt: share.createdAt,
+    ...(typeof share.expiresAt === 'string'
+      ? { expiresAt: share.expiresAt }
+      : {}),
+    ...(share.wrappedKey ? { wrappedKey: share.wrappedKey } : {})
+  });
+}
+
+function toOrgSharePayload(orgShare: VfsOrgShare): VfsOrgSharePayload {
+  return create(VfsOrgSharePayloadSchema, {
+    id: orgShare.id,
+    sourceOrgId: orgShare.sourceOrgId,
+    sourceOrgName: orgShare.sourceOrgName,
+    targetOrgId: orgShare.targetOrgId,
+    targetOrgName: orgShare.targetOrgName,
+    itemId: orgShare.itemId,
+    permissionLevel: orgShare.permissionLevel,
+    createdBy: orgShare.createdBy,
+    createdByEmail: orgShare.createdByEmail,
+    createdAt: orgShare.createdAt,
+    ...(typeof orgShare.expiresAt === 'string'
+      ? { expiresAt: orgShare.expiresAt }
+      : {}),
+    ...(orgShare.wrappedKey ? { wrappedKey: orgShare.wrappedKey } : {})
+  });
+}
+
 export async function getItemSharesDirect(
   request: { itemId: string },
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesGetItemSharesResponse> {
   const claims = await requireVfsSharesClaims(
     `/vfs/items/${encoded(request.itemId)}/shares`,
     context.requestHeader
@@ -286,8 +333,10 @@ export async function getItemSharesDirect(
       };
     });
 
-    const response: VfsSharesResponse = { shares, orgShares };
-    return { json: JSON.stringify(response) };
+    return create(VfsSharesGetItemSharesResponseSchema, {
+      shares: shares.map((share) => toSharePayload(share)),
+      orgShares: orgShares.map((orgShare) => toOrgSharePayload(orgShare))
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;

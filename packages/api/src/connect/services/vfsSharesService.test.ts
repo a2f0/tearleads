@@ -196,16 +196,11 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    const payload: unknown = JSON.parse(response.json);
-    if (!isUnknownRecord(payload)) {
-      throw new Error('Expected object payload');
-    }
-
-    const shares = payload['shares'];
+    const shares = response.shares;
     if (!Array.isArray(shares) || !isUnknownRecord(shares[0])) {
       throw new Error('Expected shares payload');
     }
-    const orgShares = payload['orgShares'];
+    const orgShares = response.orgShares;
     if (!Array.isArray(orgShares) || !isUnknownRecord(orgShares[0])) {
       throw new Error('Expected orgShares payload');
     }
@@ -338,10 +333,8 @@ describe('vfsSharesConnectService', () => {
       context
     );
 
-    expect(response).toEqual({
-      json: JSON.stringify({
-        results: [{ id: 'user-2', type: 'user', name: 'alice@example.com' }]
-      })
+    expect(response).toMatchObject({
+      results: [{ id: 'user-2', type: 'user', name: 'alice@example.com' }]
     });
     expect(authenticateMock).toHaveBeenCalledWith(context.requestHeader);
     expect(resolveOrganizationMembershipMock).toHaveBeenCalledWith(

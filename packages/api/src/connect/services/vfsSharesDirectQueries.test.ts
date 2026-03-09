@@ -32,14 +32,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseResponseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected record JSON payload');
-  }
-  return parsed;
-}
-
 describe('vfsSharesDirectQueries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -169,9 +161,8 @@ describe('vfsSharesDirectQueries', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const shares = payload['shares'];
-    const orgShares = payload['orgShares'];
+    const shares = response.shares;
+    const orgShares = response.orgShares;
 
     if (
       !Array.isArray(shares) ||
@@ -185,7 +176,7 @@ describe('vfsSharesDirectQueries', () => {
     }
 
     expect(shares[0]['id']).toBe('share-1');
-    expect(shares[0]['wrappedKey']).toEqual({
+    expect(shares[0]['wrappedKey']).toMatchObject({
       recipientUserId: 'user-2',
       recipientPublicKeyId: 'pub-1',
       keyEpoch: 2,
@@ -200,7 +191,7 @@ describe('vfsSharesDirectQueries', () => {
     expect(shares[1]['wrappedKey']).toBeUndefined();
 
     expect(orgShares[0]['id']).toBe('org-share-1');
-    expect(orgShares[0]['wrappedKey']).toEqual({
+    expect(orgShares[0]['wrappedKey']).toMatchObject({
       recipientOrgId: 'target-org',
       recipientPublicKeyId: 'pub-org',
       keyEpoch: 5,
@@ -263,9 +254,8 @@ describe('vfsSharesDirectQueries', () => {
         requestHeader: new Headers()
       }
     );
-    const payload = parseResponseJson(response.json);
-    const shares = payload['shares'];
-    const orgShares = payload['orgShares'];
+    const shares = response.shares;
+    const orgShares = response.orgShares;
 
     if (!Array.isArray(shares) || !isRecord(shares[0])) {
       throw new Error('Expected shares payload');

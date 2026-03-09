@@ -1,10 +1,18 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
-  type ShareTargetSearchResponse,
   type ShareTargetSearchResult,
   VFS_CONTAINER_OBJECT_TYPES,
   type VfsShareType
 } from '@tearleads/shared';
+import type {
+  VfsSharesSearchShareTargetsResponse,
+  VfsShareTargetPayload
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
+import {
+  VfsSharesSearchShareTargetsResponseSchema,
+  VfsShareTargetPayloadSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { buildSharePolicyPreviewTree } from '../../lib/vfsSharePolicyPreviewTree.js';
 import {
@@ -79,6 +87,19 @@ function parseObjectTypeValues(objectType: string[]): string[] | null {
     return null;
   }
   return parseObjectTypes(objectType.join(','));
+}
+
+function toShareTargetPayload(
+  result: ShareTargetSearchResult
+): VfsShareTargetPayload {
+  return create(VfsShareTargetPayloadSchema, {
+    id: result.id,
+    type: result.type,
+    name: result.name,
+    ...(typeof result.description === 'string'
+      ? { description: result.description }
+      : {})
+  });
 }
 
 export async function requireVfsSharesClaims(
@@ -204,7 +225,7 @@ export async function deleteOrgShareDirect(
 export async function searchShareTargetsDirect(
   request: { q: string; type: string },
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<VfsSharesSearchShareTargetsResponse> {
   const claims = await requireVfsSharesClaims(
     '/vfs/share-targets/search',
     context.requestHeader
@@ -299,8 +320,9 @@ export async function searchShareTargetsDirect(
       }
     }
 
-    const response: ShareTargetSearchResponse = { results };
-    return { json: JSON.stringify(response) };
+    return create(VfsSharesSearchShareTargetsResponseSchema, {
+      results: results.map((result) => toShareTargetPayload(result))
+    });
   } catch (error) {
     console.error('Failed to search share targets:', error);
     throw new ConnectError('Failed to search', Code.Internal);
