@@ -348,7 +348,6 @@ describe('SettingsProvider', () => {
 
       consoleSpy.mockRestore();
     });
-
   });
 
   describe('children rendering', () => {
