@@ -44,18 +44,6 @@ import { getUserDirect, listUsersDirect } from './adminDirectUsers.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseJson(json: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(json);
-  if (!isRecord(parsed)) {
-    throw new Error('Expected object JSON response');
-  }
-  return parsed;
-}
-
 describe('adminDirectUsers list/get coverage branches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -120,7 +108,7 @@ describe('adminDirectUsers list/get coverage branches', () => {
 
     const queryCall = queryMock.mock.calls[0];
     expect(queryCall?.[1]).toBeUndefined();
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       users: [
         {
           id: 'user-1',
@@ -131,20 +119,20 @@ describe('adminDirectUsers list/get coverage branches', () => {
           createdAt: '2026-03-03T02:00:00.000Z',
           lastActiveAt: '2026-03-03T02:05:00.000Z',
           accounting: {
-            totalPromptTokens: 0,
-            totalCompletionTokens: 0,
-            totalTokens: 0,
-            requestCount: 0,
-            lastUsedAt: null
+            totalPromptTokens: 0n,
+            totalCompletionTokens: 0n,
+            totalTokens: 0n,
+            requestCount: 0n
           },
-          disabled: false,
-          disabledAt: null,
-          disabledBy: null,
-          markedForDeletionAt: null,
-          markedForDeletionBy: null
+          disabled: false
         }
       ]
     });
+    expect(response.users[0]?.accounting?.lastUsedAt).toBeUndefined();
+    expect(response.users[0]?.disabledAt).toBeUndefined();
+    expect(response.users[0]?.disabledBy).toBeUndefined();
+    expect(response.users[0]?.markedForDeletionAt).toBeUndefined();
+    expect(response.users[0]?.markedForDeletionBy).toBeUndefined();
   });
 
   it('uses scoped organization list for non-root admins when filter is blank', async () => {
@@ -159,7 +147,7 @@ describe('adminDirectUsers list/get coverage branches', () => {
 
     const queryCall = queryMock.mock.calls[0];
     expect(queryCall?.[1]).toEqual([['org-1']]);
-    expect(parseJson(response.json)).toEqual({ users: [] });
+    expect(response.users).toEqual([]);
   });
 
   it('maps listUsers query failures to internal', async () => {
@@ -219,7 +207,7 @@ describe('adminDirectUsers list/get coverage branches', () => {
 
     const queryCall = queryMock.mock.calls[0];
     expect(queryCall?.[1]).toEqual(['user-1']);
-    expect(parseJson(response.json)).toEqual({
+    expect(response).toMatchObject({
       user: {
         id: 'user-1',
         email: 'user1@example.com',
@@ -229,19 +217,19 @@ describe('adminDirectUsers list/get coverage branches', () => {
         createdAt: '2026-03-03T02:10:00.000Z',
         lastActiveAt: '2026-03-03T02:12:00.000Z',
         accounting: {
-          totalPromptTokens: 0,
-          totalCompletionTokens: 0,
-          totalTokens: 0,
-          requestCount: 0,
-          lastUsedAt: null
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n
         },
-        disabled: false,
-        disabledAt: null,
-        disabledBy: null,
-        markedForDeletionAt: null,
-        markedForDeletionBy: null
+        disabled: false
       }
     });
+    expect(response.user?.accounting?.lastUsedAt).toBeUndefined();
+    expect(response.user?.disabledAt).toBeUndefined();
+    expect(response.user?.disabledBy).toBeUndefined();
+    expect(response.user?.markedForDeletionAt).toBeUndefined();
+    expect(response.user?.markedForDeletionBy).toBeUndefined();
   });
 
   it('maps getUser query failures to internal', async () => {

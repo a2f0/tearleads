@@ -1,9 +1,3 @@
-import {
-  type DescMessage,
-  fromJsonString,
-  type MessageShape
-} from '@bufbuild/protobuf';
-import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   AdminAddGroupMemberRequest,
   AdminCreateGroupRequest,
@@ -32,11 +26,6 @@ import type {
   AdminUpdateGroupRequest,
   AdminUpdateOrganizationRequest,
   AdminUpdateUserRequest
-} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
-import {
-  AdminGetUserResponseSchema,
-  AdminListUsersResponseSchema,
-  AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getContextDirect } from './adminDirectContext.js';
 import {
@@ -79,20 +68,6 @@ import {
 } from './adminDirectUsers.js';
 
 type ConnectContext = { requestHeader: Headers };
-
-function decodeAdminJson<Desc extends DescMessage>(
-  schema: Desc,
-  json: string
-): MessageShape<Desc> {
-  try {
-    return fromJsonString(schema, json, {
-      ignoreUnknownFields: true
-    });
-  } catch (error) {
-    console.error('Failed to decode admin v2 response JSON', error);
-    throw new ConnectError('Failed to decode admin response', Code.Internal);
-  }
-}
 
 export const adminConnectServiceV2 = {
   async getContext(request: AdminGetContextRequest, context: ConnectContext) {
@@ -225,20 +200,18 @@ export const adminConnectServiceV2 = {
     return deleteOrganizationDirect(request, context);
   },
   async listUsers(request: AdminListUsersRequest, context: ConnectContext) {
-    const response = await listUsersDirect(
+    return listUsersDirect(
       {
         organizationId: request.organizationId ?? ''
       },
       context
     );
-    return decodeAdminJson(AdminListUsersResponseSchema, response.json);
   },
   async getUser(request: AdminGetUserRequest, context: ConnectContext) {
-    const response = await getUserDirect(request, context);
-    return decodeAdminJson(AdminGetUserResponseSchema, response.json);
+    return getUserDirect(request, context);
   },
   async updateUser(request: AdminUpdateUserRequest, context: ConnectContext) {
-    const response = await updateUserDirect(
+    return updateUserDirect(
       {
         id: request.id,
         ...(request.email !== undefined ? { email: request.email } : {}),
@@ -258,7 +231,6 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminUpdateUserResponseSchema, response.json);
   },
   async getPostgresInfo(
     request: AdminGetPostgresInfoRequest,

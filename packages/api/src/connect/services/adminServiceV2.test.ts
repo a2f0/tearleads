@@ -252,25 +252,23 @@ describe('adminConnectServiceV2', () => {
 
   it('maps updateUser organization ids payload for direct handlers', async () => {
     mocks.updateUserDirect.mockResolvedValueOnce({
-      json: JSON.stringify({
-        user: {
-          id: 'user-1',
-          email: 'user@example.com',
-          emailConfirmed: true,
-          admin: false,
-          organizationIds: ['org-1'],
-          accounting: {
-            totalPromptTokens: 0,
-            totalCompletionTokens: 0,
-            totalTokens: 0,
-            requestCount: 0
-          },
-          disabled: true
-        }
-      })
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        emailConfirmed: true,
+        admin: false,
+        organizationIds: ['org-1'],
+        accounting: {
+          totalPromptTokens: 0n,
+          totalCompletionTokens: 0n,
+          totalTokens: 0n,
+          requestCount: 0n
+        },
+        disabled: true
+      }
     });
 
-    await adminConnectServiceV2.updateUser(
+    const response = await adminConnectServiceV2.updateUser(
       create(AdminUpdateUserRequestSchema, {
         id: 'user-1',
         organizationIds: create(AdminUpdateUserOrganizationIdsSchema, {
@@ -281,6 +279,9 @@ describe('adminConnectServiceV2', () => {
       context
     );
 
+    expect(response.user?.id).toBe('user-1');
+    expect(response.user?.accounting?.totalTokens).toBe(0n);
+    expect(response.user?.accounting?.lastUsedAt).toBeUndefined();
     const firstCall = mocks.updateUserDirect.mock.calls[0];
     expect(firstCall).toBeDefined();
     const requestArg = firstCall?.[0];

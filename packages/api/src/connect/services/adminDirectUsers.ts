@@ -1,9 +1,16 @@
+import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
+import type { AdminUserUpdatePayload } from '@tearleads/shared';
 import type {
-  AdminUserResponse,
-  AdminUsersResponse,
-  AdminUserUpdatePayload
-} from '@tearleads/shared';
+  AdminGetUserResponse,
+  AdminListUsersResponse,
+  AdminUpdateUserResponse
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
+import {
+  AdminGetUserResponseSchema,
+  AdminListUsersResponseSchema,
+  AdminUpdateUserResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getPool } from '../../lib/postgres.js';
 import {
   deleteAllSessionsForUser,
@@ -14,10 +21,10 @@ import {
   type ScopedAdminAccess
 } from './adminDirectAuth.js';
 import type { OptionalWithUndefined } from './adminDirectTypes.js';
+import { toAdminUser } from './adminDirectUsersProto.js';
 import {
   emptyAccounting,
   getUserAccounting,
-  mapUserRow,
   parseUserUpdatePayload,
   type UserRow
 } from './adminDirectUsersShared.js';
@@ -67,7 +74,7 @@ function normalizeUpdateUserPayload(
 export async function listUsersDirect(
   request: ListUsersRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminListUsersResponse> {
   const authorization = await requireScopedAdminAccess(
     '/admin/users',
     context.requestHeader
@@ -148,16 +155,14 @@ export async function listUsersDirect(
     const lastActiveByUserId = await getLatestLastActiveByUserIds(userIds);
     const accountingByUserId = await getUserAccounting(pool, userIds);
 
-    const response: AdminUsersResponse = {
+    return create(AdminListUsersResponseSchema, {
       users: result.rows.map((row) =>
-        mapUserRow(row, {
+        toAdminUser(row, {
           lastActiveAt: lastActiveByUserId[row.id] ?? null,
           accounting: accountingByUserId[row.id] ?? emptyAccounting
         })
       )
-    };
-
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -170,7 +175,7 @@ export async function listUsersDirect(
 export async function getUserDirect(
   request: IdRequest,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminGetUserResponse> {
   const authorization = await requireScopedAdminAccess(
     `/admin/users/${encoded(request.id)}`,
     context.requestHeader
@@ -243,13 +248,12 @@ export async function getUserDirect(
       (await getLatestLastActiveByUserIds([user.id]))[user.id] ?? null;
     const accountingByUserId = await getUserAccounting(pool, [user.id]);
 
-    const response: AdminUserResponse = {
-      user: mapUserRow(user, {
+    return create(AdminGetUserResponseSchema, {
+      user: toAdminUser(user, {
         lastActiveAt,
         accounting: accountingByUserId[user.id] ?? emptyAccounting
       })
-    };
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     if (error instanceof ConnectError) {
       throw error;
@@ -262,7 +266,7 @@ export async function getUserDirect(
 export async function updateUserDirect(
   request: UpdateUserInput,
   context: { requestHeader: Headers }
-): Promise<{ json: string }> {
+): Promise<AdminUpdateUserResponse> {
   const { id, ...payload } = request;
   const authorization = await requireScopedAdminAccess(
     `/admin/users/${encoded(id)}`,
@@ -429,8 +433,8 @@ export async function updateUserDirect(
       null;
     const accountingByUserId = await getUserAccounting(pool, [updatedUser.id]);
 
-    const response: AdminUserResponse = {
-      user: mapUserRow(
+    return create(AdminUpdateUserResponseSchema, {
+      user: toAdminUser(
         {
           ...updatedUser,
           organization_ids: orgResult.rows.map((row) => row.organization_id),
@@ -441,9 +445,7 @@ export async function updateUserDirect(
           accounting: accountingByUserId[updatedUser.id] ?? emptyAccounting
         }
       )
-    };
-
-    return { json: JSON.stringify(response) };
+    });
   } catch (error) {
     console.error('Users admin error:', error);
     if (transactionStarted) {
