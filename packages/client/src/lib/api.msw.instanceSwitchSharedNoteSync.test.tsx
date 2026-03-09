@@ -18,8 +18,8 @@ import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
 import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 import {
-  type VfsConsoleGuard,
-  installVfsConsoleGuard
+  installVfsConsoleGuard,
+  type VfsConsoleGuard
 } from '@/test/vfsConsoleGuard';
 import { fetchVfsConnectJson } from '../../../bob-and-alice/src/harness/vfsConnectClient';
 import type { JsonApiActor } from '../../../bob-and-alice/src/scaffolding/setupBobNotesShareForAlice';

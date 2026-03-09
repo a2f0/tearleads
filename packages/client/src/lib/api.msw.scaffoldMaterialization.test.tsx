@@ -33,8 +33,8 @@ import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';
 import { getSharedTestContext } from '@/test/testContext';
 import {
-  type VfsConsoleGuard,
-  installVfsConsoleGuard
+  installVfsConsoleGuard,
+  type VfsConsoleGuard
 } from '@/test/vfsConsoleGuard';
 
 let vfsConsoleGuard: VfsConsoleGuard | null = null;
