@@ -106,6 +106,9 @@ const context = {
 };
 
 const emptyJsonResponse = { json: '{}' };
+const emptyDeleteGroupResponse = { deleted: false };
+const emptyAddGroupMemberResponse = { added: false };
+const emptyRemoveGroupMemberResponse = { removed: false };
 const emptyRedisKeysResponse = { keys: [], cursor: '', hasMore: false };
 const emptyDeleteRedisKeyResponse = { deleted: false };
 const emptyRedisDbSizeResponse = { count: 0n };
@@ -118,9 +121,11 @@ describe('adminConnectServiceV2 coverage branches', () => {
   it('forwards group, user, postgres, and redis handlers', async () => {
     mocks.listGroupsDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getGroupDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.deleteGroupDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.deleteGroupDirect.mockResolvedValue(emptyDeleteGroupResponse);
     mocks.getGroupMembersDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.removeGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.removeGroupMemberDirect.mockResolvedValue(
+      emptyRemoveGroupMemberResponse
+    );
     mocks.listUsersDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getUserDirect.mockResolvedValue(emptyJsonResponse);
     mocks.getColumnsDirect.mockResolvedValue(emptyJsonResponse);
@@ -215,7 +220,7 @@ describe('adminConnectServiceV2 coverage branches', () => {
   it('maps group mutation payloads', async () => {
     mocks.createGroupDirect.mockResolvedValue(emptyJsonResponse);
     mocks.updateGroupDirect.mockResolvedValue(emptyJsonResponse);
-    mocks.addGroupMemberDirect.mockResolvedValue(emptyJsonResponse);
+    mocks.addGroupMemberDirect.mockResolvedValue(emptyAddGroupMemberResponse);
 
     await adminConnectServiceV2.createGroup(
       create(AdminCreateGroupRequestSchema, {

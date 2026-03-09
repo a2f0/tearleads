@@ -159,16 +159,14 @@ describe('adminDirectGroupMutations error branches', () => {
       }
     );
 
-    expect(JSON.parse(response.json)).toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-1',
-        name: 'Engineering',
-        description: null,
-        createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:00:00.000Z'
-      }
+    expect(response.group).toMatchObject({
+      id: 'group-1',
+      organizationId: 'org-1',
+      name: 'Engineering',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:00:00.000Z'
     });
+    expect(response.group?.description).toBeUndefined();
   });
 
   it('maps unknown createGroup Error failures to Internal', async () => {
@@ -370,16 +368,14 @@ describe('adminDirectGroupMutations error branches', () => {
       }
     );
 
-    expect(JSON.parse(response.json)).toEqual({
-      group: {
-        id: 'group-1',
-        organizationId: 'org-2',
-        name: 'Engineering',
-        description: null,
-        createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:01:00.000Z'
-      }
+    expect(response.group).toMatchObject({
+      id: 'group-1',
+      organizationId: 'org-2',
+      name: 'Engineering',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:01:00.000Z'
     });
+    expect(response.group?.description).toBeUndefined();
   });
 
   it('returns not found when updateGroup update result has no row', async () => {

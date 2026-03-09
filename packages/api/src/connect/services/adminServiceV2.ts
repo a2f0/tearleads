@@ -34,13 +34,8 @@ import type {
   AdminUpdateUserRequest
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
-  AdminAddGroupMemberResponseSchema,
-  AdminCreateGroupResponseSchema,
-  AdminDeleteGroupResponseSchema,
   AdminGetUserResponseSchema,
   AdminListUsersResponseSchema,
-  AdminRemoveGroupMemberResponseSchema,
-  AdminUpdateGroupResponseSchema,
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { getContextDirect } from './adminDirectContext.js';
@@ -115,7 +110,7 @@ export const adminConnectServiceV2 = {
     return getGroupDirect(request, context);
   },
   async createGroup(request: AdminCreateGroupRequest, context: ConnectContext) {
-    const response = await createGroupDirect(
+    return createGroupDirect(
       {
         organizationId: request.organizationId,
         name: request.name,
@@ -123,10 +118,9 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminCreateGroupResponseSchema, response.json);
   },
   async updateGroup(request: AdminUpdateGroupRequest, context: ConnectContext) {
-    const response = await updateGroupDirect(
+    return updateGroupDirect(
       {
         id: request.id,
         organizationId: request.organizationId,
@@ -135,11 +129,9 @@ export const adminConnectServiceV2 = {
       },
       context
     );
-    return decodeAdminJson(AdminUpdateGroupResponseSchema, response.json);
   },
   async deleteGroup(request: AdminDeleteGroupRequest, context: ConnectContext) {
-    const response = await deleteGroupDirect(request, context);
-    return decodeAdminJson(AdminDeleteGroupResponseSchema, response.json);
+    return deleteGroupDirect(request, context);
   },
   async getGroupMembers(
     request: AdminGetGroupMembersRequest,
@@ -151,21 +143,19 @@ export const adminConnectServiceV2 = {
     request: AdminAddGroupMemberRequest,
     context: ConnectContext
   ) {
-    const response = await addGroupMemberDirect(
+    return addGroupMemberDirect(
       {
         id: request.id,
         userId: request.userId
       },
       context
     );
-    return decodeAdminJson(AdminAddGroupMemberResponseSchema, response.json);
   },
   async removeGroupMember(
     request: AdminRemoveGroupMemberRequest,
     context: ConnectContext
   ) {
-    const response = await removeGroupMemberDirect(request, context);
-    return decodeAdminJson(AdminRemoveGroupMemberResponseSchema, response.json);
+    return removeGroupMemberDirect(request, context);
   },
   async listOrganizations(
     request: AdminListOrganizationsRequest,

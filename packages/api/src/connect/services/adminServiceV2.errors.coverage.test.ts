@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import {
+  AdminCreateGroupRequestSchema,
   AdminGetContextRequestSchema,
   AdminGetOrganizationRequestSchema,
   AdminGetRedisValueRequestSchema
@@ -135,6 +136,22 @@ describe('adminConnectServiceV2 error branches', () => {
     await expect(
       adminConnectServiceV2.getOrganization(
         create(AdminGetOrganizationRequestSchema, { id: 'org-broken' }),
+        context
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('propagates group mutation errors without JSON decode wrapping', async () => {
+    mocks.createGroupDirect.mockRejectedValueOnce({
+      code: Code.Internal
+    });
+
+    await expect(
+      adminConnectServiceV2.createGroup(
+        create(AdminCreateGroupRequestSchema, {
+          organizationId: 'org-broken',
+          name: 'Broken'
+        }),
         context
       )
     ).rejects.toMatchObject({ code: Code.Internal });
