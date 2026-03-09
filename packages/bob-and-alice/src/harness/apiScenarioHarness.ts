@@ -92,6 +92,49 @@ async function normalizeRequestInitForRetries(
   };
 }
 
+function cloneRequestBodyForRetry(
+  body: RequestInit['body']
+): RequestInit['body'] {
+  if (body === null || body === undefined) {
+    return body;
+  }
+  if (typeof body === 'string' || body instanceof String) {
+    return body.toString();
+  }
+  if (body instanceof URLSearchParams) {
+    return new URLSearchParams(body.toString());
+  }
+  if (body instanceof ArrayBuffer) {
+    return body.slice(0);
+  }
+  if (ArrayBuffer.isView(body)) {
+    return new Uint8Array(
+      body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)
+    );
+  }
+  return body;
+}
+
+function cloneRequestInitForRetry(
+  init: RequestInit | undefined
+): RequestInit | undefined {
+  if (!init) {
+    return init;
+  }
+
+  const clonedBody = cloneRequestBodyForRetry(init.body);
+  const clonedHeaders = init.headers ? new Headers(init.headers) : undefined;
+  const clonedInit: RequestInit = {
+    ...init,
+    ...(clonedHeaders ? { headers: clonedHeaders } : {}),
+    ...(clonedBody === undefined ? {} : { body: clonedBody })
+  };
+  if (clonedBody === undefined) {
+    delete clonedInit.body;
+  }
+  return clonedInit;
+}
+
 export function isRetryableWriteValidationError(
   path: string,
   init: RequestInit | undefined,
@@ -126,15 +169,15 @@ export async function fetchWithRetryableWriteValidationError(
 ): Promise<Response> {
   const maxRetryAttempts = options.maxRetryAttempts ?? 8;
   const sleep = options.sleep ?? defaultSleep;
-  const retryInit = await normalizeRequestInitForRetries(init);
+  const retryInitTemplate = await normalizeRequestInitForRetries(init);
 
   let retryAttempts = 0;
-  let response = await actorFetch(path, retryInit);
+  let response = await actorFetch(path, cloneRequestInitForRetry(retryInitTemplate));
   while (!response.ok) {
     const responseBody = await response.text();
     const shouldRetry = isRetryableWriteValidationError(
       path,
-      retryInit,
+      retryInitTemplate,
       response.status,
       responseBody
     );
@@ -146,7 +189,7 @@ export async function fetchWithRetryableWriteValidationError(
 
     retryAttempts += 1;
     await sleep(retryDelayMs(retryAttempts));
-    response = await actorFetch(path, retryInit);
+    response = await actorFetch(path, cloneRequestInitForRetry(retryInitTemplate));
   }
 
   return response;

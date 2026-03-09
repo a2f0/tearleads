@@ -195,4 +195,53 @@ describe('fetchWithRetryableWriteValidationError', () => {
     expect(response.ok).toBe(true);
     expect(seenBodies).toEqual([payload, payload]);
   });
+
+  it('rebuilds RequestInit per retry when fetch mutates init', async () => {
+    const payload = JSON.stringify({
+      id: 'note-retry-init',
+      objectType: 'note',
+      encryptedSessionKey: 'retry-init-key'
+    });
+    const seenBodies: string[] = [];
+    let callCount = 0;
+
+    const actorFetch = async (
+      _path: string,
+      init?: RequestInit
+    ): Promise<Response> => {
+      seenBodies.push(
+        typeof init?.body === 'string' ? init.body : String(init?.body)
+      );
+      if (init) {
+        Reflect.set(init, 'body', undefined);
+      }
+
+      callCount += 1;
+      if (callCount === 1) {
+        return new Response(
+          '{"error":"id, objectType, and encryptedSessionKey are required"}',
+          { status: 400, statusText: 'Bad Request' }
+        );
+      }
+
+      return new Response('{"ok":true}', { status: 200, statusText: 'OK' });
+    };
+
+    const response = await fetchWithRetryableWriteValidationError(
+      actorFetch,
+      '/vfs/register',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      },
+      {
+        sleep: async (): Promise<void> => {}
+      }
+    );
+
+    expect(response.ok).toBe(true);
+    expect(callCount).toBe(2);
+    expect(seenBodies).toEqual([payload, payload]);
+  });
 });
