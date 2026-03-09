@@ -6,35 +6,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock() calls must be in each test file (hoisted)
+
 vi.mock(
   '@tearleads/shared',
   typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
     ? () => createSharedMock()
     : async () => {
-        const { createSharedMock } = await import('./keyManager.testUtils');
-        return createSharedMock();
+        const { sharedModuleMockFactory } = await import(
+          './keyManager.testUtils'
+        );
+        return sharedModuleMockFactory();
       }
 );
-
 vi.mock(
   './nativeSecureStorage',
   typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
     ? () => createNativeStorageMock()
     : async () => {
-        const { createNativeStorageMock } = await import(
+        const { nativeStorageModuleMockFactory } = await import(
           './keyManager.testUtils'
         );
-        return createNativeStorageMock();
+        return nativeStorageModuleMockFactory();
       }
 );
-
 vi.mock(
   './detectPlatform',
   typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
     ? () => createUtilsMock()
     : async () => {
-        const { createUtilsMock } = await import('./keyManager.testUtils');
-        return createUtilsMock();
+        const { detectPlatformModuleMockFactory } = await import(
+          './keyManager.testUtils'
+        );
+        return detectPlatformModuleMockFactory();
       }
 );
 
