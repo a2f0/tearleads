@@ -216,6 +216,68 @@ describe('aiConnectServiceV2', () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
+  it('rejects missing model ids before touching the database', async () => {
+    await expect(
+      aiConnectServiceV2.recordUsage(
+        create(AiServiceRecordUsageRequestSchema, {
+          modelId: '   ',
+          promptTokens: 12,
+          completionTokens: 8,
+          totalTokens: 20
+        }),
+        { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('returns internal when usage insert returns no rows', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      aiConnectServiceV2.recordUsage(
+        create(AiServiceRecordUsageRequestSchema, {
+          modelId: 'openai/gpt-4o-mini',
+          promptTokens: 12,
+          completionTokens: 8,
+          totalTokens: 20
+        }),
+        { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
+  });
+
+  it('returns internal when the usage insert query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+      .mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      await expect(
+        aiConnectServiceV2.recordUsage(
+          create(AiServiceRecordUsageRequestSchema, {
+            modelId: 'openai/gpt-4o-mini',
+            promptTokens: 12,
+            completionTokens: 8,
+            totalTokens: 20
+          }),
+          { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+        )
+      ).rejects.toMatchObject({
+        code: Code.Internal
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('returns grouped summary results for the authenticated user', async () => {
     const usageTime = new Date('2026-03-09T18:00:00.000Z');
     queryMock
@@ -261,5 +323,48 @@ describe('aiConnectServiceV2', () => {
       totalCompletionTokens: 8,
       totalTokens: 20
     });
+  });
+
+  it('returns internal when the usage read query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queryMock.mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      await expect(
+        aiConnectServiceV2.getUsage(
+          create(AiServiceGetUsageRequestSchema, {
+            startDate: '2026-03-01',
+            endDate: '2026-03-31',
+            limit: 25
+          }),
+          { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+        )
+      ).rejects.toMatchObject({
+        code: Code.Internal
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('returns internal when the usage summary query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queryMock.mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      await expect(
+        aiConnectServiceV2.getUsageSummary(
+          create(AiServiceGetUsageSummaryRequestSchema, {
+            startDate: '2026-03-01',
+            endDate: '2026-03-31'
+          }),
+          { requestHeader: new Headers({ authorization: 'Bearer token' }) }
+        )
+      ).rejects.toMatchObject({
+        code: Code.Internal
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });
