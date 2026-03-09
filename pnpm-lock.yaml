@@ -733,6 +733,9 @@ importers:
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1

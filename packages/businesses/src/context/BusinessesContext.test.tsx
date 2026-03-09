@@ -1,49 +1,70 @@
-import { render, screen } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
+  type BusinessesDatabaseState,
   BusinessesProvider,
   type BusinessesUIComponents,
-  useBusinesses
+  useBusinesses,
+  useBusinessesDatabaseState
 } from './BusinessesContext.js';
 
 const uiComponents: BusinessesUIComponents = {
-  DropdownMenu: ({ trigger, children }) => (
-    <div>
-      <span>{trigger}</span>
-      {children}
-    </div>
-  ),
-  DropdownMenuItem: ({ children, onClick }) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  AboutMenuItem: ({ appName, closeLabel }) => (
-    <span>
-      {appName}:{closeLabel}
-    </span>
-  )
+  DropdownMenu: () => null,
+  DropdownMenuItem: () => null,
+  AboutMenuItem: () => null
 };
 
-function ContextConsumer() {
-  const { ui } = useBusinesses();
-  return <span>{ui === uiComponents ? 'has-ui' : 'missing-ui'}</span>;
+const providedDatabaseState: BusinessesDatabaseState = {
+  isUnlocked: false,
+  isLoading: true,
+  currentInstanceId: 'instance-42'
+};
+
+function createWrapper(databaseState?: BusinessesDatabaseState) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    if (databaseState === undefined) {
+      return createElement(BusinessesProvider, {
+        children,
+        ui: uiComponents
+      });
+    }
+
+    return createElement(BusinessesProvider, {
+      children,
+      databaseState,
+      ui: uiComponents
+    });
+  };
 }
 
 describe('BusinessesContext', () => {
   it('provides ui components through BusinessesProvider', () => {
-    render(
-      <BusinessesProvider ui={uiComponents}>
-        <ContextConsumer />
-      </BusinessesProvider>
-    );
-
-    expect(screen.getByText('has-ui')).toBeInTheDocument();
+    const { result } = renderHook(() => useBusinesses(), {
+      wrapper: createWrapper()
+    });
+    expect(result.current.ui).toBe(uiComponents);
   });
 
   it('throws when useBusinesses is used outside the provider', () => {
-    expect(() => render(<ContextConsumer />)).toThrow(
+    expect(() => renderHook(() => useBusinesses())).toThrow(
       'Businesses context is not available. Ensure BusinessesProvider is configured.'
     );
+  });
+
+  it('provides fallback runtime database state when not passed', () => {
+    const { result } = renderHook(() => useBusinessesDatabaseState(), {
+      wrapper: createWrapper()
+    });
+    expect(result.current.currentInstanceId).toBeNull();
+    expect(result.current.isUnlocked).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('exposes passed runtime database state via context hooks', () => {
+    const { result } = renderHook(() => useBusinessesDatabaseState(), {
+      wrapper: createWrapper(providedDatabaseState)
+    });
+    expect(result.current).toEqual(providedDatabaseState);
   });
 });

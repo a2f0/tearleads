@@ -2,12 +2,17 @@ export type { BusinessesWindowProps } from './components/index.js';
 export { BusinessesManager, BusinessesWindow } from './components/index.js';
 export type {
   AboutMenuItemProps,
+  BusinessesDatabaseState,
   BusinessesProviderProps,
   BusinessesUIComponents,
   DropdownMenuItemProps,
   DropdownMenuProps
 } from './context/index.js';
-export { BusinessesProvider, useBusinesses } from './context/index.js';
+export {
+  BusinessesProvider,
+  useBusinesses,
+  useBusinessesDatabaseState
+} from './context/index.js';
 export type {
   BusinessIdentifierError,
   BusinessIdentifierField,
