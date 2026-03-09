@@ -24,6 +24,12 @@ export interface NoteInfo {
  */
 export type DatabaseState = HostRuntimeDatabaseState;
 
+const FALLBACK_DATABASE_STATE: DatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 /**
  * VFS key management functions for registering notes in VFS
  */
@@ -253,7 +259,7 @@ const NotesContext = createContext<NotesContextValue | null>(null);
 
 export interface NotesProviderProps {
   children: ReactNode;
-  databaseState: DatabaseState;
+  databaseState?: DatabaseState;
   getDatabase: () => Database;
   ui: NotesUIComponents;
   t: TranslationFunction;
@@ -290,7 +296,7 @@ export function NotesProvider({
 }: NotesProviderProps) {
   const value = useMemo<NotesContextValue>(
     () => ({
-      databaseState,
+      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
       getDatabase,
       ui,
       t,

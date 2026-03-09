@@ -12,6 +12,12 @@ import { createContext, useContext, useMemo } from 'react';
  */
 export type DatabaseState = HostRuntimeDatabaseState;
 
+const FALLBACK_DATABASE_STATE: DatabaseState = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: null
+};
+
 /**
  * Navigation options for navigateWithFrom
  */
@@ -307,7 +313,7 @@ const ContactsContext = createContext<ContactsContextValue | null>(null);
 
 export interface ContactsProviderProps {
   children: ReactNode;
-  databaseState: DatabaseState;
+  databaseState?: DatabaseState;
   getDatabase: () => Database;
   getDatabaseAdapter: () => DatabaseAdapter;
   saveFile: SaveFileFunction;
@@ -345,7 +351,7 @@ export function ContactsProvider({
 }: ContactsProviderProps) {
   const value = useMemo<ContactsContextValue>(
     () => ({
-      databaseState,
+      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
       getDatabase,
       getDatabaseAdapter,
       saveFile,

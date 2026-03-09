@@ -18,10 +18,10 @@ describe('host runtime contracts', () => {
   it('keeps feature database runtime shapes aligned', () => {
     expectTypeOf<
       NotesProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    >().toEqualTypeOf<HostRuntimeDatabaseState | undefined>();
     expectTypeOf<
       ContactsProviderProps['databaseState']
-    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    >().toEqualTypeOf<HostRuntimeDatabaseState | undefined>();
     expectTypeOf<
       AudioUIProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
