@@ -2,6 +2,26 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFloatingWindow } from './useFloatingWindow.js';
 
+function createTouchEvent(
+  type: string,
+  touches: Array<{ clientX: number; clientY: number }> = []
+): Event {
+  const event = new Event(type);
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: touches
+  });
+  Object.defineProperty(event, 'changedTouches', {
+    configurable: true,
+    value: touches
+  });
+  Object.defineProperty(event, 'targetTouches', {
+    configurable: true,
+    value: touches
+  });
+  return event;
+}
+
 describe('useFloatingWindow cleanup and edge cases', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', {
@@ -72,16 +92,16 @@ describe('useFloatingWindow cleanup and edge cases', () => {
       });
 
       act(() => {
-        const endEvent = new TouchEvent('touchend');
+        const endEvent = createTouchEvent('touchend');
         document.dispatchEvent(endEvent);
       });
 
       const initialX = result.current.x;
 
       act(() => {
-        const moveEvent = new TouchEvent('touchmove', {
-          touches: [{ clientX: 500, clientY: 500 } as Touch]
-        });
+        const moveEvent = createTouchEvent('touchmove', [
+          { clientX: 500, clientY: 500 }
+        ]);
         document.dispatchEvent(moveEvent);
       });
 
@@ -153,9 +173,7 @@ describe('useFloatingWindow cleanup and edge cases', () => {
       const initialX = result.current.x;
 
       act(() => {
-        const moveEvent = new TouchEvent('touchmove', {
-          touches: []
-        });
+        const moveEvent = createTouchEvent('touchmove');
         document.dispatchEvent(moveEvent);
       });
 

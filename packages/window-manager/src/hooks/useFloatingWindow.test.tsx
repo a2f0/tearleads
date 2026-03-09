@@ -2,6 +2,26 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFloatingWindow } from './useFloatingWindow.js';
 
+function createTouchEvent(
+  type: string,
+  touches: Array<{ clientX: number; clientY: number }> = []
+): Event {
+  const event = new Event(type);
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: touches
+  });
+  Object.defineProperty(event, 'changedTouches', {
+    configurable: true,
+    value: touches
+  });
+  Object.defineProperty(event, 'targetTouches', {
+    configurable: true,
+    value: touches
+  });
+  return event;
+}
+
 describe('useFloatingWindow', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', {
@@ -92,9 +112,9 @@ describe('useFloatingWindow', () => {
       });
 
       act(() => {
-        const moveEvent = new TouchEvent('touchmove', {
-          touches: [{ clientX: 250, clientY: 200 } as Touch]
-        });
+        const moveEvent = createTouchEvent('touchmove', [
+          { clientX: 250, clientY: 200 }
+        ]);
         document.dispatchEvent(moveEvent);
       });
 
@@ -247,9 +267,9 @@ describe('useFloatingWindow', () => {
       });
 
       act(() => {
-        const moveEvent = new TouchEvent('touchmove', {
-          touches: [{ clientX: 600, clientY: 500 } as Touch]
-        });
+        const moveEvent = createTouchEvent('touchmove', [
+          { clientX: 600, clientY: 500 }
+        ]);
         document.dispatchEvent(moveEvent);
       });
 

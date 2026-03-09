@@ -25,6 +25,38 @@ describe('installBrowserGlobalsForBun', () => {
     expect(getGlobal('document')).toBeDefined();
   });
 
+  it('polyfills TouchEvent when the runtime does not provide one', () => {
+    const originalTouchEvent = Reflect.get(globalThis, 'TouchEvent');
+
+    Reflect.deleteProperty(globalThis, 'TouchEvent');
+    Reflect.deleteProperty(window, 'TouchEvent');
+
+    installBrowserGlobalsForBun();
+
+    const touchEventCtor = Reflect.get(globalThis, 'TouchEvent');
+    expect(typeof touchEventCtor).toBe('function');
+
+    const touchEvent = new TouchEvent('touchmove', {
+      touches: [{ clientX: 12, clientY: 34 }]
+    });
+
+    expect(touchEvent.touches[0]?.clientX).toBe(12);
+    expect(touchEvent.touches[0]?.clientY).toBe(34);
+
+    if (typeof originalTouchEvent === 'function') {
+      Object.defineProperty(globalThis, 'TouchEvent', {
+        configurable: true,
+        writable: true,
+        value: originalTouchEvent
+      });
+      Object.defineProperty(window, 'TouchEvent', {
+        configurable: true,
+        writable: true,
+        value: originalTouchEvent
+      });
+    }
+  });
+
   it('syncs custom stubGlobal changes to window globals', () => {
     installBrowserGlobalsForBun();
 

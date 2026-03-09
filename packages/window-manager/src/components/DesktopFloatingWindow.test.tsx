@@ -1,23 +1,22 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DESKTOP_WINDOW_FOOTER_HEIGHT,
   DesktopFloatingWindow
 } from './DesktopFloatingWindow.js';
-import type { FloatingWindowProps } from './FloatingWindow.js';
-
-const renderedProps: FloatingWindowProps[] = [];
-
-vi.mock('./FloatingWindow.js', () => ({
-  FloatingWindow: (props: FloatingWindowProps) => {
-    renderedProps.push(props);
-    return <div data-testid="floating-window">{props.children}</div>;
-  }
-}));
 
 describe('DesktopFloatingWindow', () => {
   beforeEach(() => {
-    renderedProps.length = 0;
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      writable: true,
+      configurable: true,
+      value: 768
+    });
   });
 
   it('passes through props and applies desktop footer height', () => {
@@ -34,16 +33,32 @@ describe('DesktopFloatingWindow', () => {
         onFocus={onFocus}
         zIndex={100}
         defaultWidth={720}
+        defaultHeight={400}
       >
         <div>content</div>
       </DesktopFloatingWindow>
     );
 
-    expect(renderedProps).toHaveLength(1);
-    expect(renderedProps[0]?.id).toBe('window-1');
-    expect(renderedProps[0]?.title).toBe('Desktop');
-    expect(renderedProps[0]?.zIndex).toBe(100);
-    expect(renderedProps[0]?.defaultWidth).toBe(720);
-    expect(renderedProps[0]?.footerHeight).toBe(DESKTOP_WINDOW_FOOTER_HEIGHT);
+    const dialog = screen.getByRole('dialog', { name: 'Desktop' });
+    expect(dialog).toHaveStyle({ zIndex: '100', width: '720px' });
+    expect(screen.getByText('content')).toBeInTheDocument();
+
+    fireEvent.click(dialog);
+    expect(onFocus).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /minimize/i }));
+    expect(onMinimize).toHaveBeenCalledWith({
+      width: 720,
+      height: 400,
+      x: 152,
+      y: 184
+    });
+
+    fireEvent.doubleClick(
+      screen.getByTestId('floating-window-window-1-title-bar')
+    );
+    expect(dialog).toHaveStyle({
+      height: `${768 - DESKTOP_WINDOW_FOOTER_HEIGHT}px`
+    });
   });
 });
