@@ -1,13 +1,13 @@
 /**
  * Client-side AIUIProvider wrapper that supplies all dependencies
- * to the @tearleads/ai package components.
+ * to the @tearleads/app-ai package components.
  */
 
 import {
   type AIUIComponents,
   AIUIProvider,
   type DecryptedConversation
-} from '@tearleads/ai';
+} from '@tearleads/app-ai';
 import type { DecryptedAiConversation } from '@tearleads/shared';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { ModelSelector } from '@/components/ModelSelector';

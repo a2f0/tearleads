@@ -1,17 +1,17 @@
 import type {
   AudioUIProviderProps,
   NavigateToAudioOptions
-} from '@tearleads/audio';
-import type { ContactsProviderProps } from '@tearleads/contacts';
+} from '@tearleads/app-audio';
+import type { ContactsProviderProps } from '@tearleads/app-contacts';
 import type {
   NavigateToNoteOptions,
   NotesProviderProps
-} from '@tearleads/notes';
+} from '@tearleads/app-notes';
+import type { VehiclesRuntimeProviderProps } from '@tearleads/app-vehicles';
 import type {
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions
 } from '@tearleads/shared';
-import type { VehiclesRuntimeProviderProps } from '@tearleads/vehicles';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 

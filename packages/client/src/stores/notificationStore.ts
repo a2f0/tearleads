@@ -1,1 +1,1 @@
-export { notificationStore } from '@tearleads/notifications/stores';
+export { notificationStore } from '@tearleads/app-notifications/stores';

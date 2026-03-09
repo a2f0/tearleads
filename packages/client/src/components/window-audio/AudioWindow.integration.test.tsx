@@ -4,7 +4,7 @@ import {
   ALL_AUDIO_ID,
   AudioPlaylistsSidebar,
   useAudioUIContext
-} from '@tearleads/audio';
+} from '@tearleads/app-audio';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';

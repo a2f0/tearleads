@@ -1,7 +1,7 @@
 import type {
   DesktopIconBackgroundValue,
   DesktopIconDepthValue
-} from '@tearleads/settings';
+} from '@tearleads/app-settings';
 import type { navItems } from '@/components/Sidebar';
 
 export const ICON_SIZE = 64;

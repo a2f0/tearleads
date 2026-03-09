@@ -98,7 +98,7 @@ tsx src/cli.ts build-deps --app health
 #   pnpm --filter @tearleads/window-manager build
 #   pnpm --filter @tearleads/ui build
 #   pnpm --filter @tearleads/vfs-explorer build
-#   pnpm --filter @tearleads/health build
+#   pnpm --filter @tearleads/app-health build
 
 # Output as shell script (for CI)
 tsx src/cli.ts build-deps --app health --shell
@@ -183,34 +183,34 @@ Each feature maps to one or more workspace packages that will be included in the
 
 | Feature | Package(s) | Description |
 |---------|-----------|-------------|
-| `admin` | `@tearleads/admin` | Admin panel |
-| `analytics` | `@tearleads/analytics` | Usage analytics |
-| `audio` | `@tearleads/audio` | Audio playback |
-| `businesses` | `@tearleads/businesses` | Business management |
-| `calendar` | `@tearleads/calendar` | Calendar/scheduling |
-| `camera` | `@tearleads/camera` | Camera capture |
-| `classic` | `@tearleads/classic` | Legacy compatibility |
-| `compliance` | `@tearleads/compliance` | Compliance tools |
-| `contacts` | `@tearleads/contacts` | Contact management |
-| `email` | `@tearleads/email` | Email client |
-| `health` | `@tearleads/health` | Health tracking |
-| `mls-chat` | `@tearleads/mls-chat` | Encrypted messaging |
-| `notes` | `@tearleads/notes` | Note taking |
+| `admin` | `@tearleads/app-admin` | Admin panel |
+| `analytics` | `@tearleads/app-analytics` | Usage analytics |
+| `audio` | `@tearleads/app-audio` | Audio playback |
+| `businesses` | `@tearleads/app-businesses` | Business management |
+| `calendar` | `@tearleads/app-calendar` | Calendar/scheduling |
+| `camera` | `@tearleads/app-camera` | Camera capture |
+| `classic` | `@tearleads/app-classic` | Legacy compatibility |
+| `compliance` | `@tearleads/app-compliance` | Compliance tools |
+| `contacts` | `@tearleads/app-contacts` | Contact management |
+| `email` | `@tearleads/app-email` | Email client |
+| `health` | `@tearleads/app-health` | Health tracking |
+| `mls-chat` | `@tearleads/app-mls-chat` | Encrypted messaging |
+| `notes` | `@tearleads/app-notes` | Note taking |
 | `sync` | `@tearleads/vfs-sync` | Cloud sync |
-| `terminal` | `@tearleads/terminal` | Terminal/console |
-| `vehicles` | `@tearleads/vehicles` | Vehicle management |
-| `wallet` | `@tearleads/wallet` | Digital wallet |
+| `terminal` | `@tearleads/app-terminal` | Terminal/console |
+| `vehicles` | `@tearleads/app-vehicles` | Vehicle management |
+| `wallet` | `@tearleads/app-wallet` | Digital wallet |
 
 ### Core Packages (Always Included)
 
 These packages are included in every app regardless of feature selection:
 
 - `@tearleads/db` - Database layer
-- `@tearleads/help` - Help system
-- `@tearleads/keychain` - Secure storage
-- `@tearleads/notifications` - Push notifications
-- `@tearleads/search` - Search functionality
-- `@tearleads/settings` - App settings
+- `@tearleads/app-help` - Help system
+- `@tearleads/app-keychain` - Secure storage
+- `@tearleads/app-notifications` - Push notifications
+- `@tearleads/app-search` - Search functionality
+- `@tearleads/app-settings` - App settings
 - `@tearleads/shared` - Shared utilities
 - `@tearleads/ui` - UI components
 - `@tearleads/vfs-explorer` - Virtual filesystem
@@ -240,8 +240,8 @@ The client's `vite.aliases.ts` reads the app config and generates aliases:
 ```typescript
 // Disabled packages resolve to empty modules
 {
-  '@tearleads/vehicles': '/path/to/empty-stub.ts',
-  '@tearleads/wallet': '/path/to/empty-stub.ts',
+  '@tearleads/app-vehicles': '/path/to/empty-stub.ts',
+  '@tearleads/app-wallet': '/path/to/empty-stub.ts',
 }
 ```
 

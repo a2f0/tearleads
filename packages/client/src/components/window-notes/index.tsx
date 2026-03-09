@@ -1,4 +1,4 @@
-import { NotesWindow as NotesWindowBase } from '@tearleads/notes';
+import { NotesWindow as NotesWindowBase } from '@tearleads/app-notes';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
@@ -16,7 +16,7 @@ interface NotesWindowProps {
 /**
  * NotesWindow wrapped with ClientNotesProvider.
  * This provides all the dependencies (database, UI components, translations)
- * required by the @tearleads/notes package.
+ * required by the @tearleads/app-notes package.
  */
 export function NotesWindow({
   id,

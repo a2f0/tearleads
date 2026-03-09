@@ -1,4 +1,5 @@
-import { SETTING_STORAGE_KEYS } from '@tearleads/settings';
+// one-component-per-file: allow
+import { SETTING_STORAGE_KEYS } from '@tearleads/app-settings';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';

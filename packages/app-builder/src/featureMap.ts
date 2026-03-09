@@ -5,23 +5,23 @@ import type { AppFeature } from './types.js';
  * Each feature can require one or more packages.
  */
 export const FEATURE_TO_PACKAGES: Record<AppFeature, string[]> = {
-  admin: ['@tearleads/admin'],
-  analytics: ['@tearleads/analytics'],
-  audio: ['@tearleads/audio'],
-  businesses: ['@tearleads/businesses'],
-  calendar: ['@tearleads/calendar'],
-  camera: ['@tearleads/camera'],
-  classic: ['@tearleads/classic'],
-  compliance: ['@tearleads/compliance'],
-  contacts: ['@tearleads/contacts'],
-  email: ['@tearleads/email'],
-  health: ['@tearleads/health'],
-  'mls-chat': ['@tearleads/mls-chat'],
-  notes: ['@tearleads/notes'],
+  admin: ['@tearleads/app-admin'],
+  analytics: ['@tearleads/app-analytics'],
+  audio: ['@tearleads/app-audio'],
+  businesses: ['@tearleads/app-businesses'],
+  calendar: ['@tearleads/app-calendar'],
+  camera: ['@tearleads/app-camera'],
+  classic: ['@tearleads/app-classic'],
+  compliance: ['@tearleads/app-compliance'],
+  contacts: ['@tearleads/app-contacts'],
+  email: ['@tearleads/app-email'],
+  health: ['@tearleads/app-health'],
+  'mls-chat': ['@tearleads/app-mls-chat'],
+  notes: ['@tearleads/app-notes'],
   sync: ['@tearleads/vfs-sync'],
-  terminal: ['@tearleads/terminal'],
-  vehicles: ['@tearleads/vehicles'],
-  wallet: ['@tearleads/wallet']
+  terminal: ['@tearleads/app-terminal'],
+  vehicles: ['@tearleads/app-vehicles'],
+  wallet: ['@tearleads/app-wallet']
 };
 
 /**
@@ -29,11 +29,11 @@ export const FEATURE_TO_PACKAGES: Record<AppFeature, string[]> = {
  */
 export const CORE_PACKAGES = [
   '@tearleads/db',
-  '@tearleads/help',
-  '@tearleads/keychain',
-  '@tearleads/notifications',
-  '@tearleads/search',
-  '@tearleads/settings',
+  '@tearleads/app-help',
+  '@tearleads/app-keychain',
+  '@tearleads/app-notifications',
+  '@tearleads/app-search',
+  '@tearleads/app-settings',
   '@tearleads/shared',
   '@tearleads/ui',
   '@tearleads/vfs-explorer',

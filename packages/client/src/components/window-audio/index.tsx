@@ -1,4 +1,4 @@
-import { AudioWindow as AudioWindowBase } from '@tearleads/audio';
+import { AudioWindow as AudioWindowBase } from '@tearleads/app-audio';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
@@ -16,7 +16,7 @@ interface AudioWindowProps {
 /**
  * AudioWindow wrapped with ClientAudioProvider.
  * This provides all the dependencies (database, UI components, translations)
- * required by the @tearleads/audio package.
+ * required by the @tearleads/app-audio package.
  */
 export function AudioWindow({
   id,

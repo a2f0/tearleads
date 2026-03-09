@@ -1,7 +1,7 @@
 import {
   BusinessesWindow as BaseBusinessesWindow,
   BusinessesManager
-} from '@tearleads/businesses';
+} from '@tearleads/app-businesses';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientBusinessesProvider } from '@/contexts/ClientBusinessesProvider';
 

@@ -4,8 +4,9 @@ import {
   type WalletDatabaseState,
   type WalletMediaFileOption,
   WalletRuntimeProvider
-} from '@tearleads/wallet/clientEntry';
+} from '@tearleads/app-wallet/clientEntry';
 import { type ComponentProps, useCallback, useMemo } from 'react';
+
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';

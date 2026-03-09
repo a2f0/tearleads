@@ -1,4 +1,5 @@
-import { EmailWindow as EmailWindowBase } from '@tearleads/email';
+// one-component-per-file: allow
+import { EmailWindow as EmailWindowBase } from '@tearleads/app-email';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';

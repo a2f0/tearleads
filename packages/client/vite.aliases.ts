@@ -36,7 +36,7 @@ export const createViteAliases = (
   const baseAliases: AliasMap = {
     '@': path.resolve(dirname, './src'),
     '@client': path.resolve(dirname, './src'),
-    '@admin': path.resolve(dirname, '../admin/src'),
+    '@admin': path.resolve(dirname, '../app-admin/src'),
     '@docs': path.resolve(dirname, '../../docs'),
     // UI package - styles, theme, and assets
     '@tearleads/ui/styles.css': path.resolve(
@@ -46,83 +46,83 @@ export const createViteAliases = (
     '@tearleads/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
     '@tearleads/ui/logo.svg': path.resolve(dirname, '../ui/src/images/logo.svg'),
     '@tearleads/ui': path.resolve(dirname, '../ui/src/index.ts'),
-    '@tearleads/vehicles/package.json': path.resolve(
+    '@tearleads/app-vehicles/package.json': path.resolve(
       dirname,
-      '../vehicles/package.json'
+      '../app-vehicles/package.json'
     ),
-    '@tearleads/vehicles/vehiclesDb': path.resolve(
+    '@tearleads/app-vehicles/vehiclesDb': path.resolve(
       dirname,
-      '../vehicles/src/lib/vehiclesDb.ts'
+      '../app-vehicles/src/lib/vehiclesDb.ts'
     ),
-    '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
+    '@tearleads/app-vehicles': path.resolve(dirname, '../app-vehicles/src/index.ts'),
     // Workspace packages aliased to source for HMR
-    '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
-    '@tearleads/admin/clientEntry': path.resolve(
+    '@tearleads/app-admin/package.json': path.resolve(dirname, '../app-admin/package.json'),
+    '@tearleads/app-admin/clientEntry': path.resolve(
       dirname,
-      '../admin/src/clientEntry.ts'
+      '../app-admin/src/clientEntry.ts'
     ),
-    '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
-    '@tearleads/analytics/clientEntry': path.resolve(
+    '@tearleads/app-admin': path.resolve(dirname, '../app-admin/src/index.ts'),
+    '@tearleads/app-analytics/clientEntry': path.resolve(
       dirname,
-      '../analytics/src/clientEntry.ts'
+      '../app-analytics/src/clientEntry.ts'
     ),
-    '@tearleads/analytics/analytics': path.resolve(
+    '@tearleads/app-analytics/analytics': path.resolve(
       dirname,
-      '../analytics/src/lib/analytics.ts'
+      '../app-analytics/src/lib/analytics.ts'
     ),
-    '@tearleads/analytics/analyticsState': path.resolve(
+    '@tearleads/app-analytics/analyticsState': path.resolve(
       dirname,
-      '../analytics/src/lib/analyticsState.ts'
+      '../app-analytics/src/lib/analyticsState.ts'
     ),
-    '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
-    '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
-    '@tearleads/backups/package.json': path.resolve(
+    '@tearleads/app-audio/package.json': path.resolve(dirname, '../app-audio/package.json'),
+    '@tearleads/app-audio': path.resolve(dirname, '../app-audio/src/index.ts'),
+    '@tearleads/app-backups/package.json': path.resolve(
       dirname,
-      '../backups/package.json'
+      '../app-backups/package.json'
     ),
-    '@tearleads/backups/format': path.resolve(
+    '@tearleads/app-backups/format': path.resolve(
       dirname,
-      '../backups/src/format/index.ts'
+      '../app-backups/src/format/index.ts'
     ),
-    '@tearleads/backups/runtime': path.resolve(
+    '@tearleads/app-backups/runtime': path.resolve(
       dirname,
-      '../backups/src/runtime/index.ts'
+      '../app-backups/src/runtime/index.ts'
     ),
-    '@tearleads/backups': path.resolve(dirname, '../backups/src/index.ts'),
-    '@tearleads/businesses/package.json': path.resolve(
+    '@tearleads/app-backups': path.resolve(dirname, '../app-backups/src/index.ts'),
+    '@tearleads/app-businesses/package.json': path.resolve(
       dirname,
-      '../businesses/package.json'
+      '../app-businesses/package.json'
     ),
-    '@tearleads/businesses': path.resolve(dirname, '../businesses/src/index.ts'),
-    '@tearleads/calendar/package.json': path.resolve(
+    '@tearleads/app-businesses': path.resolve(dirname, '../app-businesses/src/index.ts'),
+    '@tearleads/app-calendar/package.json': path.resolve(
       dirname,
-      '../calendar/package.json'
+      '../app-calendar/package.json'
     ),
-    '@tearleads/calendar': path.resolve(dirname, '../calendar/src/index.ts'),
-    '@tearleads/camera/package.json': path.resolve(dirname, '../camera/package.json'),
-    '@tearleads/camera': path.resolve(dirname, '../camera/src/index.ts'),
-    '@tearleads/classic/package.json': path.resolve(dirname, '../classic/package.json'),
-    '@tearleads/classic': path.resolve(dirname, '../classic/src/index.ts'),
-    '@tearleads/compliance/package.json': path.resolve(
+    '@tearleads/app-calendar': path.resolve(dirname, '../app-calendar/src/index.ts'),
+    '@tearleads/app-camera/package.json': path.resolve(dirname, '../app-camera/package.json'),
+    '@tearleads/app-camera': path.resolve(dirname, '../app-camera/src/index.ts'),
+    '@tearleads/app-classic/package.json': path.resolve(dirname, '../app-classic/package.json'),
+    '@tearleads/app-classic': path.resolve(dirname, '../app-classic/src/index.ts'),
+    '@tearleads/app-compliance/package.json': path.resolve(
       dirname,
-      '../compliance/package.json'
+      '../app-compliance/package.json'
     ),
-    '@tearleads/compliance': path.resolve(dirname, '../compliance/src/index.ts'),
-    '@tearleads/contacts/package.json': path.resolve(
+    '@tearleads/app-compliance': path.resolve(dirname, '../app-compliance/src/index.ts'),
+    '@tearleads/app-contacts/package.json': path.resolve(
       dirname,
-      '../contacts/package.json'
+      '../app-contacts/package.json'
     ),
-    '@tearleads/contacts': path.resolve(dirname, '../contacts/src/index.ts'),
-    '@tearleads/email/package.json': path.resolve(dirname, '../email/package.json'),
-    '@tearleads/email': path.resolve(dirname, '../email/src/index.ts'),
-    '@tearleads/health/package.json': path.resolve(dirname, '../health/package.json'),
-    '@tearleads/health/clientEntry': path.resolve(
+    '@tearleads/app-contacts': path.resolve(dirname, '../app-contacts/src/index.ts'),
+    '@tearleads/app-email/package.json': path.resolve(dirname, '../app-email/package.json'),
+    '@tearleads/app-email': path.resolve(dirname, '../app-email/src/index.ts'),
+    '@tearleads/app-health/package.json': path.resolve(dirname, '../app-health/package.json'),
+    '@tearleads/app-health/clientEntry': path.resolve(
       dirname,
-      '../health/src/clientEntry.ts'
+      '../app-health/src/clientEntry.ts'
     ),
-    '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
-    '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
-    '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
+    '@tearleads/app-health': path.resolve(dirname, '../app-health/src/index.ts'),
+    '@tearleads/app-help/package.json': path.resolve(dirname, '../app-help/package.json'),
+    '@tearleads/app-help': path.resolve(dirname, '../app-help/src/index.ts'),
     '@tearleads/local-write-orchestrator/package.json': path.resolve(
       dirname,
       '../local-write-orchestrator/package.json'
@@ -131,39 +131,39 @@ export const createViteAliases = (
       dirname,
       '../local-write-orchestrator/src/index.ts'
     ),
-    '@tearleads/keychain/package.json': path.resolve(
+    '@tearleads/app-keychain/package.json': path.resolve(
       dirname,
-      '../keychain/package.json'
+      '../app-keychain/package.json'
     ),
-    '@tearleads/keychain/clientEntry': path.resolve(
+    '@tearleads/app-keychain/clientEntry': path.resolve(
       dirname,
-      '../keychain/src/clientEntry.ts'
+      '../app-keychain/src/clientEntry.ts'
     ),
-    '@tearleads/keychain/keyManager': path.resolve(
+    '@tearleads/app-keychain/keyManager': path.resolve(
       dirname,
-      '../keychain/src/lib/keyManager.ts'
+      '../app-keychain/src/lib/keyManager.ts'
     ),
-    '@tearleads/keychain/nativeSecureStorage': path.resolve(
+    '@tearleads/app-keychain/nativeSecureStorage': path.resolve(
       dirname,
-      '../keychain/src/lib/nativeSecureStorage.ts'
+      '../app-keychain/src/lib/nativeSecureStorage.ts'
     ),
-    '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
-    '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
-    '@tearleads/wallet/clientEntry': path.resolve(
+    '@tearleads/app-keychain': path.resolve(dirname, '../app-keychain/src/index.ts'),
+    '@tearleads/app-wallet/package.json': path.resolve(dirname, '../app-wallet/package.json'),
+    '@tearleads/app-wallet/clientEntry': path.resolve(
       dirname,
-      '../wallet/src/clientEntry.ts'
+      '../app-wallet/src/clientEntry.ts'
     ),
-    '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
+    '@tearleads/app-wallet': path.resolve(dirname, '../app-wallet/src/index.ts'),
     '@tearleads/mls-core/package.json': path.resolve(
       dirname,
       '../mls-core/package.json'
     ),
     '@tearleads/mls-core': path.resolve(dirname, '../mls-core/src/index.ts'),
-    '@tearleads/mls-chat/package.json': path.resolve(
+    '@tearleads/app-mls-chat/package.json': path.resolve(
       dirname,
-      '../mls-chat/package.json'
+      '../app-mls-chat/package.json'
     ),
-    '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
+    '@tearleads/app-mls-chat': path.resolve(dirname, '../app-mls-chat/src/index.ts'),
     '@tearleads/api-client/clientEntry': path.resolve(
       dirname,
       '../api-client/src/clientEntry.ts'
@@ -209,31 +209,31 @@ export const createViteAliases = (
     '@tearleads/msw/package.json': path.resolve(dirname, '../msw/package.json'),
     '@tearleads/msw/node': path.resolve(dirname, '../msw/src/node.ts'),
     '@tearleads/msw': path.resolve(dirname, '../msw/src/index.ts'),
-    '@tearleads/notes/package.json': path.resolve(dirname, '../notes/package.json'),
-    '@tearleads/notes': path.resolve(dirname, '../notes/src/index.ts'),
-    '@tearleads/notifications/package.json': path.resolve(
+    '@tearleads/app-notes/package.json': path.resolve(dirname, '../app-notes/package.json'),
+    '@tearleads/app-notes': path.resolve(dirname, '../app-notes/src/index.ts'),
+    '@tearleads/app-notifications/package.json': path.resolve(
       dirname,
-      '../notifications/package.json'
+      '../app-notifications/package.json'
     ),
-    '@tearleads/notifications/clientEntry': path.resolve(
+    '@tearleads/app-notifications/clientEntry': path.resolve(
       dirname,
-      '../notifications/src/clientEntry.ts'
+      '../app-notifications/src/clientEntry.ts'
     ),
-    '@tearleads/notifications/stores': path.resolve(
+    '@tearleads/app-notifications/stores': path.resolve(
       dirname,
-      '../notifications/src/stores/index.ts'
+      '../app-notifications/src/stores/index.ts'
     ),
-    '@tearleads/notifications': path.resolve(dirname, '../notifications/src/index.ts'),
-    '@tearleads/search/package.json': path.resolve(
+    '@tearleads/app-notifications': path.resolve(dirname, '../app-notifications/src/index.ts'),
+    '@tearleads/app-search/package.json': path.resolve(
       dirname,
-      '../search/package.json'
+      '../app-search/package.json'
     ),
-    '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
-    '@tearleads/settings/package.json': path.resolve(
+    '@tearleads/app-search': path.resolve(dirname, '../app-search/src/index.ts'),
+    '@tearleads/app-settings/package.json': path.resolve(
       dirname,
-      '../settings/package.json'
+      '../app-settings/package.json'
     ),
-    '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
+    '@tearleads/app-settings': path.resolve(dirname, '../app-settings/src/index.ts'),
     '@tearleads/vfs-sync/package.json': path.resolve(dirname, '../vfs-sync/package.json'),
     '@tearleads/vfs-sync/clientEntry': path.resolve(
       dirname,
@@ -241,11 +241,11 @@ export const createViteAliases = (
     ),
     '@tearleads/vfs-sync/vfs': path.resolve(dirname, '../vfs-sync/src/vfs/index.ts'),
     '@tearleads/vfs-sync': path.resolve(dirname, '../vfs-sync/src/index.ts'),
-    '@tearleads/terminal/package.json': path.resolve(
+    '@tearleads/app-terminal/package.json': path.resolve(
       dirname,
-      '../terminal/package.json'
+      '../app-terminal/package.json'
     ),
-    '@tearleads/terminal': path.resolve(dirname, '../terminal/src/index.ts'),
+    '@tearleads/app-terminal': path.resolve(dirname, '../app-terminal/src/index.ts'),
     '@tearleads/vfs-explorer/package.json': path.resolve(
       dirname,
       '../vfs-explorer/package.json'

@@ -121,7 +121,7 @@ vi.mock('@/hooks/vfs', () => ({
   })
 }));
 
-vi.mock('@tearleads/audio', () => ({
+vi.mock('@tearleads/app-audio', () => ({
   useAudio: () => ({
     currentTrack: null,
     isPlaying: false,

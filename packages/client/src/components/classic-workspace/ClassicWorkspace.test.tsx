@@ -40,7 +40,7 @@ vi.mock('@/lib/classicPersistence', () => ({
   restoreClassicTag: (...args: unknown[]) => mockRestoreClassicTag(...args)
 }));
 
-vi.mock('@tearleads/classic', () => ({
+vi.mock('@tearleads/app-classic', () => ({
   ClassicApp: ({
     tagSortOrder,
     entrySortOrder,

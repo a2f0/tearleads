@@ -12,7 +12,7 @@ import {
   useMlsClient,
   useMlsRealtime,
   useWelcomeMessages
-} from '@tearleads/mls-chat';
+} from '@tearleads/app-mls-chat';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,

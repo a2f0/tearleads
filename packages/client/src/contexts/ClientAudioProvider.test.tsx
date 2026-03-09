@@ -1,4 +1,4 @@
-import type { AudioUIProviderProps } from '@tearleads/audio';
+import type { AudioUIProviderProps } from '@tearleads/app-audio';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientAudioProvider } from './ClientAudioProvider';
@@ -62,8 +62,8 @@ vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
-vi.mock('@tearleads/audio', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tearleads/audio')>();
+vi.mock('@tearleads/app-audio', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/app-audio')>();
   return {
     ...actual,
     AudioUIProvider: (props: AudioUIProviderProps) => {

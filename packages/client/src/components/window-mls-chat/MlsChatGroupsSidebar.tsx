@@ -1,4 +1,5 @@
-import type { ActiveGroup } from '@tearleads/mls-chat';
+// one-component-per-file: allow
+import type { ActiveGroup } from '@tearleads/app-mls-chat';
 import {
   useResizableSidebar,
   WindowContextMenu

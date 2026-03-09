@@ -9,7 +9,7 @@ import {
   type SearchOptions,
   type SearchResponse,
   type SearchStoreState
-} from '@tearleads/search';
+} from '@tearleads/app-search';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
 

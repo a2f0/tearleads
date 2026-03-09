@@ -1,4 +1,5 @@
-import { SettingsPage, type SettingsPageProps } from '@tearleads/settings';
+// one-component-per-file: allow
+import { SettingsPage, type SettingsPageProps } from '@tearleads/app-settings';
 import { ChevronRight, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FeatureFlags } from '@/components/settings/FeatureFlags';

@@ -2,7 +2,7 @@ import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
-} from '@tearleads/calendar';
+} from '@tearleads/app-calendar';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -37,7 +37,7 @@ interface MockContextMenuProps {
   onClose: () => void;
 }
 
-vi.mock('@tearleads/calendar', () => ({
+vi.mock('@tearleads/app-calendar', () => ({
   CALENDAR_CREATE_EVENT: 'tearleads:calendar:create',
   CALENDAR_CREATE_ITEM_EVENT: 'tearleads:calendar:item:create',
   CALENDAR_CREATE_SUBMIT_EVENT: 'tearleads:calendar:create:submit',

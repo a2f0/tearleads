@@ -1,7 +1,8 @@
+// one-component-per-file: allow
 import {
   BackupWindow as BackupWindowBase,
   type BackupWindowProps as BackupWindowBaseProps
-} from '@tearleads/backups';
+} from '@tearleads/app-backups';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks/useDatabaseContext';
 

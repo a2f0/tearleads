@@ -1,9 +1,13 @@
+// one-component-per-file: allow
 /**
- * Client wrapper for the @tearleads/ai AIWindow component.
+ * Client wrapper for the @tearleads/app-ai AIWindow component.
  * Provides the ClientAIProvider context with all dependencies.
  */
 
-import { AIWindow as AIWindowBase, type AIWindowProps } from '@tearleads/ai';
+import {
+  AIWindow as AIWindowBase,
+  type AIWindowProps
+} from '@tearleads/app-ai';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar

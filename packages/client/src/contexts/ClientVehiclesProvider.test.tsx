@@ -1,4 +1,4 @@
-import type { VehiclesRuntimeProviderProps } from '@tearleads/vehicles';
+import type { VehiclesRuntimeProviderProps } from '@tearleads/app-vehicles';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientVehiclesProvider } from './ClientVehiclesProvider';
@@ -8,10 +8,10 @@ const mockDb = { name: 'vehicles-db' };
 
 let lastProviderProps: VehiclesRuntimeProviderProps | null = null;
 
-vi.mock('@tearleads/vehicles', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/vehicles')>(
-    '@tearleads/vehicles'
-  );
+vi.mock('@tearleads/app-vehicles', async () => {
+  const actual = await vi.importActual<
+    typeof import('@tearleads/app-vehicles')
+  >('@tearleads/app-vehicles');
 
   return {
     ...actual,

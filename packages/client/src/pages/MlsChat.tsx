@@ -9,7 +9,7 @@ import {
   MlsChat as MlsChatComponent,
   MlsChatProvider,
   type MlsChatUIComponents
-} from '@tearleads/mls-chat';
+} from '@tearleads/app-mls-chat';
 import { type FC, useCallback, useMemo } from 'react';
 
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tearleads/camera', () => ({
+vi.mock('@tearleads/app-camera', () => ({
   CameraCapture: () => <div data-testid="camera-capture" />
 }));
 

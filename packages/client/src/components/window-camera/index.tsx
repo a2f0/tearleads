@@ -1,4 +1,4 @@
-import { CameraWindow as CameraWindowBase } from '@tearleads/camera';
+import { CameraWindow as CameraWindowBase } from '@tearleads/app-camera';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback } from 'react';
 import { usePhotoAlbums } from '@/components/window-photos/usePhotoAlbums';

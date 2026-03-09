@@ -1,4 +1,4 @@
-import { Email as EmailBase } from '@tearleads/email';
+import { Email as EmailBase } from '@tearleads/app-email';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientEmailProvider } from '@/contexts/ClientEmailProvider';
 import { useDatabaseContext } from '@/db/hooks';

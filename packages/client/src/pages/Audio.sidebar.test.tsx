@@ -48,9 +48,9 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-// Mock @tearleads/audio: sidebar stub + audio hooks
-vi.mock('@tearleads/audio', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tearleads/audio')>()),
+// Mock @tearleads/app-audio: sidebar stub + audio hooks
+vi.mock('@tearleads/app-audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/app-audio')>()),
   ALL_AUDIO_ID: '__all__',
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => new Uint8Array(12),
@@ -350,7 +350,7 @@ describe('Audio wrapper with sidebar', () => {
       const user = userEvent.setup();
 
       // Mock the sidebar to have an "All Audio" button
-      const { AudioPlaylistsSidebar } = await import('@tearleads/audio');
+      const { AudioPlaylistsSidebar } = await import('@tearleads/app-audio');
       const MockedSidebar = AudioPlaylistsSidebar as unknown as ReturnType<
         typeof vi.fn
       >;

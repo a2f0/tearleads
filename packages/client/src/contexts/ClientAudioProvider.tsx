@@ -1,7 +1,7 @@
 // component-complexity: allow — pre-existing; refactoring deferred
 /**
  * Client-side AudioUIProvider wrapper that supplies all dependencies
- * to the @tearleads/audio package components.
+ * to the @tearleads/app-audio package components.
  */
 
 import {
@@ -13,7 +13,7 @@ import {
   AudioUIProvider,
   type AudioWithUrl,
   type NavigateToAudio
-} from '@tearleads/audio';
+} from '@tearleads/app-audio';
 import {
   assertPlainArrayBuffer,
   type HostRuntimeDatabaseState

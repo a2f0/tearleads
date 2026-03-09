@@ -2,7 +2,7 @@ import {
   useBorderRadiusEffect,
   useFontEffect,
   useWindowOpacityEffect
-} from '@tearleads/settings';
+} from '@tearleads/app-settings';
 
 export function GlobalSettingsEffects() {
   useFontEffect();

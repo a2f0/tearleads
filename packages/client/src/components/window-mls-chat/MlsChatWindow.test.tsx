@@ -37,7 +37,7 @@ vi.mock('@/sse', () => ({
   })
 }));
 
-vi.mock('@tearleads/mls-chat', () => ({
+vi.mock('@tearleads/app-mls-chat', () => ({
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),

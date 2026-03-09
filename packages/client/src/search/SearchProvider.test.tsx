@@ -23,11 +23,10 @@ vi.mock('@/hooks/app', () => ({
   ) => mockUseOnInstanceChange(callback)
 }));
 
-vi.mock('@tearleads/search', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/search')>(
-      '@tearleads/search'
-    );
+vi.mock('@tearleads/app-search', async () => {
+  const actual = await vi.importActual<typeof import('@tearleads/app-search')>(
+    '@tearleads/app-search'
+  );
 
   return {
     ...actual,

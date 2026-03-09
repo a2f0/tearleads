@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesList } from './FilesList';
 
 // Mock dependencies
-vi.mock('@tearleads/audio', () => ({
+vi.mock('@tearleads/app-audio', () => ({
   useAudio: () => ({
     currentTrack: null,
     isPlaying: false,

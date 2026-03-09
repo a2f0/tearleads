@@ -4,7 +4,7 @@ import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar,
   useContactsContext
-} from '@tearleads/contacts';
+} from '@tearleads/app-contacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { and, eq, inArray } from 'drizzle-orm';

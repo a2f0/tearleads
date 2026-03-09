@@ -15,7 +15,7 @@ import {
   SETTING_DEFAULTS,
   type SettingValueMap,
   type UserSettingKey
-} from '@tearleads/settings';
+} from '@tearleads/app-settings';
 import { inArray } from 'drizzle-orm';
 import type { Database } from './index';
 import { runLocalWrite } from './localWrite';

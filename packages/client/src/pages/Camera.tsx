@@ -1,4 +1,4 @@
-import { CameraCapture } from '@tearleads/camera';
+import { CameraCapture } from '@tearleads/app-camera';
 import { BackLink } from '@/components/ui/back-link';
 
 export function Camera() {

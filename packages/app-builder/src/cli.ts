@@ -217,13 +217,13 @@ const PACKAGES_REQUIRING_BUILD = [
   '@tearleads/api', // OpenAPI spec generation
   '@tearleads/window-manager',
   '@tearleads/ui',
-  '@tearleads/notes',
-  '@tearleads/email',
+  '@tearleads/app-notes',
+  '@tearleads/app-email',
   '@tearleads/vfs-explorer',
-  '@tearleads/audio',
-  '@tearleads/contacts',
+  '@tearleads/app-audio',
+  '@tearleads/app-contacts',
   '@tearleads/db-test-utils',
-  '@tearleads/health'
+  '@tearleads/app-health'
 ] as const;
 
 /**

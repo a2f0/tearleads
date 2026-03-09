@@ -5,4 +5,4 @@ export {
   AdminRedisWindow,
   AdminUsersWindow,
   AdminWindow
-} from '@tearleads/admin/clientEntry';
+} from '@tearleads/app-admin/clientEntry';

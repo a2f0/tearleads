@@ -4,7 +4,7 @@ import {
   type EmailDraftOperations,
   EmailProvider,
   type EmailUIComponents
-} from '@tearleads/email';
+} from '@tearleads/app-email';
 import { asc, desc, eq } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';

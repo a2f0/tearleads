@@ -130,31 +130,31 @@ jobs:
         run: sh ./scripts/tooling/pm.sh --filter @tearleads/window-manager run build
 
       - name: Build notes
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/notes run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-notes run build
 
       - name: Build email
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/email run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-email run build
 
       - name: Build vfs-explorer
         run: sh ./scripts/tooling/pm.sh --filter @tearleads/vfs-explorer run build
 
       - name: Build ai
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/ai run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-ai run build
 
       - name: Build audio
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/audio run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-audio run build
 
       - name: Build contacts
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/contacts run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-contacts run build
 
       - name: Build db-test-utils
         run: sh ./scripts/tooling/pm.sh --filter @tearleads/db-test-utils run build
 
       - name: Build calendar
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/calendar run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-calendar run build
 
       - name: Build photos
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/photos run build
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/app-photos run build
 
       - name: Generate app configs
         run: |

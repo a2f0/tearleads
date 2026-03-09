@@ -4,7 +4,7 @@ import {
   type EntrySortOrder,
   type TagSortOrder,
   type VfsLinkLikeRow
-} from '@tearleads/classic';
+} from '@tearleads/app-classic';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem

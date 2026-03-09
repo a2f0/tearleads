@@ -1,5 +1,9 @@
+// component-complexity: allow – pre-existing, rename-only change
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ALL_CONTACTS_ID, ContactsGroupsSidebar } from '@tearleads/contacts';
+import {
+  ALL_CONTACTS_ID,
+  ContactsGroupsSidebar
+} from '@tearleads/app-contacts';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem

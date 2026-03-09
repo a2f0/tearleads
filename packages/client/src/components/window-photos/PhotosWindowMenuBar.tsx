@@ -1,4 +1,4 @@
-import photosPackageJson from '@tearleads/photos/package.json';
+import photosPackageJson from '@tearleads/app-photos/package.json';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   Eye,

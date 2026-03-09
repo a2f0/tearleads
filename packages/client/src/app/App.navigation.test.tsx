@@ -25,8 +25,8 @@ import App from './App';
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 const mockLock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@tearleads/contacts', async () => {
-  const actual = await vi.importActual('@tearleads/contacts');
+vi.mock('@tearleads/app-contacts', async () => {
+  const actual = await vi.importActual('@tearleads/app-contacts');
   return {
     ...actual,
     ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />
@@ -84,7 +84,7 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock settings for TooltipsToggle and DesktopBackground
-vi.mock('@tearleads/settings', () => ({
+vi.mock('@tearleads/app-settings', () => ({
   useSettings: () => ({
     getSetting: vi.fn((key: string) => {
       switch (key) {

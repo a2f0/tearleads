@@ -1,4 +1,4 @@
-import { VehiclesPage } from '@tearleads/vehicles';
+import { VehiclesPage } from '@tearleads/app-vehicles';
 import { BackLink } from '@/components/ui/back-link';
 import { VehiclesManager } from '@/components/vehicles';
 import { ClientVehiclesProvider } from '@/contexts/ClientVehiclesProvider';

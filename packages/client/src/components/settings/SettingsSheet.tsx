@@ -1,4 +1,4 @@
-import { LanguageSelector, ThemeSelector } from '@tearleads/settings';
+import { LanguageSelector, ThemeSelector } from '@tearleads/app-settings';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { useTypedTranslation } from '@/i18n';
 

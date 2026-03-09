@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tearleads/camera', () => ({
+vi.mock('@tearleads/app-camera', () => ({
   CameraWindow: ({
     id,
     initialPhotos
@@ -40,7 +40,7 @@ vi.mock('@/hooks/vfs', () => ({
 import { CameraWindow } from './index';
 
 describe('CameraWindow', () => {
-  it('renders CameraWindow from @tearleads/camera', () => {
+  it('renders CameraWindow from @tearleads/app-camera', () => {
     render(
       <CameraWindow
         id="camera-window-1"

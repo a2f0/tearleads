@@ -1,4 +1,4 @@
-import { AudioProvider, useAudio } from '@tearleads/audio';
+import { AudioProvider, useAudio } from '@tearleads/app-audio';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

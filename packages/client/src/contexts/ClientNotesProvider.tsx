@@ -1,13 +1,13 @@
 /**
  * Client-side NotesProvider wrapper that supplies all dependencies
- * to the @tearleads/notes package components.
+ * to the @tearleads/app-notes package components.
  */
 import {
   type NavigateToNote,
   NotesAboutMenuItem,
   NotesProvider,
   type NotesUIComponents
-} from '@tearleads/notes';
+} from '@tearleads/app-notes';
 import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,

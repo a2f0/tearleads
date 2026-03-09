@@ -49,7 +49,7 @@ vi.mock('@/pages/admin', () => ({
   OrganizationsAdminPage: () => null,
   OrganizationDetailPageRoute: () => null
 }));
-vi.mock('@tearleads/analytics', () => ({
+vi.mock('@tearleads/app-analytics', () => ({
   Analytics: () => null,
   SortIcon: () => null
 }));

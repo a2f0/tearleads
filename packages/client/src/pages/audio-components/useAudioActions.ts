@@ -2,7 +2,7 @@
  * Hook for audio track actions (play, delete, context menu).
  */
 
-import { useAudio } from '@tearleads/audio';
+import { useAudio } from '@tearleads/app-audio';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { getDatabase } from '@/db';

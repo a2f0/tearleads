@@ -1,4 +1,4 @@
 export {
   Keychain,
   KeychainDetail
-} from '@tearleads/keychain/clientEntry';
+} from '@tearleads/app-keychain/clientEntry';

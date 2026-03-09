@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
 
-vi.mock('@tearleads/settings', () => ({
+vi.mock('@tearleads/app-settings', () => ({
   FontSelector: () => <div data-testid="font-selector">FontSelector</div>,
   BorderRadiusToggle: () => (
     <div data-testid="border-radius-toggle">BorderRadiusToggle</div>

@@ -10,4 +10,4 @@ export {
   KeyManager,
   setCurrentInstanceId,
   validateAndPruneOrphanedInstances
-} from '@tearleads/keychain/keyManager';
+} from '@tearleads/app-keychain/keyManager';

@@ -89,7 +89,7 @@ test('runImpactedTests skips impacted tests when all changes are non-material', 
 test('runImpactedTests skips impacted tests for ignored health vitest config edits', () => {
   const result = runImpactedTests([
     '--files',
-    'packages/health/vitest.config.ts',
+    'packages/app-health/vitest.config.ts',
     '--dry-run'
   ]);
   assert.equal(result.status, 0, stderrText(result));
@@ -102,7 +102,7 @@ test('runImpactedTests skips impacted tests for ignored health vitest config edi
 test('runImpactedTests ignores exact-ignored files when computing targets', () => {
   const result = runImpactedTests([
     '--files',
-    'packages/health/vitest.config.ts',
+    'packages/app-health/vitest.config.ts',
     '--dry-run',
     '--print-targets-json'
   ]);
@@ -115,7 +115,7 @@ test('runImpactedTests ignores exact-ignored files when computing targets', () =
 test('runImpactedTests dry-run includes contacts coverage when contacts changes', () => {
   const result = runImpactedTests([
     '--files',
-    'packages/contacts/src/components/ContactsGroupsSidebar.tsx',
+    'packages/app-contacts/src/components/ContactsGroupsSidebar.tsx',
     '--dry-run'
   ]);
   assert.equal(result.status, 0, stderrText(result));
@@ -128,7 +128,7 @@ test('runImpactedTests dry-run includes contacts coverage when contacts changes'
 test('runImpactedTests dry-run skips coverage for test-only package changes', () => {
   const result = runImpactedTests([
     '--files',
-    'packages/contacts/src/components/ContactsGroupsSidebar.test.tsx',
+    'packages/app-contacts/src/components/ContactsGroupsSidebar.test.tsx',
     '--dry-run',
     '--print-targets-json'
   ]);
@@ -205,7 +205,7 @@ test('runImpactedTests dry-run treats build workflow edits as non-full-run excep
 test('runImpactedTests dry-run includes package tests when test infrastructure changes', () => {
   const result = runImpactedTests([
     '--files',
-    'packages/analytics/src/test/clientCompat/db.ts',
+    'packages/app-analytics/src/test/clientCompat/db.ts',
     '--dry-run',
     '--print-targets-json'
   ]);
@@ -215,8 +215,8 @@ test('runImpactedTests dry-run includes package tests when test infrastructure c
   const parsed = JSON.parse(stdout);
   const targets: unknown = Reflect.get(parsed, 'targets');
   assert.ok(
-    Array.isArray(targets) && targets.includes('@tearleads/analytics'),
-    `Expected targets to include @tearleads/analytics, got: ${JSON.stringify(targets)}`
+    Array.isArray(targets) && targets.includes('@tearleads/app-analytics'),
+    `Expected targets to include @tearleads/app-analytics, got: ${JSON.stringify(targets)}`
   );
 });
 

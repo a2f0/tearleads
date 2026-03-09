@@ -1,4 +1,4 @@
-import type { EmailBodyOperations } from '@tearleads/email';
+import type { EmailBodyOperations } from '@tearleads/app-email';
 import {
   decrypt,
   importKey,

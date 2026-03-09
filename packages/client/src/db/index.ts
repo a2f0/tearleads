@@ -1,4 +1,4 @@
-import { setAnalyticsAdapter } from '@tearleads/analytics/analyticsState';
+import { setAnalyticsAdapter } from '@tearleads/app-analytics/analyticsState';
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';

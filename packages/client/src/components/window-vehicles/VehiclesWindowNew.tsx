@@ -3,7 +3,7 @@
 import {
   normalizeVehicleProfile,
   useVehiclesRuntime
-} from '@tearleads/vehicles';
+} from '@tearleads/app-vehicles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';

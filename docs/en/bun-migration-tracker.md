@@ -60,7 +60,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2851](https://github.com/a2f0/tearleads/pull/2851) | Final check-script shebang migration |
 | [#2855](https://github.com/a2f0/tearleads/pull/2855) | `@tearleads/app-builder` Bun-primary test |
 | [#2857](https://github.com/a2f0/tearleads/pull/2857) | `@tearleads/mls-core` Bun-primary test + mock compatibility |
-| [#2861](https://github.com/a2f0/tearleads/pull/2861) | `@tearleads/search` Bun-primary test + mock compatibility |
+| [#2861](https://github.com/a2f0/tearleads/pull/2861) | `@tearleads/app-search` Bun-primary test + mock compatibility |
 | [#2865](https://github.com/a2f0/tearleads/pull/2865) | `@tearleads/bob-and-alice` Bun-primary `test` script bootstrap |
 | [#2868](https://github.com/a2f0/tearleads/pull/2868) | Tracker dashboard refresh for Bun migration state |
 | [#2869](https://github.com/a2f0/tearleads/pull/2869) | Bun node-pilot fallback script naming (`testVitest`) |
@@ -86,12 +86,12 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | [#2923](https://github.com/a2f0/tearleads/pull/2923) | Shared coverage runner consolidation |
 | [#2930](https://github.com/a2f0/tearleads/pull/2930) | Bun compatibility hardening for Bob-and-Alice email detail parsing |
 | [#2939](https://github.com/a2f0/tearleads/pull/2939) | Bun-primary coverage runner alignment |
-| [#2964](https://github.com/a2f0/tearleads/pull/2964) | `@tearleads/notes` Bun-primary migration |
+| [#2964](https://github.com/a2f0/tearleads/pull/2964) | `@tearleads/app-notes` Bun-primary migration |
 | [#2971](https://github.com/a2f0/tearleads/pull/2971) | Bun-primary migration for classic/email/notifications/mls-chat |
 | [#2994](https://github.com/a2f0/tearleads/pull/2994) | Compatibility inventory fallback-classification correction |
 | [#2996](https://github.com/a2f0/tearleads/pull/2996) | Tracker dashboard refresh for Bun migration state |
 | [#2998](https://github.com/a2f0/tearleads/pull/2998) | Bun compatibility remediation for `vi.hoisted` polyfill and shared setup |
-| [#3000](https://github.com/a2f0/tearleads/pull/3000) | `@tearleads/mls-chat` Bun-primary `test` script |
+| [#3000](https://github.com/a2f0/tearleads/pull/3000) | `@tearleads/app-mls-chat` Bun-primary `test` script |
 | [#3002](https://github.com/a2f0/tearleads/pull/3002) | Compatibility inventory `vi.mock(importOriginal)` blocker detection |
 | [#3007](https://github.com/a2f0/tearleads/pull/3007) | Compatibility inventory `vi.waitFor` blocker detection |
 | [#3031](https://github.com/a2f0/tearleads/pull/3031) | Promote analytics/compliance/ui to Bun-primary `test` scripts |
@@ -106,11 +106,11 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/mls-core` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/photos` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/app-photos` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 | `@tearleads/remote-read-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/search` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
+| `@tearleads/app-search` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
 | `@tearleads/tee-api` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/vehicles` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+| `@tearleads/app-vehicles` | `test` (`bun test`) | n/a | Bun-primary full package suite |
 
 ## Next Milestones
 

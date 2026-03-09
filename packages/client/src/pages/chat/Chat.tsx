@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import {
   ChatInterface,
   ConversationsSidebar,
@@ -5,7 +6,7 @@ import {
   useAIConversations,
   useAIDatabaseState,
   useAILLM
-} from '@tearleads/ai';
+} from '@tearleads/app-ai';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

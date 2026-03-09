@@ -3,6 +3,14 @@
  * Handles initialization on unlock and cleanup on lock/instance switch.
  */
 
+import type { SearchableDocument } from '@tearleads/app-search';
+import {
+  closeSearchStoreForInstance,
+  createContactDocument,
+  createFileDocument,
+  createNoteDocument,
+  getSearchStoreForInstance
+} from '@tearleads/app-search';
 import {
   contactEmails,
   contactPhones,
@@ -10,14 +18,6 @@ import {
   files,
   notes
 } from '@tearleads/db/sqlite';
-import type { SearchableDocument } from '@tearleads/search';
-import {
-  closeSearchStoreForInstance,
-  createContactDocument,
-  createFileDocument,
-  createNoteDocument,
-  getSearchStoreForInstance
-} from '@tearleads/search';
 import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useEffect, useRef } from 'react';

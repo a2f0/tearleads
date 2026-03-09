@@ -2,4 +2,4 @@ export {
   Analytics,
   AnalyticsWindow,
   SortIcon
-} from '@tearleads/analytics/clientEntry';
+} from '@tearleads/app-analytics/clientEntry';
