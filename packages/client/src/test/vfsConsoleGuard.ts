@@ -6,32 +6,77 @@ interface CapturedConsoleMessage {
 const FAIL_ON_CONSOLE_PATTERNS = [
   /VFS rematerialization bootstrap failed/i,
   /Initial VFS orchestrator flush failed/i,
+  /VfsCrdtFeedReplayError/i,
+  /CRDT feed item \d+ is not strictly newer than local cursor/i,
   /transport returned invalid hasMore/i,
   /page\.items is undefined/i,
   /can't access property Symbol\.iterator, page\.items is undefined/i
 ];
 
+function isErrorLike(
+  value: unknown
+): value is { name?: unknown; message?: unknown; stack?: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    ('name' in value || 'message' in value || 'stack' in value)
+  );
+}
+
+function renderConsoleArg(arg: unknown): string {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+  if (arg instanceof Error) {
+    return arg.stack ?? arg.message;
+  }
+  if (isErrorLike(arg)) {
+    const stack =
+      typeof arg.stack === 'string' && arg.stack.length > 0 ? arg.stack : null;
+    if (stack) {
+      return stack;
+    }
+
+    const message =
+      typeof arg.message === 'string' && arg.message.length > 0
+        ? arg.message
+        : null;
+    const name =
+      typeof arg.name === 'string' && arg.name.length > 0 ? arg.name : null;
+    if (name && message) {
+      return `${name}: ${message}`;
+    }
+    if (message) {
+      return message;
+    }
+  }
+
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
+}
+
 function renderConsoleArgs(args: unknown[]): string {
-  return args
-    .map((arg) => {
-      if (typeof arg === 'string') {
-        return arg;
-      }
-      if (arg instanceof Error) {
-        return arg.stack ?? arg.message;
-      }
-      try {
-        return JSON.stringify(arg);
-      } catch {
-        return String(arg);
-      }
-    })
-    .join(' ');
+  return args.map((arg) => renderConsoleArg(arg)).join(' ');
 }
 
 export interface VfsConsoleGuard {
-  assertNoRegressions(): void;
+  assertNoRegressions(options?: { gracePeriodMs?: number }): Promise<void>;
   restore(): void;
+}
+
+async function waitForAsyncConsoleFlush(gracePeriodMs = 0): Promise<void> {
+  await Promise.resolve();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+  if (gracePeriodMs > 0) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, gracePeriodMs);
+    });
+  }
 }
 
 export function installVfsConsoleGuard(): VfsConsoleGuard {
@@ -54,7 +99,8 @@ export function installVfsConsoleGuard(): VfsConsoleGuard {
   };
 
   return {
-    assertNoRegressions(): void {
+    async assertNoRegressions(options: { gracePeriodMs?: number } = {}) {
+      await waitForAsyncConsoleFlush(options.gracePeriodMs ?? 0);
       const failures = capturedMessages.filter((entry) =>
         FAIL_ON_CONSOLE_PATTERNS.some((pattern) => pattern.test(entry.rendered))
       );

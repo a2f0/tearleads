@@ -5,6 +5,9 @@ declare module 'bun:test' {
   export function afterEach(
     fn: () => void | Promise<void>
   ): void | Promise<void>;
+  export function afterAll(
+    fn: () => void | Promise<void>
+  ): void | Promise<void>;
   export function describe(
     name: string,
     fn: () => void | Promise<void>

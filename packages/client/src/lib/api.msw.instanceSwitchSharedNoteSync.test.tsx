@@ -229,12 +229,12 @@ describe('instance switch shared-note sync regression', () => {
     mockApiLogout.mockClear();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (!vfsConsoleGuard) {
       return;
     }
     try {
-      vfsConsoleGuard.assertNoRegressions();
+      await vfsConsoleGuard.assertNoRegressions({ gracePeriodMs: 25 });
     } finally {
       vfsConsoleGuard.restore();
       vfsConsoleGuard = null;
