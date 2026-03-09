@@ -4,17 +4,23 @@ import { useVfsOrchestrator } from '@/contexts/VfsOrchestratorContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
+import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
 
 const INITIAL_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 
 export function VfsRematerializationBootstrap() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { isReady } = useVfsOrchestrator();
-  const { currentInstanceId, db, isLoading } = useDatabaseContext();
+  const databaseContext = useDatabaseContext();
+  const currentInstanceId = databaseContext.currentInstanceId;
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryDelayMsRef = useRef(INITIAL_RETRY_DELAY_MS);
   const inFlightRef = useRef(false);
+  const isDatabaseReady = isVfsRuntimeDatabaseReady({
+    databaseContext,
+    userId: user?.id ?? null
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -28,8 +34,7 @@ export function VfsRematerializationBootstrap() {
     if (
       !isAuthenticated ||
       !isReady ||
-      isLoading ||
-      !db ||
+      !isDatabaseReady ||
       !currentInstanceId
     ) {
       clearRetryTimer();
@@ -95,7 +100,7 @@ export function VfsRematerializationBootstrap() {
       clearRetryTimer();
       inFlightRef.current = false;
     };
-  }, [currentInstanceId, db, isAuthenticated, isLoading, isReady]);
+  }, [currentInstanceId, isAuthenticated, isDatabaseReady, isReady]);
 
   return null;
 }
