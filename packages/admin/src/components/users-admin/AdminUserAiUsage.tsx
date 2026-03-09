@@ -1,4 +1,4 @@
-import { formatNumber, formatTimestamp } from '@admin/lib/utils';
+import { formatTimestamp, formatUsageCount } from '@admin/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTypedTranslation } from '@/i18n';
 import type { api } from '@/lib/api';
@@ -10,10 +10,6 @@ type AdminUser = NonNullable<
 interface AdminUserAiUsageProps {
   user: AdminUser;
   onViewAiRequests: () => void;
-}
-
-function formatUsageCount(value: number | bigint | undefined): string {
-  return value === undefined ? '—' : formatNumber(value);
 }
 
 export function AdminUserAiUsage({
