@@ -71,6 +71,7 @@ const CI_IMPACT_SCRIPT_TEST_REGEX =
 const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
   'scripts/ciImpact/ciImpact.test.ts',
   'scripts/ciImpact/requiredWorkflows.test.ts',
+  'scripts/ciImpact/turboGraph.test.ts',
   'scripts/agents/tooling/agentTool.test.ts',
   'scripts/checkAndroidKeystoreIntegrity.test.ts'
 ];

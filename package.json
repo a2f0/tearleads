@@ -71,7 +71,12 @@
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky",
-    "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts"
+    "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts",
+    "turboBuild": "turbo run build",
+    "turboTest": "turbo run test",
+    "turboLint": "turbo run lint",
+    "turboTypecheck": "turbo run typecheck",
+    "depGraph": "./scripts/ciImpact/generateDepGraph.sh"
   },
   "repository": {
     "type": "git",
@@ -105,6 +110,7 @@
     "markdownlint-cli2": "0.21.0",
     "pg": "8.19.0",
     "tsx": "4.21.0",
+    "turbo": "2.8.14",
     "typescript": "5.9.3",
     "vitest": "4.0.18"
   },
