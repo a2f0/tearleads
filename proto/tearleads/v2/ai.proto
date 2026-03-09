@@ -3,9 +3,9 @@ syntax = "proto3";
 package tearleads.v2;
 
 service AiService {
-  rpc GetUsage(AiGetUsageRequest) returns (AiGetUsageResponse);
-  rpc GetUsageSummary(AiGetUsageSummaryRequest)
-      returns (AiGetUsageSummaryResponse);
+  rpc GetUsage(AiServiceGetUsageRequest) returns (AiServiceGetUsageResponse);
+  rpc GetUsageSummary(AiServiceGetUsageSummaryRequest)
+      returns (AiServiceGetUsageSummaryResponse);
 }
 
 message AiUsage {
@@ -31,26 +31,26 @@ message AiUsageSummary {
   string period_end = 6;
 }
 
-message AiGetUsageRequest {
+message AiServiceGetUsageRequest {
   string start_date = 1;
   string end_date = 2;
   string cursor = 3;
   int32 limit = 4;
 }
 
-message AiGetUsageResponse {
+message AiServiceGetUsageResponse {
   repeated AiUsage usage = 1;
   AiUsageSummary summary = 2;
   bool has_more = 3;
   optional string cursor = 4;
 }
 
-message AiGetUsageSummaryRequest {
+message AiServiceGetUsageSummaryRequest {
   string start_date = 1;
   string end_date = 2;
 }
 
-message AiGetUsageSummaryResponse {
+message AiServiceGetUsageSummaryResponse {
   AiUsageSummary summary = 1;
   map<string, AiUsageSummary> by_model = 2;
 }

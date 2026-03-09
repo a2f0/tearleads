@@ -61,8 +61,8 @@ import {
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
-  type AiGetUsageResponse,
-  AiGetUsageResponseSchema
+  type AiServiceGetUsageResponse,
+  AiServiceGetUsageResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { mapAiGetUsageResponse } from './aiUsageApiMappers';
 
@@ -197,12 +197,12 @@ function requestAdminV2Proto<Desc extends DescMessage>(
 function requestAiV2Proto(
   methodName: string,
   requestBody: Record<string, unknown>
-): Promise<AiGetUsageResponse> {
+): Promise<AiServiceGetUsageResponse> {
   return request<JsonValue>(`${AI_V2_CONNECT_BASE_PATH}/${methodName}`, {
     fetchOptions: createConnectJsonPostInit(requestBody)
   }).then((responseBody) => {
     try {
-      return fromJson(AiGetUsageResponseSchema, responseBody ?? {}, {
+      return fromJson(AiServiceGetUsageResponseSchema, responseBody ?? {}, {
         ignoreUnknownFields: true
       });
     } catch (error) {

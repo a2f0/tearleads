@@ -1,8 +1,8 @@
 import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import {
-  AiGetUsageRequestSchema,
-  AiGetUsageSummaryRequestSchema
+  AiServiceGetUsageRequestSchema,
+  AiServiceGetUsageSummaryRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { aiConnectServiceV2 } from './aiServiceV2.js';
@@ -47,7 +47,7 @@ describe('aiConnectServiceV2', () => {
 
     await expect(
       aiConnectServiceV2.getUsage(
-        create(AiGetUsageRequestSchema, {}),
+        create(AiServiceGetUsageRequestSchema, {}),
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({
@@ -89,7 +89,7 @@ describe('aiConnectServiceV2', () => {
       });
 
     const response = await aiConnectServiceV2.getUsage(
-      create(AiGetUsageRequestSchema, {
+      create(AiServiceGetUsageRequestSchema, {
         startDate: '2026-03-01',
         endDate: '2026-03-31',
         limit: 25
@@ -145,7 +145,7 @@ describe('aiConnectServiceV2', () => {
       });
 
     const response = await aiConnectServiceV2.getUsageSummary(
-      create(AiGetUsageSummaryRequestSchema, {
+      create(AiServiceGetUsageSummaryRequestSchema, {
         startDate: '2026-03-01',
         endDate: '2026-03-31'
       }),

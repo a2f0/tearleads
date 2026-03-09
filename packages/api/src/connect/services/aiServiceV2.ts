@@ -1,7 +1,7 @@
 import { ConnectError } from '@connectrpc/connect';
 import type {
-  AiGetUsageRequest,
-  AiGetUsageSummaryRequest
+  AiServiceGetUsageRequest,
+  AiServiceGetUsageSummaryRequest
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { authenticate } from './connectRequestAuth.js';
 import {
@@ -22,11 +22,11 @@ async function getAuthUserId(requestHeader: Headers): Promise<string> {
 }
 
 export const aiConnectServiceV2 = {
-  async getUsage(request: AiGetUsageRequest, context: ConnectContext) {
+  async getUsage(request: AiServiceGetUsageRequest, context: ConnectContext) {
     return getUsageForUser(await getAuthUserId(context.requestHeader), request);
   },
   async getUsageSummary(
-    request: AiGetUsageSummaryRequest,
+    request: AiServiceGetUsageSummaryRequest,
     context: ConnectContext
   ) {
     return getUsageSummaryForUser(

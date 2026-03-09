@@ -16,10 +16,10 @@ import type {
   RecordAiUsageResponse
 } from '@tearleads/shared';
 import {
-  AiGetUsageRequestSchema,
-  type AiGetUsageResponse,
-  AiGetUsageSummaryRequestSchema,
-  type AiGetUsageSummaryResponse,
+  AiServiceGetUsageRequestSchema,
+  type AiServiceGetUsageResponse,
+  AiServiceGetUsageSummaryRequestSchema,
+  type AiServiceGetUsageSummaryResponse,
   AiService
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { getAuthHeaderValue } from '../authStorage';
@@ -164,7 +164,7 @@ async function runWithEvent<T>(
   }
 }
 
-function mapAiUsageRow(usage: AiGetUsageResponse['usage'][number]): AiUsage {
+function mapAiUsageRow(usage: AiServiceGetUsageResponse['usage'][number]): AiUsage {
   return {
     id: usage.id,
     conversationId: usage.conversationId ?? null,
@@ -181,7 +181,9 @@ function mapAiUsageRow(usage: AiGetUsageResponse['usage'][number]): AiUsage {
 }
 
 function mapAiUsageSummary(
-  summary: AiGetUsageResponse['summary'] | AiGetUsageSummaryResponse['summary']
+  summary:
+    | AiServiceGetUsageResponse['summary']
+    | AiServiceGetUsageSummaryResponse['summary']
 ): AiUsageSummary {
   return {
     totalPromptTokens: summary?.totalPromptTokens ?? 0,
@@ -194,7 +196,7 @@ function mapAiUsageSummary(
 }
 
 function mapAiGetUsageResponse(
-  response: AiGetUsageResponse
+  response: AiServiceGetUsageResponse
 ): AiUsageListResponse {
   return {
     usage: response.usage.map(mapAiUsageRow),
@@ -205,7 +207,7 @@ function mapAiGetUsageResponse(
 }
 
 function mapAiGetUsageSummaryResponse(
-  response: AiGetUsageSummaryResponse
+  response: AiServiceGetUsageSummaryResponse
 ): AiUsageSummaryResponse {
   return {
     summary: mapAiUsageSummary(response.summary),
@@ -249,7 +251,7 @@ export function createAiRoutes(
           getClient
         );
         const response = await client.getUsage(
-          create(AiGetUsageRequestSchema, {
+          create(AiServiceGetUsageRequestSchema, {
             ...(options?.startDate !== undefined
               ? { startDate: options.startDate }
               : {}),
@@ -271,7 +273,7 @@ export function createAiRoutes(
           getClient
         );
         const response = await client.getUsageSummary(
-          create(AiGetUsageSummaryRequestSchema, {
+          create(AiServiceGetUsageSummaryRequestSchema, {
             ...(options?.startDate !== undefined
               ? { startDate: options.startDate }
               : {}),

@@ -1,11 +1,11 @@
 import type { AiUsageListResponse, AiUsageSummary } from '@tearleads/shared';
 import type {
-  AiGetUsageResponse,
+  AiServiceGetUsageResponse,
   AiUsage as ProtoAiUsage
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 
 function mapAiUsageSummary(
-  summary: AiGetUsageResponse['summary']
+  summary: AiServiceGetUsageResponse['summary']
 ): AiUsageSummary {
   return {
     totalPromptTokens: summary?.totalPromptTokens ?? 0,
@@ -34,7 +34,7 @@ function mapAiUsage(usage: ProtoAiUsage) {
 }
 
 export function mapAiGetUsageResponse(
-  response: AiGetUsageResponse
+  response: AiServiceGetUsageResponse
 ): AiUsageListResponse {
   return {
     usage: response.usage.map(mapAiUsage),
