@@ -64,9 +64,9 @@ describe('capacitorAdapterHelpers', () => {
       const { module } = await loadHelpers();
 
       expect(module.isIgnorableDeleteDbError('not-an-error')).toBe(false);
-      expect(module.isIgnorableDeleteDbError(new Error('permission denied'))).toBe(
-        false
-      );
+      expect(
+        module.isIgnorableDeleteDbError(new Error('permission denied'))
+      ).toBe(false);
     });
   });
 
