@@ -117,7 +117,10 @@ function isPureReexportFile(content: string): boolean {
       line.includes('} from "')
   );
 
-  if (nonEmptyLines.length === 0 || exportLines.length < nonEmptyLines.length * 0.8) {
+  if (
+    nonEmptyLines.length === 0 ||
+    exportLines.length < nonEmptyLines.length * 0.8
+  ) {
     return false;
   }
 
@@ -129,13 +132,9 @@ function isPureReexportFile(content: string): boolean {
   // Extract all `from '...'` sources — if every source is a scoped package
   // (starts with @), this is a pure cross-package re-export shim
   const fromPattern = /from\s+['"]([^'"]+)['"]/g;
-  const sources: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = fromPattern.exec(content)) !== null) {
-    if (match[1]) {
-      sources.push(match[1]);
-    }
-  }
+  const sources = [...content.matchAll(fromPattern)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
 
   if (sources.length === 0) {
     return false;
