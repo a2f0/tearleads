@@ -5,7 +5,7 @@ import {
   createUserKeyProvider
 } from './vfsUserKeyProvider';
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   ensureVfsKeyPair: vi.fn(),
   getVfsPublicKey: vi.fn()
 }));

@@ -23,7 +23,7 @@ vi.mock('@/lib/api', () => ({
   tryRefreshToken: () => mockTryRefreshToken()
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   createVfsKeySetupPayloadForOnboarding: vi.fn(),
   setVfsRecoveryPassword: (...args: unknown[]) =>
     mockSetVfsRecoveryPassword(...args)

@@ -104,7 +104,7 @@ vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]))
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })

@@ -92,7 +92,7 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   generateSessionKey: vi.fn(),
   wrapSessionKey: vi.fn()
 }));

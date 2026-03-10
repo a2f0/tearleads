@@ -151,7 +151,7 @@ vi.mock('@/storage/opfs', () => ({
   createRetrieveLogger: () => vi.fn()
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: getMocks().mockUploadFile
   })

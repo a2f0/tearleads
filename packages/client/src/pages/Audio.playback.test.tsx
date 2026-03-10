@@ -158,7 +158,7 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 // Mock useFileUpload hook
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })
