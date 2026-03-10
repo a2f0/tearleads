@@ -229,7 +229,7 @@ export async function setupBobNotesShareForAlice(
   );
 
   const shareResponse = await input.bob.fetchJson(
-    `/vfs/items/${encodeURIComponent(folderId)}/shares`,
+    '/connect/tearleads.v2.VfsSharesService/CreateShare',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -139,7 +139,7 @@ describe('window lifecycle refresh chaos', () => {
     ): Promise<void> {
       const response = await alice.fetchJson<{
         share: { id: string; itemId: string };
-      }>(`/vfs/items/${itemId}/shares`, {
+      }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,11 +171,14 @@ describe('window lifecycle refresh chaos', () => {
         current.permissionLevel === 'view' ? 'edit' : 'view';
       const shareUuid = extractShareUuid(current.shareId);
       await alice.fetchJson<{ share: { id: string; permissionLevel: string } }>(
-        `/vfs/shares/${shareUuid}`,
+        '/connect/tearleads.v2.VfsSharesService/UpdateShare',
         {
-          method: 'PATCH',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ permissionLevel: nextPermission })
+          body: JSON.stringify({
+            shareId: shareUuid,
+            permissionLevel: nextPermission
+          })
         }
       );
       activeShares.set(itemId, {
@@ -190,9 +193,14 @@ describe('window lifecycle refresh chaos', () => {
         throw new Error(`cannot revoke missing share for item ${itemId}`);
       }
       const shareUuid = extractShareUuid(current.shareId);
-      await alice.fetch(`/vfs/shares/${shareUuid}`, {
-        method: 'DELETE'
-      });
+      await alice.fetchJson(
+        '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareId: shareUuid })
+        }
+      );
       activeShares.delete(itemId);
     }
 

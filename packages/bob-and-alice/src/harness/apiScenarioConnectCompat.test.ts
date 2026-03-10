@@ -32,7 +32,7 @@ describe('mapLegacyPathToConnect', () => {
     expect(mapping).toBeNull();
   });
 
-  it('maps /vfs/items/:id/rekey with direct fields', () => {
+  it('does not map legacy rekey routes', () => {
     const payload = {
       reason: 'manual',
       newEpoch: 2,
@@ -51,24 +51,52 @@ describe('mapLegacyPathToConnect', () => {
       body: JSON.stringify(payload)
     });
 
-    expect(mapping).not.toBeNull();
-    expect(mapping?.path).toBe('/v1/connect/tearleads.v2.VfsService/RekeyItem');
-    expect(mapping?.body).toEqual({
-      ...payload,
-      itemId: 'item-1'
-    });
+    expect(mapping).toBeNull();
   });
 
-  it('sets empty share defaults for /vfs/items/:id/shares GET', () => {
+  it('does not map legacy share routes', () => {
     const mapping = mapLegacyPathToConnect('/vfs/items/item-1/shares', {
-      method: 'GET'
+      method: 'POST',
+      body: JSON.stringify({
+        shareType: 'user',
+        targetId: 'user-2',
+        permissionLevel: 'view'
+      })
     });
 
-    expect(mapping).not.toBeNull();
-    expect(mapping?.path).toBe(
-      '/v1/connect/tearleads.v2.VfsSharesService/GetItemShares'
-    );
-    expect(mapping?.legacyDefaults).toEqual({ shares: [], orgShares: [] });
+    expect(mapping).toBeNull();
+  });
+
+  it('does not map legacy share mutation routes', () => {
+    expect(
+      mapLegacyPathToConnect('/vfs/shares/share-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ permissionLevel: 'edit' })
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/shares/share-1', {
+        method: 'DELETE'
+      })
+    ).toBeNull();
+  });
+
+  it('does not map legacy org-share routes', () => {
+    expect(
+      mapLegacyPathToConnect('/vfs/items/item-1/org-shares', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceOrgId: 'org-1',
+          targetOrgId: 'org-2',
+          permissionLevel: 'view'
+        })
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/org-shares/share-1', {
+        method: 'DELETE'
+      })
+    ).toBeNull();
   });
 
   it('does not map legacy AI usage routes', () => {

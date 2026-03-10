@@ -1,6 +1,5 @@
 import {
   parseConnectJsonEnvelopeBody,
-  VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
@@ -13,7 +12,6 @@ export interface ConnectRouteMapping {
 }
 
 const VFS_SERVICE_PATH = `/v1${VFS_V2_CONNECT_BASE_PATH}`;
-const VFS_SHARES_SERVICE_PATH = `/v1${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
 
 function parseJson<T>(text: string): T {
   return JSON.parse(text);
@@ -178,78 +176,6 @@ export function mapLegacyPathToConnect(
       path: `${VFS_SERVICE_PATH}/GetBlob`,
       body: { blobId: encodedSegment(requiredMatchGroup(blobMatch, 1)) },
       unwrapJsonEnvelope: false
-    };
-  }
-
-  const rekeyMatch = pathname.match(/^\/vfs\/items\/([^/]+)\/rekey$/);
-  if (rekeyMatch && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/RekeyItem`,
-      body: {
-        ...jsonBody,
-        itemId: encodedSegment(requiredMatchGroup(rekeyMatch, 1))
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const itemSharesMatch = pathname.match(/^\/vfs\/items\/([^/]+)\/shares$/);
-  if (itemSharesMatch && method === 'GET') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/GetItemShares`,
-      body: { itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1)) },
-      unwrapJsonEnvelope: true,
-      legacyDefaults: { shares: [], orgShares: [] }
-    };
-  }
-  if (itemSharesMatch && method === 'POST') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/CreateShare`,
-      body: {
-        ...jsonBody,
-        itemId: encodedSegment(requiredMatchGroup(itemSharesMatch, 1))
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const shareMatch = pathname.match(/^\/vfs\/shares\/([^/]+)$/);
-  if (shareMatch && method === 'PATCH') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/UpdateShare`,
-      body: {
-        ...jsonBody,
-        shareId: encodedSegment(requiredMatchGroup(shareMatch, 1))
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (shareMatch && method === 'DELETE') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/DeleteShare`,
-      body: { shareId: encodedSegment(requiredMatchGroup(shareMatch, 1)) },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const orgSharesMatch = pathname.match(/^\/vfs\/items\/([^/]+)\/org-shares$/);
-  if (orgSharesMatch && method === 'POST') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/CreateOrgShare`,
-      body: {
-        ...jsonBody,
-        itemId: encodedSegment(requiredMatchGroup(orgSharesMatch, 1))
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const orgShareMatch = pathname.match(/^\/vfs\/org-shares\/([^/]+)$/);
-  if (orgShareMatch && method === 'DELETE') {
-    return {
-      path: `${VFS_SHARES_SERVICE_PATH}/DeleteOrgShare`,
-      body: { shareId: encodedSegment(requiredMatchGroup(orgShareMatch, 1)) },
-      unwrapJsonEnvelope: true
     };
   }
 

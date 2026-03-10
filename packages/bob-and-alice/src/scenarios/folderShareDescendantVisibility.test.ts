@@ -105,7 +105,7 @@ describe('folder share descendant visibility', () => {
       [randomUUID(), folderId, noteId]
     );
 
-    await bob.fetchJson(`/vfs/items/${encodeURIComponent(folderId)}/shares`, {
+    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,7 +124,7 @@ describe('folder share descendant visibility', () => {
       aliceSyncAfterFolderShare.some((item) => item.itemId === noteId)
     ).toBe(false);
 
-    await bob.fetchJson(`/vfs/items/${encodeURIComponent(noteId)}/shares`, {
+    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

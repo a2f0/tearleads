@@ -71,11 +71,15 @@ describe('API VFS lifecycle', () => {
 
     // Alice lists shares for the item (should be empty initially)
     const sharesEmpty = await alice.fetchJson<{
-      shares: unknown[];
-      orgShares: unknown[];
-    }>('/vfs/items/note-1/shares');
-    expect(sharesEmpty.shares).toHaveLength(0);
-    expect(sharesEmpty.orgShares).toHaveLength(0);
+      shares?: unknown[];
+      orgShares?: unknown[];
+    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: 'note-1' })
+    });
+    expect(sharesEmpty.shares ?? []).toHaveLength(0);
+    expect(sharesEmpty.orgShares ?? []).toHaveLength(0);
 
     // Alice shares the item with Bob
     const shareResponse = await alice.fetchJson<{
@@ -85,7 +89,7 @@ describe('API VFS lifecycle', () => {
         targetId: string;
         permissionLevel: string;
       };
-    }>('/vfs/items/note-1/shares', {
+    }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -110,7 +114,11 @@ describe('API VFS lifecycle', () => {
     // Verify shares list now has one entry
     const sharesAfter = await alice.fetchJson<{
       shares: Array<{ id: string; targetId: string }>;
-    }>('/vfs/items/note-1/shares');
+    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: 'note-1' })
+    });
     expect(sharesAfter.shares).toHaveLength(1);
     expect(sharesAfter.shares[0]?.targetId).toBe(bob.user.userId);
 
@@ -118,10 +126,13 @@ describe('API VFS lifecycle', () => {
     const shareUuid = shareBody.id.replace('share:', '');
     const updateResponse = await alice.fetchJson<{
       share: { id: string; permissionLevel: string };
-    }>(`/vfs/shares/${shareUuid}`, {
-      method: 'PATCH',
+    }>('/connect/tearleads.v2.VfsSharesService/UpdateShare', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ permissionLevel: 'edit' })
+      body: JSON.stringify({
+        shareId: shareUuid,
+        permissionLevel: 'edit'
+      })
     });
     expect(updateResponse.share.permissionLevel).toBe('edit');
 
@@ -130,10 +141,11 @@ describe('API VFS lifecycle', () => {
       itemId: string;
       newEpoch: number;
       wrapsApplied: number;
-    }>('/vfs/items/note-1/rekey', {
+    }>('/connect/tearleads.v2.VfsService/RekeyItem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        itemId: 'note-1',
         reason: 'manual',
         newEpoch: 2,
         wrappedKeys: [
@@ -151,16 +163,27 @@ describe('API VFS lifecycle', () => {
     expect(rekeyBody.newEpoch).toBe(2);
 
     // Alice deletes the share
-    const deleteShareResponse = await alice.fetch(`/vfs/shares/${shareUuid}`, {
-      method: 'DELETE'
+    const deleteShareResponse = await alice.fetchJson(
+      '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareId: shareUuid })
+      }
+    );
+    expect(deleteShareResponse).toEqual({
+      deleted: true
     });
-    expect(deleteShareResponse.status).toBe(200);
 
     // Verify shares list is empty again
     const sharesFinal = await alice.fetchJson<{
-      shares: unknown[];
-    }>('/vfs/items/note-1/shares');
-    expect(sharesFinal.shares).toHaveLength(0);
+      shares?: unknown[];
+    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: 'note-1' })
+    });
+    expect(sharesFinal.shares ?? []).toHaveLength(0);
   });
 
   it('creates an org-share between two organizations', async () => {
@@ -208,7 +231,7 @@ describe('API VFS lifecycle', () => {
         targetOrgId: string;
         permissionLevel: string;
       };
-    }>('/vfs/items/org-shared-item/org-shares', {
+    }>('/connect/tearleads.v2.VfsSharesService/CreateOrgShare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -227,11 +250,15 @@ describe('API VFS lifecycle', () => {
     const orgShareParts = orgShareBody.id.split(':');
     const orgShareUuid = orgShareParts[orgShareParts.length - 1];
     expect(orgShareUuid).toBeTruthy();
-    const deleteResponse = await alice.fetch(
-      `/vfs/org-shares/${orgShareUuid}`,
-      { method: 'DELETE' }
+    const deleteResponse = await alice.fetchJson(
+      '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareId: orgShareUuid })
+      }
     );
-    expect(deleteResponse.status).toBe(200);
+    expect(deleteResponse).toEqual({ deleted: true });
   });
 
   it('records and queries AI usage', async () => {
