@@ -115,8 +115,14 @@ describe('API auth flow', () => {
     expect(logoutBody.loggedOut).toBe(true);
 
     // Verify the seeded user's auth still works via the harness
-    const sessionsViaHarness =
-      await alice.fetchJson<SessionsResponse>('/auth/sessions');
+    const sessionsViaHarness = await alice.fetchJson<SessionsResponse>(
+      '/connect/tearleads.v2.AuthService/GetSessions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      }
+    );
     expect(sessionsViaHarness.sessions.length).toBeGreaterThanOrEqual(1);
 
     const healthResponse = await fetch(`${apiBaseUrl}/healthz`);
