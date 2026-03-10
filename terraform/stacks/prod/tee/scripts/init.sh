@@ -16,5 +16,6 @@ validate_aws_env
 validate_azure_env
 
 terraform -chdir="$STACK_DIR" init \
+  -reconfigure \
   -backend-config="$BACKEND_CONFIG" \
   "$@"

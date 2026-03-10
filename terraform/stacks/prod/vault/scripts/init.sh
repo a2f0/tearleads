@@ -23,5 +23,6 @@ if [[ -z "${TF_VAR_tailscale_api_token:-}" ]]; then
 fi
 
 terraform -chdir="$STACK_DIR" init \
+  -reconfigure \
   -backend-config="$BACKEND_CONFIG" \
   "$@"

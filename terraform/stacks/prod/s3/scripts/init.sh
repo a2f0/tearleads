@@ -14,5 +14,6 @@ validate_aws_env
 BACKEND_CONFIG=$(get_backend_config)
 
 terraform -chdir="$STACK_DIR" init \
+  -reconfigure \
   -backend-config="$BACKEND_CONFIG" \
   "$@"
