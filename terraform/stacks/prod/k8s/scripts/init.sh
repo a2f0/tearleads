@@ -17,5 +17,6 @@ validate_domain_env
 validate_cloudflare_env
 
 terraform -chdir="$STACK_DIR" init \
+  -reconfigure \
   -backend-config="$BACKEND_CONFIG" \
   "$@"

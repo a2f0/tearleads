@@ -95,6 +95,7 @@ fi
 
 # Read RDS endpoint from the prod/rds terraform stack
 RDS_STACK_DIR="$REPO_ROOT/terraform/stacks/prod/rds"
+"$RDS_STACK_DIR/scripts/init.sh" >/dev/null
 export POSTGRES_HOST
 POSTGRES_HOST="$(terraform -chdir="$RDS_STACK_DIR" output -raw address)"
 echo "RDS endpoint: $POSTGRES_HOST"
