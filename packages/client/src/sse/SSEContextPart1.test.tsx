@@ -23,6 +23,7 @@ function createMockApiModule() {
 
 var mockApiModuleState: ReturnType<typeof createMockApiModule> | undefined;
 
+// Lazy init keeps vi.mock factory hoist-safe across runners.
 function getMockApiModule() {
   if (!mockApiModuleState) {
     mockApiModuleState = createMockApiModule();
