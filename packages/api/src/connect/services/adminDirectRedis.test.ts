@@ -1,10 +1,8 @@
 import { Code } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getRedisClientMock, requireAdminSessionMock } = vi.hoisted(() => ({
-  getRedisClientMock: vi.fn(),
-  requireAdminSessionMock: vi.fn()
-}));
+const getRedisClientMock = vi.fn();
+const requireAdminSessionMock = vi.fn();
 
 vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: (...args: unknown[]) => getRedisClientMock(...args)
