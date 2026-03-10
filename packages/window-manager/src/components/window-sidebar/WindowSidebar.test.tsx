@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
   afterEach,
   beforeEach,
@@ -9,6 +9,7 @@ import {
   vi
 } from 'vitest';
 import { WindowSidebar } from './WindowSidebar';
+import { useWindowSidebar } from './WindowSidebarContext';
 
 vi.mock('../../hooks/useIsMobile.js', () => ({
   useIsMobile: vi.fn(() => false)
@@ -147,6 +148,76 @@ describe('WindowSidebar', () => {
         </WindowSidebar>
       );
       expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    });
+
+    it('unmounts drawer after close animation', () => {
+      vi.useFakeTimers();
+      const { rerender } = render(
+        <WindowSidebar {...defaultProps} open={true}>
+          <div>Content</div>
+        </WindowSidebar>
+      );
+      expect(screen.getByTestId('window-sidebar')).toBeInTheDocument();
+
+      rerender(
+        <WindowSidebar {...defaultProps} open={false}>
+          <div>Content</div>
+        </WindowSidebar>
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+
+      expect(screen.queryByTestId('window-sidebar')).not.toBeInTheDocument();
+      vi.useRealTimers();
+    });
+
+    it('provides closeSidebar via context', () => {
+      function ChildThatCloses() {
+        const { closeSidebar } = useWindowSidebar();
+        return (
+          <button type="button" onClick={closeSidebar}>
+            Close
+          </button>
+        );
+      }
+
+      render(
+        <WindowSidebar {...defaultProps}>
+          <ChildThatCloses />
+        </WindowSidebar>
+      );
+
+      fireEvent.click(screen.getByText('Close'));
+      expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('desktop context', () => {
+    it('provides no-op closeSidebar via context', () => {
+      function ChildThatCloses() {
+        const { closeSidebar, isMobileDrawer } = useWindowSidebar();
+        return (
+          <button
+            type="button"
+            onClick={closeSidebar}
+            data-mobile={isMobileDrawer}
+          >
+            Close
+          </button>
+        );
+      }
+
+      render(
+        <WindowSidebar {...defaultProps}>
+          <ChildThatCloses />
+        </WindowSidebar>
+      );
+
+      const button = screen.getByText('Close');
+      expect(button).toHaveAttribute('data-mobile', 'false');
+      fireEvent.click(button); // no-op closeSidebar, should not throw
     });
   });
 });
