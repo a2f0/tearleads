@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { Analytics } from './Analytics';
 
+// one-component-per-file: allow - test helper render wrappers intentionally return JSX
 declare global {
   interface SVGElement {
     getBBox(): DOMRect;

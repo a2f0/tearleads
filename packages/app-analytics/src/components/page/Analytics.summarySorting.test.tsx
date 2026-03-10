@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Analytics } from './Analytics';
 
+// one-component-per-file: allow - test helper render wrappers intentionally return JSX
 declare global {
   interface SVGElement {
     getBBox(): DOMRect;
