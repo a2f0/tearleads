@@ -26,13 +26,13 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
       const bodyText = typeof init?.body === 'string' ? init.body : '';
       calls.push({ path, method, bodyText });
 
-      if (path === '/vfs/register') {
+      if (path === '/connect/tearleads.v2.VfsService/Register') {
         return {
           createdAt: '2026-03-01T00:00:00.000Z'
         };
       }
 
-      if (path === '/vfs/crdt/push') {
+      if (path === '/connect/tearleads.v2.VfsService/PushCrdtOps') {
         const payload = JSON.parse(bodyText);
         if (!isRecord(payload) || !Array.isArray(payload['operations'])) {
           throw new Error('Unexpected crdt payload in test');
@@ -120,9 +120,9 @@ describe('setupBobNotesShareForAlice', () => {
     ]);
 
     expect(calls).toHaveLength(4);
-    expect(calls[0]?.path).toBe('/vfs/register');
-    expect(calls[1]?.path).toBe('/vfs/register');
-    expect(calls[2]?.path).toBe('/vfs/crdt/push');
+    expect(calls[0]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
+    expect(calls[1]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
+    expect(calls[2]?.path).toBe('/connect/tearleads.v2.VfsService/PushCrdtOps');
     expect(calls[3]?.path).toBe('/vfs/items/folder-folder-suffix/shares');
 
     const firstRegisterBody = JSON.parse(calls[0]?.bodyText ?? '');

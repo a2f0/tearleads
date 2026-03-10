@@ -136,13 +136,6 @@ export function mapLegacyPathToConnect(
       unwrapJsonEnvelope: true
     };
   }
-  if (pathname === '/vfs/register' && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/Register`,
-      body: jsonBody,
-      unwrapJsonEnvelope: true
-    };
-  }
   if (pathname === '/vfs/vfs-sync' && method === 'GET') {
     return {
       path: `${VFS_SERVICE_PATH}/GetSync`,
@@ -154,20 +147,6 @@ export function mapLegacyPathToConnect(
     return {
       path: `${VFS_SERVICE_PATH}/GetCrdtSync`,
       body: buildGetSyncBody(url.searchParams),
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (pathname === '/vfs/crdt/push' && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/PushCrdtOps`,
-      body: jsonBody,
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (pathname === '/vfs/crdt/session' && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/RunCrdtSession`,
-      body: jsonBody,
       unwrapJsonEnvelope: true
     };
   }

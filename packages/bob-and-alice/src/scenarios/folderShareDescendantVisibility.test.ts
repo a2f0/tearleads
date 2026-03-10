@@ -51,7 +51,7 @@ describe('folder share descendant visibility', () => {
     const folderId = `folder-${randomUUID()}`;
     const noteId = `note-${randomUUID()}`;
 
-    await bob.fetchJson('/vfs/register', {
+    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +61,7 @@ describe('folder share descendant visibility', () => {
         encryptedName: 'Notes shared with Alice'
       })
     });
-    await bob.fetchJson('/vfs/register', {
+    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

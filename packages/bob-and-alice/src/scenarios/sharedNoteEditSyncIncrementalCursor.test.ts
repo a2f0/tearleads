@@ -112,7 +112,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     });
 
     const noteId = `note-${randomUUID()}`;
-    await bob.fetchJson('/vfs/register', {
+    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,14 +150,17 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>('/vfs/crdt/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientId: 'bob-client',
-        operations: [bobPushOperation]
-      })
-    });
+    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: 'bob-client',
+          operations: [bobPushOperation]
+        })
+      }
+    );
     expect(bobPush.results[0]?.status).toBe('applied');
 
     let staleCursor: VfsSyncCursor | null = null;
@@ -243,7 +246,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       plaintext: 'alice-edit-v2'
     });
     const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
