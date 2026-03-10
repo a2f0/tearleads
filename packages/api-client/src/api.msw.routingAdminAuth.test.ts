@@ -17,6 +17,7 @@ const loadApi = async () => {
   return module.api;
 };
 let seededUser: SeededUser;
+
 describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
@@ -26,7 +27,7 @@ describe('api with msw', () => {
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
@@ -93,6 +94,7 @@ describe('api with msw', () => {
     vi.resetModules();
     installApiV2WasmBindingsOverride();
     vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
+    (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     // Login and VFS keys need server.use() overrides
     server.use(
       http.post(

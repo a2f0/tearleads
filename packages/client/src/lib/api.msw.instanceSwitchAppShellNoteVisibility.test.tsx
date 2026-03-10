@@ -322,7 +322,9 @@ describe('app shell instance-switch note visibility regression', () => {
       await waitForProvidersReady();
 
       await act(async () => {
-        storeAuth(bob.accessToken, bob.refreshToken, bobAuth);
+        storeAuth(bob.accessToken, bob.refreshToken, bobAuth, {
+          persistToken: false
+        });
       });
       await waitForAuthUser(bob.userId);
       await waitForCurrentInstanceBoundTo(bob.userId);
@@ -343,7 +345,9 @@ describe('app shell instance-switch note visibility regression', () => {
       await waitForCurrentInstance(aliceInstanceId);
 
       await act(async () => {
-        storeAuth(alice.accessToken, alice.refreshToken, aliceAuth);
+        storeAuth(alice.accessToken, alice.refreshToken, aliceAuth, {
+          persistToken: false
+        });
       });
       await waitForAuthUser(alice.userId);
       await waitForCurrentInstanceBoundTo(alice.userId);

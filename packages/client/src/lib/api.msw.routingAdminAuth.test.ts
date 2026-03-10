@@ -28,7 +28,9 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
     mockLogApiEvent.mockResolvedValue(undefined);
   });
   afterEach(() => {
@@ -88,6 +90,9 @@ describe('api with msw', () => {
   it('supports /v1-prefixed API base URLs', async () => {
     vi.resetModules();
     vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
     // Login and VFS keys need server.use() overrides
     server.use(
       http.post(

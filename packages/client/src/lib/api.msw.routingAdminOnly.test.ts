@@ -1,7 +1,6 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -61,7 +60,9 @@ describe('api with msw admin routing', () => {
 
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
 
     mockLogApiEvent.mockResolvedValue(undefined);
   });

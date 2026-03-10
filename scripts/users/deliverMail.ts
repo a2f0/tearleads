@@ -143,16 +143,14 @@ async function main(): Promise<void> {
   }
 
   const opts = buildOptions();
-  console.log(
-    `Sending test email to ${opts.to} via ${opts.host}:${opts.port}...`
-  );
+  console.log('Sending test email...');
   await deliverMail(opts);
   console.log('Email sent successfully');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main().catch((error) => {
-    console.error('Failed to deliver mail:', error);
+  main().catch(() => {
+    console.error('Failed to deliver mail');
     process.exitCode = 1;
   });
 }

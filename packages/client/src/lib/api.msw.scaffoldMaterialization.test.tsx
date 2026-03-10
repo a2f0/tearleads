@@ -243,7 +243,9 @@ describe('DB scaffolding plaintext render integration', () => {
       id: bob.userId,
       email: bob.email
     };
-    storeAuth(bob.accessToken, bob.refreshToken, bobAuthUser);
+    storeAuth(bob.accessToken, bob.refreshToken, bobAuthUser, {
+      persistToken: false
+    });
     vi.stubEnv('VITE_API_URL', `${ctx.baseUrl}/v1`);
 
     const fetchConnectVfsJson = async <TResponse,>(

@@ -8,12 +8,17 @@ const REFRESH_LOCK_KEY = 'auth_refresh_lock';
 const REFRESH_LOCK_TIMEOUT_MS = 10000; // 10 seconds max lock duration
 
 let authError: string | null = null;
+let inMemoryAuthToken: string | null = null;
 let inMemoryRefreshToken: string | null = null;
 
 interface StoredAuth {
   token: string | null;
   refreshToken: string | null;
   user: AuthUser | null;
+}
+
+interface StoreAuthOptions {
+  persistToken?: boolean;
 }
 
 function notifyAuthChange(): void {
@@ -55,7 +60,7 @@ export function setSessionExpiredError(): void {
 
 export function readStoredAuth(): StoredAuth {
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const token = getStoredAuthToken();
     const refreshToken = getStoredRefreshToken();
     const user = localStorage.getItem(AUTH_USER_KEY);
 
@@ -73,10 +78,18 @@ export function readStoredAuth(): StoredAuth {
 export function storeAuth(
   token: string,
   refreshToken: string,
-  user: AuthUser
+  user: AuthUser,
+  options: StoreAuthOptions = {}
 ): void {
+  const shouldPersistToken = options.persistToken ?? true;
+
   try {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    inMemoryAuthToken = token;
+    if (shouldPersistToken) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
     inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
@@ -87,6 +100,7 @@ export function storeAuth(
 
 export function clearStoredAuth(): void {
   try {
+    inMemoryAuthToken = null;
     inMemoryRefreshToken = null;
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -99,9 +113,9 @@ export function clearStoredAuth(): void {
 
 export function getStoredAuthToken(): string | null {
   try {
-    return localStorage.getItem(AUTH_TOKEN_KEY);
+    return localStorage.getItem(AUTH_TOKEN_KEY) ?? inMemoryAuthToken;
   } catch {
-    return null;
+    return inMemoryAuthToken;
   }
 }
 
@@ -126,12 +140,17 @@ export function updateStoredTokens(
   refreshToken: string
 ): void {
   try {
+    inMemoryAuthToken = accessToken;
     localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
     inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
   } catch {
     // Ignore storage errors.
   }
+}
+
+export function setStoredAuthToken(token: string | null): void {
+  inMemoryAuthToken = token;
 }
 
 export function setStoredRefreshToken(refreshToken: string | null): void {

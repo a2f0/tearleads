@@ -55,7 +55,9 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
     const { setActiveOrganizationId } = await import('@/lib/orgStorage');
     setActiveOrganizationId(seededUser.organizationId);
     mockLogApiEvent.mockResolvedValue(undefined);
