@@ -179,9 +179,9 @@ export function isRetryableWriteValidationError(
     return true;
   }
 
-  const isRegisterRoute =
-    /\/vfs\/register(?:$|[/?#])/.test(path) ||
-    /\/connect\/tearleads\.v2\.VfsService\/Register(?:$|[/?#])/.test(path);
+  const isRegisterRoute = /\/connect\/tearleads\.v2\.VfsService\/Register(?:$|[/?#])/.test(
+    path
+  );
   return (
     isRegisterRoute &&
     body.includes('id, objectType, and encryptedSessionKey are required')
