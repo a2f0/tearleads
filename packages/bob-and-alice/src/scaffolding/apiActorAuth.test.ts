@@ -40,6 +40,10 @@ describe('loginApiActor', () => {
     expect(actor.userId).toBe('user-1');
     expect(actor.userEmail).toBe('bob@test.com');
     expect(typeof actor.fetchJson).toBe('function');
+    const firstCall = fetchSpy.mock.calls[0];
+    expect(firstCall?.[0]).toBe(
+      'http://localhost:3000/v1/connect/tearleads.v2.AuthService/Login'
+    );
 
     fetchSpy.mockRestore();
   });
@@ -118,7 +122,7 @@ describe('loginApiActor', () => {
     expect(result).toEqual({ data: 'ok' });
 
     const secondCall = fetchSpy.mock.calls[1];
-    expect(secondCall?.[0]).toBe('http://localhost:3000/test');
+    expect(secondCall?.[0]).toBe('http://localhost:3000/v1/test');
     const headers = secondCall?.[1]?.headers;
     expect(headers).toHaveProperty('Authorization', 'Bearer tok-abc');
 
