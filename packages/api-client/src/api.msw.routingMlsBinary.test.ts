@@ -6,18 +6,31 @@ import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
 const { authState } = vi.hoisted(() => ({
-  authState: { token: '' }
+  authState: {
+    token: '',
+    refreshToken: null as string | null
+  }
 }));
 
-vi.mock('./authStorage', async () => {
-  const actual =
-    await vi.importActual<typeof import('./authStorage')>('./authStorage');
-  return {
-    ...actual,
-    getAuthHeaderValue: () =>
-      authState.token.length > 0 ? `Bearer ${authState.token}` : null
-  };
-});
+vi.mock('./authStorage', () => ({
+  getAuthHeaderValue: () =>
+    authState.token.length > 0 ? `Bearer ${authState.token}` : null,
+  getStoredAuthToken: () =>
+    authState.token.length > 0 ? authState.token : null,
+  getStoredRefreshToken: () => authState.refreshToken,
+  updateStoredTokens: (accessToken: string, refreshToken: string) => {
+    authState.token = accessToken;
+    authState.refreshToken = refreshToken;
+  },
+  clearStoredAuth: () => {
+    authState.token = '';
+    authState.refreshToken = null;
+  },
+  releaseRefreshLock: () => undefined,
+  setSessionExpiredError: () => undefined,
+  tryAcquireRefreshLock: () => true,
+  waitForRefreshCompletion: async () => false
+}));
 
 const toBase64 = (value: string): string =>
   Buffer.from(value, 'utf8').toString('base64');
@@ -50,6 +63,7 @@ describe('api with msw (MLS binary routes)', () => {
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
     authState.token = seededUser.accessToken;
+    authState.refreshToken = null;
     mockLogApiEvent.mockResolvedValue(undefined);
 
     const { setApiEventLogger } = await import('./apiLogger');
@@ -66,6 +80,7 @@ describe('api with msw (MLS binary routes)', () => {
   afterEach(async () => {
     vi.unstubAllEnvs();
     authState.token = '';
+    authState.refreshToken = null;
     const { resetApiEventLogger } = await import('./apiLogger');
     const { resetApiRequestHeadersProvider } = await import('./apiCore');
     resetApiEventLogger();
