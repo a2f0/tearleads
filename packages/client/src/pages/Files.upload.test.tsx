@@ -13,28 +13,17 @@ import {
 } from './Files.testSetup';
 
 // ============================================
-// Define mocks before vi.mock calls (vi.mock is hoisted)
+// Define mocks before vi.mock calls
 // ============================================
 
-const {
-  mockUseDatabaseContext,
-  mockSelect,
-  mockUpdate,
-  mockGetCurrentKey,
-  mockRetrieve,
-  mockIsFileStorageInitialized,
-  mockInitializeFileStorage,
-  mockUploadFile
-} = vi.hoisted(() => ({
-  mockUseDatabaseContext: vi.fn(),
-  mockSelect: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockGetCurrentKey: vi.fn(),
-  mockRetrieve: vi.fn(),
-  mockIsFileStorageInitialized: vi.fn(),
-  mockInitializeFileStorage: vi.fn(),
-  mockUploadFile: vi.fn()
-}));
+const mockUseDatabaseContext = vi.fn();
+const mockSelect = vi.fn();
+const mockUpdate = vi.fn();
+const mockGetCurrentKey = vi.fn();
+const mockRetrieve = vi.fn();
+const mockIsFileStorageInitialized = vi.fn();
+const mockInitializeFileStorage = vi.fn();
+const mockUploadFile = vi.fn();
 
 // ============================================
 // vi.mock calls - these are hoisted to the top
