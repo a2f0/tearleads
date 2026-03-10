@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 
 const mockSend = vi.fn();
 const mockPutObjectCommand = vi.fn(function MockPutObjectCommand(
@@ -32,7 +33,6 @@ vi.mock('@aws-sdk/client-s3', () => ({
 describe('vfsBlobStore', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.unstubAllEnvs();
     mockSend.mockReset();
     mockPutObjectCommand.mockClear();
     mockGetObjectCommand.mockClear();
@@ -41,8 +41,8 @@ describe('vfsBlobStore', () => {
   });
 
   it('writes blob data to configured bucket', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a');
     mockSend.mockResolvedValueOnce({});
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
@@ -78,8 +78,8 @@ describe('vfsBlobStore', () => {
   });
 
   it('throws when blob store provider is unsupported', async () => {
-    vi.stubEnv('VFS_BLOB_STORE_PROVIDER', 'filesystem');
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_STORE_PROVIDER', 'filesystem');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
     await expect(
@@ -91,8 +91,8 @@ describe('vfsBlobStore', () => {
   });
 
   it('defaults to path-style addressing when endpoint is configured', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
     mockSend.mockResolvedValueOnce({});
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
@@ -110,9 +110,9 @@ describe('vfsBlobStore', () => {
   });
 
   it('honors explicit force-path-style override when endpoint is configured', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
-    vi.stubEnv('VFS_BLOB_S3_FORCE_PATH_STYLE', 'false');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_ENDPOINT', 'http://localhost:9000');
+    setTestEnv('VFS_BLOB_S3_FORCE_PATH_STYLE', 'false');
     mockSend.mockResolvedValueOnce({});
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
@@ -130,7 +130,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('reads blob data from configured bucket', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({
       Body: (async function* chunks() {
         yield Uint8Array.from([104, 101]);
@@ -153,7 +153,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('reads blob data via transformToByteArray when available', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({
       Body: {
         transformToByteArray: async () => Uint8Array.from([104, 105])
@@ -169,7 +169,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('returns empty payload when body is missing', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({
       Body: null,
       ContentType: 'application/octet-stream'
@@ -183,7 +183,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('returns empty payload when body is non-iterable', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({
       Body: {},
       ContentType: null
@@ -197,7 +197,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('deletes blob data from configured bucket', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockResolvedValueOnce({});
 
     const { deleteVfsBlobData } = await import('./vfsBlobStore.js');
@@ -213,8 +213,8 @@ describe('vfsBlobStore', () => {
   });
 
   it('uses the same derived storage key across write/read/delete operations', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a/');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a/');
     mockSend
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({
@@ -256,7 +256,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('keeps write retry deterministic under transient storage failures', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockRejectedValueOnce(new Error('transient s3 outage'));
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
@@ -288,8 +288,8 @@ describe('vfsBlobStore', () => {
   });
 
   it('rebuilds runtime when S3 configuration changes between calls', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
-    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-a');
     mockSend.mockResolvedValue({});
 
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
@@ -298,7 +298,7 @@ describe('vfsBlobStore', () => {
       data: Uint8Array.from([1])
     });
 
-    vi.stubEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-b');
+    setTestEnv('VFS_BLOB_S3_KEY_PREFIX', 'tenant-b');
     await persistVfsBlobData({
       blobId: 'blob-1',
       data: Uint8Array.from([1])
@@ -314,7 +314,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('keeps read retry deterministic under transient storage failures', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockRejectedValueOnce(new Error('transient s3 read outage'));
 
     const { readVfsBlobData } = await import('./vfsBlobStore.js');
@@ -342,7 +342,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('keeps delete retry deterministic under transient storage failures', async () => {
-    vi.stubEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
+    setTestEnv('VFS_BLOB_S3_BUCKET', 'blob-bucket');
     mockSend.mockRejectedValueOnce(new Error('transient s3 delete outage'));
 
     const { deleteVfsBlobData } = await import('./vfsBlobStore.js');

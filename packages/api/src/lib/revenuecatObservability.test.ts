@@ -4,11 +4,11 @@ import {
   recordRevenueCatWebhookMetric,
   resetRevenueCatWebhookMetricsForTests
 } from './revenuecatObservability.js';
+import { setTestEnv } from '../test/env.js';
 
 describe('revenuecat observability metrics', () => {
   afterEach(() => {
     resetRevenueCatWebhookMetricsForTests();
-    vi.unstubAllEnvs();
   });
 
   it('tracks counters by outcome and event type', () => {
@@ -59,7 +59,7 @@ describe('revenuecat observability metrics', () => {
   });
 
   it('emits structured logs outside test environment', () => {
-    vi.stubEnv('NODE_ENV', 'production');
+    setTestEnv('NODE_ENV', 'production');
     const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {});
 
     recordRevenueCatWebhookMetric({

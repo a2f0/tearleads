@@ -2,7 +2,8 @@ import { createHmac } from 'node:crypto';
 import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import { HandleWebhookRequestSchema } from '@tearleads/shared/gen/tearleads/v2/revenuecat_pb';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv, unsetTestEnv } from '../../test/env.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { revenuecatConnectService } from './revenuecatService.js';
 
 const mockQuery = vi.fn();
@@ -24,11 +25,7 @@ describe('revenuecatConnectService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('REVENUECAT_WEBHOOK_SECRET', webhookSecret);
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
+    setTestEnv('REVENUECAT_WEBHOOK_SECRET', webhookSecret);
   });
 
   it('handles valid webhook events', async () => {
@@ -148,7 +145,7 @@ describe('revenuecatConnectService', () => {
 
   it('maps missing webhook secret to internal connect errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.unstubAllEnvs();
+    unsetTestEnv('REVENUECAT_WEBHOOK_SECRET');
 
     const body = JSON.stringify({
       event: {

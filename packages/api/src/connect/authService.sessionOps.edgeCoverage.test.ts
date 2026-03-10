@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt } from '../lib/jwt.js';
 import * as sessions from '../lib/sessions.js';
+import { setTestEnv } from '../test/env.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -56,7 +57,7 @@ describe('Connect AuthService session operations edge coverage', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    vi.stubEnv('JWT_SECRET', 'test-secret');
+    setTestEnv('JWT_SECRET', 'test-secret');
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery
     });
@@ -64,7 +65,6 @@ describe('Connect AuthService session operations edge coverage', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     await closeServer(server);
   });
 

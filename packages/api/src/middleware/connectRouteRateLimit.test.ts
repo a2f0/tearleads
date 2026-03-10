@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createConnectRouteRateLimitMiddleware } from './connectRouteRateLimit.js';
+import { setTestEnv } from '../test/env.js';
 
 function createTestApp() {
   const app = express();
@@ -16,15 +17,14 @@ describe('connectRouteRateLimitMiddleware', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-02T00:00:00.000Z'));
-    vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('VITEST', 'false');
-    vi.stubEnv('CONNECT_ROUTE_RATE_LIMIT_WINDOW_MS', '1000');
-    vi.stubEnv('CONNECT_ROUTE_RATE_LIMIT_MAX_REQUESTS', '2');
+    setTestEnv('NODE_ENV', 'production');
+    setTestEnv('VITEST', 'false');
+    setTestEnv('CONNECT_ROUTE_RATE_LIMIT_WINDOW_MS', '1000');
+    setTestEnv('CONNECT_ROUTE_RATE_LIMIT_MAX_REQUESTS', '2');
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllEnvs();
   });
 
   it('allows requests within the configured window', async () => {
@@ -62,7 +62,7 @@ describe('connectRouteRateLimitMiddleware', () => {
   });
 
   it('bypasses rate limiting in test runtime', async () => {
-    vi.stubEnv('NODE_ENV', 'test');
+    setTestEnv('NODE_ENV', 'test');
     const app = createTestApp();
 
     await request(app).get('/limited');

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bumpVfsCrdtCompactionEpoch,
   getVfsCrdtCompactionEpoch,
@@ -29,12 +30,7 @@ vi.mock('@tearleads/shared/redis', () => ({
 describe('vfsCrdtRedisCache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllEnvs();
     redisStore.clear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('returns normalized compaction epoch and defaults invalid values to zero', async () => {
@@ -152,8 +148,8 @@ describe('vfsCrdtRedisCache', () => {
   });
 
   it('uses default TTLs when cache TTL env vars are invalid', async () => {
-    vi.stubEnv('VFS_CRDT_OLDEST_CURSOR_CACHE_TTL_SECONDS', '0');
-    vi.stubEnv('VFS_CRDT_REPLICA_WRITE_IDS_CACHE_TTL_SECONDS', 'bad-value');
+    setTestEnv('VFS_CRDT_OLDEST_CURSOR_CACHE_TTL_SECONDS', '0');
+    setTestEnv('VFS_CRDT_REPLICA_WRITE_IDS_CACHE_TTL_SECONDS', 'bad-value');
 
     await writeOldestAccessibleCursorCache({
       compactionEpoch: '1',

@@ -1,8 +1,9 @@
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { AuthServiceDeleteSessionRequestSchema } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectAuthContext } from '../../context.js';
+import { setTestEnv, unsetTestEnv } from '../../../test/env.js';
+import { describe, expect, it } from 'vitest';
 import {
   getAllowedEmailDomains,
   getAuthContextOrThrow,
@@ -17,10 +18,6 @@ import {
 } from './shared.js';
 
 describe('connect auth shared helpers', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it('extracts first forwarded IP when x-forwarded-for is set', () => {
     const headers = new Headers({
       'x-forwarded-for': '203.0.113.10, 198.51.100.22'
@@ -42,12 +39,12 @@ describe('connect auth shared helpers', () => {
   });
 
   it('returns JWT secret when configured', () => {
-    vi.stubEnv('JWT_SECRET', 'test-secret');
+    setTestEnv('JWT_SECRET', 'test-secret');
     expect(getJwtSecretOrThrow('Failed')).toBe('test-secret');
   });
 
   it('throws internal error when JWT secret is missing', () => {
-    vi.unstubAllEnvs();
+    unsetTestEnv('JWT_SECRET');
     expect(() => getJwtSecretOrThrow('Failed')).toThrowError(ConnectError);
     try {
       getJwtSecretOrThrow('Failed');
@@ -278,7 +275,7 @@ describe('connect auth shared helpers', () => {
       refreshToken: 'token-1'
     });
 
-    vi.stubEnv('SMTP_RECIPIENT_DOMAINS', ' example.com, TEST.org ,, foo.net ');
+    setTestEnv('SMTP_RECIPIENT_DOMAINS', ' example.com, TEST.org ,, foo.net ');
     expect(getAllowedEmailDomains()).toEqual([
       'example.com',
       'test.org',

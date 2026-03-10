@@ -13,6 +13,7 @@ import {
   setupVfsTestEnv,
   teardownVfsTestEnv
 } from './vfsDirectTestSupport.js';
+import { setTestEnv } from '../../test/env.js';
 
 const BLOB_UPLOAD_CHUNK_KEY_PREFIX = 'vfs:blobUpload';
 const BLOB_UPLOAD_INDEX_KEY_PREFIX = 'vfs:blobUploadIndex';
@@ -253,7 +254,7 @@ describe('vfsDirectBlobUploadSessions', () => {
   });
 
   it('bounds ttl by stage expiry and global index by configured max ttl', async () => {
-    vi.stubEnv('VFS_BLOB_UPLOAD_SESSION_MAX_TTL_SECONDS', '600');
+    setTestEnv('VFS_BLOB_UPLOAD_SESSION_MAX_TTL_SECONDS', '600');
 
     await upsertBlobUploadChunk({
       stagingId: 'stage-1',
