@@ -245,17 +245,20 @@ export async function pullUntilSettledLoop(
     }
 
     if (response.hasMore && forwardItems.length === 0) {
+      const rematerializationDetails = cursorBeforePull
+        ? {
+            previousChangedAt: cursorBeforePull.changedAt,
+            previousChangeId: cursorBeforePull.changeId
+          }
+        : null;
       dependencies.emitGuardrailViolation({
         code: 'pullRematerializationRequired',
         stage: 'pull',
         message:
           'pull response could not advance beyond local cursor while reporting hasMore',
-        details: cursorBeforePull
-          ? {
-              previousChangedAt: cursorBeforePull.changedAt,
-              previousChangeId: cursorBeforePull.changeId
-            }
-          : undefined
+        ...(rematerializationDetails
+          ? { details: rematerializationDetails }
+          : {})
       });
       throw new VfsCrdtRematerializationRequiredError({
         message:
