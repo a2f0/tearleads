@@ -94,27 +94,6 @@ export function expectPullDuplicateOpReplayViolation(input: {
   );
 }
 
-export function expectPullCursorRegressionViolation(input: {
-  violations: GuardrailViolationSnapshot[];
-  previousChangedAt: string;
-  previousChangeId: string;
-  incomingChangedAt: string;
-  incomingChangeId: string;
-}): void {
-  expect(input.violations).toContainEqual(
-    expect.objectContaining({
-      code: 'pullCursorRegression',
-      stage: 'pull',
-      details: expect.objectContaining({
-        previousChangedAt: input.previousChangedAt,
-        previousChangeId: input.previousChangeId,
-        incomingChangedAt: input.incomingChangedAt,
-        incomingChangeId: input.incomingChangeId
-      })
-    })
-  );
-}
-
 export function expectPullRematerializationRequiredViolation(input: {
   violations: GuardrailViolationSnapshot[];
   requestedCursor: string;
