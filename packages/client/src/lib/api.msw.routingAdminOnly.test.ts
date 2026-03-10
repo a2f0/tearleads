@@ -6,6 +6,7 @@ import {
   removeApiV2WasmBindingsTestOverride
 } from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
+import { setTestEnv } from '../test/env.js';
 
 const mockLogApiEvent = vi.fn();
 
@@ -55,7 +56,7 @@ describe('api with msw admin routing', () => {
     );
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
 
     const ctx = getSharedTestContext();
@@ -70,7 +71,6 @@ describe('api with msw admin routing', () => {
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
     removeApiV2WasmBindingsTestOverride();
-    vi.unstubAllEnvs();
   });
 
   it('routes admin requests through msw and preserves query/encoding', async () => {

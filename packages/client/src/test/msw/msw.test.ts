@@ -8,6 +8,7 @@ import {
 } from '@tearleads/msw/node';
 import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../env.js';
 import { getSharedTestContext } from '../testContext';
 
 let seededUser: SeededUser;
@@ -47,7 +48,7 @@ beforeEach(async () => {
   vi.unmock('../../lib/api');
   vi.unmock('@/lib/api');
   vi.unmock('@tearleads/api-client/clientEntry');
-  vi.stubEnv('VITE_API_URL', 'http://localhost');
+  setTestEnv('VITE_API_URL', 'http://localhost');
   localStorage.clear();
   const [{ clearActiveOrganizationId }, { resetApiRequestHeadersProvider }] =
     await Promise.all([

@@ -1,5 +1,6 @@
 import { wasApiRequestMade } from '@tearleads/msw/node';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 
 // Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
@@ -13,13 +14,9 @@ describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('covers non-wrapper API parity endpoints', async () => {

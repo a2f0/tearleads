@@ -6,6 +6,7 @@ import {
   removeApiV2WasmBindingsTestOverride
 } from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
+import { setTestEnv } from '../test/env.js';
 
 // Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();
@@ -57,7 +58,7 @@ describe('api with msw', () => {
     vi.resetModules();
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -72,7 +73,6 @@ describe('api with msw', () => {
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     authState.token = '';
-    vi.unstubAllEnvs();
   });
 
   it('routes vfs and ai requests through msw', async () => {

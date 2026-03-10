@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
+import { setTestEnv } from '../test/env.js';
 
 const loadAuthStorage = async () => {
   const module = await import('@/lib/authStorage');
@@ -59,7 +60,7 @@ describe('api with msw', () => {
       Promise.resolve(mockedPingWasmModule)
     );
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -68,7 +69,6 @@ describe('api with msw', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
-    vi.unstubAllEnvs();
   });
 
   describe('error handling', () => {
@@ -341,7 +341,7 @@ describe('api with msw', () => {
     });
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {
-      vi.stubEnv('VITE_API_URL', '');
+      setTestEnv('VITE_API_URL', '');
       (await import('@/lib/authStorage')).setStoredRefreshToken(
         'refresh-token'
       );
