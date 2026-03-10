@@ -33,7 +33,9 @@ vi.mock('./pages/sync', () => ({
   Sync: page('Sync')
 }));
 
-vi.mock('@tearleads/app-analytics/clientEntry', () => ({ Analytics: page('Analytics') }));
+vi.mock('@tearleads/app-analytics/clientEntry', () => ({
+  Analytics: page('Analytics')
+}));
 vi.mock('./pages/AudioDetail', () => ({ AudioDetail: page('AudioDetail') }));
 vi.mock('./pages/Audio', () => ({ Audio: page('AudioPage') }));
 vi.mock('./pages/Backups', () => ({ Backups: page('Backups') }));
