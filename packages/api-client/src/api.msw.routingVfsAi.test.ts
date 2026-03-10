@@ -10,6 +10,32 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: {
+    token: '',
+    refreshToken: null as string | null
+  }
+}));
+
+vi.mock('./authStorage', () => ({
+  getAuthHeaderValue: () =>
+    authState.token.length > 0 ? `Bearer ${authState.token}` : null,
+  getStoredAuthToken: () =>
+    authState.token.length > 0 ? authState.token : null,
+  getStoredRefreshToken: () => authState.refreshToken,
+  updateStoredTokens: (accessToken: string, refreshToken: string) => {
+    authState.token = accessToken;
+    authState.refreshToken = refreshToken;
+  },
+  clearStoredAuth: () => {
+    authState.token = '';
+    authState.refreshToken = null;
+  },
+  releaseRefreshLock: () => undefined,
+  setSessionExpiredError: () => undefined,
+  tryAcquireRefreshLock: () => true,
+  waitForRefreshCompletion: async () => false
+}));
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -31,7 +57,8 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem('auth_token', seededUser.accessToken);
+    authState.token = seededUser.accessToken;
+    authState.refreshToken = null;
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
@@ -44,7 +71,8 @@ describe('api with msw', () => {
   });
   afterEach(async () => {
     vi.unstubAllEnvs();
-    localStorage.removeItem('auth_token');
+    authState.token = '';
+    authState.refreshToken = null;
     const { resetApiEventLogger } = await import('./apiLogger');
     const { resetApiRequestHeadersProvider } = await import('./apiCore');
     resetApiEventLogger();

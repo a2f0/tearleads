@@ -9,10 +9,36 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
-const seededState = {
-  userId: '',
-  organizationId: ''
-};
+const { authState, seededState } = vi.hoisted(() => ({
+  authState: {
+    token: '',
+    refreshToken: null as string | null
+  },
+  seededState: {
+    userId: '',
+    organizationId: ''
+  }
+}));
+
+vi.mock('./authStorage', () => ({
+  getAuthHeaderValue: () =>
+    authState.token.length > 0 ? `Bearer ${authState.token}` : null,
+  getStoredAuthToken: () =>
+    authState.token.length > 0 ? authState.token : null,
+  getStoredRefreshToken: () => authState.refreshToken,
+  updateStoredTokens: (accessToken: string, refreshToken: string) => {
+    authState.token = accessToken;
+    authState.refreshToken = refreshToken;
+  },
+  clearStoredAuth: () => {
+    authState.token = '';
+    authState.refreshToken = null;
+  },
+  releaseRefreshLock: () => undefined,
+  setSessionExpiredError: () => undefined,
+  tryAcquireRefreshLock: () => true,
+  waitForRefreshCompletion: async () => false
+}));
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -42,7 +68,8 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const ctx = getSharedTestContext();
     const seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem('auth_token', seededUser.accessToken);
+    authState.token = seededUser.accessToken;
+    authState.refreshToken = null;
     seededState.userId = seededUser.userId;
     seededState.organizationId = seededUser.organizationId;
 
@@ -55,8 +82,9 @@ describe('api with msw vfs/ai query metadata', () => {
 
   afterEach(async () => {
     vi.unstubAllEnvs();
-    localStorage.removeItem('auth_token');
     const { resetApiEventLogger } = await import('./apiLogger');
+    authState.token = '';
+    authState.refreshToken = null;
     resetApiEventLogger();
   });
 
