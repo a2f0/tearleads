@@ -25,7 +25,7 @@ data:
   VFS_CRDT_COMPACTION_MAX_DELETE_ROWS: "1000"
   VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH: "0"
   # Postgres read replica (Phase 2: app-level read/write splitting)
-  POSTGRES_REPLICA_HOST: "postgres-replica"
+  POSTGRES_REPLICA_HOST: "${POSTGRES_REPLICA_HOST}"
   # Outbound email (AWS SES)
   SMTP_OUTBOUND_HOST: "email-smtp.us-east-1.amazonaws.com"
   SMTP_OUTBOUND_PORT: "587"
