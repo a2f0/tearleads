@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { serializeEnvelopeFieldMock } = vi.hoisted(() => ({
-  serializeEnvelopeFieldMock: vi.fn()
-}));
+const serializeEnvelopeFieldMock = vi.fn();
 
 vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
   serializeEnvelopeField: (...args: unknown[]) =>

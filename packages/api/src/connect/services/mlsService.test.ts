@@ -1,44 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  acknowledgeWelcomeDirectMock,
-  addGroupMemberDirectMock,
-  createGroupDirectMock,
-  deleteGroupDirectMock,
-  deleteKeyPackageDirectMock,
-  getGroupDirectMock,
-  getGroupMembersDirectMock,
-  getGroupMessagesDirectMock,
-  getGroupStateDirectMock,
-  getMyKeyPackagesDirectMock,
-  getUserKeyPackagesDirectMock,
-  getWelcomeMessagesDirectMock,
-  listGroupsDirectMock,
-  removeGroupMemberDirectMock,
-  sendGroupMessageDirectMock,
-  updateGroupDirectMock,
-  uploadGroupStateDirectMock,
-  uploadKeyPackagesDirectMock
-} = vi.hoisted(() => ({
-  acknowledgeWelcomeDirectMock: vi.fn(),
-  addGroupMemberDirectMock: vi.fn(),
-  createGroupDirectMock: vi.fn(),
-  deleteGroupDirectMock: vi.fn(),
-  deleteKeyPackageDirectMock: vi.fn(),
-  getGroupDirectMock: vi.fn(),
-  getGroupMembersDirectMock: vi.fn(),
-  getGroupMessagesDirectMock: vi.fn(),
-  getGroupStateDirectMock: vi.fn(),
-  getMyKeyPackagesDirectMock: vi.fn(),
-  getUserKeyPackagesDirectMock: vi.fn(),
-  getWelcomeMessagesDirectMock: vi.fn(),
-  listGroupsDirectMock: vi.fn(),
-  removeGroupMemberDirectMock: vi.fn(),
-  sendGroupMessageDirectMock: vi.fn(),
-  updateGroupDirectMock: vi.fn(),
-  uploadGroupStateDirectMock: vi.fn(),
-  uploadKeyPackagesDirectMock: vi.fn()
-}));
+const acknowledgeWelcomeDirectMock = vi.fn();
+const addGroupMemberDirectMock = vi.fn();
+const createGroupDirectMock = vi.fn();
+const deleteGroupDirectMock = vi.fn();
+const deleteKeyPackageDirectMock = vi.fn();
+const getGroupDirectMock = vi.fn();
+const getGroupMembersDirectMock = vi.fn();
+const getGroupMessagesDirectMock = vi.fn();
+const getGroupStateDirectMock = vi.fn();
+const getMyKeyPackagesDirectMock = vi.fn();
+const getUserKeyPackagesDirectMock = vi.fn();
+const getWelcomeMessagesDirectMock = vi.fn();
+const listGroupsDirectMock = vi.fn();
+const removeGroupMemberDirectMock = vi.fn();
+const sendGroupMessageDirectMock = vi.fn();
+const updateGroupDirectMock = vi.fn();
+const uploadGroupStateDirectMock = vi.fn();
+const uploadKeyPackagesDirectMock = vi.fn();
 
 vi.mock('./mlsDirectKeyPackages.js', () => ({
   uploadKeyPackagesDirectTyped: (...args: unknown[]) =>

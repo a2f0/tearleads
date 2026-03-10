@@ -13,9 +13,7 @@ import {
   toSafeCipherSuite
 } from './mlsDirectShared.js';
 
-const { getPostgresPoolMock } = vi.hoisted(() => ({
-  getPostgresPoolMock: vi.fn()
-}));
+const getPostgresPoolMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
