@@ -52,6 +52,8 @@ has_proto_related_changes() {
     case "$path" in
       proto/* | \
         packages/shared/src/gen/* | \
+        packages/api-client/src/protoConsumerCompileFixture.ts | \
+        packages/api-client/tsconfig.protoConsumerCompile.json | \
         scripts/lib/verifyProtoCodegenPlugins.ts | \
         scripts/lib/pruneStaleGeneratedProtoVersions.ts | \
         scripts/checks/checkProto.sh | \
@@ -88,6 +90,7 @@ fi
 sh "$PM_SCRIPT" run protoLint
 sh "$PM_SCRIPT" exec buf breaking proto --against '.git#ref=origin/main,subdir=proto'
 sh "$PM_SCRIPT" run protoGenerate
+sh "$PM_SCRIPT" --filter @tearleads/api-client exec tsc -p tsconfig.protoConsumerCompile.json --noEmit
 
 if [ -n "$(git status --porcelain -- packages/shared/src/gen)" ]; then
   echo "checkProto: generated proto artifacts are out of date." >&2
