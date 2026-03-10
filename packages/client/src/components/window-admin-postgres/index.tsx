@@ -1,6 +1,6 @@
 // one-component-per-file: allow -- wrapper keeps inline lock/login fallback JSX selection local.
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { AdminPostgresWindow as AdminPostgresWindowBase } from '@/components/admin-windows';
+import { AdminPostgresWindow as AdminPostgresWindowBase } from '@tearleads/app-admin/clientEntry';
 import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminPostgresWindowProps {

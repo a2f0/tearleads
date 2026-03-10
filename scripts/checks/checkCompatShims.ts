@@ -5,7 +5,7 @@
  *
  * This script scans TypeScript files for:
  * 1. Comments indicating backward compatibility (e.g., "for backward compatibility")
- * 2. Files that are purely re-export wrappers
+ * 2. Files that are purely re-export wrappers (all exports from external @scoped packages)
  * 3. Re-export statements with compatibility comments
  *
  * Usage:
@@ -117,11 +117,31 @@ function isPureReexportFile(content: string): boolean {
       line.includes('} from "')
   );
 
-  return (
-    nonEmptyLines.length > 0 &&
-    exportLines.length >= nonEmptyLines.length * 0.8 &&
-    PURE_REEXPORT_DOCSTRING_PATTERN.test(content)
-  );
+  if (nonEmptyLines.length === 0 || exportLines.length < nonEmptyLines.length * 0.8) {
+    return false;
+  }
+
+  // Check if file has a backward-compat docstring (legacy detection)
+  if (PURE_REEXPORT_DOCSTRING_PATTERN.test(content)) {
+    return true;
+  }
+
+  // Extract all `from '...'` sources — if every source is a scoped package
+  // (starts with @), this is a pure cross-package re-export shim
+  const fromPattern = /from\s+['"]([^'"]+)['"]/g;
+  const sources: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = fromPattern.exec(content)) !== null) {
+    if (match[1]) {
+      sources.push(match[1]);
+    }
+  }
+
+  if (sources.length === 0) {
+    return false;
+  }
+
+  return sources.every((source) => source.startsWith('@'));
 }
 
 function findCompatComments(content: string, filePath: string): Violation[] {
@@ -166,7 +186,7 @@ function checkFile(filePath: string): Violation[] {
       line: 1,
       pattern: 'pure-reexport-file',
       content:
-        'File appears to be a pure re-export wrapper for backward compatibility'
+        'File is a pure re-export barrel — import directly from the source package instead'
     });
   }
 

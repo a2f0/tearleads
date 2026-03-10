@@ -1,41 +1,41 @@
 import { lazy } from 'react';
 
 export const Admin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.Admin }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.Admin }))
 );
 export const AdminLauncher = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.AdminLauncher }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.AdminLauncher }))
 );
 export const AiRequestsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.AiRequestsAdminPage }))
 );
 export const PostgresAdmin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.PostgresAdmin }))
 );
 export const GroupsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupsAdminPage }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.GroupsAdminPage }))
 );
 export const GroupDetailPageRoute = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.GroupDetailPageRoute }))
 );
 export const OrganizationsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({
+  import('@tearleads/app-admin/clientEntry').then((m) => ({
     default: m.OrganizationsAdminPage
   }))
 );
 export const OrganizationDetailPageRoute = lazy(() =>
-  import('./pages/admin').then((m) => ({
+  import('@tearleads/app-admin/clientEntry').then((m) => ({
     default: m.OrganizationDetailPageRoute
   }))
 );
 export const UsersAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdminPage }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.UsersAdminPage }))
 );
 export const UsersAdminDetail = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
+  import('@tearleads/app-admin/clientEntry').then((m) => ({ default: m.UsersAdminDetail }))
 );
 export const Analytics = lazy(() =>
-  import('./pages/analytics').then((m) => ({ default: m.Analytics }))
+  import('@tearleads/app-analytics/clientEntry').then((m) => ({ default: m.Analytics }))
 );
 export const AudioDetail = lazy(() =>
   import('./pages/AudioDetail').then((m) => ({ default: m.AudioDetail }))
@@ -129,19 +129,19 @@ export const Health = lazy(() =>
   import('./pages/Health').then((m) => ({ default: m.Health }))
 );
 export const Keychain = lazy(() =>
-  import('./pages/keychain').then((m) => ({ default: m.Keychain }))
+  import('@tearleads/app-keychain/clientEntry').then((m) => ({ default: m.Keychain }))
 );
 export const KeychainDetail = lazy(() =>
-  import('./pages/keychain').then((m) => ({ default: m.KeychainDetail }))
+  import('@tearleads/app-keychain/clientEntry').then((m) => ({ default: m.KeychainDetail }))
 );
 export const Wallet = lazy(() =>
-  import('./pages/wallet').then((m) => ({ default: m.Wallet }))
+  import('@tearleads/app-wallet/clientEntry').then((m) => ({ default: m.Wallet }))
 );
 export const WalletDetail = lazy(() =>
-  import('./pages/wallet').then((m) => ({ default: m.WalletDetail }))
+  import('@tearleads/app-wallet/clientEntry').then((m) => ({ default: m.WalletDetail }))
 );
 export const WalletNewItem = lazy(() =>
-  import('./pages/wallet').then((m) => ({ default: m.WalletNewItem }))
+  import('@tearleads/app-wallet/clientEntry').then((m) => ({ default: m.WalletNewItem }))
 );
 export const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
