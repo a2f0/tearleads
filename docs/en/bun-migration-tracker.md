@@ -11,16 +11,16 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
 | Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
 | Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
-| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, app-backups, app-audio, app-keychain, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
+| Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, app-backups, app-audio, app-keychain, app-admin, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
 ## Compatibility Snapshot (2026-03-10)
 
 - Packages with tests: 48
-- Bun-primary `test` scripts: 42
+- Bun-primary `test` scripts: 43
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary `test` scripts: 5
-- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 11
+- Vitest-primary `test` scripts: 4
+- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 10
 
 ## Remaining Vitest-Primary Decisions (2026-03-10)
 
@@ -31,7 +31,6 @@ These decisions are based on the current compatibility inventory plus recent Bun
 | `@tearleads/client` | Keep `vitest-primary` | Highest remaining inventory footprint (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, `vi.mocked`, `vi.stubEnv`) plus heavy jsdom usage across 600+ tests. | Revisit after shared adapter/codemod work materially reduces the mock surface. |
 | `@tearleads/api` | Keep `vitest-primary` | Large env/module-mocking surface (`vi.hoisted`, `vi.importActual`, `vi.stubEnv`, `vi.resetModules`) across 150+ tests. | Revisit after shared server-side mock/env adapters land. |
 | `@tearleads/api-client` | Keep `vitest-primary` | High `vi.importActual`, `vi.resetModules`, `vi.mocked`, and `vi.stubEnv` counts combined with jsdom config. | Revisit after import/reset cleanup and a focused Bun pilot for read-only clients. |
-| `@tearleads/app-admin` | Keep `vitest-primary` | jsdom-heavy admin suites still depend on `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, and `vi.stubEnv`. | Revisit after admin route/mock cleanup removes the remaining Vitest-only patterns. |
 | `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only `vi.mocked`/matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
 
 ## Merged Slices
@@ -121,6 +120,8 @@ These decisions are based on the current compatibility inventory plus recent Bun
 | [#3078](https://github.com/a2f0/tearleads/pull/3078) | App-audio Bun per-file DOM preload and Bun-primary promotion |
 | [#3082](https://github.com/a2f0/tearleads/pull/3082) | Refresh Bun migration tracker and compatibility inventory after latest Bun promotions |
 | [#3085](https://github.com/a2f0/tearleads/pull/3085) | App-keychain Bun compatibility remediation and Bun-primary promotion |
+| [#3094](https://github.com/a2f0/tearleads/pull/3094) | Refresh Bun migration tracker and compatibility inventory after app-keychain promotion |
+| [#3096](https://github.com/a2f0/tearleads/pull/3096) | App-admin Bun compatibility remediation and Bun-primary promotion |
 
 ## Node Pilot Package Status
 
