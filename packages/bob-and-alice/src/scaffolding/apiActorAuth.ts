@@ -1,5 +1,5 @@
-import type { JsonApiActor } from './setupBobNotesShareForAlice.js';
 import { resolveDirectApiPath } from '../harness/apiScenarioConnectCompat.js';
+import type { JsonApiActor } from './setupBobNotesShareForAlice.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
