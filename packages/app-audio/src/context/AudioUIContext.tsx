@@ -40,6 +40,7 @@ export type {
   WindowOptionsMenuItemProps
 } from './audioUITypes';
 
+import type { HostRuntimeBaseProps } from '@tearleads/shared';
 import type {
   AudioInfo,
   AudioMetadata,
@@ -136,9 +137,8 @@ export interface AudioUIContextValue {
 
 const AudioUIContext = createContext<AudioUIContextValue | null>(null);
 
-export interface AudioUIProviderProps {
+export interface AudioUIProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: DatabaseState;
   ui: AudioUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;

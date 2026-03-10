@@ -84,6 +84,14 @@ vi.mock('@/db/hooks', () => ({
   })
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: true,
+    isLoading: false,
+    currentInstanceId: 'test-instance'
+  })
+}));
+
 vi.mock('@/hooks/vfs', () => ({
   generateSessionKey: vi.fn(),
   wrapSessionKey: vi.fn()

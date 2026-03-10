@@ -1,4 +1,7 @@
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { VehicleRepository } from '../lib/vehicleRepository.js';
@@ -10,23 +13,11 @@ export interface VehiclesRuntimeContextValue {
   repository: VehicleRepository | null;
 }
 
-const FALLBACK_DATABASE_STATE: VehiclesDatabaseState = {
-  isUnlocked: false,
-  isLoading: false,
-  currentInstanceId: null
-};
-
-const defaultContext: VehiclesRuntimeContextValue = {
-  databaseState: FALLBACK_DATABASE_STATE,
-  repository: null
-};
-
 const VehiclesRuntimeContext =
-  createContext<VehiclesRuntimeContextValue>(defaultContext);
+  createContext<VehiclesRuntimeContextValue | null>(null);
 
-export interface VehiclesRuntimeProviderProps {
+export interface VehiclesRuntimeProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: VehiclesDatabaseState;
   repository: VehicleRepository | null;
 }
 
@@ -51,5 +42,11 @@ export function VehiclesRuntimeProvider({
 }
 
 export function useVehiclesRuntime(): VehiclesRuntimeContextValue {
-  return useContext(VehiclesRuntimeContext);
+  const context = useContext(VehiclesRuntimeContext);
+  if (!context) {
+    throw new Error(
+      'useVehiclesRuntime must be used within a VehiclesRuntimeProvider'
+    );
+  }
+  return context;
 }

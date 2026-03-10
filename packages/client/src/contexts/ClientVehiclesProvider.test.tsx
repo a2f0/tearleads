@@ -34,6 +34,14 @@ vi.mock('@/db/hooks', () => ({
   })
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: true,
+    isLoading: false,
+    currentInstanceId: 'test-instance'
+  })
+}));
+
 describe('ClientVehiclesProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();

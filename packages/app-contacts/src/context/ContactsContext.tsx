@@ -1,5 +1,6 @@
 import type { Database } from '@tearleads/db/sqlite';
 import type {
+  HostRuntimeBaseProps,
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions,
   HostRuntimeTranslation
@@ -11,12 +12,6 @@ import { createContext, useContext, useMemo } from 'react';
  * Database context state shared with host-runtime adapters.
  */
 export type DatabaseState = HostRuntimeDatabaseState;
-
-const FALLBACK_DATABASE_STATE: DatabaseState = {
-  isUnlocked: true,
-  isLoading: false,
-  currentInstanceId: null
-};
 
 /**
  * Navigation options for navigateWithFrom
@@ -311,9 +306,8 @@ export interface ContactsContextValue {
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
 
-export interface ContactsProviderProps {
+export interface ContactsProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState?: DatabaseState;
   getDatabase: () => Database;
   getDatabaseAdapter: () => DatabaseAdapter;
   saveFile: SaveFileFunction;
@@ -351,7 +345,7 @@ export function ContactsProvider({
 }: ContactsProviderProps) {
   const value = useMemo<ContactsContextValue>(
     () => ({
-      databaseState: databaseState ?? FALLBACK_DATABASE_STATE,
+      databaseState,
       getDatabase,
       getDatabaseAdapter,
       saveFile,

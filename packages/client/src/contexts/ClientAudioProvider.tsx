@@ -14,16 +14,13 @@ import {
   type AudioWithUrl,
   type NavigateToAudio
 } from '@tearleads/app-audio';
-import {
-  assertPlainArrayBuffer,
-  type HostRuntimeDatabaseState
-} from '@tearleads/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/ActionToolbar';
@@ -44,7 +41,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
-import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useFileUpload } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
@@ -87,23 +84,10 @@ interface ClientAudioProviderProps {
 }
 
 export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
-  const databaseContext = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
   const { t } = useTypedTranslation('audio');
   const navigateWithFrom = useNavigateWithFrom();
   const { uploadFile: fileUpload } = useFileUpload();
-
-  const databaseState = useMemo<HostRuntimeDatabaseState>(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
 
   const navigateToAudio: NavigateToAudio = useCallback(
     (audioId, options) => {
@@ -172,13 +156,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
+      if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
         await initializeFileStorage(
           encryptionKey,
-          databaseContext.currentInstanceId
+          databaseState.currentInstanceId
         );
       }
 
@@ -229,7 +213,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
 
       return tracksWithUrls;
     },
-    [fetchAudioFiles, databaseContext.currentInstanceId]
+    [fetchAudioFiles, databaseState.currentInstanceId]
   );
 
   const fetchPlaylists = useCallback(async (): Promise<AudioPlaylist[]> => {
@@ -371,13 +355,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
+      if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
         await initializeFileStorage(
           encryptionKey,
-          databaseContext.currentInstanceId
+          databaseState.currentInstanceId
         );
       }
 
@@ -386,7 +370,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       const logger = createRetrieveLogger(db);
       return storage.measureRetrieve(storagePath, logger);
     },
-    [databaseContext.currentInstanceId]
+    [databaseState.currentInstanceId]
   );
 
   const softDeleteAudio = useCallback(

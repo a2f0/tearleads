@@ -5,8 +5,8 @@ import type { EmailDatabaseState, EmailProviderProps } from './EmailContext';
 describe('EmailContext contract', () => {
   it('aligns runtime database state with shared host runtime contract', () => {
     expectTypeOf<EmailDatabaseState>().toEqualTypeOf<HostRuntimeDatabaseState>();
-    expectTypeOf<EmailProviderProps['databaseState']>().toEqualTypeOf<
-      HostRuntimeDatabaseState | undefined
-    >();
+    expectTypeOf<
+      EmailProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 });

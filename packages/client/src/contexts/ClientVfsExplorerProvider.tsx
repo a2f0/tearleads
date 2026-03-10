@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
@@ -60,23 +60,10 @@ interface ClientVfsExplorerProviderProps {
 export function ClientVfsExplorerProvider({
   children
 }: ClientVfsExplorerProviderProps) {
-  const databaseContext = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
   const keyManager = useVfsKeyManager();
   const orchestrator = useVfsOrchestratorInstance();
   const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
-
-  const databaseState = useMemo(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
 
   const vfsKeys = useMemo(
     () => ({

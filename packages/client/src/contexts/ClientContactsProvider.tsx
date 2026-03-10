@@ -11,12 +11,11 @@ import {
 } from '@tearleads/app-contacts';
 import contactsPackageJson from '@tearleads/app-contacts/package.json';
 import { vfsRegistry } from '@tearleads/db/sqlite';
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -36,7 +35,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
 import { useTypedTranslation } from '@/i18n';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
@@ -140,7 +139,7 @@ async function registerInVfs(
 export function ClientContactsProvider({
   children
 }: ClientContactsProviderProps) {
-  const databaseContext = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
   const { t: tContextMenu } = useTypedTranslation('contextMenu');
   const { t: tContacts } = useTypedTranslation('contacts');
   const navigate = useNavigate();
@@ -163,19 +162,6 @@ export function ClientContactsProvider({
     [tContacts, tContextMenu]
   );
 
-  const databaseState = useMemo<HostRuntimeDatabaseState>(
-    () => ({
-      isUnlocked: databaseContext.isUnlocked,
-      isLoading: databaseContext.isLoading,
-      currentInstanceId: databaseContext.currentInstanceId
-    }),
-    [
-      databaseContext.isUnlocked,
-      databaseContext.isLoading,
-      databaseContext.currentInstanceId
-    ]
-  );
-
   const handleRegisterInVfs = useCallback(
     (contactId: string, createdAt: Date) =>
       registerInVfs(contactId, createdAt, activeOrganizationId),
@@ -184,7 +170,7 @@ export function ClientContactsProvider({
 
   const handleContactsImported = useCallback(
     async (importedContacts: ImportedContactRecord[]) => {
-      const instanceId = databaseContext.currentInstanceId;
+      const instanceId = databaseState.currentInstanceId;
       if (!instanceId || importedContacts.length === 0) {
         return;
       }
@@ -204,7 +190,7 @@ export function ClientContactsProvider({
         )
       );
     },
-    [databaseContext.currentInstanceId]
+    [databaseState.currentInstanceId]
   );
 
   const openEmailComposer = useCallback(

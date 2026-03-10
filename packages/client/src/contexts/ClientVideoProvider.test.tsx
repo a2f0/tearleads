@@ -26,6 +26,14 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockDatabaseState
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: mockDatabaseState.isUnlocked,
+    isLoading: mockDatabaseState.isLoading,
+    currentInstanceId: mockDatabaseState.currentInstanceId
+  })
+}));
+
 vi.mock('@/video/VideoPlaylistContext', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('@/video/VideoPlaylistContext')>();

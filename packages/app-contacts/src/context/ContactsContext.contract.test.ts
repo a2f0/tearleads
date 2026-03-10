@@ -5,8 +5,8 @@ import type { ContactsProviderProps, DatabaseState } from './ContactsContext';
 describe('ContactsContext contract', () => {
   it('aligns runtime database state with shared host runtime contract', () => {
     expectTypeOf<DatabaseState>().toEqualTypeOf<HostRuntimeDatabaseState>();
-    expectTypeOf<ContactsProviderProps['databaseState']>().toEqualTypeOf<
-      HostRuntimeDatabaseState | undefined
-    >();
+    expectTypeOf<
+      ContactsProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
   });
 });

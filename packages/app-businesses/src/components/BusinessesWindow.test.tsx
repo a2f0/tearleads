@@ -79,7 +79,14 @@ describe('BusinessesWindow', () => {
     const onClose = vi.fn();
 
     render(
-      <BusinessesProvider ui={uiComponents}>
+      <BusinessesProvider
+        databaseState={{
+          isUnlocked: true,
+          isLoading: false,
+          currentInstanceId: null
+        }}
+        ui={uiComponents}
+      >
         <BusinessesWindow
           id="businesses-window"
           onClose={onClose}
@@ -113,7 +120,14 @@ describe('BusinessesWindow', () => {
     const onClose = vi.fn();
 
     render(
-      <BusinessesProvider ui={uiComponents}>
+      <BusinessesProvider
+        databaseState={{
+          isUnlocked: true,
+          isLoading: false,
+          currentInstanceId: null
+        }}
+        ui={uiComponents}
+      >
         <BusinessesWindow
           id="businesses-window"
           onClose={onClose}

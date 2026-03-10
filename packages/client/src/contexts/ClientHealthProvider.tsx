@@ -1,28 +1,20 @@
 import {
   createHealthTracker,
-  type HealthDatabaseState,
   HealthRuntimeProvider
 } from '@tearleads/app-health/clientEntry';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';
+import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 
 interface ClientHealthProviderProps {
   children: ReactNode;
 }
 
 export function ClientHealthProvider({ children }: ClientHealthProviderProps) {
-  const { db, isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-
-  const databaseState = useMemo<HealthDatabaseState>(
-    () => ({
-      isUnlocked,
-      isLoading,
-      currentInstanceId
-    }),
-    [isUnlocked, isLoading, currentInstanceId]
-  );
+  const { db } = useDatabaseContext();
+  const databaseState = useHostRuntimeDatabaseState();
 
   const createTracker = useCallback(() => {
     if (!db) {

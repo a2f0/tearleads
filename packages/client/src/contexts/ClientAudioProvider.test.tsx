@@ -38,6 +38,14 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockDatabaseState
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: mockDatabaseState.isUnlocked,
+    isLoading: mockDatabaseState.isLoading,
+    currentInstanceId: mockDatabaseState.currentInstanceId
+  })
+}));
+
 vi.mock('@/i18n', () => ({
   useTypedTranslation: () => ({
     t: (key: string) => key

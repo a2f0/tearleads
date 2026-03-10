@@ -32,21 +32,24 @@ const getDatabase = (): Database => {
 
 const t = vi.fn((key: string) => key);
 
-describe('NotesContext fallback database state', () => {
-  it('uses fallback database state when provider omits databaseState', () => {
+describe('NotesContext database state', () => {
+  it('exposes provided database state through context', () => {
+    const databaseState = {
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: null
+    };
+
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(NotesProvider, {
         children,
+        databaseState,
         getDatabase,
         ui: mockUi,
         t
       });
 
     const { result } = renderHook(() => useDatabaseState(), { wrapper });
-    expect(result.current).toEqual({
-      isUnlocked: true,
-      isLoading: false,
-      currentInstanceId: null
-    });
+    expect(result.current).toEqual(databaseState);
   });
 });

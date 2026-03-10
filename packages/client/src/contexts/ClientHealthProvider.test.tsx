@@ -51,6 +51,14 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockDatabaseContext
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: mockDatabaseContext.isUnlocked,
+    isLoading: mockDatabaseContext.isLoading,
+    currentInstanceId: mockDatabaseContext.currentInstanceId
+  })
+}));
+
 describe('ClientHealthProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();

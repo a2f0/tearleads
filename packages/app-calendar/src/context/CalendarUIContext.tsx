@@ -3,6 +3,10 @@
  * Allows consumers to provide UI components and infrastructure dependencies.
  */
 
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 import type { CalendarEventItem, CreateCalendarEventInput } from '../types';
@@ -10,10 +14,7 @@ import type { CalendarEventItem, CreateCalendarEventInput } from '../types';
 /**
  * Database state
  */
-export interface DatabaseState {
-  isUnlocked: boolean;
-  isLoading: boolean;
-}
+export type DatabaseState = HostRuntimeDatabaseState;
 
 /**
  * UI component props interfaces
@@ -151,9 +152,8 @@ export interface CalendarUIContextValue {
 
 const CalendarUIContext = createContext<CalendarUIContextValue | null>(null);
 
-export interface CalendarUIProviderProps {
+export interface CalendarUIProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: DatabaseState;
   ui: CalendarUIComponents;
   t: TranslationFunction;
   fetchEvents: () => Promise<CalendarEventItem[]>;

@@ -756,6 +756,9 @@ importers:
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
