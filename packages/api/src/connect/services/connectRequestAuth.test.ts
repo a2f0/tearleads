@@ -35,17 +35,17 @@ const getPostgresPoolMock =
   >();
 
 vi.mock('../../lib/jwt.js', () => ({
-  verifyJwt: (...args: unknown[]) => verifyJwtMock(...args)
+  verifyJwt: (token: string, secret: string) => verifyJwtMock(token, secret)
 }));
 
 vi.mock('../../lib/sessions.js', () => ({
-  getSession: (...args: unknown[]) => getSessionMock(...args),
-  updateSessionActivity: (...args: unknown[]) =>
-    updateSessionActivityMock(...args)
+  getSession: (sessionId: string) => getSessionMock(sessionId),
+  updateSessionActivity: (sessionId: string) =>
+    updateSessionActivityMock(sessionId)
 }));
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
+  getPostgresPool: () => getPostgresPoolMock()
 }));
 
 function createSession(userId = 'user-1', admin = false) {
