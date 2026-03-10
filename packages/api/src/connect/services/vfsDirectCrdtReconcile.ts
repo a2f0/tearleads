@@ -32,7 +32,7 @@ export async function reconcileCrdtDirect(
 ): Promise<VfsCrdtReconcileResponse> {
   const declaredOrganizationId = request.organizationId.trim();
   const claims = await requireVfsClaims(
-    '/vfs/crdt/reconcile',
+    '/connect/tearleads.v2.VfsService/ReconcileCrdt',
     context.requestHeader,
     {
       requireDeclaredOrganization: true,

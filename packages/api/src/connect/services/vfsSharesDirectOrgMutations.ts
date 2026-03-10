@@ -22,10 +22,6 @@ import {
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
 
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
 type CreateOrgShareMutationRequest = {
   itemId: string;
 } & Partial<Omit<CreateOrgShareRequest, 'itemId'>>;
@@ -54,7 +50,7 @@ export async function createOrgShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesCreateOrgShareResponse> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/items/${encoded(request.itemId)}/org-shares`,
+    '/connect/tearleads.v2.VfsSharesService/CreateOrgShare',
     context.requestHeader
   );
 

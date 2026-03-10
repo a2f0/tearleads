@@ -58,14 +58,16 @@ describe('requireVfsClaims', () => {
       authorization: 'Bearer token'
     });
 
-    await expect(requireVfsClaims('/vfs/keys/me', headers)).resolves.toEqual({
+    await expect(
+      requireVfsClaims('/connect/tearleads.v2.VfsService/GetMyKeys', headers)
+    ).resolves.toEqual({
       sub: 'user-1',
       organizationId: 'org-personal'
     });
 
     expect(authenticateMock).toHaveBeenCalledWith(headers);
     expect(resolveOrganizationMembershipMock).toHaveBeenCalledWith(
-      '/vfs/keys/me',
+      '/connect/tearleads.v2.VfsService/GetMyKeys',
       headers,
       'user-1'
     );
@@ -78,7 +80,10 @@ describe('requireVfsClaims', () => {
     });
 
     await expect(
-      requireVfsClaims('/vfs/keys/me', new Headers())
+      requireVfsClaims(
+        '/connect/tearleads.v2.VfsService/GetMyKeys',
+        new Headers()
+      )
     ).resolves.toEqual({
       sub: 'user-1',
       organizationId: 'org-header'
@@ -88,9 +93,13 @@ describe('requireVfsClaims', () => {
   });
 
   it('requires explicitly declared organization for write requests', async () => {
-    const promise = requireVfsClaims('/vfs/register', new Headers(), {
-      requireDeclaredOrganization: true
-    });
+    const promise = requireVfsClaims(
+      '/connect/tearleads.v2.VfsService/Register',
+      new Headers(),
+      {
+        requireDeclaredOrganization: true
+      }
+    );
 
     await expect(promise).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -110,10 +119,14 @@ describe('requireVfsClaims', () => {
     });
 
     await expect(
-      requireVfsClaims('/vfs/register', new Headers(), {
-        requireDeclaredOrganization: true,
-        declaredOrganizationId: 'org-declared'
-      })
+      requireVfsClaims(
+        '/connect/tearleads.v2.VfsService/Register',
+        new Headers(),
+        {
+          requireDeclaredOrganization: true,
+          declaredOrganizationId: 'org-declared'
+        }
+      )
     ).resolves.toEqual({
       sub: 'user-1',
       organizationId: 'org-declared'
@@ -132,10 +145,14 @@ describe('requireVfsClaims', () => {
       organizationId: 'org-header'
     });
 
-    const promise = requireVfsClaims('/vfs/register', new Headers(), {
-      requireDeclaredOrganization: true,
-      declaredOrganizationId: 'org-declared'
-    });
+    const promise = requireVfsClaims(
+      '/connect/tearleads.v2.VfsService/Register',
+      new Headers(),
+      {
+        requireDeclaredOrganization: true,
+        declaredOrganizationId: 'org-declared'
+      }
+    );
 
     await expect(promise).rejects.toMatchObject({
       code: Code.InvalidArgument
@@ -153,7 +170,10 @@ describe('requireVfsClaims', () => {
       error: 'Unauthorized'
     });
 
-    const promise = requireVfsClaims('/vfs/keys/me', new Headers());
+    const promise = requireVfsClaims(
+      '/connect/tearleads.v2.VfsService/GetMyKeys',
+      new Headers()
+    );
     await expect(promise).rejects.toMatchObject({
       code: Code.Unauthenticated
     });
@@ -169,7 +189,10 @@ describe('requireVfsClaims', () => {
       error: 'Not a member of the specified organization'
     });
 
-    const promise = requireVfsClaims('/vfs/keys/me', new Headers());
+    const promise = requireVfsClaims(
+      '/connect/tearleads.v2.VfsService/GetMyKeys',
+      new Headers()
+    );
     await expect(promise).rejects.toMatchObject({
       code: Code.PermissionDenied
     });
@@ -183,7 +206,10 @@ describe('requireVfsClaims', () => {
       rows: [{ personal_organization_id: null }]
     });
 
-    const promise = requireVfsClaims('/vfs/keys/me', new Headers());
+    const promise = requireVfsClaims(
+      '/connect/tearleads.v2.VfsService/GetMyKeys',
+      new Headers()
+    );
     await expect(promise).rejects.toMatchObject({
       code: Code.PermissionDenied
     });

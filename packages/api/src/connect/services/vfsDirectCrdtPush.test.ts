@@ -153,7 +153,7 @@ describe('vfsDirectCrdtPush', () => {
     expect(clientQueryMock).toHaveBeenNthCalledWith(1, 'BEGIN');
     expect(clientQueryMock).toHaveBeenNthCalledWith(2, 'COMMIT');
     expect(requireVfsClaimsMock).toHaveBeenCalledWith(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       expect.any(Headers),
       {
         requireDeclaredOrganization: true,

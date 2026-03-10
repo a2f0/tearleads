@@ -28,10 +28,6 @@ import {
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
 
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
 interface WrappedKeyMetadata {
   recipientPublicKeyId: string;
   senderSignature: string;
@@ -177,7 +173,7 @@ export async function getItemSharesDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesGetItemSharesResponse> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/items/${encoded(request.itemId)}/shares`,
+    '/connect/tearleads.v2.VfsSharesService/GetItemShares',
     context.requestHeader
   );
 

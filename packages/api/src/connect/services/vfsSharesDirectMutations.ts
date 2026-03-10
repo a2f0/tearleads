@@ -30,10 +30,6 @@ import {
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
 
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
 type UpdateShareMutationRequest = { shareId: string } & UpdateVfsShareRequest;
 type CreateShareMutationRequest = {
   itemId: string;
@@ -62,7 +58,7 @@ export async function updateShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesUpdateShareResponse> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/shares/${encoded(request.shareId)}`,
+    '/connect/tearleads.v2.VfsSharesService/UpdateShare',
     context.requestHeader
   );
   const payload = parseUpdateSharePayload(request);
@@ -209,7 +205,7 @@ export async function createShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesCreateShareResponse> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/items/${encoded(request.itemId)}/shares`,
+    '/connect/tearleads.v2.VfsSharesService/CreateShare',
     context.requestHeader
   );
 

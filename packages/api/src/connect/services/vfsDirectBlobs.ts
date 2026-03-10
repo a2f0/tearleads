@@ -7,7 +7,6 @@ import {
   isPostgresErrorWithCode,
   normalizeRequiredString
 } from './vfsDirectBlobShared.js';
-import { encoded } from './vfsDirectJson.js';
 
 type BlobIdRequest = { blobId: string };
 
@@ -26,7 +25,7 @@ export async function getBlobDirect(
   }
 
   const claims = await requireVfsClaims(
-    `/vfs/blobs/${encoded(blobId)}`,
+    '/connect/tearleads.v2.VfsService/GetBlob',
     context.requestHeader
   );
 
@@ -86,7 +85,7 @@ export async function deleteBlobDirect(
   }
 
   const claims = await requireVfsClaims(
-    `/vfs/blobs/${encoded(blobId)}`,
+    '/connect/tearleads.v2.VfsService/DeleteBlob',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

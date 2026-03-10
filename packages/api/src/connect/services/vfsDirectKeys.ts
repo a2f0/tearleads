@@ -18,7 +18,10 @@ export async function getMyKeysDirect(
   _request: object,
   context: { requestHeader: Headers }
 ): Promise<VfsUserKeysResponse> {
-  const claims = await requireVfsClaims('/vfs/keys/me', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/connect/tearleads.v2.VfsService/GetMyKeys',
+    context.requestHeader
+  );
 
   try {
     const pool = await getPostgresPool();
@@ -61,9 +64,11 @@ export async function setupKeysDirect(
   request: VfsKeySetupRequest,
   context: { requestHeader: Headers }
 ): Promise<{ created: boolean }> {
-  const claims = await requireVfsClaims('/vfs/keys', context.requestHeader, {
-    requireDeclaredOrganization: true
-  });
+  const claims = await requireVfsClaims(
+    '/connect/tearleads.v2.VfsService/SetupKeys',
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
+  );
   const payload = parseKeySetupPayload(request);
   if (!payload) {
     throw new ConnectError(

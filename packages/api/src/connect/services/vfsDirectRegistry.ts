@@ -7,7 +7,6 @@ import type {
 } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { encoded } from './vfsDirectJson.js';
 import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
 
 type RegisterDirectRequest = Partial<VfsRegisterRequest>;
@@ -18,7 +17,7 @@ export async function registerDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsRegisterResponse> {
   const claims = await requireVfsClaims(
-    '/vfs/register',
+    '/connect/tearleads.v2.VfsService/Register',
     context.requestHeader,
     {
       requireDeclaredOrganization: true
@@ -96,7 +95,7 @@ export async function rekeyItemDirect(
   }
 
   const claims = await requireVfsClaims(
-    `/vfs/items/${encoded(itemId)}/rekey`,
+    '/connect/tearleads.v2.VfsService/RekeyItem',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
