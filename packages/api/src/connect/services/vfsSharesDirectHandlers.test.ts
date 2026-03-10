@@ -5,16 +5,12 @@ const {
   authenticateMock,
   getPoolMock,
   getPostgresPoolMock,
-  loadOrgShareAuthorizationContextMock,
-  loadShareAuthorizationContextMock,
   queryMock,
   resolveOrganizationMembershipMock
 } = vi.hoisted(() => ({
   authenticateMock: vi.fn(),
   getPoolMock: vi.fn(),
   getPostgresPoolMock: vi.fn(),
-  loadOrgShareAuthorizationContextMock: vi.fn(),
-  loadShareAuthorizationContextMock: vi.fn(),
   queryMock: vi.fn(),
   resolveOrganizationMembershipMock: vi.fn()
 }));
@@ -29,19 +25,6 @@ vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args),
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
-
-vi.mock('./vfsSharesDirectShared.js', async () => {
-  const actual = await vi.importActual<
-    typeof import('./vfsSharesDirectShared.js')
-  >('./vfsSharesDirectShared.js');
-  return {
-    ...actual,
-    loadShareAuthorizationContext: (...args: unknown[]) =>
-      loadShareAuthorizationContextMock(...args),
-    loadOrgShareAuthorizationContext: (...args: unknown[]) =>
-      loadOrgShareAuthorizationContextMock(...args)
-  };
-});
 
 import {
   deleteOrgShareDirect,
@@ -60,8 +43,6 @@ describe('vfsSharesDirectHandlers', () => {
     getPostgresPoolMock.mockReset();
     authenticateMock.mockReset();
     resolveOrganizationMembershipMock.mockReset();
-    loadShareAuthorizationContextMock.mockReset();
-    loadOrgShareAuthorizationContextMock.mockReset();
 
     getPoolMock.mockResolvedValue({
       query: queryMock
@@ -77,14 +58,6 @@ describe('vfsSharesDirectHandlers', () => {
     resolveOrganizationMembershipMock.mockResolvedValue({
       ok: true,
       organizationId: null
-    });
-    loadShareAuthorizationContextMock.mockResolvedValue({
-      ownerId: 'user-1',
-      aclId: 'share:share-1'
-    });
-    loadOrgShareAuthorizationContextMock.mockResolvedValue({
-      ownerId: 'user-1',
-      aclId: 'org-share:org-1:share-1'
     });
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -140,7 +113,20 @@ describe('vfsSharesDirectHandlers', () => {
   });
 
   it('returns delete=false when no share row was updated', async () => {
-    queryMock.mockResolvedValueOnce({ rowCount: 0 });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            principal_type: 'user',
+            principal_id: 'user-2',
+            access_level: 'read'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rowCount: 0 });
 
     const response = await deleteShareDirect(
       {
@@ -156,7 +142,9 @@ describe('vfsSharesDirectHandlers', () => {
   });
 
   it('returns not found and permission denied for share deletes', async () => {
-    loadShareAuthorizationContextMock.mockResolvedValueOnce(null);
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
 
     await expect(
       deleteShareDirect(
@@ -171,9 +159,17 @@ describe('vfsSharesDirectHandlers', () => {
       code: Code.NotFound
     });
 
-    loadShareAuthorizationContextMock.mockResolvedValueOnce({
-      ownerId: 'user-2',
-      aclId: 'share:share-1'
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'user-2',
+          acl_id: 'share:share-1',
+          item_id: 'item-1',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'read'
+        }
+      ]
     });
 
     await expect(

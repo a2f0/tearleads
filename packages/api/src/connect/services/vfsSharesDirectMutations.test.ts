@@ -3,12 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   getPostgresPoolMock,
-  loadShareAuthorizationContextMock,
   queryMock,
   requireVfsSharesClaimsMock
 } = vi.hoisted(() => ({
   getPostgresPoolMock: vi.fn(),
-  loadShareAuthorizationContextMock: vi.fn(),
   queryMock: vi.fn(),
   requireVfsSharesClaimsMock: vi.fn()
 }));
@@ -17,27 +15,10 @@ vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
 
-vi.mock('./vfsSharesDirectHandlers.js', async () => {
-  const actual = await vi.importActual<
-    typeof import('./vfsSharesDirectHandlers.js')
-  >('./vfsSharesDirectHandlers.js');
-  return {
-    ...actual,
-    requireVfsSharesClaims: (...args: unknown[]) =>
-      requireVfsSharesClaimsMock(...args)
-  };
-});
-
-vi.mock('./vfsSharesDirectShared.js', async () => {
-  const actual = await vi.importActual<
-    typeof import('./vfsSharesDirectShared.js')
-  >('./vfsSharesDirectShared.js');
-  return {
-    ...actual,
-    loadShareAuthorizationContext: (...args: unknown[]) =>
-      loadShareAuthorizationContextMock(...args)
-  };
-});
+vi.mock('./vfsSharesDirectHandlers.js', () => ({
+  requireVfsSharesClaims: (...args: unknown[]) =>
+    requireVfsSharesClaimsMock(...args)
+}));
 
 import {
   createShareDirect,
@@ -55,17 +36,12 @@ describe('vfsSharesDirectMutations', () => {
     vi.clearAllMocks();
     queryMock.mockReset();
     getPostgresPoolMock.mockReset();
-    loadShareAuthorizationContextMock.mockReset();
     requireVfsSharesClaimsMock.mockReset();
     getPostgresPoolMock.mockResolvedValue({
       query: queryMock
     });
     requireVfsSharesClaimsMock.mockResolvedValue({
       sub: 'user-1'
-    });
-    loadShareAuthorizationContextMock.mockResolvedValue({
-      ownerId: 'user-1',
-      aclId: 'share:share-1'
     });
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -107,7 +83,9 @@ describe('vfsSharesDirectMutations', () => {
   });
 
   it('returns not found when update authorization context is missing', async () => {
-    loadShareAuthorizationContextMock.mockResolvedValueOnce(null);
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
 
     await expect(
       updateShareDirect(
@@ -125,9 +103,17 @@ describe('vfsSharesDirectMutations', () => {
   });
 
   it('returns permission denied when update caller does not own the share', async () => {
-    loadShareAuthorizationContextMock.mockResolvedValueOnce({
-      ownerId: 'user-2',
-      aclId: 'share:share-1'
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'user-2',
+          acl_id: 'share:share-1',
+          item_id: 'item-1',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'read'
+        }
+      ]
     });
 
     await expect(
@@ -146,9 +132,22 @@ describe('vfsSharesDirectMutations', () => {
   });
 
   it('returns not found when update query does not return a row', async () => {
-    queryMock.mockResolvedValueOnce({
-      rows: []
-    });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            principal_type: 'user',
+            principal_id: 'user-2',
+            access_level: 'read'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: []
+      });
 
     await expect(
       updateShareDirect(
@@ -168,6 +167,18 @@ describe('vfsSharesDirectMutations', () => {
   it('updates group shares and falls back when lookup data is missing', async () => {
     const createdAt = new Date('2026-03-02T00:00:00.000Z');
     queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            principal_type: 'group',
+            principal_id: 'group-1',
+            access_level: 'read'
+          }
+        ]
+      })
       .mockResolvedValueOnce({
         rows: [
           {

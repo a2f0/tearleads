@@ -13,16 +13,10 @@ vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
 }));
 
-vi.mock('./vfsSharesDirectHandlers.js', async () => {
-  const actual = await vi.importActual<
-    typeof import('./vfsSharesDirectHandlers.js')
-  >('./vfsSharesDirectHandlers.js');
-  return {
-    ...actual,
-    requireVfsSharesClaims: (...args: unknown[]) =>
-      requireVfsSharesClaimsMock(...args)
-  };
-});
+vi.mock('./vfsSharesDirectHandlers.js', () => ({
+  requireVfsSharesClaims: (...args: unknown[]) =>
+    requireVfsSharesClaimsMock(...args)
+}));
 
 import { getItemSharesDirect } from './vfsSharesDirectQueries.js';
 
