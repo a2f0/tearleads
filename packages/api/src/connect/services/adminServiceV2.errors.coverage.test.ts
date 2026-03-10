@@ -9,7 +9,7 @@ import {
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   getContextDirect: vi.fn(),
   addGroupMemberDirect: vi.fn(),
   createGroupDirect: vi.fn(),
@@ -37,54 +37,68 @@ const mocks = vi.hoisted(() => ({
   getUserDirect: vi.fn(),
   listUsersDirect: vi.fn(),
   updateUserDirect: vi.fn()
-}));
+};
 
 vi.mock('./adminDirectContext.js', () => ({
-  getContextDirect: mocks.getContextDirect
+  getContextDirect: (...args: unknown[]) => mocks.getContextDirect(...args)
 }));
 
 vi.mock('./adminDirectGroupMutations.js', () => ({
-  addGroupMemberDirect: mocks.addGroupMemberDirect,
-  createGroupDirect: mocks.createGroupDirect,
-  deleteGroupDirect: mocks.deleteGroupDirect,
-  removeGroupMemberDirect: mocks.removeGroupMemberDirect,
-  updateGroupDirect: mocks.updateGroupDirect
+  addGroupMemberDirect: (...args: unknown[]) =>
+    mocks.addGroupMemberDirect(...args),
+  createGroupDirect: (...args: unknown[]) => mocks.createGroupDirect(...args),
+  deleteGroupDirect: (...args: unknown[]) => mocks.deleteGroupDirect(...args),
+  removeGroupMemberDirect: (...args: unknown[]) =>
+    mocks.removeGroupMemberDirect(...args),
+  updateGroupDirect: (...args: unknown[]) => mocks.updateGroupDirect(...args)
 }));
 
 vi.mock('./adminDirectGroups.js', () => ({
-  getGroupDirect: mocks.getGroupDirect,
-  getGroupMembersDirect: mocks.getGroupMembersDirect,
-  listGroupsDirect: mocks.listGroupsDirect
+  getGroupDirect: (...args: unknown[]) => mocks.getGroupDirect(...args),
+  getGroupMembersDirect: (...args: unknown[]) =>
+    mocks.getGroupMembersDirect(...args),
+  listGroupsDirect: (...args: unknown[]) => mocks.listGroupsDirect(...args)
 }));
 
 vi.mock('./adminDirectOrganizations.js', () => ({
-  createOrganizationDirect: mocks.createOrganizationDirect,
-  deleteOrganizationDirect: mocks.deleteOrganizationDirect,
-  getOrganizationDirect: mocks.getOrganizationDirect,
-  getOrganizationGroupsDirect: mocks.getOrganizationGroupsDirect,
-  getOrganizationUsersDirect: mocks.getOrganizationUsersDirect,
-  listOrganizationsDirect: mocks.listOrganizationsDirect,
-  updateOrganizationDirect: mocks.updateOrganizationDirect
+  createOrganizationDirect: (...args: unknown[]) =>
+    mocks.createOrganizationDirect(...args),
+  deleteOrganizationDirect: (...args: unknown[]) =>
+    mocks.deleteOrganizationDirect(...args),
+  getOrganizationDirect: (...args: unknown[]) =>
+    mocks.getOrganizationDirect(...args),
+  getOrganizationGroupsDirect: (...args: unknown[]) =>
+    mocks.getOrganizationGroupsDirect(...args),
+  getOrganizationUsersDirect: (...args: unknown[]) =>
+    mocks.getOrganizationUsersDirect(...args),
+  listOrganizationsDirect: (...args: unknown[]) =>
+    mocks.listOrganizationsDirect(...args),
+  updateOrganizationDirect: (...args: unknown[]) =>
+    mocks.updateOrganizationDirect(...args)
 }));
 
 vi.mock('./adminDirectPostgres.js', () => ({
-  getColumnsDirect: mocks.getColumnsDirect,
-  getPostgresInfoDirect: mocks.getPostgresInfoDirect,
-  getRowsDirect: mocks.getRowsDirect,
-  getTablesDirect: mocks.getTablesDirect
+  getColumnsDirect: (...args: unknown[]) => mocks.getColumnsDirect(...args),
+  getPostgresInfoDirect: (...args: unknown[]) =>
+    mocks.getPostgresInfoDirect(...args),
+  getRowsDirect: (...args: unknown[]) => mocks.getRowsDirect(...args),
+  getTablesDirect: (...args: unknown[]) => mocks.getTablesDirect(...args)
 }));
 
 vi.mock('./adminDirectRedis.js', () => ({
-  deleteRedisKeyDirect: mocks.deleteRedisKeyDirect,
-  getRedisDbSizeDirect: mocks.getRedisDbSizeDirect,
-  getRedisKeysDirect: mocks.getRedisKeysDirect,
-  getRedisValueDirect: mocks.getRedisValueDirect
+  deleteRedisKeyDirect: (...args: unknown[]) =>
+    mocks.deleteRedisKeyDirect(...args),
+  getRedisDbSizeDirect: (...args: unknown[]) =>
+    mocks.getRedisDbSizeDirect(...args),
+  getRedisKeysDirect: (...args: unknown[]) => mocks.getRedisKeysDirect(...args),
+  getRedisValueDirect: (...args: unknown[]) =>
+    mocks.getRedisValueDirect(...args)
 }));
 
 vi.mock('./adminDirectUsers.js', () => ({
-  getUserDirect: mocks.getUserDirect,
-  listUsersDirect: mocks.listUsersDirect,
-  updateUserDirect: mocks.updateUserDirect
+  getUserDirect: (...args: unknown[]) => mocks.getUserDirect(...args),
+  listUsersDirect: (...args: unknown[]) => mocks.listUsersDirect(...args),
+  updateUserDirect: (...args: unknown[]) => mocks.updateUserDirect(...args)
 }));
 
 import { adminConnectServiceV2 } from './adminServiceV2.js';

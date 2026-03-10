@@ -5,53 +5,47 @@ import {
   resolveOrganizationMembership
 } from './connectRequestAuth.js';
 
-const {
-  getPostgresPoolMock,
-  getSessionMock,
-  updateSessionActivityMock,
-  verifyJwtMock
-} = vi.hoisted(() => ({
-  verifyJwtMock:
-    vi.fn<
-      (
-        token: string,
-        secret: string
-      ) => { sub: string; jti: string; email?: string } | null
-    >(),
-  getSessionMock:
-    vi.fn<
-      (sessionId: string) => Promise<{
-        userId: string;
-        email: string;
-        admin: boolean;
-        createdAt: string;
-        lastActiveAt: string;
-        ipAddress: string;
-      } | null>
-    >(),
-  updateSessionActivityMock: vi.fn<(sessionId: string) => Promise<void>>(),
-  getPostgresPoolMock:
-    vi.fn<
-      () => Promise<{
-        query: (
-          sql: string,
-          params: unknown[]
-        ) => Promise<{ rows: Array<{ organization_id: string }> }>;
-      }>
-    >()
-}));
+const verifyJwtMock =
+  vi.fn<
+    (
+      token: string,
+      secret: string
+    ) => { sub: string; jti: string; email?: string } | null
+  >();
+const getSessionMock =
+  vi.fn<
+    (sessionId: string) => Promise<{
+      userId: string;
+      email: string;
+      admin: boolean;
+      createdAt: string;
+      lastActiveAt: string;
+      ipAddress: string;
+    } | null>
+  >();
+const updateSessionActivityMock = vi.fn<(sessionId: string) => Promise<void>>();
+const getPostgresPoolMock =
+  vi.fn<
+    () => Promise<{
+      query: (
+        sql: string,
+        params: unknown[]
+      ) => Promise<{ rows: Array<{ organization_id: string }> }>;
+    }>
+  >();
 
 vi.mock('../../lib/jwt.js', () => ({
-  verifyJwt: verifyJwtMock
+  verifyJwt: (token: string, secret: string) => verifyJwtMock(token, secret)
 }));
 
 vi.mock('../../lib/sessions.js', () => ({
-  getSession: getSessionMock,
-  updateSessionActivity: updateSessionActivityMock
+  getSession: (sessionId: string) => getSessionMock(sessionId),
+  updateSessionActivity: (sessionId: string) =>
+    updateSessionActivityMock(sessionId)
 }));
 
 vi.mock('../../lib/postgres.js', () => ({
-  getPostgresPool: getPostgresPoolMock
+  getPostgresPool: () => getPostgresPoolMock()
 }));
 
 function createSession(userId = 'user-1', admin = false) {
