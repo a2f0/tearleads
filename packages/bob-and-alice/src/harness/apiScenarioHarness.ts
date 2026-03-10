@@ -171,7 +171,9 @@ export function isRetryableWriteValidationError(
     return false;
   }
 
-  const isShareRoute = path.includes('/shares');
+  const isShareRoute =
+    path.includes('/shares') ||
+    /\/connect\/tearleads\.v2\.VfsSharesService\/[^/?#]+(?:$|[/?#])/.test(path);
   if (
     isShareRoute &&
     body.includes('shareType, targetId, and permissionLevel are required')

@@ -51,7 +51,7 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
         };
       }
 
-      if (path.startsWith('/vfs/items/') && path.endsWith('/shares')) {
+      if (path === '/connect/tearleads.v2.VfsSharesService/CreateShare') {
         return {
           share: {
             id: 'share:test-share-id',
@@ -123,7 +123,9 @@ describe('setupBobNotesShareForAlice', () => {
     expect(calls[0]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
     expect(calls[1]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
     expect(calls[2]?.path).toBe('/connect/tearleads.v2.VfsService/PushCrdtOps');
-    expect(calls[3]?.path).toBe('/vfs/items/folder-folder-suffix/shares');
+    expect(calls[3]?.path).toBe(
+      '/connect/tearleads.v2.VfsSharesService/CreateShare'
+    );
 
     const firstRegisterBody = JSON.parse(calls[0]?.bodyText ?? '');
     expect(firstRegisterBody).toEqual({

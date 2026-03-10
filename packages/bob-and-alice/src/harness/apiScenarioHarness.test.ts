@@ -8,7 +8,15 @@ describe('isRetryableWriteValidationError', () => {
   it('retries share requests with transient required-field validation failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/vfs/items/item-1/shares',
+        '/connect/tearleads.v2.VfsSharesService/CreateShare',
+        { method: 'POST' },
+        400,
+        '{"error":"shareType, targetId, and permissionLevel are required"}'
+      )
+    ).toBe(true);
+    expect(
+      isRetryableWriteValidationError(
+        '/connect/tearleads.v2.VfsSharesService/UpdateShare',
         { method: 'POST' },
         400,
         '{"error":"shareType, targetId, and permissionLevel are required"}'
@@ -39,7 +47,7 @@ describe('isRetryableWriteValidationError', () => {
 
     expect(
       isRetryableWriteValidationError(
-        '/vfs/items/item-1/shares',
+        '/connect/tearleads.v2.VfsSharesService/CreateShare',
         { method: 'POST' },
         500,
         '{"error":"shareType, targetId, and permissionLevel are required"}'

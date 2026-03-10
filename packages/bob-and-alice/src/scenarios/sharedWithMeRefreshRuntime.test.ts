@@ -101,7 +101,7 @@ describe('sharedWithMe refresh runtime', () => {
 
     const shareResponse = await alice.fetchJson<{
       share: { id: string; targetId: string };
-    }>(`/vfs/items/${folderId}/shares`, {
+    }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

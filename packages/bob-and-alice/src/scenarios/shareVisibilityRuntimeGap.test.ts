@@ -82,7 +82,7 @@ describe('share visibility runtime gap', () => {
     });
 
     await alice.fetchJson<{ share: { targetId: string } }>(
-      `/vfs/items/${folderId}/shares`,
+      '/connect/tearleads.v2.VfsSharesService/CreateShare',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
