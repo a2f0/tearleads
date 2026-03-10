@@ -101,7 +101,7 @@ export async function loginApiActor(
     const body = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(
-        `API request failed: ${path} ${String(response.status)} ${JSON.stringify(body)}`
+        `API request failed: ${resolvedPath} ${String(response.status)} ${JSON.stringify(body)}`
       );
     }
     return body;
