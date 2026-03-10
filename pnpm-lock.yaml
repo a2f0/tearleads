@@ -280,6 +280,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: 3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       '@tearleads/app-backups':
         specifier: workspace:*
         version: link:../app-backups

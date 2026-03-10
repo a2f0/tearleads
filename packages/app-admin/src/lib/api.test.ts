@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { setStoredAuthToken } from '@tearleads/api-client';
 import {
   AdminDeleteRedisKeyResponseSchema,
   AdminGetContextResponseSchema,
@@ -34,6 +35,7 @@ describe('admin api client', () => {
   });
 
   afterEach(() => {
+    setStoredAuthToken(null);
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -51,6 +53,22 @@ describe('admin api client', () => {
       throw new Error('expected Headers instance');
     }
     expect(headers.get('Authorization')).toBe('Bearer token-123');
+  });
+
+  it('uses in-memory auth token when localStorage token is unavailable', async () => {
+    localStorage.removeItem('auth_token');
+    setStoredAuthToken('token-in-memory');
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    await apiClient.adminV2.getContext();
+
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const headers = requestInit?.headers;
+    expect(headers).toBeInstanceOf(Headers);
+    if (!(headers instanceof Headers)) {
+      throw new Error('expected Headers instance');
+    }
+    expect(headers.get('Authorization')).toBe('Bearer token-in-memory');
   });
 
   it('maps API errors from JSON body or status code', async () => {

@@ -1,5 +1,10 @@
 export * from './api';
 export * from './apiV2ClientWasm';
+export {
+  getAuthHeaderValue,
+  setStoredAuthToken,
+  setStoredRefreshToken
+} from './authStorage';
 export * from './vfsBlobNetworkFlusher';
 export * from './vfsCrypto';
 export * from './vfsNetworkFlusher';

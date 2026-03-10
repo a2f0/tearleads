@@ -4,6 +4,7 @@ import {
   type JsonValue,
   type MessageShape
 } from '@bufbuild/protobuf';
+import { getAuthHeaderValue, tryRefreshToken } from '@tearleads/api-client';
 import type {
   AdminUserUpdatePayload,
   CreateGroupRequest,
@@ -74,6 +75,23 @@ interface RequestParams {
   fetchOptions?: RequestInit;
 }
 
+function buildRequestHeaders(
+  existingHeaders: HeadersInit | undefined
+): Headers {
+  const headers = new Headers(existingHeaders ?? undefined);
+  const existingAuthorizationHeader = headers.get('Authorization');
+  if (
+    !existingAuthorizationHeader ||
+    existingAuthorizationHeader.trim().length === 0
+  ) {
+    const authorizationHeader = getAuthHeaderValue();
+    if (authorizationHeader) {
+      headers.set('Authorization', authorizationHeader);
+    }
+  }
+  return headers;
+}
+
 interface AdminUsersApi {
   list(options?: { organizationId?: string }): Promise<AdminListUsersResponse>;
   get(id: string): Promise<AdminGetUserResponse>;
@@ -128,18 +146,22 @@ async function request<T>(
     throw new Error('VITE_API_URL environment variable is not set');
   }
 
-  const headers = new Headers(params?.fetchOptions?.headers ?? undefined);
-  if (!headers.has('Authorization')) {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+  const requestUrl = `${API_BASE_URL}${endpoint}`;
+  const fetchOptions = params?.fetchOptions;
+  let response = await fetch(requestUrl, {
+    ...fetchOptions,
+    headers: buildRequestHeaders(fetchOptions?.headers)
+  });
+
+  if (response.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      response = await fetch(requestUrl, {
+        ...fetchOptions,
+        headers: buildRequestHeaders(fetchOptions?.headers)
+      });
     }
   }
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...params?.fetchOptions,
-    headers
-  });
 
   if (!response.ok) {
     let message = `API error: ${response.status}`;
