@@ -1,19 +1,11 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  deleteAllSessionsForUserMock,
-  getLatestLastActiveByUserIdsMock,
-  getPoolMock,
-  queryMock,
-  requireScopedAdminAccessMock
-} = vi.hoisted(() => ({
-  deleteAllSessionsForUserMock: vi.fn(),
-  getLatestLastActiveByUserIdsMock: vi.fn(),
-  getPoolMock: vi.fn(),
-  queryMock: vi.fn(),
-  requireScopedAdminAccessMock: vi.fn()
-}));
+const deleteAllSessionsForUserMock = vi.fn();
+const getLatestLastActiveByUserIdsMock = vi.fn();
+const getPoolMock = vi.fn();
+const queryMock = vi.fn();
+const requireScopedAdminAccessMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
