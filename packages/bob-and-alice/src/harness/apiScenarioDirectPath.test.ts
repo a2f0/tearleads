@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  mergeHeaders,
-  resolveDirectApiPath
-} from './apiScenarioDirectPath.js';
+import { mergeHeaders, resolveDirectApiPath } from './apiScenarioDirectPath.js';
 
 describe('resolveDirectApiPath', () => {
   it('keeps /v1-prefixed paths unchanged', () => {
