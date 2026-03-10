@@ -4,6 +4,7 @@ import {
   serializePublicKey
 } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 import {
   createMockFetchResponse,
@@ -17,7 +18,7 @@ describe('createVfsSecurePipelineBundle', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
     if (typeof localStorage?.clear === 'function') {
       localStorage.clear();
@@ -25,7 +26,6 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 

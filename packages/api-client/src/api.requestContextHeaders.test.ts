@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from './test/env.js';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
@@ -7,7 +8,7 @@ describe('api request context headers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    setTestEnv('VITE_API_URL', 'http://localhost:3000');
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({

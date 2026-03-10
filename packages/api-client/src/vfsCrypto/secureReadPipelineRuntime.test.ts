@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVfsCryptoEngine } from './engineRuntime';
 import { createVfsSecureReadPipeline } from './secureReadPipelineRuntime';
 import type { UploadEncryptedBlobChunk } from './secureWritePipeline';
@@ -10,10 +10,6 @@ describe('secureReadPipelineRuntime', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('decrypts encrypted blob chunks produced by secure write pipeline', async () => {

@@ -6,6 +6,7 @@ import {
   AI_V2_CONNECT_USAGE_SUMMARY_PATH
 } from './test/aiConnectTestUtils';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -60,7 +61,7 @@ describe('api with msw vfs/ai query metadata', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
 
@@ -79,7 +80,6 @@ describe('api with msw vfs/ai query metadata', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
     authState.token = '';
     authState.refreshToken = null;

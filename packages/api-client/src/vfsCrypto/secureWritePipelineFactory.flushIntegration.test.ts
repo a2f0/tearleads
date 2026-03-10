@@ -5,6 +5,7 @@ import {
 } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import type {
   ItemKeyRecord,
   ItemKeyStore,
@@ -94,7 +95,7 @@ describe('secureWritePipelineFactory flush integration', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     if (
       typeof localStorage !== 'undefined' &&
       typeof localStorage.clear === 'function'
@@ -104,7 +105,6 @@ describe('secureWritePipelineFactory flush integration', () => {
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 

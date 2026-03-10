@@ -4,6 +4,7 @@ import {
   type VfsKeyPair
 } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import { createVfsCryptoEngine } from './engineRuntime';
 import type {
   ItemKeyRecord,
@@ -47,13 +48,12 @@ describe('secureOrchestratorFacade with real crypto', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
     localStorage.clear();
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 

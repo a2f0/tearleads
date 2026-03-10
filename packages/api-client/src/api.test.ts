@@ -7,7 +7,9 @@
  *
  * All other API tests have been consolidated into api.msw.test.ts
  */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from './test/env.js';
 
 describe('api edge cases requiring direct fetch mocking', () => {
   const originalFetch = global.fetch;
@@ -41,7 +43,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
   describe('concurrent refresh deduplication', () => {
     beforeEach(() => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+      setTestEnv('VITE_API_URL', 'http://localhost:3000');
     });
 
     it('deduplicates concurrent refresh attempts via tryRefreshToken', async () => {
@@ -176,7 +178,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
   describe('cross-tab token race detection', () => {
     beforeEach(() => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+      setTestEnv('VITE_API_URL', 'http://localhost:3000');
     });
 
     it('returns true when another tab refreshed token during our refresh attempt', async () => {
@@ -204,7 +206,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
   describe('storage failure handling', () => {
     beforeEach(() => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+      setTestEnv('VITE_API_URL', 'http://localhost:3000');
     });
 
     it('throws 401 when refresh succeeds but token storage fails', async () => {
@@ -259,7 +261,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
   describe('refresh failure and session expiration', () => {
     beforeEach(() => {
-      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+      setTestEnv('VITE_API_URL', 'http://localhost:3000');
     });
 
     function createJwt(expiresAtSeconds: number): string {

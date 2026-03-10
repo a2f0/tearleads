@@ -1,6 +1,7 @@
 import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
 
@@ -14,13 +15,12 @@ describe('secureOrchestratorFacade integration', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
     localStorage.clear();
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 
