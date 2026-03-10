@@ -60,7 +60,10 @@ describe('UsersAdminPage', () => {
       <MemoryRouter initialEntries={['/admin/users']}>
         <Routes>
           <Route path="/admin/users" element={<UsersAdminPage />} />
-          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/:id"
+            element={<div>User Detail Route</div>}
+          />
           <Route
             path="/admin/users/ai-requests"
             element={<div>AI Requests Route</div>}
@@ -84,7 +87,10 @@ describe('UsersAdminPage', () => {
       <MemoryRouter initialEntries={['/admin/users']}>
         <Routes>
           <Route path="/admin/users" element={<UsersAdminPage />} />
-          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/:id"
+            element={<div>User Detail Route</div>}
+          />
           <Route
             path="/admin/users/ai-requests"
             element={<div>AI Requests Route</div>}
@@ -107,7 +113,10 @@ describe('UsersAdminPage', () => {
       <MemoryRouter initialEntries={['/admin/users']}>
         <Routes>
           <Route path="/admin/users" element={<UsersAdminPage />} />
-          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/:id"
+            element={<div>User Detail Route</div>}
+          />
           <Route
             path="/admin/users/ai-requests"
             element={<div>AI Requests Route</div>}

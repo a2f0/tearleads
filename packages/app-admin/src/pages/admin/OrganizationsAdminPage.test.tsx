@@ -27,7 +27,10 @@ describe('OrganizationsAdminPage', () => {
     render(
       <MemoryRouter initialEntries={['/admin/organizations']}>
         <Routes>
-          <Route path="/admin/organizations" element={<OrganizationsAdminPage />} />
+          <Route
+            path="/admin/organizations"
+            element={<OrganizationsAdminPage />}
+          />
           <Route
             path="/admin/organizations/:id"
             element={<div>Organization Detail Route</div>}
