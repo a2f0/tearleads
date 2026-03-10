@@ -7,9 +7,9 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setTestEnv } from '../test/env.js';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
+import { setTestEnv } from '../test/env.js';
 
 // Mock analytics to capture logged event names
 const mockLogApiEvent = vi.fn();

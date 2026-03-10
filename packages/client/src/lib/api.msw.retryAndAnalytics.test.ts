@@ -6,13 +6,13 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setTestEnv } from '../test/env.js';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
 } from '@/test/apiV2WasmBindingsTestOverride';
 import { getSharedTestContext } from '@/test/testContext';
+import { setTestEnv } from '../test/env.js';
 
 const loadAuthStorage = async () => {
   const module = await import('@/lib/authStorage');
