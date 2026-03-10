@@ -91,7 +91,7 @@ export function SSEConnectionDialog({
           <div className="flex justify-between gap-4">
             <dt className="shrink-0 text-muted-foreground">Endpoint</dt>
             <dd className="truncate font-mono text-xs">
-              /connect/tearleads.v1.NotificationService/Subscribe
+              /connect/tearleads.v2.NotificationService/Subscribe
             </dd>
           </div>
         </dl>

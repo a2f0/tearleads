@@ -28,6 +28,7 @@ breaking:
     - tearleads/v1/ai.proto
     - tearleads/v1/auth.proto
     - tearleads/v1/common.proto
+    - tearleads/v1/notifications.proto
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
     - tearleads/v2/vfs.proto
