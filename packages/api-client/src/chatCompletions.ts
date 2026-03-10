@@ -1,6 +1,6 @@
 import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { ChatService } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
+import { ChatService } from '@tearleads/shared/gen/tearleads/v2/chat_pb';
 import { normalizeBearerToken, toConnectBaseUrl } from './connectUtils';
 
 type ChatCompletionsCallOptions = Pick<CallOptions, 'headers' | 'signal'>;

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tearleads.v2;
+
+service ChatService {
+  rpc PostCompletions(ChatServicePostCompletionsRequest)
+      returns (ChatServicePostCompletionsResponse);
+}
+
+message ChatServicePostCompletionsRequest {
+  string json = 1;
+}
+
+message ChatServicePostCompletionsResponse {
+  string json = 1;
+}
