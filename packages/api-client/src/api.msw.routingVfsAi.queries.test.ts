@@ -9,16 +9,14 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
-const { authState, seededState } = vi.hoisted(() => ({
-  authState: {
-    token: '',
-    refreshToken: null as string | null
-  },
-  seededState: {
-    userId: '',
-    organizationId: ''
-  }
-}));
+const authState = {
+  token: '',
+  refreshToken: null as string | null
+};
+const seededState = {
+  userId: '',
+  organizationId: ''
+};
 
 vi.mock('./authStorage', () => ({
   getAuthHeaderValue: () =>

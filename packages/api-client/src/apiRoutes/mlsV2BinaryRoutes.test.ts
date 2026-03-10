@@ -3,12 +3,10 @@ import { bytesToBase64 } from './mlsV2Binary';
 import { createMlsV2Routes } from './mlsV2BinaryRoutes';
 import type { MlsV2Routes as WireMlsV2Routes } from './mlsV2Routes';
 
-const { createWireRoutesMock } = vi.hoisted(() => ({
-  createWireRoutesMock: vi.fn()
-}));
+const createWireRoutesMock = vi.fn<(overrides?: unknown) => WireMlsV2Routes>();
 
 vi.mock('./mlsV2Routes', () => ({
-  createMlsV2Routes: (...args: unknown[]) => createWireRoutesMock(...args)
+  createMlsV2Routes: (overrides?: unknown) => createWireRoutesMock(overrides)
 }));
 
 function createDefaultWireRoutes(
