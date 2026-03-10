@@ -22,7 +22,6 @@ describe('api request context headers', () => {
     }));
     global.fetch = vi.fn();
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_refresh_lock');
   });

@@ -3,10 +3,7 @@ import type {
   TestContext,
   TestContextDeps
 } from '@tearleads/api-test-utils';
-import {
-  mergeHeaders,
-  resolveDirectApiPath
-} from './apiScenarioConnectCompat.js';
+import { mergeHeaders, resolveDirectApiPath } from './apiScenarioDirectPath.js';
 import { getApiTestUtils } from './getApiTestUtils.js';
 
 export interface ApiActorDefinition {
