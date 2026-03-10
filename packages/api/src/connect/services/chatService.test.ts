@@ -6,8 +6,8 @@ import {
 } from '@connectrpc/connect';
 import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@tearleads/shared';
 import {
-  ChatServicePostCompletionsRequestSchema,
-  ChatService
+  ChatService,
+  ChatServicePostCompletionsRequestSchema
 } from '@tearleads/shared/gen/tearleads/v2/chat_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
