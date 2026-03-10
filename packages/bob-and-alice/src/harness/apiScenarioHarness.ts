@@ -173,9 +173,7 @@ export function isRetryableWriteValidationError(
 
   const isShareRoute =
     path.includes('/shares') ||
-    /\/connect\/tearleads\.v2\.VfsSharesService\/CreateShare(?:$|[/?#])/.test(
-      path
-    );
+    /\/connect\/tearleads\.v2\.VfsSharesService\/[^/?#]+(?:$|[/?#])/.test(path);
   if (
     isShareRoute &&
     body.includes('shareType, targetId, and permissionLevel are required')
