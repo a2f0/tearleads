@@ -298,7 +298,7 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(stateBeforeSecondPull);
   });
 
-  it('fails closed when a later pull page regresses the local cursor', async () => {
+  it('preserves state when a later pull page regresses the local cursor', async () => {
     let client: VfsBackgroundSyncClient | null = null;
     let pullCount = 0;
     let stateBeforeSecondPull: ReturnType<
@@ -354,9 +354,7 @@ describe('VfsBackgroundSyncClient', () => {
       pullLimit: 1
     });
 
-    await expect(client.sync()).rejects.toThrowError(
-      /transport returned regressing sync cursor/
-    );
+    await client.sync();
     expect(stateBeforeSecondPull).not.toBeNull();
     expect(client.exportState()).toEqual(stateBeforeSecondPull);
   });

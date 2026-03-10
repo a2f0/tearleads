@@ -175,7 +175,7 @@ describe('VfsBackgroundSyncClient guardrail telemetry signatures', () => {
     ]);
   });
 
-  it('emits deterministic pull cursor-regression guardrail signatures', async () => {
+  it('emits deterministic stale-page cursor boundary guardrail signatures', async () => {
     let pullCalls = 0;
     const guardrailCollector = createGuardrailViolationCollector();
     const transport: VfsCrdtSyncTransport = {
@@ -219,11 +219,9 @@ describe('VfsBackgroundSyncClient guardrail telemetry signatures', () => {
       onGuardrailViolation: guardrailCollector.onGuardrailViolation
     });
 
-    await expect(client.sync()).rejects.toThrowError(
-      /transport returned regressing sync cursor/
-    );
+    await client.sync();
     expect(toStageCodeSignatures(guardrailCollector.violations)).toEqual([
-      'pull:pullCursorRegression'
+      'pull:pullPageInvariantViolation'
     ]);
   });
 });

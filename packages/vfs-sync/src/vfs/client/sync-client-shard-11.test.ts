@@ -237,7 +237,7 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
-  it('fails closed when transport regresses cursor with no items', async () => {
+  it('preserves cursor boundary when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
       code: string;
@@ -293,11 +293,16 @@ describe('VfsBackgroundSyncClient', () => {
       }
     });
     await client.sync();
-    await expect(client.sync()).rejects.toThrowError(/regressing sync cursor/);
+    await client.sync();
     expect(guardrailViolations).toContainEqual({
-      code: 'pullCursorRegression',
+      code: 'pullPageInvariantViolation',
       stage: 'pull',
-      message: 'pull response regressed local sync cursor'
+      message:
+        'pull response regressed cursor without newer items; preserving local cursor boundary'
+    });
+    expect(client.snapshot().cursor).toEqual({
+      changedAt: '2026-02-14T12:14:00.000Z',
+      changeId: 'desktop-1'
     });
   });
 });
