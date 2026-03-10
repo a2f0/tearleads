@@ -1,5 +1,5 @@
+import { AdminUsersWindow as AdminUsersWindowBase } from '@tearleads/app-admin/clientEntry';
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { AdminUsersWindow as AdminUsersWindowBase } from '@/components/admin-windows';
 import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminUsersWindowProps {

@@ -65,7 +65,7 @@ const CameraWindow = createDeferredWindowComponent(() =>
   }))
 );
 const KeychainWindow = createDeferredWindowComponent(() =>
-  import('@/components/window-keychain').then((module) => ({
+  import('@tearleads/app-keychain/clientEntry').then((module) => ({
     default: module.KeychainWindow
   }))
 );
@@ -95,7 +95,7 @@ const AIWindow = createDeferredWindowComponent(() =>
   }))
 );
 const AnalyticsWindow = createDeferredWindowComponent(() =>
-  import('@/components/window-analytics').then((module) => ({
+  import('@tearleads/app-analytics/clientEntry').then((module) => ({
     default: module.AnalyticsWindow
   }))
 );
@@ -110,7 +110,7 @@ const ModelsWindow = createDeferredWindowComponent(() =>
   }))
 );
 const AdminWindow = createDeferredWindowComponent(() =>
-  import('@/components/admin-windows').then((module) => ({
+  import('@tearleads/app-admin/clientEntry').then((module) => ({
     default: module.AdminWindow
   }))
 );

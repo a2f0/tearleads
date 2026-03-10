@@ -8,7 +8,7 @@ function page(name: string) {
   };
 }
 
-vi.mock('./pages/admin', () => ({
+vi.mock('@tearleads/app-admin/clientEntry', () => ({
   Admin: page('Admin'),
   AdminLauncher: page('AdminLauncher'),
   AiRequestsAdminPage: page('AiRequestsAdminPage'),
@@ -20,11 +20,11 @@ vi.mock('./pages/admin', () => ({
   UsersAdminPage: page('UsersAdminPage'),
   UsersAdminDetail: page('UsersAdminDetail')
 }));
-vi.mock('./pages/keychain', () => ({
+vi.mock('@tearleads/app-keychain/clientEntry', () => ({
   Keychain: page('Keychain'),
   KeychainDetail: page('KeychainDetail')
 }));
-vi.mock('./pages/wallet', () => ({
+vi.mock('@tearleads/app-wallet/clientEntry', () => ({
   Wallet: page('Wallet'),
   WalletDetail: page('WalletDetail'),
   WalletNewItem: page('WalletNewItem')
@@ -33,7 +33,9 @@ vi.mock('./pages/sync', () => ({
   Sync: page('Sync')
 }));
 
-vi.mock('./pages/analytics', () => ({ Analytics: page('Analytics') }));
+vi.mock('@tearleads/app-analytics/clientEntry', () => ({
+  Analytics: page('Analytics')
+}));
 vi.mock('./pages/AudioDetail', () => ({ AudioDetail: page('AudioDetail') }));
 vi.mock('./pages/Audio', () => ({ Audio: page('AudioPage') }));
 vi.mock('./pages/Backups', () => ({ Backups: page('Backups') }));

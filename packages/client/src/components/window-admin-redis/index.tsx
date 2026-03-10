@@ -1,6 +1,7 @@
 // one-component-per-file: allow -- wrapper keeps inline lock/login fallback JSX selection local.
+
+import { AdminRedisWindow as AdminRedisWindowBase } from '@tearleads/app-admin/clientEntry';
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { AdminRedisWindow as AdminRedisWindowBase } from '@/components/admin-windows';
 import { useAdminWindowAuthGate } from '@/components/admin-windows/useAdminWindowAuthGate';
 
 interface AdminRedisWindowProps {
