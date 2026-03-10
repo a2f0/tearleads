@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-10T04:30:42.821Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -9,7 +9,7 @@ Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scrip
 - Transitional bun auto-fallback scripts: 0
 - Vitest-primary test scripts: 4
 - Packages with DOM/jsdom indicators: 31
-- Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 9
+- Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 8
 
 ## Top Blockers
 
@@ -21,7 +21,6 @@ Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scrip
 | `@tearleads/app-backups` | 9 | vi.hoisted (1), vi.mocked (8), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-keychain` | 9 | vi.hoisted (3), vi.mocked (50), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-mls-chat` | 7 | vi.hoisted (1), DOM setup (4 indicators; see Package Inventory) |
-| `@tearleads/app-notifications` | 6 | vi.mock(importOriginal) (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-admin` | 5 | vi.mocked (4), vi.stubEnv (5), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-classic` | 5 | vi.waitFor (5), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
@@ -30,6 +29,7 @@ Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scrip
 | `@tearleads/app-email` | 4 | vi.mocked (2), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-notes` | 4 | vi.mocked (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/vfs-explorer` | 4 | vi.mocked (36), DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-ai` | 2 | DOM setup (4 indicators; see Package Inventory) |
 
 ## Package Inventory
 
@@ -41,7 +41,6 @@ Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scrip
 | `@tearleads/app-backups` | 19 | `bun-primary` | yes | vi.hoisted:1, vi.mocked:8 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-keychain` | 20 | `bun-primary` | yes | vi.hoisted:3, vi.mocked:50 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-mls-chat` | 8 | `bun-primary` | yes | vi.hoisted:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/app-notifications` | 7 | `bun-primary` | yes | vi.mock(importOriginal):1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-admin` | 59 | `bun-primary` | yes | vi.mocked:4, vi.stubEnv:5 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-classic` | 21 | `bun-primary` | yes | vi.waitFor:5 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-compliance` | 3 | `bun-primary` | yes | import.meta.glob:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
@@ -58,6 +57,7 @@ Generated: `2026-03-10T03:54:36.663Z` via `node --experimental-strip-types scrip
 | `@tearleads/app-contacts` | 13 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-health` | 26 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-help` | 6 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/app-notifications` | 7 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-settings` | 9 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-terminal` | 11 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-wallet` | 5 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |

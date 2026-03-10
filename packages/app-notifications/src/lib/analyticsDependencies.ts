@@ -15,6 +15,11 @@ export interface EventStats {
 
 export interface AnalyticsDependencies {
   useDatabaseContext: () => { isUnlocked: boolean };
+  /**
+   * Test-only override to skip the first fetch invocation.
+   * Production callers should leave this unset.
+   */
+  skipInitialFetch?: boolean;
   getDatabase: () => unknown;
   getEvents: (
     db: unknown,

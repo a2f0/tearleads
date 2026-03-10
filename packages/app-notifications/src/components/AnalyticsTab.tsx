@@ -22,7 +22,7 @@ export function AnalyticsTab() {
   );
   const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const fetchingRef = useRef(false);
+  const fetchingRef = useRef(Boolean(dependencies?.skipInitialFetch));
 
   const handleRefresh = () => {
     if (!loading) {
