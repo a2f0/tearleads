@@ -30,12 +30,17 @@ require_kubeconfig_and_kubectl() {
 pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; return 1; }
 
+get_running_pod() {
+  local app_label="$1"
+  kubectl -n "$NAMESPACE" get pods -l "app=$app_label" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
 phase_replica_query() {
   echo ""
   echo "Phase 1: Replica pod query (SELECT 1)"
 
   local replica_pod
-  replica_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres-replica --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  replica_pod="$(get_running_pod postgres-replica)"
 
   if [[ -z "$replica_pod" ]]; then
     fail "no running replica pod found (label app=postgres-replica)"
@@ -56,7 +61,7 @@ phase_replication_status() {
   echo "Phase 2: Replication status on primary"
 
   local postgres_pod
-  postgres_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  postgres_pod="$(get_running_pod postgres)"
 
   if [[ -z "$postgres_pod" ]]; then
     fail "no running primary Postgres pod found (label app=postgres)"
@@ -80,7 +85,7 @@ phase_replica_read_after_write() {
   echo "Phase 3: Write on primary, read from replica"
 
   local postgres_pod
-  postgres_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  postgres_pod="$(get_running_pod postgres)"
 
   if [[ -z "$postgres_pod" ]]; then
     fail "no running primary Postgres pod found (label app=postgres)"
@@ -88,7 +93,7 @@ phase_replica_read_after_write() {
   fi
 
   local replica_pod
-  replica_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres-replica --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  replica_pod="$(get_running_pod postgres-replica)"
 
   if [[ -z "$replica_pod" ]]; then
     fail "no running replica pod found (label app=postgres-replica)"
@@ -154,7 +159,7 @@ phase_api_to_replica_tcp() {
   echo "Phase 4: API pod TCP reachability to postgres-replica service"
 
   local api_pod
-  api_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  api_pod="$(get_running_pod api)"
 
   if [[ -z "$api_pod" ]]; then
     fail "no running API pod found (label app=api)"
