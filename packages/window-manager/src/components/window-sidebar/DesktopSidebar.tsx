@@ -4,7 +4,7 @@ import { cn } from '@tearleads/ui';
 import { WindowSidebarProvider } from './WindowSidebarContext.js';
 import type { WindowSidebarContextValue } from './WindowSidebarContext.js';
 
-export interface DesktopSidebarProps {
+interface DesktopSidebarProps {
   children: React.ReactNode;
   width: number;
   onWidthChange: (width: number) => void;

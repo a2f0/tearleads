@@ -5,7 +5,7 @@ import type { WindowSidebarContextValue } from './WindowSidebarContext.js';
 
 const ANIMATION_DURATION_MS = 300;
 
-export interface MobileDrawerProps {
+interface MobileDrawerProps {
   children: React.ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
