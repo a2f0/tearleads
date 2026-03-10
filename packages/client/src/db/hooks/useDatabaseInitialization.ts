@@ -10,6 +10,7 @@ import {
   autoInitializeDatabase,
   hasPersistedSession,
   isDatabaseSetUp,
+  resetDatabase,
   restoreDatabaseSession
 } from '../index';
 import type { InstanceMetadata } from '../instanceRegistry';
@@ -147,10 +148,33 @@ export async function initializeAndRestoreDatabaseState({
         await touchInstance(activeInstance.id);
       } else {
         setHasPersisted(false);
-        showUnexpectedReloadNotification(
-          hadActiveSession,
-          hasShownRecoveryNotification
+        const activeInstanceMetadata = allInstances.find(
+          (instance) => instance.id === activeInstance.id
         );
+        if (activeInstanceMetadata?.passwordDeferred) {
+          logStore.warn(
+            'Deferred session restoration failed, resetting and re-initializing'
+          );
+          databaseSetupProgressStore.update('Re-initializing database...', 60);
+          await resetDatabase(activeInstance.id);
+          const freshDb = await autoInitializeDatabase(activeInstance.id);
+          const persistedAfterReset = await hasPersistedSession(
+            activeInstance.id
+          );
+          databaseSetupProgressStore.update('Ready', 100);
+          setDb(freshDb);
+          setIsSetUp(true);
+          setHasPersisted(persistedAfterReset);
+          markSessionActive();
+          await updateInstance(activeInstance.id, { passwordDeferred: true });
+          setInstances(await getInstances());
+          await touchInstance(activeInstance.id);
+        } else {
+          showUnexpectedReloadNotification(
+            hadActiveSession,
+            hasShownRecoveryNotification
+          );
+        }
       }
     } else if (setup) {
       showUnexpectedReloadNotification(

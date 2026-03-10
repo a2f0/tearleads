@@ -59,13 +59,10 @@ vi.mock('@tearleads/app-audio', async (importOriginal) => ({
       selectedPlaylistId,
       onPlaylistSelect,
       onPlaylistChanged,
-      onDropToPlaylist,
-      onWidthChange,
-      width
+      onDropToPlaylist
     }) => (
       <div data-testid="audio-playlists-sidebar">
         <span data-testid="selected-playlist">{selectedPlaylistId}</span>
-        <span data-testid="sidebar-width">{width}</span>
         <button
           type="button"
           data-testid="select-playlist-1"
@@ -82,13 +79,6 @@ vi.mock('@tearleads/app-audio', async (importOriginal) => ({
         </button>
         <button
           type="button"
-          data-testid="change-width"
-          onClick={() => onWidthChange?.(300)}
-        >
-          Change Width
-        </button>
-        <button
-          type="button"
           data-testid="drop-to-playlist"
           onClick={() =>
             onDropToPlaylist?.('playlist-1', [], ['track-1', 'track-2'])
@@ -99,6 +89,28 @@ vi.mock('@tearleads/app-audio', async (importOriginal) => ({
       </div>
     )
   )
+}));
+
+// Mock @tearleads/window-manager
+vi.mock('@tearleads/window-manager', () => ({
+  WindowSidebar: vi.fn(({ children, width, onWidthChange }) => (
+    <div data-testid="window-sidebar">
+      <span data-testid="sidebar-width">{width}</span>
+      <button
+        type="button"
+        data-testid="change-width"
+        onClick={() => onWidthChange?.(300)}
+      >
+        Change Width
+      </button>
+      {children}
+    </div>
+  )),
+  WindowSidebarToggle: vi.fn(() => (
+    <button type="button" data-testid="window-sidebar-toggle">
+      Toggle
+    </button>
+  ))
 }));
 
 // Mock ClientAudioProvider
