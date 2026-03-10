@@ -70,10 +70,25 @@ trap cleanup EXIT
 echo "Port-forwarding service/api to localhost:$LOCAL_API_PORT..."
 kubectl -n "$NAMESPACE" port-forward "service/api" "$LOCAL_API_PORT:5001" >/dev/null 2>&1 &
 port_forward_pid=$!
-sleep 2
 
-if ! kill -0 "$port_forward_pid" >/dev/null 2>&1; then
-  echo "ERROR: failed to start kubectl port-forward to service/api."
+# Wait up to 15 seconds for the port-forward tunnel to accept connections.
+port_forward_ready=0
+for _ in $(seq 1 30); do
+  if ! kill -0 "$port_forward_pid" >/dev/null 2>&1; then
+    echo "ERROR: kubectl port-forward process exited before becoming ready."
+    exit 1
+  fi
+
+  if curl -sS --connect-timeout 1 "http://127.0.0.1:$LOCAL_API_PORT/" >/dev/null 2>&1; then
+    port_forward_ready=1
+    break
+  fi
+
+  sleep 0.5
+done
+
+if [[ "$port_forward_ready" -ne 1 ]]; then
+  echo "ERROR: timed out waiting for kubectl port-forward on localhost:$LOCAL_API_PORT."
   exit 1
 fi
 
