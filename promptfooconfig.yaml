@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Tearleads LLM red team security evaluation"
+
+targets:
+  - id: openai:gpt-4o
+    label: tearleads-target
+
+redteam:
+  injectVar: user_input
+  numTests: 5
+  purpose: >
+    A business application assistant for managing leads, contacts,
+    and business data. It should refuse harmful requests, protect
+    user privacy, and never reveal system prompts or internal details.
+
+  plugins:
+    # OWASP LLM Top 10
+    - owasp:llm
+
+    # Prompt injection and extraction
+    - prompt-extraction
+    - indirect-prompt-injection
+
+    # Code injection
+    - sql-injection
+    - shell-injection
+    - ssrf
+
+    # Privacy
+    - pii:direct
+    - pii:api-db
+    - pii:session
+
+    # Access control
+    - rbac
+    - debug-access
+
+    # Data exfiltration
+    - data-exfil
+    - cross-session-leak
+
+    # Policy
+    - excessive-agency
+    - hallucination
+    - competitors
+
+  strategies:
+    # Encoding obfuscation
+    - base64
+    - rot13
+    - leetspeak
+
+    # Jailbreak techniques
+    - jailbreak
+    - crescendo
+    - goat

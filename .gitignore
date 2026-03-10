@@ -106,6 +106,9 @@ coverage/
 .claude/commands/shell_snapshots/
 .claude/commands/tmp/
 
+# promptfoo eval cache
+.promptfoo/
+
 # Local Garage runtime artifacts
 scripts/garage/data/
 scripts/garage/.s3-credentials.env

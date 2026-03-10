@@ -72,7 +72,12 @@
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky",
     "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts",
-    "depGraph": "./scripts/ciImpact/generateDepGraph.sh"
+    "depGraph": "./scripts/ciImpact/generateDepGraph.sh",
+    "promptfoo": "promptfoo",
+    "promptfooEval": "promptfoo eval",
+    "promptfooView": "promptfoo view",
+    "promptfooRedteam": "promptfoo redteam run",
+    "promptfooRedteamReport": "promptfoo redteam report"
   },
   "repository": {
     "type": "git",
@@ -105,6 +110,7 @@
     "knip": "5.85.0",
     "markdownlint-cli2": "0.21.0",
     "pg": "8.19.0",
+    "promptfoo": "0.121.1",
     "tsx": "4.21.0",
     "turbo": "^2.8.15",
     "typescript": "5.9.3",
