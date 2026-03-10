@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { TagSidebar } from './TagSidebar';
 
 describe('TagSidebar editing', () => {
@@ -142,7 +142,7 @@ describe('TagSidebar editing', () => {
     fireEvent.change(editInput, { target: { value: 'Updated' } });
     fireEvent.click(screen.getByLabelText('Save tag name'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(onRenameTag).toHaveBeenCalledTimes(1);
     });
   });
