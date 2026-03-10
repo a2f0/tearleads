@@ -125,13 +125,17 @@ mod tests {
     #[tokio::test]
     async fn harness_flag_controls_connect_route_mounting() {
         let without_harness = app_with_harness_flag("", false)
-            .oneshot(admin_tables_request("/connect/tearleads.v2.AdminService/GetTables"))
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
             .await
             .expect("router should return a response");
         assert_eq!(without_harness.status(), StatusCode::NOT_FOUND);
 
         let with_harness_result = app_with_harness_flag("", true)
-            .oneshot(admin_tables_request("/connect/tearleads.v2.AdminService/GetTables"))
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
             .await;
         let with_harness = with_harness_result.expect("router should return a response");
         assert_ne!(with_harness.status(), StatusCode::NOT_FOUND);
