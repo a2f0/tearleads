@@ -271,6 +271,28 @@ export async function pullUntilSettledLoop(
       pulledOperations += forwardItems.length;
     }
 
+    const replayCursorAfterPull = dependencies.replayStore.snapshot().cursor;
+    if (
+      replayCursorAfterPull &&
+      (!effectivePageCursor ||
+        compareVfsSyncCursorOrder(effectivePageCursor, replayCursorAfterPull) <
+          0)
+    ) {
+      dependencies.emitGuardrailViolation({
+        code: 'pullPageInvariantViolation',
+        stage: 'pull',
+        message:
+          'pull response cursor boundary lagged applied replay cursor; advancing reconcile boundary',
+        details: {
+          replayChangedAt: replayCursorAfterPull.changedAt,
+          replayChangeId: replayCursorAfterPull.changeId,
+          boundaryChangedAt: effectivePageCursor?.changedAt ?? null,
+          boundaryChangeId: effectivePageCursor?.changeId ?? null
+        }
+      });
+      effectivePageCursor = cloneCursor(replayCursorAfterPull);
+    }
+
     if (effectivePageCursor) {
       dependencies.reconcileStateStore.reconcile(
         dependencies.userId,

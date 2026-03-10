@@ -201,4 +201,103 @@ describe('VfsBackgroundSyncClient', () => {
       message: 'pull response regressed replica write-id state'
     });
   });
+
+  it('advances reconcile boundary when applied pull items outpace page-tail cursor', async () => {
+    const seedServer = new InMemoryVfsCrdtSyncServer();
+    await seedServer.pushOperations({
+      operations: [
+        {
+          opId: 'seed-op-1',
+          opType: 'acl_add',
+          itemId: 'item-seed',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:14:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(seedServer)
+    );
+    await seedClient.sync();
+
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const malformedTransport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [
+          buildAclAddSyncItem({
+            opId: 'desktop-2',
+            occurredAt: '2026-02-14T12:14:01.000Z',
+            itemId: 'item-forward'
+          }),
+          buildAclAddSyncItem({
+            opId: 'seed-op-1',
+            occurredAt: '2026-02-14T12:14:00.000Z',
+            itemId: 'item-seed'
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: '2026-02-14T12:14:00.000Z',
+          changeId: 'seed-op-1'
+        },
+        lastReconciledWriteIds: {}
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      malformedTransport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    client.hydrateState(seedClient.exportState());
+
+    await expect(client.sync()).resolves.toEqual({
+      pulledOperations: 1,
+      pullPages: 1
+    });
+    await expect(client.sync()).resolves.toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    expect(client.snapshot().cursor).toEqual({
+      changedAt: '2026-02-14T12:14:01.000Z',
+      changeId: 'desktop-2'
+    });
+    expect(client.snapshot().acl).toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-forward'
+      })
+    );
+    expect(
+      guardrailViolations.some(
+        (violation) =>
+          violation.code === 'pullPageInvariantViolation' &&
+          violation.stage === 'pull' &&
+          violation.message.includes('lagged applied replay cursor')
+      )
+    ).toBe(true);
+  });
 });

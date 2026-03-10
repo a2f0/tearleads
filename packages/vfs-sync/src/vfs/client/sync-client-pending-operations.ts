@@ -1,6 +1,7 @@
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { VfsCrdtClientReconcileState } from '../protocol/sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import { cloneCursor } from './sync-client-utils.js';
 
 interface GetCurrentCursorFromStateParams {
@@ -12,11 +13,19 @@ export function getCurrentCursorFromState({
   reconcileState,
   replayCursor
 }: GetCurrentCursorFromStateParams): VfsSyncCursor | null {
-  if (reconcileState) {
-    return cloneCursor(reconcileState.cursor);
+  const reconcileCursor = reconcileState?.cursor;
+
+  let cursorToUse: VfsSyncCursor | undefined | null;
+  if (reconcileCursor && replayCursor) {
+    cursorToUse =
+      compareVfsSyncCursorOrder(reconcileCursor, replayCursor) >= 0
+        ? reconcileCursor
+        : replayCursor;
+  } else {
+    cursorToUse = reconcileCursor ?? replayCursor;
   }
 
-  return replayCursor ? cloneCursor(replayCursor) : null;
+  return cursorToUse ? cloneCursor(cursorToUse) : null;
 }
 
 interface LocalWriteIdFromReconcileStateParams {
