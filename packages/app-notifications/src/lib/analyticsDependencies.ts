@@ -15,6 +15,7 @@ export interface EventStats {
 
 export interface AnalyticsDependencies {
   useDatabaseContext: () => { isUnlocked: boolean };
+  initialFetchingRefCurrent?: boolean;
   getDatabase: () => unknown;
   getEvents: (
     db: unknown,
