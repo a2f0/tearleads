@@ -1,5 +1,5 @@
 import { ConnectError } from '@connectrpc/connect';
-import type { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
+import type { HandleWebhookRequest } from '@tearleads/shared/gen/tearleads/v2/revenuecat_pb';
 import { handleRevenueCatWebhook } from '../../lib/revenuecatWebhook.js';
 import {
   errorMessageFromPayload,
