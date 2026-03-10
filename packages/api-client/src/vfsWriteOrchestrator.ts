@@ -329,18 +329,15 @@ class VfsWriteOrchestratorImpl {
   }
 
   private async enqueueProtocolRun<T>(run: () => Promise<T>): Promise<T> {
-    const previousRun = this.protocolQueueTail;
-    let releaseQueue: (() => void) | null = null;
-    this.protocolQueueTail = new Promise<void>((resolve) => {
-      releaseQueue = resolve;
-    });
-
-    await previousRun;
-    try {
-      return await run();
-    } finally {
-      releaseQueue?.();
-    }
+    const scheduledRun = this.protocolQueueTail.then(
+      async () => run(),
+      async () => run()
+    );
+    this.protocolQueueTail = scheduledRun.then(
+      () => undefined,
+      () => undefined
+    );
+    return scheduledRun;
   }
 }
 
