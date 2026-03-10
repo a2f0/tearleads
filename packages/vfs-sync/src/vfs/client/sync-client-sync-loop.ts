@@ -8,7 +8,6 @@ import {
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import {
-  bumpLocalWriteIdFromReconcileState,
   ensurePendingOccurredAtAfterCursor,
   getCurrentCursorFromState,
   nextWriteIdFromReconcileState,
@@ -26,12 +25,16 @@ import {
   cloneCursor,
   lastItemCursor,
   MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
-  normalizeCursor,
   normalizeRequiredString,
   VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError,
   validatePushResponse
 } from './sync-client-utils.js';
+import {
+  bumpLocalWriteId,
+  filterPullItemsNewerThanCursor,
+  reconcileWithTransportIfSupported
+} from './syncClientLoopHelpers.js';
 
 interface VfsSyncClientLoopDependencies {
   userId: string;
@@ -46,115 +49,6 @@ interface VfsSyncClientLoopDependencies {
   readNextLocalWriteId: () => number;
   writeNextLocalWriteId: (value: number) => void;
   emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => void;
-}
-
-function bumpLocalWriteId(dependencies: VfsSyncClientLoopDependencies): void {
-  dependencies.writeNextLocalWriteId(
-    bumpLocalWriteIdFromReconcileState({
-      reconcileState: dependencies.reconcileStateStore.get(
-        dependencies.userId,
-        dependencies.clientId
-      ),
-      clientId: dependencies.clientId,
-      nextLocalWriteId: dependencies.readNextLocalWriteId()
-    })
-  );
-}
-
-async function reconcileWithTransportIfSupported(
-  dependencies: VfsSyncClientLoopDependencies
-): Promise<void> {
-  if (!dependencies.transport.reconcileState) {
-    return;
-  }
-
-  const localState = dependencies.reconcileStateStore.get(
-    dependencies.userId,
-    dependencies.clientId
-  );
-  if (!localState) {
-    return;
-  }
-
-  const normalizedLocalCursor = normalizeCursor(
-    localState.cursor,
-    'local reconcile cursor'
-  );
-  const localWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    localState.lastReconciledWriteIds
-  );
-  if (!localWriteIds.ok) {
-    throw new Error(localWriteIds.error);
-  }
-
-  const response = await dependencies.transport.reconcileState({
-    userId: dependencies.userId,
-    clientId: dependencies.clientId,
-    cursor: cloneCursor(normalizedLocalCursor),
-    lastReconciledWriteIds: { ...localWriteIds.value }
-  });
-
-  /**
-   * Guardrail: remote reconcile acknowledgements must be valid and must never
-   * move backwards. If this fails, the client aborts immediately to prevent
-   * future writes from being emitted with stale cursor or replica-clock state.
-   */
-  const normalizedResponseCursor = normalizeCursor(
-    response.cursor,
-    'reconcile cursor'
-  );
-  const responseWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    response.lastReconciledWriteIds
-  );
-  if (!responseWriteIds.ok) {
-    throw new Error(responseWriteIds.error);
-  }
-
-  if (
-    compareVfsSyncCursorOrder(normalizedResponseCursor, normalizedLocalCursor) <
-    0
-  ) {
-    dependencies.emitGuardrailViolation({
-      code: 'reconcileCursorRegression',
-      stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed sync cursor',
-      details: {
-        previousChangedAt: normalizedLocalCursor.changedAt,
-        previousChangeId: normalizedLocalCursor.changeId,
-        incomingChangedAt: normalizedResponseCursor.changedAt,
-        incomingChangeId: normalizedResponseCursor.changeId
-      }
-    });
-    throw new Error('transport reconcile regressed sync cursor');
-  }
-
-  const observedWriteIds = new Map<string, number>(
-    Object.entries(localWriteIds.value)
-  );
-  assertNonRegressingLastWriteIds(
-    observedWriteIds,
-    responseWriteIds.value,
-    ({ replicaId, previousWriteId, incomingWriteId }) => {
-      dependencies.emitGuardrailViolation({
-        code: 'lastWriteIdRegression',
-        stage: 'reconcile',
-        message: 'reconcile acknowledgement regressed replica write-id state',
-        details: {
-          replicaId,
-          previousWriteId,
-          incomingWriteId
-        }
-      });
-    }
-  );
-
-  dependencies.reconcileStateStore.reconcile(
-    dependencies.userId,
-    dependencies.clientId,
-    normalizedResponseCursor,
-    responseWriteIds.value
-  );
-  bumpLocalWriteId(dependencies);
 }
 
 export async function pullUntilSettledLoop(
@@ -208,6 +102,12 @@ export async function pullUntilSettledLoop(
     }
     pullPages += 1;
 
+    const forwardItems = filterPullItemsNewerThanCursor({
+      items: response.items,
+      cursorBeforePull,
+      emitGuardrailViolation: dependencies.emitGuardrailViolation
+    });
+
     const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
       response.lastReconciledWriteIds
     );
@@ -246,7 +146,7 @@ export async function pullUntilSettledLoop(
       );
     }
 
-    const pullItemsApplied = response.items.length > 0;
+    const pullItemsApplied = forwardItems.length > 0;
     let pageCursor: VfsSyncCursor | null = null;
     if (response.items.length > 0) {
       /**
@@ -254,7 +154,7 @@ export async function pullUntilSettledLoop(
        * boundaries. Replay indicates a broken cursor contract and can cause
        * non-deterministic reapplication or stalled pagination.
        */
-      for (const item of response.items) {
+      for (const item of forwardItems) {
         const opId = normalizeRequiredString(item.opId);
         if (!opId) {
           throw new Error('transport returned item with missing opId');
@@ -308,36 +208,74 @@ export async function pullUntilSettledLoop(
       pageCursor = cloneCursor(cursorBeforePull);
     }
 
+    let effectivePageCursor = pageCursor;
     if (
       cursorBeforePull &&
       pageCursor &&
       compareVfsSyncCursorOrder(pageCursor, cursorBeforePull) < 0
     ) {
+      if (forwardItems.length === 0) {
+        dependencies.emitGuardrailViolation({
+          code: 'pullPageInvariantViolation',
+          stage: 'pull',
+          message:
+            'pull response regressed cursor without newer items; preserving local cursor boundary',
+          details: {
+            previousChangedAt: cursorBeforePull.changedAt,
+            previousChangeId: cursorBeforePull.changeId,
+            incomingChangedAt: pageCursor.changedAt,
+            incomingChangeId: pageCursor.changeId
+          }
+        });
+        effectivePageCursor = cloneCursor(cursorBeforePull);
+      } else {
+        dependencies.emitGuardrailViolation({
+          code: 'pullCursorRegression',
+          stage: 'pull',
+          message: 'pull response regressed local sync cursor',
+          details: {
+            previousChangedAt: cursorBeforePull.changedAt,
+            previousChangeId: cursorBeforePull.changeId,
+            incomingChangedAt: pageCursor.changedAt,
+            incomingChangeId: pageCursor.changeId
+          }
+        });
+        throw new Error('transport returned regressing sync cursor');
+      }
+    }
+
+    if (response.hasMore && forwardItems.length === 0) {
+      const rematerializationDetails = cursorBeforePull
+        ? {
+            previousChangedAt: cursorBeforePull.changedAt,
+            previousChangeId: cursorBeforePull.changeId
+          }
+        : null;
       dependencies.emitGuardrailViolation({
-        code: 'pullCursorRegression',
+        code: 'pullRematerializationRequired',
         stage: 'pull',
-        message: 'pull response regressed local sync cursor',
-        details: {
-          previousChangedAt: cursorBeforePull.changedAt,
-          previousChangeId: cursorBeforePull.changeId,
-          incomingChangedAt: pageCursor.changedAt,
-          incomingChangeId: pageCursor.changeId
-        }
+        message:
+          'pull response could not advance beyond local cursor while reporting hasMore',
+        ...(rematerializationDetails
+          ? { details: rematerializationDetails }
+          : {})
       });
-      throw new Error('transport returned regressing sync cursor');
+      throw new VfsCrdtRematerializationRequiredError({
+        message: 'CRDT pull page did not contain items newer than local cursor'
+      });
     }
 
     if (pullItemsApplied) {
-      dependencies.replayStore.applyPage(response.items);
-      dependencies.containerClockStore.applyFeedItems(response.items);
-      pulledOperations += response.items.length;
+      dependencies.replayStore.applyPage(forwardItems);
+      dependencies.containerClockStore.applyFeedItems(forwardItems);
+      pulledOperations += forwardItems.length;
     }
 
-    if (pageCursor) {
+    if (effectivePageCursor) {
       dependencies.reconcileStateStore.reconcile(
         dependencies.userId,
         dependencies.clientId,
-        pageCursor,
+        effectivePageCursor,
         parsedWriteIds.value
       );
       bumpLocalWriteId(dependencies);

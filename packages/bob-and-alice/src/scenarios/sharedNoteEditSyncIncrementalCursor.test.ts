@@ -79,7 +79,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     }
   });
 
-  it('fails closed on a stale CRDT replay page after Alice edits', async () => {
+  it('tolerates one stale CRDT replay page without failing closed', async () => {
     harness = await ApiScenarioHarness.create(
       [{ alias: 'bob' }, { alias: 'alice' }],
       getApiDeps
@@ -255,11 +255,13 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     );
     expect(alicePush.results[0]?.status).toBe('applied');
 
-    const stateBeforeFailure = bobSyncClient.exportState();
-    await expect(bobSyncClient.sync()).rejects.toThrow(
-      /not strictly newer than local cursor/
-    );
+    const stateBeforeStalePull = bobSyncClient.exportState();
+    const stalePullResult = await bobSyncClient.sync();
+    expect(stalePullResult).toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
     expect(staleReplayCount).toBe(1);
-    expect(bobSyncClient.exportState()).toEqual(stateBeforeFailure);
+    expect(bobSyncClient.exportState()).toEqual(stateBeforeStalePull);
   });
 });

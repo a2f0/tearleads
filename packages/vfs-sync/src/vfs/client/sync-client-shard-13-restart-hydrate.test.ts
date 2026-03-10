@@ -228,7 +228,7 @@ describe('VfsBackgroundSyncClient bidirectional contract: restart/hydrate', () =
     });
   });
 
-  it('handles guardrail failure during resumed sync without corrupting state', async () => {
+  it('preserves state when resumed sync sees stale cursor page', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
 
     // Seed initial state
@@ -306,28 +306,26 @@ describe('VfsBackgroundSyncClient bidirectional contract: restart/hydrate', () =
     );
     resumedClient.hydrateState(seedState);
 
-    // Sync should fail with guardrail
-    await expect(resumedClient.sync()).rejects.toThrow(
-      /transport returned regressing sync cursor/
-    );
+    // Sync should preserve local cursor boundary while emitting guardrail
+    await resumedClient.sync();
 
     // Guardrail was emitted
     expect(guardrailCollector.violations).toContainEqual(
-      expect.objectContaining({ code: 'pullCursorRegression' })
+      expect.objectContaining({ code: 'pullPageInvariantViolation' })
     );
 
-    // State is at first page tail (first page applied before failure)
-    const stateAfterFailure = resumedClient.snapshot();
-    expect(stateAfterFailure.cursor).toEqual({
+    // State stays at first page tail after stale second page
+    const stateAfterSync = resumedClient.snapshot();
+    expect(stateAfterSync.cursor).toEqual({
       changedAt: '2026-02-20T16:31:00.000Z',
       changeId: 'new-op'
     });
 
     // ACL contains seed item and first page item, but not corrupted
-    expect(stateAfterFailure.acl).toContainEqual(
+    expect(stateAfterSync.acl).toContainEqual(
       expect.objectContaining({ itemId: 'item-seed' })
     );
-    expect(stateAfterFailure.acl).toContainEqual(
+    expect(stateAfterSync.acl).toContainEqual(
       expect.objectContaining({ itemId: 'item-new' })
     );
   });

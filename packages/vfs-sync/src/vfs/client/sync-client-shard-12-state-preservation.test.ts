@@ -206,7 +206,7 @@ describe('VfsBackgroundSyncClient state preservation on guardrail violations', (
     expect(finalState.acl).toEqual(seedState.acl);
   });
 
-  it('preserves all state when cursor regression is detected across pages', async () => {
+  it('preserves state when stale later page regresses cursor without newer items', async () => {
     // Seed initial state
     const seedServer = new InMemoryVfsCrdtSyncServer();
     await seedServer.pushOperations({
@@ -284,14 +284,12 @@ describe('VfsBackgroundSyncClient state preservation on guardrail violations', (
     );
     targetClient.hydrateState(seedClient.exportState());
 
-    // Trigger guardrail
-    await expect(targetClient.sync()).rejects.toThrow(
-      /transport returned regressing sync cursor/
-    );
+    // Trigger guardrail and preserve local cursor boundary
+    await targetClient.sync();
 
     // Verify guardrail was emitted
     expect(toStageCodeSignatures(guardrailCollector.violations)).toEqual([
-      'pull:pullCursorRegression'
+      'pull:pullPageInvariantViolation'
     ]);
 
     // Verify cursor is at first page tail (first page was applied before regression detected)

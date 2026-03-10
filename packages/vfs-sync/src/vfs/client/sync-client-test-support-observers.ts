@@ -339,7 +339,6 @@ export {
   expectGuardrailSignature,
   expectHydrateGuardrailViolation,
   expectLastWriteIdRegressionViolation,
-  expectPullCursorRegressionViolation,
   expectPullDuplicateOpReplayViolation,
   expectPullPageInvariantViolation,
   expectPullRematerializationRequiredViolation,

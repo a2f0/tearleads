@@ -13,7 +13,6 @@ import {
   expectExactGuardrailSignatures,
   expectGuardrailSignature,
   expectHydrateGuardrailViolation,
-  expectPullCursorRegressionViolation,
   expectPullDuplicateOpReplayViolation,
   expectPullPageInvariantViolation,
   expectPullRematerializationRequiredViolation,
@@ -139,7 +138,7 @@ describe('VfsBackgroundSyncClient guardrail telemetry determinism', () => {
       });
     });
 
-    it('emits pullCursorRegression with deterministic signature and cursor details', async () => {
+    it('emits pullPageInvariantViolation when stale empty page regresses cursor', async () => {
       const guardrailCollector = createGuardrailViolationCollector();
       let pullCount = 0;
 
@@ -186,19 +185,31 @@ describe('VfsBackgroundSyncClient guardrail telemetry determinism', () => {
         }
       );
 
-      await expect(client.sync()).rejects.toThrow(/regressing sync cursor/);
+      await client.sync();
 
       expectGuardrailSignature({
         violations: guardrailCollector.violations,
-        signature: 'pull:pullCursorRegression'
+        signature: 'pull:pullPageInvariantViolation'
       });
 
-      expectPullCursorRegressionViolation({
-        violations: guardrailCollector.violations,
-        previousChangedAt: '2026-02-20T10:00:00.000Z',
-        previousChangeId: 'op-1',
-        incomingChangedAt: '2026-02-20T09:59:00.000Z',
-        incomingChangeId: 'regressed-op'
+      expect(guardrailCollector.violations).toContainEqual(
+        expect.objectContaining({
+          code: 'pullPageInvariantViolation',
+          stage: 'pull',
+          message:
+            'pull response regressed cursor without newer items; preserving local cursor boundary',
+          details: expect.objectContaining({
+            previousChangedAt: '2026-02-20T10:00:00.000Z',
+            previousChangeId: 'op-1',
+            incomingChangedAt: '2026-02-20T09:59:00.000Z',
+            incomingChangeId: 'regressed-op'
+          })
+        })
+      );
+
+      expect(client.snapshot().cursor).toEqual({
+        changedAt: '2026-02-20T10:00:00.000Z',
+        changeId: 'op-1'
       });
     });
 

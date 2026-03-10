@@ -5,70 +5,13 @@ import { useDatabaseContext } from '@/db/hooks';
 import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
+import {
+  isVfsTransientInstanceSwitchError,
+  isVfsUnauthorizedError
+} from '@/lib/vfsSyncErrorClassification';
 
 const INITIAL_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 60_000;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function hasExactNumericField(
-  value: Record<string, unknown>,
-  field: string,
-  expected: number
-): boolean {
-  return typeof value[field] === 'number' && value[field] === expected;
-}
-
-function renderErrorMessage(error: unknown): string {
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
-  }
-
-  if (!isRecord(error)) {
-    return '';
-  }
-
-  const name = typeof error['name'] === 'string' ? error['name'] : '';
-  const message = typeof error['message'] === 'string' ? error['message'] : '';
-
-  return `${name} ${message}`.trim();
-}
-
-function isUnauthorizedBootstrapError(error: unknown): boolean {
-  if (isRecord(error)) {
-    if (
-      hasExactNumericField(error, 'status', 401) ||
-      hasExactNumericField(error, 'statusCode', 401) ||
-      hasExactNumericField(error, 'code', 401)
-    ) {
-      return true;
-    }
-
-    const code = error['code'];
-    if (typeof code === 'string') {
-      const normalizedCode = code.toLowerCase();
-      if (
-        normalizedCode === 'unauthorized' ||
-        normalizedCode === 'unauthenticated'
-      ) {
-        return true;
-      }
-    }
-  }
-
-  const renderedMessage = renderErrorMessage(error).toLowerCase();
-  return (
-    renderedMessage.includes('unauthorized') ||
-    renderedMessage.includes('unauthenticated') ||
-    /api error:\s*401\b/iu.test(renderedMessage)
-  );
-}
 
 export function VfsRematerializationBootstrap() {
   const { isAuthenticated, token, user } = useAuth();
@@ -115,6 +58,9 @@ export function VfsRematerializationBootstrap() {
       inFlightRef.current = true;
       void rematerializeRemoteVfsStateIfNeeded()
         .then(() => {
+          if (cancelled) {
+            return;
+          }
           if (
             getInstanceChangeSnapshot().instanceEpoch !==
             operationSnapshot.instanceEpoch
@@ -124,22 +70,29 @@ export function VfsRematerializationBootstrap() {
           retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
         })
         .catch((error) => {
+          if (cancelled) {
+            return;
+          }
           const currentSnapshot = getInstanceChangeSnapshot();
           if (
             currentSnapshot.instanceEpoch !== operationSnapshot.instanceEpoch
           ) {
             return;
           }
-          if (isUnauthorizedBootstrapError(error)) {
+          if (isVfsUnauthorizedError(error)) {
             retryDelayMsRef.current = INITIAL_RETRY_DELAY_MS;
             return;
           }
 
-          console.warn(
-            'VFS rematerialization bootstrap failed:',
-            `instanceEpoch=${operationSnapshot.instanceEpoch}, currentInstanceEpoch=${currentSnapshot.instanceEpoch}, instanceId=${operationSnapshot.currentInstanceId ?? 'none'}`,
-            error
-          );
+          const shouldWarn = !isVfsTransientInstanceSwitchError(error);
+
+          if (shouldWarn) {
+            console.warn(
+              'VFS rematerialization bootstrap failed:',
+              `instanceEpoch=${operationSnapshot.instanceEpoch}, currentInstanceEpoch=${currentSnapshot.instanceEpoch}, instanceId=${operationSnapshot.currentInstanceId ?? 'none'}`,
+              error
+            );
+          }
           const delayMs = retryDelayMsRef.current;
           retryDelayMsRef.current = Math.min(
             retryDelayMsRef.current * 2,
@@ -152,6 +105,10 @@ export function VfsRematerializationBootstrap() {
           }, delayMs);
         })
         .finally(() => {
+          if (cancelled) {
+            inFlightRef.current = false;
+            return;
+          }
           if (!retryTimerRef.current) {
             inFlightRef.current = false;
           }

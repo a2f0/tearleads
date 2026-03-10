@@ -188,6 +188,131 @@ describe('VfsBackgroundSyncClient rematerialization recovery', () => {
     expect(client.snapshot().pendingOperations).toBe(0);
   });
 
+  it('ignores stale pull prefix items and applies only forward operations', async () => {
+    let pullCalls = 0;
+    const seedOccurredAt = '2026-03-01T00:00:00.000Z';
+    const nextOccurredAt = '2026-03-01T00:00:01.000Z';
+
+    const seedItem = buildAclAddSyncItem({
+      opId: 'seed-op',
+      occurredAt: seedOccurredAt,
+      itemId: 'item-seed'
+    });
+    const nextItem = buildAclAddSyncItem({
+      opId: 'next-op',
+      occurredAt: nextOccurredAt,
+      itemId: 'item-next'
+    });
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', {
+      pushOperations: async () => ({ results: [] }),
+      pullOperations: async () => {
+        pullCalls += 1;
+        if (pullCalls === 1) {
+          return {
+            items: [seedItem],
+            hasMore: false,
+            nextCursor: null,
+            lastReconciledWriteIds: { desktop: 1 }
+          };
+        }
+
+        return {
+          items: [seedItem, nextItem],
+          hasMore: false,
+          nextCursor: null,
+          lastReconciledWriteIds: { desktop: 2 }
+        };
+      }
+    });
+
+    await client.sync();
+    const result = await client.sync();
+
+    expect(result).toEqual({
+      pulledOperations: 1,
+      pullPages: 1
+    });
+    expect(client.snapshot().acl).toEqual([
+      {
+        itemId: 'item-next',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      },
+      {
+        itemId: 'item-seed',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      }
+    ]);
+  });
+
+  it('converts stale hasMore pages into rematerialization retry flow', async () => {
+    let pullCalls = 0;
+    let rematerializationCalls = 0;
+    const seedOccurredAt = '2026-03-01T00:00:00.000Z';
+    const seedItem = buildAclAddSyncItem({
+      opId: 'seed-op',
+      occurredAt: seedOccurredAt,
+      itemId: 'item-seed'
+    });
+    const seedCursor = {
+      changedAt: seedOccurredAt,
+      changeId: 'seed-op'
+    };
+
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      {
+        pushOperations: async () => ({ results: [] }),
+        pullOperations: async () => {
+          pullCalls += 1;
+          if (pullCalls === 1) {
+            return {
+              items: [seedItem],
+              hasMore: false,
+              nextCursor: null,
+              lastReconciledWriteIds: { desktop: 1 }
+            };
+          }
+          if (pullCalls === 2) {
+            return {
+              items: [seedItem],
+              hasMore: true,
+              nextCursor: seedCursor,
+              lastReconciledWriteIds: { desktop: 1 }
+            };
+          }
+          return {
+            items: [],
+            hasMore: false,
+            nextCursor: null,
+            lastReconciledWriteIds: { desktop: 1 }
+          };
+        }
+      },
+      {
+        onRematerializationRequired: async () => {
+          rematerializationCalls += 1;
+          return null;
+        }
+      }
+    );
+
+    await client.sync();
+    const result = await client.sync();
+
+    expect(result).toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    expect(rematerializationCalls).toBe(1);
+    expect(pullCalls).toBe(3);
+  });
+
   it('respects maxRematerializationAttempts and fails closed when exhausted', async () => {
     let pullCalls = 0;
     const client = new VfsBackgroundSyncClient(
