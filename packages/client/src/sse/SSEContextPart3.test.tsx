@@ -27,9 +27,6 @@ function getMockApiModule() {
   if (!mockApiModuleState) {
     mockApiModuleState = createMockApiModule();
   }
-  if (!mockApiModuleState) {
-    throw new Error('Expected mockApiModuleState to be initialized');
-  }
   return mockApiModuleState;
 }
 
