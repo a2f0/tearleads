@@ -275,7 +275,48 @@ describe('initializeAndRestoreDatabaseState', () => {
     expect(options.setInstances).toHaveBeenCalledWith(updatedInstances);
     expect(mockTouchInstance).toHaveBeenCalledWith('active-1');
     expect(mockLogWarn).toHaveBeenCalledWith(
-      'Deferred session restoration failed, resetting and re-initializing'
+      '[db] deferred session restoration failed, resetting and re-initializing'
+    );
+    expect(mockNotificationWarning).not.toHaveBeenCalled();
+    expect(options.setIsLoading).toHaveBeenCalledWith(false);
+  });
+
+  it('resets and re-initializes when setup-only deferred instance lost session keys', async () => {
+    const active = { id: 'active-1', name: 'Primary', passwordDeferred: true };
+    const freshDb = { id: 'fresh-db' };
+    const updatedInstances = [active];
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances
+      .mockResolvedValueOnce([active])
+      .mockResolvedValueOnce(updatedInstances);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(true);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockResetDatabase.mockResolvedValue(undefined);
+    mockAutoInitializeDatabase.mockResolvedValue(freshDb);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockResetDatabase).toHaveBeenCalledWith('active-1');
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(freshDb);
+    expect(options.setIsSetUp).toHaveBeenCalledWith(true);
+    expect(options.setHasPersisted).toHaveBeenCalledWith(true);
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+    expect(mockUpdateInstance).toHaveBeenCalledWith('active-1', {
+      passwordDeferred: true
+    });
+    expect(options.setInstances).toHaveBeenCalledWith(updatedInstances);
+    expect(mockTouchInstance).toHaveBeenCalledWith('active-1');
+    expect(mockLogDebug).toHaveBeenCalledWith(
+      '[db] deferred instance lost session keys, auto-initializing fresh'
     );
     expect(mockNotificationWarning).not.toHaveBeenCalled();
     expect(options.setIsLoading).toHaveBeenCalledWith(false);
