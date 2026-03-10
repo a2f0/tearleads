@@ -37,25 +37,19 @@ fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
         .layer(TraceLayer::new_for_http());
 
     if enable_admin_harness {
-        let admin_service = tower::ServiceBuilder::new()
-            .layer(tonic_web::GrpcWebLayer::new())
-            .service(AdminServiceServer::new(
-                admin_harness::create_admin_harness_handler(),
-            ))
-            .map_request(|request: axum::http::Request<axum::body::Body>| {
-                request.map(tonic::body::Body::new)
-            });
-        let admin_service_v1_prefixed = tower::ServiceBuilder::new()
-            .layer(tonic_web::GrpcWebLayer::new())
-            .service(AdminServiceServer::new(
-                admin_harness::create_admin_harness_handler(),
-            ))
-            .map_request(|request: axum::http::Request<axum::body::Body>| {
-                request.map(tonic::body::Body::new)
-            });
+        let build_admin_service = || {
+            tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(AdminServiceServer::new(
+                    admin_harness::create_admin_harness_handler(),
+                ))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                })
+        };
         router
-            .nest_service("/connect", admin_service)
-            .nest_service("/v1/connect", admin_service_v1_prefixed)
+            .nest_service("/connect", build_admin_service())
+            .nest_service("/v1/connect", build_admin_service())
     } else {
         router
     }
