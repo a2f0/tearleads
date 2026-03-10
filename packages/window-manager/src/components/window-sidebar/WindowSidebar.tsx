@@ -196,6 +196,7 @@ function MobileDrawer({
         <div
           className={cn(
             'fixed inset-y-0 left-0 z-10 flex w-[85vw] max-w-[320px] flex-col border-r bg-background shadow-lg',
+            'pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]',
             'transition-transform duration-300 ease-out',
             isVisible ? 'translate-x-0' : '-translate-x-full'
           )}

@@ -1,6 +1,6 @@
 // component-complexity: allow – pre-existing, rename-only change
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
-import { WindowSidebar } from '@tearleads/window-manager';
+import { WindowSidebar, WindowSidebarToggle } from '@tearleads/window-manager';
 import {
   Calendar,
   FileType,
@@ -28,6 +28,7 @@ export function AudioDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
     searchParams.get('playlist') ?? ALL_AUDIO_ID
   );
@@ -115,8 +116,8 @@ export function AudioDetail() {
         <WindowSidebar
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          open={false}
-          onOpenChange={() => {}}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
           ariaLabel="Playlists"
         >
           <AudioPlaylistsSidebar
@@ -127,6 +128,11 @@ export function AudioDetail() {
       )}
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center gap-4">
+          {isUnlocked && (
+            <WindowSidebarToggle
+              onToggle={() => setSidebarOpen((prev) => !prev)}
+            />
+          )}
           <BackLink defaultTo="/audio" defaultLabel={t('back')} />
         </div>
 
