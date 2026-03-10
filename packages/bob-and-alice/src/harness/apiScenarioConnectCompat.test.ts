@@ -99,6 +99,41 @@ describe('mapLegacyPathToConnect', () => {
     ).toBeNull();
   });
 
+  it('does not map legacy blob routes', () => {
+    expect(
+      mapLegacyPathToConnect('/vfs/blobs/stage', {
+        method: 'POST',
+        body: JSON.stringify({
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        })
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/blobs/stage/stage-1/chunks', {
+        method: 'POST',
+        body: JSON.stringify({ uploadId: 'upload-1' })
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/blobs/stage/stage-1/attach', {
+        method: 'POST',
+        body: JSON.stringify({ itemId: 'item-1', relationKind: 'file' })
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/blobs/stage/stage-1/abandon', {
+        method: 'POST'
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyPathToConnect('/vfs/blobs/blob-1', {
+        method: 'DELETE'
+      })
+    ).toBeNull();
+  });
+
   it('does not map legacy AI usage routes', () => {
     const mapping = mapLegacyPathToConnect('/ai/usage', {
       method: 'POST',

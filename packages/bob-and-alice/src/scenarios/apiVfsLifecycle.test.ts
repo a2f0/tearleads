@@ -334,7 +334,7 @@ describe('API VFS lifecycle', () => {
       status: string;
       stagedAt: string;
       expiresAt: string;
-    }>('/vfs/blobs/stage', {
+    }>('/connect/tearleads.v2.VfsService/StageBlob', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -352,10 +352,11 @@ describe('API VFS lifecycle', () => {
       stagingId: string;
       uploadId: string;
       chunkIndex: number;
-    }>(`/vfs/blobs/stage/${stageOneId}/chunks`, {
+    }>('/connect/tearleads.v2.VfsService/UploadBlobChunk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        stagingId: stageOneId,
         uploadId: uploadOneId,
         chunkIndex: 0,
         isFinal: true,
@@ -378,10 +379,11 @@ describe('API VFS lifecycle', () => {
       relationKind: string;
       refId: string;
       attachedAt: string;
-    }>(`/vfs/blobs/stage/${stageOneId}/attach`, {
+    }>('/connect/tearleads.v2.VfsService/AttachBlob', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        stagingId: stageOneId,
         itemId: hostItemId,
         relationKind: 'file'
       })
@@ -392,23 +394,32 @@ describe('API VFS lifecycle', () => {
     expect(attachResponse.relationKind).toBe('file');
 
     const abandonAfterAttach = await alice.fetch(
-      `/vfs/blobs/stage/${stageOneId}/abandon`,
-      { method: 'POST' }
+      '/connect/tearleads.v2.VfsService/AbandonBlob',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stagingId: stageOneId })
+      }
     );
     expect(abandonAfterAttach.status).toBe(409);
-    expect(await abandonAfterAttach.json()).toEqual({
-      error: 'Blob staging is no longer abandonable'
+    expect(await abandonAfterAttach.json()).toMatchObject({
+      message: 'Blob staging is no longer abandonable'
     });
 
-    const deleteAttachedBlob = await alice.fetch(`/vfs/blobs/${blobOneId}`, {
-      method: 'DELETE'
-    });
+    const deleteAttachedBlob = await alice.fetch(
+      '/connect/tearleads.v2.VfsService/DeleteBlob',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobId: blobOneId })
+      }
+    );
     expect(deleteAttachedBlob.status).toBe(409);
-    expect(await deleteAttachedBlob.json()).toEqual({
-      error: 'Blob is attached and cannot be deleted'
+    expect(await deleteAttachedBlob.json()).toMatchObject({
+      message: 'Blob is attached and cannot be deleted'
     });
 
-    await alice.fetchJson('/vfs/blobs/stage', {
+    await alice.fetchJson('/connect/tearleads.v2.VfsService/StageBlob', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -422,27 +433,30 @@ describe('API VFS lifecycle', () => {
       abandoned: boolean;
       stagingId: string;
       status: string;
-    }>(`/vfs/blobs/stage/${stageTwoId}/abandon`, {
-      method: 'POST'
+    }>('/connect/tearleads.v2.VfsService/AbandonBlob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stagingId: stageTwoId })
     });
     expect(abandonResponse.abandoned).toBe(true);
     expect(abandonResponse.stagingId).toBe(stageTwoId);
     expect(abandonResponse.status).toBe('abandoned');
 
     const attachAfterAbandon = await alice.fetch(
-      `/vfs/blobs/stage/${stageTwoId}/attach`,
+      '/connect/tearleads.v2.VfsService/AttachBlob',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          stagingId: stageTwoId,
           itemId: hostItemId,
           relationKind: 'file'
         })
       }
     );
     expect(attachAfterAbandon.status).toBe(409);
-    expect(await attachAfterAbandon.json()).toEqual({
-      error: 'Blob staging is no longer attachable'
+    expect(await attachAfterAbandon.json()).toMatchObject({
+      message: 'Blob staging is no longer attachable'
     });
   });
 });

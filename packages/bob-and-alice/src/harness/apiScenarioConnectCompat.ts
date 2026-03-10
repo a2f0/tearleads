@@ -1,7 +1,4 @@
-import {
-  parseConnectJsonEnvelopeBody,
-  VFS_V2_CONNECT_BASE_PATH
-} from '@tearleads/shared';
+import { parseConnectJsonEnvelopeBody } from '@tearleads/shared';
 
 export interface ConnectRouteMapping {
   path: string;
@@ -11,8 +8,6 @@ export interface ConnectRouteMapping {
   legacyDefaults?: Record<string, unknown>;
 }
 
-const VFS_SERVICE_PATH = `/v1${VFS_V2_CONNECT_BASE_PATH}`;
-
 function parseJson<T>(text: string): T {
   return JSON.parse(text);
 }
@@ -21,164 +16,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readBodyText(body: RequestInit['body']): string {
-  if (body === null || body === undefined) {
-    return '';
-  }
-  if (typeof body === 'string') {
-    return body;
-  }
-  if (body instanceof String) {
-    return body.toString();
-  }
-  if (body instanceof URLSearchParams) {
-    return body.toString();
-  }
-  if (body instanceof ArrayBuffer) {
-    return new TextDecoder().decode(new Uint8Array(body));
-  }
-  if (ArrayBuffer.isView(body)) {
-    return new TextDecoder().decode(
-      new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
-    );
-  }
-  if (typeof body === 'object') {
-    try {
-      return JSON.stringify(body);
-    } catch {
-      return '';
-    }
-  }
-  return String(body);
-}
-
-function normalizeJsonBodyText(rawBodyText: string): string {
-  const trimmed = rawBodyText.trim();
-  if (trimmed.length === 0) {
-    return '{}';
-  }
-
-  try {
-    const parsed = parseJson<unknown>(trimmed);
-    if (typeof parsed !== 'string') {
-      return trimmed;
-    }
-
-    const nestedParsed = parseJson<unknown>(parsed);
-    if (typeof nestedParsed === 'string') {
-      return parsed;
-    }
-    return JSON.stringify(nestedParsed);
-  } catch {
-    return trimmed;
-  }
-}
-
-function readJsonBody(body: RequestInit['body']): Record<string, unknown> {
-  const parsed = parseJson<unknown>(normalizeJsonBodyText(readBodyText(body)));
-  return isRecord(parsed) ? parsed : {};
-}
-
-function encodedSegment(value: string): string {
-  return decodeURIComponent(value);
-}
-
-function requiredMatchGroup(match: RegExpMatchArray, index: number): string {
-  const value = match[index];
-  if (!value) {
-    throw new Error('invalid route match: missing segment');
-  }
-  return value;
-}
-
 export function mapLegacyPathToConnect(
-  path: string,
-  init: RequestInit | undefined
+  _path: string,
+  _init: RequestInit | undefined
 ): ConnectRouteMapping | null {
-  const url = new URL(path, 'http://localhost');
-  const method = (init?.method ?? 'GET').toUpperCase();
-  const pathname = url.pathname;
-  const jsonBody = readJsonBody(init?.body);
-
-  if (pathname === '/vfs/blobs/stage' && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/StageBlob`,
-      body: jsonBody,
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const blobStageChunksMatch = pathname.match(
-    /^\/vfs\/blobs\/stage\/([^/]+)\/chunks$/
-  );
-  if (blobStageChunksMatch && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/UploadBlobChunk`,
-      body: {
-        stagingId: encodedSegment(requiredMatchGroup(blobStageChunksMatch, 1)),
-        ...jsonBody
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const blobStageAttachMatch = pathname.match(
-    /^\/vfs\/blobs\/stage\/([^/]+)\/attach$/
-  );
-  if (blobStageAttachMatch && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/AttachBlob`,
-      body: {
-        stagingId: encodedSegment(requiredMatchGroup(blobStageAttachMatch, 1)),
-        ...jsonBody
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const blobStageAbandonMatch = pathname.match(
-    /^\/vfs\/blobs\/stage\/([^/]+)\/abandon$/
-  );
-  if (blobStageAbandonMatch && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/AbandonBlob`,
-      body: {
-        stagingId: encodedSegment(requiredMatchGroup(blobStageAbandonMatch, 1))
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const blobStageCommitMatch = pathname.match(
-    /^\/vfs\/blobs\/stage\/([^/]+)\/commit$/
-  );
-  if (blobStageCommitMatch && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/CommitBlob`,
-      body: {
-        stagingId: encodedSegment(requiredMatchGroup(blobStageCommitMatch, 1)),
-        ...jsonBody
-      },
-      unwrapJsonEnvelope: true
-    };
-  }
-
-  const blobMatch = pathname.match(/^\/vfs\/blobs\/([^/]+)$/);
-  if (blobMatch && method === 'DELETE') {
-    return {
-      path: `${VFS_SERVICE_PATH}/DeleteBlob`,
-      body: { blobId: encodedSegment(requiredMatchGroup(blobMatch, 1)) },
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (blobMatch && method === 'GET') {
-    return {
-      path: `${VFS_SERVICE_PATH}/GetBlob`,
-      body: { blobId: encodedSegment(requiredMatchGroup(blobMatch, 1)) },
-      unwrapJsonEnvelope: false
-    };
-  }
-
   return null;
 }
 
