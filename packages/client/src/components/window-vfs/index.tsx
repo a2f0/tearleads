@@ -10,7 +10,7 @@ import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider'
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
-import { useVfsUploader } from '@/hooks/vfs';
+import { useVfsUploader } from '@/hooks/vfs/useVfsUploader';
 import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfsOpen';
 
 interface VfsWindowProps {

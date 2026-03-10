@@ -11,7 +11,7 @@ import {
 } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useDropZone } from '@/hooks/dnd';
-import { useFileUpload } from '@/hooks/vfs';
+import { useFileUpload } from '@/hooks/vfs/useFileUpload';
 import {
   ALL_PHOTOS_ID,
   PhotosWindowContentArea

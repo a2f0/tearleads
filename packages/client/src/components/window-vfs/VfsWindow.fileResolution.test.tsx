@@ -38,7 +38,7 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 // Mock useVfsUploader hook
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsUploader', () => ({
   useVfsUploader: () => ({
     fileInputRef: hoistedMocks.mockFileInputRef,
     refreshToken: 0,

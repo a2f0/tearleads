@@ -74,6 +74,29 @@ export default defineConfig(({ mode }) => ({
     // Keep a higher threshold so warnings signal real regressions.
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        // Circular cross-chunk re-exports → hard error
+        if (warning.code === 'CYCLIC_CROSS_CHUNK_REEXPORT') {
+          throw new Error(`Build error: ${warning.code} — ${warning.message}`);
+        }
+
+        // Suppress eval warning from third-party @protobufjs/inquire
+        if (warning.code === 'EVAL' && warning.id?.includes('@protobufjs')) {
+          return;
+        }
+
+        // Suppress known-safe dynamic node:zlib import from compression.ts
+        // vite:resolve sets warning.id to the resolved module, not the importer
+        if (
+          warning.message?.includes('node:zlib') &&
+          warning.message?.includes('compression')
+        ) {
+          return;
+        }
+
+        // All other warnings pass through normally
+        defaultHandler(warning);
+      },
       output: {
         manualChunks: {
           // Core React dependencies

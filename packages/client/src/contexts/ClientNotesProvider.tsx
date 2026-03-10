@@ -30,7 +30,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';

@@ -31,7 +31,7 @@ vi.mock('../window-photos/usePhotoAlbums', () => ({
   })
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: vi.fn().mockResolvedValue({ id: 'file-id' })
   })

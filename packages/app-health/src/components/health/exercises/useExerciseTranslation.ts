@@ -1,6 +1,6 @@
-import { isDefaultExercise } from '@tearleads/app-health';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isDefaultExercise } from '../../../lib/defaultExercises.js';
 
 /**
  * Hook to get translated exercise names.

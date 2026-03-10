@@ -112,6 +112,7 @@ run_step "checkPreenEcosystem" ./scripts/checks/preen/checkPreenEcosystem.ts --s
 run_step "checkDependencyCruiser" ./scripts/checks/checkDependencyCruiser.sh
 run_step "checkArchitectureGuardrailBudgets" ./scripts/checks/checkArchitectureGuardrailBudgets.ts
 run_step "checkCircularImports" ./scripts/checks/checkCircularImports.ts
+run_step "checkNodeImportsInClientCode" ./scripts/checks/checkNodeImportsInClientCode.ts --from-upstream
 run_step "checkTailwindSources" ./scripts/checks/checkTailwindSources.ts
 run_step "lintKnip" sh "$PM_SCRIPT" run lint:knip
 run_step "lintMarkdown" sh "$PM_SCRIPT" run lint:md

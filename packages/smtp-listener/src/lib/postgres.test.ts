@@ -1,4 +1,4 @@
-import type { PostgresDevDefaults } from '@tearleads/shared';
+import type { PostgresDevDefaults } from '@tearleads/shared/server';
 import type { PoolConfig } from 'pg';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 

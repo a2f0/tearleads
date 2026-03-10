@@ -31,7 +31,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
-import { useFileUpload } from '@/hooks/vfs';
+import { useFileUpload } from '@/hooks/vfs/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { uint8ArrayToBase64 } from '@/lib/base64';
 import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';

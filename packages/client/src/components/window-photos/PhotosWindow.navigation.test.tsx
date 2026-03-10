@@ -269,7 +269,7 @@ vi.mock('./usePhotoAlbums', () => ({
   })
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })

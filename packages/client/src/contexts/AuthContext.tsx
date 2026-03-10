@@ -18,7 +18,7 @@ import { getInstance, updateInstance } from '@/db/instanceRegistry';
 import {
   createVfsKeySetupPayloadForOnboarding,
   setVfsRecoveryPassword
-} from '@/hooks/vfs';
+} from '@/hooks/vfs/useVfsKeys';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_TOKEN_KEY,

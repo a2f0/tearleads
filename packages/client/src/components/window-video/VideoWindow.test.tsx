@@ -102,7 +102,7 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
   };
 });
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useFileUpload', () => ({
   useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 

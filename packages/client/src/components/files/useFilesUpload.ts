@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useFileUpload } from '@/hooks/vfs';
+import { useFileUpload } from '@/hooks/vfs/useFileUpload';
 import { getErrorMessage } from '@/lib/errors';
 import type { UploadingFile } from './types';
 

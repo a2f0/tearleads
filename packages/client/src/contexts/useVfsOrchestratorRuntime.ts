@@ -27,7 +27,7 @@ import {
   type InstanceChangeSnapshot,
   subscribeToInstanceChange
 } from '@/hooks/app/useInstanceChange';
-import { ensureVfsKeys } from '@/hooks/vfs';
+import { ensureVfsKeys } from '@/hooks/vfs/useVfsKeys';
 import {
   getActiveOrganizationId,
   hasActiveOrganizationId,

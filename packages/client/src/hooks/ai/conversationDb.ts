@@ -8,7 +8,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { aiMessages } from '@/db/schema';
-import { ensureVfsKeyPair } from '@/hooks/vfs';
+import { ensureVfsKeyPair } from '@/hooks/vfs/useVfsKeys';
 import { unwrapConversationSessionKey } from '@/lib/conversationCrypto';
 
 const sessionKeyCache = new Map<string, Uint8Array>();

@@ -26,7 +26,7 @@ vi.mock('@/db/schema', () => ({
   },
   vfsRegistry: { id: 'vfs_id', encryptedSessionKey: 'esk' }
 }));
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   ensureVfsKeys: vi.fn().mockResolvedValue(undefined),
   generateSessionKey: vi.fn(() => new Uint8Array([1, 2, 3])),
   wrapSessionKey: vi.fn().mockResolvedValue('wrapped-key')

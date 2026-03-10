@@ -47,7 +47,7 @@ vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => ({}))
 }));
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   generateSessionKey: vi.fn(() => new Uint8Array([1, 2, 3])),
   wrapSessionKey: vi.fn(async () => 'wrapped')
 }));

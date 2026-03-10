@@ -1,3 +1,4 @@
+// component-complexity: allow (contact creation form with many fields)
 import { ArrowLeft, Cake, Loader2, Save, User, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,7 +15,7 @@ import {
   contacts,
   vfsRegistry
 } from '@/db/schema';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { EmailAddressesSection } from '@/pages/contact-new/EmailAddressesSection';

@@ -17,7 +17,7 @@ import { UploadProgress } from '@/components/ui/UploadProgress';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/dnd';
-import { useFileUpload } from '@/hooks/vfs';
+import { useFileUpload } from '@/hooks/vfs/useFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
 import { VideoDetail } from '@/pages/VideoDetail';

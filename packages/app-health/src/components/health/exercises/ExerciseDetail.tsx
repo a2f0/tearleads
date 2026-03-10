@@ -1,6 +1,6 @@
-import type { CreateExerciseInput } from '@tearleads/app-health';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
+import type { CreateExerciseInput } from '../../../lib/healthTrackerTypes.js';
 import { useHealthRuntime } from '../../../runtime';
 import { ExerciseForm } from './ExerciseForm';
 import { ExerciseList } from './ExerciseList';

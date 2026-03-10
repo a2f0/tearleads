@@ -1,10 +1,12 @@
-import type { WorkoutEntry } from '@tearleads/app-health';
+// one-component-per-file: allow (getSortIcon is a useCallback, not a component)
+
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import { Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import type { WorkoutEntry } from '../../../lib/healthTrackerTypes.js';
 
 import { useExerciseTranslation } from '../exercises/useExerciseTranslation';
 

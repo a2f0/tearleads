@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockEnsureVfsKeyPair = vi.fn();
 const mockUnwrapConversationSessionKey = vi.fn();
 
-vi.mock('@/hooks/vfs', () => ({
+vi.mock('@/hooks/vfs/useVfsKeys', () => ({
   ensureVfsKeyPair: (...args: unknown[]) => mockEnsureVfsKeyPair(...args)
 }));
 
