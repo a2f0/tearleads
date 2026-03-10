@@ -12,6 +12,18 @@ const unauthorizedErrorCases: Array<{ label: string; error: unknown }> = [
   { label: 'string unauthorized', error: 'Unauthorized' },
   { label: 'Unauthorized', error: new Error('Unauthorized') },
   { label: 'API error: 401', error: new Error('API error: 401') },
+  {
+    label: 'wrapped unauthorized cause',
+    error: { message: 'request failed', cause: new Error('Unauthorized') }
+  },
+  {
+    label: 'nested response status 401',
+    error: { error: { response: { status: 401 } } }
+  },
+  {
+    label: 'connect unauthenticated numeric code',
+    error: { name: 'ConnectError', code: 16, message: '[unknown] stale token' }
+  },
   { label: 'status=401', error: { status: 401 } },
   { label: 'statusCode=401', error: { statusCode: 401 } },
   { label: 'code=401', error: { code: 401 } },
@@ -232,6 +244,25 @@ describe('VfsRematerializationBootstrap', () => {
     consoleWarnSpy.mockRestore();
   });
 
+  it('suppresses "Database not initialized" warnings and retries', async () => {
+    mockRematerializeRemoteVfsStateIfNeeded
+      .mockRejectedValueOnce(new Error('Database not initialized'))
+      .mockResolvedValueOnce(false);
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+
+    render(<VfsRematerializationBootstrap />);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
+  });
+
   it('clears pending retry timer when readiness changes and reruns immediately', async () => {
     let isReady = true;
     mockUseVfsOrchestrator.mockImplementation(() => ({ isReady }));
@@ -335,6 +366,42 @@ describe('VfsRematerializationBootstrap', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).not.toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('ignores in-flight failures after auth transitions cancel bootstrap', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+    let rejectRematerialization: ((reason?: unknown) => void) | null = null;
+
+    mockRematerializeRemoteVfsStateIfNeeded.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((_resolve, reject) => {
+          rejectRematerialization = reject;
+        })
+    );
+
+    const { rerender } = render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      token: null,
+      user: null
+    });
+    rerender(<VfsRematerializationBootstrap />);
+
+    rejectRematerialization?.(new Error('bootstrap failed after switch'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
     consoleWarnSpy.mockRestore();
   });
 

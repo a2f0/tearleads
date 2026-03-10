@@ -36,6 +36,7 @@ import {
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
+import { isVfsTransientInstanceSwitchError } from '@/lib/vfsSyncErrorClassification';
 import { useAuth } from './AuthContext';
 
 function normalizeApiPrefix(value: string): string {
@@ -81,6 +82,9 @@ function useFlushWhenOrganizationReady(input: {
 
       const flushSnapshot = getInstanceChangeSnapshot();
       void orchestrator.flushAll().catch((flushErr) => {
+        if (isVfsTransientInstanceSwitchError(flushErr)) {
+          return;
+        }
         console.warn(
           'Initial VFS orchestrator flush failed:',
           formatEpochTrace(flushSnapshot, getInstanceChangeSnapshot()),
@@ -232,6 +236,11 @@ export function useVfsOrchestratorRuntime(
             try {
               await rematerializeRemoteVfsStateIfNeeded();
             } catch (rematerializationError) {
+              if (
+                isVfsTransientInstanceSwitchError(rematerializationError)
+              ) {
+                return null;
+              }
               console.warn(
                 'VFS rematerialization callback failed; continuing with sync fallback state reset:',
                 formatEpochTrace(
@@ -333,6 +342,9 @@ export function useVfsOrchestratorRuntime(
     const flushOnOnline = () => {
       const onlineFlushSnapshot = getInstanceChangeSnapshot();
       void orchestrator.flushAll().catch((err) => {
+        if (isVfsTransientInstanceSwitchError(err)) {
+          return;
+        }
         console.warn(
           'VFS flush on reconnect failed:',
           formatEpochTrace(onlineFlushSnapshot, getInstanceChangeSnapshot()),
