@@ -15,9 +15,9 @@ describe('resolveDirectApiPath', () => {
     expect(
       resolveDirectApiPath('/connect/tearleads.v2.VfsService/Register')
     ).toBe('/v1/connect/tearleads.v2.VfsService/Register');
-    expect(resolveDirectApiPath('/connect/tearleads.v2.AuthService/Login')).toBe(
-      '/v1/connect/tearleads.v2.AuthService/Login'
-    );
+    expect(
+      resolveDirectApiPath('/connect/tearleads.v2.AuthService/Login')
+    ).toBe('/v1/connect/tearleads.v2.AuthService/Login');
   });
 });
 
