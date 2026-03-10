@@ -96,18 +96,18 @@ function parseCrdtResults(
   value: unknown
 ): Array<{ opId: string; status: string }> {
   if (!isRecord(value) || !Array.isArray(value['results'])) {
-    throw new Error('Unexpected /vfs/crdt/push response');
+    throw new Error('Unexpected PushCrdtOps response');
   }
 
   const output: Array<{ opId: string; status: string }> = [];
   for (const result of value['results']) {
     if (!isRecord(result)) {
-      throw new Error('Unexpected /vfs/crdt/push result payload');
+      throw new Error('Unexpected PushCrdtOps result payload');
     }
     const opId = result['opId'];
     const status = result['status'];
     if (typeof opId !== 'string' || typeof status !== 'string') {
-      throw new Error('Unexpected /vfs/crdt/push result fields');
+      throw new Error('Unexpected PushCrdtOps result fields');
     }
     output.push({ opId, status });
   }
