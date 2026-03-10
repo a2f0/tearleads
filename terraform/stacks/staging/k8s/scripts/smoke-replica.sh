@@ -75,9 +75,83 @@ phase_replication_status() {
   fail "No active streaming replication found on primary. Output: ${repl_output:-No output}"
 }
 
+phase_replica_read_after_write() {
+  echo ""
+  echo "Phase 3: Write on primary, read from replica"
+
+  local postgres_pod
+  postgres_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "$postgres_pod" ]]; then
+    fail "no running primary Postgres pod found (label app=postgres)"
+    return 1
+  fi
+
+  local replica_pod
+  replica_pod="$(kubectl -n "$NAMESPACE" get pods -l app=postgres-replica --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "$replica_pod" ]]; then
+    fail "no running replica pod found (label app=postgres-replica)"
+    return 1
+  fi
+
+  local marker
+  marker="smoke_$(date +%s)_$$"
+
+  # Create temp table and insert marker on primary
+  local write_output
+  if ! write_output="$(kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -lc "
+    PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"
+      CREATE TABLE IF NOT EXISTS _smoke_replica_check (id TEXT PRIMARY KEY, ts TIMESTAMPTZ DEFAULT now());
+      INSERT INTO _smoke_replica_check (id) VALUES ('$marker') ON CONFLICT DO NOTHING;
+      SELECT id FROM _smoke_replica_check WHERE id = '$marker';
+    \"
+  " 2>&1)"; then
+    fail "could not write marker to primary. Output: ${write_output:-No output}"
+    return 1
+  fi
+
+  if ! echo "$write_output" | grep -q "$marker"; then
+    fail "marker not confirmed on primary. Output: ${write_output:-No output}"
+    return 1
+  fi
+
+  # Wait for replication lag (up to 10s)
+  local attempts=0
+  local read_output=""
+  while (( attempts < 20 )); do
+    read_output="$(kubectl -n "$NAMESPACE" exec "$replica_pod" -c postgres -- sh -lc "
+      PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"
+        SELECT id FROM _smoke_replica_check WHERE id = '$marker';
+      \"
+    " 2>&1 || true)"
+
+    if echo "$read_output" | grep -q "$marker"; then
+      break
+    fi
+
+    sleep 0.5
+    attempts=$((attempts + 1))
+  done
+
+  # Clean up marker on primary
+  kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- sh -lc "
+    PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"
+      DELETE FROM _smoke_replica_check WHERE id = '$marker';
+    \"
+  " >/dev/null 2>&1 || true
+
+  if echo "$read_output" | grep -q "$marker"; then
+    pass "Marker '$marker' written to primary and read from replica"
+    return 0
+  fi
+
+  fail "Marker '$marker' not found on replica after 10s. Output: ${read_output:-No output}"
+}
+
 phase_api_to_replica_tcp() {
   echo ""
-  echo "Phase 3: API pod TCP reachability to postgres-replica service"
+  echo "Phase 4: API pod TCP reachability to postgres-replica service"
 
   local api_pod
   api_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
@@ -122,9 +196,10 @@ echo "  Kubeconfig: $KUBECONFIG"
 
 failures=0
 
-phase_replica_query       || failures=$((failures + 1))
-phase_replication_status  || failures=$((failures + 1))
-phase_api_to_replica_tcp  || failures=$((failures + 1))
+phase_replica_query            || failures=$((failures + 1))
+phase_replication_status       || failures=$((failures + 1))
+phase_replica_read_after_write || failures=$((failures + 1))
+phase_api_to_replica_tcp       || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then
