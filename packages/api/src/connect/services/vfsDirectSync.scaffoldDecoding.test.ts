@@ -1,13 +1,9 @@
 import { encrypt, importKey } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPostgresPoolMock, queryMock, requireVfsClaimsMock } = vi.hoisted(
-  () => ({
-    getPostgresPoolMock: vi.fn(),
-    queryMock: vi.fn(),
-    requireVfsClaimsMock: vi.fn()
-  })
-);
+const getPostgresPoolMock = vi.fn();
+const queryMock = vi.fn();
+const requireVfsClaimsMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)

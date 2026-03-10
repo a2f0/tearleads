@@ -1,19 +1,11 @@
 import { Code } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  authenticateMock,
-  resolveOrganizationMembershipMock,
-  verifyOrganizationMembershipMock
-} = vi.hoisted(() => ({
-  authenticateMock: vi.fn(),
-  resolveOrganizationMembershipMock: vi.fn(),
-  verifyOrganizationMembershipMock: vi.fn()
-}));
-const { getPostgresPoolMock, queryMock } = vi.hoisted(() => ({
-  getPostgresPoolMock: vi.fn(),
-  queryMock: vi.fn()
-}));
+const authenticateMock = vi.fn();
+const resolveOrganizationMembershipMock = vi.fn();
+const verifyOrganizationMembershipMock = vi.fn();
+const getPostgresPoolMock = vi.fn();
+const queryMock = vi.fn();
 
 vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),

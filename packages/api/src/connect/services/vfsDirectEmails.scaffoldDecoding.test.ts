@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPoolMock, readQueryMock, requireVfsClaimsMock } = vi.hoisted(() => ({
-  getPoolMock: vi.fn(),
-  readQueryMock: vi.fn(),
-  requireVfsClaimsMock: vi.fn()
-}));
+const getPoolMock = vi.fn();
+const readQueryMock = vi.fn();
+const requireVfsClaimsMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args),

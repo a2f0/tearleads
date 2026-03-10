@@ -1,91 +1,82 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  abandonBlobDirectMock,
-  attachBlobDirectMock,
-  commitBlobDirectMock,
-  deleteBlobDirectMock,
-  getCrdtSyncDirectMock,
-  deleteEmailDirectMock,
-  getBlobDirectMock,
-  getCrdtSnapshotDirectMock,
-  getEmailDirectMock,
-  getEmailsDirectMock,
-  getMyKeysDirectMock,
-  pushCrdtOpsDirectMock,
-  reconcileCrdtDirectMock,
-  runCrdtSessionDirectMock,
-  stageBlobDirectMock,
-  getSyncDirectMock,
-  rekeyItemDirectMock,
-  reconcileSyncDirectMock,
-  registerDirectMock,
-  sendEmailDirectMock,
-  setupKeysDirectMock,
-  uploadBlobChunkDirectMock
-} = vi.hoisted(() => ({
-  abandonBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  attachBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  commitBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  deleteBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  getCrdtSyncDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  deleteEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  getBlobDirectMock:
-    vi.fn<
-      (
-        request: unknown,
-        context: unknown
-      ) => Promise<{ data: Uint8Array; contentType?: string }>
-    >(),
-  getCrdtSnapshotDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  getEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  getEmailsDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  getMyKeysDirectMock:
-    vi.fn<
-      (
-        request: unknown,
-        context: unknown
-      ) => Promise<{
-        publicEncryptionKey: string;
-        publicSigningKey: string;
-        encryptedPrivateKeys?: string;
-        argon2Salt?: string;
-      }>
-    >(),
-  pushCrdtOpsDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  reconcileCrdtDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  runCrdtSessionDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  stageBlobDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  getSyncDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  rekeyItemDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  reconcileSyncDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>(),
-  registerDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  sendEmailDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  setupKeysDirectMock:
-    vi.fn<
-      (request: unknown, context: unknown) => Promise<{ created: boolean }>
-    >(),
-  uploadBlobChunkDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<{ json: string }>>()
-}));
+const abandonBlobDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const attachBlobDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const commitBlobDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const deleteBlobDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const getCrdtSyncDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const deleteEmailDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const getBlobDirectMock = vi.fn<
+  (
+    request: unknown,
+    context: unknown
+  ) => Promise<{ data: Uint8Array; contentType?: string }>
+>();
+const getCrdtSnapshotDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const getEmailDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const getEmailsDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const getMyKeysDirectMock = vi.fn<
+  (
+    request: unknown,
+    context: unknown
+  ) => Promise<{
+    publicEncryptionKey: string;
+    publicSigningKey: string;
+    encryptedPrivateKeys?: string;
+    argon2Salt?: string;
+  }>
+>();
+const pushCrdtOpsDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const reconcileCrdtDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const runCrdtSessionDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const stageBlobDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const getSyncDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const rekeyItemDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const reconcileSyncDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
+const registerDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const sendEmailDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<unknown>
+>();
+const setupKeysDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ created: boolean }>
+>();
+const uploadBlobChunkDirectMock = vi.fn<
+  (request: unknown, context: unknown) => Promise<{ json: string }>
+>();
 vi.mock('./vfsDirectBlobs.js', () => ({
   deleteBlobDirect: (request: unknown, context: unknown) =>
     deleteBlobDirectMock(request, context),
