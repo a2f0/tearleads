@@ -288,7 +288,7 @@ jobs:
         run: sh ./scripts/tooling/pm.sh install
 
       - name: Setup Turborepo cache
-        uses: rharkor/caching-for-turbo@v2
+        uses: rharkor/caching-for-turbo@v2.3.11
 
       - name: Install actionlint
         run: |
