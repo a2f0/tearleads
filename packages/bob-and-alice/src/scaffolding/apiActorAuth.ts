@@ -1,4 +1,5 @@
 import type { JsonApiActor } from './setupBobNotesShareForAlice.js';
+import { resolveDirectApiPath } from '../harness/apiScenarioConnectCompat.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -63,14 +64,17 @@ function parseAuthTokens(value: unknown): AuthTokens {
 export async function loginApiActor(
   input: LoginApiActorInput
 ): Promise<AuthenticatedApiActor> {
-  const loginResponse = await fetch(`${input.baseUrl}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: input.email,
-      password: input.password
-    })
-  });
+  const loginResponse = await fetch(
+    `${input.baseUrl}${resolveDirectApiPath('/connect/tearleads.v2.AuthService/Login')}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password
+      })
+    }
+  );
 
   const loginBody = await readJsonResponse(loginResponse);
   if (!loginResponse.ok) {
@@ -85,7 +89,8 @@ export async function loginApiActor(
     path: string,
     init?: RequestInit
   ): Promise<unknown> => {
-    const response = await fetch(`${input.baseUrl}${path}`, {
+    const resolvedPath = resolveDirectApiPath(path);
+    const response = await fetch(`${input.baseUrl}${resolvedPath}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`,
