@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Calendar } from './Calendar';
 
 vi.mock('@tearleads/app-calendar', () => ({
-  Calendar: () => <div>Calendar App</div>
+  CalendarContent: () => <div>Calendar Content</div>
 }));
 
 describe('Calendar', () => {
   it('renders the calendar app', () => {
     render(<Calendar />);
 
-    expect(screen.getByText('Calendar App')).toBeInTheDocument();
+    expect(screen.getByText('Calendar Content')).toBeInTheDocument();
   });
 });
