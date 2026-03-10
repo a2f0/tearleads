@@ -17,7 +17,7 @@ import {
   SCAFFOLD_SHARED_LOGO_SVG,
   setupBobPhotoAlbumShareForAliceDb
 } from '@tearleads/shared/scaffolding';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
@@ -38,6 +38,8 @@ const blobEnvKeys = [
   'VFS_BLOB_S3_SECRET_ACCESS_KEY',
   'VFS_BLOB_S3_FORCE_PATH_STYLE'
 ] as const;
+const originalBlobEnvValues = new Map<string, string | undefined>();
+const touchedBlobEnvKeys = new Set<string>();
 
 async function startS3MockServer(): Promise<string> {
   const server = createServer((request, response) => {
@@ -133,20 +135,28 @@ async function stopS3MockServer(): Promise<void> {
 }
 
 function resetBlobEnv(): void {
-  if (typeof vi !== 'undefined' && typeof vi.unstubAllEnvs === 'function') {
-    vi.unstubAllEnvs();
-    return;
+  for (const key of touchedBlobEnvKeys) {
+    const originalValue = originalBlobEnvValues.get(key);
+    if (typeof originalValue === 'undefined') {
+      delete process.env[key];
+      continue;
+    }
+    process.env[key] = originalValue;
   }
-  for (const key of blobEnvKeys) {
-    delete process.env[key];
-  }
+  touchedBlobEnvKeys.clear();
+  originalBlobEnvValues.clear();
 }
 
 function setBlobEnv(key: (typeof blobEnvKeys)[number], value: string): void {
-  if (typeof vi !== 'undefined' && typeof vi.stubEnv === 'function') {
-    vi.stubEnv(key, value);
-    return;
+  if (!originalBlobEnvValues.has(key)) {
+    const currentValue = process.env[key];
+    originalBlobEnvValues.set(
+      key,
+      typeof currentValue === 'string' ? currentValue : undefined
+    );
   }
+
+  touchedBlobEnvKeys.add(key);
   process.env[key] = value;
 }
 

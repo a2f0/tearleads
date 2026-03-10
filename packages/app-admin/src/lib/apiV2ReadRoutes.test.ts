@@ -14,6 +14,7 @@ import {
   AdminListUsersResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from './testEnv.js';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -31,7 +32,7 @@ describe('admin api client v2 read routes', () => {
   }
 
   beforeEach(async () => {
-    vi.stubEnv('VITE_API_URL', 'https://api.test');
+    setTestEnv('VITE_API_URL', 'https://api.test');
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
     localStorage.clear();
@@ -39,7 +40,6 @@ describe('admin api client v2 read routes', () => {
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 

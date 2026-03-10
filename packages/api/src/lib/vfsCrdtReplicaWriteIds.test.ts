@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   invalidateReplicaWriteIdRowsForUser,
   loadReplicaWriteIdRows
@@ -24,12 +24,7 @@ vi.mock('@tearleads/shared/redis', () => ({
 describe('vfsCrdtReplicaWriteIds', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllEnvs();
     redisStore.clear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('reads from replica heads table by default', async () => {
