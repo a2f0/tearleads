@@ -287,6 +287,9 @@ jobs:
       - name: Install dependencies
         run: sh ./scripts/tooling/pm.sh install
 
+      - name: Setup Turborepo cache
+        uses: rharkor/caching-for-turbo@v2.3.11
+
       - name: Install actionlint
         run: |
           curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
@@ -317,6 +320,18 @@ jobs:
 
       - name: Check dependency graph constraints
         run: ./scripts/checks/checkDependencyCruiser.sh
+
+      - name: Generate dependency graph (DOT)
+        if: always()
+        run: sh ./scripts/tooling/pm.sh exec depcruise --config .dependency-cruiser.json --output-type dot packages > dep-graph.dot
+
+      - name: Upload dependency graph
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-graph
+          path: dep-graph.dot
+          retention-days: 7
 
       - name: Check architecture guardrail budgets
         run: ./scripts/checks/checkArchitectureGuardrailBudgets.ts
@@ -362,7 +377,7 @@ jobs:
         run: sh ./scripts/tooling/pm.sh run enforceTypeScriptIncrementalBuilds
 
       - name: Build
-        run: sh ./scripts/tooling/pm.sh run build
+        run: sh ./scripts/tooling/pm.sh exec turbo run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7

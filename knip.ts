@@ -19,6 +19,7 @@ const config: KnipConfig = {
     'unresolved'
   ],
   ignoreBinaries: ['ansible-lint', 'shellcheck'],
+  ignoreDependencies: ['turbo'],
   ignoreIssues: {},
   workspaces: {
     '.': {
