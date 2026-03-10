@@ -47,6 +47,8 @@ interface CalendarContentProps {
   onViewContextMenuRequest?:
     | ((position: { x: number; y: number; date: Date }) => void)
     | undefined;
+  sidebarOpen?: boolean | undefined;
+  onSidebarOpenChange?: ((open: boolean) => void) | undefined;
 }
 
 export type { CalendarEventItem } from '../types';
@@ -56,13 +58,17 @@ export function CalendarContent({
   events = [],
   onCreateEvent,
   onSidebarContextMenuRequest,
-  onViewContextMenuRequest
+  onViewContextMenuRequest,
+  sidebarOpen: sidebarOpenProp,
+  onSidebarOpenChange
 }: CalendarContentProps = {}) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] =
     useState<string>(defaultCalendarName);
   const [sidebarWidth, setSidebarWidth] = useState(200);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [internalSidebarOpen, setInternalSidebarOpen] = useState(false);
+  const effectiveSidebarOpen = sidebarOpenProp ?? internalSidebarOpen;
+  const effectiveSetSidebarOpen = onSidebarOpenChange ?? setInternalSidebarOpen;
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [createEventModalOpen, setCreateEventModalOpen] = useState(false);
@@ -358,8 +364,8 @@ export function CalendarContent({
         <WindowSidebar
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          open={sidebarOpen}
-          onOpenChange={setSidebarOpen}
+          open={effectiveSidebarOpen}
+          onOpenChange={effectiveSetSidebarOpen}
           ariaLabel="Calendars"
           data-testid="calendar-sidebar"
         >
@@ -375,17 +381,19 @@ export function CalendarContent({
         </WindowSidebar>
 
         <section className="flex min-h-0 flex-1 flex-col p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="rounded p-1 hover:bg-accent md:hidden"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Toggle calendars sidebar"
-                data-testid="calendar-sidebar-toggle"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
+              {onSidebarOpenChange == null && (
+                <button
+                  type="button"
+                  className="rounded p-1 hover:bg-accent md:hidden"
+                  onClick={() => effectiveSetSidebarOpen(true)}
+                  aria-label="Toggle calendars sidebar"
+                  data-testid="calendar-sidebar-toggle"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+              )}
               <p className="font-medium text-base">{activeCalendar}</p>
             </div>
             <CalendarViewControls
