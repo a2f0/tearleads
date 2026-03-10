@@ -2,11 +2,13 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  deleteAllSessionsForUserMock,
   getLatestLastActiveByUserIdsMock,
   getPoolMock,
   queryMock,
   requireScopedAdminAccessMock
 } = vi.hoisted(() => ({
+  deleteAllSessionsForUserMock: vi.fn(),
   getLatestLastActiveByUserIdsMock: vi.fn(),
   getPoolMock: vi.fn(),
   queryMock: vi.fn(),
@@ -17,28 +19,17 @@ vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
 }));
 
-vi.mock('../../lib/sessions.js', async () => {
-  const actual = await vi.importActual<typeof import('../../lib/sessions.js')>(
-    '../../lib/sessions.js'
-  );
+vi.mock('../../lib/sessions.js', () => ({
+  deleteAllSessionsForUser: (...args: unknown[]) =>
+    deleteAllSessionsForUserMock(...args),
+  getLatestLastActiveByUserIds: (...args: unknown[]) =>
+    getLatestLastActiveByUserIdsMock(...args)
+}));
 
-  return {
-    ...actual,
-    getLatestLastActiveByUserIds: (...args: unknown[]) =>
-      getLatestLastActiveByUserIdsMock(...args)
-  };
-});
-
-vi.mock('./adminDirectAuth.js', async () => {
-  const actual = await vi.importActual<typeof import('./adminDirectAuth.js')>(
-    './adminDirectAuth.js'
-  );
-  return {
-    ...actual,
-    requireScopedAdminAccess: (...args: unknown[]) =>
-      requireScopedAdminAccessMock(...args)
-  };
-});
+vi.mock('./adminDirectAuth.js', () => ({
+  requireScopedAdminAccess: (...args: unknown[]) =>
+    requireScopedAdminAccessMock(...args)
+}));
 
 import { getUserDirect, listUsersDirect } from './adminDirectUsers.js';
 
@@ -50,6 +41,7 @@ describe('adminDirectUsers list/get coverage branches', () => {
     queryMock.mockReset();
     getPoolMock.mockReset();
     requireScopedAdminAccessMock.mockReset();
+    deleteAllSessionsForUserMock.mockReset();
     getLatestLastActiveByUserIdsMock.mockReset();
 
     getPoolMock.mockResolvedValue({ query: queryMock });
@@ -60,6 +52,7 @@ describe('adminDirectUsers list/get coverage branches', () => {
         organizationIds: ['org-1']
       }
     });
+    deleteAllSessionsForUserMock.mockResolvedValue(undefined);
     getLatestLastActiveByUserIdsMock.mockResolvedValue({});
 
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

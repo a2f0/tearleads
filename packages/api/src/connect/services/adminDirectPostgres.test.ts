@@ -19,16 +19,9 @@ vi.mock('../../lib/postgres.js', () => ({
     getPostgresConnectionInfoMock(...args)
 }));
 
-vi.mock('./adminDirectAuth.js', async () => {
-  const actual = await vi.importActual<typeof import('./adminDirectAuth.js')>(
-    './adminDirectAuth.js'
-  );
-  return {
-    ...actual,
-    requireAdminSession: (...args: unknown[]) =>
-      requireAdminSessionMock(...args)
-  };
-});
+vi.mock('./adminDirectAuth.js', () => ({
+  requireAdminSession: (...args: unknown[]) => requireAdminSessionMock(...args)
+}));
 
 import {
   getColumnsDirect,

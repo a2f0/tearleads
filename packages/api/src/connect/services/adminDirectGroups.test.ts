@@ -13,16 +13,10 @@ vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args)
 }));
 
-vi.mock('./adminDirectAuth.js', async () => {
-  const actual = await vi.importActual<typeof import('./adminDirectAuth.js')>(
-    './adminDirectAuth.js'
-  );
-  return {
-    ...actual,
-    requireScopedAdminAccess: (...args: unknown[]) =>
-      requireScopedAdminAccessMock(...args)
-  };
-});
+vi.mock('./adminDirectAuth.js', () => ({
+  requireScopedAdminAccess: (...args: unknown[]) =>
+    requireScopedAdminAccessMock(...args)
+}));
 
 import {
   getGroupDirect,
