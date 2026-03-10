@@ -114,8 +114,6 @@ vi.mock('./DeletePlaylistDialog', () => ({
 
 describe('AudioPlaylistsSidebar', () => {
   const defaultProps = {
-    width: 200,
-    onWidthChange: vi.fn(),
     selectedPlaylistId: ALL_AUDIO_ID,
     onPlaylistSelect: vi.fn(),
     refreshToken: 0,

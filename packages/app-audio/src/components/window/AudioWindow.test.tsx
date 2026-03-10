@@ -27,7 +27,15 @@ vi.mock('@tearleads/window-manager', () => ({
   ),
   WindowMenuBar: ({ children }: { children: ReactNode }) => (
     <div data-testid="window-menu-bar">{children}</div>
-  )
+  ),
+  WindowSidebar: ({
+    children,
+    'data-testid': testId
+  }: {
+    children: ReactNode;
+    'data-testid'?: string;
+  }) => <div data-testid={testId}>{children}</div>,
+  WindowSidebarToggle: () => null
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -47,7 +55,7 @@ vi.mock('./AudioPlaylistsSidebar', () => ({
     selectedPlaylistId: string | null;
     onPlaylistSelect: (id: string | null) => void;
   }) => (
-    <div data-testid="audio-playlists-sidebar">
+    <div data-testid="audio-playlists-sidebar-content">
       <button
         type="button"
         data-testid="select-playlist"

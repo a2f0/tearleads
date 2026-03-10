@@ -1,4 +1,5 @@
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
+import { WindowSidebar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
@@ -48,15 +49,21 @@ export function AudioWithSidebar() {
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
           <div className="hidden md:block">
-            <AudioPlaylistsSidebar
+            <WindowSidebar
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
-              selectedPlaylistId={selectedPlaylistId}
-              onPlaylistSelect={handlePlaylistSelect}
-              refreshToken={refreshToken}
-              onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
-              onDropToPlaylist={handleDropToPlaylist}
-            />
+              open={false}
+              onOpenChange={() => {}}
+              ariaLabel="Playlists"
+            >
+              <AudioPlaylistsSidebar
+                selectedPlaylistId={selectedPlaylistId}
+                onPlaylistSelect={handlePlaylistSelect}
+                refreshToken={refreshToken}
+                onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+                onDropToPlaylist={handleDropToPlaylist}
+              />
+            </WindowSidebar>
           </div>
         )}
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">

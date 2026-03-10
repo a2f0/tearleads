@@ -1,5 +1,6 @@
 // component-complexity: allow – pre-existing, rename-only change
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
+import { WindowSidebar } from '@tearleads/window-manager';
 import {
   Calendar,
   FileType,
@@ -111,12 +112,18 @@ export function AudioDetail() {
   return (
     <div className="flex h-full gap-6">
       {isUnlocked && (
-        <AudioPlaylistsSidebar
+        <WindowSidebar
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          selectedPlaylistId={selectedPlaylistId}
-          onPlaylistSelect={handlePlaylistSelect}
-        />
+          open={false}
+          onOpenChange={() => {}}
+          ariaLabel="Playlists"
+        >
+          <AudioPlaylistsSidebar
+            selectedPlaylistId={selectedPlaylistId}
+            onPlaylistSelect={handlePlaylistSelect}
+          />
+        </WindowSidebar>
       )}
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center gap-4">
