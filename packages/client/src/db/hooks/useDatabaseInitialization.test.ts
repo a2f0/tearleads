@@ -10,6 +10,7 @@ const mockValidateAndPruneOrphanedInstances = vi.fn();
 const mockAutoInitializeDatabase = vi.fn();
 const mockHasPersistedSession = vi.fn();
 const mockIsDatabaseSetUp = vi.fn();
+const mockResetDatabase = vi.fn();
 const mockRestoreDatabaseSession = vi.fn();
 const mockDeleteInstanceFromRegistry = vi.fn();
 const mockGetInstances = vi.fn();
@@ -49,6 +50,7 @@ vi.mock('../index', () => ({
     mockAutoInitializeDatabase(...args),
   hasPersistedSession: (...args: unknown[]) => mockHasPersistedSession(...args),
   isDatabaseSetUp: (...args: unknown[]) => mockIsDatabaseSetUp(...args),
+  resetDatabase: (...args: unknown[]) => mockResetDatabase(...args),
   restoreDatabaseSession: (...args: unknown[]) =>
     mockRestoreDatabaseSession(...args)
 }));
@@ -162,6 +164,36 @@ describe('initializeAndRestoreDatabaseState', () => {
     expect(mockUpdateInstance).not.toHaveBeenCalled();
   });
 
+  it('resets database before auto-init when deferred session restore fails from not-setup state', async () => {
+    const active = { id: 'active-1', name: 'Primary', passwordDeferred: true };
+    const freshDb = { id: 'fresh-db' };
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances.mockResolvedValue([active]);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(false);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockRestoreDatabaseSession.mockResolvedValue(null);
+    mockResetDatabase.mockResolvedValue(undefined);
+    mockAutoInitializeDatabase.mockResolvedValue(freshDb);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockRestoreDatabaseSession).toHaveBeenCalledWith('active-1');
+    expect(mockResetDatabase).toHaveBeenCalledWith('active-1');
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(freshDb);
+    expect(options.setIsSetUp).toHaveBeenCalledWith(true);
+    expect(options.setHasPersisted).toHaveBeenCalledWith(true);
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+  });
+
   it('skips orphan validation for the active instance but validates inactive ones', async () => {
     const active = { id: 'active-1', name: 'Primary' };
     const secondary = { id: 'secondary-1', name: 'Secondary' };
@@ -184,7 +216,8 @@ describe('initializeAndRestoreDatabaseState', () => {
 
     expect(mockValidateAndPruneOrphanedInstances).toHaveBeenCalledWith(
       ['secondary-1'],
-      expect.any(Function)
+      expect.any(Function),
+      ['active-1', 'secondary-1']
     );
   });
 
@@ -235,6 +268,89 @@ describe('initializeAndRestoreDatabaseState', () => {
       'App reloaded unexpectedly. Please unlock your database to continue.'
     );
     expect(options.hasShownRecoveryNotification.current).toBe(true);
+  });
+
+  it('resets and re-initializes when persisted deferred session restore fails', async () => {
+    const active = { id: 'active-1', name: 'Primary', passwordDeferred: true };
+    const freshDb = { id: 'fresh-db' };
+    const updatedInstances = [active];
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances
+      .mockResolvedValueOnce([active])
+      .mockResolvedValueOnce(updatedInstances);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(true);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true);
+    mockRestoreDatabaseSession.mockResolvedValue(null);
+    mockResetDatabase.mockResolvedValue(undefined);
+    mockAutoInitializeDatabase.mockResolvedValue(freshDb);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockResetDatabase).toHaveBeenCalledWith('active-1');
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(freshDb);
+    expect(options.setIsSetUp).toHaveBeenCalledWith(true);
+    expect(options.setHasPersisted).toHaveBeenCalledWith(true);
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+    expect(mockUpdateInstance).toHaveBeenCalledWith('active-1', {
+      passwordDeferred: true
+    });
+    expect(options.setInstances).toHaveBeenCalledWith(updatedInstances);
+    expect(mockTouchInstance).toHaveBeenCalledWith('active-1');
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      '[db] deferred session restoration failed, resetting and re-initializing'
+    );
+    expect(mockNotificationWarning).not.toHaveBeenCalled();
+    expect(options.setIsLoading).toHaveBeenCalledWith(false);
+  });
+
+  it('resets and re-initializes when setup-only deferred instance lost session keys', async () => {
+    const active = { id: 'active-1', name: 'Primary', passwordDeferred: true };
+    const freshDb = { id: 'fresh-db' };
+    const updatedInstances = [active];
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances
+      .mockResolvedValueOnce([active])
+      .mockResolvedValueOnce(updatedInstances);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(true);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockResetDatabase.mockResolvedValue(undefined);
+    mockAutoInitializeDatabase.mockResolvedValue(freshDb);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockResetDatabase).toHaveBeenCalledWith('active-1');
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(freshDb);
+    expect(options.setIsSetUp).toHaveBeenCalledWith(true);
+    expect(options.setHasPersisted).toHaveBeenCalledWith(true);
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+    expect(mockUpdateInstance).toHaveBeenCalledWith('active-1', {
+      passwordDeferred: true
+    });
+    expect(options.setInstances).toHaveBeenCalledWith(updatedInstances);
+    expect(mockTouchInstance).toHaveBeenCalledWith('active-1');
+    expect(mockLogDebug).toHaveBeenCalledWith(
+      '[db] deferred instance lost session keys, auto-initializing fresh'
+    );
+    expect(mockNotificationWarning).not.toHaveBeenCalled();
+    expect(options.setIsLoading).toHaveBeenCalledWith(false);
   });
 
   it('reassigns active instance and logs orphan cleanup warnings', async () => {

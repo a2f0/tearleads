@@ -1,6 +1,6 @@
+// component-complexity: allow — pre-existing; sidebar manages playlists, dialogs, drag-drop, and context menus
 import {
   detectPlatform,
-  useResizableSidebar,
   useSidebarDragOver,
   useSidebarRefetch,
   WindowSidebarError,
@@ -25,8 +25,6 @@ import { useAudioPlaylists } from './useAudioPlaylists';
 export const ALL_AUDIO_ID = '__all__';
 
 interface AudioPlaylistsSidebarProps {
-  width: number;
-  onWidthChange: (width: number) => void;
   selectedPlaylistId: string | null;
   onPlaylistSelect: (playlistId: string | null) => void;
   /** Currently selected album ID for filtering */
@@ -44,8 +42,6 @@ interface AudioPlaylistsSidebarProps {
 }
 
 export function AudioPlaylistsSidebar({
-  width,
-  onWidthChange,
   selectedPlaylistId,
   onPlaylistSelect,
   selectedAlbumId,
@@ -209,12 +205,6 @@ export function AudioPlaylistsSidebar({
     void updatePlaylistCounts(playlists.map((p) => p.id));
   }, [playlists, updatePlaylistCounts]);
 
-  const { resizeHandleProps } = useResizableSidebar({
-    width,
-    onWidthChange,
-    ariaLabel: 'Resize playlist sidebar'
-  });
-
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, playlist: AudioPlaylist) => {
       e.preventDefault();
@@ -245,11 +235,7 @@ export function AudioPlaylistsSidebar({
   );
 
   return (
-    <div
-      className="relative flex shrink-0 flex-col border-r bg-muted/20"
-      style={{ width }}
-      data-testid="audio-playlists-sidebar"
-    >
+    <>
       <WindowSidebarHeader
         title={t('playlists')}
         actionLabel={t('playlistName')}
@@ -320,10 +306,6 @@ export function AudioPlaylistsSidebar({
             />
           ))}
       </div>
-      <hr
-        className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        {...resizeHandleProps}
-      />
 
       {contextMenu && (
         <AudioPlaylistsContextMenu
@@ -373,6 +355,6 @@ export function AudioPlaylistsSidebar({
         onDelete={deletePlaylist}
         onPlaylistDeleted={handlePlaylistDeleted}
       />
-    </div>
+    </>
   );
 }

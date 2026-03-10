@@ -1,9 +1,12 @@
 import {
   WindowControlBar,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  WindowSidebar,
+  WindowSidebarToggle
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
@@ -79,6 +82,7 @@ export function AudioWindowContent({
   isDragging
 }: AudioWindowContentProps) {
   const { t } = useTranslation('audio');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <div className="flex h-full flex-col">
       <AudioWindowMenuBar
@@ -93,6 +97,9 @@ export function AudioWindowContent({
       />
       <WindowControlBar>
         <WindowControlGroup>
+          <WindowSidebarToggle
+            onToggle={() => setSidebarOpen((prev) => !prev)}
+          />
           {selectedTrackId ? (
             <WindowControlButton
               icon={<ArrowLeft className="h-3 w-3" />}
@@ -125,17 +132,24 @@ export function AudioWindowContent({
       </WindowControlBar>
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <AudioPlaylistsSidebar
+          <WindowSidebar
             width={sidebarWidth}
             onWidthChange={onSidebarWidthChange}
-            selectedPlaylistId={selectedPlaylistId}
-            onPlaylistSelect={onPlaylistSelect}
-            selectedAlbumId={selectedAlbumId}
-            onAlbumSelect={onAlbumSelect}
-            refreshToken={refreshToken}
-            onPlaylistChanged={onPlaylistChanged}
-            onDropToPlaylist={onDropToPlaylist}
-          />
+            open={sidebarOpen}
+            onOpenChange={setSidebarOpen}
+            ariaLabel={t('playlists')}
+            data-testid="audio-playlists-sidebar"
+          >
+            <AudioPlaylistsSidebar
+              selectedPlaylistId={selectedPlaylistId}
+              onPlaylistSelect={onPlaylistSelect}
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={onAlbumSelect}
+              refreshToken={refreshToken}
+              onPlaylistChanged={onPlaylistChanged}
+              onDropToPlaylist={onDropToPlaylist}
+            />
+          </WindowSidebar>
         )}
         <div
           className="relative min-h-0 flex-1 overflow-y-auto"

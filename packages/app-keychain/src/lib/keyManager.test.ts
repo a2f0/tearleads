@@ -327,4 +327,28 @@ describe('validateAndPruneOrphanedInstances', () => {
     expect(result.orphanedKeystoreEntries).toEqual([]);
     vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
+
+  it('uses allRegistryIds for Keystore orphan check to preserve active instance', async () => {
+    const utils = await import('./detectPlatform');
+    const nativeStorage = await import('./nativeSecureStorage');
+    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+
+    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockResolvedValue([
+      'active-instance',
+      'stale-orphan'
+    ]);
+
+    // active-instance is excluded from validation but included in allRegistryIds
+    const result = await validateAndPruneOrphanedInstances([], vi.fn(), [
+      'active-instance'
+    ]);
+
+    // Only stale-orphan should be cleaned, not active-instance
+    expect(result.orphanedKeystoreEntries).toEqual(['stale-orphan']);
+    expect(nativeStorage.clearSession).toHaveBeenCalledWith('stale-orphan');
+    expect(nativeStorage.clearSession).not.toHaveBeenCalledWith(
+      'active-instance'
+    );
+    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+  });
 });

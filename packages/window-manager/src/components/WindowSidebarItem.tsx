@@ -1,4 +1,6 @@
 import { cn } from '@tearleads/ui';
+import { useCallback } from 'react';
+import { useWindowSidebar } from './window-sidebar/WindowSidebarContext.js';
 
 export interface WindowSidebarItemProps {
   label: string;
@@ -29,6 +31,13 @@ export function WindowSidebarItem({
   onDrop,
   leadingSpacer = false
 }: WindowSidebarItemProps) {
+  const { closeSidebar } = useWindowSidebar();
+
+  const handleClick = useCallback(() => {
+    onClick();
+    closeSidebar();
+  }, [onClick, closeSidebar]);
+
   return (
     <button
       type="button"
@@ -38,7 +47,7 @@ export function WindowSidebarItem({
         className
       )}
       style={{ paddingLeft: '8px' }}
-      onClick={onClick}
+      onClick={handleClick}
       onContextMenu={onContextMenu}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}

@@ -103,3 +103,12 @@ export {
   WindowMenuBar,
   type WindowMenuBarProps
 } from './window-menu/WindowMenuBar.js';
+export {
+  useWindowSidebar,
+  WindowSidebar,
+  type WindowSidebarContextValue,
+  type WindowSidebarProps,
+  WindowSidebarProvider,
+  WindowSidebarToggle,
+  type WindowSidebarToggleProps
+} from './window-sidebar/index.js';

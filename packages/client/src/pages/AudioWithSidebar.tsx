@@ -1,4 +1,5 @@
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
+import { WindowSidebar, WindowSidebarToggle } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
@@ -12,6 +13,7 @@ export function AudioWithSidebar() {
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Derive selected playlist from URL (or ALL_AUDIO_ID if no param)
@@ -44,20 +46,31 @@ export function AudioWithSidebar() {
 
   return (
     <div className="flex h-full flex-col space-y-4">
-      <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      <div className="flex items-center gap-2">
+        {isUnlocked && (
+          <WindowSidebarToggle
+            onToggle={() => setSidebarOpen((prev) => !prev)}
+          />
+        )}
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      </div>
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <div className="hidden md:block">
+          <WindowSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            open={sidebarOpen}
+            onOpenChange={setSidebarOpen}
+            ariaLabel="Playlists"
+          >
             <AudioPlaylistsSidebar
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
               selectedPlaylistId={selectedPlaylistId}
               onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
               onDropToPlaylist={handleDropToPlaylist}
             />
-          </div>
+          </WindowSidebar>
         )}
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <AudioPage

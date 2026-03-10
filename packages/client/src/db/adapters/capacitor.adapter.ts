@@ -1,8 +1,3 @@
-/**
- * Capacitor adapter for SQLite using @capacitor-community/sqlite.
- * Uses SQLCipher for encryption on iOS and Android.
- */
-
 import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { normalizeSqlStatements } from '@/db/sql/sqlBatch';
 import {
@@ -67,9 +62,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Always clear and set the encryption secret to ensure we use the correct key.
-    // This handles the case where reset was called but clearEncryptionSecret failed
-    // silently, or where the stored secret doesn't match the current key.
+    // Always clear and re-set the encryption secret to ensure correct key
     const { result: isStored } = await sqlite.isSecretStored();
     if (isStored) {
       await sqlite.clearEncryptionSecret();
@@ -78,10 +71,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
     try {
       await sqlite.setEncryptionSecret(keyHex);
     } catch (err) {
-      // Handle recoverable errors during setEncryptionSecret:
-      // 1. "State for" errors: stale database file from previous session with different encryption
-      // 2. "passphrase has already been set": Android-specific issue where clearEncryptionSecret
-      //    didn't fully clear the SharedPreferences (race condition or caching)
       const errorMessage = err instanceof Error ? err.message : '';
       const isStateError = errorMessage.toLowerCase().includes('state for');
       const isPassphraseAlreadySetError = errorMessage
@@ -89,12 +78,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
         .includes('passphrase has already been set');
 
       if (isStateError || isPassphraseAlreadySetError) {
-        console.warn(
-          `Recovering from database secret error by clearing and retrying: ${errorMessage}`
-        );
+        console.warn(`Recovering from secret error: ${errorMessage}`);
         const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
 
-        // For "State for" errors, also delete the database file
         if (isStateError) {
           try {
             await CapacitorSQLite.deleteDatabase({ database: config.name });
@@ -105,12 +91,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
           }
         }
 
-        // Force clear the encryption secret again before retrying
-        // This handles Android's SharedPreferences not being fully cleared
         try {
           await CapacitorSQLite.clearEncryptionSecret();
         } catch (clearErr: unknown) {
-          // Only ignore errors indicating the secret doesn't exist
           const message =
             clearErr instanceof Error ? clearErr.message.toLowerCase() : '';
           if (
@@ -137,11 +120,57 @@ export class CapacitorAdapter implements DatabaseAdapter {
       false // readonly
     );
 
-    await this.db.open();
+    try {
+      await this.db.open();
+    } catch (openErr) {
+      // "Cannot open the DB" happens when a stale database file exists encrypted
+      // with a different key (e.g., after app reinstall where Keychain was lost
+      // but the DB file persisted). Delete the stale file and retry.
+      const msg = openErr instanceof Error ? openErr.message : '';
+      if (msg.toLowerCase().includes('cannot open')) {
+        console.warn(`Recovering from stale DB file: ${msg}`);
+        const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
 
-    // Note: PRAGMA statements are not supported via the plugin's query/execute methods
-    // on Android. WAL mode and foreign keys are typically enabled by default or
-    // configured at the native level.
+        // Close the failed connection
+        try {
+          await sqlite.closeConnection(config.name, false);
+        } catch {
+          // Ignore
+        }
+
+        // Delete the stale database file
+        try {
+          await CapacitorSQLite.deleteDatabase({ database: config.name });
+        } catch (deleteErr: unknown) {
+          if (!isIgnorableDeleteDbError(deleteErr)) {
+            // If plugin-level delete fails, try direct file deletion
+            try {
+              const { Filesystem, Directory } = await import(
+                '@capacitor/filesystem'
+              );
+              await Filesystem.deleteFile({
+                path: `CapacitorDatabase/${config.name}SQLite.db`,
+                directory: Directory.Library
+              });
+            } catch {
+              // Best effort
+            }
+          }
+        }
+
+        // Recreate connection and open (creates a fresh empty database)
+        this.db = await sqlite.createConnection(
+          config.name,
+          true,
+          'secret',
+          1,
+          false
+        );
+        await this.db.open();
+      } else {
+        throw openErr;
+      }
+    }
 
     this.isInitialized = true;
     this.transactionManager.reset();
@@ -251,11 +280,8 @@ export class CapacitorAdapter implements DatabaseAdapter {
     await this.db.close();
     await sqlite.closeConnection(this.dbName, false);
 
-    // Use changeEncryptionSecret which handles both rekeying the database
-    // and updating the stored secret in secure storage (Keychain/EncryptedSharedPreferences)
     await sqlite.changeEncryptionSecret(newKeyHex, oldKeyHex);
 
-    // Reopen the connection with the new key
     this.db = await sqlite.createConnection(
       this.dbName,
       true, // encrypted
@@ -269,19 +295,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   getConnection(): DrizzleConnection {
-    // For Drizzle sqlite-proxy, return a function that always returns { rows: unknown[] }
-    // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
-    // The values must be in the same order as columns in the SELECT clause.
     return async (
       sql: string,
       params: unknown[],
       _method: 'all' | 'get' | 'run' | 'values'
     ): Promise<{ rows: unknown[] }> => {
       const result = await this.execute(sql, params);
-
-      // Drizzle sqlite-proxy expects { rows: unknown[] } for ALL methods
-      // The rows must be ARRAYS of values in SELECT column order, not objects.
-      // convertRowsToArrays handles both explicit SELECT and SELECT * queries.
       const arrayRows = convertRowsToArrays(sql, result.rows);
       return { rows: arrayRows };
     };
@@ -337,14 +356,10 @@ export class CapacitorAdapter implements DatabaseAdapter {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Capacitor } = await import('@capacitor/core');
 
-    // Close connection to ensure all data is flushed
     await this.db.close();
     await sqlite.closeConnection(this.dbName, false);
 
     try {
-      // Get the database file path based on platform
-      // iOS: Library/CapacitorDatabase/{name}SQLite.db
-      // Android: databases/{name}SQLite.db
       const platform = Capacitor.getPlatform();
       const dbFileName = `${this.dbName}SQLite.db`;
       let filePath: string;
@@ -393,7 +408,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Capacitor } = await import('@capacitor/core');
 
-    // Get the database file path based on platform
     const platform = Capacitor.getPlatform();
     const dbFileName = `${this.dbName}SQLite.db`;
     const backupFileName = `${this.dbName}SQLite.db.backup`;
@@ -411,7 +425,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       directory = Directory.Data;
     }
 
-    // Backup current database before import
     try {
       const currentDb = await Filesystem.readFile({
         path: filePath,
@@ -426,14 +439,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
       // Ignore if file doesn't exist (first time setup)
     }
 
-    // Close current connection
     if (this.db && this.isInitialized) {
       await this.db.close();
       await sqlite.closeConnection(this.dbName, false);
     }
 
-    // Convert Uint8Array to base64 in chunks to avoid stack overflow
-    const CHUNK_SIZE = 0x8000; // 32k characters
+    const CHUNK_SIZE = 0x8000;
     let binary = '';
     for (let i = 0; i < data.length; i += CHUNK_SIZE) {
       binary += String.fromCharCode.apply(
@@ -444,14 +455,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
     const base64Data = btoa(binary);
 
     try {
-      // Write the database file
       await Filesystem.writeFile({
         path: filePath,
         data: base64Data,
         directory
       });
 
-      // Remove backup on success
       try {
         await Filesystem.deleteFile({
           path: backupPath,
@@ -461,7 +470,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
         // Ignore cleanup errors
       }
     } catch (error) {
-      // Restore from backup on failure
       try {
         const backup = await Filesystem.readFile({
           path: backupPath,
@@ -473,12 +481,11 @@ export class CapacitorAdapter implements DatabaseAdapter {
           directory
         });
       } catch {
-        // Best effort restore
+        // Best effort
       }
       throw error;
     }
 
-    // Database will be reopened on next initialize() call
     this.db = null;
     this.isInitialized = false;
   }
