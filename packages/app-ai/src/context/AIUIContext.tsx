@@ -4,6 +4,7 @@
  */
 
 import type {
+  HostRuntimeBaseProps,
   HostRuntimeDatabaseState,
   HostRuntimeTranslation
 } from '@tearleads/shared';
@@ -246,9 +247,8 @@ export interface AIUIContextValue {
 
 const AIUIContext = createContext<AIUIContextValue | null>(null);
 
-export interface AIUIProviderProps {
+export interface AIUIProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: DatabaseState;
   ui: AIUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;
