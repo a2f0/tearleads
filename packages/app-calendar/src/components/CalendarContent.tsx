@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing; refactoring deferred
 import {
   WindowContextMenu,
   WindowContextMenuItem,
