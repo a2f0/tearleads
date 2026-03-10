@@ -174,6 +174,21 @@ phase_in_cluster_api_v2() {
     fail "API v2 pod $api_v2_pod did not respond to /v2/ping" || ok=false
   fi
 
+  local admin_route_status=""
+  admin_route_status="$(curl -s -o /dev/null -w '%{http_code}' \
+    --max-time "$CURL_TIMEOUT" \
+    -X POST \
+    -H 'content-type: application/grpc-web+proto' \
+    -H 'x-grpc-web: 1' \
+    --data-binary '' \
+    "http://127.0.0.1:${local_port}/connect/tearleads.v2.AdminService/GetTables" 2>/dev/null || true)"
+
+  if [[ -n "$admin_route_status" && "$admin_route_status" != "404" ]]; then
+    pass "API v2 pod $api_v2_pod serves AdminService connect route (HTTP $admin_route_status)"
+  else
+    fail "API v2 pod $api_v2_pod missing AdminService connect route (HTTP $admin_route_status)" || ok=false
+  fi
+
   kill "$port_forward_pid" >/dev/null 2>&1 || true
   wait "$port_forward_pid" >/dev/null 2>&1 || true
   rm -f "$port_forward_log"
