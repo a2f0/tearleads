@@ -6,24 +6,14 @@ const {
   getPostgresPoolMock,
   getActiveMlsGroupMembershipMock,
   queryMock,
-  randomUuidMock,
   requireMlsClaimsMock
 } = vi.hoisted(() => ({
   getPoolMock: vi.fn(),
   getPostgresPoolMock: vi.fn(),
   getActiveMlsGroupMembershipMock: vi.fn(),
   queryMock: vi.fn(),
-  randomUuidMock: vi.fn(),
   requireMlsClaimsMock: vi.fn()
 }));
-
-vi.mock('node:crypto', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:crypto')>();
-  return {
-    ...actual,
-    randomUUID: (...args: unknown[]) => randomUuidMock(...args)
-  };
-});
 
 vi.mock('../../lib/postgres.js', () => ({
   getPool: (...args: unknown[]) => getPoolMock(...args),
@@ -67,7 +57,6 @@ describe('mlsDirectState', () => {
       role: 'member',
       organizationId: 'org-1'
     });
-    randomUuidMock.mockReturnValue('state-1');
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
