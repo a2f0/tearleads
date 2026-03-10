@@ -6,35 +6,21 @@ import {
   createDefaultAiV2Client
 } from './aiRoutes';
 
-const connectMocks = vi.hoisted(() => {
-  class TestConnectError extends Error {
-    code: number;
+const connectMocks = {
+  createClientMock: vi.fn(),
+  createGrpcWebTransportMock: vi.fn()
+};
 
-    constructor(message: string, code: number) {
-      super(message);
-      this.name = 'ConnectError';
-      this.code = code;
-    }
-  }
-
+function createContextKey<T>(
+  defaultValue: T,
+  options?: { description?: string }
+) {
   return {
-    createClientMock: vi.fn(),
-    createGrpcWebTransportMock: vi.fn(),
-    ConnectError: TestConnectError,
-    Code: {
-      Internal: 13,
-      Unauthenticated: 16
-    },
-    createContextKey: <T>(
-      defaultValue: T,
-      options?: { description?: string }
-    ) => ({
-      id: Symbol(options?.description ?? 'connect-context-key'),
-      defaultValue,
-      description: options?.description ?? ''
-    })
+    id: Symbol(options?.description ?? 'connect-context-key'),
+    defaultValue,
+    description: options?.description ?? ''
   };
-});
+}
 
 vi.mock('../apiCore', () => ({
   API_BASE_URL: 'https://api.example.test',
@@ -42,14 +28,27 @@ vi.mock('../apiCore', () => ({
 }));
 
 vi.mock('@connectrpc/connect', () => ({
-  Code: connectMocks.Code,
-  ConnectError: connectMocks.ConnectError,
-  createClient: connectMocks.createClientMock,
-  createContextKey: connectMocks.createContextKey
+  Code: {
+    Internal: 13,
+    Unauthenticated: 16
+  },
+  ConnectError: class TestConnectError extends Error {
+    code: number;
+
+    constructor(message: string, code: number) {
+      super(message);
+      this.name = 'ConnectError';
+      this.code = code;
+    }
+  },
+  createClient: (service: unknown, transport: unknown) =>
+    connectMocks.createClientMock(service, transport),
+  createContextKey
 }));
 
 vi.mock('@connectrpc/connect-web', () => ({
-  createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
+  createGrpcWebTransport: (options: unknown) =>
+    connectMocks.createGrpcWebTransportMock(options)
 }));
 
 interface AiV2ClientOverrides {

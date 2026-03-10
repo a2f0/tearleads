@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { requestMock } = vi.hoisted(() => ({
-  requestMock: vi.fn()
-}));
+const requestMock = vi.fn();
 
 vi.mock('../apiCore', () => ({
-  request: requestMock
+  request: (path: string, params?: unknown) => requestMock(path, params)
 }));
 
 import { vfsRoutes } from './vfsRoutes';
