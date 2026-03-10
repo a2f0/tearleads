@@ -4,7 +4,8 @@ import {
   type JsonValue,
   type MessageShape
 } from '@bufbuild/protobuf';
-import { getAuthHeaderValue, tryRefreshToken } from '@tearleads/api-client';
+import { getAuthHeaderValue } from '@tearleads/api-client/authStorage';
+import { tryRefreshToken } from '@tearleads/api-client/clientEntry';
 import type {
   AdminUserUpdatePayload,
   CreateGroupRequest,

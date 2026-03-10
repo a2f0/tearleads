@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { setStoredAuthToken } from '@tearleads/api-client';
+import { setStoredAuthToken } from '@tearleads/api-client/authStorage';
 import {
   AdminDeleteRedisKeyResponseSchema,
   AdminGetContextResponseSchema,
