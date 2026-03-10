@@ -88,6 +88,22 @@ function createContextWithoutAuth() {
   });
 }
 
+async function waitForSubscribedHandler(
+  channel: string
+): Promise<MessageHandler> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const handler = subscribedHandlers.get(channel);
+    if (handler) {
+      return handler;
+    }
+
+    // Yield to allow async subscription setup to flush under both real/fake timers.
+    await Promise.resolve();
+  }
+
+  throw new Error(`Expected ${channel} subscription handler`);
+}
+
 describe('notificationConnectService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -149,16 +165,11 @@ describe('notificationConnectService', () => {
     });
 
     const messageResultPromise = iterator.next();
-    await vi.waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalledWith(
-        'broadcast',
-        expect.any(Function)
-      );
-    });
-    const handler = subscribedHandlers.get('broadcast');
-    if (!handler) {
-      throw new Error('Expected broadcast subscription handler');
-    }
+    const handler = await waitForSubscribedHandler('broadcast');
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      'broadcast',
+      expect.any(Function)
+    );
 
     handler(
       JSON.stringify({
@@ -219,16 +230,11 @@ describe('notificationConnectService', () => {
     await iterator.next();
 
     const nextEventPromise = iterator.next();
-    await vi.waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalledWith(
-        'broadcast',
-        expect.any(Function)
-      );
-    });
-    const handler = subscribedHandlers.get('broadcast');
-    if (!handler) {
-      throw new Error('Expected broadcast subscription handler');
-    }
+    const handler = await waitForSubscribedHandler('broadcast');
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      'broadcast',
+      expect.any(Function)
+    );
 
     handler('not-json', 'broadcast');
     context.abort();
@@ -252,12 +258,11 @@ describe('notificationConnectService', () => {
       await iterator.next();
       const keepaliveResultPromise = iterator.next();
 
-      await vi.waitFor(() => {
-        expect(mockSubscribe).toHaveBeenCalledWith(
-          'broadcast',
-          expect.any(Function)
-        );
-      });
+      await waitForSubscribedHandler('broadcast');
+      expect(mockSubscribe).toHaveBeenCalledWith(
+        'broadcast',
+        expect.any(Function)
+      );
 
       await vi.advanceTimersByTimeAsync(30000);
 
