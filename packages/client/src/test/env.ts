@@ -1,7 +1,6 @@
 import { afterEach } from 'vitest';
 
 const originalValues = new Map<string, string | undefined>();
-const touchedKeys = new Set<string>();
 
 export function setTestEnv(key: string, value: string): void {
   if (!originalValues.has(key)) {
@@ -13,13 +12,10 @@ export function setTestEnv(key: string, value: string): void {
   }
 
   process.env[key] = value;
-  touchedKeys.add(key);
 }
 
 function resetTestEnv(): void {
-  for (const key of touchedKeys) {
-    const originalValue = originalValues.get(key);
-
+  for (const [key, originalValue] of originalValues.entries()) {
     if (typeof originalValue === 'undefined') {
       delete process.env[key];
     } else {
@@ -27,7 +23,6 @@ function resetTestEnv(): void {
     }
   }
 
-  touchedKeys.clear();
   originalValues.clear();
 }
 
