@@ -1,6 +1,5 @@
 import { contacts, vfsLinks } from '@tearleads/db/sqlite';
 import {
-  useResizableSidebar,
   useSidebarDragOver,
   WindowSidebarError,
   WindowSidebarHeader,
@@ -22,8 +21,6 @@ import { RenameContactGroupDialog } from './RenameContactGroupDialog';
 export const ALL_CONTACTS_ID = '__all__';
 
 interface ContactsGroupsSidebarProps {
-  width: number;
-  onWidthChange: (width: number) => void;
   selectedGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
   onGroupChanged?: (() => void) | undefined;
@@ -33,8 +30,6 @@ interface ContactsGroupsSidebarProps {
 }
 
 export function ContactsGroupsSidebar({
-  width,
-  onWidthChange,
   selectedGroupId,
   onGroupSelect,
   onGroupChanged,
@@ -78,12 +73,6 @@ export function ContactsGroupsSidebar({
     },
     []
   );
-
-  const { resizeHandleProps } = useResizableSidebar({
-    width,
-    onWidthChange,
-    ariaLabel: 'Resize contact groups sidebar'
-  });
 
   const handleContextMenu = useCallback(
     (event: React.MouseEvent, group: ContactGroup) => {
@@ -250,11 +239,7 @@ export function ContactsGroupsSidebar({
   }, [contextMenu, getDatabase, openEmailComposer, queueCloseContextMenu]);
 
   return (
-    <div
-      className="relative flex shrink-0 flex-col border-r bg-muted/20 [border-color:var(--soft-border)]"
-      style={{ width }}
-      data-testid="contacts-groups-sidebar"
-    >
+    <>
       <WindowSidebarHeader
         title={t('groups')}
         actionLabel={t('newGroup')}
@@ -303,11 +288,6 @@ export function ContactsGroupsSidebar({
             />
           ))}
       </div>
-      <div
-        className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
-        {...resizeHandleProps}
-      />
-
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
@@ -389,6 +369,6 @@ export function ContactsGroupsSidebar({
           await handleGroupDeleted(groupId);
         }}
       />
-    </div>
+    </>
   );
 }

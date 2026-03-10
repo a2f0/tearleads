@@ -1,9 +1,7 @@
 import {
   FloatingWindow,
   useWindowRefresh,
-  WindowControlBar,
   WindowControlButton,
-  WindowControlGroup,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, Plus, RefreshCw, Upload } from 'lucide-react';
@@ -251,47 +249,43 @@ export function ContactsWindow({
           onGroupSelect={setSelectedGroupId}
           onGroupChanged={handleGroupChanged}
           onDropToGroup={handleDropToGroup}
-          controlBar={
-            <WindowControlBar>
-              <WindowControlGroup>
-                {currentView === 'list' ? (
-                  <>
-                    <WindowControlButton
-                      icon={<Plus className="h-3 w-3" />}
-                      onClick={handleNewContact}
-                      data-testid="contacts-window-control-new"
-                    >
-                      New
-                    </WindowControlButton>
-                    <WindowControlButton
-                      icon={<Upload className="h-3 w-3" />}
-                      onClick={handleImportCsv}
-                      disabled={!isUnlocked}
-                      data-testid="contacts-window-control-import"
-                    >
-                      Import
-                    </WindowControlButton>
-                    <WindowControlButton
-                      icon={<RefreshCw className="h-3 w-3" />}
-                      onClick={handleRefresh}
-                      data-testid="contacts-window-control-refresh"
-                    >
-                      Refresh
-                    </WindowControlButton>
-                  </>
-                ) : (
-                  <WindowControlButton
-                    icon={<ArrowLeft className="h-3 w-3" />}
-                    onClick={
-                      currentView === 'import' ? handleImportDone : handleBack
-                    }
-                    data-testid="contacts-window-control-back"
-                  >
-                    Back
-                  </WindowControlButton>
-                )}
-              </WindowControlGroup>
-            </WindowControlBar>
+          controlButtons={
+            currentView === 'list' ? (
+              <>
+                <WindowControlButton
+                  icon={<Plus className="h-3 w-3" />}
+                  onClick={handleNewContact}
+                  data-testid="contacts-window-control-new"
+                >
+                  New
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<Upload className="h-3 w-3" />}
+                  onClick={handleImportCsv}
+                  disabled={!isUnlocked}
+                  data-testid="contacts-window-control-import"
+                >
+                  Import
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={handleRefresh}
+                  data-testid="contacts-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            ) : (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={
+                  currentView === 'import' ? handleImportDone : handleBack
+                }
+                data-testid="contacts-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            )
           }
         >
           {renderContent()}
