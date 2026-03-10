@@ -45,7 +45,7 @@ describe('api with msw', () => {
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    localStorage.setItem(AUTH_TOKEN_KEY, seededUser.accessToken);
+    (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
     setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>

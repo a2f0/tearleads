@@ -15,7 +15,12 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { api } from '@/lib/api';
-import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
+import {
+  AUTH_TOKEN_KEY,
+  clearStoredAuth,
+  setStoredAuthToken,
+  storeAuth
+} from '@/lib/authStorage';
 import {
   buildPublicEncryptionKey,
   installConnectSyncMocks,
@@ -322,7 +327,9 @@ describe('app shell instance-switch note visibility regression', () => {
       await waitForProvidersReady();
 
       await act(async () => {
-        storeAuth(bob.accessToken, bob.refreshToken, bobAuth);
+        storeAuth(`instance-auth-${bob.userId}`, bob.refreshToken, bobAuth);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        setStoredAuthToken(bob.accessToken);
       });
       await waitForAuthUser(bob.userId);
       await waitForCurrentInstanceBoundTo(bob.userId);
@@ -343,7 +350,9 @@ describe('app shell instance-switch note visibility regression', () => {
       await waitForCurrentInstance(aliceInstanceId);
 
       await act(async () => {
-        storeAuth(alice.accessToken, alice.refreshToken, aliceAuth);
+        storeAuth(`instance-auth-${alice.userId}`, alice.refreshToken, aliceAuth);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        setStoredAuthToken(alice.accessToken);
       });
       await waitForAuthUser(alice.userId);
       await waitForCurrentInstanceBoundTo(alice.userId);
