@@ -27,9 +27,6 @@ if (!isBunRuntime) {
       return import(modulePath);
     });
   }
-  if (typeof Reflect.get(vi, 'resetModules') !== 'function') {
-    Reflect.set(vi, 'resetModules', () => {});
-  }
   if (typeof Reflect.get(vi, 'stubEnv') !== 'function') {
     Reflect.set(vi, 'stubEnv', (key: string, value: string) => {
       if (!stubbedEnvValues.has(key)) {
