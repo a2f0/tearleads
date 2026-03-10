@@ -6,35 +6,51 @@ import {
   createDefaultAiV2Client
 } from './aiRoutes';
 
-const { createClientMock, createGrpcWebTransportMock } = vi.hoisted(() => ({
-  createClientMock: vi.fn(),
-  createGrpcWebTransportMock: vi.fn()
-}));
+const connectMocks = vi.hoisted(() => {
+  class TestConnectError extends Error {
+    code: number;
+
+    constructor(message: string, code: number) {
+      super(message);
+      this.name = 'ConnectError';
+      this.code = code;
+    }
+  }
+
+  return {
+    createClientMock: vi.fn(),
+    createGrpcWebTransportMock: vi.fn(),
+    ConnectError: TestConnectError,
+    Code: {
+      Internal: 13,
+      Unauthenticated: 16
+    },
+    createContextKey: <T>(
+      defaultValue: T,
+      options?: { description?: string }
+    ) => ({
+      id: Symbol(options?.description ?? 'connect-context-key'),
+      defaultValue,
+      description: options?.description ?? ''
+    })
+  };
+});
 
 vi.mock('../apiCore', () => ({
   API_BASE_URL: 'https://api.example.test',
   tryRefreshToken: vi.fn(async () => false)
 }));
 
-vi.mock('@connectrpc/connect', async () => {
-  const actual = await vi.importActual<typeof import('@connectrpc/connect')>(
-    '@connectrpc/connect'
-  );
-  return {
-    ...actual,
-    createClient: createClientMock
-  };
-});
+vi.mock('@connectrpc/connect', () => ({
+  Code: connectMocks.Code,
+  ConnectError: connectMocks.ConnectError,
+  createClient: connectMocks.createClientMock,
+  createContextKey: connectMocks.createContextKey
+}));
 
-vi.mock('@connectrpc/connect-web', async () => {
-  const actual = await vi.importActual<
-    typeof import('@connectrpc/connect-web')
-  >('@connectrpc/connect-web');
-  return {
-    ...actual,
-    createGrpcWebTransport: createGrpcWebTransportMock
-  };
-});
+vi.mock('@connectrpc/connect-web', () => ({
+  createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
+}));
 
 interface AiV2ClientOverrides {
   recordUsage?: AiV2Client['recordUsage'];
@@ -97,26 +113,26 @@ function createRoutesForTest(
 
 describe('aiRoutes', () => {
   beforeEach(() => {
-    createClientMock.mockReset();
-    createGrpcWebTransportMock.mockReset();
+    connectMocks.createClientMock.mockReset();
+    connectMocks.createGrpcWebTransportMock.mockReset();
   });
 
   it('creates a default gRPC-web binary transport client', () => {
     const transport = { kind: 'transport' };
     const client = createAiV2ClientStub();
-    createGrpcWebTransportMock.mockReturnValue(transport);
-    createClientMock.mockReturnValue(client);
+    connectMocks.createGrpcWebTransportMock.mockReturnValue(transport);
+    connectMocks.createClientMock.mockReturnValue(client);
 
     const createdClient = createDefaultAiV2Client(
       'https://api.example.test/connect'
     );
 
     expect(createdClient).toBe(client);
-    expect(createGrpcWebTransportMock).toHaveBeenCalledWith({
+    expect(connectMocks.createGrpcWebTransportMock).toHaveBeenCalledWith({
       baseUrl: 'https://api.example.test/connect',
       useBinaryFormat: true
     });
-    expect(createClientMock).toHaveBeenCalledTimes(1);
+    expect(connectMocks.createClientMock).toHaveBeenCalledTimes(1);
   });
 
   it('maps v2 getUsage responses into the existing ai response shape', async () => {

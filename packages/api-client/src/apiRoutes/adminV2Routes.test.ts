@@ -6,30 +6,46 @@ import {
   createDefaultAdminV2Client
 } from './adminV2Routes';
 
-const connectMocks = vi.hoisted(() => ({
-  createClientMock: vi.fn(),
-  createGrpcWebTransportMock: vi.fn()
+const connectMocks = vi.hoisted(() => {
+  class TestConnectError extends Error {
+    code: number;
+
+    constructor(message: string, code: number) {
+      super(message);
+      this.name = 'ConnectError';
+      this.code = code;
+    }
+  }
+
+  return {
+    createClientMock: vi.fn(),
+    createGrpcWebTransportMock: vi.fn(),
+    ConnectError: TestConnectError,
+    Code: {
+      Internal: 13,
+      Unauthenticated: 16
+    },
+    createContextKey: <T>(
+      defaultValue: T,
+      options?: { description?: string }
+    ) => ({
+      id: Symbol(options?.description ?? 'connect-context-key'),
+      defaultValue,
+      description: options?.description ?? ''
+    })
+  };
+});
+
+vi.mock('@connectrpc/connect', () => ({
+  Code: connectMocks.Code,
+  ConnectError: connectMocks.ConnectError,
+  createClient: connectMocks.createClientMock,
+  createContextKey: connectMocks.createContextKey
 }));
 
-vi.mock('@connectrpc/connect', async () => {
-  const actual = await vi.importActual<typeof import('@connectrpc/connect')>(
-    '@connectrpc/connect'
-  );
-  return {
-    ...actual,
-    createClient: connectMocks.createClientMock
-  };
-});
-
-vi.mock('@connectrpc/connect-web', async () => {
-  const actual = await vi.importActual<
-    typeof import('@connectrpc/connect-web')
-  >('@connectrpc/connect-web');
-  return {
-    ...actual,
-    createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
-  };
-});
+vi.mock('@connectrpc/connect-web', () => ({
+  createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
+}));
 
 interface AdminV2ClientOverrides {
   getContext?: AdminV2Client['getContext'];
