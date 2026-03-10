@@ -8,6 +8,25 @@ const mockUseDatabaseContext = vi.fn();
 const mockRematerializeRemoteVfsStateIfNeeded = vi.fn();
 const mockGetInstanceChangeSnapshot = vi.fn();
 
+const unauthorizedErrorCases: Array<{ label: string; error: unknown }> = [
+  { label: 'string unauthorized', error: 'Unauthorized' },
+  { label: 'Unauthorized', error: new Error('Unauthorized') },
+  { label: 'API error: 401', error: new Error('API error: 401') },
+  { label: 'status=401', error: { status: 401 } },
+  { label: 'statusCode=401', error: { statusCode: 401 } },
+  { label: 'code=401', error: { code: 401 } },
+  {
+    label: 'code=unauthenticated',
+    error: { code: 'unauthenticated', message: 'token expired' }
+  }
+];
+
+const retryableErrorCases: Array<{ label: string; error: unknown }> = [
+  { label: 'Error instance', error: new Error('bootstrap failed') },
+  { label: 'primitive number', error: 42 },
+  { label: 'record with message', error: { name: 'BootstrapError' } }
+];
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth()
 }));
@@ -35,6 +54,7 @@ describe('VfsRematerializationBootstrap', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
+      token: 'token-1',
       user: { id: 'user-1' }
     });
     mockUseVfsOrchestrator.mockReturnValue({ isReady: true });
@@ -64,11 +84,25 @@ describe('VfsRematerializationBootstrap', () => {
   });
 
   it('does not trigger rematerialization when unauthenticated', async () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      token: null,
+      user: null
+    });
 
     render(<VfsRematerializationBootstrap />);
-    await Promise.resolve();
-    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+  });
+
+  it('does not trigger rematerialization without an auth token', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      token: null,
+      user: { id: 'user-1' }
+    });
+
+    render(<VfsRematerializationBootstrap />);
 
     expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
   });
@@ -111,6 +145,19 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
   });
 
+  it('skips rematerialization when the runtime snapshot points at another instance', async () => {
+    mockGetInstanceChangeSnapshot.mockReturnValue({
+      currentInstanceId: 'instance-2',
+      instanceEpoch: 1
+    });
+
+    render(<VfsRematerializationBootstrap />);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRematerializeRemoteVfsStateIfNeeded).not.toHaveBeenCalled();
+  });
+
   it('clears retry timer when auth goes false', async () => {
     mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(
       new Error('bootstrap failed')
@@ -126,7 +173,11 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
 
     // Simulate logout before retry fires
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, user: null });
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      token: null,
+      user: null
+    });
     rerender(<VfsRematerializationBootstrap />);
 
     // Advance past retry delay — should NOT trigger another call
@@ -136,9 +187,13 @@ describe('VfsRematerializationBootstrap', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('retries rematerialization after a failed attempt', async () => {
+  it.each(
+    retryableErrorCases
+  )('retries rematerialization after failed attempt from $label', async ({
+    error
+  }) => {
     mockRematerializeRemoteVfsStateIfNeeded
-      .mockRejectedValueOnce(new Error('bootstrap failed'))
+      .mockRejectedValueOnce(error)
       .mockResolvedValueOnce(false);
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
@@ -152,6 +207,27 @@ describe('VfsRematerializationBootstrap', () => {
 
     await vi.advanceTimersByTimeAsync(2_000);
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it.each(
+    unauthorizedErrorCases
+  )('suppresses $label failures and avoids retrying until auth recovers', async ({
+    error
+  }) => {
+    mockRematerializeRemoteVfsStateIfNeeded.mockRejectedValueOnce(error);
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+
+    render(<VfsRematerializationBootstrap />);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
 
     consoleWarnSpy.mockRestore();
   });
