@@ -38,13 +38,20 @@ export async function ensureVfsKeysExist(input: {
   keyPrefix: string;
 }): Promise<void> {
   const payload = createVfsKeyPayload(input.keyPrefix);
-  const response = await input.actor.fetch('/vfs/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  const response = await input.actor.fetch(
+    '/connect/tearleads.v2.VfsService/SetupKeys',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }
+  );
 
-  if (response.status === 201 || response.status === 409) {
+  if (
+    response.status === 200 ||
+    response.status === 201 ||
+    response.status === 409
+  ) {
     return;
   }
 

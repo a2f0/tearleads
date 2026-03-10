@@ -93,25 +93,6 @@ function requiredMatchGroup(match: RegExpMatchArray, index: number): string {
   return value;
 }
 
-function parseOptionalInt(value: string | null): number | undefined {
-  if (!value) return undefined;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function buildGetSyncBody(
-  searchParams: URLSearchParams
-): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  const cursor = searchParams.get('cursor');
-  const limit = parseOptionalInt(searchParams.get('limit'));
-  const rootId = searchParams.get('rootId');
-  if (cursor) body['cursor'] = cursor;
-  if (limit !== undefined) body['limit'] = limit;
-  if (rootId) body['rootId'] = rootId;
-  return body;
-}
-
 export function mapLegacyPathToConnect(
   path: string,
   init: RequestInit | undefined
@@ -121,35 +102,6 @@ export function mapLegacyPathToConnect(
   const pathname = url.pathname;
   const jsonBody = readJsonBody(init?.body);
 
-  if (pathname === '/vfs/keys' && method === 'POST') {
-    return {
-      path: `${VFS_SERVICE_PATH}/SetupKeys`,
-      body: jsonBody,
-      unwrapJsonEnvelope: true,
-      successStatus: 201
-    };
-  }
-  if (pathname === '/vfs/keys/me' && method === 'GET') {
-    return {
-      path: `${VFS_SERVICE_PATH}/GetMyKeys`,
-      body: {},
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (pathname === '/vfs/vfs-sync' && method === 'GET') {
-    return {
-      path: `${VFS_SERVICE_PATH}/GetSync`,
-      body: buildGetSyncBody(url.searchParams),
-      unwrapJsonEnvelope: true
-    };
-  }
-  if (pathname === '/vfs/crdt/vfs-sync' && method === 'GET') {
-    return {
-      path: `${VFS_SERVICE_PATH}/GetCrdtSync`,
-      body: buildGetSyncBody(url.searchParams),
-      unwrapJsonEnvelope: true
-    };
-  }
   if (pathname === '/vfs/blobs/stage' && method === 'POST') {
     return {
       path: `${VFS_SERVICE_PATH}/StageBlob`,

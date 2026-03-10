@@ -114,7 +114,7 @@ export async function ensureVfsKeysExist(input: {
   keyPrefix: string;
 }): Promise<void> {
   const response = await input.actor
-    .fetchJson('/vfs/keys', {
+    .fetchJson('/connect/tearleads.v2.VfsService/SetupKeys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -137,6 +137,6 @@ export async function ensureVfsKeysExist(input: {
     });
 
   if (response !== null && response !== undefined && !isRecord(response)) {
-    throw new Error('Unexpected /vfs/keys response');
+    throw new Error('Unexpected SetupKeys response');
   }
 }

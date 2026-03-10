@@ -84,4 +84,26 @@ describe('mapLegacyPathToConnect', () => {
 
     expect(mapping).toBeNull();
   });
+
+  it('does not map legacy vfs key routes', () => {
+    const mapping = mapLegacyPathToConnect('/vfs/keys', {
+      method: 'POST',
+      body: JSON.stringify({
+        publicEncryptionKey: 'enc-key',
+        publicSigningKey: 'sign-key',
+        encryptedPrivateKeys: 'encrypted-private-keys',
+        argon2Salt: 'salt'
+      })
+    });
+
+    expect(mapping).toBeNull();
+  });
+
+  it('does not map legacy vfs sync routes', () => {
+    const mapping = mapLegacyPathToConnect('/vfs/vfs-sync?limit=500', {
+      method: 'GET'
+    });
+
+    expect(mapping).toBeNull();
+  });
 });
