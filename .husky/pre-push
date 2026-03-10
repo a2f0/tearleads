@@ -102,6 +102,7 @@ run_step "checkBinaryFiles" ./scripts/checks/checkBinaryFiles.sh --from-upstream
 run_step "checkJs" ./scripts/checks/checkJs.sh --from-upstream
 run_step "checkRust" ./scripts/checks/checkRust.sh --from-upstream
 run_step "checkProto" ./scripts/checks/checkProto.sh --from-upstream
+run_step "checkLegacyConnectRouteLiterals" ./scripts/checks/checkLegacyConnectRouteLiterals.ts --from-upstream
 run_step "checkFileNames" ./scripts/checks/checkFileNames.sh --from-upstream
 run_step "checkOneComponentPerFile" ./scripts/checks/checkOneComponentPerFile.ts --from-upstream
 run_step "checkComponentComplexity" ./scripts/checks/checkComponentComplexity.ts --from-upstream
