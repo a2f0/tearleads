@@ -102,6 +102,24 @@ export const createUtilsMock = () => ({
   detectPlatform: vi.fn(() => 'web')
 });
 
+type SharedImportOriginal = () => Promise<typeof import('@tearleads/shared')>;
+
+export const sharedModuleMockFactory = async (
+  importOriginal?: SharedImportOriginal
+) => {
+  if (
+    typeof Reflect.get(globalThis, 'Bun') !== 'undefined' ||
+    importOriginal === undefined
+  ) {
+    return createSharedMock();
+  }
+
+  const originalModule = await importOriginal();
+  return { ...originalModule, ...createSharedMock() };
+};
+export const nativeStorageModuleMockFactory = () => createNativeStorageMock();
+export const detectPlatformModuleMockFactory = () => createUtilsMock();
+
 // Mock crypto.subtle for KCV generation
 const mockEncrypt = vi.fn(async (_algo, key) => {
   const buffer = new Uint8Array(32);
@@ -224,10 +242,12 @@ function setupGlobalMocks() {
     configurable: true
   });
 
-  vi.stubGlobal('indexedDB', {
-    open: indexedDbOpenMock
+  Object.defineProperty(globalThis, 'indexedDB', {
+    configurable: true,
+    writable: true,
+    value: {
+      open: indexedDbOpenMock
+    }
   });
 }
-
-// Auto-setup global mocks when this module is imported
-setupGlobalMocks();
+export { setupGlobalMocks };

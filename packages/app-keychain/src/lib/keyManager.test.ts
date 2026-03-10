@@ -6,21 +6,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock() calls must be in each test file (hoisted)
-vi.mock('@tearleads/shared', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@tearleads/shared')>();
-  const { createSharedMock } = await import('./keyManager.testUtils');
-  return { ...original, ...createSharedMock() };
-});
+type MockImportOriginal<ModuleShape> = () => Promise<ModuleShape>;
 
-vi.mock('./nativeSecureStorage', async () => {
-  const { createNativeStorageMock } = await import('./keyManager.testUtils');
-  return createNativeStorageMock();
-});
+function selectRunnerMockFactory<ModuleShape>(
+  bunFactory: () => ModuleShape,
+  vitestFactory: (
+    importOriginal: MockImportOriginal<ModuleShape>
+  ) => Promise<ModuleShape>
+) {
+  if (typeof Reflect.get(globalThis, 'Bun') !== 'undefined') {
+    return bunFactory;
+  }
 
-vi.mock('./detectPlatform', async () => {
-  const { createUtilsMock } = await import('./keyManager.testUtils');
-  return createUtilsMock();
-});
+  return vitestFactory;
+}
+
+vi.mock(
+  '@tearleads/shared',
+  selectRunnerMockFactory(
+    () => createSharedMock(),
+    async (importOriginal) => {
+      const { sharedModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return sharedModuleMockFactory(importOriginal);
+    }
+  )
+);
+vi.mock(
+  './nativeSecureStorage',
+  selectRunnerMockFactory(
+    () => createNativeStorageMock(),
+    async () => {
+      const { nativeStorageModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return nativeStorageModuleMockFactory();
+    }
+  )
+);
+vi.mock(
+  './detectPlatform',
+  selectRunnerMockFactory(
+    () => createUtilsMock(),
+    async () => {
+      const { detectPlatformModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return detectPlatformModuleMockFactory();
+    }
+  )
+);
 
 import {
   clearAllKeyManagers,
@@ -29,10 +65,14 @@ import {
   validateAndPruneOrphanedInstances
 } from './keyManager';
 import {
+  createNativeStorageMock,
+  createSharedMock,
+  createUtilsMock,
   flushTimers,
   mockDB,
   mockIDBStore,
-  resetKeyBytesMap
+  resetKeyBytesMap,
+  setupGlobalMocks
 } from './keyManager.testUtils';
 
 describe('getKeyStatusForInstance', () => {
@@ -40,6 +80,7 @@ describe('getKeyStatusForInstance', () => {
     vi.clearAllMocks();
     mockIDBStore.clear();
     resetKeyBytesMap();
+    setupGlobalMocks();
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
@@ -100,6 +141,7 @@ describe('deleteSessionKeysForInstance', () => {
     vi.clearAllMocks();
     mockIDBStore.clear();
     resetKeyBytesMap();
+    setupGlobalMocks();
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
@@ -142,6 +184,7 @@ describe('validateAndPruneOrphanedInstances', () => {
     vi.clearAllMocks();
     mockIDBStore.clear();
     resetKeyBytesMap();
+    setupGlobalMocks();
     mockDB.objectStoreNames.contains.mockReturnValue(true);
     clearAllKeyManagers();
 
@@ -173,12 +216,6 @@ describe('validateAndPruneOrphanedInstances', () => {
     });
 
     try {
-      // Re-import to get fresh module
-      vi.resetModules();
-      const { validateAndPruneOrphanedInstances } = await import(
-        './keyManager'
-      );
-
       const mockDelete = vi.fn();
       const result = await validateAndPruneOrphanedInstances(
         ['instance-1', 'instance-2'],
@@ -199,7 +236,6 @@ describe('validateAndPruneOrphanedInstances', () => {
         value: originalIndexedDB,
         writable: true
       });
-      vi.resetModules();
     }
   });
 

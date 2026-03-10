@@ -1330,6 +1330,9 @@ importers:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
     devDependencies:
+      '@tearleads/bun-dom-compat':
+        specifier: workspace:*
+        version: link:../bun-dom-compat
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager

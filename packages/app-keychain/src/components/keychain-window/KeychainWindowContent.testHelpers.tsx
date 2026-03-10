@@ -78,34 +78,29 @@ vi.mock('../../pages/keychain/DeleteSessionKeysDialog', () => ({
 
 export let capturedMenuOnClose: (() => void) | undefined;
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-  return {
-    ...actual,
-    DesktopContextMenu: ({
-      children,
-      onClose
-    }: {
-      children: React.ReactNode;
-      onClose: () => void;
-    }) => {
-      capturedMenuOnClose = onClose;
-      return <div data-testid="context-menu">{children}</div>;
-    },
-    DesktopContextMenuItem: ({
-      children,
-      onClick
-    }: {
-      children: React.ReactNode;
-      onClick: () => void;
-    }) => (
-      <button data-testid="context-menu-item" onClick={onClick} type="button">
-        {children}
-      </button>
-    )
-  };
-});
+vi.mock('@tearleads/window-manager', () => ({
+  DesktopContextMenu: ({
+    children,
+    onClose
+  }: {
+    children: React.ReactNode;
+    onClose: () => void;
+  }) => {
+    capturedMenuOnClose = onClose;
+    return <div data-testid="context-menu">{children}</div>;
+  },
+  DesktopContextMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: React.ReactNode;
+    onClick: () => void;
+  }) => (
+    <button data-testid="context-menu-item" onClick={onClick} type="button">
+      {children}
+    </button>
+  )
+}));
 
 export function resetKeychainWindowContentTestState(): void {
   vi.clearAllMocks();
