@@ -92,11 +92,51 @@ pub fn canonical_sql_identifier_field(field: &str) -> Option<&'static str> {
         .find(|candidate| *candidate == field)
 }
 
+/// Normalizes required resource identifiers while rejecting blank values.
+pub fn normalize_required_resource_id(
+    field: &'static str,
+    value: &str,
+) -> Result<String, DomainValidationError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(DomainValidationError::new(field, "must not be empty"));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+/// Normalizes optional sort directions to canonical lower-case values.
+pub fn normalize_sort_direction(
+    field: &'static str,
+    value: Option<String>,
+) -> Result<Option<String>, DomainValidationError> {
+    let Some(raw) = value else {
+        return Ok(None);
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    if trimmed.eq_ignore_ascii_case("asc") {
+        return Ok(Some(String::from("asc")));
+    }
+    if trimmed.eq_ignore_ascii_case("desc") {
+        return Ok(Some(String::from("desc")));
+    }
+
+    Err(DomainValidationError::new(
+        field,
+        "must be \"asc\" or \"desc\"",
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         DomainValidationError, canonical_sql_identifier_field, normalize_redis_scan_cursor,
-        normalize_redis_scan_limit, normalize_sql_identifier,
+        normalize_redis_scan_limit, normalize_required_resource_id, normalize_sort_direction,
+        normalize_sql_identifier,
     };
 
     #[test]
@@ -162,5 +202,62 @@ mod tests {
         assert_eq!(canonical_sql_identifier_field("key"), Some("key"));
         assert_eq!(canonical_sql_identifier_field("cursor"), Some("cursor"));
         assert_eq!(canonical_sql_identifier_field("organization"), None);
+    }
+
+    #[test]
+    fn required_resource_id_trims_and_rejects_blank_values() {
+        let normalized = match normalize_required_resource_id("id", " group-1 ") {
+            Ok(value) => value,
+            Err(error) => panic!("valid id should pass: {error}"),
+        };
+        assert_eq!(normalized, "group-1");
+
+        let error = match normalize_required_resource_id("name", "   ") {
+            Ok(value) => panic!("blank name should fail, got: {value}"),
+            Err(error) => error,
+        };
+        assert_eq!(
+            error,
+            DomainValidationError::new("name", "must not be empty")
+        );
+    }
+
+    #[test]
+    fn sort_direction_normalization_is_canonicalized() {
+        assert_eq!(normalize_sort_direction("sort_direction", None), Ok(None));
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from(""))),
+            Ok(None)
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from(" Asc "))),
+            Ok(Some(String::from("asc")))
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from("DESC"))),
+            Ok(Some(String::from("desc")))
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from("asc"))),
+            Ok(Some(String::from("asc")))
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from("desc"))),
+            Ok(Some(String::from("desc")))
+        );
+    }
+
+    #[test]
+    fn sort_direction_normalization_rejects_invalid_values() {
+        let error = match normalize_sort_direction("sort_direction", Some(String::from("sideways")))
+        {
+            Ok(value) => panic!("invalid direction should fail, got: {value:?}"),
+            Err(error) => error,
+        };
+
+        assert_eq!(
+            error,
+            DomainValidationError::new("sort_direction", "must be \"asc\" or \"desc\"")
+        );
     }
 }
