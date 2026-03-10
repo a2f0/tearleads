@@ -1,11 +1,12 @@
 //! Adapter that maps gateway records to shared Postgres admin read models.
 
 use tearleads_data_access_traits::{
-    AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
-    AdminOrganizationUserSummary, AdminScopeOrganization, AdminUserAccountingSummary,
-    AdminUserSummary, BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
-    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupMember,
+    AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
+    AdminScopeOrganization, AdminUpdateGroupInput, AdminUpdateOrganizationInput,
+    AdminUpdateUserInput, AdminUserAccountingSummary, AdminUserSummary, BoxFuture, DataAccessError,
+    DataAccessErrorKind, PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot,
+    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 
 use crate::{
@@ -87,6 +88,53 @@ where
         })
     }
 
+    fn create_group(
+        &self,
+        input: AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        Box::pin(async move {
+            let group = self.gateway.create_group(input).await?;
+            Ok(map_group_detail(group))
+        })
+    }
+
+    fn update_group(
+        &self,
+        group_id: &str,
+        input: AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            let group = self.gateway.update_group(&group_id, input).await?;
+            Ok(map_group_detail(group))
+        })
+    }
+
+    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move { self.gateway.delete_group(&group_id).await })
+    }
+
+    fn add_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move { self.gateway.add_group_member(&group_id, &user_id).await })
+    }
+
+    fn remove_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move { self.gateway.remove_group_member(&group_id, &user_id).await })
+    }
+
     fn list_organizations(
         &self,
         organization_ids: Option<Vec<String>>,
@@ -98,6 +146,39 @@ where
                 .await?;
             Ok(map_organizations(organizations))
         })
+    }
+
+    fn create_organization(
+        &self,
+        input: AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        Box::pin(async move {
+            let organization = self.gateway.create_organization(input).await?;
+            Ok(map_organization(organization))
+        })
+    }
+
+    fn update_organization(
+        &self,
+        organization_id: &str,
+        input: AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationSummary, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            let organization = self
+                .gateway
+                .update_organization(&organization_id, input)
+                .await?;
+            Ok(map_organization(organization))
+        })
+    }
+
+    fn delete_organization(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move { self.gateway.delete_organization(&organization_id).await })
     }
 
     fn get_organization_users(
@@ -136,6 +217,18 @@ where
                 .get_user(&user_id, organization_ids.as_deref())
                 .await?;
             Ok(user.map(map_user))
+        })
+    }
+
+    fn update_user(
+        &self,
+        user_id: &str,
+        input: AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserSummary, DataAccessError>> {
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            let user = self.gateway.update_user(&user_id, input).await?;
+            Ok(map_user(user))
         })
     }
 
@@ -248,16 +341,17 @@ fn map_group_detail(record: AdminGroupDetailRecord) -> AdminGroupDetail {
 }
 
 fn map_organizations(records: Vec<AdminOrganizationRecord>) -> Vec<AdminOrganizationSummary> {
-    records
-        .into_iter()
-        .map(|record| AdminOrganizationSummary {
-            id: record.id,
-            name: record.name,
-            description: record.description,
-            created_at: record.created_at,
-            updated_at: record.updated_at,
-        })
-        .collect()
+    records.into_iter().map(map_organization).collect()
+}
+
+fn map_organization(record: AdminOrganizationRecord) -> AdminOrganizationSummary {
+    AdminOrganizationSummary {
+        id: record.id,
+        name: record.name,
+        description: record.description,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+    }
 }
 
 fn map_organization_users(

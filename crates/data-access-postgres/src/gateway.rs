@@ -1,7 +1,9 @@
 //! Driver-facing gateway abstraction for Postgres admin reads.
 
 use tearleads_data_access_traits::{
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresConnectionInfo, PostgresRowsQuery,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminUpdateGroupInput,
+    AdminUpdateOrganizationInput, AdminUpdateUserInput, BoxFuture, DataAccessError,
+    DataAccessErrorKind, PostgresConnectionInfo, PostgresRowsQuery,
 };
 
 /// Raw organization metadata returned by the backing Postgres driver.
@@ -218,6 +220,84 @@ pub trait PostgresAdminGateway: Send + Sync {
         })
     }
 
+    /// Creates one group and returns the persisted group payload.
+    fn create_group(
+        &self,
+        input: AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "create_group not implemented for organization_id={} name={}",
+                    input.organization_id, input.name
+                ),
+            ))
+        })
+    }
+
+    /// Updates one group and returns the persisted group payload.
+    fn update_group(
+        &self,
+        group_id: &str,
+        input: AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("update_group not implemented for group_id={group_id} input={input:?}"),
+            ))
+        })
+    }
+
+    /// Deletes one group by identifier and returns whether it was removed.
+    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("delete_group not implemented for group_id={group_id}"),
+            ))
+        })
+    }
+
+    /// Adds one user to a group and returns whether the membership was created.
+    fn add_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "add_group_member not implemented for group_id={group_id} user_id={user_id}"
+                ),
+            ))
+        })
+    }
+
+    /// Removes one user from a group and returns whether the membership was removed.
+    fn remove_group_member(
+        &self,
+        group_id: &str,
+        user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let group_id = group_id.to_string();
+        let user_id = user_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "remove_group_member not implemented for group_id={group_id} user_id={user_id}"
+                ),
+            ))
+        })
+    }
+
     /// Lists organizations optionally constrained to organization IDs.
     fn list_organizations(
         &self,
@@ -228,6 +308,55 @@ pub trait PostgresAdminGateway: Send + Sync {
             Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 format!("list_organizations not implemented for organization_ids={filter:?}"),
+            ))
+        })
+    }
+
+    /// Creates one organization and returns persisted metadata.
+    fn create_organization(
+        &self,
+        input: AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "create_organization not implemented for name={}",
+                    input.name
+                ),
+            ))
+        })
+    }
+
+    /// Updates one organization and returns persisted metadata.
+    fn update_organization(
+        &self,
+        organization_id: &str,
+        input: AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "update_organization not implemented for organization_id={organization_id} input={input:?}"
+                ),
+            ))
+        })
+    }
+
+    /// Deletes one organization and returns whether it was removed.
+    fn delete_organization(
+        &self,
+        organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        let organization_id = organization_id.to_string();
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!(
+                    "delete_organization not implemented for organization_id={organization_id}"
+                ),
             ))
         })
     }
@@ -276,6 +405,22 @@ pub trait PostgresAdminGateway: Send + Sync {
                 format!(
                     "get_user not implemented for user_id={user_id} organization_ids={filter:?}"
                 ),
+            ))
+        })
+    }
+
+    /// Updates one user and returns persisted metadata.
+    fn update_user(
+        &self,
+        user_id: &str,
+        input: AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserRecord, DataAccessError>> {
+        let user_id = user_id.to_string();
+        let _ = input;
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                format!("update_user not implemented for user_id={user_id}"),
             ))
         })
     }
