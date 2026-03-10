@@ -25,7 +25,7 @@ interface ControlButtonProps {
   'data-testid'?: string;
 }
 
-export function DesktopFloatingWindow({
+function DesktopFloatingWindow({
   children,
   title,
   onClose,
@@ -53,11 +53,11 @@ export function DesktopFloatingWindow({
   );
 }
 
-export function WindowMenuBar({ children }: ChildrenProps) {
+function WindowMenuBar({ children }: ChildrenProps) {
   return createElement('div', { 'data-testid': 'window-menu-bar' }, children);
 }
 
-export function WindowControlBar({ children }: ChildrenProps) {
+function WindowControlBar({ children }: ChildrenProps) {
   return createElement(
     'div',
     { 'data-testid': 'window-control-bar' },
@@ -65,7 +65,7 @@ export function WindowControlBar({ children }: ChildrenProps) {
   );
 }
 
-export function WindowControlGroup({ children }: ChildrenProps) {
+function WindowControlGroup({ children }: ChildrenProps) {
   return createElement(
     'div',
     { 'data-testid': 'window-control-group' },
@@ -73,7 +73,7 @@ export function WindowControlGroup({ children }: ChildrenProps) {
   );
 }
 
-export function WindowControlButton({
+function WindowControlButton({
   children,
   icon,
   onClick,
