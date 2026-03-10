@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mergeHeaders,
   resolveDirectApiPath
-} from './apiScenarioConnectCompat.js';
+} from './apiScenarioDirectPath.js';
 
 describe('resolveDirectApiPath', () => {
   it('keeps /v1-prefixed paths unchanged', () => {

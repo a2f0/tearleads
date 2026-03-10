@@ -6,7 +6,7 @@ import type {
 import {
   mergeHeaders,
   resolveDirectApiPath
-} from './apiScenarioConnectCompat.js';
+} from './apiScenarioDirectPath.js';
 import { getApiTestUtils } from './getApiTestUtils.js';
 
 export interface ApiActorDefinition {

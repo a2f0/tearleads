@@ -1,4 +1,4 @@
-import { resolveDirectApiPath } from '../harness/apiScenarioConnectCompat.js';
+import { resolveDirectApiPath } from '../harness/apiScenarioDirectPath.js';
 import type { JsonApiActor } from './setupBobNotesShareForAlice.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
