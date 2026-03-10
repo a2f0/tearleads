@@ -2,25 +2,14 @@ import { Code, ConnectError } from '@connectrpc/connect';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  getPostgresPoolMock,
-  getVfsCrdtCompactionEpochMock,
-  loadReplicaWriteIdRowsMock,
-  loadVfsCrdtRematerializationSnapshotMock,
-  queryMock,
-  readOldestAccessibleCursorCacheMock,
-  requireVfsClaimsMock,
-  writeOldestAccessibleCursorCacheMock
-} = vi.hoisted(() => ({
-  getPostgresPoolMock: vi.fn(),
-  getVfsCrdtCompactionEpochMock: vi.fn(),
-  loadReplicaWriteIdRowsMock: vi.fn(),
-  loadVfsCrdtRematerializationSnapshotMock: vi.fn(),
-  queryMock: vi.fn(),
-  readOldestAccessibleCursorCacheMock: vi.fn(),
-  requireVfsClaimsMock: vi.fn(),
-  writeOldestAccessibleCursorCacheMock: vi.fn()
-}));
+const getPostgresPoolMock = vi.fn();
+const getVfsCrdtCompactionEpochMock = vi.fn();
+const loadReplicaWriteIdRowsMock = vi.fn();
+const loadVfsCrdtRematerializationSnapshotMock = vi.fn();
+const queryMock = vi.fn();
+const readOldestAccessibleCursorCacheMock = vi.fn();
+const requireVfsClaimsMock = vi.fn();
+const writeOldestAccessibleCursorCacheMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)

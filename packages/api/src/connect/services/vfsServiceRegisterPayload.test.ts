@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { registerDirectMock, rekeyItemDirectMock } = vi.hoisted(() => ({
-  registerDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>(),
-  rekeyItemDirectMock:
-    vi.fn<(request: unknown, context: unknown) => Promise<unknown>>()
-}));
+const registerDirectMock =
+  vi.fn<(request: unknown, context: unknown) => Promise<unknown>>();
+const rekeyItemDirectMock =
+  vi.fn<(request: unknown, context: unknown) => Promise<unknown>>();
 
 vi.mock('./vfsDirectRegistry.js', () => ({
   registerDirect: (request: unknown, context: unknown) =>
