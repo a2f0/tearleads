@@ -264,7 +264,7 @@ describe('API VFS lifecycle', () => {
     // Query usage list
     const listBody = await alice.fetchJson<{
       usage: Array<{ modelId: string }>;
-      hasMore: boolean;
+      hasMore?: boolean;
     }>('/connect/tearleads.v2.AiService/GetUsage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
