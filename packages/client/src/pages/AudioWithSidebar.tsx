@@ -52,7 +52,7 @@ export function AudioWithSidebar() {
           type="button"
           className="rounded p-1 hover:bg-accent md:hidden"
           onClick={() => setSidebarOpen(true)}
-          aria-label="Toggle playlists sidebar"
+          aria-label="Open playlists sidebar"
           data-testid="audio-sidebar-toggle"
         >
           <Menu className="h-5 w-5" />

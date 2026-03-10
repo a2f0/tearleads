@@ -300,7 +300,7 @@ export function PhotoDetail() {
             type="button"
             className="rounded p-1 hover:bg-accent md:hidden"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Toggle albums sidebar"
+            aria-label="Open albums sidebar"
             data-testid="photos-sidebar-toggle"
           >
             <Menu className="h-5 w-5" />
