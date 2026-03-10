@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import {
   getRevenueCatWebhookMetricsSnapshot,
   recordRevenueCatWebhookMetric,
   resetRevenueCatWebhookMetricsForTests
 } from './revenuecatObservability.js';
-import { setTestEnv } from '../test/env.js';
 
 describe('revenuecat observability metrics', () => {
   afterEach(() => {

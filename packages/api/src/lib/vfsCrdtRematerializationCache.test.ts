@@ -1,5 +1,5 @@
-import { setTestEnv } from '../test/env.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import {
   readRematerializationSnapshotCache,
   writeRematerializationSnapshotCache

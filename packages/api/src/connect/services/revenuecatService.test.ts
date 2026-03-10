@@ -2,8 +2,8 @@ import { createHmac } from 'node:crypto';
 import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
 import { HandleWebhookRequestSchema } from '@tearleads/shared/gen/tearleads/v2/revenuecat_pb';
-import { setTestEnv, unsetTestEnv } from '../../test/env.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv, unsetTestEnv } from '../../test/env.js';
 import { revenuecatConnectService } from './revenuecatService.js';
 
 const mockQuery = vi.fn();

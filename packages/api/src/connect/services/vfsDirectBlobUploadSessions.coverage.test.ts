@@ -1,5 +1,6 @@
 import './vfsDirectTestSupport.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { setTestEnv } from '../../test/env.js';
 import {
   clearBlobUploadSessions,
   deleteBlobUploadSession,
@@ -13,7 +14,6 @@ import {
   setupVfsTestEnv,
   teardownVfsTestEnv
 } from './vfsDirectTestSupport.js';
-import { setTestEnv } from '../../test/env.js';
 
 const BLOB_UPLOAD_CHUNK_KEY_PREFIX = 'vfs:blobUpload';
 const BLOB_UPLOAD_INDEX_KEY_PREFIX = 'vfs:blobUploadIndex';

@@ -1,5 +1,5 @@
-import { setTestEnv } from '../../test/env.js';
 import { describe, expect, it } from 'vitest';
+import { setTestEnv } from '../../test/env.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
 describe('vfsDirectCrdtEnvelopeStorage', () => {

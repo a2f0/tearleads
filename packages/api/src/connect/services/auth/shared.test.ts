@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { AuthServiceDeleteSessionRequestSchema } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
-import type { ConnectAuthContext } from '../../context.js';
-import { setTestEnv, unsetTestEnv } from '../../../test/env.js';
 import { describe, expect, it } from 'vitest';
+import { setTestEnv, unsetTestEnv } from '../../../test/env.js';
+import type { ConnectAuthContext } from '../../context.js';
 import {
   getAllowedEmailDomains,
   getAuthContextOrThrow,
