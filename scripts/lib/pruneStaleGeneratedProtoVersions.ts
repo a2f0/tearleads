@@ -22,7 +22,7 @@ async function readDirectoryNames(pathname: string): Promise<Set<string>> {
   try {
     const entries = await readdir(pathname, { withFileTypes: true });
     return new Set(
-      entries.filter(entry => entry.isDirectory()).map(entry => entry.name)
+      entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
     );
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') {
@@ -36,7 +36,7 @@ async function readDirectoryNames(pathname: string): Promise<Set<string>> {
 const protoVersions = await readDirectoryNames(protoVersionsPath);
 const generatedVersions = await readDirectoryNames(generatedVersionsPath);
 const staleGeneratedVersions = [...generatedVersions]
-  .filter(version => !protoVersions.has(version))
+  .filter((version) => !protoVersions.has(version))
   .sort((left, right) => left.localeCompare(right));
 
 for (const version of staleGeneratedVersions) {
