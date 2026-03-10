@@ -2,7 +2,7 @@ import type {
   CreateWorkoutEntryInput,
   Exercise,
   WeightUnit
-} from '@tearleads/app-health';
+} from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 

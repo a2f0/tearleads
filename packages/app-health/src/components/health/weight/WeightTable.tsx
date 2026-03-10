@@ -1,4 +1,4 @@
-import type { WeightReading } from '@tearleads/app-health';
+import type { WeightReading } from '../../../lib/healthTrackerTypes.js';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow

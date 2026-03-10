@@ -36,7 +36,7 @@ import { zIndex } from '@/constants/zIndex';
 import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
-import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs';
+import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';

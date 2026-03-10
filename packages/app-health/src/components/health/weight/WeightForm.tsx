@@ -1,7 +1,7 @@
 import type {
   CreateWeightReadingInput,
   WeightUnit
-} from '@tearleads/app-health';
+} from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '../../ui/button';

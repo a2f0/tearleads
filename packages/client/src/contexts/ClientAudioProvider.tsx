@@ -43,7 +43,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
-import { useFileUpload } from '@/hooks/vfs';
+import { useFileUpload } from '@/hooks/vfs/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { extractAudioMetadata as extractMetadata } from '@/lib/audioMetadata';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';

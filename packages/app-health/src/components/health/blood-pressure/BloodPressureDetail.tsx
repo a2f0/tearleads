@@ -1,4 +1,4 @@
-import type { CreateBloodPressureReadingInput } from '@tearleads/app-health';
+import type { CreateBloodPressureReadingInput } from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
 import { useHealthRuntime } from '../../../runtime';

@@ -1,4 +1,4 @@
-import { isDefaultExercise } from '@tearleads/app-health';
+import { isDefaultExercise } from '../../../lib/defaultExercises.js';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 

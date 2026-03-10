@@ -10,7 +10,7 @@ import {
   getInstanceChangeSnapshot,
   type InstanceChangeSnapshot
 } from '@/hooks/app/useInstanceChange';
-import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';

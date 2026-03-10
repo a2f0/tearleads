@@ -1,4 +1,4 @@
-import type { Exercise } from '@tearleads/app-health';
+import type { Exercise } from '../../../lib/healthTrackerTypes.js';
 import { ChevronDown, ChevronRight, Dumbbell } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';

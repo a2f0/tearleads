@@ -2,7 +2,7 @@ import {
   getPostgresDevDefaults,
   isDevMode,
   type PostgresDevDefaults
-} from '@tearleads/shared';
+} from '@tearleads/shared/server';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
 

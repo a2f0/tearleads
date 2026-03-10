@@ -1,4 +1,4 @@
-import type { WorkoutEntry } from '@tearleads/app-health';
+import type { WorkoutEntry } from '../../../lib/healthTrackerTypes.js';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow

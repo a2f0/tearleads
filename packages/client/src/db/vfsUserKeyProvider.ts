@@ -1,5 +1,5 @@
 import type { AuthUser, VfsKeyPair } from '@tearleads/shared';
-import { ensureVfsKeyPair, getVfsPublicKey } from '@/hooks/vfs';
+import { ensureVfsKeyPair, getVfsPublicKey } from '@/hooks/vfs/useVfsKeys';
 
 interface UserKeyProvider {
   getUserKeyPair(): Promise<VfsKeyPair>;

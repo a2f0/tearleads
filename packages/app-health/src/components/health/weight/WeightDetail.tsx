@@ -1,4 +1,4 @@
-import type { CreateWeightReadingInput } from '@tearleads/app-health';
+import type { CreateWeightReadingInput } from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
 import { useHealthRuntime } from '../../../runtime';
