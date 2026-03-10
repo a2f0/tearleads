@@ -1,15 +1,9 @@
 import { Code } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  createOrgShareDirectMock,
-  createShareDirectMock,
-  updateShareDirectMock
-} = vi.hoisted(() => ({
-  createOrgShareDirectMock: vi.fn(),
-  createShareDirectMock: vi.fn(),
-  updateShareDirectMock: vi.fn()
-}));
+const createOrgShareDirectMock = vi.fn();
+const createShareDirectMock = vi.fn();
+const updateShareDirectMock = vi.fn();
 
 vi.mock('./vfsSharesDirectMutations.js', () => ({
   createShareDirect: (...args: unknown[]) => createShareDirectMock(...args),
