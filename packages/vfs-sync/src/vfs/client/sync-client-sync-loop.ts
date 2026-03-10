@@ -286,15 +286,8 @@ export async function pullUntilSettledLoop(
         details: {
           replayChangedAt: replayCursorAfterPull.changedAt,
           replayChangeId: replayCursorAfterPull.changeId,
-          ...(effectivePageCursor
-            ? {
-                boundaryChangedAt: effectivePageCursor.changedAt,
-                boundaryChangeId: effectivePageCursor.changeId
-              }
-            : {
-                boundaryChangedAt: null,
-                boundaryChangeId: null
-              })
+          boundaryChangedAt: effectivePageCursor?.changedAt ?? null,
+          boundaryChangeId: effectivePageCursor?.changeId ?? null
         }
       });
       effectivePageCursor = cloneCursor(replayCursorAfterPull);

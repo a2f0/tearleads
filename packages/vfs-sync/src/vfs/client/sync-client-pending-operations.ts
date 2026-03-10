@@ -13,17 +13,19 @@ export function getCurrentCursorFromState({
   reconcileState,
   replayCursor
 }: GetCurrentCursorFromStateParams): VfsSyncCursor | null {
-  if (reconcileState && replayCursor) {
-    return compareVfsSyncCursorOrder(reconcileState.cursor, replayCursor) >= 0
-      ? cloneCursor(reconcileState.cursor)
-      : cloneCursor(replayCursor);
+  const reconcileCursor = reconcileState?.cursor;
+
+  let cursorToUse: VfsSyncCursor | undefined | null;
+  if (reconcileCursor && replayCursor) {
+    cursorToUse =
+      compareVfsSyncCursorOrder(reconcileCursor, replayCursor) >= 0
+        ? reconcileCursor
+        : replayCursor;
+  } else {
+    cursorToUse = reconcileCursor ?? replayCursor;
   }
 
-  if (reconcileState) {
-    return cloneCursor(reconcileState.cursor);
-  }
-
-  return replayCursor ? cloneCursor(replayCursor) : null;
+  return cursorToUse ? cloneCursor(cursorToUse) : null;
 }
 
 interface LocalWriteIdFromReconcileStateParams {
