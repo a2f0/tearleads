@@ -44,6 +44,7 @@ const getRequestsFor = (
     (request) =>
       request.method === method.toUpperCase() &&
       request.pathname === pathname &&
+      // Exclude requests forwarded by MSW passthrough to harness ports.
       new URL(request.url).port.length === 0
   );
 
