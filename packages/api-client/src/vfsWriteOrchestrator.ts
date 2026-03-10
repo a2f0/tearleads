@@ -330,7 +330,10 @@ class VfsWriteOrchestratorImpl {
 
   private async enqueueProtocolRun<T>(run: () => Promise<T>): Promise<T> {
     const scheduledRun = this.protocolQueueTail.then(run);
-    this.protocolQueueTail = scheduledRun.then(() => undefined, () => undefined);
+    this.protocolQueueTail = scheduledRun.then(
+      () => undefined,
+      () => undefined
+    );
     return scheduledRun;
   }
 }
