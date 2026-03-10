@@ -2,6 +2,7 @@ import type { Database } from '@tearleads/db/sqlite';
 import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
+  HostRuntimeBaseProps,
   HostRuntimeDatabaseState,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
@@ -232,9 +233,8 @@ export interface VfsExplorerContextValue {
 
 const VfsExplorerContext = createContext<VfsExplorerContextValue | null>(null);
 
-export interface VfsExplorerProviderProps {
+export interface VfsExplorerProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: DatabaseState;
   getDatabase: () => Database;
   ui: VfsExplorerUIComponents;
   vfsKeys: VfsKeyFunctions;

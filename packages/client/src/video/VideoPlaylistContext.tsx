@@ -3,7 +3,10 @@
  * Provides playlist operations for video playlists.
  */
 
-import type { HostRuntimeDatabaseState } from '@tearleads/shared';
+import type {
+  HostRuntimeBaseProps,
+  HostRuntimeDatabaseState
+} from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
@@ -45,9 +48,8 @@ const VideoPlaylistContext = createContext<VideoPlaylistContextValue | null>(
   null
 );
 
-export interface VideoPlaylistProviderProps {
+export interface VideoPlaylistProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  databaseState: DatabaseState;
   fetchPlaylists: () => Promise<VideoPlaylist[]>;
   createPlaylist: (name: string) => Promise<string>;
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;

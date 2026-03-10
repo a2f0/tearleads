@@ -1,3 +1,4 @@
+import type { AIUIProviderProps } from '@tearleads/app-ai';
 import type {
   AudioUIProviderProps,
   NavigateToAudioOptions
@@ -18,6 +19,7 @@ import type {
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions
 } from '@tearleads/shared';
+import type { VfsExplorerProviderProps } from '@tearleads/vfs-explorer';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
@@ -33,7 +35,13 @@ describe('host runtime contracts', () => {
       AudioUIProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
     expectTypeOf<
+      AIUIProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    expectTypeOf<
       VideoPlaylistProviderProps['databaseState']
+    >().toEqualTypeOf<HostRuntimeDatabaseState>();
+    expectTypeOf<
+      VfsExplorerProviderProps['databaseState']
     >().toEqualTypeOf<HostRuntimeDatabaseState>();
     expectTypeOf<
       VehiclesRuntimeProviderProps['databaseState']
@@ -59,6 +67,9 @@ describe('host runtime contracts', () => {
     expectTypeOf<NotesProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
     expectTypeOf<ContactsProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
     expectTypeOf<AudioUIProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
+    expectTypeOf<AIUIProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
+    expectTypeOf<VideoPlaylistProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
+    expectTypeOf<VfsExplorerProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
     expectTypeOf<VehiclesRuntimeProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
     expectTypeOf<HealthRuntimeProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
     expectTypeOf<WalletRuntimeProviderProps>().toMatchTypeOf<HostRuntimeBaseProps>();
