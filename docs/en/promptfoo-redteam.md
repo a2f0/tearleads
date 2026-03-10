@@ -22,18 +22,25 @@ The evaluation is defined in `promptfooconfig.yaml` at the repo root.
 
 The current target is `anthropic:messages:claude-sonnet-4-20250514`. To test a different model or a local endpoint:
 
+Anthropic model (current default):
+
 ```yaml
-# Anthropic model
 targets:
   - id: anthropic:messages:claude-sonnet-4-20250514
     label: tearleads-target
+```
 
-# Local model via Ollama
+Local model via Ollama:
+
+```yaml
 targets:
   - id: ollama:chat:llama3
     label: tearleads-local
+```
 
-# Custom OpenAI-compatible endpoint
+Custom OpenAI-compatible endpoint:
+
+```yaml
 targets:
   - id: openai:chat:my-model
     label: tearleads-custom
