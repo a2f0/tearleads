@@ -25,7 +25,7 @@ export function CalendarSidebar({
   onEmptySpaceContextMenu
 }: CalendarSidebarProps) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/20 [border-color:var(--soft-border)]">
+    <>
       <WindowSidebarHeader
         title="My Calendars"
         actionLabel="New Calendar"
@@ -56,6 +56,6 @@ export function CalendarSidebar({
         }}
         aria-label="Calendar sidebar empty space"
       />
-    </aside>
+    </>
   );
 }

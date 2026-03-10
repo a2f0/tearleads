@@ -1,7 +1,9 @@
 import {
   WindowContextMenu,
-  WindowContextMenuItem
+  WindowContextMenuItem,
+  WindowSidebar
 } from '@tearleads/window-manager';
+import { Menu } from 'lucide-react';
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -58,6 +60,8 @@ export function CalendarContent({
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] =
     useState<string>(defaultCalendarName);
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [createEventModalOpen, setCreateEventModalOpen] = useState(false);
@@ -350,19 +354,39 @@ export function CalendarContent({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <CalendarSidebar
-          calendars={calendars}
-          activeCalendar={activeCalendar}
-          onSelectCalendar={setActiveCalendar}
-          onCalendarContextMenu={handleCalendarContextMenuRequest}
-          onEmptySpaceContextMenu={(position) => {
-            onSidebarContextMenuRequest?.(position);
-          }}
-        />
+        <WindowSidebar
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          ariaLabel="Calendars"
+          data-testid="calendar-sidebar"
+        >
+          <CalendarSidebar
+            calendars={calendars}
+            activeCalendar={activeCalendar}
+            onSelectCalendar={setActiveCalendar}
+            onCalendarContextMenu={handleCalendarContextMenuRequest}
+            onEmptySpaceContextMenu={(position) => {
+              onSidebarContextMenuRequest?.(position);
+            }}
+          />
+        </WindowSidebar>
 
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="font-medium text-base">{activeCalendar}</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded p-1 hover:bg-accent md:hidden"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Toggle calendars sidebar"
+                data-testid="calendar-sidebar-toggle"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <p className="font-medium text-base">{activeCalendar}</p>
+            </div>
             <CalendarViewControls
               viewModes={viewModes}
               viewMode={viewMode}
