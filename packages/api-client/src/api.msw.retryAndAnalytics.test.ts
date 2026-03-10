@@ -8,6 +8,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const loadAuthStorage = async () => {
@@ -40,7 +41,7 @@ describe('api with msw', () => {
         })
     }));
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
@@ -54,7 +55,6 @@ describe('api with msw', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
     resetApiEventLogger();
   });
@@ -236,7 +236,7 @@ describe('api with msw', () => {
 
   describe('environment configuration', () => {
     it('throws error when VITE_API_URL is not set', async () => {
-      vi.stubEnv('VITE_API_URL', '');
+      setTestEnv('VITE_API_URL', '');
 
       const api = await loadApi();
 
@@ -246,7 +246,7 @@ describe('api with msw', () => {
     });
 
     it('exports the API_BASE_URL', async () => {
-      vi.stubEnv('VITE_API_URL', 'http://test-api.com');
+      setTestEnv('VITE_API_URL', 'http://test-api.com');
 
       const { API_BASE_URL } = await import('./api');
 

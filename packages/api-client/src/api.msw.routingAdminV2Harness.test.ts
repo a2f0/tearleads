@@ -2,6 +2,7 @@ import { wasApiRequestMade } from '@tearleads/msw/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -11,7 +12,7 @@ const loadApi = async () => {
 describe('api adminV2 with msw runtime harness', () => {
   beforeEach(async () => {
     vi.resetModules();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     localStorage.setItem(AUTH_TOKEN_KEY, 'Bearer header.payload.signature');

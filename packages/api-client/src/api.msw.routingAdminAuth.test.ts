@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY } from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -22,7 +23,7 @@ describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
@@ -35,7 +36,6 @@ describe('api with msw', () => {
     );
   });
   afterEach(async () => {
-    vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
     resetApiEventLogger();
   });
@@ -93,7 +93,7 @@ describe('api with msw', () => {
   it('supports /v1-prefixed API base URLs', async () => {
     vi.resetModules();
     installApiV2WasmBindingsOverride();
-    vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
+    setTestEnv('VITE_API_URL', 'http://localhost/v1');
     (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     // Login and VFS keys need server.use() overrides
     server.use(

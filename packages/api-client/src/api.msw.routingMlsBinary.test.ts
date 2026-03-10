@@ -2,6 +2,7 @@ import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -54,8 +55,8 @@ describe('api with msw (MLS binary routes)', () => {
     vi.resetModules();
     vi.clearAllMocks();
     installApiV2WasmBindingsOverride();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
-    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'true');
+    setTestEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'true');
     localStorage.clear();
 
     const ctx = getSharedTestContext();
@@ -76,7 +77,6 @@ describe('api with msw (MLS binary routes)', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     authState.token = '';
     authState.refreshToken = null;
     const { resetApiEventLogger } = await import('./apiLogger');

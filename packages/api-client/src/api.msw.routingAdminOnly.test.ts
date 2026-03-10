@@ -2,6 +2,7 @@ import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
@@ -53,7 +54,7 @@ describe('api with msw admin routing', () => {
         })
     }));
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     installApiV2WasmBindingsOverride();
 
@@ -70,7 +71,6 @@ describe('api with msw admin routing', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
     authState.token = '';
     authState.refreshToken = null;

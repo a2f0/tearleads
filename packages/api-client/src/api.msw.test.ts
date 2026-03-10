@@ -8,6 +8,7 @@ import {
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
+import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
 const loadAuthStorage = async () => {
@@ -52,7 +53,7 @@ describe('api with msw', () => {
         })
     }));
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -64,7 +65,6 @@ describe('api with msw', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     const { resetApiEventLogger } = await import('./apiLogger');
     resetApiEventLogger();
   });
@@ -333,7 +333,7 @@ describe('api with msw', () => {
     });
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {
-      vi.stubEnv('VITE_API_URL', '');
+      setTestEnv('VITE_API_URL', '');
       (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       const { tryRefreshToken } = await import('./api');

@@ -6,6 +6,7 @@ import type {
 } from '@tearleads/vfs-sync/vfs';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from './test/env.js';
 
 function getAuthorizationHeader(init: RequestInit | undefined): string | null {
   if (!init || !init.headers) {
@@ -25,13 +26,12 @@ describe('vfsNetworkFlusher', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
     localStorage.clear();
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 

@@ -1,5 +1,6 @@
 import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from './test/env.js';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
 
 interface ObservedRequest {
@@ -53,13 +54,12 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
     localStorage.clear();
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     global.fetch = originalFetch;
   });
 
