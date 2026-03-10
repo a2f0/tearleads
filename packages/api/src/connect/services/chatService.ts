@@ -1,5 +1,5 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { ChatPostCompletionsRequest } from '@tearleads/shared/gen/tearleads/v1/chat_pb';
+import type { ChatServicePostCompletionsRequest } from '@tearleads/shared/gen/tearleads/v2/chat_pb';
 import { createChatCompletion } from '../../lib/chatCompletions.js';
 import { getRequiredConnectAuthContext } from '../context.js';
 import {
@@ -23,7 +23,7 @@ function toJsonResponsePayload(payload: unknown): string {
 
 export const chatConnectService = {
   postCompletions: async (
-    request: ChatPostCompletionsRequest,
+    request: ChatServicePostCompletionsRequest,
     context: HandlerContext
   ) => {
     const authContext = getRequiredConnectAuthContext(context);

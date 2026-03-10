@@ -12,7 +12,7 @@ import { getSharedTestContext } from '../testContext';
 
 let seededUser: SeededUser;
 const CHAT_COMPLETIONS_CONNECT_PATH =
-  '/connect/tearleads.v1.ChatService/PostCompletions';
+  '/connect/tearleads.v2.ChatService/PostCompletions';
 const CHAT_COMPLETIONS_CONNECT_URL = `http://localhost${CHAT_COMPLETIONS_CONNECT_PATH}`;
 
 function connectChatPayload(payload: unknown): { json: string } {
