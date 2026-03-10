@@ -5,16 +5,12 @@ const {
   authenticateMock,
   buildSharePolicyPreviewTreeMock,
   getPoolMock,
-  loadOrgShareAuthorizationContextMock,
-  loadShareAuthorizationContextMock,
   queryMock,
   resolveOrganizationMembershipMock
 } = vi.hoisted(() => ({
   authenticateMock: vi.fn(),
   buildSharePolicyPreviewTreeMock: vi.fn(),
   getPoolMock: vi.fn(),
-  loadOrgShareAuthorizationContextMock: vi.fn(),
-  loadShareAuthorizationContextMock: vi.fn(),
   queryMock: vi.fn(),
   resolveOrganizationMembershipMock: vi.fn()
 }));
@@ -34,20 +30,6 @@ vi.mock('../../lib/vfsSharePolicyPreviewTree.js', () => ({
   buildSharePolicyPreviewTree: (...args: unknown[]) =>
     buildSharePolicyPreviewTreeMock(...args)
 }));
-
-vi.mock('./vfsSharesDirectShared.js', async () => {
-  const actual = await vi.importActual<
-    typeof import('./vfsSharesDirectShared.js')
-  >('./vfsSharesDirectShared.js');
-
-  return {
-    ...actual,
-    loadShareAuthorizationContext: (...args: unknown[]) =>
-      loadShareAuthorizationContextMock(...args),
-    loadOrgShareAuthorizationContext: (...args: unknown[]) =>
-      loadOrgShareAuthorizationContextMock(...args)
-  };
-});
 
 import { vfsSharesConnectService } from './vfsSharesService.js';
 
@@ -83,14 +65,6 @@ describe('vfsSharesConnectService', () => {
     resolveOrganizationMembershipMock.mockResolvedValue({
       ok: true,
       organizationId: null
-    });
-    loadShareAuthorizationContextMock.mockResolvedValue({
-      ownerId: 'user-1',
-      aclId: 'share:share-1'
-    });
-    loadOrgShareAuthorizationContextMock.mockResolvedValue({
-      ownerId: 'user-1',
-      aclId: 'org-share:org-1:share-1'
     });
   });
 
@@ -263,6 +237,18 @@ describe('vfsSharesConnectService', () => {
       .mockResolvedValueOnce({
         rows: [
           {
+            owner_id: 'user-1',
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            principal_type: 'user',
+            principal_id: 'user-2',
+            access_level: 'read'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
             acl_id: 'share:share-1',
             item_id: 'item-1',
             share_type: 'user',
@@ -347,7 +333,20 @@ describe('vfsSharesConnectService', () => {
 
   it('deletes user shares directly without proxy forwarding', async () => {
     const context = createContext();
-    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-1',
+            item_id: 'item-1',
+            principal_type: 'user',
+            principal_id: 'user-2',
+            access_level: 'read'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
 
     const response = await vfsSharesConnectService.deleteShare(
       {
@@ -357,12 +356,23 @@ describe('vfsSharesConnectService', () => {
     );
 
     expect(response).toEqual({ deleted: true });
-    expect(loadShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
   it('deletes org shares directly without proxy forwarding', async () => {
     const context = createContext();
-    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'org-share:org-1:share-1',
+            item_id: 'item-1',
+            principal_id: 'org-2',
+            access_level: 'read'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
 
     const response = await vfsSharesConnectService.deleteOrgShare(
       {
@@ -372,7 +382,6 @@ describe('vfsSharesConnectService', () => {
     );
 
     expect(response).toEqual({ deleted: true });
-    expect(loadOrgShareAuthorizationContextMock).toHaveBeenCalled();
   });
 
   it('returns invalid argument for empty share-target search query', async () => {
