@@ -4,20 +4,17 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Use vi.hoisted for mock functions to avoid hoisting issues
-const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
-  mockImportKey: vi.fn(),
-  mockEncrypt: vi.fn(),
-  mockDecrypt: vi.fn()
-}));
+const mockImportKey = vi.fn();
+const mockEncrypt = vi.fn();
+const mockDecrypt = vi.fn();
 
 vi.mock('@tearleads/shared', async (importOriginal) => {
   const original = await importOriginal<typeof import('@tearleads/shared')>();
   return {
     ...original,
-    importKey: mockImportKey,
-    encrypt: mockEncrypt,
-    decrypt: mockDecrypt
+    importKey: (keyData: Uint8Array) => mockImportKey(keyData),
+    encrypt: (data: Uint8Array, key: CryptoKey) => mockEncrypt(data, key),
+    decrypt: (data: Uint8Array, key: CryptoKey) => mockDecrypt(data, key)
   };
 });
 
