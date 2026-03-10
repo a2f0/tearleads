@@ -11,6 +11,7 @@ import {
   user2Response
 } from './usersAdminDetailTestFixtures';
 
+// one-component-per-file: allow - route probe helper keeps navigation assertions deterministic in this test file.
 const mockGet = vi.fn();
 const mockUpdate = vi.fn();
 const mockGroupsList = vi.fn();
