@@ -49,6 +49,8 @@ vi.mock('@tanstack/react-virtual', () => ({
   })
 }));
 
+vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
 const renderAndWait = async () => {
   render(
     <PostgresTableRowsView

@@ -1,29 +1,29 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
 import { AdminLauncher } from './AdminLauncher';
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
+const renderLauncher = () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<AdminLauncher />} />
+        <Route path="/admin/redis" element={<div>Redis Route</div>} />
+        <Route path="/admin/postgres" element={<div>Postgres Route</div>} />
+        <Route
+          path="/admin/organizations"
+          element={<div>Organizations Route</div>}
+        />
+        <Route path="/compliance" element={<div>Compliance Route</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+};
 
 describe('AdminLauncher', () => {
-  beforeEach(() => {
-    mockNavigate.mockClear();
-  });
-
   it('renders admin launcher with Redis, Postgres, Organizations, and Compliance options', () => {
-    render(
-      <MemoryRouter>
-        <AdminLauncher />
-      </MemoryRouter>
-    );
+    renderLauncher();
 
     expect(screen.getByRole('heading', { name: 'Admin' })).toBeInTheDocument();
     expect(screen.getByText('Redis')).toBeInTheDocument();
@@ -34,53 +34,37 @@ describe('AdminLauncher', () => {
 
   it('navigates to /admin/redis when Redis is clicked', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <AdminLauncher />
-      </MemoryRouter>
-    );
+    renderLauncher();
 
     await user.click(screen.getByText('Redis'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/redis');
+    expect(screen.getByText('Redis Route')).toBeInTheDocument();
   });
 
   it('navigates to /admin/postgres when Postgres is clicked', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <AdminLauncher />
-      </MemoryRouter>
-    );
+    renderLauncher();
 
     await user.click(screen.getByText('Postgres'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/postgres');
+    expect(screen.getByText('Postgres Route')).toBeInTheDocument();
   });
 
   it('navigates to /admin/organizations when Organizations is clicked', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <AdminLauncher />
-      </MemoryRouter>
-    );
+    renderLauncher();
 
     await user.click(screen.getByText('Organizations'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/organizations');
+    expect(screen.getByText('Organizations Route')).toBeInTheDocument();
   });
 
   it('navigates to /compliance when Compliance is clicked', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <AdminLauncher />
-      </MemoryRouter>
-    );
+    renderLauncher();
 
     await user.click(screen.getByText('Compliance'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/compliance');
+    expect(screen.getByText('Compliance Route')).toBeInTheDocument();
   });
 });

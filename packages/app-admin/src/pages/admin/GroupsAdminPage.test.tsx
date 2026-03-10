@@ -1,10 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupsAdminPage } from './GroupsAdminPage';
 
-const mockNavigate = vi.fn();
 const mockGetContext = vi.fn();
 
 vi.mock('@/lib/api', () => ({
@@ -14,25 +13,6 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
-
-vi.mock('@/lib/api', () => ({
-  api: {
-    adminV2: {
-      getContext: vi.fn().mockResolvedValue({
-        isRootAdmin: true,
-        organizations: [{ id: 'org-1', name: 'Org 1' }]
-      })
-    }
-  }
-}));
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@admin/components/admin-groups', () => ({
   GroupsList: ({
@@ -63,15 +43,21 @@ describe('GroupsAdminPage', () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter>
-        <GroupsAdminPage />
+      <MemoryRouter initialEntries={['/admin/groups']}>
+        <Routes>
+          <Route path="/admin/groups" element={<GroupsAdminPage />} />
+          <Route
+            path="/admin/groups/:id"
+            element={<div>Group Detail Route</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
     await user.click(screen.getByText('Select Group'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/groups/group-123');
+      expect(screen.getByText('Group Detail Route')).toBeInTheDocument();
     });
   });
 

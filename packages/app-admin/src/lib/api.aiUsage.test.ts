@@ -16,7 +16,6 @@ describe('admin api client ai usage routes', () => {
   }
 
   beforeEach(async () => {
-    vi.resetModules();
     vi.stubEnv('VITE_API_URL', 'https://api.test');
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);

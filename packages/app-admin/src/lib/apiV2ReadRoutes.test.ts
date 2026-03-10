@@ -31,7 +31,6 @@ describe('admin api client v2 read routes', () => {
   }
 
   beforeEach(async () => {
-    vi.resetModules();
     vi.stubEnv('VITE_API_URL', 'https://api.test');
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);

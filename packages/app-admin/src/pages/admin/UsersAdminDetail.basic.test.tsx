@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdminDetail } from './UsersAdminDetail';
 import {
@@ -11,13 +11,13 @@ import {
   user2Response
 } from './usersAdminDetailTestFixtures';
 
+// one-component-per-file: allow - route probe helper keeps navigation assertions deterministic in this test file.
 const mockGet = vi.fn();
 const mockUpdate = vi.fn();
 const mockGroupsList = vi.fn();
 const mockGetMembers = vi.fn();
 const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
-const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -42,19 +42,25 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
+const AiRequestsRouteProbe = () => {
+  const location = useLocation();
+  return (
+    <div data-testid="ai-requests-route-probe">
+      {location.pathname}
+      {location.search}
+    </div>
+  );
+};
 
 const renderWithRouter = (userId: string) => {
   return render(
     <MemoryRouter initialEntries={[`/admin/users/${userId}`]}>
       <Routes>
         <Route path="/admin/users/:id" element={<UsersAdminDetail />} />
+        <Route
+          path="/admin/users/ai-requests"
+          element={<AiRequestsRouteProbe />}
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -274,7 +280,7 @@ describe('UsersAdminDetail (basic)', () => {
       screen.getByRole('button', { name: 'View Requests' })
     );
 
-    expect(mockNavigate).toHaveBeenCalledWith(
+    expect(screen.getByTestId('ai-requests-route-probe')).toHaveTextContent(
       '/admin/users/ai-requests?userId=user-1'
     );
   });
