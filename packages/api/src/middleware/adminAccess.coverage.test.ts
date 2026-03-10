@@ -9,13 +9,11 @@ import {
   requireRootAdmin
 } from './adminAccess.js';
 
-const { getPostgresPoolMock, queryMock } = vi.hoisted(() => ({
-  getPostgresPoolMock: vi.fn(),
-  queryMock: vi.fn()
-}));
+const getPostgresPoolMock = vi.fn();
+const queryMock = vi.fn();
 
 vi.mock('../lib/postgres.js', () => ({
-  getPostgresPool: getPostgresPoolMock
+  getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)
 }));
 
 function attachAuthenticatedSession(admin: boolean) {

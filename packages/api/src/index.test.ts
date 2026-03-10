@@ -2,12 +2,11 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { REVENUECAT_SIGNATURE_HEADER } from './lib/revenuecat.js';
 
-const { handleRevenueCatWebhookMock } = vi.hoisted(() => ({
-  handleRevenueCatWebhookMock: vi.fn()
-}));
+const handleRevenueCatWebhookMock = vi.fn();
 
 vi.mock('./lib/revenuecatWebhook.js', () => ({
-  handleRevenueCatWebhook: handleRevenueCatWebhookMock
+  handleRevenueCatWebhook: (...args: unknown[]) =>
+    handleRevenueCatWebhookMock(...args)
 }));
 
 import {

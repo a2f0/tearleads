@@ -8,13 +8,10 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { aiConnectServiceV2 } from './aiServiceV2.js';
 
-const { authenticateMock, getPoolMock, getPostgresPoolMock, queryMock } =
-  vi.hoisted(() => ({
-    authenticateMock: vi.fn(),
-    getPoolMock: vi.fn(),
-    getPostgresPoolMock: vi.fn(),
-    queryMock: vi.fn()
-  }));
+const authenticateMock = vi.fn();
+const getPoolMock = vi.fn();
+const getPostgresPoolMock = vi.fn();
+const queryMock = vi.fn();
 
 vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args)
