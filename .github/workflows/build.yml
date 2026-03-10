@@ -241,7 +241,7 @@ jobs:
         run: ./scripts/checks/checkJs.sh --from-upstream
 
       - name: Check legacy Connect route literals
-        run: ./scripts/checks/checkLegacyConnectRouteLiterals.ts --from-upstream
+        run: node --experimental-strip-types ./scripts/checks/checkLegacyConnectRouteLiterals.ts --from-upstream
 
       - name: Check file limits
         run: ./scripts/checks/checkFileLimits.sh --from-upstream
