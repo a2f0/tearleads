@@ -1,7 +1,7 @@
+import { windowManagerTestMock } from '@admin/test/windowManagerTestMock';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { windowManagerTestMock } from '@admin/test/windowManagerTestMock';
 import { AdminOrganizationsWindow } from './AdminOrganizationsWindow';
 
 vi.mock('@tearleads/window-manager', () => windowManagerTestMock);
