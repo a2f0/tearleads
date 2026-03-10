@@ -1,18 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  authenticateMock,
-  buildSharePolicyPreviewTreeMock,
-  getPoolMock,
-  queryMock,
-  resolveOrganizationMembershipMock
-} = vi.hoisted(() => ({
-  authenticateMock: vi.fn(),
-  buildSharePolicyPreviewTreeMock: vi.fn(),
-  getPoolMock: vi.fn(),
-  queryMock: vi.fn(),
-  resolveOrganizationMembershipMock: vi.fn()
-}));
+const authenticateMock = vi.fn();
+const buildSharePolicyPreviewTreeMock = vi.fn();
+const getPoolMock = vi.fn();
+const queryMock = vi.fn();
+const resolveOrganizationMembershipMock = vi.fn();
 
 vi.mock('./connectRequestAuth.js', () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
