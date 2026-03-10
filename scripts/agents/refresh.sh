@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Refresh workspace after a PR is merged: switches to main, pulls latest,
-# installs dependencies, builds packages, then resets title to '<workspace> - main'.
+# installs dependencies, builds TypeScript and Rust packages, then resets title
+# to '<workspace> - main'.
 set -eu
 SCRIPT_PATH=$0
 case $SCRIPT_PATH in
@@ -31,6 +32,19 @@ pnpm install
 # Build TypeScript packages
 echo "Building TypeScript packages..."
 pnpm build
+
+# Build Rust crates when the workspace has a Cargo manifest.
+if [ -f "$REPO_ROOT/Cargo.toml" ]; then
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "Error: cargo is required to build Rust crates. Install Rust toolchain and retry." >&2
+    exit 1
+  fi
+
+  echo "Building Rust crates..."
+  cargo build --workspace
+else
+  echo "No Cargo workspace found; skipping Rust build."
+fi
 
 # Sync Capacitor web assets to native projects.
 # iOS sync can invoke CocoaPods, so non-macOS hosts should sync Android only.
