@@ -235,10 +235,6 @@ export async function restoreDatabaseSession(
   });
 }
 
-/**
- * Persist the current session for restoration on reload.
- * @param instanceId The instance to persist session for
- */
 export async function persistDatabaseSession(
   instanceId: string
 ): Promise<boolean> {
@@ -246,19 +242,11 @@ export async function persistDatabaseSession(
   return keyManager.persistSession();
 }
 
-/**
- * Clear any persisted session data (web only).
- * @param instanceId The instance to clear session for
- */
 export async function clearPersistedSession(instanceId: string): Promise<void> {
   const keyManager = getKeyManagerForInstance(instanceId);
   await keyManager.clearPersistedSession();
 }
 
-/**
- * Set a password protector for the currently active database key.
- * Returns false when no active key is available.
- */
 export async function setDatabasePassword(
   password: string,
   instanceId: string
@@ -286,11 +274,6 @@ export async function setDatabasePassword(
   return true;
 }
 
-/**
- * Initialize the database with an encryption key.
- * @param encryptionKey The encryption key
- * @param instanceId The instance ID for database naming
- */
 async function initializeDatabaseWithKey(
   encryptionKey: Uint8Array,
   instanceId: string
@@ -413,10 +396,26 @@ export async function resetDatabase(instanceId: string): Promise<void> {
     if (adapter?.deleteDatabase) {
       await adapter.deleteDatabase(dbName);
     } else {
-      // For Electron, try to delete the database file directly
-      // even if no adapter was initialized
+      // No adapter initialized — try platform-specific file deletion directly
       const platformInfo = getCurrentPlatform();
-      if (platformInfo.platform === 'electron') {
+      if (
+        platformInfo.platform === 'ios' ||
+        platformInfo.platform === 'android'
+      ) {
+        const { CapacitorSQLite } = await import(
+          '@capacitor-community/sqlite'
+        );
+        try {
+          await CapacitorSQLite.deleteDatabase({ database: dbName });
+        } catch {
+          // Ignore errors if the file doesn't exist
+        }
+        try {
+          await CapacitorSQLite.clearEncryptionSecret();
+        } catch {
+          // Ignore errors if the secret doesn't exist
+        }
+      } else if (platformInfo.platform === 'electron') {
         try {
           if (window.electron?.sqlite?.deleteDatabase) {
             await window.electron.sqlite.deleteDatabase(dbName);
@@ -447,11 +446,6 @@ export async function resetDatabase(instanceId: string): Promise<void> {
   });
 }
 
-/**
- * Export the database to a byte array for backup.
- * The returned data is the raw encrypted database file.
- * @returns The encrypted database as a Uint8Array
- */
 export async function exportDatabase(): Promise<Uint8Array> {
   const adapterInstance = _getAdapterInstance();
   if (!adapterInstance) {
@@ -465,11 +459,6 @@ export async function exportDatabase(): Promise<Uint8Array> {
   return adapterInstance.exportDatabase();
 }
 
-/**
- * Import a database from a byte array backup.
- * Replaces the current database with the provided backup data.
- * @param data The encrypted database backup as a Uint8Array
- */
 export async function importDatabase(data: Uint8Array): Promise<void> {
   await runWithDatabaseLifecycleLock(async () => {
     const adapterInstance = _getAdapterInstance();

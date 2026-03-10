@@ -234,8 +234,10 @@ export async function initializeAndRestoreDatabaseState({
           return;
         }
         logStore.debug(
-          '[db] deferred session restore failed, falling through to auto-init'
+          '[db] deferred session restore failed, resetting before auto-init'
         );
+        databaseSetupProgressStore.update('Re-initializing database...', 55);
+        await resetDatabase(activeInstance.id);
       }
 
       logStore.debug('[db] auto-initializing database');

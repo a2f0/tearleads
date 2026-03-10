@@ -164,6 +164,36 @@ describe('initializeAndRestoreDatabaseState', () => {
     expect(mockUpdateInstance).not.toHaveBeenCalled();
   });
 
+  it('resets database before auto-init when deferred session restore fails from not-setup state', async () => {
+    const active = { id: 'active-1', name: 'Primary', passwordDeferred: true };
+    const freshDb = { id: 'fresh-db' };
+    mockInitializeRegistry.mockResolvedValue(active);
+    mockGetInstances.mockResolvedValue([active]);
+    mockValidateAndPruneOrphanedInstances.mockResolvedValue({
+      cleaned: false,
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: []
+    });
+    mockIsDatabaseSetUp.mockResolvedValue(false);
+    mockHasPersistedSession
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockRestoreDatabaseSession.mockResolvedValue(null);
+    mockResetDatabase.mockResolvedValue(undefined);
+    mockAutoInitializeDatabase.mockResolvedValue(freshDb);
+
+    const options = createOptions();
+    await initializeAndRestoreDatabaseState(options);
+
+    expect(mockRestoreDatabaseSession).toHaveBeenCalledWith('active-1');
+    expect(mockResetDatabase).toHaveBeenCalledWith('active-1');
+    expect(mockAutoInitializeDatabase).toHaveBeenCalledWith('active-1');
+    expect(options.setDb).toHaveBeenCalledWith(freshDb);
+    expect(options.setIsSetUp).toHaveBeenCalledWith(true);
+    expect(options.setHasPersisted).toHaveBeenCalledWith(true);
+    expect(options.markSessionActive).toHaveBeenCalledTimes(1);
+  });
+
   it('skips orphan validation for the active instance but validates inactive ones', async () => {
     const active = { id: 'active-1', name: 'Primary' };
     const secondary = { id: 'secondary-1', name: 'Secondary' };
