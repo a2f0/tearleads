@@ -116,8 +116,6 @@ vi.mock('./DeleteAlbumDialog', () => ({
 }));
 describe('PhotosAlbumsSidebar', () => {
   const defaultProps = {
-    width: 200,
-    onWidthChange: vi.fn(),
     selectedAlbumId: ALL_PHOTOS_ID,
     onAlbumSelect: vi.fn(),
     refreshToken: 0,
@@ -364,38 +362,6 @@ describe('PhotosAlbumsSidebar', () => {
     await waitFor(() => {
       expect(onAlbumSelect).toHaveBeenCalledWith(ALL_PHOTOS_ID);
     });
-  });
-
-  it('handles resize via mouse drag', async () => {
-    const onWidthChange = vi.fn();
-    const { container } = render(
-      <PhotosAlbumsSidebar {...defaultProps} onWidthChange={onWidthChange} />
-    );
-
-    const resizeHandle = container.querySelector('.cursor-col-resize');
-    if (!resizeHandle) throw new Error('Resize handle not found');
-
-    // Simulate mouse down
-    const mouseDownEvent = new MouseEvent('mousedown', {
-      bubbles: true,
-      clientX: 200
-    });
-    resizeHandle.dispatchEvent(mouseDownEvent);
-
-    // Simulate mouse move
-    const mouseMoveEvent = new MouseEvent('mousemove', {
-      bubbles: true,
-      clientX: 250
-    });
-    document.dispatchEvent(mouseMoveEvent);
-
-    // Simulate mouse up
-    const mouseUpEvent = new MouseEvent('mouseup', {
-      bubbles: true
-    });
-    document.dispatchEvent(mouseUpEvent);
-
-    expect(onWidthChange).toHaveBeenCalled();
   });
 
   it('highlights All Photos when selectedAlbumId is null', () => {

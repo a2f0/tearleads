@@ -115,10 +115,8 @@ vi.mock('./DeleteAlbumDialog', () => ({
     ) : null
 }));
 
-describe('PhotosAlbumsSidebar drag-drop and resize', () => {
+describe('PhotosAlbumsSidebar drag-drop', () => {
   const defaultProps = {
-    width: 200,
-    onWidthChange: vi.fn(),
     selectedAlbumId: ALL_PHOTOS_ID,
     onAlbumSelect: vi.fn(),
     refreshToken: 0,
@@ -130,38 +128,6 @@ describe('PhotosAlbumsSidebar drag-drop and resize', () => {
     mockUsePhotoAlbums.albums = mockAlbums;
     mockUsePhotoAlbums.loading = false;
     mockUsePhotoAlbums.error = null;
-  });
-
-  it('handles resize via mouse drag', async () => {
-    const onWidthChange = vi.fn();
-    const { container } = render(
-      <PhotosAlbumsSidebar {...defaultProps} onWidthChange={onWidthChange} />
-    );
-
-    const resizeHandle = container.querySelector('.cursor-col-resize');
-    if (!resizeHandle) throw new Error('Resize handle not found');
-
-    // Simulate mouse down
-    const mouseDownEvent = new MouseEvent('mousedown', {
-      bubbles: true,
-      clientX: 200
-    });
-    resizeHandle.dispatchEvent(mouseDownEvent);
-
-    // Simulate mouse move
-    const mouseMoveEvent = new MouseEvent('mousemove', {
-      bubbles: true,
-      clientX: 250
-    });
-    document.dispatchEvent(mouseMoveEvent);
-
-    // Simulate mouse up
-    const mouseUpEvent = new MouseEvent('mouseup', {
-      bubbles: true
-    });
-    document.dispatchEvent(mouseUpEvent);
-
-    expect(onWidthChange).toHaveBeenCalled();
   });
 
   it('opens empty space context menu on right click', async () => {

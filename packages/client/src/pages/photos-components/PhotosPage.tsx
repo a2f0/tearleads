@@ -2,7 +2,9 @@
  * PhotosPage component - wrapper for Photos with album sidebar.
  */
 
+import { WindowSidebar } from '@tearleads/window-manager';
 import { and, eq, inArray } from 'drizzle-orm';
+import { Menu } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
@@ -20,6 +22,7 @@ export function PhotosPage() {
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Derive selected album from URL (or ALL_PHOTOS_ID if no param)
@@ -78,20 +81,37 @@ export function PhotosPage() {
 
   return (
     <div className="flex h-full flex-col space-y-4">
-      <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      <div className="flex items-center gap-2">
+        {isUnlocked && (
+          <button
+            type="button"
+            className="rounded p-1 hover:bg-accent md:hidden"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Toggle albums sidebar"
+            data-testid="photos-sidebar-toggle"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      </div>
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <div className="hidden md:block">
+          <WindowSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            open={sidebarOpen}
+            onOpenChange={setSidebarOpen}
+            ariaLabel="Albums"
+          >
             <PhotosAlbumsSidebar
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
               selectedAlbumId={selectedAlbumId}
               onAlbumSelect={handleAlbumSelect}
               refreshToken={refreshToken}
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
               onDropToAlbum={handleDropToAlbum}
             />
-          </div>
+          </WindowSidebar>
         )}
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <Photos

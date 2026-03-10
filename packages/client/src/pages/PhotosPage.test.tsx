@@ -26,17 +26,9 @@ import {
 vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: vi.fn(
-    ({
-      selectedAlbumId,
-      onAlbumSelect,
-      onAlbumChanged,
-      onDropToAlbum,
-      onWidthChange,
-      width
-    }) => (
-      <div data-testid="photos-albums-sidebar">
+    ({ selectedAlbumId, onAlbumSelect, onAlbumChanged, onDropToAlbum }) => (
+      <div data-testid="photos-albums-sidebar-content">
         <span data-testid="selected-album">{selectedAlbumId}</span>
-        <span data-testid="sidebar-width">{width}</span>
         <button
           type="button"
           data-testid="select-album-1"
@@ -50,13 +42,6 @@ vi.mock('@/components/window-photos/PhotosAlbumsSidebar', () => ({
           onClick={() => onAlbumChanged?.()}
         >
           Trigger Album Changed
-        </button>
-        <button
-          type="button"
-          data-testid="change-width"
-          onClick={() => onWidthChange?.(300)}
-        >
-          Change Width
         </button>
         <button
           type="button"
@@ -164,7 +149,9 @@ describe('PhotosPage (wrapper with sidebar)', () => {
     it('renders the PhotosAlbumsSidebar', async () => {
       renderPhotosPage();
 
-      expect(screen.getByTestId('photos-albums-sidebar')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-albums-sidebar-content')
+      ).toBeInTheDocument();
     });
 
     it('renders the back link', async () => {
@@ -207,17 +194,6 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       });
     });
 
-    it('updates width when onWidthChange is called', async () => {
-      const user = userEvent.setup();
-      renderPhotosPage();
-
-      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('200');
-
-      await user.click(screen.getByTestId('change-width'));
-
-      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('300');
-    });
-
     it('increments refreshToken when onAlbumChanged is called', async () => {
       const user = userEvent.setup();
       renderPhotosPage();
@@ -226,7 +202,9 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       await user.click(screen.getByTestId('trigger-album-changed'));
 
       // The test passes if no errors occur - refreshToken is internal state
-      expect(screen.getByTestId('photos-albums-sidebar')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-albums-sidebar-content')
+      ).toBeInTheDocument();
     });
   });
 
@@ -247,7 +225,7 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       renderPhotosPage();
 
       expect(
-        screen.queryByTestId('photos-albums-sidebar')
+        screen.queryByTestId('photos-albums-sidebar-content')
       ).not.toBeInTheDocument();
     });
 
@@ -305,7 +283,7 @@ describe('PhotosPage (wrapper with sidebar)', () => {
         typeof vi.fn
       >;
       MockedSidebar.mockImplementation(({ onAlbumSelect }) => (
-        <div data-testid="photos-albums-sidebar">
+        <div data-testid="photos-albums-sidebar-content">
           <button
             type="button"
             data-testid="select-all-photos"
