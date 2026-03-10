@@ -47,18 +47,14 @@ const mockClearEvents = vi.fn();
 const mockGetDistinctEventTypes = vi.fn();
 const mockGetEventCount = vi.fn();
 
-vi.mock('@/db/analytics', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/db/analytics')>();
-  return {
-    ...actual,
-    getEvents: (...args: unknown[]) => mockGetEvents(...args),
-    getEventStats: (...args: unknown[]) => mockGetEventStats(...args),
-    clearEvents: (...args: unknown[]) => mockClearEvents(...args),
-    getDistinctEventTypes: (...args: unknown[]) =>
-      mockGetDistinctEventTypes(...args),
-    getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
-  };
-});
+vi.mock('@/db/analytics', () => ({
+  getEvents: (...args: unknown[]) => mockGetEvents(...args),
+  getEventStats: (...args: unknown[]) => mockGetEventStats(...args),
+  clearEvents: (...args: unknown[]) => mockClearEvents(...args),
+  getDistinctEventTypes: (...args: unknown[]) =>
+    mockGetDistinctEventTypes(...args),
+  getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
+}));
 
 vi.mock('@/components/sqlite/exportTableCsv', () => ({
   exportTableAsCsv: vi.fn()
