@@ -9,12 +9,10 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { getSharedTestContext } from './test/testContext';
 
 const mockLogApiEvent = vi.fn();
-const { seededState } = vi.hoisted(() => ({
-  seededState: {
-    userId: '',
-    organizationId: ''
-  }
-}));
+const seededState = {
+  userId: '',
+  organizationId: ''
+};
 
 const loadApi = async () => {
   const module = await import('./api');
