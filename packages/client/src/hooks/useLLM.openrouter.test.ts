@@ -4,6 +4,7 @@ import {
 } from '@tearleads/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 
 const mockOpenChatCompletions = vi.fn();
 
@@ -75,7 +76,6 @@ describe('useLLM OpenRouter models', () => {
   afterEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   const getVisionOpenRouterModelId = () => {
@@ -87,7 +87,7 @@ describe('useLLM OpenRouter models', () => {
   };
 
   it('loads OpenRouter models without using the worker', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
 
@@ -101,7 +101,7 @@ describe('useLLM OpenRouter models', () => {
   });
 
   it('loads OpenRouter vision models as vision type', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
 
@@ -116,7 +116,7 @@ describe('useLLM OpenRouter models', () => {
   });
 
   it('generates responses via the OpenRouter Connect endpoint', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
 
     const { useLLM } = await import('./llm');
     const { result } = renderHook(() => useLLM());
@@ -150,7 +150,7 @@ describe('useLLM OpenRouter models', () => {
   });
 
   it('includes the auth header when available for OpenRouter requests', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.setItem('auth_token', 'test-token');
 
     const { useLLM } = await import('./llm');
@@ -179,7 +179,7 @@ describe('useLLM OpenRouter models', () => {
   });
 
   it('sends image attachments for OpenRouter vision models', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     mockOpenChatCompletions.mockResolvedValue({
       choices: [
         {
@@ -235,7 +235,7 @@ describe('useLLM OpenRouter models', () => {
   });
 
   it('logs OpenRouter API errors in dev', async () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     mockOpenChatCompletions.mockRejectedValue(new Error('API error: 500 Boom'));
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 

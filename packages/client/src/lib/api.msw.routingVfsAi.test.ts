@@ -1,6 +1,7 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -57,7 +58,7 @@ describe('api with msw', () => {
     vi.resetModules();
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -72,7 +73,6 @@ describe('api with msw', () => {
     const { clearActiveOrganizationId } = await import('@/lib/orgStorage');
     clearActiveOrganizationId();
     authState.token = '';
-    vi.unstubAllEnvs();
   });
 
   it('routes vfs and ai requests through msw', async () => {

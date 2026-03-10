@@ -28,6 +28,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 
 // Use real implementation instead of global mock (integration test with real DB)
 vi.mock('@/db/hooks/useHostRuntimeDatabaseState', async () => {
@@ -56,7 +57,6 @@ afterEach(async () => {
     vfsConsoleGuard?.restore();
     vfsConsoleGuard = null;
     clearStoredAuth();
-    vi.unstubAllEnvs();
   }
 });
 
@@ -246,7 +246,7 @@ describe('DB scaffolding plaintext render integration', () => {
     storeAuth(bob.accessToken, bob.refreshToken, bobAuthUser, {
       persistToken: false
     });
-    vi.stubEnv('VITE_API_URL', `${ctx.baseUrl}/v1`);
+    setTestEnv('VITE_API_URL', `${ctx.baseUrl}/v1`);
 
     const fetchConnectVfsJson = async <TResponse,>(
       methodName: 'GetSync' | 'GetCrdtSync',

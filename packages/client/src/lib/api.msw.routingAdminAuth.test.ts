@@ -6,7 +6,8 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 
@@ -24,7 +25,7 @@ describe('api with msw', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -32,9 +33,6 @@ describe('api with msw', () => {
       seededUser.accessToken
     );
     mockLogApiEvent.mockResolvedValue(undefined);
-  });
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
   it('routes auth requests through msw', async () => {
     // Login/register need server.use() overrides (require bcrypt password verification)
@@ -89,7 +87,7 @@ describe('api with msw', () => {
   });
   it('supports /v1-prefixed API base URLs', async () => {
     vi.resetModules();
-    vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
+    setTestEnv('VITE_API_URL', 'http://localhost/v1');
     (await import('@/lib/authStorage')).setStoredAuthToken(
       seededUser.accessToken
     );

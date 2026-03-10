@@ -1,6 +1,7 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -55,7 +56,7 @@ describe('api with msw admin routing', () => {
     );
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_API_URL', 'http://localhost');
+    setTestEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
 
     const ctx = getSharedTestContext();
@@ -70,7 +71,6 @@ describe('api with msw admin routing', () => {
   afterEach(() => {
     Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
     removeApiV2WasmBindingsTestOverride();
-    vi.unstubAllEnvs();
   });
 
   it('routes admin requests through msw and preserves query/encoding', async () => {
