@@ -1,27 +1,15 @@
 import { Code } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  clientQueryMock,
-  clientReleaseMock,
-  connectMock,
-  deleteBlobUploadSessionMock,
-  deleteBlobUploadSessionsForStagingMock,
-  getBlobUploadChunksMock,
-  getPostgresPoolMock,
-  persistVfsBlobDataMock,
-  requireVfsClaimsMock
-} = vi.hoisted(() => ({
-  clientQueryMock: vi.fn(),
-  clientReleaseMock: vi.fn(),
-  connectMock: vi.fn(),
-  deleteBlobUploadSessionMock: vi.fn(),
-  deleteBlobUploadSessionsForStagingMock: vi.fn(),
-  getBlobUploadChunksMock: vi.fn(),
-  getPostgresPoolMock: vi.fn(),
-  persistVfsBlobDataMock: vi.fn(),
-  requireVfsClaimsMock: vi.fn()
-}));
+const clientQueryMock = vi.fn();
+const clientReleaseMock = vi.fn();
+const connectMock = vi.fn();
+const deleteBlobUploadSessionMock = vi.fn();
+const deleteBlobUploadSessionsForStagingMock = vi.fn();
+const getBlobUploadChunksMock = vi.fn();
+const getPostgresPoolMock = vi.fn();
+const persistVfsBlobDataMock = vi.fn();
+const requireVfsClaimsMock = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: (...args: unknown[]) => getPostgresPoolMock(...args)

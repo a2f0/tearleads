@@ -1,19 +1,11 @@
 import { Code } from '@connectrpc/connect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  clientQueryMock,
-  clientReleaseMock,
-  connectMock,
-  getPostgresPoolMock,
-  requireVfsClaimsMock
-} = vi.hoisted(() => ({
-  clientQueryMock: vi.fn(),
-  clientReleaseMock: vi.fn(),
-  connectMock: vi.fn(),
-  getPostgresPoolMock: vi.fn(),
-  requireVfsClaimsMock: vi.fn()
-}));
+const clientQueryMock = vi.fn();
+const clientReleaseMock = vi.fn();
+const connectMock = vi.fn();
+const getPostgresPoolMock = vi.fn();
+const requireVfsClaimsMock = vi.fn();
 
 vi.mock('node:crypto', () => ({
   randomUUID: () => 'uuid-1'
