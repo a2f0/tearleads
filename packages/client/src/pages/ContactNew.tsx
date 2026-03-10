@@ -1,3 +1,4 @@
+// component-complexity: allow (contact creation form with many fields)
 import { ArrowLeft, Cake, Loader2, Save, User, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

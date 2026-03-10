@@ -1,3 +1,4 @@
+// component-complexity: allow (workout form with many validated fields)
 import type {
   CreateWorkoutEntryInput,
   Exercise,
