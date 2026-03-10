@@ -1,24 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockImportKey, mockEncrypt, mockDecrypt, mockFilesystem } = vi.hoisted(
-  () => ({
-    mockImportKey: vi.fn(),
-    mockEncrypt: vi.fn(),
-    mockDecrypt: vi.fn(),
-    mockFilesystem: {
-      mkdir: vi.fn(),
-      writeFile: vi.fn(),
-      appendFile: vi.fn(),
-      readFile: vi.fn(),
-      deleteFile: vi.fn(),
-      stat: vi.fn(),
-      readdir: vi.fn()
-    }
-  })
-);
+const mockImportKey = vi.fn();
+const mockEncrypt = vi.fn();
+const mockDecrypt = vi.fn();
+const mockFilesystem = {
+  mkdir: vi.fn(),
+  writeFile: vi.fn(),
+  appendFile: vi.fn(),
+  readFile: vi.fn(),
+  deleteFile: vi.fn(),
+  stat: vi.fn(),
+  readdir: vi.fn()
+};
 
 vi.mock('@capacitor/filesystem', () => ({
-  Filesystem: mockFilesystem,
+  Filesystem: {
+    mkdir: (options: unknown) => mockFilesystem.mkdir(options),
+    writeFile: (options: unknown) => mockFilesystem.writeFile(options),
+    appendFile: (options: unknown) => mockFilesystem.appendFile(options),
+    readFile: (options: unknown) => mockFilesystem.readFile(options),
+    deleteFile: (options: unknown) => mockFilesystem.deleteFile(options),
+    stat: (options: unknown) => mockFilesystem.stat(options),
+    readdir: (options: unknown) => mockFilesystem.readdir(options)
+  },
   Directory: {
     Library: 'LIBRARY'
   }
@@ -28,9 +32,9 @@ vi.mock('@tearleads/shared', async (importOriginal) => {
   const original = await importOriginal<typeof import('@tearleads/shared')>();
   return {
     ...original,
-    importKey: mockImportKey,
-    encrypt: mockEncrypt,
-    decrypt: mockDecrypt
+    importKey: (keyData: Uint8Array) => mockImportKey(keyData),
+    encrypt: (data: Uint8Array, key: CryptoKey) => mockEncrypt(data, key),
+    decrypt: (data: Uint8Array, key: CryptoKey) => mockDecrypt(data, key)
   };
 });
 
