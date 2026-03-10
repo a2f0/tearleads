@@ -24,7 +24,8 @@ const LEGACY_PATTERNS: ReadonlyArray<{
   },
   {
     name: 'legacy-connect-route',
-    regex: /\/(?:v1\/)?connect\/tearleads\.v1\.[A-Za-z0-9_]+Service\/[A-Za-z0-9_]+/
+    regex:
+      /\/(?:v1\/)?connect\/tearleads\.v1\.[A-Za-z0-9_]+Service\/[A-Za-z0-9_]+/
   }
 ];
 
@@ -158,7 +159,10 @@ export function findLegacyConnectViolations(
   return violations;
 }
 
-function scanFiles(files: string[], repoRoot: string): LegacyConnectViolation[] {
+function scanFiles(
+  files: string[],
+  repoRoot: string
+): LegacyConnectViolation[] {
   const violations: LegacyConnectViolation[] = [];
   const selfPath = path.resolve(getSelfScriptPath());
 
