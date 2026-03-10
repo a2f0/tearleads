@@ -8,29 +8,20 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Create hoisted mocks that are available before vi.mock runs
-const {
-  mockIsAvailable,
-  mockVerifyIdentity,
-  mockSetCredentials,
-  mockGetCredentials,
-  mockDeleteCredentials
-} = vi.hoisted(() => ({
-  mockIsAvailable: vi.fn(),
-  mockVerifyIdentity: vi.fn(),
-  mockSetCredentials: vi.fn(),
-  mockGetCredentials: vi.fn(),
-  mockDeleteCredentials: vi.fn()
-}));
+const mockIsAvailable = vi.fn();
+const mockVerifyIdentity = vi.fn();
+const mockSetCredentials = vi.fn();
+const mockGetCredentials = vi.fn();
+const mockDeleteCredentials = vi.fn();
 
 // Mock the NativeBiometric plugin
 vi.mock('@capgo/capacitor-native-biometric', () => ({
   NativeBiometric: {
-    isAvailable: mockIsAvailable,
-    verifyIdentity: mockVerifyIdentity,
-    setCredentials: mockSetCredentials,
-    getCredentials: mockGetCredentials,
-    deleteCredentials: mockDeleteCredentials
+    isAvailable: () => mockIsAvailable(),
+    verifyIdentity: (options: unknown) => mockVerifyIdentity(options),
+    setCredentials: (options: unknown) => mockSetCredentials(options),
+    getCredentials: (options: unknown) => mockGetCredentials(options),
+    deleteCredentials: (options: unknown) => mockDeleteCredentials(options)
   },
   BiometryType: {
     TOUCH_ID: 1,

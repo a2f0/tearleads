@@ -13,37 +13,27 @@ import { BackupManagerView } from './BackupManagerView';
 const mockGetBackupInfo = vi.fn();
 const mockRestoreBackup = vi.fn();
 
-const {
-  mockListStoredBackups,
-  mockGetBackupStorageUsed,
-  mockReadBackupFromStorage,
-  mockDeleteBackupFromStorage,
-  mockSaveFile,
-  mockCreateBackup,
-  mockEstimateBackupSize
-} = vi.hoisted(() => ({
-  mockListStoredBackups: vi.fn().mockResolvedValue([
-    {
-      name: 'test-backup.tbu',
-      size: 1024,
-      lastModified: Date.now()
-    }
-  ]),
-  mockGetBackupStorageUsed: vi.fn().mockResolvedValue(1024),
-  mockReadBackupFromStorage: vi
-    .fn()
-    .mockResolvedValue(new Uint8Array([1, 2, 3])),
-  mockDeleteBackupFromStorage: vi.fn().mockResolvedValue(undefined),
-  mockSaveFile: vi.fn().mockResolvedValue(undefined),
-  mockCreateBackup: vi.fn().mockResolvedValue({
-    filename: 'test-backup.tbu',
-    destination: 'storage'
-  }),
-  mockEstimateBackupSize: vi.fn().mockResolvedValue({
-    blobCount: 5,
-    blobTotalSize: 1024 * 1024
-  })
-}));
+const mockListStoredBackups = vi.fn().mockResolvedValue([
+  {
+    name: 'test-backup.tbu',
+    size: 1024,
+    lastModified: Date.now()
+  }
+]);
+const mockGetBackupStorageUsed = vi.fn().mockResolvedValue(1024);
+const mockReadBackupFromStorage = vi
+  .fn()
+  .mockResolvedValue(new Uint8Array([1, 2, 3]));
+const mockDeleteBackupFromStorage = vi.fn().mockResolvedValue(undefined);
+const mockSaveFile = vi.fn().mockResolvedValue(undefined);
+const mockCreateBackup = vi.fn().mockResolvedValue({
+  filename: 'test-backup.tbu',
+  destination: 'storage'
+});
+const mockEstimateBackupSize = vi.fn().mockResolvedValue({
+  blobCount: 5,
+  blobTotalSize: 1024 * 1024
+});
 
 describe('BackupManagerView', () => {
   beforeEach(() => {
