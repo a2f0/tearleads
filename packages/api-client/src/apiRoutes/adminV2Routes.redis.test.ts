@@ -1,30 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { type AdminV2Client, createAdminV2Routes } from './adminV2Routes';
-
-const connectMocks = vi.hoisted(() => ({
-  createClientMock: vi.fn(),
-  createGrpcWebTransportMock: vi.fn()
-}));
-
-vi.mock('@connectrpc/connect', async () => {
-  const actual = await vi.importActual<typeof import('@connectrpc/connect')>(
-    '@connectrpc/connect'
-  );
-  return {
-    ...actual,
-    createClient: connectMocks.createClientMock
-  };
-});
-
-vi.mock('@connectrpc/connect-web', async () => {
-  const actual = await vi.importActual<
-    typeof import('@connectrpc/connect-web')
-  >('@connectrpc/connect-web');
-  return {
-    ...actual,
-    createGrpcWebTransport: connectMocks.createGrpcWebTransportMock
-  };
-});
 
 interface AdminV2ClientOverrides {
   getContext?: AdminV2Client['getContext'];
@@ -150,11 +125,6 @@ function createRoutesForTest(
 }
 
 describe('adminV2Routes redis mappings', () => {
-  beforeEach(() => {
-    connectMocks.createClientMock.mockReset();
-    connectMocks.createGrpcWebTransportMock.mockReset();
-  });
-
   it('maps redis key/value/delete/dbsize responses and forwards request args', async () => {
     const getRedisKeys = vi.fn(async () => ({
       keys: [{ key: 'session:1', type: 'string', ttl: 120n }],

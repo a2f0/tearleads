@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-10T05:29:55.563Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-10T05:59:46.491Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -15,9 +15,9 @@ Generated: `2026-03-10T05:29:55.563Z` via `node --experimental-strip-types scrip
 
 | Package | Risk score | Blockers |
 | --- | ---: | --- |
-| `@tearleads/client` | 30 | vi.hoisted (72), vi.importActual (86), vi.mock(importOriginal) (100), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (444), vi.stubEnv (22), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/client` | 30 | vi.hoisted (72), vi.importActual (86), vi.mock(importOriginal) (106), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (444), vi.stubEnv (22), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/api` | 21 | vi.hoisted (61), vi.importActual (19), vi.waitFor (3), vi.resetModules (9), vi.mocked (4), vi.stubEnv (41), test script is vitest-primary |
-| `@tearleads/api-client` | 20 | vi.hoisted (11), vi.importActual (9), vi.resetModules (28), vi.mocked (43), vi.stubEnv (30), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/api-client` | 16 | vi.hoisted (10), vi.resetModules (28), vi.mocked (43), vi.stubEnv (30), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/app-backups` | 9 | vi.hoisted (1), vi.mocked (8), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-keychain` | 9 | vi.hoisted (3), vi.mocked (50), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-mls-chat` | 7 | vi.hoisted (1), DOM setup (4 indicators; see Package Inventory) |
@@ -35,9 +35,9 @@ Generated: `2026-03-10T05:29:55.563Z` via `node --experimental-strip-types scrip
 
 | Package | Tests | Script mode | Vitest fallback script | Advanced APIs | DOM indicators | Readiness |
 | --- | ---: | --- | --- | --- | --- | --- |
-| `@tearleads/client` | 607 | `vitest-primary` | no | vi.hoisted:72, vi.importActual:86, vi.mock(importOriginal):100, vi.waitFor:8, import.meta.glob:1, vi.resetModules:46, vi.mocked:444, vi.stubEnv:22 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/client` | 607 | `vitest-primary` | no | vi.hoisted:72, vi.importActual:86, vi.mock(importOriginal):106, vi.waitFor:8, import.meta.glob:1, vi.resetModules:46, vi.mocked:444, vi.stubEnv:22 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/api` | 156 | `vitest-primary` | no | vi.hoisted:61, vi.importActual:19, vi.waitFor:3, vi.resetModules:9, vi.mocked:4, vi.stubEnv:41 | none | `high-remediation` |
-| `@tearleads/api-client` | 53 | `vitest-primary` | no | vi.hoisted:11, vi.importActual:9, vi.resetModules:28, vi.mocked:43, vi.stubEnv:30 | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/api-client` | 53 | `vitest-primary` | no | vi.hoisted:10, vi.resetModules:28, vi.mocked:43, vi.stubEnv:30 | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-backups` | 19 | `bun-primary` | yes | vi.hoisted:1, vi.mocked:8 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-keychain` | 20 | `bun-primary` | yes | vi.hoisted:3, vi.mocked:50 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-mls-chat` | 8 | `bun-primary` | yes | vi.hoisted:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |

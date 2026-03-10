@@ -7,14 +7,9 @@ const { createWireRoutesMock } = vi.hoisted(() => ({
   createWireRoutesMock: vi.fn()
 }));
 
-vi.mock('./mlsV2Routes', async () => {
-  const actual =
-    await vi.importActual<typeof import('./mlsV2Routes')>('./mlsV2Routes');
-  return {
-    ...actual,
-    createMlsV2Routes: (...args: unknown[]) => createWireRoutesMock(...args)
-  };
-});
+vi.mock('./mlsV2Routes', () => ({
+  createMlsV2Routes: (...args: unknown[]) => createWireRoutesMock(...args)
+}));
 
 function createDefaultWireRoutes(
   overrides: Partial<WireMlsV2Routes> = {}
