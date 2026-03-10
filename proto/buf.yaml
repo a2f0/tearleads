@@ -8,14 +8,12 @@ lint:
   # and protobuf symbols must be globally unique within each package.
   ignore_only:
     RPC_REQUEST_STANDARD_NAME:
-      - tearleads/v1/chat.proto
       - tearleads/v2/auth.proto
       - tearleads/v2/admin.proto
       - tearleads/v2/mls.proto
       - tearleads/v2/vfs.proto
       - tearleads/v2/vfs_shares.proto
     RPC_RESPONSE_STANDARD_NAME:
-      - tearleads/v1/chat.proto
       - tearleads/v2/auth.proto
       - tearleads/v2/admin.proto
       - tearleads/v2/mls.proto
@@ -27,8 +25,11 @@ breaking:
   ignore:
     - tearleads/v1/ai.proto
     - tearleads/v1/auth.proto
+    - tearleads/v1/billing.proto
+    - tearleads/v1/chat.proto
     - tearleads/v1/common.proto
     - tearleads/v1/notifications.proto
+    - tearleads/v1/revenuecat.proto
     - tearleads/v2/admin.proto
     - tearleads/v2/mls.proto
     - tearleads/v2/vfs.proto

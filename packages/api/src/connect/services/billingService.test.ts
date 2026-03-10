@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import {
   Code,
   createContextValues,
@@ -7,7 +8,7 @@ import {
 import {
   BillingService,
   GetOrganizationBillingRequestSchema
-} from '@tearleads/shared/gen/tearleads/v1/billing_pb';
+} from '@tearleads/shared/gen/tearleads/v2/billing_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { billingConnectService } from './billingService.js';
@@ -42,7 +43,7 @@ function createAuthContext() {
     method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
-    url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling',
+    url: 'http://localhost/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling',
     contextValues
   });
 }
@@ -53,7 +54,7 @@ function createUnauthenticatedContext() {
     method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
-    url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling'
+    url: 'http://localhost/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling'
   });
 }
 
@@ -150,12 +151,12 @@ describe('billingConnectService', () => {
       revenuecatAppUserId: 'org:org-1',
       entitlementStatus: 'active',
       activeProductId: 'pro_monthly',
-      periodEndsAt: now.toISOString(),
+      periodEndsAt: timestampFromDate(now),
       willRenew: true,
       lastWebhookEventId: 'evt_1',
-      lastWebhookAt: now.toISOString(),
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      lastWebhookAt: timestampFromDate(now),
+      createdAt: timestampFromDate(now),
+      updatedAt: timestampFromDate(now)
     });
   });
 
@@ -189,8 +190,8 @@ describe('billingConnectService', () => {
       organizationId: 'org-1',
       revenuecatAppUserId: 'org:org-1',
       entitlementStatus: 'inactive',
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      createdAt: timestampFromDate(now),
+      updatedAt: timestampFromDate(now)
     });
   });
 

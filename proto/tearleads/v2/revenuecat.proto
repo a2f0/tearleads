@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package tearleads.v1;
+package tearleads.v2;
 
 service RevenuecatService {
   rpc HandleWebhook(HandleWebhookRequest) returns (HandleWebhookResponse);

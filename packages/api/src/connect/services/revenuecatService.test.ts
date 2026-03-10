@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { create } from '@bufbuild/protobuf';
 import { Code } from '@connectrpc/connect';
-import { HandleWebhookRequestSchema } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
+import { HandleWebhookRequestSchema } from '@tearleads/shared/gen/tearleads/v2/revenuecat_pb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { revenuecatConnectService } from './revenuecatService.js';
 
