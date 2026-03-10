@@ -1,13 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { uploadGroupStateSnapshotMock } = vi.hoisted(() => ({
-  uploadGroupStateSnapshotMock: vi.fn()
-}));
+const uploadGroupStateSnapshotMock = vi.fn();
 
 vi.mock('./groupStateSync.js', () => ({
-  uploadGroupStateSnapshot: (...args: unknown[]) =>
-    uploadGroupStateSnapshotMock(...args)
+  uploadGroupStateSnapshot: (params: unknown) =>
+    uploadGroupStateSnapshotMock(params)
 }));
 
 import type { MlsRealtimeBridge } from '../context/index.js';
