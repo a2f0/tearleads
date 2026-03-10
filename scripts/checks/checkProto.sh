@@ -53,6 +53,7 @@ has_proto_related_changes() {
       proto/* | \
         packages/shared/src/gen/* | \
         scripts/lib/verifyProtoCodegenPlugins.ts | \
+        scripts/lib/pruneStaleGeneratedProtoVersions.ts | \
         scripts/checks/checkProto.sh | \
         package.json | \
         bun.lock | \
