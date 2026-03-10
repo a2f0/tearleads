@@ -1,4 +1,5 @@
 import { type Mock, vi } from 'vitest';
+import { resetTestEnv, setTestEnv } from './env.js';
 
 export const mockQuery: Mock = vi.fn();
 const mockGetPostgresPool: Mock = vi.fn();
@@ -10,14 +11,13 @@ export const mockPoolConnect: Mock = vi.fn().mockImplementation(() =>
   })
 );
 
-vi.mock('../../lib/postgres.js', () => ({
+vi.mock('../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
   getPool: () => mockGetPostgresPool()
 }));
 
 type RedisValue = string | Set<string>;
 const sessionStore = new Map<string, RedisValue>();
-const originalEnvValues = new Map<string, string | undefined>();
 export const mockRedisStore = sessionStore;
 export const mockRedisClient = {
   get: vi.fn((key: string) => {
@@ -85,21 +85,10 @@ vi.mock('@tearleads/shared/redis', () => ({
   setRedisSubscriberOverrideForTesting: vi.fn()
 }));
 
-function setLocalEnv(key: string, value: string): void {
-  if (!originalEnvValues.has(key)) {
-    const currentValue = process.env[key];
-    originalEnvValues.set(
-      key,
-      typeof currentValue === 'string' ? currentValue : undefined
-    );
-  }
-  process.env[key] = value;
-}
-
 export function setupVfsTestEnv(): void {
   vi.clearAllMocks();
   sessionStore.clear();
-  setLocalEnv('JWT_SECRET', 'test-secret');
+  setTestEnv('JWT_SECRET', 'test-secret');
   mockPoolConnect.mockImplementation(() =>
     Promise.resolve({
       query: mockQuery,
@@ -113,12 +102,5 @@ export function setupVfsTestEnv(): void {
 }
 
 export function teardownVfsTestEnv(): void {
-  for (const [key, value] of originalEnvValues) {
-    if (typeof value === 'undefined') {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-  originalEnvValues.clear();
+  resetTestEnv();
 }

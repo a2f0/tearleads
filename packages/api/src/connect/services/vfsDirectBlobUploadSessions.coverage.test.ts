@@ -1,6 +1,12 @@
-import './vfsDirectTestSupport.js';
+import '../../test/vfsDirectTestSupport.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setTestEnv } from '../../test/env.js';
+import {
+  mockRedisClient,
+  mockRedisStore,
+  setupVfsTestEnv,
+  teardownVfsTestEnv
+} from '../../test/vfsDirectTestSupport.js';
 import {
   clearBlobUploadSessions,
   deleteBlobUploadSession,
@@ -8,12 +14,6 @@ import {
   getBlobUploadChunks,
   upsertBlobUploadChunk
 } from './vfsDirectBlobUploadSessions.js';
-import {
-  mockRedisClient,
-  mockRedisStore,
-  setupVfsTestEnv,
-  teardownVfsTestEnv
-} from './vfsDirectTestSupport.js';
 
 const BLOB_UPLOAD_CHUNK_KEY_PREFIX = 'vfs:blobUpload';
 const BLOB_UPLOAD_INDEX_KEY_PREFIX = 'vfs:blobUploadIndex';
