@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import {
   detectPlatform,
   useSidebarDragOver,
