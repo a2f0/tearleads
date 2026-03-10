@@ -1,5 +1,6 @@
 // component-complexity: allow — pre-existing; refactoring deferred
 import { assertPlainArrayBuffer } from '@tearleads/shared';
+import { WindowSidebar } from '@tearleads/window-manager';
 import { and, eq, like } from 'drizzle-orm';
 import {
   Calendar,
@@ -278,12 +279,18 @@ export function PhotoDetail() {
   return (
     <div className="flex h-full gap-6">
       {isUnlocked && (
-        <PhotosAlbumsSidebar
+        <WindowSidebar
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          selectedAlbumId={selectedAlbumId}
-          onAlbumSelect={handleAlbumSelect}
-        />
+          open={false}
+          onOpenChange={() => {}}
+          ariaLabel="Albums"
+        >
+          <PhotosAlbumsSidebar
+            selectedAlbumId={selectedAlbumId}
+            onAlbumSelect={handleAlbumSelect}
+          />
+        </WindowSidebar>
       )}
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center gap-4">

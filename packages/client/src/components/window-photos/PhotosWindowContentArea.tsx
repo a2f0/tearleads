@@ -1,9 +1,12 @@
 import {
   WindowControlBar,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  WindowSidebar,
+  WindowSidebarToggle
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
+import { useState } from 'react';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
@@ -76,6 +79,7 @@ export function PhotosWindowContentArea({
   onOpenAIChat,
   isDragging
 }: PhotosWindowContentAreaProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <div className="flex h-full flex-col">
       <PhotosWindowMenuBar
@@ -92,6 +96,9 @@ export function PhotosWindowContentArea({
       {isUnlocked && (
         <WindowControlBar>
           <WindowControlGroup>
+            <WindowSidebarToggle
+              onToggle={() => setSidebarOpen((prev) => !prev)}
+            />
             {selectedPhotoId ? (
               <WindowControlButton
                 icon={<ArrowLeft className="h-3 w-3" />}
@@ -123,19 +130,29 @@ export function PhotosWindowContentArea({
           </WindowControlGroup>
         </WindowControlBar>
       )}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <PhotosAlbumsSidebar
+          <WindowSidebar
             width={sidebarWidth}
             onWidthChange={onSidebarWidthChange}
-            selectedAlbumId={selectedAlbumId}
-            onAlbumSelect={onAlbumSelect}
-            refreshToken={refreshToken}
-            onAlbumChanged={onAlbumChanged}
-            onDropToAlbum={onDropToAlbum}
-          />
+            open={sidebarOpen}
+            onOpenChange={setSidebarOpen}
+            ariaLabel="Albums"
+            data-testid="photos-albums-sidebar"
+          >
+            <PhotosAlbumsSidebar
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={onAlbumSelect}
+              refreshToken={refreshToken}
+              onAlbumChanged={onAlbumChanged}
+              onDropToAlbum={onDropToAlbum}
+            />
+          </WindowSidebar>
         )}
-        <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
+        <div
+          className="relative min-h-0 flex-1 overflow-hidden"
+          {...dropZoneProps}
+        >
           {selectedPhotoId ? (
             <PhotosWindowDetail
               photoId={selectedPhotoId}

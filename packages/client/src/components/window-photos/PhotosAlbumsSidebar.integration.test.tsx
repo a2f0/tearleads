@@ -27,8 +27,6 @@ function PhotosSidebarDropHarness() {
 
   return (
     <PhotosAlbumsSidebar
-      width={240}
-      onWidthChange={() => {}}
       selectedAlbumId={ALL_PHOTOS_ID}
       onAlbumSelect={() => {}}
       refreshToken={refreshToken}

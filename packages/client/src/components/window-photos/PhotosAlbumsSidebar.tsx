@@ -1,6 +1,5 @@
 import {
   detectPlatform,
-  useResizableSidebar,
   useSidebarDragOver,
   useSidebarRefetch,
   WindowContextMenu,
@@ -33,8 +32,6 @@ interface EmptySpaceContextMenuState {
 }
 
 interface PhotosAlbumsSidebarProps {
-  width: number;
-  onWidthChange: (width: number) => void;
   selectedAlbumId: string | null;
   onAlbumSelect: (albumId: string | null) => void;
   refreshToken?: number;
@@ -48,8 +45,6 @@ interface PhotosAlbumsSidebarProps {
 }
 
 export function PhotosAlbumsSidebar({
-  width,
-  onWidthChange,
   selectedAlbumId,
   onAlbumSelect,
   refreshToken,
@@ -140,12 +135,6 @@ export function PhotosAlbumsSidebar({
 
   useSidebarRefetch(refreshToken, refetch);
 
-  const { resizeHandleProps } = useResizableSidebar({
-    width,
-    onWidthChange,
-    ariaLabel: 'Resize albums sidebar'
-  });
-
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, album: PhotoAlbum) => {
       e.preventDefault();
@@ -176,10 +165,7 @@ export function PhotosAlbumsSidebar({
   );
 
   return (
-    <div
-      className="relative flex shrink-0 flex-col border-r bg-muted/20"
-      style={{ width }}
-    >
+    <>
       <WindowSidebarHeader
         title="Albums"
         actionLabel="New Album"
@@ -228,11 +214,6 @@ export function PhotosAlbumsSidebar({
             />
           ))}
       </div>
-      {/* Resize handle */}
-      <div
-        className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
-        {...resizeHandleProps}
-      />
 
       {/* Context Menu */}
       {contextMenu && (
@@ -287,7 +268,7 @@ export function PhotosAlbumsSidebar({
         onDelete={deleteAlbum}
         onAlbumDeleted={handleAlbumDeleted}
       />
-    </div>
+    </>
   );
 }
 

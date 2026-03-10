@@ -116,8 +116,6 @@ vi.mock('./DeleteAlbumDialog', () => ({
 }));
 describe('PhotosAlbumsSidebar', () => {
   const defaultProps = {
-    width: 200,
-    onWidthChange: vi.fn(),
     selectedAlbumId: ALL_PHOTOS_ID,
     onAlbumSelect: vi.fn(),
     refreshToken: 0,

@@ -2,6 +2,7 @@
  * PhotosPage component - wrapper for Photos with album sidebar.
  */
 
+import { WindowSidebar } from '@tearleads/window-manager';
 import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -81,17 +82,21 @@ export function PhotosPage() {
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <div className="hidden md:block">
+          <WindowSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            open={false}
+            onOpenChange={() => {}}
+            ariaLabel="Albums"
+          >
             <PhotosAlbumsSidebar
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
               selectedAlbumId={selectedAlbumId}
               onAlbumSelect={handleAlbumSelect}
               refreshToken={refreshToken}
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
               onDropToAlbum={handleDropToAlbum}
             />
-          </div>
+          </WindowSidebar>
         )}
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <Photos

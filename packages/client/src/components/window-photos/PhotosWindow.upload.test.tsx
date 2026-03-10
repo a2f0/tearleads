@@ -90,7 +90,7 @@ vi.mock('./PhotosAlbumsSidebar', () => ({
       photoIds?: string[]
     ) => void | Promise<void>;
   }) => (
-    <div data-testid="photos-albums-sidebar">
+    <div data-testid="photos-albums-sidebar-content">
       <button
         type="button"
         data-testid="select-album"
