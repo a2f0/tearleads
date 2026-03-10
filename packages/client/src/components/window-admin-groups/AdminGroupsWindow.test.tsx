@@ -6,7 +6,7 @@ const mockAdminGroupsWindowBase = vi.fn((_: unknown) => (
   <div>Admin Groups Window</div>
 ));
 
-vi.mock('@/components/admin-windows', () => ({
+vi.mock('@tearleads/app-admin/clientEntry', () => ({
   AdminGroupsWindow: (props: unknown) => mockAdminGroupsWindowBase(props)
 }));
 

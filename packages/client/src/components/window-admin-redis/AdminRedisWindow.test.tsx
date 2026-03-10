@@ -6,7 +6,7 @@ const mockAdminRedisWindowBase = vi.fn((_: unknown) => (
   <div>Admin Redis Window</div>
 ));
 
-vi.mock('@/components/admin-windows', () => ({
+vi.mock('@tearleads/app-admin/clientEntry', () => ({
   AdminRedisWindow: (props: unknown) => mockAdminRedisWindowBase(props)
 }));
 
