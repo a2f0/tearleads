@@ -8,7 +8,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUserGroups } from './AdminUserGroups';
 import { useAdminUserGroups } from './useAdminUserGroups';
 
-vi.mock('./useAdminUserGroups');
+vi.mock('./useAdminUserGroups', () => ({
+  useAdminUserGroups: vi.fn()
+}));
 
 describe('AdminUserGroups', () => {
   const mockUser: AdminUser = create(AdminUserSchema, {

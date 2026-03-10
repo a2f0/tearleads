@@ -4,16 +4,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupDetailPageRoute } from './GroupDetailPageRoute';
 
-const mockNavigate = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
-
 vi.mock('./GroupDetailPage', () => ({
   GroupDetailPage: ({ onDelete }: { onDelete?: () => void }) => (
     <div data-testid="group-detail-page">
@@ -36,6 +26,7 @@ describe('GroupDetailPageRoute', () => {
       <MemoryRouter initialEntries={['/admin/groups/group-1']}>
         <Routes>
           <Route path="/admin/groups/:id" element={<GroupDetailPageRoute />} />
+          <Route path="/admin/groups" element={<div>Groups Route</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -43,7 +34,7 @@ describe('GroupDetailPageRoute', () => {
     await user.click(screen.getByText('Delete Group'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/groups');
+      expect(screen.getByText('Groups Route')).toBeInTheDocument();
     });
   });
 

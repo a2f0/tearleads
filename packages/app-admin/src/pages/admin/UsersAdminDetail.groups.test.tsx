@@ -11,7 +11,6 @@ const mockGroupsList = vi.fn();
 const mockGetMembers = vi.fn();
 const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
-const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -35,14 +34,6 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 const renderUserDetail = async () => {
   mockGet.mockResolvedValueOnce(user1Response);

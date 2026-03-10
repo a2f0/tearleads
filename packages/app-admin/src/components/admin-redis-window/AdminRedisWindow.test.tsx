@@ -3,42 +3,62 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminRedisWindow } from './AdminRedisWindow';
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-  return {
-    ...actual,
-    DesktopFloatingWindow: ({
-      children,
-      title,
-      onClose,
-      initialDimensions
-    }: {
-      children: React.ReactNode;
-      title: string;
-      onClose: () => void;
-      initialDimensions?: {
-        width: number;
-        height: number;
-        x: number;
-        y: number;
-      };
-    }) => (
-      <div
-        data-testid="floating-window"
-        data-initial-dimensions={
-          initialDimensions ? JSON.stringify(initialDimensions) : undefined
-        }
-      >
-        <div data-testid="window-title">{title}</div>
-        <button type="button" onClick={onClose} data-testid="close-window">
-          Close
-        </button>
-        {children}
-      </div>
-    )
-  };
-});
+vi.mock('@tearleads/window-manager', () => ({
+  DesktopFloatingWindow: ({
+    children,
+    title,
+    onClose,
+    initialDimensions
+  }: {
+    children: React.ReactNode;
+    title: string;
+    onClose: () => void;
+    initialDimensions?: {
+      width: number;
+      height: number;
+      x: number;
+      y: number;
+    };
+  }) => (
+    <div
+      data-testid="floating-window"
+      data-initial-dimensions={
+        initialDimensions ? JSON.stringify(initialDimensions) : undefined
+      }
+    >
+      <div data-testid="window-title">{title}</div>
+      <button type="button" onClick={onClose} data-testid="close-window">
+        Close
+      </button>
+      {children}
+    </div>
+  ),
+  WindowMenuBar: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="window-menu-bar">{children}</div>
+  ),
+  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="window-control-bar">{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="window-control-group">{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    icon,
+    onClick,
+    'data-testid': dataTestId
+  }: {
+    children: React.ReactNode;
+    icon?: React.ReactNode;
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => (
+    <button type="button" onClick={onClick} data-testid={dataTestId}>
+      {icon}
+      {children}
+    </button>
+  )
+}));
 
 vi.mock('@admin/pages/admin/Admin', () => ({
   Admin: ({ showBackLink }: { showBackLink?: boolean }) => (

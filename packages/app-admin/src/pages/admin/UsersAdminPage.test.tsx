@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdminPage } from './UsersAdminPage';
 
@@ -9,7 +9,6 @@ const mockGetContext = vi.fn().mockResolvedValue({
   isRootAdmin: true,
   organizations: [{ id: 'org-1', name: 'Org 1' }]
 });
-const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -21,14 +20,6 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 describe('UsersAdminPage', () => {
   beforeEach(() => {
@@ -66,8 +57,15 @@ describe('UsersAdminPage', () => {
     mockList.mockResolvedValueOnce(usersResponse);
 
     render(
-      <MemoryRouter>
-        <UsersAdminPage />
+      <MemoryRouter initialEntries={['/admin/users']}>
+        <Routes>
+          <Route path="/admin/users" element={<UsersAdminPage />} />
+          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/ai-requests"
+            element={<div>AI Requests Route</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
@@ -75,7 +73,7 @@ describe('UsersAdminPage', () => {
     await user.click(userRow);
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/users/user-1');
+      expect(screen.getByText('User Detail Route')).toBeInTheDocument();
     });
   });
 
@@ -83,8 +81,15 @@ describe('UsersAdminPage', () => {
     mockList.mockResolvedValueOnce(usersResponse);
 
     render(
-      <MemoryRouter>
-        <UsersAdminPage />
+      <MemoryRouter initialEntries={['/admin/users']}>
+        <Routes>
+          <Route path="/admin/users" element={<UsersAdminPage />} />
+          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/ai-requests"
+            element={<div>AI Requests Route</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
@@ -99,14 +104,23 @@ describe('UsersAdminPage', () => {
     mockList.mockResolvedValueOnce(usersResponse);
 
     render(
-      <MemoryRouter>
-        <UsersAdminPage />
+      <MemoryRouter initialEntries={['/admin/users']}>
+        <Routes>
+          <Route path="/admin/users" element={<UsersAdminPage />} />
+          <Route path="/admin/users/:id" element={<div>User Detail Route</div>} />
+          <Route
+            path="/admin/users/ai-requests"
+            element={<div>AI Requests Route</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
     const button = await screen.findByRole('button', { name: 'AI Requests' });
     await user.click(button);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/users/ai-requests');
+    await waitFor(() => {
+      expect(screen.getByText('AI Requests Route')).toBeInTheDocument();
+    });
   });
 });

@@ -1,10 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationsAdminPage } from './OrganizationsAdminPage';
-
-const mockNavigate = vi.fn();
 
 vi.mock('./OrganizationsAdmin', () => ({
   OrganizationsAdmin: ({
@@ -18,14 +16,6 @@ vi.mock('./OrganizationsAdmin', () => ({
   )
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
-
 describe('OrganizationsAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,15 +25,21 @@ describe('OrganizationsAdminPage', () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter>
-        <OrganizationsAdminPage />
+      <MemoryRouter initialEntries={['/admin/organizations']}>
+        <Routes>
+          <Route path="/admin/organizations" element={<OrganizationsAdminPage />} />
+          <Route
+            path="/admin/organizations/:id"
+            element={<div>Organization Detail Route</div>}
+          />
+        </Routes>
       </MemoryRouter>
     );
 
     await user.click(screen.getByText('Select Org'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/organizations/org-123');
+      expect(screen.getByText('Organization Detail Route')).toBeInTheDocument();
     });
   });
 
