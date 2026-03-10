@@ -25,13 +25,15 @@ interface OrphanCleanupResult {
  *
  * Should be called during app initialization to clean up stale state.
  *
- * @param registryInstanceIds - All instance IDs currently in the registry
+ * @param instanceIdsToValidate - Instance IDs to check for missing unlock material (excludes active instance)
  * @param deleteRegistryEntry - Callback to delete an instance from registry
+ * @param allRegistryIds - All instance IDs in the registry (including active), used for Keystore orphan detection
  * @returns Information about what was cleaned up
  */
 export async function validateAndPruneOrphanedInstances(
-  registryInstanceIds: string[],
-  deleteRegistryEntry: (instanceId: string) => Promise<void>
+  instanceIdsToValidate: string[],
+  deleteRegistryEntry: (instanceId: string) => Promise<void>,
+  allRegistryIds?: string[]
 ): Promise<OrphanCleanupResult> {
   const result: OrphanCleanupResult = {
     orphanedKeystoreEntries: [],
@@ -51,11 +53,15 @@ export async function validateAndPruneOrphanedInstances(
     if (platform === 'ios' || platform === 'android') {
       const trackedKeystoreIds =
         await nativeSecureStorage.getTrackedKeystoreInstanceIds();
-      const registryIdSet = new Set(registryInstanceIds);
+      // Use allRegistryIds for Keystore orphan check so the active instance's
+      // Keychain entries aren't incorrectly deleted as orphans.
+      const knownRegistryIds = new Set(
+        allRegistryIds ?? instanceIdsToValidate
+      );
 
       // Find Keystore entries that don't have corresponding registry entries
       result.orphanedKeystoreEntries = trackedKeystoreIds.filter(
-        (keystoreId) => !registryIdSet.has(keystoreId)
+        (keystoreId) => !knownRegistryIds.has(keystoreId)
       );
 
       // Clean up orphaned Keystore entries in parallel
@@ -69,7 +75,7 @@ export async function validateAndPruneOrphanedInstances(
     }
 
     // Check for registry entries without valid unlock material.
-    for (const instanceId of registryInstanceIds) {
+    for (const instanceId of instanceIdsToValidate) {
       const storage = await getStorageAdapter(instanceId);
       const [salt, kcv, wrappedPasswordKey, sessionKeys] = await Promise.all([
         storage.getSalt(),

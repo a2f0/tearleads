@@ -50,6 +50,18 @@ function showUnexpectedReloadNotification(
   }
 }
 
+const isTest = import.meta.env?.MODE === 'test';
+
+function dbLog(msg: string): void {
+  logStore.debug(msg);
+  if (!isTest) console.log(msg);
+}
+
+function dbWarn(msg: string): void {
+  logStore.warn(msg);
+  if (!isTest) console.warn(msg);
+}
+
 export async function initializeAndRestoreDatabaseState({
   hadActiveSession,
   hasShownRecoveryNotification,
@@ -71,7 +83,7 @@ export async function initializeAndRestoreDatabaseState({
     let stepStart = performance.now();
     let activeInstance = await initializeRegistry();
     let allInstances = await getInstances();
-    logStore.debug(
+    dbLog(
       `[db] registry init: ${(performance.now() - stepStart).toFixed(1)}ms`
     );
 
@@ -79,12 +91,17 @@ export async function initializeAndRestoreDatabaseState({
     stepStart = performance.now();
     // The active instance may be freshly created and not yet have key material.
     // Validate only inactive entries here; active setup happens immediately after.
+    // Pass allRegistryIds so the Keystore orphan check doesn't delete the
+    // active instance's Keychain entries (they're valid, just excluded from
+    // unlock-material validation).
     const instanceIdsToValidate = allInstances
       .filter((instance) => instance.id !== activeInstance.id)
       .map((instance) => instance.id);
+    const allRegistryIds = allInstances.map((instance) => instance.id);
     const cleanupResult = await validateAndPruneOrphanedInstances(
       instanceIdsToValidate,
-      deleteInstanceFromRegistry
+      deleteInstanceFromRegistry,
+      allRegistryIds
     );
 
     if (cleanupResult.cleaned) {
@@ -122,7 +139,7 @@ export async function initializeAndRestoreDatabaseState({
     setCurrentInstanceName(activeInstance.name);
     emitInstanceChange(activeInstance.id);
 
-    logStore.debug(
+    dbLog(
       `[db] validate & prune: ${(performance.now() - stepStart).toFixed(1)}ms`
     );
 
@@ -137,26 +154,26 @@ export async function initializeAndRestoreDatabaseState({
     const activeInstanceMetadata = allInstances.find(
       (instance) => instance.id === activeInstance.id
     );
-    logStore.debug(
-      `[db] check state: setup=${setup} persisted=${persisted} deferred=${activeInstanceMetadata?.passwordDeferred ?? false} hadActive=${hadActiveSession} (${(performance.now() - stepStart).toFixed(1)}ms)`
+    dbLog(
+      `[db] check state: setup=${setup} persisted=${persisted} deferred=${activeInstanceMetadata?.passwordDeferred ?? false} hadActive=${hadActiveSession} instanceId=${activeInstance.id} (${(performance.now() - stepStart).toFixed(1)}ms)`
     );
 
     if (persisted) {
       databaseSetupProgressStore.update('Restoring database session...', 55);
       const database = await restoreDatabaseSession(activeInstance.id);
       if (database) {
-        logStore.debug('[db] session restored successfully');
+        dbLog('[db] session restored successfully');
         databaseSetupProgressStore.update('Ready', 100);
         setDb(database);
         markSessionActive();
         await touchInstance(activeInstance.id);
       } else {
-        logStore.warn(
+        dbWarn(
           `[db] session restoration returned null (deferred=${activeInstanceMetadata?.passwordDeferred ?? false})`
         );
         setHasPersisted(false);
         if (activeInstanceMetadata?.passwordDeferred) {
-          logStore.warn(
+          dbWarn(
             '[db] deferred session restoration failed, resetting and re-initializing'
           );
           databaseSetupProgressStore.update('Re-initializing database...', 60);
@@ -165,7 +182,7 @@ export async function initializeAndRestoreDatabaseState({
           const persistedAfterReset = await hasPersistedSession(
             activeInstance.id
           );
-          logStore.debug(
+          dbLog(
             `[db] re-initialized after reset, persisted=${persistedAfterReset}`
           );
           databaseSetupProgressStore.update('Ready', 100);
@@ -184,11 +201,11 @@ export async function initializeAndRestoreDatabaseState({
         }
       }
     } else if (setup) {
-      logStore.debug(
+      dbLog(
         `[db] setup=true but persisted=false, showing unlock (deferred=${activeInstanceMetadata?.passwordDeferred ?? false})`
       );
       if (activeInstanceMetadata?.passwordDeferred) {
-        logStore.debug(
+        dbLog(
           '[db] deferred instance lost session keys, auto-initializing fresh'
         );
         databaseSetupProgressStore.update('Re-initializing database...', 55);
@@ -197,7 +214,7 @@ export async function initializeAndRestoreDatabaseState({
         const persistedAfterReset = await hasPersistedSession(
           activeInstance.id
         );
-        logStore.debug(
+        dbLog(
           `[db] re-initialized from setup-only state, persisted=${persistedAfterReset}`
         );
         databaseSetupProgressStore.update('Ready', 100);
@@ -216,15 +233,13 @@ export async function initializeAndRestoreDatabaseState({
       }
     } else {
       if (activeInstanceMetadata?.passwordDeferred) {
-        logStore.debug(
-          '[db] not-setup + deferred, attempting session restore'
-        );
+        dbLog('[db] not-setup + deferred, attempting session restore');
         databaseSetupProgressStore.update('Restoring deferred session...', 55);
         const restoredDeferredSession = await restoreDatabaseSession(
           activeInstance.id
         );
         if (restoredDeferredSession) {
-          logStore.debug('[db] deferred session restored from not-setup state');
+          dbLog('[db] deferred session restored from not-setup state');
           databaseSetupProgressStore.update('Ready', 100);
           setDb(restoredDeferredSession);
           setIsSetUp(true);
@@ -233,22 +248,18 @@ export async function initializeAndRestoreDatabaseState({
           await touchInstance(activeInstance.id);
           return;
         }
-        logStore.debug(
-          '[db] deferred session restore failed, resetting before auto-init'
-        );
+        dbLog('[db] deferred session restore failed, resetting before auto-init');
         databaseSetupProgressStore.update('Re-initializing database...', 55);
         await resetDatabase(activeInstance.id);
       }
 
-      logStore.debug('[db] auto-initializing database');
+      dbLog('[db] auto-initializing database');
       databaseSetupProgressStore.update('Loading database engine...', 55);
       const database = await autoInitializeDatabase(activeInstance.id);
       const persistedAfterAutoInit = await hasPersistedSession(
         activeInstance.id
       );
-      logStore.debug(
-        `[db] auto-initialized, persisted=${persistedAfterAutoInit}`
-      );
+      dbLog(`[db] auto-initialized, persisted=${persistedAfterAutoInit}`);
       databaseSetupProgressStore.update('Ready', 100);
       setDb(database);
       setIsSetUp(true);
@@ -259,9 +270,10 @@ export async function initializeAndRestoreDatabaseState({
       await touchInstance(activeInstance.id);
     }
   } catch (err) {
+    if (!isTest) console.error('[db] initializeAndRestoreDatabaseState error:', err);
     setError(toError(err));
   } finally {
-    logStore.debug(
+    dbLog(
       `[db] initializeAndRestoreDatabaseState total: ${(performance.now() - initStart).toFixed(1)}ms`
     );
     databaseSetupProgressStore.finish();

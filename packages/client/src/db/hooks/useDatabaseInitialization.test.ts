@@ -216,7 +216,8 @@ describe('initializeAndRestoreDatabaseState', () => {
 
     expect(mockValidateAndPruneOrphanedInstances).toHaveBeenCalledWith(
       ['secondary-1'],
-      expect.any(Function)
+      expect.any(Function),
+      ['active-1', 'secondary-1']
     );
   });
 
