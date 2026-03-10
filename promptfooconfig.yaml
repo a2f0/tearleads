@@ -2,7 +2,7 @@
 description: "Tearleads LLM red team security evaluation"
 
 targets:
-  - id: openai:gpt-4o
+  - id: anthropic:messages:claude-sonnet-4-20250514
     label: tearleads-target
 
 redteam:

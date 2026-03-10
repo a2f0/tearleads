@@ -106,8 +106,9 @@ coverage/
 .claude/commands/shell_snapshots/
 .claude/commands/tmp/
 
-# promptfoo eval cache
+# promptfoo eval cache and generated redteam output
 .promptfoo/
+redteam.yaml
 
 # Local Garage runtime artifacts
 scripts/garage/data/

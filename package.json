@@ -73,11 +73,11 @@
     "prepare": "husky",
     "testVfsCrdtRolloutQaSuite": "pnpm --filter @tearleads/bob-and-alice test -- src/qa/vfsCrdtRolloutQaSuite.test.ts",
     "depGraph": "./scripts/ciImpact/generateDepGraph.sh",
-    "promptfoo": "promptfoo",
-    "promptfooEval": "promptfoo eval",
-    "promptfooView": "promptfoo view",
-    "promptfooRedteam": "promptfoo redteam run",
-    "promptfooRedteamReport": "promptfoo redteam report"
+    "promptfoo": "source .secrets/root.env && promptfoo",
+    "promptfooEval": "source .secrets/root.env && promptfoo eval",
+    "promptfooView": "source .secrets/root.env && promptfoo view",
+    "promptfooRedteam": "source .secrets/root.env && promptfoo redteam run",
+    "promptfooRedteamReport": "source .secrets/root.env && promptfoo redteam report"
   },
   "repository": {
     "type": "git",
