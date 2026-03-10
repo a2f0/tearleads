@@ -280,7 +280,8 @@ vi.mock('@/components/window-debug', () => ({
   })
 }));
 
-vi.mock('@tearleads/app-admin/clientEntry', () => ({
+vi.mock('@tearleads/app-admin/clientEntry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   AdminWindow: createMockWindowComponent({
     testIdPrefix: 'admin-window',
     minimizeDimensions: { x: 0, y: 0, width: 700, height: 600 }

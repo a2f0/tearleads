@@ -6,7 +6,8 @@ const mockAdminPostgresWindowBase = vi.fn((_: unknown) => (
   <div>Admin Postgres Window</div>
 ));
 
-vi.mock('@tearleads/app-admin/clientEntry', () => ({
+vi.mock('@tearleads/app-admin/clientEntry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   AdminPostgresWindow: (props: unknown) => mockAdminPostgresWindowBase(props)
 }));
 
