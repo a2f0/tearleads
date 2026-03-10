@@ -26,16 +26,10 @@ vi.mock('../../lib/sessions.js', () => ({
     getLatestLastActiveByUserIdsMock(...args)
 }));
 
-vi.mock('./adminDirectAuth.js', async () => {
-  const actual = await vi.importActual<typeof import('./adminDirectAuth.js')>(
-    './adminDirectAuth.js'
-  );
-  return {
-    ...actual,
-    requireScopedAdminAccess: (...args: unknown[]) =>
-      requireScopedAdminAccessMock(...args)
-  };
-});
+vi.mock('./adminDirectAuth.js', () => ({
+  requireScopedAdminAccess: (...args: unknown[]) =>
+    requireScopedAdminAccessMock(...args)
+}));
 
 import { updateUserDirect } from './adminDirectUsers.js';
 
