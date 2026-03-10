@@ -107,6 +107,7 @@ pub fn normalize_required_resource_id(
 
 /// Normalizes optional sort directions to canonical lower-case values.
 pub fn normalize_sort_direction(
+    field: &'static str,
     value: Option<String>,
 ) -> Result<Option<String>, DomainValidationError> {
     let Some(raw) = value else {
@@ -125,7 +126,7 @@ pub fn normalize_sort_direction(
     }
 
     Err(DomainValidationError::new(
-        "sort_direction",
+        field,
         "must be \"asc\" or \"desc\"",
     ))
 }
@@ -223,21 +224,33 @@ mod tests {
 
     #[test]
     fn sort_direction_normalization_is_canonicalized() {
-        assert_eq!(normalize_sort_direction(None), Ok(None));
-        assert_eq!(normalize_sort_direction(Some(String::from(""))), Ok(None));
+        assert_eq!(normalize_sort_direction("sort_direction", None), Ok(None));
         assert_eq!(
-            normalize_sort_direction(Some(String::from(" Asc "))),
+            normalize_sort_direction("sort_direction", Some(String::from(""))),
+            Ok(None)
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from(" Asc "))),
             Ok(Some(String::from("asc")))
         );
         assert_eq!(
-            normalize_sort_direction(Some(String::from("DESC"))),
+            normalize_sort_direction("sort_direction", Some(String::from("DESC"))),
+            Ok(Some(String::from("desc")))
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from("asc"))),
+            Ok(Some(String::from("asc")))
+        );
+        assert_eq!(
+            normalize_sort_direction("sort_direction", Some(String::from("desc"))),
             Ok(Some(String::from("desc")))
         );
     }
 
     #[test]
     fn sort_direction_normalization_rejects_invalid_values() {
-        let error = match normalize_sort_direction(Some(String::from("sideways"))) {
+        let error = match normalize_sort_direction("sort_direction", Some(String::from("sideways")))
+        {
             Ok(value) => panic!("invalid direction should fail, got: {value:?}"),
             Err(error) => error,
         };

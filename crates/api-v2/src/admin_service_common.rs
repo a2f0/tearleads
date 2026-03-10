@@ -102,7 +102,8 @@ pub(crate) fn resolve_organization_scope_filter(
 pub(crate) fn normalize_sort_direction(
     value: Option<String>,
 ) -> Result<Option<String>, &'static str> {
-    normalize_domain_sort_direction(value).map_err(|_| "sort_direction must be \"asc\" or \"desc\"")
+    normalize_domain_sort_direction("sort_direction", value)
+        .map_err(|_| "sort_direction must be \"asc\" or \"desc\"")
 }
 
 pub(crate) fn normalize_rows_limit(limit: u32) -> u32 {
