@@ -33,8 +33,6 @@ function getMockApiModule() {
   return mockApiModuleState;
 }
 
-const mockApiModule = getMockApiModule();
-
 vi.mock('@/lib/api', () => getMockApiModule());
 vi.mock('@/lib/jwt', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/jwt')>();
