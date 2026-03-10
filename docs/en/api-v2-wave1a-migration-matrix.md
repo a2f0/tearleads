@@ -52,4 +52,5 @@ Status: all endpoints are `Landed` as defined in the legend.
 - Rust-generated v2 contract crate lives in `crates/api-v2-contracts`.
 - Browser-facing admin RPC routes use `api.adminV2` in `@tearleads/api-client`.
 - `@tearleads/app-admin` consumes the canonical `api.adminV2` surface only.
+- `buf breaking` now enforces compatibility for `tearleads/v2/admin.proto` against `main`.
 - MLS browser/runtime traffic is v2-only (`tearleads.v2.MlsService`), and stale v1 MLS/admin proto files were removed from `proto/`.
