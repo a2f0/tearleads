@@ -149,18 +149,18 @@ async function request<T>(
 
   const requestUrl = `${API_BASE_URL}${endpoint}`;
   const fetchOptions = params?.fetchOptions;
-  let response = await fetch(requestUrl, {
-    ...fetchOptions,
-    headers: buildRequestHeaders(fetchOptions?.headers)
-  });
+  const doFetch = () =>
+    fetch(requestUrl, {
+      ...fetchOptions,
+      headers: buildRequestHeaders(fetchOptions?.headers)
+    });
+
+  let response = await doFetch();
 
   if (response.status === 401) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      response = await fetch(requestUrl, {
-        ...fetchOptions,
-        headers: buildRequestHeaders(fetchOptions?.headers)
-      });
+      response = await doFetch();
     }
   }
 

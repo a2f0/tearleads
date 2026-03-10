@@ -5,7 +5,8 @@ NAMESPACE="${NAMESPACE:-tearleads}"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 LOCAL_API_PORT="${LOCAL_API_PORT:-15001}"
 BOB_EMAIL="${BOB_EMAIL:-bob@tearleads.com}"
-BOB_PASSWORD="${BOB_PASSWORD:-test}"
+BOB_PASSWORD="${BOB_PASSWORD:-}"
+: "${BOB_PASSWORD:?BOB_PASSWORD must be set in the environment.}"
 
 usage() {
   cat <<'EOF'
@@ -21,7 +22,7 @@ Environment overrides:
   KUBECONFIG       kubeconfig path (default: ~/.kube/config-staging-k8s)
   LOCAL_API_PORT   local port-forward port (default: 15001)
   BOB_EMAIL        login email (default: bob@tearleads.com)
-  BOB_PASSWORD     login password (default: test)
+  BOB_PASSWORD     login password (required)
 EOF
 }
 
