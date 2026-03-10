@@ -6,10 +6,7 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY
-} from '@/lib/authStorage';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -58,7 +55,9 @@ describe('api with msw', () => {
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    (await import('@/lib/authStorage')).setStoredAuthToken(seededUser.accessToken);
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
     const { setActiveOrganizationId } = await import('@/lib/orgStorage');
     setActiveOrganizationId(seededUser.organizationId);
     mockLogApiEvent.mockResolvedValue(undefined);

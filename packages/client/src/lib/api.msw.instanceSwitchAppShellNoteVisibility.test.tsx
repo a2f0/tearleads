@@ -350,7 +350,11 @@ describe('app shell instance-switch note visibility regression', () => {
       await waitForCurrentInstance(aliceInstanceId);
 
       await act(async () => {
-        storeAuth(`instance-auth-${alice.userId}`, alice.refreshToken, aliceAuth);
+        storeAuth(
+          `instance-auth-${alice.userId}`,
+          alice.refreshToken,
+          aliceAuth
+        );
         localStorage.removeItem(AUTH_TOKEN_KEY);
         setStoredAuthToken(alice.accessToken);
       });

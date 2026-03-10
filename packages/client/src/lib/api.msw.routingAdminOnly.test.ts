@@ -60,7 +60,9 @@ describe('api with msw admin routing', () => {
 
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
-    (await import('@/lib/authStorage')).setStoredAuthToken(seededUser.accessToken);
+    (await import('@/lib/authStorage')).setStoredAuthToken(
+      seededUser.accessToken
+    );
 
     mockLogApiEvent.mockResolvedValue(undefined);
   });
