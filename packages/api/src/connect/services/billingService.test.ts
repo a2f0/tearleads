@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import {
   Code,
   createContextValues,
@@ -150,12 +151,12 @@ describe('billingConnectService', () => {
       revenuecatAppUserId: 'org:org-1',
       entitlementStatus: 'active',
       activeProductId: 'pro_monthly',
-      periodEndsAt: now.toISOString(),
+      periodEndsAt: timestampFromDate(now),
       willRenew: true,
       lastWebhookEventId: 'evt_1',
-      lastWebhookAt: now.toISOString(),
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      lastWebhookAt: timestampFromDate(now),
+      createdAt: timestampFromDate(now),
+      updatedAt: timestampFromDate(now)
     });
   });
 
@@ -189,8 +190,8 @@ describe('billingConnectService', () => {
       organizationId: 'org-1',
       revenuecatAppUserId: 'org:org-1',
       entitlementStatus: 'inactive',
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      createdAt: timestampFromDate(now),
+      updatedAt: timestampFromDate(now)
     });
   });
 

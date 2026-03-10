@@ -1,3 +1,4 @@
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import type { GetOrganizationBillingRequest } from '@tearleads/shared/gen/tearleads/v2/billing_pb';
 import { getPool } from '../../lib/postgres.js';
@@ -88,20 +89,20 @@ export const billingConnectService = {
         organizationId: row.organization_id,
         revenuecatAppUserId: row.revenuecat_app_user_id,
         entitlementStatus: row.entitlement_status,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString(),
+        createdAt: timestampFromDate(row.created_at),
+        updatedAt: timestampFromDate(row.updated_at),
         ...(row.active_product_id
           ? { activeProductId: row.active_product_id }
           : {}),
         ...(row.period_ends_at
-          ? { periodEndsAt: row.period_ends_at.toISOString() }
+          ? { periodEndsAt: timestampFromDate(row.period_ends_at) }
           : {}),
         ...(row.will_renew !== null ? { willRenew: row.will_renew } : {}),
         ...(row.last_webhook_event_id
           ? { lastWebhookEventId: row.last_webhook_event_id }
           : {}),
         ...(row.last_webhook_at
-          ? { lastWebhookAt: row.last_webhook_at.toISOString() }
+          ? { lastWebhookAt: timestampFromDate(row.last_webhook_at) }
           : {})
       };
 
