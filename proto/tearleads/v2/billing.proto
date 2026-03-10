@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package tearleads.v2;
+
+service BillingService {
+  rpc GetOrganizationBilling(GetOrganizationBillingRequest)
+      returns (GetOrganizationBillingResponse);
+}
+
+message GetOrganizationBillingRequest {
+  string organization_id = 1;
+}
+
+message OrganizationBillingAccount {
+  string organization_id = 1;
+  string revenuecat_app_user_id = 2;
+  string entitlement_status = 3;
+  optional string active_product_id = 4;
+  optional string period_ends_at = 5;
+  optional bool will_renew = 6;
+  optional string last_webhook_event_id = 7;
+  optional string last_webhook_at = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message GetOrganizationBillingResponse {
+  OrganizationBillingAccount billing_account = 1;
+}

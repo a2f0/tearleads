@@ -1,5 +1,5 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { GetOrganizationBillingRequest } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
+import type { GetOrganizationBillingRequest } from '@tearleads/shared/gen/tearleads/v2/billing_pb';
 import { getPool } from '../../lib/postgres.js';
 import { getRequiredConnectAuthContext } from '../context.js';
 

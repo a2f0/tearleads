@@ -1,9 +1,9 @@
 import type { ConnectRouter } from '@connectrpc/connect';
-import { BillingService } from '@tearleads/shared/gen/tearleads/v1/billing_pb';
 import { RevenuecatService } from '@tearleads/shared/gen/tearleads/v1/revenuecat_pb';
 import { AdminService as AdminServiceV2 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { AiService as AiServiceV2 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
+import { BillingService } from '@tearleads/shared/gen/tearleads/v2/billing_pb';
 import { ChatService } from '@tearleads/shared/gen/tearleads/v2/chat_pb';
 import { MlsService as MlsServiceV2 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
 import { NotificationService } from '@tearleads/shared/gen/tearleads/v2/notifications_pb';

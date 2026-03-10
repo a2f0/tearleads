@@ -7,7 +7,7 @@ import {
 import {
   BillingService,
   GetOrganizationBillingRequestSchema
-} from '@tearleads/shared/gen/tearleads/v1/billing_pb';
+} from '@tearleads/shared/gen/tearleads/v2/billing_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECT_AUTH_CONTEXT_KEY } from '../context.js';
 import { billingConnectService } from './billingService.js';
@@ -42,7 +42,7 @@ function createAuthContext() {
     method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
-    url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling',
+    url: 'http://localhost/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling',
     contextValues
   });
 }
@@ -53,7 +53,7 @@ function createUnauthenticatedContext() {
     method: BillingService.method.getOrganizationBilling,
     protocolName: 'connect',
     requestMethod: 'POST',
-    url: 'http://localhost/v1/connect/tearleads.v1.BillingService/GetOrganizationBilling'
+    url: 'http://localhost/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling'
   });
 }
 
