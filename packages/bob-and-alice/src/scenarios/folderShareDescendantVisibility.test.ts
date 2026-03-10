@@ -12,7 +12,12 @@ async function listSyncItems(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<SyncItem[]> {
   const response = await actor.fetchJson<{ items: SyncItem[] }>(
-    '/vfs/vfs-sync?limit=500'
+    '/connect/tearleads.v2.VfsService/GetSync',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 500 })
+    }
   );
   return response.items;
 }

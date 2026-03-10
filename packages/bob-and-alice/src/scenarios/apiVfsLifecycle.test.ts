@@ -45,7 +45,11 @@ describe('API VFS lifecycle', () => {
     const keysBody = await alice.fetchJson<{
       publicEncryptionKey: string;
       argon2Salt: string;
-    }>('/vfs/keys/me');
+    }>('/connect/tearleads.v2.VfsService/GetMyKeys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
     expect(keysBody.publicEncryptionKey).toBe('alice-public-enc-key');
     expect(keysBody.argon2Salt).toBe('alice-argon2-salt');
 

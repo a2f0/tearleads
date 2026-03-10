@@ -160,7 +160,7 @@ describe('ensureVfsKeysExist', () => {
 
     await ensureVfsKeysExist({ actor, keyPrefix: 'test' });
     expect(actor.fetchJson).toHaveBeenCalledWith(
-      '/vfs/keys',
+      '/connect/tearleads.v2.VfsService/SetupKeys',
       expect.any(Object)
     );
   });
