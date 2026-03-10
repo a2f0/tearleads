@@ -1,8 +1,8 @@
+import { cn } from '@tearleads/ui';
 import { useMemo } from 'react';
 import { useResizableSidebar } from '../../hooks/useResizableSidebar.js';
-import { cn } from '@tearleads/ui';
-import { WindowSidebarProvider } from './WindowSidebarContext.js';
 import type { WindowSidebarContextValue } from './WindowSidebarContext.js';
+import { WindowSidebarProvider } from './WindowSidebarContext.js';
 
 interface DesktopSidebarProps {
   children: React.ReactNode;

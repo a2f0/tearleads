@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@tearleads/ui';
-import { WindowSidebarProvider } from './WindowSidebarContext.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WindowSidebarContextValue } from './WindowSidebarContext.js';
+import { WindowSidebarProvider } from './WindowSidebarContext.js';
 
 const ANIMATION_DURATION_MS = 300;
 

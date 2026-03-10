@@ -248,7 +248,9 @@ export async function initializeAndRestoreDatabaseState({
           await touchInstance(activeInstance.id);
           return;
         }
-        dbLog('[db] deferred session restore failed, resetting before auto-init');
+        dbLog(
+          '[db] deferred session restore failed, resetting before auto-init'
+        );
         databaseSetupProgressStore.update('Re-initializing database...', 55);
         await resetDatabase(activeInstance.id);
       }
@@ -270,7 +272,8 @@ export async function initializeAndRestoreDatabaseState({
       await touchInstance(activeInstance.id);
     }
   } catch (err) {
-    if (!isTest) console.error('[db] initializeAndRestoreDatabaseState error:', err);
+    if (!isTest)
+      console.error('[db] initializeAndRestoreDatabaseState error:', err);
     setError(toError(err));
   } finally {
     dbLog(

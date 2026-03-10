@@ -55,9 +55,7 @@ export async function validateAndPruneOrphanedInstances(
         await nativeSecureStorage.getTrackedKeystoreInstanceIds();
       // Use allRegistryIds for Keystore orphan check so the active instance's
       // Keychain entries aren't incorrectly deleted as orphans.
-      const knownRegistryIds = new Set(
-        allRegistryIds ?? instanceIdsToValidate
-      );
+      const knownRegistryIds = new Set(allRegistryIds ?? instanceIdsToValidate);
 
       // Find Keystore entries that don't have corresponding registry entries
       result.orphanedKeystoreEntries = trackedKeystoreIds.filter(

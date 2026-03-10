@@ -402,9 +402,7 @@ export async function resetDatabase(instanceId: string): Promise<void> {
         platformInfo.platform === 'ios' ||
         platformInfo.platform === 'android'
       ) {
-        const { CapacitorSQLite } = await import(
-          '@capacitor-community/sqlite'
-        );
+        const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
         try {
           await CapacitorSQLite.deleteDatabase({ database: dbName });
         } catch {

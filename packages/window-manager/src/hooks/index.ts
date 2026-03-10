@@ -2,8 +2,8 @@ export {
   type UseCombinedRefreshResult,
   useCombinedRefresh
 } from './useCombinedRefresh.js';
-export { useIsMobile } from './useIsMobile.js';
 export { type Corner, useFloatingWindow } from './useFloatingWindow.js';
+export { useIsMobile } from './useIsMobile.js';
 export {
   type UseResizableSidebarResult,
   useResizableSidebar

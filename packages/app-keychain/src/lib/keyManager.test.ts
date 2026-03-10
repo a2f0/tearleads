@@ -339,11 +339,9 @@ describe('validateAndPruneOrphanedInstances', () => {
     ]);
 
     // active-instance is excluded from validation but included in allRegistryIds
-    const result = await validateAndPruneOrphanedInstances(
-      [],
-      vi.fn(),
-      ['active-instance']
-    );
+    const result = await validateAndPruneOrphanedInstances([], vi.fn(), [
+      'active-instance'
+    ]);
 
     // Only stale-orphan should be cleaned, not active-instance
     expect(result.orphanedKeystoreEntries).toEqual(['stale-orphan']);
