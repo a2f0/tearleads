@@ -5,11 +5,7 @@ import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
-import {
-  AUTH_REFRESH_TOKEN_KEY,
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY
-} from '@/lib/authStorage';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
 import { createTestJwt } from '@/test/jwtTestUtils';
 import { AuthInstanceBinding } from './AuthInstanceBinding';
 
@@ -78,7 +74,6 @@ describe('AuthInstanceBinding auth isolation integration', () => {
 
     const token = createTestJwt(Math.floor(Date.now() / 1000) + 3600);
     localStorage.setItem(AUTH_TOKEN_KEY, token);
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
     localStorage.setItem(
       AUTH_USER_KEY,
       JSON.stringify({ id: 'user-bob', email: 'bob@tearleads.com' })
@@ -118,7 +113,6 @@ describe('AuthInstanceBinding auth isolation integration', () => {
     });
 
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
-    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
     expect(mockApiLogout).toHaveBeenCalledTimes(1);
   });

@@ -21,7 +21,6 @@ import {
 } from '@/hooks/vfs';
 import { api, tryRefreshToken } from '@/lib/api';
 import {
-  AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
   clearAuthError,
@@ -184,11 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    const authStorageKeys = new Set([
-      AUTH_TOKEN_KEY,
-      AUTH_REFRESH_TOKEN_KEY,
-      AUTH_USER_KEY
-    ]);
+    const authStorageKeys = new Set([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
 
     const handleStorageChange = (event: StorageEvent) => {
       if (!event.key || authStorageKeys.has(event.key)) {

@@ -1,11 +1,11 @@
 import type { AuthUser } from '@tearleads/shared';
 
 export const AUTH_TOKEN_KEY = 'auth_token';
-export const AUTH_REFRESH_TOKEN_KEY = 'auth_refresh_token';
 export const AUTH_USER_KEY = 'auth_user';
 const AUTH_CHANGE_EVENT = 'tearleads_auth_change';
 const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';
 const REFRESH_LOCK_KEY = 'auth_refresh_lock';
+const LEGACY_AUTH_REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const REFRESH_LOCK_TIMEOUT_MS = 10000; // 10 seconds max lock duration
 
 let authError: string | null = null;
@@ -79,7 +79,7 @@ export function storeAuth(
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_AUTH_REFRESH_TOKEN_KEY);
     inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
   } catch {
@@ -91,7 +91,7 @@ export function clearStoredAuth(): void {
   try {
     inMemoryRefreshToken = null;
     localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_AUTH_REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(REFRESH_LOCK_KEY);
     notifyAuthChange();
@@ -121,22 +121,7 @@ export function getAuthHeaderValue(): string | null {
 }
 
 export function getStoredRefreshToken(): string | null {
-  if (inMemoryRefreshToken) {
-    return inMemoryRefreshToken;
-  }
-
-  try {
-    const legacyRefreshToken = localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
-    if (!legacyRefreshToken) {
-      return null;
-    }
-    // Migrate legacy refresh token storage to in-memory only.
-    inMemoryRefreshToken = legacyRefreshToken;
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
-    return inMemoryRefreshToken;
-  } catch {
-    return inMemoryRefreshToken;
-  }
+  return inMemoryRefreshToken;
 }
 
 export function updateStoredTokens(
@@ -145,7 +130,7 @@ export function updateStoredTokens(
 ): void {
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_AUTH_REFRESH_TOKEN_KEY);
     inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
   } catch {
@@ -157,7 +142,7 @@ export function setStoredRefreshToken(refreshToken: string | null): void {
   inMemoryRefreshToken = refreshToken;
   if (refreshToken === null) {
     try {
-      localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+      localStorage.removeItem(LEGACY_AUTH_REFRESH_TOKEN_KEY);
     } catch {
       // Ignore storage errors.
     }
