@@ -17,7 +17,7 @@ import {
   SCAFFOLD_SHARED_LOGO_SVG,
   setupBobPhotoAlbumShareForAliceDb
 } from '@tearleads/shared/scaffolding';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
