@@ -12,14 +12,25 @@ import {
 
 // one-component-per-file: allow -- test-only provider wrappers for renderHook scenarios.
 
-const mockApiModule = vi.hoisted(() => ({
-  API_BASE_URL: 'http://localhost:5001/v1',
-  tryRefreshToken: () => mockTryRefreshToken(),
-  openNotificationEventStream: (options: OpenNotificationStreamOptions) =>
-    mockSSE.openNotificationEventStream(options)
-}));
+function createMockApiModule() {
+  return {
+    API_BASE_URL: 'http://localhost:5001/v1',
+    tryRefreshToken: () => mockTryRefreshToken(),
+    openNotificationEventStream: (options: OpenNotificationStreamOptions) =>
+      mockSSE.openNotificationEventStream(options)
+  };
+}
 
-vi.mock('@/lib/api', () => mockApiModule);
+var mockApiModuleState: ReturnType<typeof createMockApiModule> | undefined;
+
+function getMockApiModule() {
+  if (!mockApiModuleState) {
+    mockApiModuleState = createMockApiModule();
+  }
+  return mockApiModuleState;
+}
+
+vi.mock('@/lib/api', () => getMockApiModule());
 vi.mock('@/lib/jwt', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/jwt')>();
   return {
