@@ -33,7 +33,7 @@ function getMockUseLLM() {
   if (!mockUseLLMState) {
     mockUseLLMState = createMockUseLLM();
   }
-  return mockUseLLMState;
+  return mockUseLLMState!;
 }
 
 // Mock @/hooks/llm for direct imports in tests

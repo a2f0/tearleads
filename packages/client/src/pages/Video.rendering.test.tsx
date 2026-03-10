@@ -34,7 +34,7 @@ function getMocks() {
   if (!mocksState) {
     mocksState = createMocks();
   }
-  return mocksState;
+  return mocksState!;
 }
 
 const mocks = getMocks();
