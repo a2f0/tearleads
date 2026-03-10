@@ -5,39 +5,56 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock() calls must be in each test file (hoisted)
+type MockImportOriginal<ModuleShape> = () => Promise<ModuleShape>;
+
+function selectRunnerMockFactory<ModuleShape>(
+  bunFactory: () => ModuleShape,
+  vitestFactory: (
+    importOriginal: MockImportOriginal<ModuleShape>
+  ) => Promise<ModuleShape>
+) {
+  if (typeof Reflect.get(globalThis, 'Bun') !== 'undefined') {
+    return bunFactory;
+  }
+
+  return vitestFactory;
+}
 
 vi.mock(
   '@tearleads/shared',
-  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
-    ? () => createSharedMock()
-    : async (importOriginal) => {
-        const { sharedModuleMockFactory } = await import(
-          './keyManager.testUtils'
-        );
-        return sharedModuleMockFactory(importOriginal);
-      }
+  selectRunnerMockFactory(
+    () => createSharedMock(),
+    async (importOriginal) => {
+      const { sharedModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return sharedModuleMockFactory(importOriginal);
+    }
+  )
 );
 vi.mock(
   './nativeSecureStorage',
-  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
-    ? () => createNativeStorageMock()
-    : async () => {
-        const { nativeStorageModuleMockFactory } = await import(
-          './keyManager.testUtils'
-        );
-        return nativeStorageModuleMockFactory();
-      }
+  selectRunnerMockFactory(
+    () => createNativeStorageMock(),
+    async () => {
+      const { nativeStorageModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return nativeStorageModuleMockFactory();
+    }
+  )
 );
 vi.mock(
   './detectPlatform',
-  typeof Reflect.get(globalThis, 'Bun') !== 'undefined'
-    ? () => createUtilsMock()
-    : async () => {
-        const { detectPlatformModuleMockFactory } = await import(
-          './keyManager.testUtils'
-        );
-        return detectPlatformModuleMockFactory();
-      }
+  selectRunnerMockFactory(
+    () => createUtilsMock(),
+    async () => {
+      const { detectPlatformModuleMockFactory } = await import(
+        './keyManager.testUtils'
+      );
+      return detectPlatformModuleMockFactory();
+    }
+  )
 );
 
 import {
