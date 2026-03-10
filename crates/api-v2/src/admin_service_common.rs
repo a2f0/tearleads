@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use prost_types::{ListValue, Struct, Value, value::Kind as ProtobufValueKind};
 use serde_json::Value as JsonValue;
-use tearleads_api_domain_core::normalize_sql_identifier;
+use tearleads_api_domain_core::{
+    normalize_required_resource_id as normalize_domain_required_resource_id,
+    normalize_sort_direction as normalize_domain_sort_direction, normalize_sql_identifier,
+};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminRedisStringList, AdminRedisStringMap, AdminRedisValue, admin_redis_value,
 };
@@ -70,13 +73,8 @@ pub(crate) fn normalize_required_resource_id(
     field: &'static str,
     value: &str,
 ) -> Result<String, String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        let mut message = String::from(field);
-        message.push_str(" must not be empty");
-        return Err(message);
-    }
-    Ok(trimmed.to_string())
+    normalize_domain_required_resource_id(field, value)
+        .map_err(|error| format!("{} {}", error.field(), error.message()))
 }
 
 pub(crate) fn resolve_organization_scope_filter(
@@ -104,22 +102,7 @@ pub(crate) fn resolve_organization_scope_filter(
 pub(crate) fn normalize_sort_direction(
     value: Option<String>,
 ) -> Result<Option<String>, &'static str> {
-    let Some(raw) = value else {
-        return Ok(None);
-    };
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-
-    if trimmed.eq_ignore_ascii_case("asc") {
-        return Ok(Some(String::from("asc")));
-    }
-    if trimmed.eq_ignore_ascii_case("desc") {
-        return Ok(Some(String::from("desc")));
-    }
-
-    Err("sort_direction must be \"asc\" or \"desc\"")
+    normalize_domain_sort_direction(value).map_err(|_| "sort_direction must be \"asc\" or \"desc\"")
 }
 
 pub(crate) fn normalize_rows_limit(limit: u32) -> u32 {
