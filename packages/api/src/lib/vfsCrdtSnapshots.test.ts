@@ -23,7 +23,6 @@ vi.mock('@tearleads/shared/redis', () => ({
 
 describe('vfsCrdtSnapshots', () => {
   afterEach(() => {
-    vi.unstubAllEnvs();
     redisStore.clear();
   });
 

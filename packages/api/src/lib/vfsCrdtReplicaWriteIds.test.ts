@@ -24,12 +24,7 @@ vi.mock('@tearleads/shared/redis', () => ({
 describe('vfsCrdtReplicaWriteIds', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllEnvs();
     redisStore.clear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('reads from replica heads table by default', async () => {
