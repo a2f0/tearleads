@@ -37,22 +37,6 @@ vi.mock('@/components/ui/bottom-sheet/BottomSheet', () => ({
   ANIMATION_DURATION_MS: 120
 }));
 
-vi.mock('@/pages/admin', () => ({
-  Admin: () => null,
-  PostgresAdmin: () => null,
-  UsersAdmin: () => null,
-  UsersAdminDetail: () => null,
-  UsersAdminPage: () => null,
-  AiRequestsAdminPage: () => null,
-  GroupsAdminPage: () => null,
-  GroupDetailPageRoute: () => null,
-  OrganizationsAdminPage: () => null,
-  OrganizationDetailPageRoute: () => null
-}));
-vi.mock('@tearleads/app-analytics', () => ({
-  Analytics: () => null,
-  SortIcon: () => null
-}));
 vi.mock('@/pages/cache-storage/CacheStorage', () => ({
   CacheStorage: () => null
 }));
@@ -64,10 +48,6 @@ vi.mock('@/pages/contacts/Contacts', () => ({
 }));
 vi.mock('@/pages/debug/Debug', () => ({
   Debug: () => null
-}));
-vi.mock('@/pages/keychain', () => ({
-  Keychain: () => null,
-  KeychainDetail: () => null
 }));
 vi.mock('@/pages/local-storage/LocalStorage', () => ({
   LocalStorage: () => null
@@ -90,13 +70,10 @@ import * as editableTitle from '@/components/ui/editable-title/index';
 import * as schema from '@/db/schema/index';
 import * as i18n from '@/i18n/index';
 import * as translations from '@/i18n/translations';
-import * as pagesAdmin from '@/pages/admin/index';
-import * as pagesAnalytics from '@/pages/analytics/index';
 import * as pagesCacheStorage from '@/pages/cache-storage/index';
 import * as pagesChat from '@/pages/chat/index';
 import * as pagesContacts from '@/pages/contacts/index';
 import * as pagesDebug from '@/pages/debug/index';
-import * as pagesKeychain from '@/pages/keychain/index';
 import * as pagesLocalStorage from '@/pages/local-storage/index';
 import * as pagesModels from '@/pages/models/index';
 import * as pagesOpfs from '@/pages/opfs/index';
@@ -133,20 +110,6 @@ describe('barrel exports', () => {
 
     expect(editableTitle.EditableTitle).toBeDefined();
 
-    expect(pagesAdmin.Admin).toBeDefined();
-    expect(pagesAdmin.PostgresAdmin).toBeDefined();
-    expect(pagesAdmin.UsersAdmin).toBeDefined();
-    expect(pagesAdmin.UsersAdminDetail).toBeDefined();
-    expect(pagesAdmin.UsersAdminPage).toBeDefined();
-    expect(pagesAdmin.AiRequestsAdminPage).toBeDefined();
-    expect(pagesAdmin.GroupsAdminPage).toBeDefined();
-    expect(pagesAdmin.GroupDetailPageRoute).toBeDefined();
-    expect(pagesAdmin.OrganizationsAdminPage).toBeDefined();
-    expect(pagesAdmin.OrganizationDetailPageRoute).toBeDefined();
-
-    expect(pagesAnalytics.Analytics).toBeDefined();
-    expect(pagesAnalytics.SortIcon).toBeDefined();
-
     expect(pagesCacheStorage.CacheStorage).toBeDefined();
 
     expect(pagesChat.Chat).toBeDefined();
@@ -154,9 +117,6 @@ describe('barrel exports', () => {
     expect(pagesContacts.Contacts).toBeDefined();
 
     expect(pagesDebug.Debug).toBeDefined();
-
-    expect(pagesKeychain.Keychain).toBeDefined();
-    expect(pagesKeychain.KeychainDetail).toBeDefined();
 
     expect(pagesLocalStorage.LocalStorage).toBeDefined();
 
