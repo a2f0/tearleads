@@ -1,11 +1,12 @@
 // one-component-per-file: allow (getSortIcon is a useCallback, not a component)
-import type { WeightReading } from '../../../lib/healthTrackerTypes.js';
+
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import { ChevronDown, ChevronUp, Scale } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import type { WeightReading } from '../../../lib/healthTrackerTypes.js';
 
 interface WeightTableProps {
   readings: WeightReading[];

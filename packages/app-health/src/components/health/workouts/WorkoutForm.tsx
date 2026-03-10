@@ -1,11 +1,12 @@
 // component-complexity: allow (workout form with many validated fields)
+
+import { Loader2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import type {
   CreateWorkoutEntryInput,
   Exercise,
   WeightUnit
 } from '../../../lib/healthTrackerTypes.js';
-import { Loader2 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
 
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';

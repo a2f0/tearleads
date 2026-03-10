@@ -1,6 +1,9 @@
-import type { CreateExerciseInput, Exercise } from '../../../lib/healthTrackerTypes.js';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  CreateExerciseInput,
+  Exercise
+} from '../../../lib/healthTrackerTypes.js';
 import { useExerciseData } from './useExerciseData';
 
 const listExercisesMock = vi.fn<() => Promise<Exercise[]>>();

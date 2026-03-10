@@ -15,7 +15,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDatabase } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { aiConversations, aiMessages, vfsRegistry } from '@/db/schema';
-import { ensureVfsKeys, generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';
+import {
+  ensureVfsKeys,
+  generateSessionKey,
+  wrapSessionKey
+} from '@/hooks/vfs/useVfsKeys';
 import {
   decryptContent,
   encryptContent,

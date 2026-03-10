@@ -1,7 +1,10 @@
-import type { CreateExerciseInput, Exercise } from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type {
+  CreateExerciseInput,
+  Exercise
+} from '../../../lib/healthTrackerTypes.js';
 
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';

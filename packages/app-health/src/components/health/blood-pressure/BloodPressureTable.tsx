@@ -1,11 +1,12 @@
 // one-component-per-file: allow (getSortIcon is a useCallback, not a component)
-import type { BloodPressureReading } from '../../../lib/healthTrackerTypes.js';
+
 import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
 import { ChevronDown, ChevronUp, HeartPulse } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import type { BloodPressureReading } from '../../../lib/healthTrackerTypes.js';
 
 interface BloodPressureTableProps {
   readings: BloodPressureReading[];

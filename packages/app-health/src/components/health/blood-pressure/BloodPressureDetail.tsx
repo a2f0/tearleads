@@ -1,6 +1,6 @@
-import type { CreateBloodPressureReadingInput } from '../../../lib/healthTrackerTypes.js';
 import { Loader2 } from 'lucide-react';
 import { useCallback } from 'react';
+import type { CreateBloodPressureReadingInput } from '../../../lib/healthTrackerTypes.js';
 import { useHealthRuntime } from '../../../runtime';
 import { BloodPressureForm } from './BloodPressureForm';
 import { BloodPressureTable } from './BloodPressureTable';

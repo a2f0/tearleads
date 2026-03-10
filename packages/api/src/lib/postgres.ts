@@ -1,4 +1,4 @@
-import { type PostgresConnectionInfo } from '@tearleads/shared';
+import type { PostgresConnectionInfo } from '@tearleads/shared';
 import { getPostgresDevDefaults, isDevMode } from '@tearleads/shared/server';
 import {
   getPoolOverride,

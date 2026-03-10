@@ -1,9 +1,9 @@
+import { Loader2 } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import type {
   CreateWeightReadingInput,
   WeightUnit
 } from '../../../lib/healthTrackerTypes.js';
-import { Loader2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 
