@@ -149,7 +149,9 @@ describe('PhotosPage (wrapper with sidebar)', () => {
     it('renders the PhotosAlbumsSidebar', async () => {
       renderPhotosPage();
 
-      expect(screen.getByTestId('photos-albums-sidebar-content')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-albums-sidebar-content')
+      ).toBeInTheDocument();
     });
 
     it('renders the back link', async () => {
@@ -200,7 +202,9 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       await user.click(screen.getByTestId('trigger-album-changed'));
 
       // The test passes if no errors occur - refreshToken is internal state
-      expect(screen.getByTestId('photos-albums-sidebar-content')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-albums-sidebar-content')
+      ).toBeInTheDocument();
     });
   });
 
