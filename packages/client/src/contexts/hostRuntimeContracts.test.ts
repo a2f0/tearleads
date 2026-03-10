@@ -14,12 +14,12 @@ import type {
 } from '@tearleads/app-notes';
 import type { VehiclesRuntimeProviderProps } from '@tearleads/app-vehicles';
 import type { WalletRuntimeProviderProps } from '@tearleads/app-wallet/clientEntry';
-import type { VfsExplorerProviderProps } from '@tearleads/vfs-explorer';
 import type {
   HostRuntimeBaseProps,
   HostRuntimeDatabaseState,
   HostRuntimeNavigateOptions
 } from '@tearleads/shared';
+import type { VfsExplorerProviderProps } from '@tearleads/vfs-explorer';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { VideoPlaylistProviderProps } from '@/video/VideoPlaylistContext';
 
