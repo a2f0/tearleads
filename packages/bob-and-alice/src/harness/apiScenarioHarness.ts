@@ -3,11 +3,7 @@ import type {
   TestContext,
   TestContextDeps
 } from '@tearleads/api-test-utils';
-import { createConnectJsonPostInit } from '@tearleads/shared';
 import {
-  adaptConnectResponse,
-  type ConnectRouteMapping,
-  mapLegacyPathToConnect,
   mergeHeaders,
   resolveDirectApiPath
 } from './apiScenarioConnectCompat.js';
@@ -253,27 +249,8 @@ export class ApiScenarioHarness {
       const actorFetch = async (
         path: string,
         init?: RequestInit
-      ): Promise<Response> => {
-        const connectMapping: ConnectRouteMapping | null =
-          mapLegacyPathToConnect(path, init);
-        if (connectMapping) {
-          const connectInit = createConnectJsonPostInit(connectMapping.body);
-          const connectHeaders = mergeHeaders(
-            user.accessToken,
-            connectInit.headers,
-            user.organizationId
-          );
-          const connectResponse = await fetch(
-            `${baseUrl}${connectMapping.path}`,
-            {
-              ...connectInit,
-              headers: connectHeaders
-            }
-          ).then((response) => adaptConnectResponse(response, connectMapping));
-          return connectResponse;
-        }
-
-        return fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
+      ): Promise<Response> =>
+        fetch(`${baseUrl}${resolveDirectApiPath(path)}`, {
           ...init,
           headers: mergeHeaders(
             user.accessToken,
@@ -281,7 +258,6 @@ export class ApiScenarioHarness {
             user.organizationId
           )
         });
-      };
 
       const actorFetchJson = async <T = unknown>(
         path: string,
