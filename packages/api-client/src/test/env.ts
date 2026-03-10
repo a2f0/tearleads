@@ -16,7 +16,7 @@ export function setTestEnv(key: string, value: string): void {
   touchedKeys.add(key);
 }
 
-export function resetTestEnv(): void {
+function resetTestEnv(): void {
   for (const key of touchedKeys) {
     const originalValue = originalValues.get(key);
 
