@@ -20,11 +20,11 @@ describe('notificationStreamChannelUtils', () => {
   });
 
   it('diffs channels into added and removed groups', () => {
-    expect(diffChannels(['broadcast', 'vfs:old'], ['broadcast', 'vfs:new'])).toEqual(
-      {
-        added: ['vfs:new'],
-        removed: ['vfs:old']
-      }
-    );
+    expect(
+      diffChannels(['broadcast', 'vfs:old'], ['broadcast', 'vfs:new'])
+    ).toEqual({
+      added: ['vfs:new'],
+      removed: ['vfs:old']
+    });
   });
 });
