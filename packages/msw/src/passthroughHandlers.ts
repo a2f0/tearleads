@@ -31,11 +31,6 @@ export function createExpressPassthroughHandlers(
 
       // Prepend pathPrefix (e.g. '/v1') unless the path already starts with it
       let pathname = original.pathname;
-      if (!resolvedPathPrefix) {
-        // Route overrides that opt out of prefixing should also strip '/v1'
-        // so '/v1/connect/*' can be forwarded to targets expecting '/connect/*'.
-        pathname = pathname.replace(/^\/v1(?=\/|$)/, '');
-      }
       if (resolvedPathPrefix && !pathname.startsWith(resolvedPathPrefix)) {
         pathname = resolvedPathPrefix + pathname;
       }
