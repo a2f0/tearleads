@@ -275,7 +275,8 @@ export async function pullUntilSettledLoop(
     if (
       replayCursorAfterPull &&
       (!effectivePageCursor ||
-        compareVfsSyncCursorOrder(effectivePageCursor, replayCursorAfterPull) < 0)
+        compareVfsSyncCursorOrder(effectivePageCursor, replayCursorAfterPull) <
+          0)
     ) {
       dependencies.emitGuardrailViolation({
         code: 'pullPageInvariantViolation',
