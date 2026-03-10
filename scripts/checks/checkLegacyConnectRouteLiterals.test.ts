@@ -11,7 +11,7 @@ test('shouldScanFile targets runtime files and excludes test files', () => {
 
   assert.equal(shouldScanFile('packages/app-admin/src/lib/api.test.ts'), false);
   assert.equal(shouldScanFile('packages/app-admin/src/lib/api.spec.ts'), false);
-  assert.equal(shouldScanFile('crates/api-v2/tests/admin_service.rs'), true);
+  assert.equal(shouldScanFile('crates/api-v2/tests/admin_service.rs'), false);
   assert.equal(
     shouldScanFile('crates/api-v2/tests/admin_service_test.rs'),
     false
@@ -38,5 +38,5 @@ test('findLegacyConnectViolations detects v1 service names and route literals', 
   assert.equal(violations[0]?.line, 1);
   assert.equal(violations[0]?.pattern, 'legacy-service-name');
   assert.equal(violations[1]?.line, 2);
-  assert.equal(violations[1]?.pattern, 'legacy-service-name');
+  assert.equal(violations[1]?.pattern, 'legacy-connect-route');
 });

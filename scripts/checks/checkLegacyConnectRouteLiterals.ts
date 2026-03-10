@@ -19,13 +19,13 @@ const LEGACY_PATTERNS: ReadonlyArray<{
   regex: RegExp;
 }> = [
   {
-    name: 'legacy-service-name',
-    regex: /tearleads\.v1\.[A-Za-z0-9_]+Service/
-  },
-  {
     name: 'legacy-connect-route',
     regex:
       /\/(?:v1\/)?connect\/tearleads\.v1\.[A-Za-z0-9_]+Service\/[A-Za-z0-9_]+/
+  },
+  {
+    name: 'legacy-service-name',
+    regex: /tearleads\.v1\.[A-Za-z0-9_]+Service/
   }
 ];
 
@@ -118,6 +118,10 @@ export function shouldScanFile(relativePath: string): boolean {
   }
 
   if (/\.(test|spec)\.(ts|tsx|mts|cts)$/.test(relativePath)) {
+    return false;
+  }
+
+  if (relativePath.startsWith('crates/') && relativePath.includes('/tests/')) {
     return false;
   }
 
