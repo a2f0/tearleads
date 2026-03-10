@@ -28,7 +28,7 @@ function getMockUseLLM() {
     mockUseLLMState = createMockUseLLM();
   }
   if (!mockUseLLMState) {
-    throw new Error("Expected mockUseLLMState to be initialized");
+    throw new Error('Expected mockUseLLMState to be initialized');
   }
   return mockUseLLMState;
 }
