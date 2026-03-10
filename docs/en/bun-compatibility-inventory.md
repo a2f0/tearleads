@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-10T04:25:37.080Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-10T04:30:42.821Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 

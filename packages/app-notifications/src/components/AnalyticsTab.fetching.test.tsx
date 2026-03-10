@@ -9,7 +9,7 @@ describe('AnalyticsTab fetching guard', () => {
     const mockGetEvents = vi.fn();
     setAnalyticsDependencies({
       useDatabaseContext: () => ({ isUnlocked: true }),
-      initialFetchingRefCurrent: true,
+      skipInitialFetch: true,
       getDatabase: () => ({}),
       getEvents: (db, options) => mockGetEvents(db, options),
       getEventStats: async () => [],
