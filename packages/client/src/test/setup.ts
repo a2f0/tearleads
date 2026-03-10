@@ -126,6 +126,14 @@ import '../i18n';
 // Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
 failOnConsole();
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => ({
+    isUnlocked: true,
+    isLoading: false,
+    currentInstanceId: null
+  })
+}));
+
 vi.mock('@tearleads/ui', async () => {
   const actual =
     await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
