@@ -37,14 +37,19 @@ fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
         .layer(TraceLayer::new_for_http());
 
     if enable_admin_harness {
-        let admin_handler = admin_harness::create_admin_harness_handler();
-        let admin_service = tower::ServiceBuilder::new()
-            .layer(tonic_web::GrpcWebLayer::new())
-            .service(AdminServiceServer::new(admin_handler))
-            .map_request(|request: axum::http::Request<axum::body::Body>| {
-                request.map(tonic::body::Body::new)
-            });
-        router.nest_service("/connect", admin_service)
+        let build_admin_service = || {
+            tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(AdminServiceServer::new(
+                    admin_harness::create_admin_harness_handler(),
+                ))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                })
+        };
+        router
+            .nest_service("/connect", build_admin_service())
+            .nest_service("/v1/connect", build_admin_service())
     } else {
         router
     }
@@ -100,35 +105,50 @@ mod tests {
         assert!(!is_truthy_env_flag(""));
     }
 
-    #[tokio::test]
-    async fn harness_flag_controls_connect_route_mounting() {
-        let request = Request::builder()
+    fn admin_tables_request(path: &str) -> Request<Body> {
+        Request::builder()
             .method("POST")
-            .uri("/connect/tearleads.v2.AdminService/GetTables")
+            .uri(path)
             .header("content-type", "application/grpc-web+proto")
             .header("x-grpc-web", "1")
             .header("authorization", "Bearer header.payload.signature")
             .body(Body::empty())
-            .expect("request should build");
+            .expect("request should build")
+    }
 
+    #[tokio::test]
+    async fn harness_flag_controls_connect_route_mounting() {
         let without_harness = app_with_harness_flag("", false)
-            .oneshot(request)
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
             .await
             .expect("router should return a response");
         assert_eq!(without_harness.status(), StatusCode::NOT_FOUND);
 
-        let with_harness_request = Request::builder()
-            .method("POST")
-            .uri("/connect/tearleads.v2.AdminService/GetTables")
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build");
         let with_harness_result = app_with_harness_flag("", true)
-            .oneshot(with_harness_request)
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
             .await;
         let with_harness = with_harness_result.expect("router should return a response");
         assert_ne!(with_harness.status(), StatusCode::NOT_FOUND);
+
+        let without_harness_v1_prefixed = app_with_harness_flag("", false)
+            .oneshot(admin_tables_request(
+                "/v1/connect/tearleads.v2.AdminService/GetTables",
+            ))
+            .await
+            .expect("router should return a response");
+        assert_eq!(without_harness_v1_prefixed.status(), StatusCode::NOT_FOUND);
+
+        let with_harness_v1_prefixed_result = app_with_harness_flag("", true)
+            .oneshot(admin_tables_request(
+                "/v1/connect/tearleads.v2.AdminService/GetTables",
+            ))
+            .await;
+        let with_harness_v1_prefixed =
+            with_harness_v1_prefixed_result.expect("router should return a response");
+        assert_ne!(with_harness_v1_prefixed.status(), StatusCode::NOT_FOUND);
     }
 }

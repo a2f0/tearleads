@@ -48,6 +48,13 @@ spec:
     - host: api.DOMAIN_PLACEHOLDER
       http:
         paths:
+          - path: /v1/connect/tearleads.v2.AdminService
+            pathType: Prefix
+            backend:
+              service:
+                name: api-v2
+                port:
+                  number: 5002
           - path: /v2
             pathType: Prefix
             backend:
