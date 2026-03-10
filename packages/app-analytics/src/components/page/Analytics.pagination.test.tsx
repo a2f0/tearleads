@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Analytics } from './Analytics';
 
+// one-component-per-file: allow - test helper render wrappers intentionally return JSX
 declare global {
   interface SVGElement {
     getBBox(): DOMRect;
@@ -52,24 +53,20 @@ const mockClearEvents = vi.fn();
 const mockGetDistinctEventTypes = vi.fn();
 const mockGetEventCount = vi.fn();
 
-vi.mock('@/db/analytics', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/db/analytics')>();
-  return {
-    ...actual,
-    getEvents: (...args: unknown[]) => {
-      getEventsCallCount++;
-      return mockGetEvents(...args);
-    },
-    getEventStats: (...args: unknown[]) => {
-      getEventStatsCallCount++;
-      return mockGetEventStats(...args);
-    },
-    clearEvents: (...args: unknown[]) => mockClearEvents(...args),
-    getDistinctEventTypes: (...args: unknown[]) =>
-      mockGetDistinctEventTypes(...args),
-    getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
-  };
-});
+vi.mock('@/db/analytics', () => ({
+  getEvents: (...args: unknown[]) => {
+    getEventsCallCount++;
+    return mockGetEvents(...args);
+  },
+  getEventStats: (...args: unknown[]) => {
+    getEventStatsCallCount++;
+    return mockGetEventStats(...args);
+  },
+  clearEvents: (...args: unknown[]) => mockClearEvents(...args),
+  getDistinctEventTypes: (...args: unknown[]) =>
+    mockGetDistinctEventTypes(...args),
+  getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
+}));
 
 vi.mock('@/components/sqlite/exportTableCsv', () => ({
   exportTableAsCsv: vi.fn()
