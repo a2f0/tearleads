@@ -27,7 +27,10 @@ function getMockUseLLM() {
   if (!mockUseLLMState) {
     mockUseLLMState = createMockUseLLM();
   }
-  return mockUseLLMState!;
+  if (!mockUseLLMState) {
+    throw new Error("Expected mockUseLLMState to be initialized");
+  }
+  return mockUseLLMState;
 }
 
 // Mock @/hooks/llm for direct imports in tests

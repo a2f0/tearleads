@@ -34,7 +34,10 @@ function getMocks() {
   if (!mocksState) {
     mocksState = createMocks();
   }
-  return mocksState!;
+  if (!mocksState) {
+    throw new Error("Expected mocksState to be initialized");
+  }
+  return mocksState;
 }
 
 const mocks = getMocks();

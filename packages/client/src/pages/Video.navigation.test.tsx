@@ -33,12 +33,16 @@ function getMocks() {
   if (!mocksState) {
     mocksState = createMocks();
   }
-  return mocksState!;
+  return (
+    mocksState ??
+    (() => {
+      throw new Error('Expected mocksState to be initialized');
+    })()
+  );
 }
 
 const mocks = getMocks();
 
-// Mock VideoPlaylistsSidebar
 vi.mock('@/components/window-video/VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__all__',
   VideoPlaylistsSidebar: vi.fn(
@@ -108,12 +112,10 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-// Mock the database context
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => getMocks().mockUseDatabaseContext()
 }));
 
-// Mock the database
 vi.mock('@/db', () => ({
   getDatabase: () => ({
     select: getMocks().mockSelect,
@@ -122,7 +124,6 @@ vi.mock('@/db', () => ({
   })
 }));
 
-// Mock navigation
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
@@ -138,7 +139,6 @@ vi.mock('@/db/crypto', () => ({
   })
 }));
 
-// Mock file storage
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
     retrieve: getMocks().mockRetrieve,
