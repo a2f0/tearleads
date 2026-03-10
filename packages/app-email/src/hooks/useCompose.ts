@@ -1,3 +1,4 @@
+import { VFS_V2_SEND_EMAIL_CONNECT_PATH } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEmailApi } from '../context';
 import type {
@@ -221,19 +222,22 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
         })
       );
 
-      const response = await fetch(`${apiBaseUrl}/vfs/emails/send`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          draftId: currentDraftIdRef.current,
-          to: parseEmailAddresses(state.to),
-          cc: parseEmailAddresses(state.cc),
-          bcc: parseEmailAddresses(state.bcc),
-          subject: state.subject,
-          body: state.body,
-          attachments: attachmentsWithContent.filter(Boolean)
-        })
-      });
+      const response = await fetch(
+        `${apiBaseUrl}${VFS_V2_SEND_EMAIL_CONNECT_PATH}`,
+        {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            draftId: currentDraftIdRef.current,
+            to: parseEmailAddresses(state.to),
+            cc: parseEmailAddresses(state.cc),
+            bcc: parseEmailAddresses(state.bcc),
+            subject: state.subject,
+            body: state.body,
+            attachments: attachmentsWithContent.filter(Boolean)
+          })
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
