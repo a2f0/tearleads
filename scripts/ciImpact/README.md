@@ -122,7 +122,7 @@ and emits:
 
 The CI `typecheck-build` job uses Turborepo to run `turbo run build` instead of `pnpm -r build`. This enables per-package build caching backed by GitHub Actions cache via [`rharkor/caching-for-turbo`](https://github.com/rharkor/caching-for-turbo).
 
-- **Scope**: Only the `build` task is cached. Test orchestration remains handled by the ciImpact system, and `tsc -b` retains its own incremental build cache via project references.
+- **Scope**: Only the `build` task is cached. Test orchestration remains handled by the ciImpact system. The build task runs `tsc -b`, whose incremental artifacts (`.tsbuildinfo` files) are captured in Turborepo's cache, preserving incremental build performance across CI runs.
 - **Backend**: A local turbo remote cache server spun up by the GH Actions step. No Vercel account or external infrastructure required.
 - **Local dev**: The root `pnpm build` script (`pnpm -r build`) is unchanged. Turbo caching only applies in CI.
 
