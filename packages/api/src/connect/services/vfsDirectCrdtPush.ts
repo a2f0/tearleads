@@ -35,7 +35,7 @@ export async function pushCrdtOpsDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/vfs/crdt/push',
+    '/connect/tearleads.v2.VfsService/PushCrdtOps',
     context.requestHeader,
     {
       requireDeclaredOrganization: true,

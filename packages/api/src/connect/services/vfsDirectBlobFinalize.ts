@@ -14,7 +14,6 @@ import {
   deleteBlobUploadSessionsForStaging,
   getBlobUploadChunks
 } from './vfsDirectBlobUploadSessions.js';
-import { encoded } from './vfsDirectJson.js';
 export type AbandonBlobDirectResponse = {
   abandoned: boolean;
   stagingId: string;
@@ -80,7 +79,7 @@ export async function abandonBlobDirect(
 ): Promise<AbandonBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    `/vfs/blobs/stage/${encoded(stagingId)}/abandon`,
+    '/connect/tearleads.v2.VfsService/AbandonBlob',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -199,7 +198,7 @@ export async function commitBlobDirect(
 ): Promise<CommitBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    `/vfs/blobs/stage/${encoded(stagingId)}/commit`,
+    '/connect/tearleads.v2.VfsService/CommitBlob',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

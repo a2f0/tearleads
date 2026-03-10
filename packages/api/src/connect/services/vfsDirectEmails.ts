@@ -5,7 +5,6 @@ import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseSendRequestPayload } from './vfsDirectEmailPayload.js';
-import { encoded } from './vfsDirectJson.js';
 
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
@@ -118,7 +117,10 @@ export async function getEmailsDirect(
   offset: number;
   limit: number;
 }> {
-  const claims = await requireVfsClaims('/vfs/emails', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/connect/tearleads.v2.VfsService/GetEmails',
+    context.requestHeader
+  );
 
   const offset = Math.max(
     0,
@@ -204,7 +206,7 @@ export async function getEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    `/vfs/emails/${encoded(emailId)}`,
+    '/connect/tearleads.v2.VfsService/GetEmail',
     context.requestHeader
   );
 
@@ -275,7 +277,7 @@ export async function deleteEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    `/vfs/emails/${encoded(emailId)}`,
+    '/connect/tearleads.v2.VfsService/DeleteEmail',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -375,9 +377,11 @@ export async function sendEmailDirect(
   request: SendEmailRequest,
   context: { requestHeader: Headers }
 ): Promise<{ success: boolean; messageId?: string }> {
-  await requireVfsClaims('/vfs/emails/send', context.requestHeader, {
-    requireDeclaredOrganization: true
-  });
+  await requireVfsClaims(
+    '/connect/tearleads.v2.VfsService/SendEmail',
+    context.requestHeader,
+    { requireDeclaredOrganization: true }
+  );
 
   try {
     const payload = parseSendRequestPayload(request);

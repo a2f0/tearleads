@@ -285,7 +285,7 @@ describe('vfsDirectCrdtSession', () => {
     expect(clientQueryMock).toHaveBeenNthCalledWith(1, 'BEGIN');
     expect(clientQueryMock).toHaveBeenNthCalledWith(4, 'COMMIT');
     expect(requireVfsClaimsMock).toHaveBeenCalledWith(
-      '/vfs/crdt/session',
+      '/connect/tearleads.v2.VfsService/RunCrdtSession',
       expect.any(Headers),
       {
         requireDeclaredOrganization: true,

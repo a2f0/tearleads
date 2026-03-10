@@ -41,10 +41,6 @@ const DEFAULT_PREVIEW_MAX_DEPTH = 50;
 const MAX_OBJECT_TYPE_FILTERS = 25;
 const MAX_OBJECT_TYPE_LENGTH = 64;
 
-function encoded(value: string): string {
-  return encodeURIComponent(value);
-}
-
 function isPreviewPrincipalType(value: string): value is PreviewPrincipalType {
   return value === 'user' || value === 'group' || value === 'organization';
 }
@@ -181,7 +177,7 @@ export async function deleteShareDirect(
   context: { requestHeader: Headers }
 ): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/shares/${encoded(request.shareId)}`,
+    '/connect/tearleads.v2.VfsSharesService/DeleteShare',
     context.requestHeader
   );
 
@@ -228,7 +224,7 @@ export async function deleteOrgShareDirect(
   context: { requestHeader: Headers }
 ): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
-    `/vfs/org-shares/${encoded(request.shareId)}`,
+    '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare',
     context.requestHeader
   );
 
@@ -275,7 +271,7 @@ export async function searchShareTargetsDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesSearchShareTargetsResponse> {
   const claims = await requireVfsSharesClaims(
-    '/vfs/share-targets/search',
+    '/connect/tearleads.v2.VfsSharesService/SearchShareTargets',
     context.requestHeader
   );
 
@@ -391,7 +387,7 @@ export async function getSharePolicyPreviewDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesGetSharePolicyPreviewResponse> {
   const claims = await requireVfsSharesClaims(
-    '/vfs/share-policies/preview',
+    '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview',
     context.requestHeader
   );
 

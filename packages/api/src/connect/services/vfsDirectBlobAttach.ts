@@ -22,7 +22,6 @@ import {
   parseBlobAttachBody,
   toIsoFromDateOrString
 } from './vfsDirectBlobShared.js';
-import { encoded } from './vfsDirectJson.js';
 export type AttachBlobDirectResponse = {
   attached: boolean;
   stagingId: string;
@@ -82,7 +81,7 @@ export async function attachBlobDirect(
 ): Promise<AttachBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    `/vfs/blobs/stage/${encoded(stagingId)}/attach`,
+    '/connect/tearleads.v2.VfsService/AttachBlob',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

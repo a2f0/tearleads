@@ -118,7 +118,7 @@ describe('vfsDirectCrdtReconcile', () => {
     );
 
     expect(requireVfsClaimsMock).toHaveBeenCalledWith(
-      '/vfs/crdt/reconcile',
+      '/connect/tearleads.v2.VfsService/ReconcileCrdt',
       expect.any(Headers),
       {
         requireDeclaredOrganization: true,

@@ -13,7 +13,6 @@ import {
   type UploadBlobChunkRequest
 } from './vfsDirectBlobShared.js';
 import { upsertBlobUploadChunk } from './vfsDirectBlobUploadSessions.js';
-import { encoded } from './vfsDirectJson.js';
 export type StageBlobDirectResponse = {
   stagingId: string;
   blobId: string;
@@ -91,7 +90,7 @@ export async function stageBlobDirect(
   context: { requestHeader: Headers }
 ): Promise<StageBlobDirectResponse> {
   const claims = await requireVfsClaims(
-    '/vfs/blobs/stage',
+    '/connect/tearleads.v2.VfsService/StageBlob',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -290,7 +289,7 @@ export async function uploadBlobChunkDirect(
 ): Promise<UploadBlobChunkDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    `/vfs/blobs/stage/${encoded(stagingId)}/chunks`,
+    '/connect/tearleads.v2.VfsService/UploadBlobChunk',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

@@ -96,7 +96,7 @@ describe('vfsSharesDirectHandlers', () => {
 
   it('returns claims when auth and membership succeed', async () => {
     const claims = await requireVfsSharesClaims(
-      '/vfs/shares/share-1',
+      '/connect/tearleads.v2.VfsSharesService/DeleteShare',
       new Headers()
     );
     expect(claims).toEqual({ sub: 'user-1' });
@@ -110,7 +110,10 @@ describe('vfsSharesDirectHandlers', () => {
     });
 
     await expect(
-      requireVfsSharesClaims('/vfs/shares/share-1', new Headers())
+      requireVfsSharesClaims(
+        '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+        new Headers()
+      )
     ).rejects.toMatchObject({
       code: Code.Unauthenticated
     });
@@ -127,7 +130,10 @@ describe('vfsSharesDirectHandlers', () => {
     });
 
     await expect(
-      requireVfsSharesClaims('/vfs/shares/share-1', new Headers())
+      requireVfsSharesClaims(
+        '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+        new Headers()
+      )
     ).rejects.toMatchObject({
       code: Code.PermissionDenied
     });

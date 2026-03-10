@@ -198,7 +198,10 @@ export async function getSyncDirect(
   request: GetSyncRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsSyncProtoResponse> {
-  const claims = await requireVfsClaims('/vfs/vfs-sync', context.requestHeader);
+  const claims = await requireVfsClaims(
+    '/connect/tearleads.v2.VfsService/GetSync',
+    context.requestHeader
+  );
 
   const parsedQuery = parseVfsSyncQuery(normalizeSyncQueryRequest(request));
   if (!parsedQuery.ok) {
@@ -236,7 +239,7 @@ export async function getCrdtSyncDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtSyncProtoResponse> {
   const claims = await requireVfsClaims(
-    '/vfs/crdt/vfs-sync',
+    '/connect/tearleads.v2.VfsService/GetCrdtSync',
     context.requestHeader
   );
 
@@ -315,7 +318,7 @@ export async function getCrdtSnapshotDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtSnapshotProtoResponse> {
   const claims = await requireVfsClaims(
-    '/vfs/crdt/snapshot',
+    '/connect/tearleads.v2.VfsService/GetCrdtSnapshot',
     context.requestHeader
   );
 
@@ -354,7 +357,7 @@ export async function reconcileSyncDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
-    '/vfs/sync/reconcile',
+    '/connect/tearleads.v2.VfsService/ReconcileSync',
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

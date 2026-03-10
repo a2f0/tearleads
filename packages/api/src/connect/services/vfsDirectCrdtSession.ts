@@ -208,7 +208,7 @@ export async function runCrdtSessionDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/vfs/crdt/session',
+    '/connect/tearleads.v2.VfsService/RunCrdtSession',
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
