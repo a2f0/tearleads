@@ -82,28 +82,26 @@ export function PhotosPage() {
   return (
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center gap-2">
-        {isUnlocked && (
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent md:hidden"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Toggle albums sidebar"
-            data-testid="photos-sidebar-toggle"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        )}
+        <button
+          type="button"
+          className="rounded p-1 hover:bg-accent md:hidden"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Toggle albums sidebar"
+          data-testid="photos-sidebar-toggle"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         <BackLink defaultTo="/" defaultLabel="Back to Home" />
       </div>
       <div className="flex min-h-0 flex-1">
-        {isUnlocked && (
-          <WindowSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            open={sidebarOpen}
-            onOpenChange={setSidebarOpen}
-            ariaLabel="Albums"
-          >
+        <WindowSidebar
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          ariaLabel="Albums"
+        >
+          {isUnlocked && (
             <PhotosAlbumsSidebar
               selectedAlbumId={selectedAlbumId}
               onAlbumSelect={handleAlbumSelect}
@@ -111,8 +109,8 @@ export function PhotosPage() {
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
               onDropToAlbum={handleDropToAlbum}
             />
-          </WindowSidebar>
-        )}
+          )}
+        </WindowSidebar>
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <Photos
             showBackLink={false}

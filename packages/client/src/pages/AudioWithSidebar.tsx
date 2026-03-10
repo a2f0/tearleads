@@ -1,5 +1,6 @@
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/app-audio';
-import { WindowSidebar, WindowSidebarToggle } from '@tearleads/window-manager';
+import { WindowSidebar } from '@tearleads/window-manager';
+import { Menu } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
@@ -47,22 +48,26 @@ export function AudioWithSidebar() {
   return (
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center gap-2">
-        {isUnlocked && (
-          <WindowSidebarToggle
-            onToggle={() => setSidebarOpen((prev) => !prev)}
-          />
-        )}
+        <button
+          type="button"
+          className="rounded p-1 hover:bg-accent md:hidden"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Toggle playlists sidebar"
+          data-testid="audio-sidebar-toggle"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         <BackLink defaultTo="/" defaultLabel="Back to Home" />
       </div>
       <div className="flex min-h-0 flex-1">
-        {isUnlocked && (
-          <WindowSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            open={sidebarOpen}
-            onOpenChange={setSidebarOpen}
-            ariaLabel="Playlists"
-          >
+        <WindowSidebar
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          ariaLabel="Playlists"
+        >
+          {isUnlocked && (
             <AudioPlaylistsSidebar
               selectedPlaylistId={selectedPlaylistId}
               onPlaylistSelect={handlePlaylistSelect}
@@ -70,8 +75,8 @@ export function AudioWithSidebar() {
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
               onDropToPlaylist={handleDropToPlaylist}
             />
-          </WindowSidebar>
-        )}
+          )}
+        </WindowSidebar>
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <AudioPage
             hideBackLink
