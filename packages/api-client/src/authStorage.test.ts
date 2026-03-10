@@ -22,7 +22,7 @@ describe('auth-storage without window', () => {
   });
 });
 
-describe('refresh token migration', () => {
+describe('refresh token storage', () => {
   beforeEach(() => {
     vi.resetModules();
     localStorage.clear();
@@ -32,29 +32,15 @@ describe('refresh token migration', () => {
     localStorage.clear();
   });
 
-  it('migrates legacy localStorage refresh token into memory', async () => {
-    const originalGetItem = Storage.prototype.getItem;
-    const getItemSpy = vi
-      .spyOn(Storage.prototype, 'getItem')
-      .mockImplementation((key: string) => {
-        if (key === 'auth_refresh_token') {
-          return 'legacy-refresh-token';
-        }
-        return originalGetItem.call(localStorage, key);
-      });
-    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem');
-
+  it('does not read refresh token from localStorage', async () => {
+    localStorage.setItem('auth_refresh_token', 'legacy-refresh-token');
     const { getStoredRefreshToken } = await import('./authStorage');
 
-    expect(getStoredRefreshToken()).toBe('legacy-refresh-token');
-    expect(removeItemSpy).toHaveBeenCalledWith('auth_refresh_token');
-    getItemSpy.mockRestore();
-    removeItemSpy.mockRestore();
+    expect(getStoredRefreshToken()).toBeNull();
   });
 
   it('stores refresh token only in memory when auth is saved', async () => {
-    const { storeAuth, getStoredRefreshToken, AUTH_REFRESH_TOKEN_KEY } =
-      await import('./authStorage');
+    const { storeAuth, getStoredRefreshToken } = await import('./authStorage');
 
     storeAuth('access-token', 'refresh-token', {
       id: 'user-1',
@@ -62,7 +48,7 @@ describe('refresh token migration', () => {
     });
 
     expect(getStoredRefreshToken()).toBe('refresh-token');
-    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem('auth_refresh_token')).toBeNull();
   });
 });
 
