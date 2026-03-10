@@ -11,8 +11,9 @@ function createAbortError(): Error {
 }
 
 async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 6; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe('notificationStreamManager', () => {
@@ -321,6 +322,49 @@ describe('notificationStreamManager', () => {
     );
     manager.disconnect();
     consoleSpy.mockRestore();
+  });
+
+  it('coalesces remove+add channel mutations into a single reconnect', async () => {
+    const openNotificationEventStream = vi.fn().mockImplementation(() => ({
+      async *[Symbol.asyncIterator]() {
+        await new Promise(() => {
+          // wait until manager reconnects or disconnects
+        });
+      }
+    }));
+
+    const manager = createNotificationStreamManager({
+      openNotificationEventStream,
+      isTokenExpired: () => false,
+      tryRefreshToken: vi.fn()
+    });
+
+    manager.connect({
+      apiBaseUrl: 'http://localhost:5001/v1',
+      channels: ['broadcast'],
+      token: 'token'
+    });
+    await flushMicrotasks();
+
+    manager.addChannels(['vfs:container:old:sync']);
+    await flushMicrotasks();
+    expect(openNotificationEventStream).toHaveBeenCalledTimes(2);
+    expect(openNotificationEventStream.mock.calls[1]?.[0]?.channels).toEqual([
+      'broadcast',
+      'vfs:container:old:sync'
+    ]);
+
+    manager.removeChannels(['vfs:container:old:sync']);
+    manager.addChannels(['vfs:container:new:sync']);
+    await flushMicrotasks();
+
+    expect(openNotificationEventStream).toHaveBeenCalledTimes(3);
+    expect(openNotificationEventStream.mock.calls[2]?.[0]?.channels).toEqual([
+      'broadcast',
+      'vfs:container:new:sync'
+    ]);
+
+    manager.disconnect();
   });
 
   it('reconnects with scheduled delay when stream ends and token is valid', async () => {

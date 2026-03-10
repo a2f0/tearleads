@@ -3,6 +3,11 @@ import {
   type SSEConnectionState,
   type SSEMessage
 } from '@tearleads/shared';
+import {
+  areSameChannels,
+  diffChannels,
+  normalizeChannels
+} from './notificationStreamChannelUtils';
 
 const SSE_RECONNECT_BASE_DELAY_MS = 1000;
 const SSE_RECONNECT_MAX_DELAY_MS = 30000;
@@ -103,46 +108,6 @@ function computeReconnectDelayWithJitter(attempt: number): number {
   return jitterFloor + Math.floor(Math.random() * (jitterRange + 1));
 }
 
-function normalizeChannels(channels: string[]): string[] {
-  const unique = new Set(channels);
-  return [...unique].sort((left, right) => left.localeCompare(right));
-}
-
-function areSameChannels(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  for (let index = 0; index < left.length; index++) {
-    if (left[index] !== right[index]) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function diffChannels(
-  previousChannels: string[],
-  nextChannels: string[]
-): {
-  added: string[];
-  removed: string[];
-} {
-  const previousChannelSet = new Set(previousChannels);
-  const nextChannelSet = new Set(nextChannels);
-  const added = nextChannels.filter(
-    (channel) => !previousChannelSet.has(channel)
-  );
-  const removed = previousChannels.filter(
-    (channel) => !nextChannelSet.has(channel)
-  );
-  return {
-    added,
-    removed
-  };
-}
-
 function logManagerEvent(payload: NotificationStreamManagerLogPayload): void {
   console.info('[notification-stream-manager]', payload);
 }
@@ -163,6 +128,11 @@ export function createNotificationStreamManager(
   let baseChannels: string[] = [];
   let activeStreamEpoch = 0;
   const additionalChannelRefCounts = new Map<string, number>();
+  let pendingChannelReconnect = false;
+  let pendingChannelReconnectReason:
+    | 'channel-registration-add'
+    | 'channel-registration-remove'
+    | null = null;
 
   const emitChange = () => {
     for (const listener of listeners) {
@@ -197,6 +167,29 @@ export function createNotificationStreamManager(
   const getEffectiveChannels = (): string[] => {
     const additionalChannels = [...additionalChannelRefCounts.keys()];
     return normalizeChannels([...baseChannels, ...additionalChannels]);
+  };
+
+  const scheduleChannelReconnect = (
+    reason: 'channel-registration-add' | 'channel-registration-remove'
+  ): void => {
+    pendingChannelReconnectReason = reason;
+    if (pendingChannelReconnect) {
+      return;
+    }
+    pendingChannelReconnect = true;
+    queueMicrotask(() => {
+      pendingChannelReconnect = false;
+      const queuedReason = pendingChannelReconnectReason;
+      pendingChannelReconnectReason = null;
+      if (
+        !queuedReason ||
+        !currentConfig ||
+        snapshot.connectionState === 'disconnected'
+      ) {
+        return;
+      }
+      connectInternal(currentConfig, queuedReason);
+    });
   };
 
   const disconnectInternal = (resetReconnectAttempt: boolean): void => {
@@ -439,7 +432,7 @@ export function createNotificationStreamManager(
       return;
     }
 
-    connectInternal(currentConfig, 'channel-registration-add');
+    scheduleChannelReconnect('channel-registration-add');
   };
 
   const removeChannels = (channels: string[]): void => {
@@ -467,7 +460,7 @@ export function createNotificationStreamManager(
       return;
     }
 
-    connectInternal(currentConfig, 'channel-registration-remove');
+    scheduleChannelReconnect('channel-registration-remove');
   };
 
   const subscribe = (listener: () => void): (() => void) => {
