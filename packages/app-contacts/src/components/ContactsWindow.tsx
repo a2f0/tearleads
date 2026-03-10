@@ -1,4 +1,5 @@
 // one-component-per-file: allow
+// component-complexity: allow – orchestrates views, import flow, and group state
 import {
   FloatingWindow,
   useWindowRefresh,

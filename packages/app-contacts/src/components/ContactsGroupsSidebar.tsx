@@ -1,3 +1,4 @@
+// component-complexity: allow – sidebar manages groups CRUD, drag-drop, and context menus
 import { contacts, vfsLinks } from '@tearleads/db/sqlite';
 import {
   useSidebarDragOver,
