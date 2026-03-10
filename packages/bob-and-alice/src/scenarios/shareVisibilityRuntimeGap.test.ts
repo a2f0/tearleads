@@ -71,7 +71,7 @@ describe('share visibility runtime gap', () => {
     browserActors = [aliceBrowser, bobBrowser];
 
     const folderId = `folder-${randomUUID()}`;
-    await alice.fetchJson('/vfs/register', {
+    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

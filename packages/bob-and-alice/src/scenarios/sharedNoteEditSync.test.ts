@@ -134,7 +134,7 @@ describe('shared note edit sync', () => {
     ];
 
     const noteId = `note-${randomUUID()}`;
-    await bob.fetchJson('/vfs/register', {
+    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,7 +172,7 @@ describe('shared note edit sync', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>('/vfs/crdt/push', {
+    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>('/connect/tearleads.v2.VfsService/PushCrdtOps', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -202,7 +202,7 @@ describe('shared note edit sync', () => {
     });
     const aliceEditPayload = alicePushOperation.encryptedPayload ?? '';
     const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -248,7 +248,7 @@ describe('shared note edit sync', () => {
     const aliceSecondEditPayload =
       aliceSecondPushOperation.encryptedPayload ?? '';
     const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

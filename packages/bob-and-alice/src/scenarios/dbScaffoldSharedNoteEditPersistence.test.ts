@@ -253,7 +253,7 @@ describe('DB scaffold shared note edit persistence', () => {
     });
     const aliceFirstPayload = aliceFirstOperation.encryptedPayload ?? '';
     const aliceFirstPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -289,7 +289,7 @@ describe('DB scaffold shared note edit persistence', () => {
     });
     const aliceSecondPayload = aliceSecondOperation.encryptedPayload ?? '';
     const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -413,7 +413,7 @@ describe('DB scaffold shared note edit persistence', () => {
     expect(alicePermission.permissionLevel).toBe('view');
 
     const rejectedPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/vfs/crdt/push',
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -19,7 +19,7 @@ describe('isRetryableWriteValidationError', () => {
   it('retries register requests with transient required-field validation failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/vfs/register',
+        '/connect/tearleads.v2.VfsService/Register',
         { method: 'POST' },
         400,
         '{"error":"id, objectType, and encryptedSessionKey are required"}'
@@ -30,7 +30,7 @@ describe('isRetryableWriteValidationError', () => {
   it('does not retry unrelated request failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/vfs/register',
+        '/connect/tearleads.v2.VfsService/Register',
         { method: 'GET' },
         400,
         '{"error":"id, objectType, and encryptedSessionKey are required"}'
@@ -48,7 +48,7 @@ describe('isRetryableWriteValidationError', () => {
 
     expect(
       isRetryableWriteValidationError(
-        '/vfs/register',
+        '/connect/tearleads.v2.VfsService/Register',
         { method: 'POST' },
         400,
         '{"error":"unexpected payload"}'
@@ -84,7 +84,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/vfs/register',
+      '/connect/tearleads.v2.VfsService/Register',
       { method: 'POST' },
       {
         sleep: async (ms: number): Promise<void> => {
@@ -131,7 +131,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
     await expect(
       fetchWithRetryableWriteValidationError(
         actorFetch,
-        '/vfs/register',
+        '/connect/tearleads.v2.VfsService/Register',
         { method: 'POST' },
         {
           maxRetryAttempts: 2,
@@ -181,7 +181,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/vfs/register',
+      '/connect/tearleads.v2.VfsService/Register',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,7 +229,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/vfs/register',
+      '/connect/tearleads.v2.VfsService/Register',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -53,7 +53,7 @@ describe('API VFS lifecycle', () => {
     const registerBody = await alice.fetchJson<{
       id: string;
       createdAt: string;
-    }>('/vfs/register', {
+    }>('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -186,7 +186,7 @@ describe('API VFS lifecycle', () => {
       actor: alice,
       keyPrefix: 'alice'
     });
-    await alice.fetchJson('/vfs/register', {
+    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -287,7 +287,7 @@ describe('API VFS lifecycle', () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const alice = harness.actor('alice');
 
-    await alice.fetchJson('/vfs/register', {
+    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

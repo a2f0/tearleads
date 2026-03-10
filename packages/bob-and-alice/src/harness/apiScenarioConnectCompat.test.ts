@@ -2,20 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { mapLegacyPathToConnect } from './apiScenarioConnectCompat.js';
 
 describe('mapLegacyPathToConnect', () => {
-  it('unwraps one level of double-encoded JSON for /vfs/register', () => {
+  it('does not remap direct v2 connect routes', () => {
     const payload = {
       id: 'note-1',
       objectType: 'note',
       encryptedSessionKey: 'wrapped-key'
     };
-    const mapping = mapLegacyPathToConnect('/vfs/register', {
-      method: 'POST',
-      body: JSON.stringify(JSON.stringify(payload))
-    });
+    const mapping = mapLegacyPathToConnect(
+      '/connect/tearleads.v2.VfsService/Register',
+      {
+        method: 'POST',
+        body: JSON.stringify(JSON.stringify(payload))
+      }
+    );
 
-    expect(mapping).not.toBeNull();
-    expect(mapping?.path).toBe('/v1/connect/tearleads.v2.VfsService/Register');
-    expect(mapping?.body).toEqual(payload);
+    expect(mapping).toBeNull();
   });
 
   it('does not map legacy auth routes', () => {

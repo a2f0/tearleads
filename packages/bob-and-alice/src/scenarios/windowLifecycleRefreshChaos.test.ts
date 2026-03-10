@@ -120,7 +120,7 @@ describe('window lifecycle refresh chaos', () => {
     async function registerItem(): Promise<string> {
       const itemId = `chaos-folder-${String(itemCounter)}-${randomUUID()}`;
       itemCounter += 1;
-      await alice.fetchJson('/vfs/register', {
+      await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
