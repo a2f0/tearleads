@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-audio",
-  "version": "0.0.61",
+  "version": "0.0.62",
   "description": "Audio player components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
