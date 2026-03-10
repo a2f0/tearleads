@@ -8,6 +8,7 @@ import {
   FileType,
   HardDrive,
   Loader2,
+  Menu,
   ScanSearch,
   Share2,
   Trash2
@@ -52,6 +53,7 @@ export function PhotoDetail() {
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
     searchParams.get('album') ?? ALL_PHOTOS_ID
   );
@@ -282,8 +284,8 @@ export function PhotoDetail() {
         <WindowSidebar
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          open={false}
-          onOpenChange={() => {}}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
           ariaLabel="Albums"
         >
           <PhotosAlbumsSidebar
@@ -293,7 +295,18 @@ export function PhotoDetail() {
         </WindowSidebar>
       )}
       <div className="min-w-0 flex-1 space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {isUnlocked && (
+            <button
+              type="button"
+              className="rounded p-1 hover:bg-accent md:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Toggle albums sidebar"
+              data-testid="photos-sidebar-toggle"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
           <BackLink defaultTo="/photos" defaultLabel="Back to Photos" />
         </div>
 
