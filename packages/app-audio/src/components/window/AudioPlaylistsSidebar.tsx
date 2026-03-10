@@ -1,3 +1,4 @@
+// component-complexity: allow — pre-existing; sidebar manages playlists, dialogs, drag-drop, and context menus
 import {
   detectPlatform,
   useSidebarDragOver,
