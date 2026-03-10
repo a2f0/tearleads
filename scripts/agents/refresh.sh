@@ -35,10 +35,10 @@ pnpm build
 
 # Build Rust crates when the workspace has a Cargo manifest.
 if [ -f "$REPO_ROOT/Cargo.toml" ]; then
-  if ! command -v cargo >/dev/null 2>&1; then
+  command -v cargo >/dev/null 2>&1 || {
     echo "Error: cargo is required to build Rust crates. Install Rust toolchain and retry." >&2
     exit 1
-  fi
+  }
 
   echo "Building Rust crates..."
   cargo build --workspace
