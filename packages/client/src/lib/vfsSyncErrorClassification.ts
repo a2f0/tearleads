@@ -104,15 +104,13 @@ function hasUnauthorizedErrorCode(value: Record<string, unknown>): boolean {
   const code = value['code'];
   if (typeof code === 'number') {
     return (
-      code === HTTP_UNAUTHORIZED_STATUS ||
-      code === CONNECT_CODE_UNAUTHENTICATED
+      code === HTTP_UNAUTHORIZED_STATUS || code === CONNECT_CODE_UNAUTHENTICATED
     );
   }
   if (typeof code === 'string') {
     const normalizedCode = code.toLowerCase();
     return (
-      normalizedCode === 'unauthorized' ||
-      normalizedCode === 'unauthenticated'
+      normalizedCode === 'unauthorized' || normalizedCode === 'unauthenticated'
     );
   }
 
@@ -141,7 +139,9 @@ export function isVfsUnauthorizedError(error: unknown): boolean {
   return false;
 }
 
-function hasDatabaseNotInitializedCode(value: Record<string, unknown>): boolean {
+function hasDatabaseNotInitializedCode(
+  value: Record<string, unknown>
+): boolean {
   const code = value['code'];
   return (
     typeof code === 'string' &&

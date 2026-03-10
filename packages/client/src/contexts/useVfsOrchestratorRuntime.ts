@@ -236,9 +236,7 @@ export function useVfsOrchestratorRuntime(
             try {
               await rematerializeRemoteVfsStateIfNeeded();
             } catch (rematerializationError) {
-              if (
-                isVfsTransientInstanceSwitchError(rematerializationError)
-              ) {
+              if (isVfsTransientInstanceSwitchError(rematerializationError)) {
                 return null;
               }
               console.warn(

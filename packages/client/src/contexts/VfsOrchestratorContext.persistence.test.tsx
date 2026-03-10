@@ -316,45 +316,46 @@ describe('VfsOrchestratorContext persistence', () => {
       label: 'wrapped database initialization race',
       error: { cause: { code: 'database_not_initialized' } }
     }
-  ])(
-    'suppresses initial flush warning for transient $label',
-    async ({ error }) => {
-      setActiveOrganizationId('org-1');
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => {});
+  ])('suppresses initial flush warning for transient $label', async ({
+    error
+  }) => {
+    setActiveOrganizationId('org-1');
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
 
-      render(
-        <VfsOrchestratorProvider>
-          <div>Test</div>
-        </VfsOrchestratorProvider>
-      );
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
 
-      await waitFor(() => {
-        expect(mockCreateFacade).toHaveBeenCalled();
-      });
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
 
-      const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
-      const flushAll = mockVfsWriteOrchestrator.lastInstance?.flushAll;
-      if (!flushAll) {
-        throw new Error('Expected orchestrator instance flushAll');
-      }
-      flushAll.mockClear();
-      flushAll.mockRejectedValueOnce(error);
-
-      setActiveOrganizationId('org-2');
-      await waitFor(() => {
-        expect(flushAll).toHaveBeenCalledTimes(1);
-      });
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
-
-      consoleWarnSpy.mockRestore();
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    const flushAll = mockVfsWriteOrchestrator.lastInstance?.flushAll;
+    if (!flushAll) {
+      throw new Error('Expected orchestrator instance flushAll');
     }
-  );
+    flushAll.mockClear();
+    flushAll.mockRejectedValueOnce(error);
+
+    setActiveOrganizationId('org-2');
+    await waitFor(() => {
+      expect(flushAll).toHaveBeenCalledTimes(1);
+    });
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
+  });
 
   it('keeps warning for non-transient initial flush errors', async () => {
     setActiveOrganizationId('org-1');
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
 
     render(
       <VfsOrchestratorProvider>

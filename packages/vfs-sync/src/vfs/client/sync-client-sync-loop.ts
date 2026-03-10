@@ -14,11 +14,6 @@ import {
   rebasePendingOperations,
   removePendingOperationById
 } from './sync-client-pending-operations.js';
-import {
-  bumpLocalWriteId,
-  filterPullItemsNewerThanCursor,
-  reconcileWithTransportIfSupported
-} from './syncClientLoopHelpers.js';
 import type {
   VfsBackgroundSyncClientFlushResult,
   VfsBackgroundSyncClientSyncResult,
@@ -35,6 +30,11 @@ import {
   VfsCrdtSyncPushRejectedError,
   validatePushResponse
 } from './sync-client-utils.js';
+import {
+  bumpLocalWriteId,
+  filterPullItemsNewerThanCursor,
+  reconcileWithTransportIfSupported
+} from './syncClientLoopHelpers.js';
 
 interface VfsSyncClientLoopDependencies {
   userId: string;
@@ -261,8 +261,7 @@ export async function pullUntilSettledLoop(
           : {})
       });
       throw new VfsCrdtRematerializationRequiredError({
-        message:
-          'CRDT pull page did not contain items newer than local cursor'
+        message: 'CRDT pull page did not contain items newer than local cursor'
       });
     }
 
