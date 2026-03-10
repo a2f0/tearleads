@@ -36,8 +36,6 @@ function getMockUseLLM() {
   return mockUseLLMState;
 }
 
-const mockUseLLM = getMockUseLLM();
-
 // Mock @/hooks/llm for direct imports in tests
 vi.mock('@/hooks/llm', () => ({
   useLLM: getMockUseLLM()
