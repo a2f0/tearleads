@@ -28,6 +28,10 @@ import { screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Use real implementation instead of global mock (integration test with real DB)
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', async () => {
+  return await vi.importActual('@/db/hooks/useHostRuntimeDatabaseState');
+});
 import { getDatabase } from '@/db';
 import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';

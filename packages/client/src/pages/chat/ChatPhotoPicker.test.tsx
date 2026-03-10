@@ -60,6 +60,10 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
+  useHostRuntimeDatabaseState: () => mockUseDatabaseContext()
+}));
+
 // Mock InlineUnlock component
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
   InlineUnlock: ({ description }: { description: string }) => (
