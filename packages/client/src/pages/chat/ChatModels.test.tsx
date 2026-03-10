@@ -3,9 +3,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Chat } from './Chat';
 
-// Hoisted mock for useLLM - enables vi.mocked() usage in tests
-const mockUseLLM = vi.hoisted(() =>
-  vi.fn(() => ({
+function createMockUseLLM() {
+  return vi.fn(() => ({
     loadedModel: null,
     modelType: null,
     isLoading: false,
@@ -19,12 +18,23 @@ const mockUseLLM = vi.hoisted(() =>
     abort: vi.fn(),
     isWebGPUSupported: vi.fn().mockResolvedValue(true),
     previouslyLoadedModel: null
-  }))
-);
+  }));
+}
+
+var mockUseLLMState: ReturnType<typeof createMockUseLLM> | undefined;
+
+function getMockUseLLM() {
+  if (!mockUseLLMState) {
+    mockUseLLMState = createMockUseLLM();
+  }
+  return mockUseLLMState;
+}
+
+const mockUseLLM = getMockUseLLM();
 
 // Mock @/hooks/llm for direct imports in tests
 vi.mock('@/hooks/llm', () => ({
-  useLLM: mockUseLLM
+  useLLM: getMockUseLLM()
 }));
 
 // Mock useConversations and useLLM hooks for ClientAIProvider
@@ -45,7 +55,7 @@ vi.mock('@/hooks/ai', () => ({
     refetch: vi.fn().mockResolvedValue(undefined),
     clearCurrentConversation: vi.fn()
   })),
-  useLLM: mockUseLLM
+  useLLM: getMockUseLLM()
 }));
 
 // Mock database context

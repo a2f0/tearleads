@@ -10,22 +10,34 @@ import {
   TEST_VIDEO
 } from './Video.testSetup';
 
-// Create hoisted mocks inline - cannot call imported functions in vi.hoisted()
-const mocks = vi.hoisted(() => ({
-  mockUseDatabaseContext: vi.fn(),
-  mockSelect: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockInsertValues: vi.fn(),
-  mockInsert: vi.fn(),
-  mockNavigate: vi.fn(),
-  mockGetCurrentKey: vi.fn(),
-  mockRetrieve: vi.fn(),
-  mockStore: vi.fn(),
-  mockIsFileStorageInitialized: vi.fn(),
-  mockInitializeFileStorage: vi.fn(),
-  mockUploadFile: vi.fn(),
-  mockDetectPlatform: vi.fn()
-}));
+function createMocks() {
+  return {
+    mockUseDatabaseContext: vi.fn(),
+    mockSelect: vi.fn(),
+    mockUpdate: vi.fn(),
+    mockInsertValues: vi.fn(),
+    mockInsert: vi.fn(),
+    mockNavigate: vi.fn(),
+    mockGetCurrentKey: vi.fn(),
+    mockRetrieve: vi.fn(),
+    mockStore: vi.fn(),
+    mockIsFileStorageInitialized: vi.fn(),
+    mockInitializeFileStorage: vi.fn(),
+    mockUploadFile: vi.fn(),
+    mockDetectPlatform: vi.fn()
+  };
+}
+
+var mocksState: ReturnType<typeof createMocks> | undefined;
+
+function getMocks() {
+  if (!mocksState) {
+    mocksState = createMocks();
+  }
+  return mocksState;
+}
+
+const mocks = getMocks();
 
 // Mock VideoPlaylistsSidebar
 vi.mock('@/components/window-video/VideoPlaylistsSidebar', () => ({
@@ -101,15 +113,15 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 // Mock the database context
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mocks.mockUseDatabaseContext()
+  useDatabaseContext: () => getMocks().mockUseDatabaseContext()
 }));
 
 // Mock the database
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mocks.mockSelect,
-    update: mocks.mockUpdate,
-    insert: mocks.mockInsert
+    select: getMocks().mockSelect,
+    update: getMocks().mockUpdate,
+    insert: getMocks().mockInsert
   })
 }));
 
@@ -118,7 +130,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
-    useNavigate: () => mocks.mockNavigate,
+    useNavigate: () => getMocks().mockNavigate,
     useLocation: () => ({ pathname: '/', state: null })
   };
 });
@@ -126,27 +138,27 @@ vi.mock('react-router-dom', async (importOriginal) => {
 // Mock the key manager
 vi.mock('@/db/crypto', () => ({
   getKeyManager: () => ({
-    getCurrentKey: mocks.mockGetCurrentKey
+    getCurrentKey: getMocks().mockGetCurrentKey
   })
 }));
 
 // Mock file storage
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mocks.mockRetrieve,
-    measureRetrieve: mocks.mockRetrieve,
-    store: mocks.mockStore
+    retrieve: getMocks().mockRetrieve,
+    measureRetrieve: getMocks().mockRetrieve,
+    store: getMocks().mockStore
   }),
-  isFileStorageInitialized: () => mocks.mockIsFileStorageInitialized(),
+  isFileStorageInitialized: () => getMocks().mockIsFileStorageInitialized(),
   initializeFileStorage: (key: Uint8Array) =>
-    mocks.mockInitializeFileStorage(key),
+    getMocks().mockInitializeFileStorage(key),
   createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock useFileUpload hook
 vi.mock('@/hooks/vfs', () => ({
   useFileUpload: () => ({
-    uploadFile: mocks.mockUploadFile
+    uploadFile: getMocks().mockUploadFile
   })
 }));
 
@@ -155,7 +167,7 @@ vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
   return {
     ...actual,
-    detectPlatform: () => mocks.mockDetectPlatform()
+    detectPlatform: () => getMocks().mockDetectPlatform()
   };
 });
 
