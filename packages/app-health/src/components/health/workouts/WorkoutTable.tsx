@@ -1,3 +1,4 @@
+// one-component-per-file: allow (getSortIcon is a useCallback, not a component)
 import type { WorkoutEntry } from '../../../lib/healthTrackerTypes.js';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
