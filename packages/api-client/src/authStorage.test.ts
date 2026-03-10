@@ -50,6 +50,25 @@ describe('refresh token storage', () => {
     expect(getStoredRefreshToken()).toBe('refresh-token');
     expect(localStorage.getItem('auth_refresh_token')).toBeNull();
   });
+
+  it('can store access token only in memory', async () => {
+    const { AUTH_TOKEN_KEY, getStoredAuthToken, storeAuth } = await import(
+      './authStorage'
+    );
+
+    storeAuth(
+      'access-token',
+      'refresh-token',
+      {
+        id: 'user-1',
+        email: 'user@example.com'
+      },
+      { persistToken: false }
+    );
+
+    expect(getStoredAuthToken()).toBe('access-token');
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+  });
 });
 
 describe('cross-tab refresh coordination', () => {

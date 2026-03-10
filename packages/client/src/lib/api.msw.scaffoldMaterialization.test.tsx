@@ -35,12 +35,7 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', async () => {
 });
 
 import { getDatabase } from '@/db';
-import {
-  AUTH_TOKEN_KEY,
-  clearStoredAuth,
-  setStoredAuthToken,
-  storeAuth
-} from '@/lib/authStorage';
+import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { renderWithDatabase } from '@/test/renderWithDatabase';
 import { getSharedTestContext } from '@/test/testContext';
 import {
@@ -248,9 +243,9 @@ describe('DB scaffolding plaintext render integration', () => {
       id: bob.userId,
       email: bob.email
     };
-    storeAuth(`scaffold-auth-${bob.userId}`, bob.refreshToken, bobAuthUser);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    setStoredAuthToken(bob.accessToken);
+    storeAuth(bob.accessToken, bob.refreshToken, bobAuthUser, {
+      persistToken: false
+    });
     vi.stubEnv('VITE_API_URL', `${ctx.baseUrl}/v1`);
 
     const fetchConnectVfsJson = async <TResponse,>(

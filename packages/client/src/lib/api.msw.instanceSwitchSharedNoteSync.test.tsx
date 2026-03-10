@@ -15,12 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthInstanceBinding } from '@/components/AuthInstanceBinding';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { DatabaseProvider, useDatabaseContext } from '@/db/hooks';
-import {
-  AUTH_TOKEN_KEY,
-  clearStoredAuth,
-  setStoredAuthToken,
-  storeAuth
-} from '@/lib/authStorage';
+import { clearStoredAuth, storeAuth } from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 import {
   installVfsConsoleGuard,
@@ -293,9 +288,9 @@ describe('instance switch shared-note sync regression', () => {
       await waitForProvidersReady();
 
       await act(async () => {
-        storeAuth(`instance-auth-${bob.userId}`, bob.refreshToken, bobAuth);
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        setStoredAuthToken(bob.accessToken);
+        storeAuth(bob.accessToken, bob.refreshToken, bobAuth, {
+          persistToken: false
+        });
       });
       await waitForAuthUser(bob.userId);
       await waitForCurrentInstanceBoundTo(bob.userId);
@@ -315,13 +310,9 @@ describe('instance switch shared-note sync regression', () => {
       });
 
       await act(async () => {
-        storeAuth(
-          `instance-auth-${alice.userId}`,
-          alice.refreshToken,
-          aliceAuth
-        );
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        setStoredAuthToken(alice.accessToken);
+        storeAuth(alice.accessToken, alice.refreshToken, aliceAuth, {
+          persistToken: false
+        });
       });
       await waitForAuthUser(alice.userId);
       await waitForCurrentInstanceBoundTo(alice.userId);

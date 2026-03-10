@@ -17,6 +17,10 @@ interface StoredAuth {
   user: AuthUser | null;
 }
 
+interface StoreAuthOptions {
+  persistToken?: boolean;
+}
+
 function notifyAuthChange(): void {
   if (typeof window === 'undefined') {
     return;
@@ -74,11 +78,18 @@ export function readStoredAuth(): StoredAuth {
 export function storeAuth(
   token: string,
   refreshToken: string,
-  user: AuthUser
+  user: AuthUser,
+  options: StoreAuthOptions = {}
 ): void {
+  const shouldPersistToken = options.persistToken ?? true;
+
   try {
     inMemoryAuthToken = token;
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    if (shouldPersistToken) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
     inMemoryRefreshToken = refreshToken;
     notifyAuthChange();
@@ -102,11 +113,7 @@ export function clearStoredAuth(): void {
 
 export function getStoredAuthToken(): string | null {
   try {
-    const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (storedToken) {
-      return storedToken;
-    }
-    return inMemoryAuthToken;
+    return localStorage.getItem(AUTH_TOKEN_KEY) ?? inMemoryAuthToken;
   } catch {
     return inMemoryAuthToken;
   }
