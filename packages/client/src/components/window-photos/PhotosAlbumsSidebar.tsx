@@ -1,4 +1,5 @@
 // one-component-per-file: allow
+// component-complexity: allow — sidebar has many album interaction branches
 import {
   detectPlatform,
   useSidebarDragOver,
