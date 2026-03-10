@@ -91,6 +91,11 @@ class VfsWriteOrchestratorImpl {
   private readonly loadStateWriteOptions: LocalWriteOptions | undefined;
   private readonly saveStateWriteOptions: LocalWriteOptions | undefined;
   private readonly secureWritePipeline: VfsSecureWritePipeline;
+  private inFlightSyncCrdt: Promise<VfsBackgroundSyncClientSyncResult> | null =
+    null;
+  private inFlightFlushAll: Promise<VfsWriteOrchestratorFlushResult> | null =
+    null;
+  private protocolQueueTail: Promise<void> = Promise.resolve();
 
   constructor(
     userId: string,
@@ -269,23 +274,47 @@ class VfsWriteOrchestratorImpl {
   }
 
   async syncCrdt(): Promise<VfsBackgroundSyncClientSyncResult> {
-    const result = await this.crdt.sync();
-    await this.persistState();
-    return result;
+    if (this.inFlightSyncCrdt) {
+      return this.inFlightSyncCrdt;
+    }
+
+    this.inFlightSyncCrdt = this.enqueueProtocolRun(async () => {
+      const result = await this.crdt.sync();
+      await this.persistState();
+      return result;
+    });
+
+    try {
+      return await this.inFlightSyncCrdt;
+    } finally {
+      this.inFlightSyncCrdt = null;
+    }
   }
 
   async flushAll(): Promise<VfsWriteOrchestratorFlushResult> {
+    if (this.inFlightFlushAll) {
+      return this.inFlightFlushAll;
+    }
+
+    this.inFlightFlushAll = this.enqueueProtocolRun(async () => {
+      try {
+        const [crdtResult, blobResult] = await Promise.all([
+          this.crdt.flush(),
+          this.blob.flush()
+        ]);
+        return {
+          crdt: crdtResult,
+          blob: blobResult
+        };
+      } finally {
+        await this.persistState();
+      }
+    });
+
     try {
-      const [crdtResult, blobResult] = await Promise.all([
-        this.crdt.flush(),
-        this.blob.flush()
-      ]);
-      return {
-        crdt: crdtResult,
-        blob: blobResult
-      };
+      return await this.inFlightFlushAll;
     } finally {
-      await this.persistState();
+      this.inFlightFlushAll = null;
     }
   }
 
@@ -297,6 +326,21 @@ class VfsWriteOrchestratorImpl {
       async (): Promise<T> => operation(),
       options
     );
+  }
+
+  private async enqueueProtocolRun<T>(run: () => Promise<T>): Promise<T> {
+    const previousRun = this.protocolQueueTail;
+    let releaseQueue: (() => void) | null = null;
+    this.protocolQueueTail = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+
+    await previousRun;
+    try {
+      return await run();
+    } finally {
+      releaseQueue?.();
+    }
   }
 }
 
