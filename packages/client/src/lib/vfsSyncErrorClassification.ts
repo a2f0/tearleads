@@ -38,53 +38,48 @@ function renderErrorMessage(error: unknown): string {
 }
 
 function enumerateLinkedErrors(error: unknown): unknown[] {
-  const queue: unknown[] = [error];
+  const queue: unknown[] = [];
   const visitedObjects = new Set<object>();
-  if (typeof error === 'object' && error !== null) {
-    visitedObjects.add(error);
-  }
-  const linkedErrors: unknown[] = [];
 
-  while (queue.length > 0 && linkedErrors.length < MAX_LINKED_ERROR_NODES) {
-    const current = queue.shift();
-    if (current === undefined) {
-      continue;
+  const enqueueIfNew = (candidate: unknown): void => {
+    if (candidate === undefined || candidate === null) {
+      return;
     }
-    linkedErrors.push(current);
 
+    if (typeof candidate === 'object') {
+      if (visitedObjects.has(candidate)) {
+        return;
+      }
+      visitedObjects.add(candidate);
+    }
+
+    if (queue.length >= MAX_LINKED_ERROR_NODES) {
+      return;
+    }
+    queue.push(candidate);
+  };
+
+  enqueueIfNew(error);
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const current = queue[queueIndex];
     if (!isRecord(current)) {
       continue;
     }
 
     for (const field of LINKED_ERROR_FIELDS) {
-      const nested = current[field];
-      if (nested === undefined || nested === null) {
-        continue;
-      }
-      if (typeof nested === 'object') {
-        if (visitedObjects.has(nested)) {
-          continue;
-        }
-        visitedObjects.add(nested);
-      }
-      queue.push(nested);
+      enqueueIfNew(current[field]);
     }
 
     const nestedErrors = current['errors'];
     if (Array.isArray(nestedErrors)) {
       for (const nested of nestedErrors) {
-        if (typeof nested === 'object' && nested !== null) {
-          if (visitedObjects.has(nested)) {
-            continue;
-          }
-          visitedObjects.add(nested);
-        }
-        queue.push(nested);
+        enqueueIfNew(nested);
       }
     }
   }
 
-  return linkedErrors;
+  return queue;
 }
 
 function hasUnauthorizedErrorCode(value: Record<string, unknown>): boolean {
