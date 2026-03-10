@@ -1,5 +1,12 @@
-import './vfsDirectTestSupport.js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import '../../test/vfsDirectTestSupport.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { setTestEnv } from '../../test/env.js';
+import {
+  mockRedisClient,
+  mockRedisStore,
+  setupVfsTestEnv,
+  teardownVfsTestEnv
+} from '../../test/vfsDirectTestSupport.js';
 import {
   clearBlobUploadSessions,
   deleteBlobUploadSession,
@@ -7,12 +14,6 @@ import {
   getBlobUploadChunks,
   upsertBlobUploadChunk
 } from './vfsDirectBlobUploadSessions.js';
-import {
-  mockRedisClient,
-  mockRedisStore,
-  setupVfsTestEnv,
-  teardownVfsTestEnv
-} from './vfsDirectTestSupport.js';
 
 const BLOB_UPLOAD_CHUNK_KEY_PREFIX = 'vfs:blobUpload';
 const BLOB_UPLOAD_INDEX_KEY_PREFIX = 'vfs:blobUploadIndex';
@@ -253,7 +254,7 @@ describe('vfsDirectBlobUploadSessions', () => {
   });
 
   it('bounds ttl by stage expiry and global index by configured max ttl', async () => {
-    vi.stubEnv('VFS_BLOB_UPLOAD_SESSION_MAX_TTL_SECONDS', '600');
+    setTestEnv('VFS_BLOB_UPLOAD_SESSION_MAX_TTL_SECONDS', '600');
 
     await upsertBlobUploadChunk({
       stagingId: 'stage-1',

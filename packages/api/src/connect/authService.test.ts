@@ -12,6 +12,7 @@ import {
   deleteRefreshToken,
   deleteSession
 } from '../lib/sessions.js';
+import { setTestEnv } from '../test/env.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -62,7 +63,7 @@ describe('Connect AuthService', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    vi.stubEnv('JWT_SECRET', 'test-secret');
+    setTestEnv('JWT_SECRET', 'test-secret');
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery
     });
@@ -70,7 +71,6 @@ describe('Connect AuthService', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
     await closeServer(server);
   });
 

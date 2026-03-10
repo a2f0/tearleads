@@ -1,4 +1,5 @@
 import { type Mock, vi } from 'vitest';
+import { resetTestEnv, setTestEnv } from './env.js';
 
 export const mockQuery: Mock = vi.fn();
 const mockGetPostgresPool: Mock = vi.fn();
@@ -10,7 +11,7 @@ export const mockPoolConnect: Mock = vi.fn().mockImplementation(() =>
   })
 );
 
-vi.mock('../../lib/postgres.js', () => ({
+vi.mock('../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool(),
   getPool: () => mockGetPostgresPool()
 }));
@@ -87,7 +88,7 @@ vi.mock('@tearleads/shared/redis', () => ({
 export function setupVfsTestEnv(): void {
   vi.clearAllMocks();
   sessionStore.clear();
-  vi.stubEnv('JWT_SECRET', 'test-secret');
+  setTestEnv('JWT_SECRET', 'test-secret');
   mockPoolConnect.mockImplementation(() =>
     Promise.resolve({
       query: mockQuery,
@@ -101,5 +102,5 @@ export function setupVfsTestEnv(): void {
 }
 
 export function teardownVfsTestEnv(): void {
-  vi.unstubAllEnvs();
+  resetTestEnv();
 }

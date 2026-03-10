@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setTestEnv } from '../test/env.js';
 import {
   readRematerializationSnapshotCache,
   writeRematerializationSnapshotCache
@@ -33,12 +34,7 @@ function rematKey(
 describe('vfsCrdtRematerializationCache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllEnvs();
     redisStore.clear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('writes and reads rematerialization snapshot cache entries', async () => {
@@ -236,7 +232,7 @@ describe('vfsCrdtRematerializationCache', () => {
   });
 
   it('uses default TTL when rematerialization TTL env is invalid', async () => {
-    vi.stubEnv('VFS_CRDT_REMAT_SNAPSHOT_CACHE_TTL_SECONDS', 'not-valid');
+    setTestEnv('VFS_CRDT_REMAT_SNAPSHOT_CACHE_TTL_SECONDS', 'not-valid');
 
     await writeRematerializationSnapshotCache({
       scope: 'global',

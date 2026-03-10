@@ -1,12 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { setTestEnv } from '../../test/env.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
 describe('vfsDirectCrdtEnvelopeStorage', () => {
   const bytes = Uint8Array.from(Buffer.from('abc'));
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
 
   it('returns null storage values for empty inputs', () => {
     expect(serializeEnvelopeField(undefined)).toEqual({
@@ -40,7 +37,7 @@ describe('vfsDirectCrdtEnvelopeStorage', () => {
   });
 
   it('supports disabling bytea writes via env flag', () => {
-    vi.stubEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
+    setTestEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
 
     const serialized = serializeEnvelopeField(
       Buffer.from(bytes).toString('base64')
@@ -52,7 +49,7 @@ describe('vfsDirectCrdtEnvelopeStorage', () => {
   });
 
   it('supports dual-writing text when bytea writes are enabled', () => {
-    vi.stubEnv('VFS_CRDT_ENVELOPE_DUAL_WRITE_TEXT', 'true');
+    setTestEnv('VFS_CRDT_ENVELOPE_DUAL_WRITE_TEXT', 'true');
 
     const serialized = serializeEnvelopeField(
       Buffer.from(bytes).toString('base64')
