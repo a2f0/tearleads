@@ -237,7 +237,7 @@ describe('API VFS lifecycle', () => {
     // Record usage
     const usageBody = await alice.fetchJson<{
       usage: { modelId: string; totalTokens: number };
-    }>('/ai/usage', {
+    }>('/connect/tearleads.v2.AiService/RecordUsage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -253,7 +253,11 @@ describe('API VFS lifecycle', () => {
     // Query usage summary
     const summaryBody = await alice.fetchJson<{
       summary: { totalTokens: number; requestCount: number };
-    }>('/ai/usage/summary');
+    }>('/connect/tearleads.v2.AiService/GetUsageSummary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
     expect(summaryBody.summary.totalTokens).toBe(80);
     expect(summaryBody.summary.requestCount).toBe(1);
 
@@ -261,10 +265,14 @@ describe('API VFS lifecycle', () => {
     const listBody = await alice.fetchJson<{
       usage: Array<{ modelId: string }>;
       hasMore: boolean;
-    }>('/ai/usage');
+    }>('/connect/tearleads.v2.AiService/GetUsage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
     expect(listBody.usage).toHaveLength(1);
     expect(listBody.usage[0]?.modelId).toBe('mistralai/mistral-7b-instruct');
-    expect(listBody.hasMore).toBe(false);
+    expect(listBody.hasMore ?? false).toBe(false);
   });
 
   it('handles blob stage/chunk/attach lifecycle transitions', async () => {

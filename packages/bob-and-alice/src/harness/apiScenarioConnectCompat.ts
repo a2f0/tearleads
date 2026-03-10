@@ -12,8 +12,6 @@ export interface ConnectRouteMapping {
   legacyDefaults?: Record<string, unknown>;
 }
 
-const AUTH_SERVICE_PATH = '/v1/connect/tearleads.v2.AuthService';
-const AI_SERVICE_PATH = '/v1/connect/tearleads.v2.AiService';
 const VFS_SERVICE_PATH = `/v1${VFS_V2_CONNECT_BASE_PATH}`;
 const VFS_SHARES_SERVICE_PATH = `/v1${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
 
@@ -101,21 +99,6 @@ function parseOptionalInt(value: string | null): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function buildGetUsageBody(
-  searchParams: URLSearchParams
-): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
-  const cursor = searchParams.get('cursor');
-  const limit = parseOptionalInt(searchParams.get('limit'));
-  if (startDate) body['startDate'] = startDate;
-  if (endDate) body['endDate'] = endDate;
-  if (cursor) body['cursor'] = cursor;
-  if (limit !== undefined) body['limit'] = limit;
-  return body;
-}
-
 function buildGetSyncBody(
   searchParams: URLSearchParams
 ): Record<string, unknown> {
@@ -137,67 +120,6 @@ export function mapLegacyPathToConnect(
   const method = (init?.method ?? 'GET').toUpperCase();
   const pathname = url.pathname;
   const jsonBody = readJsonBody(init?.body);
-
-  if (pathname === '/auth/register' && method === 'POST') {
-    return {
-      path: `${AUTH_SERVICE_PATH}/Register`,
-      body: jsonBody,
-      unwrapJsonEnvelope: false
-    };
-  }
-  if (pathname === '/auth/login' && method === 'POST') {
-    return {
-      path: `${AUTH_SERVICE_PATH}/Login`,
-      body: jsonBody,
-      unwrapJsonEnvelope: false
-    };
-  }
-  if (pathname === '/auth/refresh' && method === 'POST') {
-    return {
-      path: `${AUTH_SERVICE_PATH}/RefreshToken`,
-      body: jsonBody,
-      unwrapJsonEnvelope: false
-    };
-  }
-  if (pathname === '/auth/sessions' && method === 'GET') {
-    return {
-      path: `${AUTH_SERVICE_PATH}/GetSessions`,
-      body: {},
-      unwrapJsonEnvelope: false
-    };
-  }
-  if (pathname === '/auth/logout' && method === 'POST') {
-    return {
-      path: `${AUTH_SERVICE_PATH}/Logout`,
-      body: {},
-      unwrapJsonEnvelope: false
-    };
-  }
-
-  if (pathname === '/ai/usage' && method === 'POST') {
-    return {
-      path: `${AI_SERVICE_PATH}/RecordUsage`,
-      body: jsonBody,
-      unwrapJsonEnvelope: false
-    };
-  }
-  if (pathname === '/ai/usage' && method === 'GET') {
-    return {
-      path: `${AI_SERVICE_PATH}/GetUsage`,
-      body: buildGetUsageBody(url.searchParams),
-      unwrapJsonEnvelope: false,
-      legacyDefaults: { hasMore: false }
-    };
-  }
-  if (pathname === '/ai/usage/summary') {
-    const body =
-      method === 'GET' ? buildGetUsageBody(url.searchParams) : jsonBody;
-    return {
-      path: `${AI_SERVICE_PATH}/GetUsageSummary`,
-      body,
-      unwrapJsonEnvelope: false
-    };
-  }
 
   if (pathname === '/vfs/keys' && method === 'POST') {
     return {
