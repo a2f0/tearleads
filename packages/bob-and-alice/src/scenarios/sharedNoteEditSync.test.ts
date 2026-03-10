@@ -172,14 +172,17 @@ describe('shared note edit sync', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>('/connect/tearleads.v2.VfsService/PushCrdtOps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientId: 'bob-client',
-        operations: [bobPushOperation]
-      })
-    });
+    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
+      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: 'bob-client',
+          operations: [bobPushOperation]
+        })
+      }
+    );
     expect(bobPush.results[0]?.status).toBe('applied');
 
     await refreshLocalStateFromApi({

@@ -216,14 +216,17 @@ export async function setupBobNotesShareForAlice(
     childId: noteId
   });
 
-  const pushResponse = await input.bob.fetchJson('/connect/tearleads.v2.VfsService/PushCrdtOps', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      clientId,
-      operations
-    })
-  });
+  const pushResponse = await input.bob.fetchJson(
+    '/connect/tearleads.v2.VfsService/PushCrdtOps',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId,
+        operations
+      })
+    }
+  );
 
   const shareResponse = await input.bob.fetchJson(
     `/vfs/items/${encodeURIComponent(folderId)}/shares`,
