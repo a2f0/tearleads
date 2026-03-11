@@ -9,8 +9,8 @@ import {
 } from './postgresTestHarness.js';
 
 describe('replica pool', () => {
-  beforeEach(() => {
-    resetPostgresTestEnv();
+  beforeEach(async () => {
+    await resetPostgresTestEnv();
   });
 
   afterEach(() => {
