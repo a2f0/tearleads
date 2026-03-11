@@ -58,7 +58,7 @@ vi.mock('@/lib/authStorage', () => ({
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: true })
+  useOptionalAuth: () => ({ isAuthenticated: true })
 }));
 
 vi.mock('@/lib/featureFlags', () => ({

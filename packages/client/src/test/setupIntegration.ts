@@ -132,16 +132,6 @@ function createMockFileStorage(instanceId: string): MockFileStorage {
   };
 }
 
-// Mock AuthContext so ClientVfsExplorerProvider can call useAuth()
-vi.mock('@/contexts/AuthContext', async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import('@/contexts/AuthContext')>();
-  return {
-    ...original,
-    useAuth: () => ({ isAuthenticated: true })
-  };
-});
-
 // Mock the instance registry to avoid IndexedDB
 vi.mock('@/db/instanceRegistry', () => ({
   getInstances: vi.fn(async () => testInstances),
