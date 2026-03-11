@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 detect_timeout_binary() {
   if command -v timeout >/dev/null 2>&1; then
     echo "timeout"
@@ -64,7 +65,7 @@ docker_login_to_ecr() {
 
   local login_status=0
   set +e
-  printf '%s\n' "$ecr_password" | run_with_optional_timeout "$timeout_bin" "$login_timeout_seconds" docker login --username AWS --password-stdin "$ecr_registry"
+  run_with_optional_timeout "$timeout_bin" "$login_timeout_seconds" docker login --username AWS --password-stdin "$ecr_registry" <<<"$ecr_password"
   login_status=$?
   set -e
 
@@ -90,6 +91,7 @@ run_docker_maintenance_safe() {
   echo "=== Running Docker maintenance (safe mode) ==="
   docker container prune -f --filter "until=24h" || echo "Warning: Failed to prune stopped containers"
   docker image prune -f --filter "until=${maintenance_until}" || echo "Warning: Failed to prune dangling images"
+  # Keep container prune conservative; stale containers are usually smaller than cache layers.
   if docker builder prune --help 2>/dev/null | grep -q -- "--max-used-space"; then
     docker builder prune -f --filter "until=${maintenance_until}" --max-used-space "${maintenance_max_cache}" \
       || echo "Warning: Failed to prune build cache with --max-used-space"
@@ -99,4 +101,13 @@ run_docker_maintenance_safe() {
   fi
   docker system df || true
   echo ""
+}
+
+require_option_value() {
+  local option_name="$1"
+  local option_value="${2:-}"
+  if [[ -z "$option_value" ]]; then
+    echo "Error: $option_name requires a value"
+    exit 1
+  fi
 }

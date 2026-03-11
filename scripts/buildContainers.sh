@@ -56,19 +56,15 @@ usage() {
   echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
-
 if [[ $# -lt 1 ]]; then
   usage
 fi
-
 ENV="$1"
 shift
-
 if [[ "$ENV" != "staging" && "$ENV" != "prod" ]]; then
   echo "Error: Environment must be 'staging' or 'prod'"
   exit 1
 fi
-
 # Source environment secrets
 ENV_FILE="$REPO_ROOT/.secrets/${ENV}.env"
 if [[ -f "$ENV_FILE" ]]; then
@@ -77,7 +73,6 @@ if [[ -f "$ENV_FILE" ]]; then
 else
   echo "Warning: Missing secrets file: $ENV_FILE — falling back to exported environment variables"
 fi
-
 require_var() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
@@ -85,10 +80,8 @@ require_var() {
     exit 1
   fi
 }
-
 count_selected_builds() {
   local selected=0
-
   if [[ "$BUILD_API" == "true" ]]; then
     selected=$((selected + 1))
   fi
@@ -104,13 +97,10 @@ count_selected_builds() {
   if [[ "$BUILD_WEBSITE" == "true" ]]; then
     selected=$((selected + 1))
   fi
-
   echo "$selected"
 }
-
 detect_cpu_cores() {
   local cores=""
-
   if command -v nproc >/dev/null 2>&1; then
     cores="$(nproc)"
   elif command -v sysctl >/dev/null 2>&1; then
@@ -120,18 +110,14 @@ detect_cpu_cores() {
   if [[ -z "$cores" ]] && command -v getconf >/dev/null 2>&1; then
     cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
   fi
-
   if [[ -z "$cores" || ! "$cores" =~ ^[0-9]+$ || "$cores" -lt 1 ]]; then
     cores=1
   fi
-
   echo "$cores"
 }
-
 detect_host_docker_platform() {
   local arch
   arch="$(uname -m)"
-
   case "$arch" in
     arm64|aarch64)
       echo "linux/arm64"
@@ -144,7 +130,6 @@ detect_host_docker_platform() {
       ;;
   esac
 }
-
 # Parse options
 BUILD_API=true
 BUILD_API_V2=false
@@ -228,14 +213,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --maintenance-until)
+      require_option_value "$1" "${2:-}"
       DOCKER_MAINTENANCE_UNTIL="$2"
       shift 2
       ;;
     --maintenance-max-cache)
+      require_option_value "$1" "${2:-}"
       DOCKER_MAINTENANCE_MAX_CACHE="$2"
       shift 2
       ;;
     --tag)
+      require_option_value "$1" "${2:-}"
       TAG="$2"
       shift 2
       ;;
