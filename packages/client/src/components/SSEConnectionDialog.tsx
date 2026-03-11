@@ -1,4 +1,5 @@
 import type { SSEConnectionState } from '@tearleads/shared';
+import { NotificationService } from '@tearleads/shared/gen/tearleads/v2/notifications_pb';
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useDialogAccessibility } from '@/hooks/ui';
@@ -22,6 +23,8 @@ const stateColors: Record<SSEConnectionState, string> = {
   connecting: 'text-warning',
   disconnected: 'text-destructive'
 };
+
+const SSE_SUBSCRIBE_CONNECT_ENDPOINT = `/connect/${NotificationService.typeName}/Subscribe`;
 
 export function SSEConnectionDialog({
   isOpen,
@@ -91,7 +94,7 @@ export function SSEConnectionDialog({
           <div className="flex justify-between gap-4">
             <dt className="shrink-0 text-muted-foreground">Endpoint</dt>
             <dd className="truncate font-mono text-xs">
-              /connect/tearleads.v2.NotificationService/Subscribe
+              {SSE_SUBSCRIBE_CONNECT_ENDPOINT}
             </dd>
           </div>
         </dl>
