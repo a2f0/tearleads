@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as hooks from '../hooks';
 import type { DatabaseState } from '../context';
+import * as hooks from '../hooks';
 
 const mockDatabaseState: DatabaseState = {
   isUnlocked: true,

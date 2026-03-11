@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as hooks from '../hooks';
 import { VFS_ROOT_ID } from '../constants';
+import * as hooks from '../hooks';
 
 // Mock hooks
 vi.mock('../hooks', () => ({
