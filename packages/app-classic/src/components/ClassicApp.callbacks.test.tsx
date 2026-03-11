@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ClassicState } from '../lib/types';
 import { ClassicApp } from './ClassicApp';
 
@@ -42,7 +42,7 @@ describe('ClassicApp - Callbacks', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Create new tag' }));
 
     // Edit and save the tag name
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByLabelText('Edit tag New Tag')).toBeInTheDocument();
     });
     const editInput = screen.getByLabelText('Edit tag New Tag');
@@ -71,7 +71,7 @@ describe('ClassicApp - Callbacks', () => {
     fireEvent.click(screen.getByLabelText('Edit tag Work'));
 
     // Change the name and save
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByLabelText('Edit tag Work')).toBeInTheDocument();
     });
     const editInput = screen.getByLabelText('Edit tag Work');
@@ -101,7 +101,7 @@ describe('ClassicApp - Callbacks', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Create new entry' }));
 
     // Edit and save the note
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
     });
     const titleInput = screen.getByLabelText('Edit entry title');
@@ -133,7 +133,7 @@ describe('ClassicApp - Callbacks', () => {
     fireEvent.click(screen.getByLabelText('Edit note Alpha'));
 
     // Edit and save
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
     });
     const titleInput = screen.getByLabelText('Edit entry title');
