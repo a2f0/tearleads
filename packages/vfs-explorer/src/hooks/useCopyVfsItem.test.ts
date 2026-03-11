@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as context from '../context';
 
 // Mock the context
 vi.mock('../context', () => ({
@@ -15,7 +16,6 @@ vi.mock('../context', () => ({
   }))
 }));
 
-import { useVfsExplorerContext } from '../context';
 import { useCopyVfsItem } from './useCopyVfsItem';
 
 describe('useCopyVfsItem', () => {
@@ -37,7 +37,7 @@ describe('useCopyVfsItem', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindFirst.mockResolvedValue(null);
-    vi.mocked(useVfsExplorerContext).mockReturnValue({
+    vi.spyOn(context, 'useVfsExplorerContext').mockReturnValue({
       getDatabase: (() => mockDb) as never,
       vfsKeys: {
         generateSessionKey: vi.fn(() => new Uint8Array([1, 2, 3])),

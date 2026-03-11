@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as hooks from '../hooks';
 
 // Mutable clipboard state for per-test control
 const mockClipboardState: {
@@ -142,7 +143,6 @@ vi.mock('./FolderContextMenu', () => ({
   FolderContextMenu: () => null
 }));
 
-import { useVfsFolderContents, useVfsFolders } from '../hooks';
 import { VfsExplorer } from './VfsExplorer';
 
 describe('VfsExplorer', () => {
@@ -151,14 +151,14 @@ describe('VfsExplorer', () => {
     // Reset clipboard state
     mockClipboardState.items = [];
     mockClipboardState.operation = null;
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: [],
       loading: false,
       error: null,
       hasFetched: true,
       refetch: vi.fn()
     });
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: [],
       loading: false,
       error: null,
@@ -200,7 +200,7 @@ describe('VfsExplorer', () => {
       mockClipboardState.operation = 'copy';
 
       // Mock folders so we have a folder to select
-      vi.mocked(useVfsFolders).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
         folders: [
           {
             id: 'folder-1',
@@ -218,7 +218,7 @@ describe('VfsExplorer', () => {
       });
 
       // Folder contents are empty (newly created folder)
-      vi.mocked(useVfsFolderContents).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -258,7 +258,7 @@ describe('VfsExplorer', () => {
       ];
       mockClipboardState.operation = 'cut';
 
-      vi.mocked(useVfsFolders).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
         folders: [
           {
             id: 'folder-2',
@@ -275,7 +275,7 @@ describe('VfsExplorer', () => {
         refetch: vi.fn()
       });
 
-      vi.mocked(useVfsFolderContents).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -305,7 +305,7 @@ describe('VfsExplorer', () => {
       ];
       mockClipboardState.operation = 'cut';
 
-      vi.mocked(useVfsFolders).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
         folders: [
           {
             id: 'folder-3',
@@ -322,7 +322,7 @@ describe('VfsExplorer', () => {
         refetch: vi.fn()
       });
 
-      vi.mocked(useVfsFolderContents).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -366,7 +366,7 @@ describe('VfsExplorer', () => {
       ];
       mockClipboardState.operation = 'copy';
 
-      vi.mocked(useVfsFolders).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
         folders: [
           {
             id: 'folder-self',
@@ -383,7 +383,7 @@ describe('VfsExplorer', () => {
         refetch: vi.fn()
       });
 
-      vi.mocked(useVfsFolderContents).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -409,7 +409,7 @@ describe('VfsExplorer', () => {
       ];
       mockClipboardState.operation = 'copy';
 
-      vi.mocked(useVfsFolders).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
         folders: [
           {
             id: 'contact-self',
@@ -426,7 +426,7 @@ describe('VfsExplorer', () => {
         refetch: vi.fn()
       });
 
-      vi.mocked(useVfsFolderContents).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
         items: [],
         loading: false,
         error: null,

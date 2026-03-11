@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseState } from '../context';
+import * as hooks from '../hooks';
 
 const mockDatabaseState: DatabaseState = {
   isUnlocked: true,
@@ -83,10 +84,21 @@ import {
   TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID
 } from '../constants';
-import { useVfsAllItems, useVfsTrashItems, useVfsUnfiledItems } from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
 
 describe('VfsDetailsPanel special folders', () => {
+  type SpecialFolderHookName = 'useVfsUnfiledItems' | 'useVfsAllItems';
+  type SpecialFolderCase = {
+    description: string;
+    folderId: string;
+    hookName: SpecialFolderHookName;
+    emptyTitle: string;
+    emptyDescription: string;
+    error: string;
+    itemId: string;
+    itemName: string;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockDatabaseState.isUnlocked = true;
@@ -96,7 +108,7 @@ describe('VfsDetailsPanel special folders', () => {
 
   describe('trash items', () => {
     it('shows trash empty state', () => {
-      vi.mocked(useVfsTrashItems).mockReturnValue({
+      vi.spyOn(hooks, 'useVfsTrashItems').mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -111,11 +123,11 @@ describe('VfsDetailsPanel special folders', () => {
     });
   });
 
-  const specialFolderCases = [
+  const specialFolderCases: SpecialFolderCase[] = [
     {
       description: 'unfiled items',
       folderId: UNFILED_FOLDER_ID,
-      useHook: useVfsUnfiledItems,
+      hookName: 'useVfsUnfiledItems',
       emptyTitle: 'No unfiled items',
       emptyDescription: 'Uploaded files will appear here until organized',
       error: 'Failed to load unfiled items',
@@ -125,18 +137,20 @@ describe('VfsDetailsPanel special folders', () => {
     {
       description: 'all items',
       folderId: ALL_ITEMS_FOLDER_ID,
-      useHook: useVfsAllItems,
+      hookName: 'useVfsAllItems',
       emptyTitle: 'No items in registry',
       emptyDescription: 'Upload files to get started',
       error: 'Failed to load all items',
       itemId: 'item-1',
       itemName: 'all-document.pdf'
     }
-  ] as const;
+  ];
 
-  describe.each(specialFolderCases)('$description', (testCase) => {
+  describe.each(
+    specialFolderCases
+  )('$description', (testCase: SpecialFolderCase) => {
     it('shows empty state', () => {
-      vi.mocked(testCase.useHook).mockReturnValue({
+      vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [],
         loading: false,
         error: null,
@@ -149,7 +163,7 @@ describe('VfsDetailsPanel special folders', () => {
     });
 
     it('shows loading state', () => {
-      vi.mocked(testCase.useHook).mockReturnValue({
+      vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [],
         loading: true,
         error: null,
@@ -161,7 +175,7 @@ describe('VfsDetailsPanel special folders', () => {
     });
 
     it('shows error state', () => {
-      vi.mocked(testCase.useHook).mockReturnValue({
+      vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [],
         loading: false,
         error: testCase.error,
@@ -173,7 +187,7 @@ describe('VfsDetailsPanel special folders', () => {
     });
 
     it('shows items in list', () => {
-      vi.mocked(testCase.useHook).mockReturnValue({
+      vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [
           {
             id: testCase.itemId,
@@ -194,7 +208,7 @@ describe('VfsDetailsPanel special folders', () => {
 
     it('calls refetch when refreshToken changes', () => {
       const mockRefetch = vi.fn();
-      vi.mocked(testCase.useHook).mockReturnValue({
+      vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [],
         loading: false,
         error: null,
