@@ -42,6 +42,9 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | `--no-smtp` | Skip building the SMTP listener container |
 | `--parallel` | Build selected containers in parallel |
 | `--no-push` | Build locally without pushing to ECR |
+| `--maintenance` | Run safe post-build Docker cleanup |
+| `--maintenance-until AGE` | Prune resources older than `AGE` (default: `168h`) |
+| `--maintenance-max-cache SIZE` | Keep build cache at or below `SIZE` (default: `20GB`) |
 | `--tag TAG` | Use a specific tag (default: `latest`) |
 
 ### Examples
@@ -58,6 +61,9 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 
 # Build selected containers in parallel
 ./scripts/buildContainers.sh staging --parallel
+
+# Build and run safe Docker maintenance (good for local dev machines)
+./scripts/buildContainers.sh staging --no-push --maintenance
 ```
 
 ### Environment Variables
@@ -67,6 +73,9 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | `AWS_REGION` | AWS region for ECR | `us-east-1` |
 | `AWS_ACCOUNT_ID` | AWS account ID | Auto-detected when pushing |
 | `PARALLEL` | Enable parallel builds (`true`/`false`) | `false` |
+| `DOCKER_MAINTENANCE` | Enable safe post-build Docker cleanup (`true`/`false`) | `true` |
+| `DOCKER_MAINTENANCE_UNTIL` | Age filter used by prune operations | `168h` |
+| `DOCKER_MAINTENANCE_MAX_CACHE` | Build cache cap for builder prune | `20GB` |
 | `VITE_API_URL` | API URL for client build | Based on environment domain |
 
 ## Setting Up ECR Authentication in Kubernetes

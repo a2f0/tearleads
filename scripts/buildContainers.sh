@@ -13,7 +13,9 @@ DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-}"
 DOCKER_BUILD_PLATFORM_SOURCE=""
 PARALLEL="${PARALLEL:-false}"
 MAX_PARALLEL_JOBS=1
-
+DOCKER_MAINTENANCE="${DOCKER_MAINTENANCE:-true}"
+DOCKER_MAINTENANCE_UNTIL="${DOCKER_MAINTENANCE_UNTIL:-168h}"
+DOCKER_MAINTENANCE_MAX_CACHE="${DOCKER_MAINTENANCE_MAX_CACHE:-20GB}"
 usage() {
   echo "Usage: $0 <environment> [options]"
   echo ""
@@ -32,12 +34,18 @@ usage() {
   echo "  --no-website    Skip building the website container"
   echo "  --parallel      Build selected containers in parallel (bounded by CPU cores)"
   echo "  --no-push       Build only, don't push to ECR"
+  echo "  --maintenance   Run safe Docker cleanup after successful builds"
+  echo "  --maintenance-until AGE  Prune resources older than AGE (default: 168h)"
+  echo "  --maintenance-max-cache SIZE  Keep build cache at or below SIZE (default: 20GB)"
   echo "  --tag TAG       Use specific tag (default: latest)"
   echo ""
   echo "Environment variables:"
   echo "  AWS_REGION      AWS region (default: us-east-1)"
   echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected when pushing)"
   echo "  DOCKER_BUILD_PLATFORM  Docker platform (linux/amd64, linux/arm64, or auto)"
+  echo "  DOCKER_MAINTENANCE  Enable post-build safe cleanup (default: true)"
+  echo "  DOCKER_MAINTENANCE_UNTIL  Age filter for cleanup (default: 168h)"
+  echo "  DOCKER_MAINTENANCE_MAX_CACHE  Build cache cap (default: 20GB)"
   echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
@@ -204,6 +212,18 @@ while [[ $# -gt 0 ]]; do
       PUSH=false
       shift
       ;;
+    --maintenance)
+      DOCKER_MAINTENANCE=true
+      shift
+      ;;
+    --maintenance-until)
+      DOCKER_MAINTENANCE_UNTIL="$2"
+      shift 2
+      ;;
+    --maintenance-max-cache)
+      DOCKER_MAINTENANCE_MAX_CACHE="$2"
+      shift 2
+      ;;
     --tag)
       TAG="$2"
       shift 2
@@ -282,6 +302,11 @@ echo "Parallel Build: $PARALLEL"
 if [[ "$PARALLEL" == "true" ]]; then
   echo "Parallel Jobs: $MAX_PARALLEL_JOBS (CPU cores: $CPU_CORES)"
 fi
+echo "Docker Maintenance: $DOCKER_MAINTENANCE"
+if [[ "$DOCKER_MAINTENANCE" == "true" ]]; then
+  echo "Maintenance Until: $DOCKER_MAINTENANCE_UNTIL"
+  echo "Maintenance Max Cache: $DOCKER_MAINTENANCE_MAX_CACHE"
+fi
 if [[ "$PUSH" == "true" && "$DOCKER_BUILD_PLATFORM" != "linux/amd64" ]]; then
   echo "WARNING: Pushing non-amd64 images. Verify your runtime supports $DOCKER_BUILD_PLATFORM."
 fi
@@ -324,6 +349,22 @@ build_and_push_image() {
       docker push "${image_tag%:*}:latest"
     fi
   fi
+  echo ""
+}
+
+run_docker_maintenance() {
+  [[ "$DOCKER_MAINTENANCE" == "true" ]] || return
+  echo "=== Running Docker maintenance (safe mode) ==="
+  docker container prune -f --filter "until=24h" || echo "Warning: Failed to prune stopped containers"
+  docker image prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" || echo "Warning: Failed to prune dangling images"
+  if docker builder prune --help 2>/dev/null | grep -q -- "--max-used-space"; then
+    docker builder prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" --max-used-space "${DOCKER_MAINTENANCE_MAX_CACHE}" \
+      || echo "Warning: Failed to prune build cache with --max-used-space"
+  else
+    docker builder prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" --keep-storage "${DOCKER_MAINTENANCE_MAX_CACHE}" \
+      || echo "Warning: Failed to prune build cache with --keep-storage"
+  fi
+  docker system df || true
   echo ""
 }
 
@@ -434,6 +475,8 @@ if [[ "$PARALLEL" == "true" && "${#BUILD_PIDS[@]}" -gt 0 ]]; then
     exit 1
   fi
 fi
+
+run_docker_maintenance
 
 echo "=== Build complete ==="
 if [[ "$PUSH" == "true" ]]; then
