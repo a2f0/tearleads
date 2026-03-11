@@ -137,53 +137,6 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
     height: THUMBNAIL_DISPLAY_SIZE
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Loading photos...
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
-          {error}
-        </div>
-      );
-    }
-
-    if (photos.length === 0) {
-      return (
-        <div className="py-8 text-center text-muted-foreground">
-          No photos found. Upload images from the Files page first.
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-wrap gap-3">
-        {photos.map((photo) => (
-          <button
-            key={photo.id}
-            type="button"
-            onClick={() => handleSelect(photo)}
-            className="overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-            style={thumbnailStyle}
-          >
-            <img
-              src={photo.objectUrl}
-              alt={photo.name}
-              className="h-full w-full object-cover"
-            />
-          </button>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-lg border bg-background shadow-lg">
@@ -198,7 +151,40 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="max-h-[60vh] overflow-y-auto p-4">{renderContent()}</div>
+        <div className="max-h-[60vh] overflow-y-auto p-4">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading photos...
+            </div>
+          ) : error ? (
+            <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
+              {error}
+            </div>
+          ) : photos.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No photos found. Upload images from the Files page first.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  onClick={() => handleSelect(photo)}
+                  className="overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                  style={thumbnailStyle}
+                >
+                  <img
+                    src={photo.objectUrl}
+                    alt={photo.name}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
