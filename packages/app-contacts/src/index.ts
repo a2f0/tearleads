@@ -1,4 +1,3 @@
-export { ALL_CONTACTS_ID } from './lib/constants';
 export type { ViewMode } from './components';
 export {
   ColumnMapper,
@@ -42,14 +41,15 @@ export type {
 export {
   useContactGroups,
   useContactNewForm,
+  useContactSave,
   useContacts,
   useContactsContextMenu,
   useContactsExport,
   useContactsImport,
   useContactsImportUI,
-  useContactSave,
   useContactsPageData
 } from './hooks';
+export { ALL_CONTACTS_ID } from './lib/constants';
 export {
   ContactDetailPage,
   ContactNewPage,
