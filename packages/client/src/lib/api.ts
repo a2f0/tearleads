@@ -25,8 +25,4 @@ function installClientApiHooks(): void {
 
 installClientApiHooks();
 
-export function resetClientApiRuntimeForTesting(): void {
-  installClientApiHooks();
-}
-
 export { api, API_BASE_URL, tryRefreshToken };
