@@ -41,12 +41,15 @@ describe('useAdminUserGroups', () => {
       updatedAt: '2024-01-04T00:00:00Z'
     }
   ];
-  const mockedGroupsApi = vi.mocked(api.adminV2.groups);
+  const listSpy = vi.spyOn(api.adminV2.groups, 'list');
+  const getMembersSpy = vi.spyOn(api.adminV2.groups, 'getMembers');
+  const addMemberSpy = vi.spyOn(api.adminV2.groups, 'addMember');
+  const removeMemberSpy = vi.spyOn(api.adminV2.groups, 'removeMember');
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGroupsApi.list.mockResolvedValue({ groups: mockGroups });
-    mockedGroupsApi.getMembers.mockImplementation((groupId: string) => {
+    listSpy.mockResolvedValue({ groups: mockGroups });
+    getMembersSpy.mockImplementation((groupId: string) => {
       if (groupId === 'group-1') {
         return Promise.resolve({
           members: [
@@ -78,7 +81,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles adding a user to a group', async () => {
-    mockedGroupsApi.addMember.mockResolvedValue({ added: true });
+    addMemberSpy.mockResolvedValue({ added: true });
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -101,7 +104,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles removing a user from a group', async () => {
-    mockedGroupsApi.removeMember.mockResolvedValue({ removed: true });
+    removeMemberSpy.mockResolvedValue({ removed: true });
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -124,7 +127,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles errors when fetching groups', async () => {
-    mockedGroupsApi.list.mockRejectedValue(new Error('Network error'));
+    listSpy.mockRejectedValue(new Error('Network error'));
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => {

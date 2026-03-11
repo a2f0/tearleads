@@ -6,7 +6,7 @@ import {
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUserGroups } from './AdminUserGroups';
-import { useAdminUserGroups } from './useAdminUserGroups';
+import * as userGroupsHook from './useAdminUserGroups';
 
 vi.mock('./useAdminUserGroups', () => ({
   useAdminUserGroups: vi.fn()
@@ -29,7 +29,7 @@ describe('AdminUserGroups', () => {
     }
   });
   type AdminManagedGroup = ReturnType<
-    typeof useAdminUserGroups
+    (typeof userGroupsHook)['useAdminUserGroups']
   >['groups'][number];
   const mockGroups: AdminManagedGroup[] = [
     {
@@ -42,10 +42,12 @@ describe('AdminUserGroups', () => {
       updatedAt: '2024-01-02T00:00:00Z'
     }
   ];
-  const mockedUseAdminUserGroups = vi.mocked(useAdminUserGroups);
+  const useAdminUserGroupsSpy = vi.spyOn(userGroupsHook, 'useAdminUserGroups');
   const buildHookState = (
-    overrides: Partial<ReturnType<typeof useAdminUserGroups>> = {}
-  ): ReturnType<typeof useAdminUserGroups> => ({
+    overrides: Partial<
+      ReturnType<(typeof userGroupsHook)['useAdminUserGroups']>
+    > = {}
+  ): ReturnType<(typeof userGroupsHook)['useAdminUserGroups']> => ({
     groups: mockGroups,
     groupMemberships: { 'group-1': { isMember: false, joinedAt: undefined } },
     loading: false,
@@ -61,12 +63,12 @@ describe('AdminUserGroups', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedUseAdminUserGroups.mockReturnValue(buildHookState());
+    useAdminUserGroupsSpy.mockReturnValue(buildHookState());
   });
 
   it('renders groups and handles add action', async () => {
     const hookState = buildHookState();
-    mockedUseAdminUserGroups.mockReturnValue(hookState);
+    useAdminUserGroupsSpy.mockReturnValue(hookState);
     render(<AdminUserGroups user={mockUser} />);
 
     expect(screen.getByText('Groups')).toBeInTheDocument();
@@ -79,7 +81,7 @@ describe('AdminUserGroups', () => {
   });
 
   it('shows loading state', () => {
-    mockedUseAdminUserGroups.mockReturnValue(
+    useAdminUserGroupsSpy.mockReturnValue(
       buildHookState({
         groups: [],
         groupMemberships: {},
