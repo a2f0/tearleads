@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { normalizeSqlStatements } from '@/db/sql/sqlBatch';
 import {
@@ -346,7 +347,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
 
     const sqlite = await getSQLiteConnection();
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
 
     await this.db.close();
     await sqlite.closeConnection(this.dbName, false);
@@ -397,7 +397,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
 
     const sqlite = await getSQLiteConnection();
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
 
     const platform = Capacitor.getPlatform();
     const dbFileName = `${this.dbName}SQLite.db`;

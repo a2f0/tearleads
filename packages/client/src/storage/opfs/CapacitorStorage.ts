@@ -4,6 +4,7 @@
  * but still persists across app updates and is backed up.
  */
 
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import { decrypt, encrypt, importKey } from '@tearleads/shared';
 import { measureRetrieveHelper, measureStoreHelper } from './metrics';
 import type { FileStorage, RetrieveMetrics, StoreMetrics } from './types';
@@ -17,10 +18,7 @@ export class CapacitorStorage implements FileStorage {
   public instanceId: string;
   private encryptionKey: CryptoKey | null = null;
   private filesDirectory: string;
-  private Filesystem: typeof import('@capacitor/filesystem').Filesystem | null =
-    null;
-  private Directory: typeof import('@capacitor/filesystem').Directory | null =
-    null;
+  private isInitialized = false;
 
   constructor(instanceId: string) {
     this.instanceId = instanceId;
@@ -28,15 +26,10 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async initialize(encryptionKey: Uint8Array): Promise<void> {
-    // Dynamically import Capacitor Filesystem to avoid loading on web
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    this.Filesystem = Filesystem;
-    this.Directory = Directory;
-
     try {
-      await this.Filesystem.mkdir({
+      await Filesystem.mkdir({
         path: this.filesDirectory,
-        directory: this.Directory.Library,
+        directory: Directory.Library,
         recursive: true
       });
     } catch {
@@ -44,10 +37,11 @@ export class CapacitorStorage implements FileStorage {
     }
 
     this.encryptionKey = await importKey(encryptionKey);
+    this.isInitialized = true;
   }
 
   async store(id: string, data: Uint8Array): Promise<string> {
-    if (!this.Filesystem || !this.Directory || !this.encryptionKey) {
+    if (!this.encryptionKey) {
       throw new Error('Storage not initialized');
     }
 
@@ -66,27 +60,27 @@ export class CapacitorStorage implements FileStorage {
     }
     const base64Data = btoa(binary);
 
-    await this.Filesystem.writeFile({
+    await Filesystem.writeFile({
       path: filePath,
       data: base64Data,
-      directory: this.Directory.Library
+      directory: Directory.Library
     });
 
     return filename;
   }
 
   async storeBlob(id: string, blob: Blob): Promise<string> {
-    if (!this.Filesystem || !this.Directory || !this.encryptionKey) {
+    if (!this.encryptionKey) {
       throw new Error('Storage not initialized');
     }
 
     const filename = `${id}.enc`;
     const filePath = `${this.filesDirectory}/${filename}`;
 
-    await this.Filesystem.writeFile({
+    await Filesystem.writeFile({
       path: filePath,
       data: bytesToBase64(STREAM_FORMAT_MAGIC),
-      directory: this.Directory.Library
+      directory: Directory.Library
     });
 
     if (typeof blob.stream !== 'function') {
@@ -103,10 +97,10 @@ export class CapacitorStorage implements FileStorage {
       );
       payload.set(lengthPrefix, 0);
       payload.set(encrypted, lengthPrefix.byteLength);
-      await this.Filesystem.appendFile({
+      await Filesystem.appendFile({
         path: filePath,
         data: bytesToBase64(payload),
-        directory: this.Directory.Library
+        directory: Directory.Library
       });
       return filename;
     }
@@ -133,10 +127,10 @@ export class CapacitorStorage implements FileStorage {
         payload.set(lengthPrefix, 0);
         payload.set(encryptedChunk, lengthPrefix.byteLength);
 
-        await this.Filesystem.appendFile({
+        await Filesystem.appendFile({
           path: filePath,
           data: bytesToBase64(payload),
-          directory: this.Directory.Library
+          directory: Directory.Library
         });
       }
     } finally {
@@ -171,14 +165,14 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async retrieve(storagePath: string): Promise<Uint8Array> {
-    if (!this.Filesystem || !this.Directory || !this.encryptionKey) {
+    if (!this.encryptionKey) {
       throw new Error('Storage not initialized');
     }
 
     const filePath = `${this.filesDirectory}/${storagePath}`;
-    const result = await this.Filesystem.readFile({
+    const result = await Filesystem.readFile({
       path: filePath,
-      directory: this.Directory.Library
+      directory: Directory.Library
     });
 
     // Convert base64 back to Uint8Array
@@ -234,27 +228,27 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async delete(storagePath: string): Promise<void> {
-    if (!this.Filesystem || !this.Directory) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
     const filePath = `${this.filesDirectory}/${storagePath}`;
-    await this.Filesystem.deleteFile({
+    await Filesystem.deleteFile({
       path: filePath,
-      directory: this.Directory.Library
+      directory: Directory.Library
     });
   }
 
   async exists(storagePath: string): Promise<boolean> {
-    if (!this.Filesystem || !this.Directory) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
     try {
       const filePath = `${this.filesDirectory}/${storagePath}`;
-      await this.Filesystem.stat({
+      await Filesystem.stat({
         path: filePath,
-        directory: this.Directory.Library
+        directory: Directory.Library
       });
       return true;
     } catch {
@@ -263,22 +257,22 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async getStorageUsed(): Promise<number> {
-    if (!this.Filesystem || !this.Directory) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
     try {
-      const result = await this.Filesystem.readdir({
+      const result = await Filesystem.readdir({
         path: this.filesDirectory,
-        directory: this.Directory.Library
+        directory: Directory.Library
       });
 
       let totalSize = 0;
       for (const file of result.files) {
         if (file.type === 'file') {
-          const stat = await this.Filesystem.stat({
+          const stat = await Filesystem.stat({
             path: `${this.filesDirectory}/${file.name}`,
-            directory: this.Directory.Library
+            directory: Directory.Library
           });
           totalSize += stat.size;
         }
@@ -290,21 +284,21 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async clearAll(): Promise<void> {
-    if (!this.Filesystem || !this.Directory) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
     try {
-      const result = await this.Filesystem.readdir({
+      const result = await Filesystem.readdir({
         path: this.filesDirectory,
-        directory: this.Directory.Library
+        directory: Directory.Library
       });
 
       for (const file of result.files) {
         if (file.type === 'file') {
-          await this.Filesystem.deleteFile({
+          await Filesystem.deleteFile({
             path: `${this.filesDirectory}/${file.name}`,
-            directory: this.Directory.Library
+            directory: Directory.Library
           });
         }
       }
