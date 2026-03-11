@@ -1,18 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as orgStorage from './orgStorage';
 
 const STORAGE_KEY = 'active_organization_id';
 
-// Reset module state between tests by re-importing
-let orgStorage: typeof import('./orgStorage');
-
 describe('orgStorage', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     localStorage.clear();
-    vi.resetModules();
-    orgStorage = await import('./orgStorage');
+    orgStorage.resetOrgStorageRuntimeForTesting();
   });
 
   afterEach(() => {
+    orgStorage.resetOrgStorageRuntimeForTesting();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -47,9 +45,8 @@ describe('orgStorage', () => {
 
   it('initializes from localStorage on module load', async () => {
     localStorage.setItem(STORAGE_KEY, 'persisted-org');
-    vi.resetModules();
-    const freshModule = await import('./orgStorage');
-    expect(freshModule.getActiveOrganizationId()).toBe('persisted-org');
+    orgStorage.resetOrgStorageRuntimeForTesting();
+    expect(orgStorage.getActiveOrganizationId()).toBe('persisted-org');
   });
 
   it('falls back to null on module load when localStorage read throws', async () => {
@@ -59,9 +56,8 @@ describe('orgStorage', () => {
         throw new Error('blocked');
       });
 
-    vi.resetModules();
-    const freshModule = await import('./orgStorage');
-    expect(freshModule.getActiveOrganizationId()).toBeNull();
+    orgStorage.resetOrgStorageRuntimeForTesting();
+    expect(orgStorage.getActiveOrganizationId()).toBeNull();
 
     getItemSpy.mockRestore();
   });
@@ -95,14 +91,11 @@ describe('orgStorage', () => {
 
   it('no-ops org listeners when window is unavailable', async () => {
     vi.stubGlobal('window', undefined);
-    vi.resetModules();
-
-    const freshModule = await import('./orgStorage');
     const listener = vi.fn();
-    const unsubscribe = freshModule.onOrgChange(listener);
+    const unsubscribe = orgStorage.onOrgChange(listener);
 
     expect(() =>
-      freshModule.setActiveOrganizationId('org-no-window')
+      orgStorage.setActiveOrganizationId('org-no-window')
     ).not.toThrow();
     expect(() => unsubscribe()).not.toThrow();
     expect(listener).not.toHaveBeenCalled();

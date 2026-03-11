@@ -52,3 +52,11 @@ export function onOrgChange(listener: () => void): () => void {
     window.removeEventListener(ORG_CHANGE_EVENT, listener);
   };
 }
+
+export function resetOrgStorageRuntimeForTesting(): void {
+  try {
+    activeOrgId = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    activeOrgId = null;
+  }
+}
