@@ -65,6 +65,13 @@
   --scrollbar-thumb-hover: var(--light-primary);
   --scrollbar-width: 10px;
   --scrollbar-radius: 5px;
+
+  /* Terminal colors */
+  --terminal-bg: var(--light-bg);
+  --terminal-border: var(--light-border);
+  --terminal-prompt: var(--light-success);
+  --terminal-command: var(--light-fg-muted);
+  --terminal-output: var(--light-fg);
   }
 
   .dark {
@@ -129,6 +136,13 @@
   --scrollbar-track: oklch(20% 0.015 240);
   --scrollbar-thumb: oklch(40% 0.015 240);
   --scrollbar-thumb-hover: var(--dark-primary);
+
+  /* Terminal colors */
+  --terminal-bg: oklch(16% 0.012 240);
+  --terminal-border: var(--dark-border);
+  --terminal-prompt: var(--dark-success);
+  --terminal-command: var(--dark-fg-muted);
+  --terminal-output: var(--dark-fg);
   }
 
   .tokyo-night {
@@ -175,6 +189,13 @@
   --scrollbar-track: oklch(26% 0.025 264);
   --scrollbar-thumb: oklch(40% 0.03 264);
   --scrollbar-thumb-hover: var(--primary);
+
+  /* Terminal colors */
+  --terminal-bg: oklch(20% 0.025 264);
+  --terminal-border: oklch(25% 0.02 264);
+  --terminal-prompt: oklch(70% 0.15 165);
+  --terminal-command: oklch(65% 0.04 265);
+  --terminal-output: oklch(83.5% 0.045 267.5);
   }
 
   .monochrome {
@@ -221,6 +242,13 @@
   --scrollbar-track: oklch(22% 0 0);
   --scrollbar-thumb: oklch(45% 0 0);
   --scrollbar-thumb-hover: oklch(65% 0 0);
+
+  /* Terminal colors */
+  --terminal-bg: oklch(15% 0 0);
+  --terminal-border: oklch(30% 0 0);
+  --terminal-prompt: oklch(75% 0 0);
+  --terminal-command: oklch(50% 0 0);
+  --terminal-output: oklch(85% 0 0);
   }
 }
 
