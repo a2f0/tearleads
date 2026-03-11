@@ -63,7 +63,9 @@ describe('CapacitorAdapter', () => {
 
     sqlite.setEncryptionSecret
       .mockRejectedValueOnce(
-        new Error('SetEncryptionSecret: State for: tearleads-testSQLite.db not correct')
+        new Error(
+          'SetEncryptionSecret: State for: tearleads-testSQLite.db not correct'
+        )
       )
       .mockResolvedValueOnce(undefined);
     sqlite.createConnection.mockResolvedValue(dbConnection);
@@ -96,7 +98,9 @@ describe('CapacitorAdapter', () => {
   it('rethrows non-ignorable plugin delete errors during state recovery', async () => {
     const sqlite = createSqliteConnectionMock();
     sqlite.setEncryptionSecret.mockRejectedValueOnce(
-      new Error('SetEncryptionSecret: State for: tearleads-testSQLite.db not correct')
+      new Error(
+        'SetEncryptionSecret: State for: tearleads-testSQLite.db not correct'
+      )
     );
 
     mockGetSQLiteConnection.mockResolvedValue(sqlite);

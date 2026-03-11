@@ -20,7 +20,9 @@ interface LoadHelpersOptions {
   platform?: 'ios' | 'android' | 'web';
 }
 
-async function loadHelpers(options: LoadHelpersOptions = {}): Promise<LoadedHelpers> {
+async function loadHelpers(
+  options: LoadHelpersOptions = {}
+): Promise<LoadedHelpers> {
   const { echoError, platform = 'ios' } = options;
   vi.resetModules();
 
