@@ -1,5 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { VfsCrdtPushResponse } from '@tearleads/shared';
+import {
+  VFS_V2_CONNECT_BASE_PATH,
+  type VfsCrdtPushResponse
+} from '@tearleads/shared';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { invalidateReplicaWriteIdRowsForUser } from '../../lib/vfsCrdtReplicaWriteIds.js';
@@ -35,7 +38,7 @@ export async function pushCrdtOpsDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/PushCrdtOps',
+    `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`,
     context.requestHeader,
     {
       requireDeclaredOrganization: true,

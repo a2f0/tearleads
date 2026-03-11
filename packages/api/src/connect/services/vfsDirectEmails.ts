@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { Code, ConnectError } from '@connectrpc/connect';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { type EmailAttachment, sendEmail } from '../../lib/emailSender.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
@@ -118,7 +119,7 @@ export async function getEmailsDirect(
   limit: number;
 }> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetEmails',
+    `${VFS_V2_CONNECT_BASE_PATH}/GetEmails`,
     context.requestHeader
   );
 
@@ -206,7 +207,7 @@ export async function getEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetEmail',
+    `${VFS_V2_CONNECT_BASE_PATH}/GetEmail`,
     context.requestHeader
   );
 
@@ -277,7 +278,7 @@ export async function deleteEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/DeleteEmail',
+    `${VFS_V2_CONNECT_BASE_PATH}/DeleteEmail`,
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -378,7 +379,7 @@ export async function sendEmailDirect(
   context: { requestHeader: Headers }
 ): Promise<{ success: boolean; messageId?: string }> {
   await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/SendEmail',
+    `${VFS_V2_CONNECT_BASE_PATH}/SendEmail`,
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

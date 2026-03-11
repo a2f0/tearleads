@@ -4,6 +4,7 @@ import type {
   VfsSyncReconcileResponse,
   VfsSyncResponse
 } from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
   buildVfsSyncQuery,
@@ -199,7 +200,7 @@ export async function getSyncDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSyncProtoResponse> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetSync',
+    `${VFS_V2_CONNECT_BASE_PATH}/GetSync`,
     context.requestHeader
   );
 
@@ -239,7 +240,7 @@ export async function getCrdtSyncDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtSyncProtoResponse> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetCrdtSync',
+    `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`,
     context.requestHeader
   );
 
@@ -318,7 +319,7 @@ export async function getCrdtSnapshotDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtSnapshotProtoResponse> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetCrdtSnapshot',
+    `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSnapshot`,
     context.requestHeader
   );
 
@@ -357,7 +358,7 @@ export async function reconcileSyncDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/ReconcileSync',
+    `${VFS_V2_CONNECT_BASE_PATH}/ReconcileSync`,
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

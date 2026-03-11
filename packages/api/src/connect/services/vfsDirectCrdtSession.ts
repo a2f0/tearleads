@@ -1,5 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type { VfsCrdtSyncSessionResponse } from '@tearleads/shared';
+import {
+  VFS_V2_CONNECT_BASE_PATH,
+  type VfsCrdtSyncSessionResponse
+} from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
   decodeVfsSyncCursor,
@@ -208,7 +211,7 @@ export async function runCrdtSessionDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/RunCrdtSession',
+    `${VFS_V2_CONNECT_BASE_PATH}/RunCrdtSession`,
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
