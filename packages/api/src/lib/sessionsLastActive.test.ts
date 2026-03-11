@@ -220,7 +220,10 @@ describe('sessions getLatestLastActiveByUserIds', () => {
   it('returns nulls when redis client fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { getRedisClient } = await import('@tearleads/shared/redis');
-    vi.mocked(getRedisClient).mockRejectedValueOnce(new Error('redis down'));
+    if (!vi.isMockFunction(getRedisClient)) {
+      throw new Error('getRedisClient mock is not configured');
+    }
+    getRedisClient.mockRejectedValueOnce(new Error('redis down'));
 
     const { getLatestLastActiveByUserIds } = await import('./sessions.js');
     const result = await getLatestLastActiveByUserIds(['user-1']);

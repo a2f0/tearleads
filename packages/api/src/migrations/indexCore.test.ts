@@ -3,12 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { getCurrentVersion, runMigrations } from './index.js';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
+function getPoolQueryMock(pool: Pool & { queries: string[] }) {
+  if (!vi.isMockFunction(pool.query))
+    throw new Error('pool.query mock is not configured');
+  return pool.query;
+}
 
 describe('migrations (core through v021)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
-      vi.mocked(pool.query).mockRejectedValueOnce(
+      getPoolQueryMock(pool).mockRejectedValueOnce(
         new Error('relation "schema_migrations" does not exist')
       );
 
@@ -111,7 +116,7 @@ describe('migrations (core through v021)', () => {
     it('applies pending migrations when behind', async () => {
       let versionCallCount = 0;
       const pool = createMockPool(new Map());
-      vi.mocked(pool.query).mockImplementation((sql: string) => {
+      getPoolQueryMock(pool).mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
         if (sql.includes('MAX(version)')) {
