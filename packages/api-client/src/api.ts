@@ -1,6 +1,7 @@
 export { api } from './apiClient';
 export {
   API_BASE_URL,
+  resetApiCoreRuntimeForTesting,
   resetApiRequestHeadersProvider,
   setApiRequestHeadersProvider,
   tryRefreshToken

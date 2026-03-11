@@ -1,6 +1,8 @@
+import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetAuthStorageRuntimeForTesting } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -58,10 +60,11 @@ let seededUser: SeededUser;
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });

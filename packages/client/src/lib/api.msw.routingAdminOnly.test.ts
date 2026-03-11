@@ -1,6 +1,8 @@
+import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetAuthStorageRuntimeForTesting } from '@/lib/authStorage';
 import {
   installApiV2WasmBindingsTestOverride,
   removeApiV2WasmBindingsTestOverride
@@ -38,7 +40,7 @@ let seededUser: SeededUser;
 
 describe('api with msw admin routing', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     const mockedPingWasmModule = {
       v2_ping_path: () => '/v2/ping',
       parse_v2_ping_value: (payload: unknown) => {
@@ -57,6 +59,7 @@ describe('api with msw admin routing', () => {
     installApiV2WasmBindingsTestOverride();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
 
     const ctx = getSharedTestContext();
