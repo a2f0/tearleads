@@ -8,7 +8,6 @@ const fixedSessionKey = new Uint8Array(32).fill(3);
 
 describe('secureReadPipelineRuntime', () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 

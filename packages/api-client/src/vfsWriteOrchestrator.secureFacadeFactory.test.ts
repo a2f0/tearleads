@@ -4,7 +4,6 @@ import { VfsWriteOrchestrator } from './vfsWriteOrchestrator';
 
 describe('vfsWriteOrchestrator secure facade runtime factory', () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     localStorage.clear();
   });

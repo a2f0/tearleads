@@ -29,7 +29,6 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
   };
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
