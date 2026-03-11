@@ -236,7 +236,6 @@ describe('opfs storage', () => {
         { create: true }
       );
     });
-
   });
 
   describe('getFileStorageForInstance', () => {
@@ -280,7 +279,9 @@ describe('opfs storage', () => {
       await initializeFileStorage(testEncryptionKey, secondInstanceId);
 
       expect(getFileStorage(firstInstanceId)).toBe(firstStorage);
-      expect(getFileStorage(secondInstanceId).instanceId).toBe(secondInstanceId);
+      expect(getFileStorage(secondInstanceId).instanceId).toBe(
+        secondInstanceId
+      );
     });
   });
 

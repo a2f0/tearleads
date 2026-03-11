@@ -283,7 +283,9 @@ vi.mock('@/storage/opfs', () => ({
   getFileStorage: vi.fn((instanceId: string) => {
     const storage = mockFileStorageInstances.get(instanceId);
     if (!storage) {
-      throw new Error(`File storage not initialized for instance ${instanceId}`);
+      throw new Error(
+        `File storage not initialized for instance ${instanceId}`
+      );
     }
     return storage;
   }),
