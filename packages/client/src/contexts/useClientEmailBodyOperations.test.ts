@@ -46,7 +46,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('fetches, decrypts, and returns the email body', async () => {
     mockGetAuthHeaderValue.mockReturnValue('Bearer token');
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({ encryptedBodyPath: 'blobs/email-body-123' })
     } as Response);
@@ -59,7 +59,7 @@ describe('useClientEmailBodyOperations', () => {
     const body = await result.current.fetchDecryptedBody('email-1');
 
     expect(body).toBe('Hello World');
-    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://api.test/connect/tearleads.v2.VfsService/GetEmail',
       expect.objectContaining({
         method: 'POST',
@@ -72,7 +72,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('returns inline rawData without fetching blob ciphertext', async () => {
     mockGetAuthHeaderValue.mockReturnValue('Bearer token');
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         rawData: 'From: system@tearleads.com\r\n\r\nHello from scaffold'
@@ -90,7 +90,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('omits Authorization header when auth is null', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({ encryptedBodyPath: 'blobs/path' })
     } as Response);
@@ -102,7 +102,7 @@ describe('useClientEmailBodyOperations', () => {
     const { result } = renderHook(() => useClientEmailBodyOperations());
     await result.current.fetchDecryptedBody('email-1');
 
-    const fetchCall = vi.mocked(globalThis.fetch).mock.calls[0];
+    const fetchCall = globalThis.fetch.mock.calls[0];
     const headers = (fetchCall[1] as RequestInit).headers as Record<
       string,
       string
@@ -112,7 +112,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws on non-ok response', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: false,
       statusText: 'Not Found'
     } as Response);
@@ -125,7 +125,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws on invalid envelope (not a record)', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => 'not-an-object'
     } as Response);
@@ -138,7 +138,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws when encryptedBodyPath is missing', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({})
     } as Response);
@@ -151,7 +151,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws when encryptedBodyPath is empty string', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({ encryptedBodyPath: '' })
     } as Response);
@@ -164,7 +164,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws when encryption key is not available', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({ encryptedBodyPath: 'blobs/x' })
     } as Response);
@@ -179,7 +179,7 @@ describe('useClientEmailBodyOperations', () => {
 
   it('throws on array envelope (isRecord rejects arrays)', async () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
-    vi.mocked(globalThis.fetch).mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => [1, 2, 3]
     } as Response);

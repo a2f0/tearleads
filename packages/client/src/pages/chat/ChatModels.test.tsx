@@ -258,7 +258,7 @@ describe('Chat models and styling', () => {
 
     for (const { modelId, expectedName } of testCases) {
       it(`parses "${modelId}" to "${expectedName}"`, () => {
-        vi.mocked(useLLM).mockReturnValue({
+        useLLM.mockReturnValue({
           loadedModel: modelId,
           modelType: 'chat',
           isLoading: false,
@@ -283,7 +283,7 @@ describe('Chat models and styling', () => {
 
   describe('vision model image attachment placeholder', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,
@@ -327,7 +327,7 @@ describe('Chat models and styling', () => {
 
   describe('model name edge cases', () => {
     it('handles model name with empty parts', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/-model-name',
         modelType: 'chat',
         isLoading: false,
@@ -350,7 +350,7 @@ describe('Chat models and styling', () => {
     });
 
     it('handles model name without org prefix', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'standalone-model-name',
         modelType: 'chat',
         isLoading: false,
@@ -372,7 +372,7 @@ describe('Chat models and styling', () => {
     });
 
     it('handles model name with -4k-instruct suffix', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model-4k-instruct',
         modelType: 'chat',
         isLoading: false,
@@ -396,7 +396,7 @@ describe('Chat models and styling', () => {
 
   describe('ChatHeader component', () => {
     it('renders the model name in the header', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model',
         modelType: 'chat',
         isLoading: false,
@@ -420,7 +420,7 @@ describe('Chat models and styling', () => {
 
   describe('UserMessage and AssistantMessage components', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model',
         modelType: 'chat',
         isLoading: false,
@@ -447,7 +447,7 @@ describe('Chat models and styling', () => {
   describe('NoModelLoadedContent styling', () => {
     beforeEach(() => {
       // Reset to no model loaded state
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: null,
         modelType: null,
         isLoading: false,

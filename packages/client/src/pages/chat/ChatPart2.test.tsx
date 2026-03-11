@@ -253,7 +253,7 @@ describe('Chat', () => {
 
   describe('CustomText loading spinner', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
         modelType: 'chat',
         isLoading: false,
@@ -296,7 +296,7 @@ describe('Chat', () => {
 
   describe('vision model image attachment placeholder', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,
@@ -340,7 +340,7 @@ describe('Chat', () => {
 
   describe('non-vision model composer', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
         modelType: 'chat',
         isLoading: false,
@@ -367,7 +367,7 @@ describe('Chat', () => {
 
   describe('model name edge cases', () => {
     it('handles model name with empty parts', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/-model-name',
         modelType: 'chat',
         isLoading: false,
@@ -390,7 +390,7 @@ describe('Chat', () => {
     });
 
     it('handles model name without org prefix', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'standalone-model-name',
         modelType: 'chat',
         isLoading: false,
@@ -412,7 +412,7 @@ describe('Chat', () => {
     });
 
     it('handles model name with -4k-instruct suffix', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model-4k-instruct',
         modelType: 'chat',
         isLoading: false,

@@ -33,7 +33,7 @@ const defaultMockReturn = {
 describe('ModelSelector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useLLM).mockReturnValue(defaultMockReturn);
+    useLLM.mockReturnValue(defaultMockReturn);
   });
 
   describe('when no model is loaded', () => {
@@ -52,7 +52,7 @@ describe('ModelSelector', () => {
 
   describe('when a model is loaded', () => {
     it('shows the model display name', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
@@ -63,7 +63,7 @@ describe('ModelSelector', () => {
     });
 
     it('applies green styling when model is loaded', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
@@ -186,7 +186,7 @@ describe('ModelSelector', () => {
     });
 
     it('does not call loadModel when the same model is selected', async () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
@@ -214,7 +214,7 @@ describe('ModelSelector', () => {
     });
 
     it('shows checkmark next to loaded model', async () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
@@ -244,7 +244,7 @@ describe('ModelSelector', () => {
 
   describe('loading state', () => {
     it('shows loading percentage when loading', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         isLoading: true,
         loadProgress: { text: 'Downloading...', progress: 0.5 }
@@ -256,7 +256,7 @@ describe('ModelSelector', () => {
     });
 
     it('shows spinner when loading', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         isLoading: true,
         loadProgress: { text: 'Downloading...', progress: 0.25 }
@@ -269,7 +269,7 @@ describe('ModelSelector', () => {
     });
 
     it('disables button when loading', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         isLoading: true,
         loadProgress: { text: 'Downloading...', progress: 0.75 }
@@ -281,7 +281,7 @@ describe('ModelSelector', () => {
     });
 
     it('does not open dropdown when loading', async () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         ...defaultMockReturn,
         isLoading: true,
         loadProgress: { text: 'Downloading...', progress: 0.5 }

@@ -19,8 +19,8 @@ describe('Dropzone Web/Electron', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(detectPlatform).mockReturnValue('web');
-    vi.mocked(useNativeFilePicker).mockReturnValue({
+    detectPlatform.mockReturnValue('web');
+    useNativeFilePicker.mockReturnValue({
       pickFiles: mockPickFiles,
       isNativePicker: false
     });
@@ -126,8 +126,8 @@ describe('Dropzone Native iOS', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(detectPlatform).mockReturnValue('ios');
-    vi.mocked(useNativeFilePicker).mockReturnValue({
+    detectPlatform.mockReturnValue('ios');
+    useNativeFilePicker.mockReturnValue({
       pickFiles: mockPickFiles,
       isNativePicker: true
     });
@@ -298,8 +298,8 @@ describe('Dropzone Native Android', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(detectPlatform).mockReturnValue('android');
-    vi.mocked(useNativeFilePicker).mockReturnValue({
+    detectPlatform.mockReturnValue('android');
+    useNativeFilePicker.mockReturnValue({
       pickFiles: mockPickFiles,
       isNativePicker: false
     });

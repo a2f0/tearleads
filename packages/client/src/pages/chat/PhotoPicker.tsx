@@ -14,6 +14,7 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 
+// one-component-per-file: allow - shared JSX helper keeps picker rendering readable.
 interface PhotoInfo {
   id: string;
   name: string;

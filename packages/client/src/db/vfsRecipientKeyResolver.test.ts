@@ -26,7 +26,7 @@ describe('vfsRecipientKeyResolver', () => {
   describe('createRecipientPublicKeyResolver', () => {
     it('resolves public key from API', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockResolvedValue({
+      api.vfs.searchShareTargets.mockResolvedValue({
         results: [
           {
             id: 'user-123',
@@ -53,7 +53,7 @@ describe('vfsRecipientKeyResolver', () => {
 
     it('returns null when user not found', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockResolvedValue({
+      api.vfs.searchShareTargets.mockResolvedValue({
         results: []
       });
 
@@ -65,7 +65,7 @@ describe('vfsRecipientKeyResolver', () => {
 
     it('returns null when user has no public key', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockResolvedValue({
+      api.vfs.searchShareTargets.mockResolvedValue({
         results: [
           {
             id: 'user-123',
@@ -93,7 +93,7 @@ describe('vfsRecipientKeyResolver', () => {
 
     it('caches resolved keys', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockResolvedValue({
+      api.vfs.searchShareTargets.mockResolvedValue({
         results: [
           {
             id: 'user-123',
@@ -114,9 +114,7 @@ describe('vfsRecipientKeyResolver', () => {
 
     it('handles API errors gracefully', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockRejectedValue(
-        new Error('Network error')
-      );
+      api.vfs.searchShareTargets.mockRejectedValue(new Error('Network error'));
 
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
@@ -190,7 +188,7 @@ describe('vfsRecipientKeyResolver', () => {
   describe('clearRecipientKeyCache', () => {
     it('clears the cache so keys are re-fetched', async () => {
       const { api } = await import('@/lib/api');
-      vi.mocked(api.vfs.searchShareTargets).mockResolvedValue({
+      api.vfs.searchShareTargets.mockResolvedValue({
         results: [
           {
             id: 'user-123',

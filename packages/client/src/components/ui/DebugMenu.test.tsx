@@ -34,7 +34,7 @@ describe('DebugMenu', () => {
 
   it('opens the menu when debug button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -46,7 +46,7 @@ describe('DebugMenu', () => {
 
   it('displays environment information', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -59,7 +59,7 @@ describe('DebugMenu', () => {
 
   it('displays the API URL', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -71,7 +71,7 @@ describe('DebugMenu', () => {
 
   it('fetches and displays version when menu opens', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -88,7 +88,7 @@ describe('DebugMenu', () => {
     const user = userEvent.setup();
     let resolvePing: (data: typeof mockPingData) => void = () => {};
 
-    vi.mocked(api.ping.get).mockImplementation(
+    api.ping.get.mockImplementation(
       () =>
         new Promise<typeof mockPingData>((resolve) => {
           resolvePing = resolve;
@@ -110,7 +110,7 @@ describe('DebugMenu', () => {
 
   it('displays error when ping fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockRejectedValue(new Error('API error: 500'));
+    api.ping.get.mockRejectedValue(new Error('API error: 500'));
 
     render(<DebugMenu />);
 
@@ -123,7 +123,7 @@ describe('DebugMenu', () => {
 
   it('refreshes ping data when refresh button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -142,7 +142,7 @@ describe('DebugMenu', () => {
 
   it('closes the menu when close button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -160,7 +160,7 @@ describe('DebugMenu', () => {
 
   it('closes the menu when backdrop is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+    api.ping.get.mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -180,7 +180,7 @@ describe('DebugMenu', () => {
   describe('destructive actions', () => {
     it('throws an error when Throw Error button is clicked', async () => {
       const user = userEvent.setup();
-      vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+      api.ping.get.mockResolvedValue(mockPingData);
 
       // Suppress error boundary console errors for this test
       vi.spyOn(console, 'error').mockImplementation(() => {});

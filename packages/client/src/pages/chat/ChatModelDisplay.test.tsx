@@ -212,7 +212,7 @@ describe('model display name parsing', () => {
 
   for (const { modelId, expectedName } of testCases) {
     it(`parses "${modelId}" to "${expectedName}"`, () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: modelId,
         modelType: 'chat',
         isLoading: false,
@@ -245,7 +245,7 @@ describe('model name edge cases', () => {
   });
 
   it('handles model name with empty parts', () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'org/-model-name',
       modelType: 'chat',
       isLoading: false,
@@ -265,7 +265,7 @@ describe('model name edge cases', () => {
   });
 
   it('handles model name without org prefix', () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'standalone-model-name',
       modelType: 'chat',
       isLoading: false,
@@ -285,7 +285,7 @@ describe('model name edge cases', () => {
   });
 
   it('handles model name with -4k-instruct suffix', () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'org/model-4k-instruct',
       modelType: 'chat',
       isLoading: false,
@@ -317,7 +317,7 @@ describe('ChatHeader component', () => {
   });
 
   it('renders the model name in the header', () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'org/model',
       modelType: 'chat',
       isLoading: false,
@@ -346,7 +346,7 @@ describe('UserMessage and AssistantMessage components', () => {
       currentInstanceId: 'test-instance'
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'org/model',
       modelType: 'chat',
       isLoading: false,
@@ -378,7 +378,7 @@ describe('NoModelLoadedContent styling', () => {
       currentInstanceId: 'test-instance'
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: null,
       modelType: null,
       isLoading: false,
