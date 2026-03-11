@@ -65,12 +65,12 @@ describe('useConversations mutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDb = createChainableDb();
-    vi.mocked(getDatabase).mockReturnValue(
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getSessionKey).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(decryptContent).mockResolvedValue('decrypted-text');
-    vi.mocked(getCachedSessionKey).mockReturnValue(new Uint8Array([4, 5, 6]));
+    getSessionKey.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    decryptContent.mockResolvedValue('decrypted-text');
+    getCachedSessionKey.mockReturnValue(new Uint8Array([4, 5, 6]));
   });
 
   describe('createConversation', () => {
@@ -107,9 +107,7 @@ describe('useConversations mutations', () => {
 
     it('returns immediately even when background sync fails', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      vi.mocked(queueItemUpsertAndFlush).mockRejectedValueOnce(
-        new Error('sync failed')
-      );
+      queueItemUpsertAndFlush.mockRejectedValueOnce(new Error('sync failed'));
 
       const { result } = renderHook(() => useConversations());
 
@@ -154,7 +152,7 @@ describe('useConversations mutations', () => {
     });
 
     it('throws when session key is not cached', async () => {
-      vi.mocked(getCachedSessionKey).mockReturnValue(undefined);
+      getCachedSessionKey.mockReturnValue(undefined);
 
       const { result } = renderHook(() => useConversations());
 

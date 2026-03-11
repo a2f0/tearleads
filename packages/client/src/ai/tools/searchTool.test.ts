@@ -74,7 +74,7 @@ describe('executeSearchTool', () => {
 
   it('should return empty results when not initialized', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: false });
 
     const result = await executeSearchTool({ query: 'test' });
@@ -86,7 +86,7 @@ describe('executeSearchTool', () => {
 
   it('should search and return results when initialized', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({
       hits: [
@@ -120,7 +120,7 @@ describe('executeSearchTool', () => {
 
   it('should respect limit parameter', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
@@ -131,7 +131,7 @@ describe('executeSearchTool', () => {
 
   it('should clamp limit to max 20', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
@@ -142,7 +142,7 @@ describe('executeSearchTool', () => {
 
   it('should clamp limit to min 1', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
@@ -153,7 +153,7 @@ describe('executeSearchTool', () => {
 
   it('should pass entityTypes filter when provided', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
@@ -170,7 +170,7 @@ describe('executeSearchTool', () => {
 
   it('should truncate long content to 150 chars with ellipsis', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     const longContent = 'A'.repeat(200);
     mockSearch.mockResolvedValue({
@@ -199,7 +199,7 @@ describe('executeSearchTool', () => {
 
   it('should use metadata for preview if no content', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({
       hits: [
@@ -229,7 +229,7 @@ describe('executeSearchTool', () => {
 
   it('should not add preview if no content or metadata', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({
       hits: [
@@ -256,7 +256,7 @@ describe('executeSearchTool', () => {
 
   it('should return correct totalFound when limited', async () => {
     const { getCurrentInstanceId } = await import('@/db');
-    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    getCurrentInstanceId.mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     mockSearch.mockResolvedValue({
       hits: [

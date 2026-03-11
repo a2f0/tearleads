@@ -35,7 +35,7 @@ describe('useNativeFilePicker', () => {
 
   describe('on web platform', () => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('web');
+      detectPlatform.mockReturnValue('web');
     });
 
     it('returns isNativePicker as false', () => {
@@ -60,7 +60,7 @@ describe('useNativeFilePicker', () => {
     let fetchSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('ios');
+      detectPlatform.mockReturnValue('ios');
       fetchSpy = vi
         .spyOn(global, 'fetch')
         .mockImplementation(async () => createAudioResponse());
@@ -76,7 +76,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles calls FilePicker.pickFiles with correct options', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: [
           {
             name: 'test.mp3',
@@ -112,7 +112,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles with multiple=true sets limit to 0', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: []
       });
 
@@ -133,7 +133,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles returns empty array when no files selected', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: []
       });
 
@@ -148,7 +148,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles parses comma-separated accept types', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: []
       });
 
@@ -169,7 +169,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles without accept does not include types', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: []
       });
 
@@ -186,7 +186,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles with source="photos" calls FilePicker.pickImages', async () => {
-      vi.mocked(FilePicker.pickImages).mockResolvedValue({
+      FilePicker.pickImages.mockResolvedValue({
         files: [
           {
             name: 'photo.jpg',
@@ -217,7 +217,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles with source="media" calls FilePicker.pickMedia', async () => {
-      vi.mocked(FilePicker.pickMedia).mockResolvedValue({
+      FilePicker.pickMedia.mockResolvedValue({
         files: [
           {
             name: 'video.mp4',
@@ -248,7 +248,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('pickFiles with source="files" (default) calls FilePicker.pickFiles', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: []
       });
 
@@ -271,7 +271,7 @@ describe('useNativeFilePicker', () => {
     });
 
     it('throws when a picked file has no data', async () => {
-      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+      FilePicker.pickFiles.mockResolvedValue({
         files: [
           {
             name: 'broken.mp3',
@@ -292,7 +292,7 @@ describe('useNativeFilePicker', () => {
 
   describe('on Android platform', () => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('android');
+      detectPlatform.mockReturnValue('android');
     });
 
     it('returns isNativePicker as false (only iOS uses native picker)', () => {
