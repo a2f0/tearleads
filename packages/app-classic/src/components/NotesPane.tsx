@@ -1,3 +1,7 @@
+import {
+  DESKTOP_WINDOW_FOOTER_HEIGHT,
+  useIsMobile
+} from '@tearleads/window-manager';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,6 +16,7 @@ import {
   ClassicContextMenu,
   type ClassicContextMenuComponents
 } from './ClassicContextMenu';
+import { useMobileKeyboardInset } from './useMobileKeyboardInset';
 
 interface NotesPaneProps {
   activeTagName: string | null;
@@ -63,6 +68,8 @@ export function NotesPane({
   contextMenuComponents
 }: NotesPaneProps) {
   const { t } = useTranslation('classic');
+  const isMobile = useIsMobile();
+  const keyboardInset = useMobileKeyboardInset();
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
   );
@@ -169,6 +176,11 @@ export function NotesPane({
       (hasPlainText || hasSafariPlainText) && draggedNoteId === null;
     return hasTag || hasExternalClassicTagDrag;
   };
+  const searchContainerStyle = isMobile
+    ? {
+        paddingBottom: `calc(${DESKTOP_WINDOW_FOOTER_HEIGHT + keyboardInset}px + env(safe-area-inset-bottom, 0px))`
+      }
+    : undefined;
 
   return (
     <section className="flex flex-1 flex-col" aria-label={t('notesPane')}>
@@ -430,7 +442,11 @@ export function NotesPane({
           </ol>
         )}
       </div>
-      <div className="p-3">
+      <div
+        className="p-3"
+        style={searchContainerStyle}
+        data-testid="notes-search-container"
+      >
         <input
           ref={searchInputRef}
           type="text"

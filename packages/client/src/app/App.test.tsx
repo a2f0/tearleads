@@ -24,7 +24,6 @@ const mockUpdateInstance = vi.fn();
 const mockNotificationWarning = vi.fn();
 let mockIsUnlocked = false;
 let mockIsAuthenticated = false;
-let mockKeyboardHeight = 0;
 let mockCurrentInstanceId: string | null = null;
 let mockInstances: Array<{ id: string; passwordDeferred?: boolean }> = [];
 
@@ -154,10 +153,6 @@ vi.mock('../hooks/app', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
 
-vi.mock('../hooks/ui', () => ({
-  useKeyboardHeight: () => mockKeyboardHeight
-}));
-
 vi.mock('./SSESystemTrayItems', () => ({
   SSESystemTrayItems: () => <div data-testid="sse-system-tray-items" />
 }));
@@ -189,7 +184,6 @@ describe('App', () => {
     mockNotificationWarning.mockReset();
     mockIsUnlocked = false;
     mockIsAuthenticated = false;
-    mockKeyboardHeight = 0;
     mockCurrentInstanceId = null;
     mockInstances = [];
   });
@@ -257,16 +251,6 @@ describe('App', () => {
     const footer = screen.getByRole('contentinfo');
     const taskbar = screen.getByTestId('taskbar');
     expect(footer).toContainElement(taskbar);
-  });
-
-  it('adds keyboard offset padding when keyboard height is present', () => {
-    mockKeyboardHeight = 100;
-
-    renderApp();
-
-    expect(screen.getByTestId('outlet').parentElement).toHaveStyle({
-      paddingBottom: '164px'
-    });
   });
 
   describe('Start menu context menu', () => {

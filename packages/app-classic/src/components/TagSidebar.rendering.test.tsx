@@ -1,7 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { WindowSidebarProvider } from '@tearleads/window-manager';
 import { TagSidebar } from './TagSidebar';
 
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: width
+  });
+}
+
 describe('TagSidebar rendering', () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
   it('renders empty state with clickable silhouette', () => {
     const onCreateTag = vi.fn();
 
@@ -149,5 +162,27 @@ describe('TagSidebar rendering', () => {
 
     expect(screen.getByText('Work (5)')).toBeInTheDocument();
     expect(screen.getByText('Personal (0)')).toBeInTheDocument();
+  });
+
+  it('adds footer-clearing bottom padding in mobile drawer', () => {
+    render(
+      <WindowSidebarProvider
+        value={{ closeSidebar: () => {}, isMobileDrawer: true }}
+      >
+        <TagSidebar
+          tags={[{ id: 'tag-1', name: 'Work' }]}
+          activeTagId={null}
+          onSelectTag={() => {}}
+          onMoveTag={() => {}}
+          onReorderTag={() => {}}
+          searchValue=""
+          onSearchChange={() => {}}
+        />
+      </WindowSidebarProvider>
+    );
+
+    const container = screen.getByTestId('tag-sidebar-search-container');
+    expect(container.style.paddingBottom).toContain('56px');
+    expect(container.style.paddingBottom).toContain('safe-area-inset-bottom');
   });
 });

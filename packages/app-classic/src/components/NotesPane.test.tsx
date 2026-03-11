@@ -1,7 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NotesPane } from './NotesPane';
 
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: width
+  });
+}
+
 describe('NotesPane', () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
   it('shows silhouette when no entries exist', () => {
     render(
       <NotesPane
@@ -444,5 +456,25 @@ describe('NotesPane', () => {
     });
 
     expect(onCancelEditNote).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds footer-clearing bottom padding on mobile', () => {
+    setViewportWidth(375);
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={[]}
+        notesById={{}}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const container = screen.getByTestId('notes-search-container');
+    expect(container.style.paddingBottom).toContain('56px');
+    expect(container.style.paddingBottom).toContain('safe-area-inset-bottom');
   });
 });

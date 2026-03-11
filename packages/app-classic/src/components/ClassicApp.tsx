@@ -118,7 +118,7 @@ export function ClassicApp({
   );
 
   return (
-    <div className="flex h-full min-h-[420px] w-full flex-col overflow-hidden bg-background">
+    <div className="flex h-full min-h-[420px] w-full flex-col overflow-clip bg-background">
       {showSortControls && (
         <ClassicMenuBar
           tagSortOrder={resolvedTagSortOrder}
