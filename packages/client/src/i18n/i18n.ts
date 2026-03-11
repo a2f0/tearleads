@@ -17,7 +17,17 @@ const loadedLanguages = new Set<string>(['en']);
 export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   if (loadedLanguages.has(lang)) return;
 
-  const translations = await import(`./translations/${lang}.ts`);
+  const loaders: Record<
+    string,
+    () => Promise<{ [key: string]: Record<string, unknown> }>
+  > = {
+    es: () => import('./translations/es'),
+    ua: () => import('./translations/ua'),
+    pt: () => import('./translations/pt')
+  };
+  const loader = loaders[lang];
+  if (!loader) return;
+  const translations = await loader();
   const namespaces = [
     'common',
     'menu',
@@ -35,9 +45,12 @@ export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
     'tooltips'
   ];
 
+  const langBundle = translations[lang] as Record<string, unknown> | undefined;
+  if (!langBundle) return;
+
   for (const ns of namespaces) {
-    if (translations[lang][ns]) {
-      i18n.addResourceBundle(lang, ns, translations[lang][ns], true, true);
+    if (langBundle[ns]) {
+      i18n.addResourceBundle(lang, ns, langBundle[ns], true, true);
     }
   }
 

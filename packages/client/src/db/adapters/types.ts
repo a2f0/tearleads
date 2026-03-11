@@ -6,8 +6,6 @@ export type {
   DatabaseAdapter,
   DatabaseConfig,
   DrizzleConnection,
-  DrizzleConnectionMethod,
-  Platform,
   PlatformInfo,
   QueryResult
 } from '@tearleads/db/adapter';
