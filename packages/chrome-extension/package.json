@@ -15,7 +15,7 @@
   "devDependencies": {
     "@tearleads/bun-dom-compat": "workspace:*",
     "@types/chrome": "0.1.37",
-    "@types/node": "25.3.3",
+    "@types/node": "25.3.5",
     "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "jsdom": "28.1.0",

@@ -32,7 +32,7 @@
     "@tearleads/db-test-utils": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "25.3.3",
+    "@types/node": "25.3.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
@@ -45,7 +45,7 @@
     "react-i18next": "16.5.4",
     "typescript": "5.9.3",
     "vitest": "4.0.18",
-    "@types/jsdom": "27.0.0",
+    "@types/jsdom": "28.0.0",
     "@tearleads/bun-dom-compat": "workspace:*"
   }
 }
