@@ -21,4 +21,4 @@ echo "=== Scaffolding test data ==="
 "$SCRIPT_DIR/users/scaffolding/createBobAndAlice.ts"
 
 echo ""
-echo "Full dev reset complete."
+echo "Full dev reset complete at $(date '+%Y-%m-%d %H:%M:%S %Z')."
