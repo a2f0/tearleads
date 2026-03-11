@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
+  VFS_SHARES_V2_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH
+} from '../../../packages/shared/src/vfsConnectPaths.js';
+import {
   API_ROUTE_REGEX,
   API_ROUTES_DIR,
   type ApiRoute,
@@ -41,10 +45,10 @@ const routePrefixForFile = (filePath: string): string | null => {
   if (normalized.includes('/routes/emails/')) return '/v1/emails';
   if (normalized.includes('/routes/sse/')) return '/v1/sse';
   if (normalized.includes('/routes/vfs-shares/')) {
-    return '/v1/connect/tearleads.v2.VfsSharesService';
+    return `/v1${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
   }
   if (normalized.includes('/routes/vfs/')) {
-    return '/v1/connect/tearleads.v2.VfsService';
+    return `/v1${VFS_V2_CONNECT_BASE_PATH}`;
   }
   if (normalized.includes('/routes/mls/')) return '/v1/mls';
   if (normalized.includes('/routes/revenuecat/')) return '/v1/revenuecat';
