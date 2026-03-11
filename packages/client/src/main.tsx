@@ -32,12 +32,28 @@ import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
 import { clientKeychainDependencies } from './keychain/keychainRuntime';
 import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
+import { rematerializeRemoteVfsStateIfNeeded } from './lib/vfsRematerialization';
+import { isTestMode } from './lib/testInstance';
 import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
 
+declare global {
+  interface Window {
+    __TEARLEADS_E2E__?: {
+      rematerializeRemoteVfsStateIfNeeded: () => Promise<boolean>;
+    };
+  }
+}
+
 const isElectronRuntime = typeof window.electron?.sqlite === 'object';
+
+if (isTestMode()) {
+  window.__TEARLEADS_E2E__ = {
+    rematerializeRemoteVfsStateIfNeeded
+  };
+}
 
 // Check for service worker updates when tab gains focus
 if (!isElectronRuntime && 'serviceWorker' in navigator) {

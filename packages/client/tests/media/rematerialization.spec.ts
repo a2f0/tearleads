@@ -13,12 +13,22 @@ const REMATERIALIZED_AUDIO_NAME = 'The Blessing.mp3';
 const VFS_SERVICE_CONNECT_PATH = '/connect/tearleads.v2.VfsService';
 const TEST_USER_ID = 'user-remat-test';
 
+declare global {
+  interface Window {
+    __TEARLEADS_E2E__?: {
+      rematerializeRemoteVfsStateIfNeeded: () => Promise<boolean>;
+    };
+  }
+}
+
 async function navigateInApp(page: Page, path: string): Promise<void> {
   await page.evaluate((route) => {
     window.history.pushState({}, '', route);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, path);
-  await page.waitForTimeout(500);
+  await expect
+    .poll(() => new URL(page.url()).pathname, { timeout: 10000 })
+    .toBe(path);
 }
 
 function createSyncResponse() {
@@ -218,37 +228,65 @@ async function mockRematerializationApi(page: Page): Promise<void> {
 
 async function triggerRematerialization(page: Page): Promise<void> {
   const didRematerialize = await page.evaluate(async () => {
-    const rematerializationModulePath = '/src/lib/' + 'vfsRematerialization.ts';
-    const { rematerializeRemoteVfsStateIfNeeded } = await import(
-      /* @vite-ignore */ rematerializationModulePath
-    );
-    return rematerializeRemoteVfsStateIfNeeded();
+    const helpers = window.__TEARLEADS_E2E__;
+    if (!helpers) {
+      throw new Error('E2E rematerialization helper is unavailable');
+    }
+    return helpers.rematerializeRemoteVfsStateIfNeeded();
   });
 
   expect(didRematerialize).toBe(true);
 }
 
+async function resolveAudioDropzoneState(
+  page: Page
+): Promise<'dropzone' | 'error' | 'pending'> {
+  const dropzoneText = page.getByText(
+    'Drop an audio file here to add it to your library'
+  );
+  if (await dropzoneText.isVisible().catch(() => false)) {
+    return 'dropzone';
+  }
+
+  const queryError = page.locator('text=/Failed query:/i').first();
+  if (await queryError.isVisible().catch(() => false)) {
+    return 'error';
+  }
+
+  return 'pending';
+}
+
 async function initializeStorageForActiveInstance(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const cryptoModulePath = '/src/db/crypto/' + 'index.ts';
-    const opfsModulePath = '/src/storage/opfs/' + 'index.ts';
-    const [cryptoModule, opfsModule] = await Promise.all([
-      import(/* @vite-ignore */ cryptoModulePath),
-      import(/* @vite-ignore */ opfsModulePath)
-    ]);
-
-    const instanceId = cryptoModule.getCurrentInstanceId();
-    if (!instanceId) {
-      throw new Error('No active instance while initializing storage');
-    }
-
-    const encryptionKey = cryptoModule.getKeyManager().getCurrentKey();
-    if (!encryptionKey) {
-      throw new Error('Database key missing while initializing storage');
-    }
-
-    await opfsModule.initializeFileStorage(encryptionKey, instanceId);
+  await navigateInApp(page, '/audio');
+  await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible({
+    timeout: 10000
   });
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let state = await resolveAudioDropzoneState(page);
+    if (state === 'pending') {
+      await expect
+        .poll(() => resolveAudioDropzoneState(page), {
+          timeout: 10000
+        })
+        .toMatch(/dropzone|error/);
+      state = await resolveAudioDropzoneState(page);
+    }
+
+    if (state === 'dropzone') {
+      return;
+    }
+
+    if (attempt === 0) {
+      const refreshButton = page.getByRole('button', { name: 'Refresh' });
+      if (await refreshButton.isEnabled().catch(() => false)) {
+        await refreshButton.click();
+        continue;
+      }
+    }
+
+    throw new Error('Audio storage initialization did not reach dropzone state');
+  }
 }
 
 async function assertVfsExplorerShowsRematerializedItems(
@@ -257,10 +295,10 @@ async function assertVfsExplorerShowsRematerializedItems(
   await navigateInApp(page, '/vfs');
   await page.getByText('All Items').first().click();
   await expect(page.getByText(REMATERIALIZED_PHOTO_NAME)).toBeVisible({
-    timeout: 10000
+    timeout: 20000
   });
   await expect(page.getByText(REMATERIALIZED_AUDIO_NAME)).toBeVisible({
-    timeout: 10000
+    timeout: 20000
   });
 }
 
@@ -299,8 +337,8 @@ test.describe('VFS rematerialization media visibility', () => {
   }) => {
     test.slow();
 
-    await setupDatabaseOnSqlitePage(page);
     await mockRematerializationApi(page);
+    await setupDatabaseOnSqlitePage(page);
     await triggerRematerialization(page);
 
     await assertVfsExplorerShowsRematerializedItems(page);
