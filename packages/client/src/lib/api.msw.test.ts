@@ -1,3 +1,4 @@
+import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
@@ -7,7 +8,11 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/lib/authStorage';
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  resetAuthStorageRuntimeForTesting
+} from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 import { setTestEnv } from '../test/env.js';
 
@@ -43,7 +48,7 @@ let seededUser: SeededUser;
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     const mockedPingWasmModule = {
       v2_ping_path: () => '/v2/ping',
       parse_v2_ping_value: (payload: unknown) => {
@@ -61,6 +66,7 @@ describe('api with msw', () => {
     );
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -342,6 +348,7 @@ describe('api with msw', () => {
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {
       setTestEnv('VITE_API_URL', '');
+      resetApiCoreRuntimeForTesting();
       (await import('@/lib/authStorage')).setStoredRefreshToken(
         'refresh-token'
       );

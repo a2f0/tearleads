@@ -80,7 +80,6 @@ export function resetApiRequestHeadersProvider(): void {
 
 export function resetApiCoreRuntimeForTesting(): void {
   refreshPromise = null;
-  resetApiRequestHeadersProvider();
   API_BASE_URL = import.meta.env.VITE_API_URL;
 }
 

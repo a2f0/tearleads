@@ -1,3 +1,4 @@
+import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import {
   getRecordedApiRequests,
@@ -7,7 +8,10 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from '@/lib/authStorage';
+import {
+  AUTH_TOKEN_KEY,
+  resetAuthStorageRuntimeForTesting
+} from '@/lib/authStorage';
 import { getSharedTestContext } from '@/test/testContext';
 import { setTestEnv } from '../test/env.js';
 
@@ -23,9 +27,10 @@ const loadApi = async () => {
 let seededUser: SeededUser;
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -86,8 +91,8 @@ describe('api with msw', () => {
     ).toBe(true);
   });
   it('supports /v1-prefixed API base URLs', async () => {
-    vi.resetModules();
     setTestEnv('VITE_API_URL', 'http://localhost/v1');
+    resetApiCoreRuntimeForTesting();
     (await import('@/lib/authStorage')).setStoredAuthToken(
       seededUser.accessToken
     );
