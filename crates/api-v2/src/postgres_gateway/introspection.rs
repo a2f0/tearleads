@@ -130,13 +130,13 @@ impl TokioPostgresGateway {
             let column_names: Vec<String> =
                 valid_columns.iter().map(|r| r.get("column_name")).collect();
 
-            if let Some(ref col) = sort_column {
-                if !column_names.iter().any(|c| c == col) {
-                    return Err(DataAccessError::new(
-                        tearleads_data_access_traits::DataAccessErrorKind::InvalidInput,
-                        format!("invalid sort column: {col}"),
-                    ));
-                }
+            if let Some(ref col) = sort_column
+                && !column_names.iter().any(|c| c == col)
+            {
+                return Err(DataAccessError::new(
+                    tearleads_data_access_traits::DataAccessErrorKind::InvalidInput,
+                    format!("invalid sort column: {col}"),
+                ));
             }
 
             let quoted_schema = quote_ident(&schema);

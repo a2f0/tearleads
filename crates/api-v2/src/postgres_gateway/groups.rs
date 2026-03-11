@@ -342,7 +342,7 @@ pub(super) fn uuid_v4() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     let nanos = d.as_nanos();
-    let rand_part: u64 = (nanos ^ (nanos >> 64) as u128) as u64;
+    let rand_part: u64 = (nanos ^ (nanos >> 64)) as u64;
     format!(
         "{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
         (nanos & 0xFFFF_FFFF) as u32,

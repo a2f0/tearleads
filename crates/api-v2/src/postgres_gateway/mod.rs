@@ -55,10 +55,13 @@ impl TokioPostgresGateway {
             },
         );
 
-        let pool = Pool::builder(mgr)
-            .max_size(8)
-            .build()
-            .expect("failed to build postgres pool");
+        let pool = match Pool::builder(mgr).max_size(8).build() {
+            Ok(pool) => pool,
+            Err(err) => {
+                tracing::error!("failed to build postgres pool: {err}");
+                return None;
+            }
+        };
 
         Some(Self {
             pool,
