@@ -5,9 +5,13 @@ import type { BackupFileStorage } from './exporter';
 import { createBackup, estimateBackupSize } from './exporter';
 
 describe('exporter', () => {
+  const executeMock = vi.fn();
+  const existsMock = vi.fn();
+  const retrieveMock = vi.fn();
+
   const mockAdapter: DatabaseAdapter = {
     initialize: vi.fn(),
-    execute: vi.fn(),
+    execute: executeMock,
     executeMany: vi.fn(),
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
@@ -21,8 +25,8 @@ describe('exporter', () => {
   };
 
   const mockFileStorage: BackupFileStorage = {
-    exists: vi.fn(),
-    retrieve: vi.fn()
+    exists: existsMock,
+    retrieve: retrieveMock
   };
 
   beforeEach(() => {
@@ -32,7 +36,7 @@ describe('exporter', () => {
   describe('createBackup', () => {
     it('creates a backup with database only (no blobs)', async () => {
       // Mock database queries
-      vi.mocked(mockAdapter.execute).mockImplementation(async (sql: string) => {
+      executeMock.mockImplementation(async (sql: string) => {
         if (sql.includes('sqlite_master') && sql.includes('table')) {
           return {
             rows: [
@@ -74,7 +78,7 @@ describe('exporter', () => {
 
     it('creates a backup with blobs', async () => {
       // Mock database queries
-      vi.mocked(mockAdapter.execute).mockImplementation(async (sql: string) => {
+      executeMock.mockImplementation(async (sql: string) => {
         if (sql.includes('sqlite_master') && sql.includes('table')) {
           return {
             rows: [
@@ -115,10 +119,8 @@ describe('exporter', () => {
       });
 
       // Mock file storage
-      vi.mocked(mockFileStorage.exists).mockResolvedValue(true);
-      vi.mocked(mockFileStorage.retrieve).mockResolvedValue(
-        new TextEncoder().encode('Hello, World!')
-      );
+      existsMock.mockResolvedValue(true);
+      retrieveMock.mockResolvedValue(new TextEncoder().encode('Hello, World!'));
 
       const backup = await createBackup(mockAdapter, mockFileStorage, {
         password: 'test-password',
@@ -131,7 +133,7 @@ describe('exporter', () => {
     });
 
     it('calls progress callback', async () => {
-      vi.mocked(mockAdapter.execute).mockImplementation(async (sql: string) => {
+      executeMock.mockImplementation(async (sql: string) => {
         if (sql.includes('sqlite_master') && sql.includes('table')) {
           return {
             rows: [
@@ -163,7 +165,7 @@ describe('exporter', () => {
 
   describe('estimateBackupSize', () => {
     it('estimates size for database only', async () => {
-      vi.mocked(mockAdapter.execute).mockImplementation(async (sql: string) => {
+      executeMock.mockImplementation(async (sql: string) => {
         if (sql.includes('sqlite_master') && sql.includes('table')) {
           return {
             rows: [
@@ -194,7 +196,7 @@ describe('exporter', () => {
     });
 
     it('estimates size with blobs', async () => {
-      vi.mocked(mockAdapter.execute).mockImplementation(async (sql: string) => {
+      executeMock.mockImplementation(async (sql: string) => {
         if (sql.includes('sqlite_master') && sql.includes('table')) {
           return {
             rows: [
@@ -224,7 +226,7 @@ describe('exporter', () => {
         return { rows: [] };
       });
 
-      vi.mocked(mockFileStorage.exists).mockResolvedValue(true);
+      existsMock.mockResolvedValue(true);
 
       const estimate = await estimateBackupSize(
         mockAdapter,
