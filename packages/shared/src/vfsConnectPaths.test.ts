@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADMIN_V2_CONNECT_BASE_PATH,
+  AI_V2_CONNECT_BASE_PATH,
+  AUTH_V2_CONNECT_BASE_PATH,
+  buildAdminV2ConnectMethodPath,
+  buildAiV2ConnectMethodPath,
+  buildAuthV2ConnectMethodPath,
   buildVfsSharesV2ConnectMethodPath,
   buildVfsV2ConnectMethodPath,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
@@ -10,14 +16,28 @@ import {
 } from './vfsConnectPaths.js';
 
 describe('vfsConnectPaths', () => {
-  it('builds vfs service paths from generated service names', () => {
+  it('builds service base paths from generated service names', () => {
+    expect(ADMIN_V2_CONNECT_BASE_PATH).toBe(
+      '/connect/tearleads.v2.AdminService'
+    );
+    expect(AI_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.AiService');
+    expect(AUTH_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.AuthService');
     expect(VFS_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.VfsService');
     expect(VFS_SHARES_V2_CONNECT_BASE_PATH).toBe(
       '/connect/tearleads.v2.VfsSharesService'
     );
   });
 
-  it('builds method paths for vfs and share services', () => {
+  it('builds method paths for all shared v2 services', () => {
+    expect(buildAdminV2ConnectMethodPath('GetContext')).toBe(
+      '/connect/tearleads.v2.AdminService/GetContext'
+    );
+    expect(buildAiV2ConnectMethodPath('GetUsage')).toBe(
+      '/connect/tearleads.v2.AiService/GetUsage'
+    );
+    expect(buildAuthV2ConnectMethodPath('Login')).toBe(
+      '/connect/tearleads.v2.AuthService/Login'
+    );
     expect(buildVfsV2ConnectMethodPath('GetSync')).toBe(
       '/connect/tearleads.v2.VfsService/GetSync'
     );

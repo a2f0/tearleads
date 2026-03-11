@@ -1,3 +1,5 @@
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
+import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { resolveDirectApiPath } from '../harness/apiScenarioDirectPath.js';
 import type { JsonApiActor } from './setupBobNotesShareForAlice.js';
 
@@ -21,6 +23,8 @@ export interface LoginApiActorInput {
   email: string;
   password: string;
 }
+
+const AUTH_V2_LOGIN_CONNECT_PATH = `/connect/${AuthService.typeName}/Login`;
 
 async function readJsonResponse(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -65,7 +69,7 @@ export async function loginApiActor(
   input: LoginApiActorInput
 ): Promise<AuthenticatedApiActor> {
   const loginResponse = await fetch(
-    `${input.baseUrl}${resolveDirectApiPath('/connect/tearleads.v2.AuthService/Login')}`,
+    `${input.baseUrl}${resolveDirectApiPath(AUTH_V2_LOGIN_CONNECT_PATH)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,7 +123,7 @@ export async function ensureVfsKeysExist(input: {
   keyPrefix: string;
 }): Promise<void> {
   const response = await input.actor
-    .fetchJson('/connect/tearleads.v2.VfsService/SetupKeys', {
+    .fetchJson(buildVfsV2ConnectMethodPath('SetupKeys'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

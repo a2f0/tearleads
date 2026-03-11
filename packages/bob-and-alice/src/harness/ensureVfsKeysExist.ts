@@ -1,4 +1,5 @@
 import type { TestContext } from '@tearleads/api-test-utils';
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 
 interface VfsKeyActor {
   alias: string;
@@ -39,7 +40,7 @@ export async function ensureVfsKeysExist(input: {
 }): Promise<void> {
   const payload = createVfsKeyPayload(input.keyPrefix);
   const response = await input.actor.fetch(
-    '/connect/tearleads.v2.VfsService/SetupKeys',
+    buildVfsV2ConnectMethodPath('SetupKeys'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
