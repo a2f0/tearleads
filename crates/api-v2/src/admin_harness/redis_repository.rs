@@ -4,7 +4,7 @@ use tearleads_data_access_traits::{
 };
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct StaticRedisRepository;
+pub struct StaticRedisRepository;
 
 impl RedisAdminRepository for StaticRedisRepository {
     fn list_keys(

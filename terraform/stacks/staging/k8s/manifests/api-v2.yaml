@@ -21,11 +21,19 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 5002
+          envFrom:
+            - configMapRef:
+                name: tearleads-config
           env:
             - name: PORT
               value: "5002"
             - name: ALLOWED_ORIGINS
               value: "https://DOMAIN_PLACEHOLDER,https://app.DOMAIN_PLACEHOLDER"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tearleads-secrets
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               memory: "64Mi"
