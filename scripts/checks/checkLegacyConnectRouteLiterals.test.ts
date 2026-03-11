@@ -24,6 +24,7 @@ test('shouldScanFile targets runtime files and excludes test files', () => {
 
 test('findLegacyConnectViolations detects v1 service names and route literals', () => {
   const content = [
+    "import { AdminService } from '@tearleads/shared/gen/tearleads/v1/admin_pb';",
     "const name = 'tearleads.v1.AdminService';",
     "const route = '/connect/tearleads.v1.AdminService/ListUsers';",
     "const v2Route = '/connect/tearleads.v2.AdminService/ListUsers';"
@@ -34,9 +35,11 @@ test('findLegacyConnectViolations detects v1 service names and route literals', 
     '/tmp/example-runtime.ts'
   );
 
-  assert.equal(violations.length, 2);
+  assert.equal(violations.length, 3);
   assert.equal(violations[0]?.line, 1);
-  assert.equal(violations[0]?.pattern, 'legacy-service-name');
+  assert.equal(violations[0]?.pattern, 'legacy-generated-proto-import');
   assert.equal(violations[1]?.line, 2);
-  assert.equal(violations[1]?.pattern, 'legacy-connect-route');
+  assert.equal(violations[1]?.pattern, 'legacy-service-name');
+  assert.equal(violations[2]?.line, 3);
+  assert.equal(violations[2]?.pattern, 'legacy-connect-route');
 });

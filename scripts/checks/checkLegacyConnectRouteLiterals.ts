@@ -19,6 +19,10 @@ const LEGACY_PATTERNS: ReadonlyArray<{
   regex: RegExp;
 }> = [
   {
+    name: 'legacy-generated-proto-import',
+    regex: /@tearleads\/shared\/gen\/tearleads\/v1\/[A-Za-z0-9_/-]+/
+  },
+  {
     name: 'legacy-connect-route',
     regex:
       /\/(?:v1\/)?connect\/tearleads\.v1\.[A-Za-z0-9_]+Service\/[A-Za-z0-9_]+/
