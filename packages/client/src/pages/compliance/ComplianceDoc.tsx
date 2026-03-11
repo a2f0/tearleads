@@ -1,3 +1,4 @@
+// one-component-per-file: allow - renderExternalMarkdownLink and renderMarkdownLink are JSX-returning helpers, not standalone components.
 import { cn, useTheme } from '@tearleads/ui';
 import { WindowSidebarToggle } from '@tearleads/window-manager';
 import { FileText, ShieldCheck } from 'lucide-react';
