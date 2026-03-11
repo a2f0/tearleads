@@ -1,8 +1,20 @@
 const GLOBAL_API_V2_CLIENT_WASM_IMPORTER_KEY =
   '__tearleadsImportApiV2ClientWasmModule';
 
+const normalizeConnectBaseUrl = (apiBaseUrl: string): string => {
+  const trimmed = apiBaseUrl.trim();
+  const normalizedBaseUrl = trimmed.replace(/\/+$/u, '');
+  if (normalizedBaseUrl.length === 0) {
+    return '/connect';
+  }
+  if (normalizedBaseUrl.endsWith('/connect')) {
+    return normalizedBaseUrl;
+  }
+  return `${normalizedBaseUrl}/connect`;
+};
+
 const mockedApiV2ClientWasmModule = {
-  normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
+  normalizeConnectBaseUrl,
   resolveRpcPath: (serviceName: string, methodName: string) =>
     `/${serviceName}/${methodName}`,
   getProtocolConfig: () => ({

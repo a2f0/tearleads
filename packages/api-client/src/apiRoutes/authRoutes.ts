@@ -5,14 +5,19 @@ import type {
   VfsKeySetupRequest
 } from '@tearleads/shared';
 import { createConnectJsonPostInit } from '@tearleads/shared';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { request } from '../apiCore';
-
-const AUTH_CONNECT_BASE_PATH = `/connect/${AuthService.typeName}`;
+import {
+  AUTH_V2_CONNECT_BASE_PATH,
+  AUTH_V2_GET_ORGANIZATIONS_CONNECT_PATH,
+  AUTH_V2_GET_SESSIONS_CONNECT_PATH,
+  AUTH_V2_LOGIN_CONNECT_PATH,
+  AUTH_V2_LOGOUT_CONNECT_PATH,
+  AUTH_V2_REGISTER_CONNECT_PATH
+} from '../connectRoutes';
 
 export const authRoutes = {
   login: (email: string, password: string) =>
-    request<AuthResponse>(`${AUTH_CONNECT_BASE_PATH}/Login`, {
+    request<AuthResponse>(AUTH_V2_LOGIN_CONNECT_PATH, {
       fetchOptions: createConnectJsonPostInit({ email, password }),
       eventName: 'api_post_auth_login',
       skipTokenRefresh: true
@@ -22,7 +27,7 @@ export const authRoutes = {
     password: string,
     vfsKeySetup?: VfsKeySetupRequest
   ) =>
-    request<AuthResponse>(`${AUTH_CONNECT_BASE_PATH}/Register`, {
+    request<AuthResponse>(AUTH_V2_REGISTER_CONNECT_PATH, {
       fetchOptions: createConnectJsonPostInit({
         email,
         password,
@@ -32,26 +37,23 @@ export const authRoutes = {
       skipTokenRefresh: true
     }),
   getSessions: () =>
-    request<SessionsResponse>(`${AUTH_CONNECT_BASE_PATH}/GetSessions`, {
+    request<SessionsResponse>(AUTH_V2_GET_SESSIONS_CONNECT_PATH, {
       fetchOptions: createConnectJsonPostInit({}),
       eventName: 'api_get_auth_sessions'
     }),
   deleteSession: (sessionId: string) =>
-    request<{ deleted: boolean }>(`${AUTH_CONNECT_BASE_PATH}/DeleteSession`, {
+    request<{ deleted: boolean }>(`${AUTH_V2_CONNECT_BASE_PATH}/DeleteSession`, {
       fetchOptions: createConnectJsonPostInit({ sessionId }),
       eventName: 'api_delete_auth_session'
     }),
   logout: () =>
-    request<{ loggedOut: boolean }>(`${AUTH_CONNECT_BASE_PATH}/Logout`, {
+    request<{ loggedOut: boolean }>(AUTH_V2_LOGOUT_CONNECT_PATH, {
       fetchOptions: createConnectJsonPostInit({}),
       eventName: 'api_post_auth_logout'
     }),
   getOrganizations: () =>
-    request<UserOrganizationsResponse>(
-      `${AUTH_CONNECT_BASE_PATH}/GetOrganizations`,
-      {
-        fetchOptions: createConnectJsonPostInit({}),
-        eventName: 'api_get_auth_organizations'
-      }
-    )
+    request<UserOrganizationsResponse>(AUTH_V2_GET_ORGANIZATIONS_CONNECT_PATH, {
+      fetchOptions: createConnectJsonPostInit({}),
+      eventName: 'api_get_auth_organizations'
+    })
 };

@@ -1,7 +1,7 @@
 /// <reference path="./vite-env.d.ts" />
 import type { AuthResponse } from '@tearleads/shared';
-import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
 import { type ApiEventSlug, logApiEvent } from './apiLogger';
+import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
@@ -15,7 +15,6 @@ import {
 } from './authStorage';
 
 export let API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
-const AUTH_CONNECT_REFRESH_PATH = `/connect/${AuthService.typeName}/RefreshToken`;
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION = new Set([
   'SetupKeys',
@@ -100,12 +99,15 @@ async function executeTokenRefresh(
   let receivedValidRefreshResponse = false;
 
   try {
-    const response = await fetch(resolveRequestUrl(AUTH_CONNECT_REFRESH_PATH), {
+    const response = await fetch(
+      resolveRequestUrl(AUTH_V2_REFRESH_CONNECT_PATH),
+      {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(refreshToken ? { refreshToken } : {})
-    });
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
       // Permanent failure - token is invalid or session was destroyed
@@ -275,11 +277,19 @@ function resolveRequestUrl(endpoint: string): string {
     return endpoint;
   }
 
-  if (endpoint.startsWith('/v2/') || endpoint.startsWith('/connect/')) {
+  if (endpoint.startsWith('/v2/')) {
     const apiBaseUrl = new URL(API_BASE_URL);
     return `${apiBaseUrl.origin}${endpoint}`;
   }
 
+  const baseEndsWithSlash = API_BASE_URL.endsWith('/');
+  const endpointStartsWithSlash = endpoint.startsWith('/');
+  if (baseEndsWithSlash && endpointStartsWithSlash) {
+    return `${API_BASE_URL.slice(0, -1)}${endpoint}`;
+  }
+  if (!baseEndsWithSlash && !endpointStartsWithSlash) {
+    return `${API_BASE_URL}/${endpoint}`;
+  }
   return `${API_BASE_URL}${endpoint}`;
 }
 

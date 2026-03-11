@@ -1,5 +1,6 @@
 export * from './api';
 export * from './apiV2ClientWasm';
+export * from './connectRoutes';
 export {
   getAuthHeaderValue,
   setStoredAuthToken,

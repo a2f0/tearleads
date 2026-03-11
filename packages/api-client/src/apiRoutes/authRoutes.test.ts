@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  AUTH_V2_GET_ORGANIZATIONS_CONNECT_PATH,
+  AUTH_V2_REGISTER_CONNECT_PATH
+} from '../connectRoutes';
 
 const requestMock = vi.fn();
 
@@ -25,7 +29,7 @@ describe('authRoutes', () => {
     await authRoutes.register('dev@tearleads.test', 'password-1', vfsKeySetup);
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v2.AuthService/Register');
+    expect(path).toBe(AUTH_V2_REGISTER_CONNECT_PATH);
 
     const body = params?.fetchOptions?.body;
     expect(typeof body).toBe('string');
@@ -44,7 +48,7 @@ describe('authRoutes', () => {
     await authRoutes.getOrganizations();
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v2.AuthService/GetOrganizations');
+    expect(path).toBe(AUTH_V2_GET_ORGANIZATIONS_CONNECT_PATH);
     expect(params?.eventName).toBe('api_get_auth_organizations');
   });
 });
