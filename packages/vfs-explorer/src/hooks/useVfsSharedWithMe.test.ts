@@ -295,9 +295,9 @@ describe('useVfsSharedWithMe', () => {
   });
 
   it('refetches when isAuthenticated changes from false to true', async () => {
-    const readStoredAuth = vi.fn(
-      (): { user: { id: string } | null } => ({ user: null })
-    );
+    const readStoredAuth = vi.fn((): { user: { id: string } | null } => ({
+      user: null
+    }));
     const state = { isAuthenticated: false };
 
     const wrapper = createWrapper({

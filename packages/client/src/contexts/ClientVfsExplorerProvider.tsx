@@ -17,7 +17,6 @@ import {
 } from '@tearleads/window-manager';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '@/db';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';

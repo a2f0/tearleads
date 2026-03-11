@@ -105,6 +105,11 @@ export function useVfsSharedByMe(
   }, [isUnlocked, enabled, sort, getDatabase, auth]);
 
   useEffect(() => {
+    if (isAuthenticated === false) {
+      setError(NOT_LOGGED_IN_ERROR);
+      return undefined;
+    }
+
     const needsFetch =
       enabled &&
       isUnlocked &&
@@ -129,7 +134,15 @@ export function useVfsSharedByMe(
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [enabled, isUnlocked, loading, hasFetched, currentInstanceId, fetchItems, isAuthenticated]);
+  }, [
+    enabled,
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchItems,
+    isAuthenticated
+  ]);
 
   // Refetch when sort changes
   const prevSortRef = useRef<VfsSortState>(DEFAULT_SORT);
