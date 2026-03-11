@@ -46,6 +46,7 @@ export async function deleteCapacitorDatabaseFile(
           { path: `CapacitorDatabase/${dbFileName}`, directory: 'LIBRARY' }
         ];
 
+  let lastError: unknown = null;
   for (const target of targets) {
     try {
       await Filesystem.deleteFile({
@@ -54,9 +55,18 @@ export async function deleteCapacitorDatabaseFile(
           target.directory === 'LIBRARY' ? Directory.Library : Directory.Data
       });
       return;
-    } catch {
+    } catch (error: unknown) {
       // Try the next candidate path.
+      lastError = error;
     }
+  }
+
+  if (lastError) {
+    const message =
+      lastError instanceof Error ? lastError.message : String(lastError);
+    console.warn(
+      `Failed to delete stale Capacitor DB file for ${databaseName}: ${message}`
+    );
   }
 }
 

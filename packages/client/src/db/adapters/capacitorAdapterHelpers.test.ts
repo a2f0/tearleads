@@ -178,5 +178,23 @@ describe('capacitorAdapterHelpers', () => {
         directory: 'LIBRARY'
       });
     });
+
+    it('warns when all direct deletion targets fail', async () => {
+      const { module, deleteFile } = await loadHelpers({
+        platform: 'android'
+      });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      deleteFile.mockRejectedValue(new Error('permission denied'));
+
+      await module.deleteCapacitorDatabaseFile('tearleads-failed');
+
+      expect(deleteFile).toHaveBeenCalledTimes(2);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to delete stale Capacitor DB file for tearleads-failed'
+        )
+      );
+      warnSpy.mockRestore();
+    });
   });
 });
