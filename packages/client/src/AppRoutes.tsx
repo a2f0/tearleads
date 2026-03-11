@@ -1,9 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import App from './app/App';
-import {
-  InlineRequiresLoginAndUnlock,
-  RequireAuth
-} from './components/auth';
+import { InlineRequiresLoginAndUnlock, RequireAuth } from './components/auth';
 import {
   Admin,
   AdminLauncher,
