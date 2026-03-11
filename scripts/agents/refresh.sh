@@ -80,7 +80,7 @@ cd "$REPO_ROOT"
 # Sweep stale Rust build artifacts from this workspace (non-fatal)
 if [ -x "$REPO_ROOT/scripts/sweepRustTargets.sh" ]; then
   echo "Sweeping stale Rust build artifacts..."
-  "$REPO_ROOT/scripts/sweepRustTargets.sh" || echo "Sweep skipped (cargo-sweep not available)." >&2
+  "$REPO_ROOT/scripts/sweepRustTargets.sh" || echo "Warning: Failed to sweep stale Rust build artifacts." >&2
 fi
 
 # Reset title to '<workspace> - <branch>'
