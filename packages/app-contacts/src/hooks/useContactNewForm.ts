@@ -12,7 +12,7 @@ import type {
 } from '../lib/validation';
 import { useContactSave } from './useContactSave';
 
-interface UseContactNewFormResult {
+export interface ContactNewFormState {
   formData: ContactFormData;
   emailsForm: EmailFormData[];
   phonesForm: PhoneFormData[];
@@ -40,7 +40,7 @@ interface UseContactNewFormResult {
   handleCancel: () => void;
 }
 
-export function useContactNewForm(): UseContactNewFormResult {
+export function useContactNewForm(): ContactNewFormState {
   const { navigate } = useContactsContext();
   const { createContact, saving } = useContactSave();
   const [error, setError] = useState<string | null>(null);
