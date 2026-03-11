@@ -21,7 +21,8 @@ interface ApiV2GeneratedWasmBindings {
   ) => unknown;
 }
 
-const GLOBAL_API_V2_WASM_IMPORTER_KEY = '__tearleadsImportApiV2ClientWasmModule';
+const GLOBAL_API_V2_WASM_IMPORTER_KEY =
+  '__tearleadsImportApiV2ClientWasmModule';
 
 function isApiV2GeneratedWasmBindings(
   value: unknown
@@ -45,7 +46,9 @@ async function loadGeneratedWasmBindings(): Promise<ApiV2GeneratedWasmBindings> 
   );
 
   if (!isApiV2GeneratedWasmBindings(moduleCandidate)) {
-    throw new Error('generated api-v2 wasm bindings are missing expected exports');
+    throw new Error(
+      'generated api-v2 wasm bindings are missing expected exports'
+    );
   }
 
   return moduleCandidate;
