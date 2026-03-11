@@ -87,6 +87,18 @@ import {
 import { VfsDetailsPanel } from './VfsDetailsPanel';
 
 describe('VfsDetailsPanel special folders', () => {
+  type SpecialFolderHookName = 'useVfsUnfiledItems' | 'useVfsAllItems';
+  type SpecialFolderCase = {
+    description: string;
+    folderId: string;
+    hookName: SpecialFolderHookName;
+    emptyTitle: string;
+    emptyDescription: string;
+    error: string;
+    itemId: string;
+    itemName: string;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockDatabaseState.isUnlocked = true;
@@ -111,7 +123,7 @@ describe('VfsDetailsPanel special folders', () => {
     });
   });
 
-  const specialFolderCases = [
+  const specialFolderCases: SpecialFolderCase[] = [
     {
       description: 'unfiled items',
       folderId: UNFILED_FOLDER_ID,
@@ -132,9 +144,11 @@ describe('VfsDetailsPanel special folders', () => {
       itemId: 'item-1',
       itemName: 'all-document.pdf'
     }
-  ] as const;
+  ];
 
-  describe.each(specialFolderCases)('$description', (testCase) => {
+  describe.each(
+    specialFolderCases
+  )('$description', (testCase: SpecialFolderCase) => {
     it('shows empty state', () => {
       vi.spyOn(hooks, testCase.hookName).mockReturnValue({
         items: [],
