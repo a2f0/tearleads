@@ -5,6 +5,7 @@ import { setTestEnv } from './test/env.js';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
   const vfsWritePaths = ['/connect/tearleads.v2.VfsService/PushCrdtOps'];
 
   beforeEach(() => {
@@ -24,7 +25,8 @@ describe('api request context headers', () => {
           }
         })
     }));
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_refresh_lock');
@@ -42,7 +44,7 @@ describe('api request context headers', () => {
 
     const seenOrgHeaders: Array<string | null> = [];
 
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = input.toString();
         if (url.endsWith('/v2/ping')) {
@@ -100,7 +102,7 @@ describe('api request context headers', () => {
   });
 
   it('does not override an explicit header passed in fetch options', async () => {
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
         const headers = new Headers(init?.headers);
         expect(headers.get('X-Organization-Id')).toBe('org-explicit');
@@ -153,7 +155,7 @@ describe('api request context headers', () => {
   });
 
   it('allows VFS write requests when organization header is declared', async () => {
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
         const headers = new Headers(init?.headers);
         expect(headers.get('X-Organization-Id')).toBe('org-explicit');

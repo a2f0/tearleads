@@ -14,11 +14,13 @@ import {
 
 describe('createVfsSecurePipelineBundle', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     if (typeof localStorage?.clear === 'function') {
       localStorage.clear();
     }
@@ -47,7 +49,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('creates item key and encrypts blob with full pipeline', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 
@@ -103,7 +105,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('rotates key epoch and re-encrypts with new key', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 
@@ -158,7 +160,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('auto-creates item key on first secure upload when no key exists', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 
@@ -214,7 +216,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('dedupes concurrent first-upload key provisioning for the same item', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 
@@ -279,7 +281,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('includes wrapped keys for shares with matching key epoch', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 
@@ -371,7 +373,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('filters out shares with non-matching key epoch', async () => {
-    vi.mocked(global.fetch).mockImplementation(async () =>
+    fetchMock.mockImplementation(async () =>
       createMockFetchResponse()
     );
 

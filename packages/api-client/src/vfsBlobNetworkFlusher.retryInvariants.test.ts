@@ -50,11 +50,13 @@ function summarizePendingKinds(
 
 describe('vfsBlobNetworkFlusher retry invariants', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -76,7 +78,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
 
     let failedChunk2 = false;
     const observedRequests: ObservedRequest[] = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
@@ -188,7 +190,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     let failCommitOnce = true;
     const observedRequests: ObservedRequest[] = [];
 
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
@@ -286,7 +288,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const retrySleep = vi.fn(async () => undefined);
     const onRetry = vi.fn(async () => undefined);
     const onOperationResult = vi.fn(async () => undefined);
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)) {
@@ -351,7 +353,7 @@ describe('vfsBlobNetworkFlusher retry invariants', () => {
     const retrySleep = vi.fn(async () => undefined);
 
     let networkAttempts = 0;
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
