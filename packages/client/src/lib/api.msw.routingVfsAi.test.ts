@@ -42,7 +42,10 @@ const getRequestsFor = (
 ): RecordedApiRequest[] =>
   getRecordedApiRequests().filter(
     (request) =>
-      request.method === method.toUpperCase() && request.pathname === pathname
+      request.method === method.toUpperCase() &&
+      request.pathname === pathname &&
+      // Exclude requests forwarded by MSW passthrough to harness ports.
+      new URL(request.url).port.length === 0
   );
 
 const AI_CONNECT_RECORD_USAGE_PATH =
@@ -370,7 +373,7 @@ describe('api with msw', () => {
       'POST',
       '/connect/tearleads.v2.AdminService/GetRows'
     );
-    expect(postgresRowsRequests).toHaveLength(4);
+    expect(postgresRowsRequests).toHaveLength(2);
 
     const aiUsageRequests = getRequestsFor('POST', AI_V2_CONNECT_USAGE_PATH);
     expect(aiUsageRequests).toHaveLength(2);

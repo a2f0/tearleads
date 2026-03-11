@@ -87,7 +87,7 @@ describe('createExpressPassthroughHandlers', () => {
     ]);
   });
 
-  it('routes matched paths to override target and skips default prefix', async () => {
+  it('routes matched paths to override target with explicit /v1 prefix', async () => {
     mswServer.resetHandlers(
       ...createExpressPassthroughHandlers(
         'http://example.test',
@@ -97,7 +97,7 @@ describe('createExpressPassthroughHandlers', () => {
           {
             pathnamePattern: /^\/connect\/tearleads\.v2\.AdminService\//,
             targetPort: v2Target.port,
-            pathPrefix: ''
+            pathPrefix: '/v1'
           }
         ]
       )
@@ -116,11 +116,11 @@ describe('createExpressPassthroughHandlers', () => {
       '/v1/connect/tearleads.v2.AuthService/Login'
     ]);
     expect(v2Target.hits).toEqual([
-      '/connect/tearleads.v2.AdminService/GetTables'
+      '/v1/connect/tearleads.v2.AdminService/GetTables'
     ]);
   });
 
-  it('strips /v1 for override routes that skip prefixing', async () => {
+  it('does not duplicate /v1 when override request is already prefixed', async () => {
     mswServer.resetHandlers(
       ...createExpressPassthroughHandlers(
         'http://example.test',
@@ -131,7 +131,7 @@ describe('createExpressPassthroughHandlers', () => {
             pathnamePattern:
               /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//,
             targetPort: v2Target.port,
-            pathPrefix: ''
+            pathPrefix: '/v1'
           }
         ]
       )
@@ -143,7 +143,7 @@ describe('createExpressPassthroughHandlers', () => {
 
     expect(response.ok).toBe(true);
     expect(v2Target.hits).toEqual([
-      '/connect/tearleads.v2.AdminService/GetRedisDbSize'
+      '/v1/connect/tearleads.v2.AdminService/GetRedisDbSize'
     ]);
   });
 });
