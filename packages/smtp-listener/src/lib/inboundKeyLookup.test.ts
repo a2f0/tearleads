@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetModulesIfSupported } from '../test/bunCompat.js';
-import { withHoisted } from '../test/withHoisted.js';
-
-const { getPostgresPoolMock, poolQueryMock } = withHoisted(() => ({
-  getPostgresPoolMock: vi.fn(),
-  poolQueryMock: vi.fn()
-}));
+const getPostgresPoolMock = vi.fn();
+const poolQueryMock = vi.fn();
 
 vi.mock('./postgres.js', () => ({
   getPostgresPool: getPostgresPoolMock

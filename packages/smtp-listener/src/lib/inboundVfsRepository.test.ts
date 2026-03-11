@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetModulesIfSupported } from '../test/bunCompat.js';
-import { withHoisted } from '../test/withHoisted.js';
 import type {
   InboundMessageEnvelopeRecord,
   ResolvedInboundRecipient
 } from '../types/inboundContracts.js';
 
-const { getPostgresPoolMock, randomUuidMock } = withHoisted(() => ({
-  getPostgresPoolMock: vi.fn(),
-  randomUuidMock: vi.fn()
-}));
+const getPostgresPoolMock = vi.fn();
+const randomUuidMock = vi.fn();
 
 vi.mock('./postgres.js', () => ({
   getPostgresPool: getPostgresPoolMock

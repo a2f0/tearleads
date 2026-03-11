@@ -1,6 +1,5 @@
 import { EventEmitter } from 'node:events';
 import { vi } from 'vitest';
-import { withHoisted } from './withHoisted.js';
 
 type OnDataHandler = (
   stream: {
@@ -20,7 +19,7 @@ interface SmtpTestDoubles {
   >;
 }
 
-const doubles: SmtpTestDoubles = withHoisted(() => {
+const doubles: SmtpTestDoubles = (() => {
   const capturedOnDataRef: { current: OnDataHandler | null } = {
     current: null
   };
@@ -34,7 +33,7 @@ const doubles: SmtpTestDoubles = withHoisted(() => {
       port: 2525
     }))
   };
-});
+})();
 
 vi.mock('smtp-server', () => ({
   SMTPServer: class {

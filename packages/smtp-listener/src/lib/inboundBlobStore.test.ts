@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetModulesIfSupported } from '../test/bunCompat.js';
-import { withHoisted } from '../test/withHoisted.js';
-
-const { sendMock, s3CtorMock, putObjectCtorMock } = withHoisted(() => ({
-  sendMock: vi.fn(async (_command: unknown) => ({})),
-  s3CtorMock: vi.fn(),
-  putObjectCtorMock: vi.fn()
-}));
+const sendMock = vi.fn(async (_command: unknown) => ({}));
+const s3CtorMock = vi.fn();
+const putObjectCtorMock = vi.fn();
 
 vi.mock('@aws-sdk/client-s3', () => {
   class PutObjectCommand {
