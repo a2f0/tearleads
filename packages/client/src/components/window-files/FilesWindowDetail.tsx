@@ -64,11 +64,11 @@ export function FilesWindowDetail({
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       return storage.measureRetrieve(
         fileToRetrieve.storagePath,
         createRetrieveLogger(db)

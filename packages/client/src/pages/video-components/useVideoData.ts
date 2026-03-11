@@ -106,11 +106,11 @@ export function useVideoData(
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const logger = createRetrieveLogger(db);
       // Only load thumbnails, not full video data - video content is loaded on demand in VideoDetail
       const videosWithThumbnails = await Promise.all(

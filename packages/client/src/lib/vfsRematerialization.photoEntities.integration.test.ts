@@ -5,7 +5,9 @@ import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase, resetDatabase, setupDatabase } from '@/db';
 import {
+  getFileStorage,
   getFileStorageForInstance,
+  initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
 import { rematerializeRemoteVfsStateIfNeeded } from './vfsRematerialization';
@@ -298,6 +300,17 @@ describe('vfsRematerialization media entity rows', () => {
     );
     expect(Buffer.from(audioPayloadBytes).toString('utf8')).toBe(
       'ID3-test-track'
+    );
+
+    // Regression guard: a later instance initialization must not break
+    // retrieval for already-rematerialized media in this instance.
+    await initializeFileStorage(new Uint8Array(32), 'other-instance');
+    const instanceScopedStorage = getFileStorage(TEST_INSTANCE_ID);
+    const photoBytesAfterOtherInit = await instanceScopedStorage.retrieve(
+      rematerializedPhoto.storagePath
+    );
+    expect(Buffer.from(photoBytesAfterOtherInit).toString('utf8')).toBe(
+      '<svg>logo</svg>'
     );
   });
 });

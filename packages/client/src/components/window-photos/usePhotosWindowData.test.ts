@@ -27,6 +27,9 @@ const mockDb = {
 const mockRetrieve = vi.fn();
 const mockIsFileStorageInitialized = vi.fn();
 const mockInitializeFileStorage = vi.fn();
+const mockGetFileStorage = vi.fn(() => ({
+  retrieve: mockRetrieve
+}));
 let createObjectUrlSpy = vi.fn();
 let revokeObjectUrlSpy = vi.fn();
 
@@ -51,9 +54,7 @@ vi.mock('@/storage/opfs', () => ({
     mockIsFileStorageInitialized(instanceId),
   initializeFileStorage: (encryptionKey: Uint8Array, instanceId: string) =>
     mockInitializeFileStorage(encryptionKey, instanceId),
-  getFileStorage: () => ({
-    retrieve: mockRetrieve
-  })
+  getFileStorage: (instanceId: string) => mockGetFileStorage(instanceId)
 }));
 
 describe('usePhotosWindowData', () => {
@@ -78,6 +79,7 @@ describe('usePhotosWindowData', () => {
     mockOrderBy.mockResolvedValue(photoRows);
     mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
     mockIsFileStorageInitialized.mockReturnValue(false);
+    mockGetFileStorage.mockClear();
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.currentInstanceId = 'instance-1';
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
@@ -116,8 +118,20 @@ describe('usePhotosWindowData', () => {
       expect.any(Uint8Array),
       'instance-1'
     );
+    expect(mockGetFileStorage).toHaveBeenCalledWith('instance-1');
     unmount();
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:photo');
+  });
+
+  it('reads storage from the active instance id', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    mockDatabaseState.currentInstanceId = 'instance-2';
+
+    renderHook(() => usePhotosWindowData({ refreshToken: 0 }));
+
+    await waitFor(() => {
+      expect(mockGetFileStorage).toHaveBeenCalledWith('instance-2');
+    });
   });
 
   it('sets error when fetch fails', async () => {

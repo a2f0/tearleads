@@ -32,12 +32,10 @@ async function ensureFileStorageReady(currentInstanceId: string | null) {
   const encryptionKey = keyManager.getCurrentKey();
   if (!encryptionKey) throw new Error('Database not unlocked');
   if (!currentInstanceId) throw new Error('No active instance');
-
-  if (!isFileStorageInitialized()) {
+  if (!isFileStorageInitialized(currentInstanceId)) {
     await initializeFileStorage(encryptionKey, currentInstanceId);
   }
-
-  return getFileStorage();
+  return getFileStorage(currentInstanceId);
 }
 
 function renderPhotoPickerContent(

@@ -26,9 +26,6 @@ function shouldUseCapacitorStorage(): boolean {
 // Map of instanceId -> FileStorage for multi-instance support
 const storageInstances = new Map<string, FileStorage>();
 
-// Track current instance ID
-let currentStorageInstanceId: string | null = null;
-
 /**
  * Get the file storage instance for a specific instance.
  * @param instanceId The instance ID
@@ -44,16 +41,11 @@ export function getFileStorageForInstance(instanceId: string): FileStorage {
 }
 
 /**
- * Get the file storage instance for the current instance.
- * Must call initializeFileStorage first.
+ * Get the file storage instance for a specific instance.
+ * Alias retained for existing imports; always requires an explicit instanceId.
  */
-export function getFileStorage(): FileStorage {
-  if (!currentStorageInstanceId) {
-    throw new Error(
-      'No current file storage instance. Call initializeFileStorage first.'
-    );
-  }
-  return getFileStorageForInstance(currentStorageInstanceId);
+export function getFileStorage(instanceId: string): FileStorage {
+  return getFileStorageForInstance(instanceId);
 }
 
 /**
@@ -71,7 +63,6 @@ export async function initializeFileStorage(
   // Check if already initialized for this instance
   const existing = storageInstances.get(instanceId);
   if (existing) {
-    currentStorageInstanceId = instanceId;
     return existing;
   }
 
@@ -82,7 +73,6 @@ export async function initializeFileStorage(
 
   await storage.initialize(encryptionKey);
   storageInstances.set(instanceId, storage);
-  currentStorageInstanceId = instanceId;
   return storage;
 }
 
@@ -90,11 +80,23 @@ export async function initializeFileStorage(
  * Check if file storage is initialized for an instance.
  * @param instanceId The instance ID to check
  */
-export function isFileStorageInitialized(instanceId?: string): boolean {
-  if (instanceId) {
-    return storageInstances.has(instanceId);
+export function isFileStorageInitialized(instanceId: string): boolean {
+  return storageInstances.has(instanceId);
+}
+
+/**
+ * Get file storage for instance, initializing it when needed.
+ * @param encryptionKey The encryption key
+ * @param instanceId The instance ID
+ */
+export async function getOrInitializeFileStorage(
+  encryptionKey: Uint8Array,
+  instanceId: string
+): Promise<FileStorage> {
+  if (isFileStorageInitialized(instanceId)) {
+    return getFileStorageForInstance(instanceId);
   }
-  return currentStorageInstanceId !== null;
+  return initializeFileStorage(encryptionKey, instanceId);
 }
 
 /**
@@ -103,9 +105,6 @@ export function isFileStorageInitialized(instanceId?: string): boolean {
  */
 export function clearFileStorageForInstance(instanceId: string): void {
   storageInstances.delete(instanceId);
-  if (currentStorageInstanceId === instanceId) {
-    currentStorageInstanceId = null;
-  }
 }
 
 /**
@@ -113,7 +112,6 @@ export function clearFileStorageForInstance(instanceId: string): void {
  */
 export function clearFileStorageInstance(): void {
   storageInstances.clear();
-  currentStorageInstanceId = null;
 }
 
 /**
@@ -137,19 +135,4 @@ export async function deleteFileStorageForInstance(
   } catch {
     // Directory might not exist, ignore errors
   }
-}
-
-/**
- * Set the current storage instance ID.
- * @param instanceId The instance ID to set as current
- */
-export function setCurrentStorageInstanceId(instanceId: string | null): void {
-  currentStorageInstanceId = instanceId;
-}
-
-/**
- * Get the current storage instance ID.
- */
-export function getCurrentStorageInstanceId(): string | null {
-  return currentStorageInstanceId;
 }

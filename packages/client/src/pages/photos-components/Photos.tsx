@@ -246,10 +246,10 @@ export function Photos({
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const data = await storage.retrieve(contextMenu.photo.storagePath);
       const imageDataUrl = await uint8ArrayToDataUrl(
         data,
@@ -272,10 +272,10 @@ export function Photos({
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const data = await storage.retrieve(contextMenu.photo.storagePath);
       const base64 = uint8ArrayToBase64(data);
       openWindow('email');

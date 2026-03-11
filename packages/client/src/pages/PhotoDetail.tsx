@@ -98,11 +98,11 @@ export function PhotoDetail() {
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const data = await storage.measureRetrieve(
         photo.storagePath,
         createRetrieveLogger(db)
@@ -127,11 +127,11 @@ export function PhotoDetail() {
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const data = await storage.measureRetrieve(
         photo.storagePath,
         createRetrieveLogger(db)
@@ -231,11 +231,11 @@ export function PhotoDetail() {
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const data = await storage.measureRetrieve(
         photoInfo.storagePath,
         createRetrieveLogger(db)

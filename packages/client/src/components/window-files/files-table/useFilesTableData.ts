@@ -102,7 +102,7 @@ export function useFilesTableData(
 
       await initializeFileStorage(encryptionKey, currentInstanceId);
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const logger = createRetrieveLogger(db);
       const filesWithThumbnails: FileWithThumbnail[] = await Promise.all(
         fileList.map(async (file) => {

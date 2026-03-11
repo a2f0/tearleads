@@ -115,7 +115,7 @@ export function usePhotosWindowData({
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const photosWithUrls = (
         await Promise.all(
           photoList.map(async (photo) => {
@@ -196,7 +196,7 @@ export function usePhotosWindowData({
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       return storage.retrieve(photo.storagePath);
     },
     [currentInstanceId]
@@ -213,7 +213,7 @@ export function usePhotosWindowData({
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       return storage.retrieve(photo.storagePath);
     },
     [currentInstanceId]

@@ -88,11 +88,11 @@ export function useDocumentsData(
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const documentsWithUrls: DocumentWithUrl[] = await Promise.all(
         documentList.map(async (doc) => {
           let thumbnailUrl: string | null = null;
