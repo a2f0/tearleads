@@ -200,7 +200,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
         <BackLink defaultTo="/" defaultLabel="Back to Home" />
       ) : null}
 
-      <div className="w-full max-w-xs">
+      <div className="mx-auto w-full max-w-xs">
         <SyncLoginCard
           authMode={authMode}
           setAuthMode={setAuthMode}
