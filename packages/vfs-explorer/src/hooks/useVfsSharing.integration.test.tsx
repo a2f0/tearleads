@@ -313,5 +313,4 @@ describe('useVfsSharing integration (real database)', () => {
       { migrations: vfsAclEnabledMigrations }
     );
   });
-
 });
