@@ -66,12 +66,12 @@ describe('useConversations queries', () => {
     vi.clearAllMocks();
     localStorage.clear();
     mockDb = createChainableDb();
-    vi.mocked(getDatabase).mockReturnValue(
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getSessionKey).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(decryptContent).mockResolvedValue('decrypted-text');
-    vi.mocked(getCachedSessionKey).mockReturnValue(new Uint8Array([4, 5, 6]));
+    getSessionKey.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    decryptContent.mockResolvedValue('decrypted-text');
+    getCachedSessionKey.mockReturnValue(new Uint8Array([4, 5, 6]));
   });
 
   describe('fetchConversations', () => {
@@ -88,7 +88,7 @@ describe('useConversations queries', () => {
         }
       ];
       mockDb = createChainableDb(rows);
-      vi.mocked(getDatabase).mockReturnValue(
+      getDatabase.mockReturnValue(
         mockDb as unknown as ReturnType<typeof getDatabase>
       );
 
@@ -115,7 +115,7 @@ describe('useConversations queries', () => {
         }
       ];
       mockDb = createChainableDb(rows);
-      vi.mocked(getDatabase).mockReturnValue(
+      getDatabase.mockReturnValue(
         mockDb as unknown as ReturnType<typeof getDatabase>
       );
 
@@ -142,10 +142,10 @@ describe('useConversations queries', () => {
         }
       ];
       mockDb = createChainableDb(rows);
-      vi.mocked(getDatabase).mockReturnValue(
+      getDatabase.mockReturnValue(
         mockDb as unknown as ReturnType<typeof getDatabase>
       );
-      vi.mocked(getSessionKey).mockRejectedValueOnce(new Error('key failure'));
+      getSessionKey.mockRejectedValueOnce(new Error('key failure'));
 
       const { result } = renderHook(() => useConversations());
 
@@ -163,7 +163,7 @@ describe('useConversations queries', () => {
 
     it('sets error when outer fetch fails', async () => {
       const consoleSpy = mockConsoleError();
-      vi.mocked(getDatabase).mockImplementation(() => {
+      getDatabase.mockImplementation(() => {
         throw new Error('db boom');
       });
 
@@ -300,7 +300,7 @@ describe('useConversations queries', () => {
         }
       ];
       mockDb = createChainableDb(rows);
-      vi.mocked(getDatabase).mockReturnValue(
+      getDatabase.mockReturnValue(
         mockDb as unknown as ReturnType<typeof getDatabase>
       );
 

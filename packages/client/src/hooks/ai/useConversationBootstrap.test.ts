@@ -89,7 +89,7 @@ function renderBootstrap(overrides: Partial<BootstrapTestInput> = {}) {
 describe('useConversationBootstrap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(readLastConversationId).mockReturnValue(null);
+    readLastConversationId.mockReturnValue(null);
   });
 
   it('returns early when both auto start and resume are disabled', async () => {
@@ -116,7 +116,7 @@ describe('useConversationBootstrap', () => {
   });
 
   it('resumes the saved conversation when it exists in the list', async () => {
-    vi.mocked(readLastConversationId).mockReturnValue('saved-conversation');
+    readLastConversationId.mockReturnValue('saved-conversation');
 
     const { selectConversationMock, createConversationMock } = renderBootstrap({
       autoStart: true,
@@ -134,7 +134,7 @@ describe('useConversationBootstrap', () => {
   });
 
   it('falls back to the most recent conversation when saved id is missing', async () => {
-    vi.mocked(readLastConversationId).mockReturnValue('missing-conversation');
+    readLastConversationId.mockReturnValue('missing-conversation');
 
     const { selectConversationMock, createConversationMock } = renderBootstrap({
       autoStart: true,
@@ -177,7 +177,7 @@ describe('useConversationBootstrap', () => {
   });
 
   it('maps Error failures to their message', async () => {
-    vi.mocked(readLastConversationId).mockReturnValue('saved-conversation');
+    readLastConversationId.mockReturnValue('saved-conversation');
     const selectFailure = vi.fn(async () => {
       throw new Error('select failed');
     });
@@ -204,7 +204,7 @@ describe('useConversationBootstrap', () => {
   });
 
   it('maps non-Error failures to the fallback message', async () => {
-    vi.mocked(readLastConversationId).mockReturnValue('saved-conversation');
+    readLastConversationId.mockReturnValue('saved-conversation');
     const selectFailure = vi.fn(async () => {
       throw 'not-an-error';
     });
