@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { BackLink } from '@/components/ui/back-link';
+import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from './LoginForm';
 
 interface RequireAuthProps {
