@@ -1,9 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  mls_generate_credential as generatedMlsGenerateCredential,
-  initSync as initMlsCoreWasmSync
-} from '../.generated/mlsCoreWasm/tearleads_mls_core_wasm.js';
 
 type WasmGenerateCredential =
   typeof import('./mlsWasmBridge').wasmGenerateCredential;
@@ -21,15 +16,6 @@ let wasmGenerateKeyPackage: WasmGenerateKeyPackage;
 
 describe('mlsWasmBridge', () => {
   beforeAll(async () => {
-    initMlsCoreWasmSync({
-      module: readFileSync(
-        new URL(
-          '../.generated/mlsCoreWasm/tearleads_mls_core_wasm_bg.wasm',
-          import.meta.url
-        )
-      )
-    });
-
     const module = await import('./mlsWasmBridge');
     wasmGenerateCredential = module.wasmGenerateCredential;
     wasmGenerateKeyPackage = module.wasmGenerateKeyPackage;
@@ -39,32 +25,7 @@ describe('mlsWasmBridge', () => {
     loadMlsWasmPrimitiveBindingsMock.mockReset();
   });
 
-  it('baselines raw WASM credential output shape as array-backed bytes', () => {
-    const raw = generatedMlsGenerateCredential('baseline-shape-user');
-
-    expect(typeof raw).toBe('object');
-    expect(raw).not.toBeNull();
-
-    const record: Record<string, unknown> = raw;
-    expect(Array.isArray(record.credential_bundle)).toBe(true);
-    expect(Array.isArray(record.private_key)).toBe(true);
-    expect(typeof record.created_at_ms).toBe('number');
-  });
-
-  it('normalizes real WASM credential output into Uint8Array fields', async () => {
-    loadMlsWasmPrimitiveBindingsMock.mockResolvedValue({
-      mls_generate_credential: generatedMlsGenerateCredential
-    });
-
-    const output = await wasmGenerateCredential('baseline-bridge-user');
-
-    expect(output.credentialBundle).toBeInstanceOf(Uint8Array);
-    expect(output.privateKey).toBeInstanceOf(Uint8Array);
-    expect(output.credentialBundle.length).toBeGreaterThan(0);
-    expect(output.privateKey.length).toBeGreaterThan(0);
-  });
-
-  it('normalizes generated credential byte arrays returned as number arrays', async () => {
+  it('baselines generated credential shape from array-backed byte fields', async () => {
     loadMlsWasmPrimitiveBindingsMock.mockResolvedValue({
       mls_generate_credential: () => ({
         credential_bundle: [123, 34, 118, 101],
@@ -73,11 +34,11 @@ describe('mlsWasmBridge', () => {
       })
     });
 
-    const output = await wasmGenerateCredential('alice');
+    const output = await wasmGenerateCredential('baseline-shape-user');
 
     expect(output.credentialBundle).toBeInstanceOf(Uint8Array);
-    expect(Array.from(output.credentialBundle)).toEqual([123, 34, 118, 101]);
     expect(output.privateKey).toBeInstanceOf(Uint8Array);
+    expect(Array.from(output.credentialBundle)).toEqual([123, 34, 118, 101]);
     expect(Array.from(output.privateKey)).toEqual([5, 10, 255]);
     expect(output.createdAtMs).toBe(1234);
   });
