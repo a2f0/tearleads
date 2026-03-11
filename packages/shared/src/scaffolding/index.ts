@@ -14,6 +14,14 @@ export {
   setupBobPhotoAlbumShareForAliceDb
 } from './setupBobPhotoAlbumShareForAliceDb.js';
 export type {
+  SetupBobPlaylistShareForAliceDbInput,
+  SetupBobPlaylistShareForAliceDbResult
+} from './setupBobPlaylistShareForAliceDb.js';
+export {
+  SCAFFOLD_SYNTHETIC_WAV_BASE64,
+  setupBobPlaylistShareForAliceDb
+} from './setupBobPlaylistShareForAliceDb.js';
+export type {
   SetupWelcomeEmailsDbInput,
   SetupWelcomeEmailsDbResult,
   UserEmailResult
