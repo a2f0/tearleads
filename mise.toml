@@ -1,6 +1,9 @@
 [settings]
 pipx.uvx = true
 
+[env]
+RUSTC_WRAPPER = "sccache"
+
 [tools]
 node = "v24.13.1"
 pnpm = "9.15.9"
@@ -10,5 +13,7 @@ python = "3.14"
 java = "21"
 terraform = "1.14.5"
 rust = "1.93.0"
+sccache = "0.14.0"
+"cargo:cargo-sweep" = "0.7.0"
 qdns = "0.19.12"
 "pipx:ansible-core" = "2.20.3"
