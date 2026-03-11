@@ -92,4 +92,7 @@ sh "$PM_SCRIPT" exec buf breaking proto --against '.git#ref=origin/main,subdir=p
 sh "$PM_SCRIPT" run protoGenerate
 node --experimental-strip-types scripts/checks/checkProtoCodegenParity.ts
 sh "$PM_SCRIPT" --filter @tearleads/shared build
+PROTO_CODEGEN_PARITY_GENERATED_DIR="packages/shared/dist/gen/tearleads/v2" \
+PROTO_CODEGEN_PARITY_ARTIFACT_EXTENSION=".js" \
+  node --experimental-strip-types scripts/checks/checkProtoCodegenParity.ts
 sh "$PM_SCRIPT" --filter @tearleads/api-client exec tsc -p tsconfig.protoConsumerCompile.json --noEmit
