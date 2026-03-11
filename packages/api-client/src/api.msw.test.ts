@@ -397,13 +397,11 @@ describe('URL resolution with path-suffixed API base', () => {
 
   it('resolves /connect/ login endpoint to origin without path prefix', async () => {
     server.use(
-      http.post(
-        'http://localhost/connect/tearleads.v2.AuthService/Login',
-        () =>
-          HttpResponse.json(
-            { accessToken: 'tok', refreshToken: 'ref' },
-            { status: 200 }
-          )
+      http.post('http://localhost/connect/tearleads.v2.AuthService/Login', () =>
+        HttpResponse.json(
+          { accessToken: 'tok', refreshToken: 'ref' },
+          { status: 200 }
+        )
       )
     );
 

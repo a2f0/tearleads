@@ -97,17 +97,15 @@ describe('api with msw', () => {
     (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     // Login and VFS keys need server.use() overrides
     server.use(
-      http.post(
-        'http://localhost/connect/tearleads.v2.AuthService/Login',
-        () =>
-          HttpResponse.json({
-            accessToken: 'login-access-token',
-            refreshToken: 'login-refresh-token',
-            tokenType: 'Bearer',
-            expiresIn: 3600,
-            refreshExpiresIn: 604800,
-            user: { id: seededUser.userId, email: seededUser.email }
-          })
+      http.post('http://localhost/connect/tearleads.v2.AuthService/Login', () =>
+        HttpResponse.json({
+          accessToken: 'login-access-token',
+          refreshToken: 'login-refresh-token',
+          tokenType: 'Bearer',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: seededUser.userId, email: seededUser.email }
+        })
       ),
       http.post(
         'http://localhost/connect/tearleads.v2.VfsService/GetMyKeys',
