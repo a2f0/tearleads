@@ -4,6 +4,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseInsert } from '@/db/analytics';
+import {
+  resetOpfsMetricsRuntimeForTesting,
+  setOpfsLogEventForTesting
+} from './opfs/metrics';
 
 const mockImportKey = vi.fn();
 const mockEncrypt = vi.fn();
@@ -40,6 +44,7 @@ describe('OPFS storage loggers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetOpfsMetricsRuntimeForTesting();
 
     // Reset module state
     clearFileStorageInstance();
@@ -115,16 +120,9 @@ describe('OPFS storage loggers', () => {
         })
       };
 
-      // Reset modules and mock before re-importing
-      vi.resetModules();
-      vi.doMock('@/db/analytics', () => ({
-        logEvent: mockLogEvent
-      }));
+      setOpfsLogEventForTesting(mockLogEvent);
 
-      // Re-import to get the mocked version
-      const { createRetrieveLogger: createLogger } = await import('./opfs');
-
-      const logger = createLogger(mockDb);
+      const logger = createRetrieveLogger(mockDb);
       const metrics: RetrieveMetrics = {
         storagePath: 'test.enc',
         durationMs: 150,
@@ -171,16 +169,9 @@ describe('OPFS storage loggers', () => {
         })
       };
 
-      // Reset modules and mock before re-importing
-      vi.resetModules();
-      vi.doMock('@/db/analytics', () => ({
-        logEvent: mockLogEvent
-      }));
+      setOpfsLogEventForTesting(mockLogEvent);
 
-      // Re-import to get the mocked version
-      const { createStoreLogger: createLogger } = await import('./opfs');
-
-      const logger = createLogger(mockDb);
+      const logger = createStoreLogger(mockDb);
       const metrics: StoreMetrics = {
         storagePath: 'test.enc',
         durationMs: 200,

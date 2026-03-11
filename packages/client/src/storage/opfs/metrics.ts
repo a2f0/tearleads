@@ -6,6 +6,18 @@ import type { DatabaseInsert } from '@/db/analytics';
 import { logEvent } from '@/db/analytics';
 import type { RetrieveMetrics, StoreMetrics } from './types';
 
+type OpfsLogEvent = typeof logEvent;
+
+let opfsLogEvent: OpfsLogEvent = logEvent;
+
+export function setOpfsLogEventForTesting(logEventImpl: OpfsLogEvent): void {
+  opfsLogEvent = logEventImpl;
+}
+
+export function resetOpfsMetricsRuntimeForTesting(): void {
+  opfsLogEvent = logEvent;
+}
+
 /**
  * Create a logger callback for file retrieval metrics.
  * Use this with measureRetrieve() to log decryption times to analytics.
@@ -15,7 +27,12 @@ export function createRetrieveLogger(
 ): (metrics: RetrieveMetrics) => Promise<void> {
   return async (metrics: RetrieveMetrics) => {
     try {
-      await logEvent(db, 'file_decrypt', metrics.durationMs, metrics.success);
+      await opfsLogEvent(
+        db,
+        'file_decrypt',
+        metrics.durationMs,
+        metrics.success
+      );
     } catch (err) {
       // Don't let logging errors affect the main operation
       console.warn('Failed to log file_decrypt analytics event:', err);
@@ -32,7 +49,12 @@ export function createStoreLogger(
 ): (metrics: StoreMetrics) => Promise<void> {
   return async (metrics: StoreMetrics) => {
     try {
-      await logEvent(db, 'file_encrypt', metrics.durationMs, metrics.success);
+      await opfsLogEvent(
+        db,
+        'file_encrypt',
+        metrics.durationMs,
+        metrics.success
+      );
     } catch (err) {
       // Don't let logging errors affect the main operation
       console.warn('Failed to log file_encrypt analytics event:', err);

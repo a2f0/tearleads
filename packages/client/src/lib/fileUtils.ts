@@ -6,6 +6,38 @@ import { Capacitor } from '@capacitor/core';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 
+type ShareModuleImporter = () => Promise<typeof import('@capacitor/share')>;
+type FilesystemModuleImporter = () => Promise<
+  typeof import('@capacitor/filesystem')
+>;
+
+const defaultShareModuleImporter: ShareModuleImporter = async () =>
+  import('@capacitor/share');
+
+const defaultFilesystemModuleImporter: FilesystemModuleImporter = async () =>
+  import('@capacitor/filesystem');
+
+let shareModuleImporter: ShareModuleImporter = defaultShareModuleImporter;
+let filesystemModuleImporter: FilesystemModuleImporter =
+  defaultFilesystemModuleImporter;
+
+export function setFileUtilsMobileImportersForTesting(importers: {
+  share?: ShareModuleImporter;
+  filesystem?: FilesystemModuleImporter;
+}): void {
+  if (importers.share) {
+    shareModuleImporter = importers.share;
+  }
+  if (importers.filesystem) {
+    filesystemModuleImporter = importers.filesystem;
+  }
+}
+
+export function resetFileUtilsRuntimeForTesting(): void {
+  shareModuleImporter = defaultShareModuleImporter;
+  filesystemModuleImporter = defaultFilesystemModuleImporter;
+}
+
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -173,8 +205,8 @@ export async function saveFile(
 
   if (platform === 'ios' || platform === 'android') {
     // Use Capacitor Share API for mobile
-    const { Share } = await import('@capacitor/share');
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share } = await shareModuleImporter();
+    const { Filesystem, Directory } = await filesystemModuleImporter();
 
     // Convert to base64 in chunks to avoid stack overflow
     const CHUNK_SIZE = 0x8000; // 32k characters
