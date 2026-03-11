@@ -26,7 +26,7 @@ describe('vfsUserKeyProvider', () => {
   describe('getUserKeyPair', () => {
     it('returns the VFS keypair from ensureVfsKeyPair', async () => {
       const { ensureVfsKeyPair } = await import('@/hooks/vfs');
-      vi.mocked(ensureVfsKeyPair).mockResolvedValue(mockKeyPair);
+      ensureVfsKeyPair.mockResolvedValue(mockKeyPair);
 
       const provider = createUserKeyProvider(() => ({
         id: 'user-1',
@@ -41,7 +41,7 @@ describe('vfsUserKeyProvider', () => {
 
     it('propagates errors from ensureVfsKeyPair', async () => {
       const { ensureVfsKeyPair } = await import('@/hooks/vfs');
-      vi.mocked(ensureVfsKeyPair).mockRejectedValue(
+      ensureVfsKeyPair.mockRejectedValue(
         new Error('Keys not set up')
       );
 
@@ -80,7 +80,7 @@ describe('vfsUserKeyProvider', () => {
   describe('getPublicKeyId', () => {
     it('derives public key ID from VFS public key', async () => {
       const { getVfsPublicKey } = await import('@/hooks/vfs');
-      vi.mocked(getVfsPublicKey).mockResolvedValue({
+      getVfsPublicKey.mockResolvedValue({
         x25519PublicKey: mockKeyPair.x25519PublicKey,
         mlKemPublicKey: mockKeyPair.mlKemPublicKey
       });
@@ -100,7 +100,7 @@ describe('vfsUserKeyProvider', () => {
 
     it('caches the public key ID', async () => {
       const { getVfsPublicKey } = await import('@/hooks/vfs');
-      vi.mocked(getVfsPublicKey).mockResolvedValue({
+      getVfsPublicKey.mockResolvedValue({
         x25519PublicKey: mockKeyPair.x25519PublicKey,
         mlKemPublicKey: mockKeyPair.mlKemPublicKey
       });
@@ -119,7 +119,7 @@ describe('vfsUserKeyProvider', () => {
 
     it('throws when VFS public key is not available', async () => {
       const { getVfsPublicKey } = await import('@/hooks/vfs');
-      vi.mocked(getVfsPublicKey).mockResolvedValue(null);
+      getVfsPublicKey.mockResolvedValue(null);
 
       const provider = createUserKeyProvider(() => ({
         id: 'user-1',
@@ -145,7 +145,7 @@ describe('vfsUserKeyProvider', () => {
       const keyPair2 = generateKeyPair();
 
       // First user
-      vi.mocked(getVfsPublicKey).mockResolvedValue({
+      getVfsPublicKey.mockResolvedValue({
         x25519PublicKey: keyPair1.x25519PublicKey,
         mlKemPublicKey: keyPair1.mlKemPublicKey
       });
@@ -167,7 +167,7 @@ describe('vfsUserKeyProvider', () => {
 
       // Switch to different user - should recompute
       currentUser = { id: 'user-2', email: 'user2@example.com' };
-      vi.mocked(getVfsPublicKey).mockResolvedValue({
+      getVfsPublicKey.mockResolvedValue({
         x25519PublicKey: keyPair2.x25519PublicKey,
         mlKemPublicKey: keyPair2.mlKemPublicKey
       });
@@ -182,7 +182,7 @@ describe('vfsUserKeyProvider', () => {
   describe('clearUserKeyProviderCache', () => {
     it('clears the cached public key ID', async () => {
       const { getVfsPublicKey } = await import('@/hooks/vfs');
-      vi.mocked(getVfsPublicKey).mockResolvedValue({
+      getVfsPublicKey.mockResolvedValue({
         x25519PublicKey: mockKeyPair.x25519PublicKey,
         mlKemPublicKey: mockKeyPair.mlKemPublicKey
       });

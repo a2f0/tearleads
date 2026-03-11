@@ -23,7 +23,7 @@ describe('SettingsButton', () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     setupThemeMocks();
-    vi.mocked(useWindowManagerActions).mockReturnValue({
+    useWindowManagerActions.mockReturnValue({
       openWindow,
       requestWindowOpen: vi.fn(),
       focusWindow: vi.fn(),
@@ -45,7 +45,7 @@ describe('SettingsButton', () => {
   }
 
   it('renders settings icon button', () => {
-    vi.mocked(useIsMobile).mockReturnValue(false);
+    useIsMobile.mockReturnValue(false);
     renderSettingsButton();
     expect(screen.getByTestId('settings-button')).toBeInTheDocument();
     expect(screen.getByLabelText('Settings')).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('SettingsButton', () => {
 
   it('opens settings window on desktop when clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(useIsMobile).mockReturnValue(false);
+    useIsMobile.mockReturnValue(false);
     renderSettingsButton();
 
     await user.click(screen.getByTestId('settings-button'));
@@ -64,7 +64,7 @@ describe('SettingsButton', () => {
 
   it('calls openWindow on desktop (openWindow handles existing windows)', async () => {
     const user = userEvent.setup();
-    vi.mocked(useIsMobile).mockReturnValue(false);
+    useIsMobile.mockReturnValue(false);
     renderSettingsButton();
 
     await user.click(screen.getByTestId('settings-button'));
@@ -75,7 +75,7 @@ describe('SettingsButton', () => {
 
   it('opens settings sheet on mobile when clicked once', async () => {
     const user = userEvent.setup();
-    vi.mocked(useIsMobile).mockReturnValue(true);
+    useIsMobile.mockReturnValue(true);
     renderSettingsButton();
 
     expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
@@ -89,7 +89,7 @@ describe('SettingsButton', () => {
 
   it('closes settings sheet when backdrop clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(useIsMobile).mockReturnValue(true);
+    useIsMobile.mockReturnValue(true);
     renderSettingsButton();
 
     await user.click(screen.getByTestId('settings-button'));
@@ -107,7 +107,7 @@ describe('SettingsButton', () => {
 
   it('closes settings sheet when Escape pressed', async () => {
     const user = userEvent.setup();
-    vi.mocked(useIsMobile).mockReturnValue(true);
+    useIsMobile.mockReturnValue(true);
     renderSettingsButton();
 
     await user.click(screen.getByTestId('settings-button'));

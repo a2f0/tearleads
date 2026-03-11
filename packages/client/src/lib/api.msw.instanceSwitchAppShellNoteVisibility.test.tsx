@@ -205,15 +205,15 @@ describe('app shell instance-switch note visibility regression', () => {
     latestNavigate = null;
     clearStoredAuth();
     mockApiLogout.mockClear();
-    vi.mocked(api.vfs.getMyKeys).mockReset();
-    vi.mocked(api.vfs.setupKeys).mockReset();
-    vi.mocked(api.vfs.getSync).mockReset();
-    vi.mocked(api.vfs.getCrdtSync).mockReset();
-    vi.mocked(api.vfs.getMyKeys).mockResolvedValue({
+    api.vfs.getMyKeys.mockReset();
+    api.vfs.setupKeys.mockReset();
+    api.vfs.getSync.mockReset();
+    api.vfs.getCrdtSync.mockReset();
+    api.vfs.getMyKeys.mockResolvedValue({
       publicEncryptionKey: buildPublicEncryptionKey(),
       publicSigningKey: 'seeded-signing-key'
     });
-    vi.mocked(api.vfs.setupKeys).mockResolvedValue({ created: true });
+    api.vfs.setupKeys.mockResolvedValue({ created: true });
   });
 
   afterEach(async () => {
