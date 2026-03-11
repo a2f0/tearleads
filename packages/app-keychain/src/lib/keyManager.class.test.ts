@@ -282,8 +282,8 @@ describe('KeyManager', () => {
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
-      const { unwrapKey } = await import('@tearleads/shared');
-      const unwrapMock = vi.mocked(unwrapKey);
+      const shared = await import('@tearleads/shared');
+      const unwrapMock = vi.spyOn(shared, 'unwrapKey');
       unwrapMock.mockRejectedValueOnce(new Error('unwrap failed'));
 
       mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
