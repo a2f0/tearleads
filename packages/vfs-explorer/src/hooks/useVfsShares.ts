@@ -28,6 +28,16 @@ interface UseVfsSharesResult {
   deleteOrgShare: (shareId: string) => Promise<boolean>;
 }
 
+function normalizeShareArrays(input: {
+  shares?: VfsShare[];
+  orgShares?: VfsOrgShare[];
+}): { shares: VfsShare[]; orgShares: VfsOrgShare[] } {
+  return {
+    shares: Array.isArray(input.shares) ? input.shares : [],
+    orgShares: Array.isArray(input.orgShares) ? input.orgShares : []
+  };
+}
+
 export function useVfsShares(itemId: string | null): UseVfsSharesResult {
   const { vfsShareApi } = useVfsExplorerContext();
   const [shares, setShares] = useState<VfsShare[]>([]);
@@ -47,8 +57,9 @@ export function useVfsShares(itemId: string | null): UseVfsSharesResult {
 
     try {
       const response = await vfsShareApi.getShares(itemId);
-      setShares(response.shares);
-      setOrgShares(response.orgShares);
+      const normalized = normalizeShareArrays(response);
+      setShares(normalized.shares);
+      setOrgShares(normalized.orgShares);
     } catch (err) {
       console.error('Failed to fetch VFS shares:', err);
       setError(err instanceof Error ? err.message : String(err));

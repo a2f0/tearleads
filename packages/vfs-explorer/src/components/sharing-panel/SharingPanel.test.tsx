@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SharingPanel } from './SharingPanel';
 
 const mockCreateShare = vi.fn(async () => ({
@@ -31,6 +31,22 @@ const mockUpdateShare = vi.fn(async () => ({
   createdAt: new Date().toISOString(),
   expiresAt: null
 }));
+const mockUseVfsShares = vi.fn();
+const mockRefetch = vi.fn();
+
+function buildUseVfsSharesResult() {
+  return {
+    shares: [],
+    orgShares: [],
+    loading: false,
+    error: null,
+    refetch: mockRefetch,
+    createShare: mockCreateShare,
+    updateShare: mockUpdateShare,
+    deleteShare: mockDeleteShare,
+    deleteOrgShare: mockDeleteOrgShare
+  };
+}
 
 vi.mock('../../context', () => ({
   useVfsExplorerContext: () => ({
@@ -51,17 +67,7 @@ vi.mock('../../context', () => ({
 }));
 
 vi.mock('../../hooks', () => ({
-  useVfsShares: () => ({
-    shares: [],
-    orgShares: [],
-    loading: false,
-    error: null,
-    refetch: vi.fn(),
-    createShare: mockCreateShare,
-    updateShare: mockUpdateShare,
-    deleteShare: mockDeleteShare,
-    deleteOrgShare: mockDeleteOrgShare
-  }),
+  useVfsShares: (...args: unknown[]) => mockUseVfsShares(...args),
   useShareTargetSearch: () => ({
     results: [],
     loading: false,
@@ -107,6 +113,11 @@ describe('SharingPanel', () => {
     onClose: vi.fn()
   };
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseVfsShares.mockReturnValue(buildUseVfsSharesResult());
+  });
+
   it('renders panel with item name', () => {
     render(<SharingPanel {...defaultProps} />);
     expect(screen.getByText('Sharing: document.pdf')).toBeInTheDocument();
@@ -114,6 +125,18 @@ describe('SharingPanel', () => {
 
   it('shows empty state when no shares exist', () => {
     render(<SharingPanel {...defaultProps} />);
+    expect(screen.getByText('Not shared')).toBeInTheDocument();
+    expect(screen.getByTestId('share-list-empty')).toBeInTheDocument();
+  });
+
+  it('treats missing orgShares as empty instead of crashing', () => {
+    mockUseVfsShares.mockReturnValueOnce({
+      ...buildUseVfsSharesResult(),
+      orgShares: undefined
+    });
+
+    render(<SharingPanel {...defaultProps} />);
+
     expect(screen.getByText('Not shared')).toBeInTheDocument();
     expect(screen.getByTestId('share-list-empty')).toBeInTheDocument();
   });
