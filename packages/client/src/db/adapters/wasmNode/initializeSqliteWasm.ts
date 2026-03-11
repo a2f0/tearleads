@@ -17,6 +17,33 @@ declare global {
 // Module-level state for caching the initialized SQLite module
 let sqlite3: SQLite3Module | null = null;
 
+type SqliteWasmModuleNamespace = {
+  default?: SQLite3InitModule;
+};
+
+type SqliteWasmModuleImporter = (
+  modulePath: string
+) => Promise<SqliteWasmModuleNamespace>;
+
+const defaultSqliteWasmModuleImporter: SqliteWasmModuleImporter = async (
+  modulePath
+) => import(/* @vite-ignore */ modulePath);
+
+let sqliteWasmModuleImporter: SqliteWasmModuleImporter =
+  defaultSqliteWasmModuleImporter;
+
+export function setSqliteWasmModuleImporterForTesting(
+  importer: SqliteWasmModuleImporter
+): void {
+  sqliteWasmModuleImporter = importer;
+}
+
+export function resetSqliteWasmRuntimeForTesting(): void {
+  sqlite3 = null;
+  sqliteWasmModuleImporter = defaultSqliteWasmModuleImporter;
+  globalThis.sqlite3InitModuleState = undefined;
+}
+
 /**
  * Get the path to the WASM files directory.
  */
@@ -70,7 +97,7 @@ export async function initializeSqliteWasm(): Promise<SQLite3Module> {
 
     // Import the WASM module
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const wasmModule = await import(/* @vite-ignore */ modulePath);
+    const wasmModule = await sqliteWasmModuleImporter(modulePath);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const initModule: SQLite3InitModule | undefined = wasmModule.default;
 

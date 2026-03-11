@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as helpers from './capacitorAdapterHelpers';
 
 interface HelpersModule {
   deleteCapacitorDatabaseFile: (databaseName: string) => Promise<void>;
@@ -20,63 +21,86 @@ interface LoadHelpersOptions {
   platform?: 'ios' | 'android' | 'web';
 }
 
-async function loadHelpers(
-  options: LoadHelpersOptions = {}
-): Promise<LoadedHelpers> {
-  const { echoError, platform = 'ios' } = options;
-  vi.resetModules();
-
+const mockedCapacitorModules = vi.hoisted(() => {
   let instanceCount = 0;
-  const echo = vi.fn();
-  if (echoError) {
-    echo.mockRejectedValue(echoError);
-  } else {
-    echo.mockResolvedValue({ value: 'test' });
-  }
 
+  const echo = vi.fn();
+  const getPlatform = vi.fn();
+  const deleteFile = vi.fn();
   const SQLiteConnection = vi.fn(function MockSQLiteConnection() {
-    return { id: ++instanceCount };
+    instanceCount += 1;
+    return { id: instanceCount };
   });
 
-  vi.doMock('@capacitor-community/sqlite', () => ({
-    CapacitorSQLite: { echo },
-    SQLiteConnection
-  }));
-  const getPlatform = vi.fn(() => platform);
-  const deleteFile = vi.fn();
+  const reset = (): void => {
+    instanceCount = 0;
+    echo.mockReset();
+    echo.mockResolvedValue({ value: 'test' });
+    getPlatform.mockReset();
+    getPlatform.mockReturnValue('ios');
+    deleteFile.mockReset();
+    SQLiteConnection.mockReset();
+    SQLiteConnection.mockImplementation(function MockSQLiteConnection() {
+      instanceCount += 1;
+      return { id: instanceCount };
+    });
+  };
 
-  vi.doMock('@capacitor/core', () => ({
-    Capacitor: { getPlatform }
-  }));
-  vi.doMock('@capacitor/filesystem', () => ({
-    Directory: {
-      Data: 'DATA',
-      Library: 'LIBRARY'
-    },
-    Filesystem: { deleteFile }
-  }));
-
-  const module = await import('./capacitorAdapterHelpers');
   return {
-    deleteFile,
-    getPlatform,
-    module,
     echo,
-    SQLiteConnection
+    getPlatform,
+    deleteFile,
+    SQLiteConnection,
+    reset
+  };
+});
+
+vi.mock('@capacitor-community/sqlite', () => ({
+  CapacitorSQLite: { echo: mockedCapacitorModules.echo },
+  SQLiteConnection: mockedCapacitorModules.SQLiteConnection
+}));
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { getPlatform: mockedCapacitorModules.getPlatform }
+}));
+
+vi.mock('@capacitor/filesystem', () => ({
+  Directory: {
+    Data: 'DATA',
+    Library: 'LIBRARY'
+  },
+  Filesystem: { deleteFile: mockedCapacitorModules.deleteFile }
+}));
+
+function loadHelpers(options: LoadHelpersOptions = {}): LoadedHelpers {
+  const { echoError, platform = 'ios' } = options;
+
+  mockedCapacitorModules.getPlatform.mockReturnValue(platform);
+
+  if (echoError) {
+    mockedCapacitorModules.echo.mockRejectedValue(echoError);
+  } else {
+    mockedCapacitorModules.echo.mockResolvedValue({ value: 'test' });
+  }
+
+  return {
+    deleteFile: mockedCapacitorModules.deleteFile,
+    getPlatform: mockedCapacitorModules.getPlatform,
+    module: helpers,
+    echo: mockedCapacitorModules.echo,
+    SQLiteConnection: mockedCapacitorModules.SQLiteConnection
   };
 }
 
-afterEach(() => {
-  vi.doUnmock('@capacitor/core');
-  vi.doUnmock('@capacitor-community/sqlite');
-  vi.doUnmock('@capacitor/filesystem');
-  vi.resetModules();
+beforeEach(() => {
+  mockedCapacitorModules.reset();
+  helpers.resetSQLiteConnectionCache();
 });
 
 describe('capacitorAdapterHelpers', () => {
   describe('isIgnorableDeleteDbError', () => {
-    it('returns true for known ignorable delete-db messages', async () => {
-      const { module } = await loadHelpers();
+    it('returns true for known ignorable delete-db messages', () => {
+      const { module } = loadHelpers();
 
       expect(
         module.isIgnorableDeleteDbError(new Error('Database not found'))
@@ -88,8 +112,8 @@ describe('capacitorAdapterHelpers', () => {
       ).toBe(true);
     });
 
-    it('returns false for non-error and non-ignorable errors', async () => {
-      const { module } = await loadHelpers();
+    it('returns false for non-error and non-ignorable errors', () => {
+      const { module } = loadHelpers();
 
       expect(module.isIgnorableDeleteDbError('not-an-error')).toBe(false);
       expect(
@@ -100,7 +124,7 @@ describe('capacitorAdapterHelpers', () => {
 
   describe('getSQLiteConnection', () => {
     it('caches and reuses the same SQLiteConnection instance', async () => {
-      const { module, echo, SQLiteConnection } = await loadHelpers();
+      const { module, echo, SQLiteConnection } = loadHelpers();
 
       const first = await module.getSQLiteConnection();
       const second = await module.getSQLiteConnection();
@@ -111,7 +135,7 @@ describe('capacitorAdapterHelpers', () => {
     });
 
     it('creates a new connection after cache reset', async () => {
-      const { module, SQLiteConnection } = await loadHelpers();
+      const { module, SQLiteConnection } = loadHelpers();
 
       const first = await module.getSQLiteConnection();
       module.resetSQLiteConnectionCache();
@@ -122,7 +146,7 @@ describe('capacitorAdapterHelpers', () => {
     });
 
     it('throws an actionable plugin init error when Capacitor plugin is null', async () => {
-      const { module, SQLiteConnection } = await loadHelpers({
+      const { module, SQLiteConnection } = loadHelpers({
         echoError: new Error('CapacitorSQLitePlugin: null')
       });
 
@@ -134,7 +158,7 @@ describe('capacitorAdapterHelpers', () => {
 
     it('rethrows non-plugin echo errors', async () => {
       const echoError = new Error('Echo failed for unknown reason');
-      const { module, SQLiteConnection } = await loadHelpers({ echoError });
+      const { module, SQLiteConnection } = loadHelpers({ echoError });
 
       await expect(module.getSQLiteConnection()).rejects.toThrow(
         'Echo failed for unknown reason'
@@ -145,7 +169,7 @@ describe('capacitorAdapterHelpers', () => {
 
   describe('deleteCapacitorDatabaseFile', () => {
     it('deletes iOS databases from Library/CapacitorDatabase', async () => {
-      const { module, deleteFile, getPlatform } = await loadHelpers({
+      const { module, deleteFile, getPlatform } = loadHelpers({
         platform: 'ios'
       });
 
@@ -160,7 +184,7 @@ describe('capacitorAdapterHelpers', () => {
     });
 
     it('falls back to Library path when Android Data deletion fails', async () => {
-      const { module, deleteFile } = await loadHelpers({
+      const { module, deleteFile } = loadHelpers({
         platform: 'android'
       });
       deleteFile.mockRejectedValueOnce(new Error('not found'));
@@ -180,7 +204,7 @@ describe('capacitorAdapterHelpers', () => {
     });
 
     it('warns when all direct deletion targets fail', async () => {
-      const { module, deleteFile } = await loadHelpers({
+      const { module, deleteFile } = loadHelpers({
         platform: 'android'
       });
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
