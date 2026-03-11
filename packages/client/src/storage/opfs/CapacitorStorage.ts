@@ -18,6 +18,7 @@ export class CapacitorStorage implements FileStorage {
   public instanceId: string;
   private encryptionKey: CryptoKey | null = null;
   private filesDirectory: string;
+  private isInitialized = false;
 
   constructor(instanceId: string) {
     this.instanceId = instanceId;
@@ -36,6 +37,7 @@ export class CapacitorStorage implements FileStorage {
     }
 
     this.encryptionKey = await importKey(encryptionKey);
+    this.isInitialized = true;
   }
 
   async store(id: string, data: Uint8Array): Promise<string> {
@@ -226,7 +228,7 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async delete(storagePath: string): Promise<void> {
-    if (!this.encryptionKey) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
@@ -238,7 +240,7 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async exists(storagePath: string): Promise<boolean> {
-    if (!this.encryptionKey) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
@@ -255,7 +257,7 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async getStorageUsed(): Promise<number> {
-    if (!this.encryptionKey) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
@@ -282,7 +284,7 @@ export class CapacitorStorage implements FileStorage {
   }
 
   async clearAll(): Promise<void> {
-    if (!this.encryptionKey) {
+    if (!this.isInitialized) {
       throw new Error('Storage not initialized');
     }
 
