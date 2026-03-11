@@ -54,7 +54,7 @@
     "@noble/hashes": "2.0.1",
     "@radix-ui/react-slot": "1.2.4",
     "@tanstack/react-table": "8.21.3",
-    "@tanstack/react-virtual": "3.13.19",
+    "@tanstack/react-virtual": "3.13.21",
     "@tearleads/app-admin": "workspace:*",
     "@tearleads/app-ai": "workspace:*",
     "@tearleads/app-analytics": "workspace:*",
