@@ -30,7 +30,7 @@ PODS:
 DEPENDENCIES:
   - "Capacitor (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
   - "CapacitorApp (from `../../../../node_modules/.pnpm/@capacitor+app@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/app`)"
-  - "CapacitorCommunitySqlite (from `../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
+  - "CapacitorCommunitySqlite (from `../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
   - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
   - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
   - "CapacitorKeyboard (from `../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
@@ -50,7 +50,7 @@ EXTERNAL SOURCES:
   CapacitorApp:
     :path: "../../../../node_modules/.pnpm/@capacitor+app@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/app"
   CapacitorCommunitySqlite:
-    :path: "../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite"
+    :path: "../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite"
   CapacitorCordova:
     :path: "../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
   CapacitorFilesystem:
