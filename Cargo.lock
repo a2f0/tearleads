@@ -1303,7 +1303,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http-body-util",
- "prost-types 0.13.5",
+ "prost-types 0.14.3",
  "serde",
  "serde_json",
  "tearleads-api-domain-core",
@@ -1325,9 +1325,9 @@ dependencies = [
 name = "tearleads-api-v2-contracts"
 version = "0.1.0"
 dependencies = [
- "prost 0.13.5",
+ "prost 0.14.3",
  "prost-build 0.14.3",
- "prost-types 0.13.5",
+ "prost-types 0.14.3",
  "protoc-bin-vendored",
  "tonic 0.13.1",
  "tonic-build",
