@@ -1,4 +1,6 @@
-use tearleads_data_access_postgres::{PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord};
+use tearleads_data_access_postgres::{
+    PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+};
 use tearleads_data_access_traits::{BoxFuture, DataAccessError, PostgresRowsQuery};
 
 use super::TokioPostgresGateway;
@@ -142,10 +144,7 @@ impl TokioPostgresGateway {
 
             let count_sql = format!("SELECT COUNT(*) AS count FROM {quoted_schema}.{quoted_table}");
             let count_rows = client.query(&count_sql, &[]).await.map_err(query_error)?;
-            let total_count: i64 = count_rows
-                .first()
-                .map(|r| r.get("count"))
-                .unwrap_or(0);
+            let total_count: i64 = count_rows.first().map(|r| r.get("count")).unwrap_or(0);
 
             let order_clause = match (&sort_column, &sort_direction) {
                 (Some(col), Some(dir)) => {
@@ -249,18 +248,14 @@ fn column_to_json_value(
             Ok(Some(v)) => serde_json::json!(v),
             _ => serde_json::Value::Null,
         },
-        &Type::TIMESTAMPTZ => {
-            match row.try_get::<_, Option<chrono::DateTime<chrono::Utc>>>(idx) {
-                Ok(Some(v)) => serde_json::Value::String(v.to_rfc3339()),
-                _ => serde_json::Value::Null,
-            }
-        }
-        &Type::TIMESTAMP => {
-            match row.try_get::<_, Option<chrono::NaiveDateTime>>(idx) {
-                Ok(Some(v)) => serde_json::Value::String(v.to_string()),
-                _ => serde_json::Value::Null,
-            }
-        }
+        &Type::TIMESTAMPTZ => match row.try_get::<_, Option<chrono::DateTime<chrono::Utc>>>(idx) {
+            Ok(Some(v)) => serde_json::Value::String(v.to_rfc3339()),
+            _ => serde_json::Value::Null,
+        },
+        &Type::TIMESTAMP => match row.try_get::<_, Option<chrono::NaiveDateTime>>(idx) {
+            Ok(Some(v)) => serde_json::Value::String(v.to_string()),
+            _ => serde_json::Value::Null,
+        },
         &Type::JSON | &Type::JSONB => match row.try_get::<_, Option<serde_json::Value>>(idx) {
             Ok(Some(v)) => v,
             _ => serde_json::Value::Null,

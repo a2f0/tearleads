@@ -31,14 +31,11 @@ fn build_app(origins: &str) -> axum::Router {
         Some(gateway) => {
             tracing::info!("postgres gateway initialized from environment");
             let postgres_repo = PostgresAdminAdapter::new(gateway);
-            let redis_repo =
-                tearleads_api_v2::admin_harness_static_redis();
+            let redis_repo = tearleads_api_v2::admin_harness_static_redis();
             tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo)
         }
         None => {
-            tracing::warn!(
-                "POSTGRES_HOST not set — using static fixture repositories"
-            );
+            tracing::warn!("POSTGRES_HOST not set — using static fixture repositories");
             tearleads_api_v2::app_with_origins(origins)
         }
     }

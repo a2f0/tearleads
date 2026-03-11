@@ -3,8 +3,7 @@ use tearleads_data_access_postgres::{
     AdminGroupDetailRecord, AdminGroupMemberRecord, AdminGroupSummaryRecord,
 };
 use tearleads_data_access_traits::{
-    AdminCreateGroupInput, AdminUpdateGroupInput, BoxFuture, DataAccessError,
-    DataAccessErrorKind,
+    AdminCreateGroupInput, AdminUpdateGroupInput, BoxFuture, DataAccessError, DataAccessErrorKind,
 };
 
 use super::TokioPostgresGateway;
@@ -24,10 +23,9 @@ impl TokioPostgresGateway {
             let client = self.pool.get().await.map_err(pool_error)?;
 
             let rows = match owned_ids.as_deref() {
-                Some(ids) => {
-                    client
-                        .query(
-                            "SELECT
+                Some(ids) => client
+                    .query(
+                        "SELECT
                                 g.id,
                                 g.organization_id,
                                 g.name,
@@ -40,15 +38,13 @@ impl TokioPostgresGateway {
                             WHERE g.organization_id = ANY($1::text[])
                             GROUP BY g.id
                             ORDER BY g.name",
-                            &[&ids],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
-                None => {
-                    client
-                        .query(
-                            "SELECT
+                        &[&ids],
+                    )
+                    .await
+                    .map_err(query_error)?,
+                None => client
+                    .query(
+                        "SELECT
                                 g.id,
                                 g.organization_id,
                                 g.name,
@@ -60,11 +56,10 @@ impl TokioPostgresGateway {
                             LEFT JOIN user_groups ug ON ug.group_id = g.id
                             GROUP BY g.id
                             ORDER BY g.name",
-                            &[],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
+                        &[],
+                    )
+                    .await
+                    .map_err(query_error)?,
             };
 
             Ok(rows.into_iter().map(map_group_summary_row).collect())
@@ -215,9 +210,14 @@ impl TokioPostgresGateway {
             params.push(Box::new(group_id.clone()));
             let set_sql = set_clauses.join(", ");
             let sql = format!("UPDATE groups SET {set_sql} WHERE id = ${idx}");
-            let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-                params.iter().map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync)).collect();
-            client.execute(&sql, &param_refs).await.map_err(query_error)?;
+            let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
+                .iter()
+                .map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync))
+                .collect();
+            client
+                .execute(&sql, &param_refs)
+                .await
+                .map_err(query_error)?;
 
             self.get_group_impl(&group_id).await
         })

@@ -20,8 +20,8 @@ pub use admin_auth::{
 };
 pub use admin_service::AdminServiceHandler;
 pub use ping::PingResponse;
-pub use postgres_gateway::TokioPostgresGateway;
 use ping::ping;
+pub use postgres_gateway::TokioPostgresGateway;
 
 /// Builds the router with the given comma-separated allowed origins and
 /// repository implementations.

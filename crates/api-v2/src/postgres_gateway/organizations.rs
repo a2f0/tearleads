@@ -21,10 +21,7 @@ impl TokioPostgresGateway {
         Box::pin(async move {
             let client = self.pool.get().await.map_err(pool_error)?;
             let rows = client
-                .query(
-                    "SELECT id, name FROM organizations ORDER BY name",
-                    &[],
-                )
+                .query("SELECT id, name FROM organizations ORDER BY name", &[])
                 .await
                 .map_err(query_error)?;
             Ok(rows
@@ -70,29 +67,25 @@ impl TokioPostgresGateway {
             let client = self.pool.get().await.map_err(pool_error)?;
 
             let rows = match owned_ids.as_deref() {
-                Some(ids) => {
-                    client
-                        .query(
-                            "SELECT id, name, description, created_at, updated_at
+                Some(ids) => client
+                    .query(
+                        "SELECT id, name, description, created_at, updated_at
                              FROM organizations
                              WHERE id = ANY($1::text[])
                              ORDER BY name",
-                            &[&ids],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
-                None => {
-                    client
-                        .query(
-                            "SELECT id, name, description, created_at, updated_at
+                        &[&ids],
+                    )
+                    .await
+                    .map_err(query_error)?,
+                None => client
+                    .query(
+                        "SELECT id, name, description, created_at, updated_at
                              FROM organizations
                              ORDER BY name",
-                            &[],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
+                        &[],
+                    )
+                    .await
+                    .map_err(query_error)?,
             };
 
             Ok(rows.into_iter().map(map_org_row).collect())
@@ -129,7 +122,13 @@ impl TokioPostgresGateway {
                     )
                     SELECT id, name, description, created_at, updated_at
                     FROM inserted_org",
-                    &[&org_id, &input.name, &input.description, &now, &rc_app_user_id],
+                    &[
+                        &org_id,
+                        &input.name,
+                        &input.description,
+                        &now,
+                        &rc_app_user_id,
+                    ],
                 )
                 .await
                 .map_err(query_error)?;
@@ -181,8 +180,10 @@ impl TokioPostgresGateway {
                 "UPDATE organizations SET {set_sql} WHERE id = ${idx}
                  RETURNING id, name, description, created_at, updated_at"
             );
-            let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-                params.iter().map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync)).collect();
+            let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
+                .iter()
+                .map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync))
+                .collect();
             let rows = client.query(&sql, &param_refs).await.map_err(query_error)?;
 
             rows.into_iter().next().map(map_org_row).ok_or_else(|| {

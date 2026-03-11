@@ -21,10 +21,9 @@ impl TokioPostgresGateway {
             let client = self.pool.get().await.map_err(pool_error)?;
 
             let rows = match owned_ids.as_deref() {
-                Some(ids) => {
-                    client
-                        .query(
-                            "SELECT
+                Some(ids) => client
+                    .query(
+                        "SELECT
                                 u.id,
                                 u.email,
                                 u.email_confirmed,
@@ -52,15 +51,13 @@ impl TokioPostgresGateway {
                             )
                             GROUP BY u.id
                             ORDER BY u.email",
-                            &[&ids],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
-                None => {
-                    client
-                        .query(
-                            "SELECT
+                        &[&ids],
+                    )
+                    .await
+                    .map_err(query_error)?,
+                None => client
+                    .query(
+                        "SELECT
                                 u.id,
                                 u.email,
                                 u.email_confirmed,
@@ -82,11 +79,10 @@ impl TokioPostgresGateway {
                             LEFT JOIN user_credentials uc ON uc.user_id = u.id
                             GROUP BY u.id
                             ORDER BY u.email",
-                            &[],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
+                        &[],
+                    )
+                    .await
+                    .map_err(query_error)?,
             };
 
             let user_ids: Vec<String> = rows.iter().map(|r| r.get::<_, String>("id")).collect();
@@ -119,10 +115,9 @@ impl TokioPostgresGateway {
             let client = self.pool.get().await.map_err(pool_error)?;
 
             let rows = match owned_ids.as_deref() {
-                Some(ids) => {
-                    client
-                        .query(
-                            "SELECT
+                Some(ids) => client
+                    .query(
+                        "SELECT
                                 u.id,
                                 u.email,
                                 u.email_confirmed,
@@ -150,15 +145,13 @@ impl TokioPostgresGateway {
                                         AND uof.organization_id = ANY($2::text[])
                                 )
                             GROUP BY u.id",
-                            &[&user_id, &ids],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
-                None => {
-                    client
-                        .query(
-                            "SELECT
+                        &[&user_id, &ids],
+                    )
+                    .await
+                    .map_err(query_error)?,
+                None => client
+                    .query(
+                        "SELECT
                                 u.id,
                                 u.email,
                                 u.email_confirmed,
@@ -180,11 +173,10 @@ impl TokioPostgresGateway {
                             LEFT JOIN user_credentials uc ON uc.user_id = u.id
                             WHERE u.id = $1
                             GROUP BY u.id",
-                            &[&user_id],
-                        )
-                        .await
-                        .map_err(query_error)?
-                }
+                        &[&user_id],
+                    )
+                    .await
+                    .map_err(query_error)?,
             };
 
             let Some(row) = rows.into_iter().next() else {
@@ -261,9 +253,14 @@ impl TokioPostgresGateway {
                 params.push(Box::new(user_id.clone()));
                 let set_sql = set_clauses.join(", ");
                 let sql = format!("UPDATE users SET {set_sql} WHERE id = ${idx}");
-                let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-                    params.iter().map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync)).collect();
-                client.execute(&sql, &param_refs).await.map_err(query_error)?;
+                let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
+                    .iter()
+                    .map(|p| &**p as &(dyn tokio_postgres::types::ToSql + Sync))
+                    .collect();
+                client
+                    .execute(&sql, &param_refs)
+                    .await
+                    .map_err(query_error)?;
             }
 
             if let Some(ref org_ids) = input.organization_ids {
@@ -301,14 +298,12 @@ impl TokioPostgresGateway {
                 }
             }
 
-            self.get_user_impl(&user_id, None)
-                .await?
-                .ok_or_else(|| {
-                    DataAccessError::new(
-                        DataAccessErrorKind::NotFound,
-                        format!("user not found after update: {user_id}"),
-                    )
-                })
+            self.get_user_impl(&user_id, None).await?.ok_or_else(|| {
+                DataAccessError::new(
+                    DataAccessErrorKind::NotFound,
+                    format!("user not found after update: {user_id}"),
+                )
+            })
         })
     }
 
