@@ -46,15 +46,24 @@ export function readProtoDefinitions(protoDir: string): ProtoDefinition[] {
 }
 
 export function readGeneratedArtifactNames(generatedDir: string): Set<string> {
+  return readGeneratedArtifactNamesWithExtension(generatedDir, '.ts');
+}
+
+function readGeneratedArtifactNamesWithExtension(
+  generatedDir: string,
+  extension: string
+): Set<string> {
   const entries = readdirSync(generatedDir, { withFileTypes: true });
   const generated = new Set<string>();
+  const pbSuffix = `_pb${extension}`;
+  const connectSuffix = `_connect${extension}`;
 
   for (const entry of entries) {
     if (!entry.isFile()) {
       continue;
     }
 
-    if (!entry.name.endsWith('_pb.ts') && !entry.name.endsWith('_connect.ts')) {
+    if (!entry.name.endsWith(pbSuffix) && !entry.name.endsWith(connectSuffix)) {
       continue;
     }
 
@@ -66,14 +75,15 @@ export function readGeneratedArtifactNames(generatedDir: string): Set<string> {
 
 export function findProtoCodegenParityIssues(
   definitions: ReadonlyArray<ProtoDefinition>,
-  generatedArtifacts: ReadonlySet<string>
+  generatedArtifacts: ReadonlySet<string>,
+  extension = '.ts'
 ): ProtoCodegenParityIssues {
   const expected = new Set<string>();
 
   for (const definition of definitions) {
-    expected.add(`${definition.basename}_pb.ts`);
+    expected.add(`${definition.basename}_pb${extension}`);
     if (definition.hasService) {
-      expected.add(`${definition.basename}_connect.ts`);
+      expected.add(`${definition.basename}_connect${extension}`);
     }
   }
 
@@ -87,7 +97,10 @@ export function findProtoCodegenParityIssues(
   return { missing, stale };
 }
 
-function printIssues(issues: ProtoCodegenParityIssues): void {
+function printIssues(
+  issues: ProtoCodegenParityIssues,
+  generatedDir: string
+): void {
   console.error('Error: proto codegen parity check failed.');
   console.error('');
 
@@ -108,14 +121,28 @@ function printIssues(issues: ProtoCodegenParityIssues): void {
   }
 
   console.error(
-    'Run `pnpm protoGenerate` to regenerate `packages/shared/src/gen/tearleads/v2`.'
+    `Run \`pnpm protoGenerate\` and (for dist checks) \`pnpm --filter @tearleads/shared build\` to regenerate ${generatedDir}.`
   );
+}
+
+function resolveOverridePath(
+  repoRoot: string,
+  overrideValue: string | undefined,
+  defaultValue: string
+): string {
+  if (!overrideValue || overrideValue.trim().length === 0) {
+    return defaultValue;
+  }
+
+  return path.isAbsolute(overrideValue)
+    ? overrideValue
+    : path.join(repoRoot, overrideValue);
 }
 
 function main(): void {
   const repoRoot = getRepoRoot();
-  const protoDir = path.join(repoRoot, 'proto', 'tearleads', 'v2');
-  const generatedDir = path.join(
+  const defaultProtoDir = path.join(repoRoot, 'proto', 'tearleads', 'v2');
+  const defaultGeneratedDir = path.join(
     repoRoot,
     'packages',
     'shared',
@@ -124,15 +151,34 @@ function main(): void {
     'tearleads',
     'v2'
   );
+  const protoDir = resolveOverridePath(
+    repoRoot,
+    process.env['PROTO_CODEGEN_PARITY_PROTO_DIR'],
+    defaultProtoDir
+  );
+  const generatedDir = resolveOverridePath(
+    repoRoot,
+    process.env['PROTO_CODEGEN_PARITY_GENERATED_DIR'],
+    defaultGeneratedDir
+  );
+  const extension =
+    process.env['PROTO_CODEGEN_PARITY_ARTIFACT_EXTENSION'] ?? '.ts';
   const definitions = readProtoDefinitions(protoDir);
-  const generatedArtifacts = readGeneratedArtifactNames(generatedDir);
-  const issues = findProtoCodegenParityIssues(definitions, generatedArtifacts);
+  const generatedArtifacts = readGeneratedArtifactNamesWithExtension(
+    generatedDir,
+    extension
+  );
+  const issues = findProtoCodegenParityIssues(
+    definitions,
+    generatedArtifacts,
+    extension
+  );
 
   if (issues.missing.length === 0 && issues.stale.length === 0) {
     process.exit(0);
   }
 
-  printIssues(issues);
+  printIssues(issues, generatedDir);
   process.exit(1);
 }
 
