@@ -17,6 +17,9 @@ vi.mock('./app/App', () => ({
 vi.mock('./components/auth', () => ({
   RequireAuth: ({ children }: { children: ReactNode }) => (
     <div data-testid="require-auth">{children}</div>
+  ),
+  InlineRequiresLoginAndUnlock: ({ children }: { children: ReactNode }) => (
+    <div data-testid="inline-requires-login-and-unlock">{children}</div>
   )
 }));
 
