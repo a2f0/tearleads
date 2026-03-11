@@ -1,60 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
-
-function createI18nMock(language: string) {
-  return {
-    language,
-    addResourceBundle: vi.fn(),
-    hasResourceBundle: vi.fn(() => true),
-    use: vi.fn(function (this: unknown) {
-      return this;
-    }),
-    init: vi.fn(function (this: unknown) {
-      return this;
-    }),
-    on: vi.fn(),
-    changeLanguage: vi.fn()
-  };
-}
+import { loadDetectedLanguage, registerSettingsSyncedListener } from './i18n';
 
 describe('i18n detected language loading', () => {
   it('loads detected supported language on init', async () => {
-    vi.resetModules();
-    const i18nMock = createI18nMock('es');
-    vi.doMock('i18next', () => ({
-      __esModule: true,
-      default: i18nMock
-    }));
+    const loadLanguageMock = vi.fn().mockResolvedValue(undefined);
 
-    await import('./i18n');
+    await loadDetectedLanguage('es', loadLanguageMock);
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(i18nMock.language).toBe('es');
+    expect(loadLanguageMock).toHaveBeenCalledWith('es');
   });
 
-  it('skips settings listener when window is undefined', async () => {
-    vi.resetModules();
-    const i18nMock = createI18nMock('en');
-    vi.doMock('i18next', () => ({
-      __esModule: true,
-      default: i18nMock
-    }));
+  it('skips settings listener when window is undefined', () => {
+    const addEventListener = vi.fn();
 
-    const originalWindow = globalThis.window;
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: undefined,
-      writable: true
+    registerSettingsSyncedListener({
+      addEventListener
     });
+    expect(addEventListener).toHaveBeenCalledWith(
+      'settings-synced',
+      expect.any(Function)
+    );
 
-    await import('./i18n');
-
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: originalWindow,
-      writable: true
-    });
-
-    expect(i18nMock.on).toHaveBeenCalled();
+    addEventListener.mockClear();
+    registerSettingsSyncedListener(undefined);
+    expect(addEventListener).not.toHaveBeenCalled();
   });
 });

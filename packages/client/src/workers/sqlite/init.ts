@@ -27,8 +27,15 @@ function debugLog(...args: unknown[]): void {
   }
 }
 
-const sqlite3InitModule: SQLite3InitModule = (options) =>
+const defaultSqlite3InitModule: SQLite3InitModule = (options) =>
   sqlite3InitModuleFactory(options) as Promise<SQLite3Module>;
+
+let sqlite3InitModule = defaultSqlite3InitModule;
+let keyToHexRuntime = keyToHex;
+let installOpfsVfsRuntime = installOpfsVfsUtil;
+let getVfsListRuntime = getVfsList;
+let getOpfsVfsNameRuntime = getOpfsVfsName;
+let ensureMultipleciphersVfsRuntime = ensureMultipleciphersVfs;
 
 // Module state
 let sqlite3: SQLite3Module | null = null;
@@ -133,20 +140,20 @@ export async function initializeDatabase(
   await initializeSqliteWasm();
 
   // Convert key to hex format for SQLite encryption
-  encryptionKey = keyToHex(key);
+  encryptionKey = keyToHexRuntime(key);
 
   if (!sqlite3) {
     throw new Error('SQLite module not initialized');
   }
 
   // Try to install OPFS VFS for persistence
-  const hasOpfs = await installOpfsVfsUtil(sqlite3, sqliteBaseUrl);
-  let vfsList = getVfsList(sqlite3);
+  const hasOpfs = await installOpfsVfsRuntime(sqlite3, sqliteBaseUrl);
+  let vfsList = getVfsListRuntime(sqlite3);
   debugLog('SQLite VFS list:', vfsList);
   if (hasOpfs && vfsList.includes('opfs')) {
-    const created = ensureMultipleciphersVfs(sqlite3, 'opfs');
+    const created = ensureMultipleciphersVfsRuntime(sqlite3, 'opfs');
     if (created) {
-      vfsList = getVfsList(sqlite3);
+      vfsList = getVfsListRuntime(sqlite3);
       debugLog('SQLite VFS list after mc create:', vfsList);
     }
   }
@@ -154,7 +161,7 @@ export async function initializeDatabase(
   // Use OPFS filename if available, otherwise use in-memory
   // OPFS files persist across page reloads
   if (hasOpfs) {
-    const vfsName = getOpfsVfsName(sqlite3);
+    const vfsName = getOpfsVfsNameRuntime(sqlite3);
     if (vfsName) {
       currentDbFilename = `file:${name}.sqlite3?vfs=${vfsName}`;
       debugLog(`Using ${vfsName} VFS for encrypted persistence`);
@@ -286,4 +293,65 @@ export function closeDatabase(): void {
   // Clear sensitive data from memory
   encryptionKey = null;
   currentDbFilename = null;
+}
+
+interface SqliteInitRuntimeOverrides {
+  sqlite3InitModule?: SQLite3InitModule;
+  keyToHex?: typeof keyToHex;
+  installOpfsVfs?: typeof installOpfsVfsUtil;
+  getVfsList?: typeof getVfsList;
+  getOpfsVfsName?: typeof getOpfsVfsName;
+  ensureMultipleciphersVfs?: typeof ensureMultipleciphersVfs;
+}
+
+function assertSqliteInitTestingHookRuntime(): void {
+  if (import.meta.env.MODE !== 'test') {
+    throw new Error(
+      'sqlite init testing hooks are only available in test mode.'
+    );
+  }
+}
+
+export function setSqliteInitRuntimeForTesting(
+  overrides: SqliteInitRuntimeOverrides
+): void {
+  assertSqliteInitTestingHookRuntime();
+  if (overrides.sqlite3InitModule) {
+    sqlite3InitModule = overrides.sqlite3InitModule;
+  }
+  if (overrides.keyToHex) {
+    keyToHexRuntime = overrides.keyToHex;
+  }
+  if (overrides.installOpfsVfs) {
+    installOpfsVfsRuntime = overrides.installOpfsVfs;
+  }
+  if (overrides.getVfsList) {
+    getVfsListRuntime = overrides.getVfsList;
+  }
+  if (overrides.getOpfsVfsName) {
+    getOpfsVfsNameRuntime = overrides.getOpfsVfsName;
+  }
+  if (overrides.ensureMultipleciphersVfs) {
+    ensureMultipleciphersVfsRuntime = overrides.ensureMultipleciphersVfs;
+  }
+}
+
+export function resetSqliteInitRuntimeForTesting(): void {
+  assertSqliteInitTestingHookRuntime();
+
+  if (db) {
+    db.close();
+  }
+  db = null;
+  sqlite3 = null;
+  encryptionKey = null;
+  currentDbFilename = null;
+  sqliteBaseUrl = null;
+
+  sqlite3InitModule = defaultSqlite3InitModule;
+  keyToHexRuntime = keyToHex;
+  installOpfsVfsRuntime = installOpfsVfsUtil;
+  getVfsListRuntime = getVfsList;
+  getOpfsVfsNameRuntime = getOpfsVfsName;
+  ensureMultipleciphersVfsRuntime = ensureMultipleciphersVfs;
 }
