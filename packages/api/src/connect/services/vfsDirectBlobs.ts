@@ -1,4 +1,5 @@
 import { Code, ConnectError } from '@connectrpc/connect';
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobData, readVfsBlobData } from '../../lib/vfsBlobStore.js';
@@ -25,7 +26,7 @@ export async function getBlobDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/GetBlob',
+    buildVfsV2ConnectMethodPath('GetBlob'),
     context.requestHeader
   );
 
@@ -85,7 +86,7 @@ export async function deleteBlobDirect(
   }
 
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/DeleteBlob',
+    buildVfsV2ConnectMethodPath('DeleteBlob'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

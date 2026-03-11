@@ -7,6 +7,7 @@ import type {
   VfsShare,
   VfsShareType
 } from '@tearleads/shared';
+import { buildVfsSharesV2ConnectMethodPath } from '@tearleads/shared';
 import type {
   VfsSharePayload,
   VfsSharesCreateShareResponse,
@@ -58,7 +59,7 @@ export async function updateShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesUpdateShareResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/UpdateShare',
+    buildVfsSharesV2ConnectMethodPath('UpdateShare'),
     context.requestHeader
   );
   const payload = parseUpdateSharePayload(request);
@@ -205,7 +206,7 @@ export async function createShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesCreateShareResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/CreateShare',
+    buildVfsSharesV2ConnectMethodPath('CreateShare'),
     context.requestHeader
   );
 

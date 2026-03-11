@@ -7,7 +7,7 @@ import type {
   VfsShareType,
   VfsWrappedKeyPayload
 } from '@tearleads/shared';
-import { isRecord } from '@tearleads/shared';
+import { buildVfsSharesV2ConnectMethodPath, isRecord } from '@tearleads/shared';
 import type {
   VfsOrgSharePayload,
   VfsSharePayload,
@@ -173,7 +173,7 @@ export async function getItemSharesDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesGetItemSharesResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/GetItemShares',
+    buildVfsSharesV2ConnectMethodPath('GetItemShares'),
     context.requestHeader
   );
 

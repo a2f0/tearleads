@@ -1,4 +1,5 @@
 import { Code, ConnectError } from '@connectrpc/connect';
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { persistVfsBlobData } from '../../lib/vfsBlobStore.js';
@@ -90,7 +91,7 @@ export async function stageBlobDirect(
   context: { requestHeader: Headers }
 ): Promise<StageBlobDirectResponse> {
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/StageBlob',
+    buildVfsV2ConnectMethodPath('StageBlob'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -289,7 +290,7 @@ export async function uploadBlobChunkDirect(
 ): Promise<UploadBlobChunkDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/UploadBlobChunk',
+    buildVfsV2ConnectMethodPath('UploadBlobChunk'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

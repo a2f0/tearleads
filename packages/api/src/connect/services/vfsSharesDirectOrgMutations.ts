@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { CreateOrgShareRequest, VfsOrgShare } from '@tearleads/shared';
+import { buildVfsSharesV2ConnectMethodPath } from '@tearleads/shared';
 import type {
   VfsOrgSharePayload,
   VfsSharesCreateOrgShareResponse
@@ -50,7 +51,7 @@ export async function createOrgShareDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesCreateOrgShareResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/CreateOrgShare',
+    buildVfsSharesV2ConnectMethodPath('CreateOrgShare'),
     context.requestHeader
   );
 

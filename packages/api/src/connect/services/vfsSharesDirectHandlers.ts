@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
+  buildVfsSharesV2ConnectMethodPath,
   type ShareTargetSearchResult,
   VFS_CONTAINER_OBJECT_TYPES,
   type VfsShareType
@@ -177,7 +178,7 @@ export async function deleteShareDirect(
   context: { requestHeader: Headers }
 ): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+    buildVfsSharesV2ConnectMethodPath('DeleteShare'),
     context.requestHeader
   );
 
@@ -224,7 +225,7 @@ export async function deleteOrgShareDirect(
   context: { requestHeader: Headers }
 ): Promise<{ deleted: boolean }> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare',
+    buildVfsSharesV2ConnectMethodPath('DeleteOrgShare'),
     context.requestHeader
   );
 
@@ -271,7 +272,7 @@ export async function searchShareTargetsDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesSearchShareTargetsResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/SearchShareTargets',
+    buildVfsSharesV2ConnectMethodPath('SearchShareTargets'),
     context.requestHeader
   );
 
@@ -387,7 +388,7 @@ export async function getSharePolicyPreviewDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsSharesGetSharePolicyPreviewResponse> {
   const claims = await requireVfsSharesClaims(
-    '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview',
+    buildVfsSharesV2ConnectMethodPath('GetSharePolicyPreview'),
     context.requestHeader
   );
 

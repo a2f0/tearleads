@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import {
   compareVfsSyncCursorOrder,
   parseVfsCrdtLastReconciledWriteIds,
@@ -81,7 +82,7 @@ export async function attachBlobDirect(
 ): Promise<AttachBlobDirectResponse> {
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
-    '/connect/tearleads.v2.VfsService/AttachBlob',
+    buildVfsV2ConnectMethodPath('AttachBlob'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
