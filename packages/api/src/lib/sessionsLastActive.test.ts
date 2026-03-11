@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sessionStore = new Map<string, string>();
 const userSessionsStore = new Map<string, Set<string>>();
@@ -115,10 +115,6 @@ describe('sessions getLatestLastActiveByUserIds', () => {
     sessionStore.clear();
     userSessionsStore.clear();
     sessionTtl.clear();
-  });
-
-  afterEach(() => {
-    vi.resetModules();
   });
 
   it('returns the latest activity per user', async () => {

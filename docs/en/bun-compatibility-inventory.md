@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-10T23:30:59.630Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-11T01:08:13.320Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -17,7 +17,7 @@ Generated: `2026-03-10T23:30:59.630Z` via `node --experimental-strip-types scrip
 | --- | ---: | --- |
 | `@tearleads/client` | 29 | vi.hoisted (38), vi.importActual (86), vi.mock(importOriginal) (106), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (435), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/api-client` | 10 | vi.resetModules (29), vi.mocked (43), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
-| `@tearleads/api` | 8 | vi.resetModules (9), vi.mocked (4), test script is vitest-primary |
+| `@tearleads/api` | 8 | vi.resetModules (3), vi.mocked (4), test script is vitest-primary |
 | `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/cli` | 5 | vi.mocked (7), test script is vitest-primary |
 | `@tearleads/app-admin` | 4 | vi.mocked (4), DOM setup (4 indicators; see Package Inventory) |
@@ -37,7 +37,7 @@ Generated: `2026-03-10T23:30:59.630Z` via `node --experimental-strip-types scrip
 | --- | ---: | --- | --- | --- | --- | --- |
 | `@tearleads/client` | 608 | `vitest-primary` | no | vi.hoisted:38, vi.importActual:86, vi.mock(importOriginal):106, vi.waitFor:8, import.meta.glob:1, vi.resetModules:46, vi.mocked:435 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/api-client` | 54 | `vitest-primary` | no | vi.resetModules:29, vi.mocked:43 | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/api` | 156 | `vitest-primary` | no | vi.resetModules:9, vi.mocked:4 | none | `high-remediation` |
+| `@tearleads/api` | 156 | `vitest-primary` | no | vi.resetModules:3, vi.mocked:4 | none | `high-remediation` |
 | `@tearleads/app-compliance` | 3 | `bun-primary` | yes | import.meta.glob:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/cli` | 6 | `vitest-primary` | no | vi.mocked:7 | none | `high-remediation` |
 | `@tearleads/app-admin` | 59 | `bun-primary` | yes | vi.mocked:4 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
