@@ -98,7 +98,7 @@ describe('api with msw', () => {
     // Login and VFS keys need server.use() overrides
     server.use(
       http.post(
-        'http://localhost/v1/connect/tearleads.v2.AuthService/Login',
+        'http://localhost/connect/tearleads.v2.AuthService/Login',
         () =>
           HttpResponse.json({
             accessToken: 'login-access-token',
@@ -110,7 +110,7 @@ describe('api with msw', () => {
           })
       ),
       http.post(
-        'http://localhost/v1/connect/tearleads.v2.VfsService/GetMyKeys',
+        'http://localhost/connect/tearleads.v2.VfsService/GetMyKeys',
         () =>
           HttpResponse.json({
             json: JSON.stringify({
@@ -128,7 +128,7 @@ describe('api with msw', () => {
     await api.vfs.getMyKeys();
     await api.ai.getUsageSummary();
     expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.AuthService/Login')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Login')
     ).toBe(true);
     expect(
       wasApiRequestMade(
@@ -137,7 +137,7 @@ describe('api with msw', () => {
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
     ).toBe(true);
     expect(
       wasApiRequestMade(

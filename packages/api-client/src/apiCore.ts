@@ -96,7 +96,7 @@ async function executeTokenRefresh(
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`,
+      resolveRequestUrl(AUTH_CONNECT_REFRESH_PATH),
       {
         method: 'POST',
         credentials: 'include',
@@ -273,7 +273,7 @@ function resolveRequestUrl(endpoint: string): string {
     return endpoint;
   }
 
-  if (endpoint.startsWith('/v2/')) {
+  if (endpoint.startsWith('/v2/') || endpoint.startsWith('/connect/')) {
     const apiBaseUrl = new URL(API_BASE_URL);
     return `${apiBaseUrl.origin}${endpoint}`;
   }

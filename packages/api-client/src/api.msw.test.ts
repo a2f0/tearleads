@@ -342,3 +342,115 @@ describe('api with msw', () => {
     });
   });
 });
+
+describe('URL resolution with path-suffixed API base', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.doMock('./pingWasmImport', () => ({
+      importPingWasmModule: () =>
+        Promise.resolve({
+          v2_ping_path: () => '/v2/ping',
+          parse_v2_ping_value: (payload: unknown) => {
+            if (typeof payload !== 'object' || payload === null) {
+              throw new Error('Invalid v2 ping response payload');
+            }
+            return payload;
+          }
+        })
+    }));
+    vi.clearAllMocks();
+    setTestEnv('VITE_API_URL', 'http://localhost/v1');
+    localStorage.clear();
+    mockLogApiEvent.mockResolvedValue(undefined);
+    const { setApiEventLogger } = await import('./apiLogger');
+    setApiEventLogger((...args: Parameters<typeof mockLogApiEvent>) =>
+      mockLogApiEvent(...args)
+    );
+  });
+
+  afterEach(async () => {
+    const { resetApiEventLogger } = await import('./apiLogger');
+    resetApiEventLogger();
+  });
+
+  it('resolves /connect/ register endpoint to origin without path prefix', async () => {
+    server.use(
+      http.post(
+        'http://localhost/connect/tearleads.v2.AuthService/Register',
+        () =>
+          HttpResponse.json(
+            { accessToken: 'tok', refreshToken: 'ref' },
+            { status: 200 }
+          )
+      )
+    );
+
+    const api = await loadApi();
+
+    await expect(
+      api.auth.register('test@example.com', 'password123')
+    ).resolves.toBeDefined();
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Register')
+    ).toBe(true);
+  });
+
+  it('resolves /connect/ login endpoint to origin without path prefix', async () => {
+    server.use(
+      http.post(
+        'http://localhost/connect/tearleads.v2.AuthService/Login',
+        () =>
+          HttpResponse.json(
+            { accessToken: 'tok', refreshToken: 'ref' },
+            { status: 200 }
+          )
+      )
+    );
+
+    const api = await loadApi();
+
+    await expect(
+      api.auth.login('test@example.com', 'password123')
+    ).resolves.toBeDefined();
+    expect(
+      wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Login')
+    ).toBe(true);
+  });
+
+  it('resolves /connect/ refresh endpoint to origin without path prefix', async () => {
+    (await import('./authStorage')).setStoredRefreshToken('refresh-token');
+    server.use(
+      http.post(
+        'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+        () =>
+          HttpResponse.json(
+            { accessToken: 'new-tok', refreshToken: 'new-ref' },
+            { status: 200 }
+          )
+      )
+    );
+
+    const { tryRefreshToken } = await import('./api');
+
+    await expect(tryRefreshToken()).resolves.toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        '/connect/tearleads.v2.AuthService/RefreshToken'
+      )
+    ).toBe(true);
+  });
+
+  it('resolves /v2/ endpoints to origin without path prefix', async () => {
+    server.use(
+      http.get('http://localhost/v2/ping', () =>
+        HttpResponse.json({ status: 'ok' })
+      )
+    );
+
+    const api = await loadApi();
+    await api.ping.get();
+
+    expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
+  });
+});
