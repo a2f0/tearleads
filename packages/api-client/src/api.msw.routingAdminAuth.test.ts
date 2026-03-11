@@ -115,87 +115,83 @@ describe('api with msw', () => {
     );
     expect(wasApiRequestMade('POST', AUTH_V2_LOGOUT_CONNECT_PATH)).toBe(true);
   });
-  it.each(API_BASE_URL_VARIANTS)(
-    'routes auth/admin/vfs/ai connect calls for %s',
-    async (apiBaseUrl) => {
+  it.each(
+    API_BASE_URL_VARIANTS
+  )('routes auth/admin/vfs/ai connect calls for %s', async (apiBaseUrl) => {
     installApiV2WasmBindingsOverride();
-      setTestEnv('VITE_API_URL', apiBaseUrl);
+    setTestEnv('VITE_API_URL', apiBaseUrl);
     resetApiCoreRuntimeForTesting();
     (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
-      const vfsGetMyKeysConnectPath = buildConnectMethodPath(
-        VFS_V2_CONNECT_BASE_PATH,
-        'GetMyKeys'
-      );
-      const adminRedisDbSizeConnectPath = buildConnectMethodPath(
-        ADMIN_V2_CONNECT_BASE_PATH,
-        'GetRedisDbSize'
-      );
-      const aiUsageSummaryConnectPath = buildConnectMethodPath(
-        AI_V2_CONNECT_BASE_PATH,
-        'GetUsageSummary'
-      );
+    const vfsGetMyKeysConnectPath = buildConnectMethodPath(
+      VFS_V2_CONNECT_BASE_PATH,
+      'GetMyKeys'
+    );
+    const adminRedisDbSizeConnectPath = buildConnectMethodPath(
+      ADMIN_V2_CONNECT_BASE_PATH,
+      'GetRedisDbSize'
+    );
+    const aiUsageSummaryConnectPath = buildConnectMethodPath(
+      AI_V2_CONNECT_BASE_PATH,
+      'GetUsageSummary'
+    );
 
-      // Login and VFS keys need server.use() overrides
-      server.use(
-        http.post(
-          resolveConnectUrlForApiBase(apiBaseUrl, AUTH_V2_LOGIN_CONNECT_PATH),
-          () =>
-            HttpResponse.json({
-              accessToken: 'login-access-token',
-              refreshToken: 'login-refresh-token',
-              tokenType: 'Bearer',
-              expiresIn: 3600,
-              refreshExpiresIn: 604800,
-              user: { id: seededUser.userId, email: seededUser.email }
+    // Login and VFS keys need server.use() overrides
+    server.use(
+      http.post(
+        resolveConnectUrlForApiBase(apiBaseUrl, AUTH_V2_LOGIN_CONNECT_PATH),
+        () =>
+          HttpResponse.json({
+            accessToken: 'login-access-token',
+            refreshToken: 'login-refresh-token',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: seededUser.userId, email: seededUser.email }
+          })
+      ),
+      http.post(
+        resolveConnectUrlForApiBase(apiBaseUrl, vfsGetMyKeysConnectPath),
+        () =>
+          HttpResponse.json({
+            json: JSON.stringify({
+              publicEncryptionKey: 'test-key',
+              publicSigningKey: 'test-signing-key',
+              encryptedPrivateKeys: 'test-enc-keys',
+              argon2Salt: 'test-salt'
             })
-        ),
-        http.post(
-          resolveConnectUrlForApiBase(apiBaseUrl, vfsGetMyKeysConnectPath),
-          () =>
-            HttpResponse.json({
-              json: JSON.stringify({
-                publicEncryptionKey: 'test-key',
-                publicSigningKey: 'test-signing-key',
-                encryptedPrivateKeys: 'test-enc-keys',
-                argon2Salt: 'test-salt'
-              })
-            })
-        )
-      );
+          })
+      )
+    );
     const api = await loadApi();
     await api.auth.login('user@example.com', 'password');
     await api.adminV2.redis.getDbSize();
     await api.vfs.getMyKeys();
     await api.ai.getUsageSummary();
-      expect(
-        wasApiRequestMade(
-          'POST',
-          resolveConnectPathForApiBase(apiBaseUrl, AUTH_V2_LOGIN_CONNECT_PATH)
-        )
-      ).toBe(true);
-      expect(
-        wasApiRequestMade(
-          'POST',
-          resolveConnectPathForApiBase(
-            apiBaseUrl,
-            adminRedisDbSizeConnectPath
-          )
-        )
-      ).toBe(true);
-      expect(
-        wasApiRequestMade(
-          'POST',
-          resolveConnectPathForApiBase(apiBaseUrl, vfsGetMyKeysConnectPath)
-        )
-      ).toBe(true);
-      expect(
-        wasApiRequestMade(
-          'POST',
-          resolveConnectPathForApiBase(apiBaseUrl, aiUsageSummaryConnectPath)
-        )
-      ).toBe(true);
-    }
-  );
+    expect(
+      wasApiRequestMade(
+        'POST',
+        resolveConnectPathForApiBase(apiBaseUrl, AUTH_V2_LOGIN_CONNECT_PATH)
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        resolveConnectPathForApiBase(apiBaseUrl, adminRedisDbSizeConnectPath)
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        resolveConnectPathForApiBase(apiBaseUrl, vfsGetMyKeysConnectPath)
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        resolveConnectPathForApiBase(apiBaseUrl, aiUsageSummaryConnectPath)
+      )
+    ).toBe(true);
+  });
   it('retries auth requests after refresh and records request order', async () => {
     const api = await loadApi();
     let sessionsAttemptCount = 0;
@@ -274,9 +270,7 @@ describe('api with msw', () => {
       api.auth.login('user@example.com', 'bad-password')
     ).rejects.toThrow('Invalid email or password');
     expect(wasApiRequestMade('POST', AUTH_V2_LOGIN_CONNECT_PATH)).toBe(true);
-    expect(wasApiRequestMade('POST', AUTH_V2_REFRESH_CONNECT_PATH)).toBe(
-      false
-    );
+    expect(wasApiRequestMade('POST', AUTH_V2_REFRESH_CONNECT_PATH)).toBe(false);
   });
   it('clears auth when refresh fails and refresh token is removed', async () => {
     const api = await loadApi();

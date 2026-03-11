@@ -27,14 +27,19 @@ describe('connectRoutes', () => {
     ).toBe('/v1/connect/tearleads.v2.AuthService/RefreshToken');
 
     expect(
-      resolveConnectUrlForApiBase('http://localhost/v1/', AUTH_V2_LOGIN_CONNECT_PATH)
+      resolveConnectUrlForApiBase(
+        'http://localhost/v1/',
+        AUTH_V2_LOGIN_CONNECT_PATH
+      )
     ).toBe('http://localhost/v1/connect/tearleads.v2.AuthService/Login');
   });
 
   it('builds admin and ai method paths from canonical base paths', () => {
-    expect(buildConnectMethodPath(ADMIN_V2_CONNECT_BASE_PATH, 'GetRedisDbSize'))
-      .toBe('/connect/tearleads.v2.AdminService/GetRedisDbSize');
-    expect(buildConnectMethodPath(AI_V2_CONNECT_BASE_PATH, 'GetUsageSummary'))
-      .toBe('/connect/tearleads.v2.AiService/GetUsageSummary');
+    expect(
+      buildConnectMethodPath(ADMIN_V2_CONNECT_BASE_PATH, 'GetRedisDbSize')
+    ).toBe('/connect/tearleads.v2.AdminService/GetRedisDbSize');
+    expect(
+      buildConnectMethodPath(AI_V2_CONNECT_BASE_PATH, 'GetUsageSummary')
+    ).toBe('/connect/tearleads.v2.AiService/GetUsageSummary');
   });
 });

@@ -42,10 +42,13 @@ export const authRoutes = {
       eventName: 'api_get_auth_sessions'
     }),
   deleteSession: (sessionId: string) =>
-    request<{ deleted: boolean }>(`${AUTH_V2_CONNECT_BASE_PATH}/DeleteSession`, {
-      fetchOptions: createConnectJsonPostInit({ sessionId }),
-      eventName: 'api_delete_auth_session'
-    }),
+    request<{ deleted: boolean }>(
+      `${AUTH_V2_CONNECT_BASE_PATH}/DeleteSession`,
+      {
+        fetchOptions: createConnectJsonPostInit({ sessionId }),
+        eventName: 'api_delete_auth_session'
+      }
+    ),
   logout: () =>
     request<{ loggedOut: boolean }>(AUTH_V2_LOGOUT_CONNECT_PATH, {
       fetchOptions: createConnectJsonPostInit({}),

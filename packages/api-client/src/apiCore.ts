@@ -1,7 +1,6 @@
 /// <reference path="./vite-env.d.ts" />
 import type { AuthResponse } from '@tearleads/shared';
 import { type ApiEventSlug, logApiEvent } from './apiLogger';
-import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
@@ -13,6 +12,7 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from './authStorage';
+import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
 
 export let API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
@@ -102,10 +102,10 @@ async function executeTokenRefresh(
     const response = await fetch(
       resolveRequestUrl(AUTH_V2_REFRESH_CONNECT_PATH),
       {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(refreshToken ? { refreshToken } : {})
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(refreshToken ? { refreshToken } : {})
       }
     );
 
