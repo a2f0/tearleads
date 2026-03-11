@@ -22,7 +22,6 @@ pub(crate) fn create_admin_handler() -> AdminServiceHandler<
     )
 }
 
-
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod postgres_repository_tests;

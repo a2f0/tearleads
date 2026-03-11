@@ -1,4 +1,6 @@
-use crate::{AdminRequestAuthorizer, admin_auth::map_admin_auth_error};
+use crate::admin_auth::{
+    AdminAccessContext, AdminOperation, AdminRequestAuthorizer, map_admin_auth_error,
+};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminDeleteRedisKeyRequest, AdminGetGroupRequest, AdminGetRedisDbSizeRequest,
     AdminGetRedisKeysRequest, AdminGetRedisValueRequest, AdminGetRowsRequest,
@@ -21,7 +23,7 @@ fn authorizer_rejects_missing_blank_non_utf8_and_non_jwt_authorization() {
     let authorizer = AuthorizationHeaderAdminAuthorizer;
 
     let missing = authorizer.authorize_admin_operation(
-        crate::AdminOperation::GetTables,
+        AdminOperation::GetTables,
         &tonic::metadata::MetadataMap::new(),
     );
     let missing_error = missing.expect_err("missing auth header should fail");
@@ -30,7 +32,7 @@ fn authorizer_rejects_missing_blank_non_utf8_and_non_jwt_authorization() {
     assert!(missing_status.message().contains("missing authorization"));
 
     let blank = AuthorizationHeaderAdminAuthorizer::validate_bearer_token(
-        crate::AdminOperation::GetTables,
+        AdminOperation::GetTables,
         "Bearer ",
     )
     .expect_err("blank auth header should fail");
@@ -48,7 +50,7 @@ fn authorizer_rejects_missing_blank_non_utf8_and_non_jwt_authorization() {
         tonic::metadata::MetadataValue::from_static("Bearer token"),
     );
     let malformed = authorizer
-        .authorize_admin_operation(crate::AdminOperation::GetTables, &malformed_metadata)
+        .authorize_admin_operation(AdminOperation::GetTables, &malformed_metadata)
         .expect_err("non-jwt bearer token should fail");
     let malformed_status = map_admin_auth_error(malformed);
     assert_eq!(malformed_status.code(), Code::Unauthenticated);
@@ -57,7 +59,7 @@ fn authorizer_rejects_missing_blank_non_utf8_and_non_jwt_authorization() {
     let mut invalid_metadata = tonic::metadata::MetadataMap::new();
     invalid_metadata.insert("authorization", parse_opaque_ascii_value(b"token\xfa"));
     let invalid = authorizer
-        .authorize_admin_operation(crate::AdminOperation::GetTables, &invalid_metadata)
+        .authorize_admin_operation(AdminOperation::GetTables, &invalid_metadata)
         .expect_err("invalid auth header should fail");
     let invalid_status = map_admin_auth_error(invalid);
     assert_eq!(invalid_status.code(), Code::Unauthenticated);
@@ -73,8 +75,8 @@ fn authorizer_accepts_jwt_like_authorization() {
         tonic::metadata::MetadataValue::from_static("Bearer header.payload.signature"),
     );
 
-    let result = authorizer.authorize_admin_operation(crate::AdminOperation::GetTables, &metadata);
-    assert_eq!(result, Ok(crate::AdminAccessContext::root()));
+    let result = authorizer.authorize_admin_operation(AdminOperation::GetTables, &metadata);
+    assert_eq!(result, Ok(AdminAccessContext::root()));
 }
 
 #[tokio::test]

@@ -11,7 +11,7 @@ pub use models::{
     PostgresTableInfo,
 };
 
-use crate::{BoxFuture, DataAccessError, DataAccessErrorKind};
+use crate::{BoxFuture, DataAccessError};
 
 /// Repository boundary for admin Postgres access.
 pub trait PostgresAdminRepository: Send + Sync {
@@ -36,10 +36,8 @@ pub trait PostgresAdminRepository: Send + Sync {
     ) -> BoxFuture<'_, Result<Vec<AdminGroupSummary>, DataAccessError>>;
 
     /// Returns one group detail payload by identifier.
-    fn get_group(
-        &self,
-        group_id: &str,
-    ) -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>>;
+    fn get_group(&self, group_id: &str)
+    -> BoxFuture<'_, Result<AdminGroupDetail, DataAccessError>>;
 
     /// Creates one group and returns the persisted group metadata.
     fn create_group(

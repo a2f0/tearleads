@@ -10,8 +10,9 @@ use tearleads_data_access_traits::{
 };
 use tonic::{Request, Response, Status};
 
-use crate::AdminAccessContext;
-use crate::admin_auth::{AdminOperation, AdminRequestAuthorizer, map_admin_auth_error};
+use crate::admin_auth::{
+    AdminAccessContext, AdminOperation, AdminRequestAuthorizer, map_admin_auth_error,
+};
 use crate::admin_service_common::{map_data_access_error, normalize_required_resource_id};
 
 use super::AdminServiceHandler;

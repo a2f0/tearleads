@@ -7,9 +7,9 @@ use tearleads_data_access_traits::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupSummary,
     AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
     AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, AdminUserSummary,
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminRepository,
-    PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
-    PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminRepository, PostgresColumnInfo,
+    PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
 use tonic::{Response, Status};
 

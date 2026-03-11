@@ -12,6 +12,9 @@ use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+pub use admin_auth::{
+    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
+};
 pub use admin_service::AdminServiceHandler;
 pub use ping::PingResponse;
 use ping::ping;

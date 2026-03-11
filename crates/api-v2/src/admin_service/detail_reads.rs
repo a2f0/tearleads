@@ -7,8 +7,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminUser, AdminUserAccounting,
 };
 use tearleads_data_access_traits::{
-    AdminOrganizationUserSummary, AdminUserSummary, PostgresAdminRepository,
-    RedisAdminRepository,
+    AdminOrganizationUserSummary, AdminUserSummary, PostgresAdminRepository, RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
 

@@ -11,8 +11,7 @@ mod groups;
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
