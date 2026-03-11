@@ -54,6 +54,7 @@ import {
   AdminListUsersResponseSchema,
   type AdminRemoveGroupMemberResponse,
   AdminRemoveGroupMemberResponseSchema,
+  AdminService,
   type AdminUpdateGroupResponse,
   AdminUpdateGroupResponseSchema,
   type AdminUpdateOrganizationResponse,
@@ -62,15 +63,15 @@ import {
   AdminUpdateUserResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import {
+  AiService,
   type AiServiceGetUsageResponse,
   AiServiceGetUsageResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { mapAiGetUsageResponse } from './aiUsageApiMappers';
 
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
-
-const ADMIN_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AdminService';
-const AI_V2_CONNECT_BASE_PATH = '/connect/tearleads.v2.AiService';
+const ADMIN_V2_CONNECT_BASE_PATH = `/connect/${AdminService.typeName}`;
+const AI_V2_CONNECT_BASE_PATH = `/connect/${AiService.typeName}`;
 
 interface RequestParams {
   fetchOptions?: RequestInit;

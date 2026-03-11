@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 
 type VfsPermissionLevel = 'view' | 'edit' | 'download';
 type VfsShareType = 'user' | 'group' | 'organization';
@@ -169,7 +173,7 @@ export async function setupBobNotesShareForAlice(
   const permissionLevel = input.permissionLevel ?? DEFAULT_PERMISSION_LEVEL;
   const clientId = input.clientId ?? DEFAULT_CLIENT_ID;
 
-  await input.bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+  await input.bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -180,7 +184,7 @@ export async function setupBobNotesShareForAlice(
     })
   });
 
-  await input.bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+  await input.bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -217,7 +221,7 @@ export async function setupBobNotesShareForAlice(
   });
 
   const pushResponse = await input.bob.fetchJson(
-    '/connect/tearleads.v2.VfsService/PushCrdtOps',
+    buildVfsV2ConnectMethodPath('PushCrdtOps'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -229,7 +233,7 @@ export async function setupBobNotesShareForAlice(
   );
 
   const shareResponse = await input.bob.fetchJson(
-    '/connect/tearleads.v2.VfsSharesService/CreateShare',
+    buildVfsSharesV2ConnectMethodPath('CreateShare'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
