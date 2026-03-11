@@ -1,9 +1,9 @@
 import {
+  useIsMobile,
   WindowControlBar,
   WindowControlGroup,
   WindowSidebar,
-  WindowSidebarToggle,
-  useIsMobile
+  WindowSidebarToggle
 } from '@tearleads/window-manager';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';

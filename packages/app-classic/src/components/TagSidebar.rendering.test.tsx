@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
 import { WindowSidebarProvider } from '@tearleads/window-manager';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { TagSidebar } from './TagSidebar';
 
 function setViewportWidth(width: number) {

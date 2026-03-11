@@ -49,7 +49,9 @@ describe('ClassicApp mobile sidebar', () => {
       fireEvent.click(toggle);
     });
 
-    expect(screen.getByTestId('classic-tags-sidebar-drawer')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('classic-tags-sidebar-drawer')
+    ).toBeInTheDocument();
   });
 
   it('closes the mobile drawer after selecting a tag', () => {
