@@ -68,7 +68,7 @@ has_proto_related_changes() {
   return 1
 }
 
-if ! PACKAGE_MANAGER="$(sh "$PM_SCRIPT" which 2>/dev/null)"; then
+if ! sh "$PM_SCRIPT" which >/dev/null 2>&1; then
   echo "checkProto: unable to resolve package manager (pnpm or bun)." >&2
   exit 1
 fi
@@ -90,11 +90,6 @@ fi
 sh "$PM_SCRIPT" run protoLint
 sh "$PM_SCRIPT" exec buf breaking proto --against '.git#ref=origin/main,subdir=proto'
 sh "$PM_SCRIPT" run protoGenerate
+node --experimental-strip-types scripts/checks/checkProtoCodegenParity.ts
+sh "$PM_SCRIPT" --filter @tearleads/shared build
 sh "$PM_SCRIPT" --filter @tearleads/api-client exec tsc -p tsconfig.protoConsumerCompile.json --noEmit
-
-if [ -n "$(git status --porcelain -- packages/shared/src/gen)" ]; then
-  echo "checkProto: generated proto artifacts are out of date." >&2
-  echo "Run '$PACKAGE_MANAGER protoGenerate' and commit changes under packages/shared/src/gen." >&2
-  git status --short -- packages/shared/src/gen >&2
-  exit 1
-fi
