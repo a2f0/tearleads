@@ -12,14 +12,20 @@ export function setTestEnv(key: string, value: string): void {
   }
 
   process.env[key] = value;
+  // Sync import.meta.env so freshly-imported modules see the new value
+  // (Vitest populates import.meta.env from process.env at startup but
+  // does not mirror later mutations automatically.)
+  import.meta.env[key] = value;
 }
 
 function resetTestEnv(): void {
   for (const [key, originalValue] of originalValues.entries()) {
     if (typeof originalValue === 'undefined') {
       delete process.env[key];
+      delete import.meta.env[key];
     } else {
       process.env[key] = originalValue;
+      import.meta.env[key] = originalValue;
     }
   }
 

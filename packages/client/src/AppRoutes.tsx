@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import App from './app/App';
-import { RequireAuth } from './components/auth';
+import { InlineRequiresLoginAndUnlock, RequireAuth } from './components/auth';
 import {
   Admin,
   AdminLauncher,
@@ -192,11 +192,19 @@ export function AppRoutes() {
         <Route path="admin/groups/:id" element={<GroupDetailPageRoute />} />
         <Route
           path="admin/organizations"
-          element={<OrganizationsAdminPage />}
+          element={
+            <InlineRequiresLoginAndUnlock description="Organizations Admin">
+              <OrganizationsAdminPage />
+            </InlineRequiresLoginAndUnlock>
+          }
         />
         <Route
           path="admin/organizations/:id"
-          element={<OrganizationDetailPageRoute />}
+          element={
+            <InlineRequiresLoginAndUnlock description="Organizations Admin">
+              <OrganizationDetailPageRoute />
+            </InlineRequiresLoginAndUnlock>
+          }
         />
         <Route path="admin/users" element={<UsersAdminPage />} />
         <Route
