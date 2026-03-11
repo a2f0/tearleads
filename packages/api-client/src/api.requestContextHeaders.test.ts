@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import { resetAuthStorageRuntimeForTesting } from './authStorage';
 import { setTestEnv } from './test/env.js';
 
 describe('api request context headers', () => {
@@ -7,8 +9,9 @@ describe('api request context headers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     setTestEnv('VITE_API_URL', 'http://localhost:3000');
+    resetApiCoreRuntimeForTesting();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({

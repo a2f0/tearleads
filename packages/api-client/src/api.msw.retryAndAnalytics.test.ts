@@ -6,7 +6,12 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  resetAuthStorageRuntimeForTesting
+} from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
@@ -27,7 +32,7 @@ let seededUser: SeededUser;
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({
@@ -42,6 +47,7 @@ describe('api with msw', () => {
     }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
@@ -237,6 +243,7 @@ describe('api with msw', () => {
   describe('environment configuration', () => {
     it('throws error when VITE_API_URL is not set', async () => {
       setTestEnv('VITE_API_URL', '');
+      resetApiCoreRuntimeForTesting();
 
       const api = await loadApi();
 
@@ -247,6 +254,7 @@ describe('api with msw', () => {
 
     it('exports the API_BASE_URL', async () => {
       setTestEnv('VITE_API_URL', 'http://test-api.com');
+      resetApiCoreRuntimeForTesting();
 
       const { API_BASE_URL } = await import('./api');
 

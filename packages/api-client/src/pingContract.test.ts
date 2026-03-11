@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetPingContractRuntimeForTesting } from './pingContract';
 
 type PingContractModule = typeof import('./pingContract');
 
@@ -13,14 +14,15 @@ async function loadPingContract(): Promise<PingContractModule> {
 }
 
 function mockWasmImport(module: Record<string, unknown>): void {
-  vi.doMock('./pingWasmImport', () => ({
-    importPingWasmModule: () => Promise.resolve(module)
-  }));
+  Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
+    Promise.resolve(module)
+  );
 }
 
 describe('pingContract', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetPingContractRuntimeForTesting();
+    Reflect.deleteProperty(globalThis, '__tearleadsImportPingWasmModule');
   });
 
   it('returns WASM endpoint path directly', async () => {
@@ -76,14 +78,13 @@ describe('pingContract', () => {
   });
 
   it('rejects when WASM module is missing', async () => {
-    vi.doMock('./pingWasmImport', () => ({
-      importPingWasmModule: () =>
-        Promise.reject(
-          Object.assign(new Error('Cannot find module'), {
-            code: 'ERR_MODULE_NOT_FOUND'
-          })
-        )
-    }));
+    Reflect.set(globalThis, '__tearleadsImportPingWasmModule', () =>
+      Promise.reject(
+        Object.assign(new Error('Cannot find module'), {
+          code: 'ERR_MODULE_NOT_FOUND'
+        })
+      )
+    );
 
     const { getV2PingEndpoint, parseV2PingData } = await loadPingContract();
 

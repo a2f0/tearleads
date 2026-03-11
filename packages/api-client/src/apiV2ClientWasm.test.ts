@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiV2ClientWasmRuntimeForTesting } from './apiV2ClientWasm';
 
 type ApiV2ClientWasmModule = typeof import('./apiV2ClientWasm');
 
@@ -6,13 +7,14 @@ async function loadApiV2ClientWasm(): Promise<ApiV2ClientWasmModule> {
   return import('./apiV2ClientWasm');
 }
 
-function mockApiV2WasmImport(module: unknown): {
+function mockApiV2WasmImport(importer: (() => Promise<unknown>) | unknown): {
   importMock: ReturnType<typeof vi.fn>;
 } {
-  const importMock = vi.fn(() => Promise.resolve(module));
-  vi.doMock('./apiV2ClientWasmImport', () => ({
-    importApiV2ClientWasmModule: importMock
-  }));
+  const importMock =
+    typeof importer === 'function'
+      ? vi.fn(importer as () => Promise<unknown>)
+      : vi.fn(() => Promise.resolve(importer));
+  Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', importMock);
   return { importMock };
 }
 
@@ -46,11 +48,16 @@ function createValidWasmBindings(
 
 describe('apiV2ClientWasm', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetApiV2ClientWasmRuntimeForTesting();
     vi.clearAllMocks();
+    Reflect.deleteProperty(
+      globalThis,
+      '__tearleadsImportApiV2ClientWasmModule'
+    );
   });
 
   afterEach(() => {
+    resetApiV2ClientWasmRuntimeForTesting();
     Reflect.deleteProperty(
       globalThis,
       '__tearleadsImportApiV2ClientWasmModule'
@@ -78,14 +85,8 @@ describe('apiV2ClientWasm', () => {
   });
 
   it('uses the global wasm importer hook when configured', async () => {
-    vi.doUnmock('./apiV2ClientWasmImport');
-    const globalImportMock = vi.fn(() =>
-      Promise.resolve(createValidWasmBindings())
-    );
-    Reflect.set(
-      globalThis,
-      '__tearleadsImportApiV2ClientWasmModule',
-      globalImportMock
+    const { importMock: globalImportMock } = mockApiV2WasmImport(
+      createValidWasmBindings()
     );
 
     const { normalizeApiV2ConnectBaseUrl } = await loadApiV2ClientWasm();
@@ -199,14 +200,11 @@ describe('apiV2ClientWasm', () => {
   });
 
   it('retries wasm import after an initialization failure', async () => {
-    const importMock = vi
+    const failingThenSuccessfulImport = vi
       .fn<() => Promise<unknown>>()
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce(createValidWasmBindings());
-
-    vi.doMock('./apiV2ClientWasmImport', () => ({
-      importApiV2ClientWasmModule: importMock
-    }));
+    const { importMock } = mockApiV2WasmImport(failingThenSuccessfulImport);
 
     const { normalizeApiV2ConnectBaseUrl } = await loadApiV2ClientWasm();
 

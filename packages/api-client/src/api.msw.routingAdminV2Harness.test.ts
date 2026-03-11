@@ -1,6 +1,10 @@
 import { wasApiRequestMade } from '@tearleads/msw/node';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from './authStorage';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import {
+  AUTH_TOKEN_KEY,
+  resetAuthStorageRuntimeForTesting
+} from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { setTestEnv } from './test/env.js';
 
@@ -11,8 +15,9 @@ const loadApi = async () => {
 
 describe('api adminV2 with msw runtime harness', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     localStorage.setItem(AUTH_TOKEN_KEY, 'Bearer header.payload.signature');

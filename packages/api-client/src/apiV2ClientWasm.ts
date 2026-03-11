@@ -135,6 +135,10 @@ async function loadApiV2ClientWasmBindings(): Promise<ApiV2ClientWasmBindings> {
   return apiV2ClientWasmBindingsPromise;
 }
 
+export function resetApiV2ClientWasmRuntimeForTesting(): void {
+  apiV2ClientWasmBindingsPromise = null;
+}
+
 export async function normalizeApiV2ConnectBaseUrl(
   apiBaseUrl: string
 ): Promise<string> {

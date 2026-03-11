@@ -7,7 +7,11 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY } from './authStorage';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import {
+  AUTH_TOKEN_KEY,
+  resetAuthStorageRuntimeForTesting
+} from './authStorage';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
@@ -21,9 +25,10 @@ let seededUser: SeededUser;
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     installApiV2WasmBindingsOverride();
     const ctx = getSharedTestContext();
@@ -91,9 +96,9 @@ describe('api with msw', () => {
     ).toBe(true);
   });
   it('supports /v1-prefixed API base URLs', async () => {
-    vi.resetModules();
     installApiV2WasmBindingsOverride();
     setTestEnv('VITE_API_URL', 'http://localhost/v1');
+    resetApiCoreRuntimeForTesting();
     (await import('./authStorage')).setStoredAuthToken(seededUser.accessToken);
     // Login and VFS keys need server.use() overrides
     server.use(

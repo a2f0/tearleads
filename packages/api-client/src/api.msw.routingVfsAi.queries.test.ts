@@ -1,6 +1,7 @@
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
   AI_V2_CONNECT_USAGE_PATH,
   AI_V2_CONNECT_USAGE_SUMMARY_PATH
@@ -59,9 +60,9 @@ const getRequestsFor = (
 
 describe('api with msw vfs/ai query metadata', () => {
   beforeEach(async () => {
-    vi.resetModules();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     installApiV2WasmBindingsOverride();
 

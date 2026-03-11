@@ -1,6 +1,7 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
@@ -52,11 +53,11 @@ describe('api with msw (MLS binary routes)', () => {
   let seededUser: SeededUser;
 
   beforeEach(async () => {
-    vi.resetModules();
     vi.clearAllMocks();
     installApiV2WasmBindingsOverride();
     setTestEnv('VITE_API_URL', 'http://localhost');
     setTestEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'true');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
 
     const ctx = getSharedTestContext();

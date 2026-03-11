@@ -1,6 +1,6 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-11T01:48:36.228Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-11T03:53:57.626Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
@@ -9,14 +9,14 @@ Generated: `2026-03-11T01:48:36.228Z` via `node --experimental-strip-types scrip
 - Transitional bun auto-fallback scripts: 0
 - Vitest-primary test scripts: 4
 - Packages with DOM/jsdom indicators: 31
-- Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 3
+- Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 2
 
 ## Top Blockers
 
 | Package | Risk score | Blockers |
 | --- | ---: | --- |
-| `@tearleads/client` | 29 | vi.hoisted (38), vi.importActual (86), vi.mock(importOriginal) (106), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (435), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
-| `@tearleads/api-client` | 10 | vi.resetModules (16), vi.mocked (43), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/client` | 29 | vi.hoisted (39), vi.importActual (86), vi.mock(importOriginal) (106), vi.waitFor (8), import.meta.glob (1), vi.resetModules (46), vi.mocked (435), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/api-client` | 7 | vi.mocked (43), DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/api` | 5 | vi.mocked (4), test script is vitest-primary |
 | `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/cli` | 5 | vi.mocked (7), test script is vitest-primary |
@@ -35,8 +35,8 @@ Generated: `2026-03-11T01:48:36.228Z` via `node --experimental-strip-types scrip
 
 | Package | Tests | Script mode | Vitest fallback script | Advanced APIs | DOM indicators | Readiness |
 | --- | ---: | --- | --- | --- | --- | --- |
-| `@tearleads/client` | 608 | `vitest-primary` | no | vi.hoisted:38, vi.importActual:86, vi.mock(importOriginal):106, vi.waitFor:8, import.meta.glob:1, vi.resetModules:46, vi.mocked:435 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/api-client` | 54 | `vitest-primary` | no | vi.resetModules:16, vi.mocked:43 | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/client` | 609 | `vitest-primary` | no | vi.hoisted:39, vi.importActual:86, vi.mock(importOriginal):106, vi.waitFor:8, import.meta.glob:1, vi.resetModules:46, vi.mocked:435 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/api-client` | 54 | `vitest-primary` | no | vi.mocked:43 | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/api` | 156 | `vitest-primary` | no | vi.mocked:4 | none | `high-remediation` |
 | `@tearleads/app-compliance` | 3 | `bun-primary` | yes | import.meta.glob:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/cli` | 6 | `vitest-primary` | no | vi.mocked:7 | none | `high-remediation` |
@@ -79,7 +79,7 @@ Generated: `2026-03-11T01:48:36.228Z` via `node --experimental-strip-types scrip
 | `@tearleads/mls-core` | 2 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/msw` | 2 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/remote-read-orchestrator` | 1 | `bun-primary` | yes | none | none | `ready` |
-| `@tearleads/shared` | 16 | `bun-primary` | yes | none | none | `ready` |
+| `@tearleads/shared` | 17 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/smtp-listener` | 11 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-api` | 5 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/tee-client` | 1 | `bun-primary` | yes | none | none | `ready` |

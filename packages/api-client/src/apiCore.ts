@@ -14,7 +14,7 @@ import {
   waitForRefreshCompletion
 } from './authStorage';
 
-export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
+export let API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const AUTH_CONNECT_REFRESH_PATH = `/connect/${AuthService.typeName}/RefreshToken`;
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION = new Set([
@@ -76,6 +76,12 @@ export function setApiRequestHeadersProvider(
 
 export function resetApiRequestHeadersProvider(): void {
   apiRequestHeadersProvider = () => undefined;
+}
+
+export function resetApiCoreRuntimeForTesting(): void {
+  refreshPromise = null;
+  resetApiRequestHeadersProvider();
+  API_BASE_URL = import.meta.env.VITE_API_URL;
 }
 
 /**

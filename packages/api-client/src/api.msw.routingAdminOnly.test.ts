@@ -1,6 +1,7 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
@@ -40,7 +41,6 @@ let seededUser: SeededUser;
 
 describe('api with msw admin routing', () => {
   beforeEach(async () => {
-    vi.resetModules();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({
@@ -55,6 +55,7 @@ describe('api with msw admin routing', () => {
     }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     installApiV2WasmBindingsOverride();
 

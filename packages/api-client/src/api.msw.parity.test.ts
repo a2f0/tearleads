@@ -1,5 +1,7 @@
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import { resetAuthStorageRuntimeForTesting } from './authStorage';
 import { setTestEnv } from './test/env.js';
 
 const mockLogApiEvent = vi.fn();
@@ -7,9 +9,10 @@ const NON_SENSITIVE_ACCESS_TOKEN = 'msw-parity-non-sensitive-token';
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');

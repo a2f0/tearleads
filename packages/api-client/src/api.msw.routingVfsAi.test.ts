@@ -1,6 +1,7 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
   AI_CONNECT_RECORD_USAGE_PATH,
   AI_V2_CONNECT_USAGE_PATH,
@@ -48,11 +49,11 @@ const MLS_ENCRYPTED_STATE_HASH = 'BYJJibhXa6PncspNXaXcAsA/+vjQTtFT2YV2g8l3a+0=';
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
     vi.clearAllMocks();
     installApiV2WasmBindingsOverride();
     setTestEnv('VITE_API_URL', 'http://localhost');
     setTestEnv('VFS_CRDT_ENVELOPE_BYTEA_WRITES', 'false');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });

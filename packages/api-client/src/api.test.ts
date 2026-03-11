@@ -9,6 +9,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import { resetAuthStorageRuntimeForTesting } from './authStorage';
 import { setTestEnv } from './test/env.js';
 
 describe('api edge cases requiring direct fetch mocking', () => {
@@ -16,7 +18,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({
@@ -44,6 +46,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
   describe('concurrent refresh deduplication', () => {
     beforeEach(() => {
       setTestEnv('VITE_API_URL', 'http://localhost:3000');
+      resetApiCoreRuntimeForTesting();
     });
 
     it('deduplicates concurrent refresh attempts via tryRefreshToken', async () => {
@@ -179,6 +182,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
   describe('cross-tab token race detection', () => {
     beforeEach(() => {
       setTestEnv('VITE_API_URL', 'http://localhost:3000');
+      resetApiCoreRuntimeForTesting();
     });
 
     it('returns true when another tab refreshed token during our refresh attempt', async () => {
@@ -207,6 +211,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
   describe('storage failure handling', () => {
     beforeEach(() => {
       setTestEnv('VITE_API_URL', 'http://localhost:3000');
+      resetApiCoreRuntimeForTesting();
     });
 
     it('throws 401 when refresh succeeds but token storage fails', async () => {
@@ -262,6 +267,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
   describe('refresh failure and session expiration', () => {
     beforeEach(() => {
       setTestEnv('VITE_API_URL', 'http://localhost:3000');
+      resetApiCoreRuntimeForTesting();
     });
 
     function createJwt(expiresAtSeconds: number): string {
