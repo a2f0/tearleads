@@ -1,19 +1,21 @@
 /**
  * Tests for SQLite WASM initialization and SQLITE_NOTADB recovery flow.
  *
- * Uses vi.resetModules() + vi.doMock() + dynamic import() so each test gets
- * a fresh copy of the module-level state (db, encryptionKey, etc.).
- * Same pattern as pingContract.test.ts.
+ * Uses explicit sqlite init runtime test hooks to isolate module-level state
+ * between tests.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SQLiteDatabase } from './types';
-
-type InitModule = typeof import('./init');
-
-async function loadInitModule(): Promise<InitModule> {
-  return import('./init');
-}
+import {
+  closeDatabase,
+  getCurrentDbFilename,
+  getDb,
+  getEncryptionKey,
+  initializeDatabase,
+  resetSqliteInitRuntimeForTesting,
+  setSqliteInitRuntimeForTesting
+} from './init';
+import type { SQLite3Module, SQLiteDatabase } from './types';
 
 // ---------------------------------------------------------------------------
 // Shared mock factories
@@ -57,20 +59,29 @@ function createMockSqlite3(
     flags: string;
     hexkey?: string;
   }) => SQLiteDatabase
-) {
-  function MockDB(
+): SQLite3Module {
+  const MockDB: new (opts: {
+    filename: string;
+    flags: string;
+    hexkey?: string;
+  }) => SQLiteDatabase = function MockDB(
     this: unknown,
     opts: { filename: string; flags: string; hexkey?: string }
-  ) {
+  ): SQLiteDatabase {
     return dbFactory(opts);
-  }
+  };
+
   return {
     oo1: { DB: MockDB },
     capi: {
       sqlite3_libversion: () => '3.0.0-mock',
-      sqlite3_js_vfs_list: () => []
+      sqlite3_js_vfs_list: () => [],
+      sqlite3_js_db_export: () => new Uint8Array(),
+      sqlite3mc_vfs_create: () => 0,
+      SQLITE_OK: 0,
+      sqlite3_deserialize: () => {}
     },
-    wasm: { exports: { memory: {} } }
+    wasm: { exports: { memory: new WebAssembly.Memory({ initial: 1 }) } }
   };
 }
 
@@ -78,30 +89,20 @@ function createMockSqlite3(
 const TEST_KEY = new Uint8Array(32);
 
 /**
- * Standard set of doMock calls shared by most tests.
+ * Standard set of runtime overrides shared by most tests.
  * - sqlite3InitModule resolves to `sqlite3Mock`
  * - VFS helpers report no OPFS (in-memory fallback — simplifies tests)
  * - keyToHex returns a deterministic hex string
  */
-function applyStandardMocks(sqlite3Mock: ReturnType<typeof createMockSqlite3>) {
-  // Mock the WASM init module — returns our controllable sqlite3 instance.
-  vi.doMock('@/workers/sqlite-wasm/sqlite3.js', () => ({
-    default: () => Promise.resolve(sqlite3Mock)
-  }));
-
-  // Mock VFS utilities — no OPFS available, so the module uses in-memory.
-  // This avoids needing real OPFS infrastructure in unit tests.
-  vi.doMock('./vfs', () => ({
-    installOpfsVfs: () => Promise.resolve(false),
+function applyStandardMocks(sqlite3Mock: SQLite3Module): void {
+  setSqliteInitRuntimeForTesting({
+    sqlite3InitModule: async () => sqlite3Mock,
+    installOpfsVfs: async () => false,
     getOpfsVfsName: () => null,
     getVfsList: () => [],
-    ensureMultipleciphersVfs: () => false
-  }));
-
-  // Mock keyToHex — return a predictable hex string so we can assert on it.
-  vi.doMock('./operations', () => ({
+    ensureMultipleciphersVfs: () => false,
     keyToHex: () => 'deadbeef'
-  }));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ function installOpfsMock() {
 
 describe('initializeDatabase', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetSqliteInitRuntimeForTesting();
     vi.restoreAllMocks();
   });
 
@@ -143,13 +144,6 @@ describe('initializeDatabase', () => {
     const mockDb = createMockDb();
     const sqlite3 = createMockSqlite3(() => mockDb);
     applyStandardMocks(sqlite3);
-
-    const {
-      initializeDatabase,
-      getDb,
-      getEncryptionKey,
-      getCurrentDbFilename
-    } = await loadInitModule();
 
     await initializeDatabase('test-db', TEST_KEY);
 
@@ -196,13 +190,6 @@ describe('initializeDatabase', () => {
     });
     applyStandardMocks(sqlite3);
 
-    const {
-      initializeDatabase,
-      getDb,
-      getEncryptionKey,
-      getCurrentDbFilename
-    } = await loadInitModule();
-
     // Should succeed — the recovery path deletes and retries.
     await initializeDatabase('test-db', TEST_KEY);
 
@@ -226,8 +213,6 @@ describe('initializeDatabase', () => {
     );
     applyStandardMocks(sqlite3);
 
-    const { initializeDatabase } = await loadInitModule();
-
     // Both attempts fail — the error should propagate with a descriptive message.
     await expect(initializeDatabase('test-db', TEST_KEY)).rejects.toThrow(
       'Failed to open encrypted database'
@@ -245,8 +230,6 @@ describe('initializeDatabase', () => {
     );
     applyStandardMocks(sqlite3);
 
-    const { initializeDatabase } = await loadInitModule();
-
     // Non-NOTADB errors skip the recovery path entirely.
     await expect(initializeDatabase('test-db', TEST_KEY)).rejects.toThrow(
       'SQLITE_IOERR'
@@ -258,14 +241,6 @@ describe('initializeDatabase', () => {
     const mockDb = createMockDb();
     const sqlite3 = createMockSqlite3(() => mockDb);
     applyStandardMocks(sqlite3);
-
-    const {
-      initializeDatabase,
-      closeDatabase,
-      getDb,
-      getEncryptionKey,
-      getCurrentDbFilename
-    } = await loadInitModule();
 
     await initializeDatabase('test-db', TEST_KEY);
     expect(getDb()).toBe(mockDb);

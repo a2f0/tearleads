@@ -14,6 +14,8 @@ export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
 
 const loadedLanguages = new Set<string>(['en']);
 
+type DetectedLanguageLoader = (lang: SupportedLanguage) => Promise<void>;
+
 export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   if (loadedLanguages.has(lang)) return;
 
@@ -126,15 +128,6 @@ i18n.on('languageChanged', (lang) => {
   }
 });
 
-const detectedLang = i18n.language;
-if (
-  detectedLang &&
-  detectedLang !== 'en' &&
-  isSupportedLanguage(detectedLang)
-) {
-  loadLanguage(detectedLang);
-}
-
 // Listen for settings-synced event from SettingsProvider (database sync)
 function handleSettingsSynced(event: CustomEvent<SettingsSyncedDetail>): void {
   const { language } = event.detail.settings;
@@ -143,11 +136,40 @@ function handleSettingsSynced(event: CustomEvent<SettingsSyncedDetail>): void {
   }
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener(
+type SettingsSyncedListenerTarget = {
+  addEventListener: (type: string, listener: EventListener) => void;
+};
+
+export function registerSettingsSyncedListener(
+  target: SettingsSyncedListenerTarget | undefined = typeof window !==
+  'undefined'
+    ? window
+    : undefined
+): void {
+  if (!target) {
+    return;
+  }
+
+  target.addEventListener(
     'settings-synced',
     handleSettingsSynced as EventListener
   );
 }
+
+export async function loadDetectedLanguage(
+  detectedLanguage: string | undefined = i18n.language,
+  languageLoader: DetectedLanguageLoader = loadLanguage
+): Promise<void> {
+  if (
+    detectedLanguage &&
+    detectedLanguage !== 'en' &&
+    isSupportedLanguage(detectedLanguage)
+  ) {
+    await languageLoader(detectedLanguage);
+  }
+}
+
+void loadDetectedLanguage();
+registerSettingsSyncedListener();
 
 export { i18n };
