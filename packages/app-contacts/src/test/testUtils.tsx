@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import type { Database } from '@tearleads/db/sqlite';
 import i18next from 'i18next';
 import type { ReactNode } from 'react';

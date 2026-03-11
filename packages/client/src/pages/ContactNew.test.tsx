@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import { ThemeProvider } from '@tearleads/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import { ThemeProvider } from '@tearleads/ui';
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
