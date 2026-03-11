@@ -256,7 +256,7 @@ describe('ClientVfsExplorerProvider', () => {
   it('ignores already-registered conflicts for vfsApi.register', async () => {
     const conflictError = new Error('Conflict');
     Reflect.set(conflictError, 'status', 409);
-    vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+    api.vfs.register.mockRejectedValueOnce(conflictError);
 
     render(
       <ClientVfsExplorerProvider>
@@ -282,9 +282,7 @@ describe('ClientVfsExplorerProvider', () => {
   });
 
   it('rethrows non-conflict vfsApi.register failures', async () => {
-    vi.mocked(api.vfs.register).mockRejectedValueOnce(
-      new Error('register boom')
-    );
+    api.vfs.register.mockRejectedValueOnce(new Error('register boom'));
 
     render(
       <ClientVfsExplorerProvider>

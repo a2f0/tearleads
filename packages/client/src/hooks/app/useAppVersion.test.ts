@@ -25,7 +25,7 @@ describe('useAppVersion', () => {
 
   describe('on web platform', () => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('web');
+      detectPlatform.mockReturnValue('web');
     });
 
     it('returns __APP_VERSION__ after mount', async () => {
@@ -47,8 +47,8 @@ describe('useAppVersion', () => {
 
   describe('on native platform (iOS)', () => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('ios');
-      vi.mocked(App.getInfo).mockResolvedValue({
+      detectPlatform.mockReturnValue('ios');
+      App.getInfo.mockResolvedValue({
         name: 'Test App',
         id: 'com.test.app',
         build: '1.2.3',
@@ -75,7 +75,7 @@ describe('useAppVersion', () => {
 
   describe('on electron platform', () => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('electron');
+      detectPlatform.mockReturnValue('electron');
     });
 
     it('returns __APP_VERSION__ after mount', async () => {

@@ -320,7 +320,7 @@ describe('thumbnail', () => {
         getPage: vi.fn(),
         destroy: vi.fn().mockResolvedValue(undefined)
       };
-      vi.mocked(pdfjs.getDocument).mockReturnValueOnce({
+      pdfjs.getDocument.mockReturnValueOnce({
         promise: Promise.resolve(emptyPdf)
       } as unknown as ReturnType<typeof pdfjs.getDocument>);
 

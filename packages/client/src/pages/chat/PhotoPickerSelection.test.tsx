@@ -215,7 +215,7 @@ describe('PhotoPicker photo display and selection', () => {
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
     mockIsFileStorageInitialized.mockReturnValue(true);
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
       modelType: 'vision',
       isLoading: false,
@@ -421,7 +421,7 @@ describe('image attachment removal', () => {
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
     mockIsFileStorageInitialized.mockReturnValue(true);
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
       modelType: 'vision',
       isLoading: false,
@@ -464,7 +464,7 @@ describe('ChatInterface useEffect sync', () => {
     });
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
     mockIsFileStorageInitialized.mockReturnValue(true);
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
       modelType: 'vision',
       isLoading: false,

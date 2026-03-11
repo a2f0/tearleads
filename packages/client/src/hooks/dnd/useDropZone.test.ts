@@ -323,7 +323,7 @@ describe('useDropZone', () => {
   describe('platform detection', () => {
     it('disables drop zone on iOS', async () => {
       const { detectPlatform } = await import('@/lib/utils');
-      vi.mocked(detectPlatform).mockReturnValue('ios');
+      detectPlatform.mockReturnValue('ios');
 
       const onDrop = vi.fn();
       const { result } = renderHook(() => useDropZone({ onDrop }));
@@ -337,12 +337,12 @@ describe('useDropZone', () => {
       expect(result.current.isDragging).toBe(false);
       expect(onDrop).not.toHaveBeenCalled();
 
-      vi.mocked(detectPlatform).mockReturnValue('web');
+      detectPlatform.mockReturnValue('web');
     });
 
     it('disables drop zone on Android', async () => {
       const { detectPlatform } = await import('@/lib/utils');
-      vi.mocked(detectPlatform).mockReturnValue('android');
+      detectPlatform.mockReturnValue('android');
 
       const onDrop = vi.fn();
       const { result } = renderHook(() => useDropZone({ onDrop }));
@@ -356,7 +356,7 @@ describe('useDropZone', () => {
       expect(result.current.isDragging).toBe(false);
       expect(onDrop).not.toHaveBeenCalled();
 
-      vi.mocked(detectPlatform).mockReturnValue('web');
+      detectPlatform.mockReturnValue('web');
     });
   });
 });

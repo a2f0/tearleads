@@ -254,7 +254,7 @@ describe('Chat PhotoPicker selection', () => {
 
   describe('PhotoPicker display and storage', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,

@@ -58,7 +58,7 @@ describe('retrieveFileData', () => {
       value: null,
       writable: true
     });
-    vi.mocked(getKeyManager).mockReturnValue(keyManager);
+    getKeyManager.mockReturnValue(keyManager);
 
     await expect(
       retrieveFileData('/files/test.txt', 'instance-1')
@@ -75,12 +75,10 @@ describe('retrieveFileData', () => {
       value: mockKey,
       writable: true
     });
-    vi.mocked(getKeyManager).mockReturnValue(keyManager);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(false);
-    vi.mocked(getFileStorage).mockReturnValue(
-      createFileStorage(measureRetrieve)
-    );
-    vi.mocked(getDatabase).mockReturnValue(db);
+    getKeyManager.mockReturnValue(keyManager);
+    isFileStorageInitialized.mockReturnValue(false);
+    getFileStorage.mockReturnValue(createFileStorage(measureRetrieve));
+    getDatabase.mockReturnValue(db);
 
     const data = await retrieveFileData('/files/test.txt', 'instance-1');
 
@@ -100,11 +98,9 @@ describe('retrieveFileData', () => {
       value: mockKey,
       writable: true
     });
-    vi.mocked(getKeyManager).mockReturnValue(keyManager);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getFileStorage).mockReturnValue(
-      createFileStorage(measureRetrieve)
-    );
+    getKeyManager.mockReturnValue(keyManager);
+    isFileStorageInitialized.mockReturnValue(true);
+    getFileStorage.mockReturnValue(createFileStorage(measureRetrieve));
 
     await retrieveFileData('/files/test.txt', 'instance-1');
 

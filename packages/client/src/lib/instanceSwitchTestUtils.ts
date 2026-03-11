@@ -228,7 +228,7 @@ export function createTokenActor(input: {
 }
 
 export function installConnectSyncMocks(input: { baseUrl: string }): void {
-  vi.mocked(api.vfs.getSync).mockImplementation(
+  api.vfs.getSync.mockImplementation(
     async (cursor?: string, limit?: number): Promise<VfsSyncResponse> => {
       const actor = createTokenActor({
         baseUrl: input.baseUrl,
@@ -245,7 +245,7 @@ export function installConnectSyncMocks(input: { baseUrl: string }): void {
     }
   );
 
-  vi.mocked(api.vfs.getCrdtSync).mockImplementation(
+  api.vfs.getCrdtSync.mockImplementation(
     async (cursor?: string, limit?: number): Promise<VfsCrdtSyncResponse> => {
       const actor = createTokenActor({
         baseUrl: input.baseUrl,

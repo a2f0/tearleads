@@ -258,7 +258,7 @@ describe('Models', () => {
 
   describe('error handling', () => {
     it('displays error message when there is an error', async () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: null,
         modelType: null,
         isLoading: false,

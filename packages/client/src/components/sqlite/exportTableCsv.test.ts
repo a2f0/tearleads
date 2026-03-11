@@ -62,7 +62,7 @@ describe('exportTableCsv helpers', () => {
 describe('exportTableAsCsv', () => {
   it('throws when table does not exist', async () => {
     const execute = vi.fn().mockResolvedValue({ rows: [] });
-    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
+    getDatabaseAdapter.mockReturnValue(createAdapter(execute));
 
     await expect(
       exportTableAsCsv({
@@ -93,7 +93,7 @@ describe('exportTableAsCsv', () => {
       });
     });
 
-    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
+    getDatabaseAdapter.mockReturnValue(createAdapter(execute));
 
     await exportTableAsCsv({
       tableName: 'analytics_events',
@@ -132,7 +132,7 @@ describe('exportTableAsCsv', () => {
     });
 
     const onColumnsResolved = vi.fn();
-    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
+    getDatabaseAdapter.mockReturnValue(createAdapter(execute));
 
     await exportTableAsCsv({
       tableName: 'analytics_events',
@@ -156,7 +156,7 @@ describe('exportTableAsCsv', () => {
       return Promise.resolve({ rows: [] });
     });
 
-    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
+    getDatabaseAdapter.mockReturnValue(createAdapter(execute));
 
     await expect(
       exportTableAsCsv({

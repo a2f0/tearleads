@@ -175,9 +175,7 @@ describe('FilesWindowTableView', () => {
 
   it('handles download error gracefully', async () => {
     const { retrieveFileData } = await import('@/lib/dataRetrieval');
-    vi.mocked(retrieveFileData).mockRejectedValueOnce(
-      new Error('Download failed')
-    );
+    retrieveFileData.mockRejectedValueOnce(new Error('Download failed'));
     const consoleSpy = mockConsoleError();
     mockDb.orderBy.mockResolvedValue(mockFiles);
     const user = userEvent.setup();

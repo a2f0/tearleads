@@ -54,7 +54,7 @@ describe('AccountSwitcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue(defaultMockContext);
-    vi.mocked(detectPlatform).mockReturnValue('web');
+    detectPlatform.mockReturnValue('web');
   });
 
   it('renders the account button', () => {
@@ -389,7 +389,7 @@ describe('AccountSwitcher', () => {
 
     it('keeps delete buttons visible on mobile', async () => {
       const user = userEvent.setup();
-      vi.mocked(detectPlatform).mockReturnValue('ios');
+      detectPlatform.mockReturnValue('ios');
       render(<AccountSwitcher />);
 
       await user.click(screen.getByTestId('account-switcher-button'));

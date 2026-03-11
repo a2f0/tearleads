@@ -247,7 +247,7 @@ describe('Chat conversations and image sync', () => {
 
   describe('image attachment removal', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,
@@ -289,7 +289,7 @@ describe('Chat conversations and image sync', () => {
 
     beforeEach(async () => {
       const { useConversations } = await import('@/hooks/ai');
-      vi.mocked(useConversations).mockReturnValue({
+      useConversations.mockReturnValue({
         conversations: [
           {
             id: 'conv-1',
@@ -359,7 +359,7 @@ describe('Chat conversations and image sync', () => {
 
   describe('ChatInterface useEffect sync', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,

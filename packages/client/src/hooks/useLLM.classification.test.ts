@@ -60,7 +60,7 @@ describe('useLLM classification', () => {
       }
     });
     const { getLastLoadedModel } = await import('./app/useAppLifecycle');
-    vi.mocked(getLastLoadedModel).mockReturnValue(null);
+    getLastLoadedModel.mockReturnValue(null);
   });
 
   afterEach(async () => {

@@ -28,9 +28,7 @@ describe('MermaidRenderer', () => {
 
   it('renders error state when mermaid fails', async () => {
     const mermaid = await import('mermaid');
-    vi.mocked(mermaid.default.render).mockRejectedValueOnce(
-      new Error('Invalid syntax')
-    );
+    mermaid.default.render.mockRejectedValueOnce(new Error('Invalid syntax'));
 
     await act(async () => {
       render(<MermaidRenderer code="invalid mermaid" theme="light" />);
