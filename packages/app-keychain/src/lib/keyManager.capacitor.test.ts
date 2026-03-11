@@ -85,20 +85,20 @@ describe('CapacitorKeyStorage session persistence', () => {
     clearAllKeyManagers();
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(true);
-    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValue(true);
-    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValue(null);
-    vi.mocked(nativeStorage.retrieveWrappedKey).mockResolvedValue(null);
-    vi.mocked(nativeStorage.hasSession).mockResolvedValue(false);
-    vi.mocked(nativeStorage.clearSession).mockResolvedValue(undefined);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValue(true);
+    vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValue(true);
+    vi.spyOn(nativeStorage, 'retrieveWrappingKeyBytes').mockResolvedValue(null);
+    vi.spyOn(nativeStorage, 'retrieveWrappedKey').mockResolvedValue(null);
+    vi.spyOn(nativeStorage, 'hasSession').mockResolvedValue(false);
+    vi.spyOn(nativeStorage, 'clearSession').mockResolvedValue(undefined);
 
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
   });
 
   afterEach(async () => {
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('retries when wrapping key storage fails once', async () => {
@@ -107,7 +107,7 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValueOnce(false);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(false);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -125,7 +125,7 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(false);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValue(false);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -144,8 +144,8 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValueOnce(true);
-    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValueOnce(false);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(true);
+    vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValueOnce(false);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -164,8 +164,8 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValue(true);
-    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValue(false);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValue(true);
+    vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValue(false);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -184,10 +184,10 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockRejectedValueOnce(
+    vi.spyOn(nativeStorage, 'retrieveWrappingKeyBytes').mockRejectedValueOnce(
       new Error('wrapping key failed')
     );
-    vi.mocked(nativeStorage.retrieveWrappedKey).mockResolvedValueOnce(
+    vi.spyOn(nativeStorage, 'retrieveWrappedKey').mockResolvedValueOnce(
       new Uint8Array([1, 2, 3])
     );
 
@@ -205,10 +205,10 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValueOnce(
+    vi.spyOn(nativeStorage, 'retrieveWrappingKeyBytes').mockResolvedValueOnce(
       new Uint8Array([1, 2, 3])
     );
-    vi.mocked(nativeStorage.retrieveWrappedKey).mockImplementationOnce(() => {
+    vi.spyOn(nativeStorage, 'retrieveWrappedKey').mockImplementationOnce(() => {
       throw new Error('wrapped key failed');
     });
 
@@ -222,10 +222,10 @@ describe('CapacitorKeyStorage session persistence', () => {
 
   it('returns null when wrapping key is missing', async () => {
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValueOnce(
+    vi.spyOn(nativeStorage, 'retrieveWrappingKeyBytes').mockResolvedValueOnce(
       null
     );
-    vi.mocked(nativeStorage.retrieveWrappedKey).mockResolvedValueOnce(
+    vi.spyOn(nativeStorage, 'retrieveWrappedKey').mockResolvedValueOnce(
       new Uint8Array([1, 2, 3])
     );
 
@@ -246,8 +246,8 @@ describe('CapacitorKeyStorage session persistence', () => {
 
   it('persists session when native storage succeeds', async () => {
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(nativeStorage.storeWrappingKeyBytes).mockResolvedValueOnce(true);
-    vi.mocked(nativeStorage.storeWrappedKey).mockResolvedValueOnce(true);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(true);
+    vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValueOnce(true);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -333,8 +333,8 @@ describe('platform session checks', () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
-    vi.mocked(nativeStorage.hasSession).mockResolvedValueOnce(true);
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
+    vi.spyOn(nativeStorage, 'hasSession').mockResolvedValueOnce(true);
 
     const keyManager = new KeyManager('ios-has-session');
     const result = await keyManager.hasPersistedSession();
@@ -342,12 +342,12 @@ describe('platform session checks', () => {
     expect(result).toBe(true);
     expect(nativeStorage.hasSession).toHaveBeenCalledWith('ios-has-session');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('returns false on Electron when IPC is unavailable', async () => {
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('electron');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('electron');
 
     Object.defineProperty(window, 'electron', {
       value: undefined,
@@ -359,15 +359,15 @@ describe('platform session checks', () => {
 
     expect(result).toBe(false);
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('uses native session check for key status on iOS', async () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
-    vi.mocked(nativeStorage.hasSession).mockResolvedValueOnce(false);
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
+    vi.spyOn(nativeStorage, 'hasSession').mockResolvedValueOnce(false);
 
     const result = await getKeyStatusForInstance('ios-status');
 
@@ -378,7 +378,7 @@ describe('platform session checks', () => {
       wrappedKey: false
     });
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 });
 
@@ -391,7 +391,7 @@ describe('isBiometricAvailable', () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
 
     const result = await isBiometricAvailable();
 
@@ -403,8 +403,8 @@ describe('isBiometricAvailable', () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
-    vi.mocked(nativeStorage.isBiometricAvailable).mockResolvedValueOnce({
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
+    vi.spyOn(nativeStorage, 'isBiometricAvailable').mockResolvedValueOnce({
       isAvailable: true
     });
 
@@ -413,6 +413,6 @@ describe('isBiometricAvailable', () => {
     expect(result).toEqual({ isAvailable: true });
     expect(nativeStorage.isBiometricAvailable).toHaveBeenCalled();
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 });

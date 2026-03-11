@@ -85,7 +85,7 @@ describe('getKeyStatusForInstance', () => {
     clearAllKeyManagers();
 
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('returns all false when no keys exist', async () => {
@@ -146,7 +146,7 @@ describe('deleteSessionKeysForInstance', () => {
     clearAllKeyManagers();
 
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('deletes session keys but preserves salt and KCV', async () => {
@@ -189,7 +189,7 @@ describe('validateAndPruneOrphanedInstances', () => {
     clearAllKeyManagers();
 
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('returns empty result when called with empty registry', async () => {
@@ -266,9 +266,9 @@ describe('validateAndPruneOrphanedInstances', () => {
   it('detects and cleans orphaned Keystore entries on mobile', async () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
 
-    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockResolvedValue([
+    vi.spyOn(nativeStorage, 'getTrackedKeystoreInstanceIds').mockResolvedValue([
       'keystore-orphan',
       'keystore-keep'
     ]);
@@ -281,7 +281,7 @@ describe('validateAndPruneOrphanedInstances', () => {
     expect(result.orphanedKeystoreEntries).toEqual(['keystore-orphan']);
     expect(result.cleaned).toBe(true);
     expect(nativeStorage.clearSession).toHaveBeenCalledWith('keystore-orphan');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('returns empty result when orphan cleanup throws', async () => {
@@ -292,10 +292,10 @@ describe('validateAndPruneOrphanedInstances', () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
 
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
-    vi.mocked(
-      nativeStorage.getTrackedKeystoreInstanceIds
-    ).mockRejectedValueOnce(new Error('cleanup failed'));
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
+    vi.spyOn(nativeStorage, 'getTrackedKeystoreInstanceIds').mockRejectedValueOnce(
+      new Error('cleanup failed')
+    );
 
     const result = await validateAndPruneOrphanedInstances(['id-1'], vi.fn());
 
@@ -307,15 +307,15 @@ describe('validateAndPruneOrphanedInstances', () => {
     expect(consoleWarn).toHaveBeenCalled();
 
     consoleWarn.mockRestore();
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('skips clearing keystore entries when none are orphaned', async () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
 
-    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockResolvedValue([
+    vi.spyOn(nativeStorage, 'getTrackedKeystoreInstanceIds').mockResolvedValue([
       'keystore-keep'
     ]);
 
@@ -325,15 +325,15 @@ describe('validateAndPruneOrphanedInstances', () => {
     );
 
     expect(result.orphanedKeystoreEntries).toEqual([]);
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('uses allRegistryIds for Keystore orphan check to preserve active instance', async () => {
     const utils = await import('./detectPlatform');
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
 
-    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockResolvedValue([
+    vi.spyOn(nativeStorage, 'getTrackedKeystoreInstanceIds').mockResolvedValue([
       'active-instance',
       'stale-orphan'
     ]);
@@ -349,6 +349,6 @@ describe('validateAndPruneOrphanedInstances', () => {
     expect(nativeStorage.clearSession).not.toHaveBeenCalledWith(
       'active-instance'
     );
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 });

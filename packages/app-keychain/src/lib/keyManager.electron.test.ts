@@ -114,7 +114,7 @@ describe('ElectronKeyStorage session persistence', () => {
 
     // Mock detectPlatform to return 'electron'
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('electron');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('electron');
   });
 
   afterEach(() => {
@@ -284,12 +284,12 @@ describe('ElectronKeyStorage adapter behavior', () => {
     clearAllKeyManagers();
 
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('electron');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('electron');
   });
 
   afterEach(async () => {
     const utils = await import('./detectPlatform');
-    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+    vi.spyOn(utils, 'detectPlatform').mockReturnValue('web');
   });
 
   it('returns key status using Electron storage', async () => {
