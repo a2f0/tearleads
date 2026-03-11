@@ -1,4 +1,6 @@
+import { WindowSidebarToggle } from '@tearleads/window-manager';
 import { CircleHelp } from 'lucide-react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
 import { BackLink } from '@/components/ui/back-link';
@@ -9,6 +11,7 @@ import {
 
 export function HelpDocPage() {
   const params = useParams<{ docId: string }>();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const helpDocId = params.docId
     ? getHelpDocIdFromRouteSegment(params.docId)
     : null;
@@ -33,7 +36,12 @@ export function HelpDocPage() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
       <div className="space-y-2">
-        <BackLink defaultTo="/help" defaultLabel="Back to Help" />
+        <div className="flex items-center gap-4">
+          <WindowSidebarToggle
+            onToggle={() => setSidebarOpen((prev) => !prev)}
+          />
+          <BackLink defaultTo="/help" defaultLabel="Back to Help" />
+        </div>
         <div className="flex items-center gap-3">
           <CircleHelp className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">
@@ -43,7 +51,11 @@ export function HelpDocPage() {
       </div>
 
       <div className="min-h-0 flex-1">
-        <HelpDocumentation docId={helpDocId} />
+        <HelpDocumentation
+          docId={helpDocId}
+          sidebarOpen={sidebarOpen}
+          onSidebarOpenChange={setSidebarOpen}
+        />
       </div>
     </div>
   );

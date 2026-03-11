@@ -1,10 +1,14 @@
-import { useResizableSidebar } from '@tearleads/window-manager';
+import {
+  useWindowSidebar,
+  WindowSidebar
+} from '@tearleads/window-manager';
 import MDEditor from '@uiw/react-md-editor';
 import {
   type AnchorHTMLAttributes,
   type HTMLAttributes,
   isValidElement,
   type ReactNode,
+  useCallback,
   useState
 } from 'react';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -20,6 +24,8 @@ interface MarkdownWithTocProps {
   markdownColorMode: 'light' | 'dark';
   source: string;
   linkComponent?: (props: AnchorHTMLAttributes<HTMLAnchorElement>) => ReactNode;
+  sidebarOpen?: boolean | undefined;
+  onSidebarOpenChange?: ((open: boolean) => void) | undefined;
 }
 
 const DEFAULT_TOC_WIDTH = 220;
@@ -314,22 +320,44 @@ type HeadingProps = HTMLAttributes<HTMLHeadingElement> & {
   children?: ReactNode;
 };
 
+// one-component-per-file: allow - TocLink is an intentionally inlined helper for WindowSidebar mobile drawer close-on-click.
+function TocLink({ heading }: { heading: TocHeading }) {
+  const { closeSidebar } = useWindowSidebar();
+
+  const handleClick = useCallback(() => {
+    closeSidebar();
+  }, [closeSidebar]);
+
+  return (
+    <a
+      href={`#${heading.id}`}
+      className="block rounded px-2 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
+      style={{ paddingLeft: `${(heading.level - 1) * 10 + 8}px` }}
+      onClick={handleClick}
+    >
+      {heading.text}
+    </a>
+  );
+}
+
 export function MarkdownWithToc({
   source,
   markdownColorMode,
-  linkComponent
+  linkComponent,
+  sidebarOpen = false,
+  onSidebarOpenChange
 }: MarkdownWithTocProps) {
   const [tocWidth, setTocWidth] = useState(DEFAULT_TOC_WIDTH);
   const headings = extractHeadings(source);
   const hasToc = headings.length > 0;
   const getRenderedHeadingId = createSlugger();
-  const { resizeHandleProps } = useResizableSidebar({
-    width: tocWidth,
-    onWidthChange: setTocWidth,
-    ariaLabel: 'Resize table of contents sidebar',
-    minWidth: MIN_TOC_WIDTH,
-    maxWidth: MAX_TOC_WIDTH
-  });
+
+  const handleSidebarOpenChange = useCallback(
+    (open: boolean) => {
+      onSidebarOpenChange?.(open);
+    },
+    [onSidebarOpenChange]
+  );
 
   function createHeading(level: 1 | 2 | 3 | 4 | 5 | 6) {
     const Tag = `h${level}` as const;
@@ -381,9 +409,14 @@ export function MarkdownWithToc({
     <div className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-card">
       <div className="flex h-full min-h-0">
         {hasToc && (
-          <aside
-            className="relative sticky top-0 h-full min-h-0 shrink-0 self-start border-r bg-muted/20"
-            style={{ width: tocWidth }}
+          <WindowSidebar
+            width={tocWidth}
+            onWidthChange={setTocWidth}
+            open={sidebarOpen}
+            onOpenChange={handleSidebarOpenChange}
+            ariaLabel="Resize table of contents sidebar"
+            minWidth={MIN_TOC_WIDTH}
+            maxWidth={MAX_TOC_WIDTH}
             data-testid="markdown-toc-sidebar"
           >
             <div className="h-full overflow-y-auto p-3">
@@ -392,22 +425,11 @@ export function MarkdownWithToc({
               </h3>
               <nav aria-label="Table of contents" className="space-y-1">
                 {headings.map((heading) => (
-                  <a
-                    key={heading.id}
-                    href={`#${heading.id}`}
-                    className="block rounded px-2 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
-                    style={{ paddingLeft: `${(heading.level - 1) * 10 + 8}px` }}
-                  >
-                    {heading.text}
-                  </a>
+                  <TocLink key={heading.id} heading={heading} />
                 ))}
               </nav>
             </div>
-            <div
-              className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-              {...resizeHandleProps}
-            />
-          </aside>
+          </WindowSidebar>
         )}
 
         <div
