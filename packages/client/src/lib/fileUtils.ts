@@ -3,6 +3,8 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import * as filesystemModule from '@capacitor/filesystem';
+import * as shareModule from '@capacitor/share';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 
@@ -12,10 +14,10 @@ type FilesystemModuleImporter = () => Promise<
 >;
 
 const defaultShareModuleImporter: ShareModuleImporter = async () =>
-  import('@capacitor/share');
+  shareModule;
 
 const defaultFilesystemModuleImporter: FilesystemModuleImporter = async () =>
-  import('@capacitor/filesystem');
+  filesystemModule;
 
 let shareModuleImporter: ShareModuleImporter = defaultShareModuleImporter;
 let filesystemModuleImporter: FilesystemModuleImporter =
