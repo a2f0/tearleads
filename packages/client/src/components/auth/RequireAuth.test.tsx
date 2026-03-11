@@ -8,6 +8,20 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth()
 }));
 
+vi.mock('@/components/ui/back-link', () => ({
+  BackLink: ({
+    defaultTo,
+    defaultLabel
+  }: {
+    defaultTo: string;
+    defaultLabel: string;
+  }) => (
+    <a data-testid="back-link" href={defaultTo}>
+      {defaultLabel}
+    </a>
+  )
+}));
+
 vi.mock('./LoginForm', () => ({
   LoginForm: ({
     title,
@@ -59,6 +73,23 @@ describe('RequireAuth', () => {
 
     expect(screen.getByTestId('login-form')).toBeInTheDocument();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
+
+  it('shows back link when not authenticated', () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false
+    });
+
+    render(
+      <RequireAuth>
+        <div>Protected Content</div>
+      </RequireAuth>
+    );
+
+    const backLink = screen.getByTestId('back-link');
+    expect(backLink).toBeInTheDocument();
+    expect(backLink).toHaveTextContent('Back to Home');
   });
 
   it('renders children when authenticated', () => {
