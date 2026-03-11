@@ -49,9 +49,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('creates item key and encrypts blob with full pipeline', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -105,9 +103,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('rotates key epoch and re-encrypts with new key', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -160,9 +156,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('auto-creates item key on first secure upload when no key exists', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -216,9 +210,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('dedupes concurrent first-upload key provisioning for the same item', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();
@@ -281,9 +273,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('includes wrapped keys for shares with matching key epoch', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const aliceKeyPair = generateKeyPair();
@@ -373,9 +363,7 @@ describe('createVfsSecurePipelineBundle', () => {
   });
 
   it('filters out shares with non-matching key epoch', async () => {
-    fetchMock.mockImplementation(async () =>
-      createMockFetchResponse()
-    );
+    fetchMock.mockImplementation(async () => createMockFetchResponse());
 
     const ownerKeyPair = generateKeyPair();
     const itemKeyStore = createMockItemKeyStore();

@@ -59,15 +59,13 @@ describe('api edge cases requiring direct fetch mocking', () => {
         resolveRefresh = resolve;
       });
 
-      fetchMock.mockImplementation(
-        async (input: RequestInfo | URL) => {
-          const url = input.toString();
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
-            return refreshPromise;
-          }
-          throw new Error(`Unexpected request: ${url}`);
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = input.toString();
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          return refreshPromise;
         }
-      );
+        throw new Error(`Unexpected request: ${url}`);
+      });
 
       const { tryRefreshToken } = await import('./api');
 
@@ -225,31 +223,29 @@ describe('api edge cases requiring direct fetch mocking', () => {
         throw new Error('blocked');
       };
 
-      fetchMock.mockImplementation(
-        async (input: RequestInfo | URL) => {
-          const url = input.toString();
-          if (url.endsWith('/v2/ping')) {
-            return new Response(null, { status: 401 });
-          }
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
-            return new Response(
-              JSON.stringify({
-                accessToken: 'new-token',
-                refreshToken: 'new-refresh',
-                tokenType: 'Bearer',
-                expiresIn: 3600,
-                refreshExpiresIn: 604800,
-                user: { id: 'user-1', email: 'user@example.com' }
-              }),
-              {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-              }
-            );
-          }
-          throw new Error(`Unexpected request: ${url}`);
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = input.toString();
+        if (url.endsWith('/v2/ping')) {
+          return new Response(null, { status: 401 });
         }
-      );
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          return new Response(
+            JSON.stringify({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      });
 
       try {
         const { api } = await import('./api');

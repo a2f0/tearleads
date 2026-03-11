@@ -420,9 +420,7 @@ describe('vfsBlobNetworkFlusher', () => {
     );
   });
   it('handles non-json responses and invalid queue operation kinds', async () => {
-    fetchMock.mockResolvedValue(
-      new Response('not-json', { status: 200 })
-    );
+    fetchMock.mockResolvedValue(new Response('not-json', { status: 200 }));
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost'
