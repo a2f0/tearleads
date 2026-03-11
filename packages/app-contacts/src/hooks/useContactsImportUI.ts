@@ -3,7 +3,11 @@
  */
 
 import { useCallback, useState } from 'react';
-import type { ColumnMapping, ImportResult, ParsedCSV } from './useContactsImport';
+import type {
+  ColumnMapping,
+  ImportResult,
+  ParsedCSV
+} from './useContactsImport';
 import { useContactsImport } from './useContactsImport';
 
 interface UseContactsImportUIResult {

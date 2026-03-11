@@ -85,11 +85,7 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
   };
 
   return {
-    ClientContactsProvider: ({
-      children
-    }: {
-      children: React.ReactNode;
-    }) => {
+    ClientContactsProvider: ({ children }: { children: React.ReactNode }) => {
       const dbState = dbHooks.useDatabaseContext();
       const navigate = router.useNavigate();
 
@@ -314,7 +310,9 @@ describe('ContactNew', () => {
       const deleteButtons = screen.getAllByRole('button', {
         name: /delete/i
       });
-      await user.click(deleteButtons[0]!);
+      const firstDelete = deleteButtons[0];
+      expect(firstDelete).toBeDefined();
+      await user.click(firstDelete);
 
       expect(
         screen.queryByPlaceholderText('Email address')
@@ -346,7 +344,9 @@ describe('ContactNew', () => {
       const deleteButtons = screen.getAllByRole('button', {
         name: /delete/i
       });
-      await user.click(deleteButtons[0]!);
+      const firstDelete = deleteButtons[0];
+      expect(firstDelete).toBeDefined();
+      await user.click(firstDelete);
 
       expect(
         screen.queryByPlaceholderText('Phone number')
@@ -372,9 +372,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('add-email-button'));
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Email #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Email #1 cannot be empty.')).toBeInTheDocument();
     });
 
     it('shows error when phone is empty on save', async () => {
@@ -385,9 +383,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('add-phone-button'));
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Phone #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Phone #1 cannot be empty.')).toBeInTheDocument();
     });
   });
 

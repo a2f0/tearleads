@@ -81,10 +81,7 @@ export function ContactDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackLink
-          defaultTo="/contacts"
-          defaultLabel={t('backToContacts')}
-        />
+        <BackLink defaultTo="/contacts" defaultLabel={t('backToContacts')} />
       </div>
 
       {isLoading && (

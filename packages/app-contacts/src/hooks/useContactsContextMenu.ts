@@ -32,9 +32,7 @@ export function useContactsContextMenu(
 ): UseContactsContextMenuResult {
   const { getDatabase, navigateWithFrom } = useContactsContext();
   const { exportContact } = useContactsExport();
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
-    null
-  );
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, contact: ContactsPageInfo) => {

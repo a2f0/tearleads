@@ -2,14 +2,14 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  TEST_CONTACT,
-  TEST_EMAILS,
-  TEST_PHONES,
   createMockDeleteChain,
   createMockInsertChain,
   createMockSelectChain,
   createMockUpdateChain,
-  renderContactDetail
+  renderContactDetail,
+  TEST_CONTACT,
+  TEST_EMAILS,
+  TEST_PHONES
 } from './contactDetailTestSetup';
 
 // Mock the database context
@@ -58,7 +58,8 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
     backToContacts: 'Back to Contacts',
     loadingDatabase: 'Loading database...',
     loadingContact: 'Loading contact...',
-    thisContact: 'Database is locked. Enter your password to view this contact.',
+    thisContact:
+      'Database is locked. Enter your password to view this contact.',
     contactNotFound: 'Contact not found',
     firstNameIsRequired: 'First name is required',
     firstNameRequired: 'First name',
@@ -88,11 +89,7 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
   };
 
   return {
-    ClientContactsProvider: ({
-      children
-    }: {
-      children: React.ReactNode;
-    }) => {
+    ClientContactsProvider: ({ children }: { children: React.ReactNode }) => {
       const dbState = dbHooks.useDatabaseContext();
       const navigate = router.useNavigate();
 
@@ -222,9 +219,7 @@ describe('ContactDetail', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Email #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Email #1 cannot be empty.')).toBeInTheDocument();
     });
 
     it('shows error when phone is empty', async () => {
@@ -242,9 +237,7 @@ describe('ContactDetail', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Phone #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Phone #1 cannot be empty.')).toBeInTheDocument();
     });
   });
 

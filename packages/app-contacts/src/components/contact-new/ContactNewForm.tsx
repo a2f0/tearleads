@@ -1,6 +1,6 @@
 import { Cake, Loader2, Save, User, X } from 'lucide-react';
-import type { ContactNewFormState } from '../../hooks/useContactNewForm';
 import { useContactsContext, useContactsUI } from '../../context';
+import type { ContactNewFormState } from '../../hooks/useContactNewForm';
 
 interface ContactNewFormProps {
   form: ContactNewFormState;
@@ -10,13 +10,7 @@ export function ContactNewForm({ form }: ContactNewFormProps) {
   const { t } = useContactsContext();
   const { Button, Input } = useContactsUI();
 
-  const {
-    formData,
-    saving,
-    handleFormChange,
-    handleSave,
-    handleCancel
-  } = form;
+  const { formData, saving, handleFormChange, handleSave, handleCancel } = form;
 
   return (
     <div className="rounded-lg border p-4">

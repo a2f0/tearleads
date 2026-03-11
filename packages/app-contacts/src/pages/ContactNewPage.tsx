@@ -1,10 +1,10 @@
-import { useContactsContext, useContactsUI } from '../context';
-import { useContactNewForm } from '../hooks';
 import {
   ContactNewForm,
   EmailAddressesSection,
   PhoneNumbersSection
 } from '../components/contact-new';
+import { useContactsContext, useContactsUI } from '../context';
+import { useContactNewForm } from '../hooks';
 
 export function ContactNewPage() {
   const { databaseState, t } = useContactsContext();
@@ -16,10 +16,7 @@ export function ContactNewPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackLink
-          defaultTo="/contacts"
-          defaultLabel={t('backToContacts')}
-        />
+        <BackLink defaultTo="/contacts" defaultLabel={t('backToContacts')} />
       </div>
 
       {isLoading && (

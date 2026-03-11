@@ -2,11 +2,11 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  createMockSelectChain,
+  renderContactDetail,
   TEST_CONTACT,
   TEST_EMAILS,
-  TEST_PHONES,
-  createMockSelectChain,
-  renderContactDetail
+  TEST_PHONES
 } from './contactDetailTestSetup';
 
 // Mock the database context
@@ -55,7 +55,8 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
     backToContacts: 'Back to Contacts',
     loadingDatabase: 'Loading database...',
     loadingContact: 'Loading contact...',
-    thisContact: 'Database is locked. Enter your password to view this contact.',
+    thisContact:
+      'Database is locked. Enter your password to view this contact.',
     contactNotFound: 'Contact not found',
     firstNameIsRequired: 'First name is required',
     firstNameRequired: 'First name',
@@ -85,11 +86,7 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
   };
 
   return {
-    ClientContactsProvider: ({
-      children
-    }: {
-      children: React.ReactNode;
-    }) => {
+    ClientContactsProvider: ({ children }: { children: React.ReactNode }) => {
       const dbState = dbHooks.useDatabaseContext();
       const navigate = router.useNavigate();
 
@@ -121,10 +118,7 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
           <div data-testid="inline-unlock">
             {description}
             <input data-testid="inline-unlock-password" type="password" />
-            <button
-              type="button"
-              data-testid="inline-unlock-button"
-            >
+            <button type="button" data-testid="inline-unlock-button">
               Unlock
             </button>
           </div>
@@ -447,9 +441,7 @@ describe('ContactDetail editing', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Email #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Email #1 cannot be empty.')).toBeInTheDocument();
     });
 
     it('shows error when phone is empty', async () => {
@@ -467,9 +459,7 @@ describe('ContactDetail editing', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Phone #1 cannot be empty.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Phone #1 cannot be empty.')).toBeInTheDocument();
     });
   });
 });

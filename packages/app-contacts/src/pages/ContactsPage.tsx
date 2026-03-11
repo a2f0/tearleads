@@ -16,9 +16,8 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
-import { ColumnMapper } from '../components/column-mapper';
 import { ContactsGroupsSidebar } from '../components/ContactsGroupsSidebar';
-import { ALL_CONTACTS_ID } from '../lib/constants';
+import { ColumnMapper } from '../components/column-mapper';
 import { useContactsContext, useContactsUI } from '../context';
 import {
   ROW_HEIGHT_ESTIMATE,
@@ -26,14 +25,14 @@ import {
   useContactsImportUI,
   useContactsPageData
 } from '../hooks';
+import { ALL_CONTACTS_ID } from '../lib/constants';
 
 interface ContactsPageProps {
   groupId?: string | undefined;
 }
 
 export function ContactsPage({ groupId: routeGroupId }: ContactsPageProps) {
-  const { databaseState, navigate, navigateWithFrom, t } =
-    useContactsContext();
+  const { databaseState, navigate, navigateWithFrom, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Input, RefreshButton, VirtualListStatus, InlineUnlock, Dropzone } =
     useContactsUI();
@@ -270,14 +269,11 @@ export function ContactsPage({ groupId: routeGroupId }: ContactsPageProps) {
                 </button>
               )}
 
-            {!loading &&
-              contacts.length === 0 &&
-              hasFetched &&
-              searchQuery && (
-                <div className="rounded-lg border p-8 text-center text-muted-foreground">
-                  {t('noContactsFound')}
-                </div>
-              )}
+            {!loading && contacts.length === 0 && hasFetched && searchQuery && (
+              <div className="rounded-lg border p-8 text-center text-muted-foreground">
+                {t('noContactsFound')}
+              </div>
+            )}
 
             {contacts.length > 0 && (
               <div className="flex min-h-0 flex-1 flex-col">
@@ -326,9 +322,7 @@ export function ContactsPage({ groupId: routeGroupId }: ContactsPageProps) {
                                 fromLabel: t('backToContacts')
                               })
                             }
-                            onContextMenu={(e) =>
-                              handleContextMenu(e, contact)
-                            }
+                            onContextMenu={(e) => handleContextMenu(e, contact)}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">
