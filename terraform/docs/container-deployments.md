@@ -43,6 +43,7 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | `--parallel` | Build selected containers in parallel |
 | `--no-push` | Build locally without pushing to ECR |
 | `--maintenance` | Run safe post-build Docker cleanup |
+| `--no-maintenance` | Skip post-build Docker cleanup |
 | `--maintenance-until AGE` | Prune resources older than `AGE` (default: `168h`) |
 | `--maintenance-max-cache SIZE` | Keep build cache at or below `SIZE` (default: `20GB`) |
 | `--tag TAG` | Use a specific tag (default: `latest`) |
@@ -76,6 +77,8 @@ Use the `buildContainers.sh` script to build and push images to ECR:
 | `DOCKER_MAINTENANCE` | Enable safe post-build Docker cleanup (`true`/`false`) | `true` |
 | `DOCKER_MAINTENANCE_UNTIL` | Age filter used by prune operations | `168h` |
 | `DOCKER_MAINTENANCE_MAX_CACHE` | Build cache cap for builder prune | `20GB` |
+| `DOCKER_DAEMON_HEALTHCHECK_TIMEOUT` | Docker daemon readiness timeout (seconds) | `15` |
+| `DOCKER_LOGIN_TIMEOUT` | `docker login` timeout (seconds) | `45` |
 | `VITE_API_URL` | API URL for client build | Based on environment domain |
 
 ## Setting Up ECR Authentication in Kubernetes

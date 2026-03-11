@@ -1,10 +1,10 @@
 #!/bin/bash
 # Build and push containers to ECR
 set -eu
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-
+# shellcheck source=lib/dockerHelpers.sh
+source "$SCRIPT_DIR/lib/dockerHelpers.sh"
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
@@ -16,6 +16,9 @@ MAX_PARALLEL_JOBS=1
 DOCKER_MAINTENANCE="${DOCKER_MAINTENANCE:-true}"
 DOCKER_MAINTENANCE_UNTIL="${DOCKER_MAINTENANCE_UNTIL:-168h}"
 DOCKER_MAINTENANCE_MAX_CACHE="${DOCKER_MAINTENANCE_MAX_CACHE:-20GB}"
+DOCKER_DAEMON_HEALTHCHECK_TIMEOUT="${DOCKER_DAEMON_HEALTHCHECK_TIMEOUT:-15}"
+DOCKER_LOGIN_TIMEOUT="${DOCKER_LOGIN_TIMEOUT:-45}"
+DOCKER_TIMEOUT_BIN="$(detect_timeout_binary)"
 usage() {
   echo "Usage: $0 <environment> [options]"
   echo ""
@@ -35,6 +38,7 @@ usage() {
   echo "  --parallel      Build selected containers in parallel (bounded by CPU cores)"
   echo "  --no-push       Build only, don't push to ECR"
   echo "  --maintenance   Run safe Docker cleanup after successful builds"
+  echo "  --no-maintenance  Skip post-build Docker cleanup"
   echo "  --maintenance-until AGE  Prune resources older than AGE (default: 168h)"
   echo "  --maintenance-max-cache SIZE  Keep build cache at or below SIZE (default: 20GB)"
   echo "  --tag TAG       Use specific tag (default: latest)"
@@ -46,6 +50,8 @@ usage() {
   echo "  DOCKER_MAINTENANCE  Enable post-build safe cleanup (default: true)"
   echo "  DOCKER_MAINTENANCE_UNTIL  Age filter for cleanup (default: 168h)"
   echo "  DOCKER_MAINTENANCE_MAX_CACHE  Build cache cap (default: 20GB)"
+  echo "  DOCKER_DAEMON_HEALTHCHECK_TIMEOUT  Docker daemon readiness timeout in seconds (default: 15)"
+  echo "  DOCKER_LOGIN_TIMEOUT  docker login timeout in seconds (default: 45)"
   echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
@@ -216,6 +222,10 @@ while [[ $# -gt 0 ]]; do
       DOCKER_MAINTENANCE=true
       shift
       ;;
+    --no-maintenance)
+      DOCKER_MAINTENANCE=false
+      shift
+      ;;
     --maintenance-until)
       DOCKER_MAINTENANCE_UNTIL="$2"
       shift 2
@@ -267,6 +277,8 @@ else
   DOCKER_BUILD_PLATFORM_SOURCE="explicit"
 fi
 
+ensure_docker_daemon_ready "$DOCKER_TIMEOUT_BIN" "$DOCKER_DAEMON_HEALTHCHECK_TIMEOUT"
+
 # Resolve AWS account ID after parsing options so usage/help paths do not require AWS calls.
 if [[ -z "$AWS_ACCOUNT_ID" ]]; then
   if [[ "$PUSH" == "true" ]]; then
@@ -307,16 +319,20 @@ if [[ "$DOCKER_MAINTENANCE" == "true" ]]; then
   echo "Maintenance Until: $DOCKER_MAINTENANCE_UNTIL"
   echo "Maintenance Max Cache: $DOCKER_MAINTENANCE_MAX_CACHE"
 fi
+echo "Docker Daemon Healthcheck Timeout: ${DOCKER_DAEMON_HEALTHCHECK_TIMEOUT}s"
+echo "Docker Login Timeout: ${DOCKER_LOGIN_TIMEOUT}s"
 if [[ "$PUSH" == "true" && "$DOCKER_BUILD_PLATFORM" != "linux/amd64" ]]; then
   echo "WARNING: Pushing non-amd64 images. Verify your runtime supports $DOCKER_BUILD_PLATFORM."
+fi
+if [[ -z "$DOCKER_TIMEOUT_BIN" ]]; then
+  echo "WARNING: timeout command not found; Docker login timeout enforcement is disabled."
 fi
 echo ""
 
 # Login to ECR
 if [[ "$PUSH" == "true" ]]; then
   echo "=== Logging into ECR ==="
-  aws ecr get-login-password --region "$AWS_REGION" | \
-    docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  docker_login_to_ecr "$DOCKER_TIMEOUT_BIN" "$DOCKER_LOGIN_TIMEOUT" "$AWS_REGION" "$ECR_REGISTRY"
   echo ""
 fi
 
@@ -349,22 +365,6 @@ build_and_push_image() {
       docker push "${image_tag%:*}:latest"
     fi
   fi
-  echo ""
-}
-
-run_docker_maintenance() {
-  [[ "$DOCKER_MAINTENANCE" == "true" ]] || return
-  echo "=== Running Docker maintenance (safe mode) ==="
-  docker container prune -f --filter "until=24h" || echo "Warning: Failed to prune stopped containers"
-  docker image prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" || echo "Warning: Failed to prune dangling images"
-  if docker builder prune --help 2>/dev/null | grep -q -- "--max-used-space"; then
-    docker builder prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" --max-used-space "${DOCKER_MAINTENANCE_MAX_CACHE}" \
-      || echo "Warning: Failed to prune build cache with --max-used-space"
-  else
-    docker builder prune -f --filter "until=${DOCKER_MAINTENANCE_UNTIL}" --keep-storage "${DOCKER_MAINTENANCE_MAX_CACHE}" \
-      || echo "Warning: Failed to prune build cache with --keep-storage"
-  fi
-  docker system df || true
   echo ""
 }
 
@@ -476,7 +476,7 @@ if [[ "$PARALLEL" == "true" && "${#BUILD_PIDS[@]}" -gt 0 ]]; then
   fi
 fi
 
-run_docker_maintenance
+run_docker_maintenance_safe "$DOCKER_MAINTENANCE" "$DOCKER_MAINTENANCE_UNTIL" "$DOCKER_MAINTENANCE_MAX_CACHE"
 
 echo "=== Build complete ==="
 if [[ "$PUSH" == "true" ]]; then
