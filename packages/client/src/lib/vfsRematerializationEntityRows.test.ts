@@ -1,16 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildMaterializedAlbumRows,
+  buildMaterializedCollectionRows,
   buildMaterializedFileRows
 } from './vfsRematerializationEntityRows';
 
 describe('vfsRematerializationEntityRows', () => {
-  it('builds album rows from album registry entries only', () => {
-    const rows = buildMaterializedAlbumRows([
+  it('builds collection extension rows for album/playlist object types', () => {
+    const rows = buildMaterializedCollectionRows([
       {
         id: 'album-1',
         objectType: 'album',
         encryptedName: 'Shard Photos',
+        createdAt: new Date('2026-03-04T00:00:00.000Z')
+      },
+      {
+        id: 'playlist-1',
+        objectType: 'playlist',
+        encryptedName: 'Roadtrip',
         createdAt: new Date('2026-03-04T00:00:00.000Z')
       },
       {
@@ -21,13 +27,23 @@ describe('vfsRematerializationEntityRows', () => {
       }
     ]);
 
-    expect(rows).toEqual([
+    expect(rows.albumRows).toEqual([
       {
         id: 'album-1',
         encryptedName: 'Shard Photos',
         encryptedDescription: null,
         coverPhotoId: null,
         albumType: 'custom'
+      }
+    ]);
+    expect(rows.playlistRows).toEqual([
+      {
+        id: 'playlist-1',
+        encryptedName: 'Roadtrip',
+        encryptedDescription: null,
+        coverImageId: null,
+        shuffleMode: 0,
+        mediaType: 'audio'
       }
     ]);
   });

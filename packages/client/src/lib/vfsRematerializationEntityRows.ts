@@ -12,6 +12,28 @@ interface ItemStateForMaterialization {
   deleted: boolean;
 }
 
+export interface MaterializedAlbumRow {
+  id: string;
+  encryptedName: string | null;
+  encryptedDescription: null;
+  coverPhotoId: null;
+  albumType: 'custom';
+}
+
+export interface MaterializedPlaylistRow {
+  id: string;
+  encryptedName: string | null;
+  encryptedDescription: null;
+  coverImageId: null;
+  shuffleMode: number;
+  mediaType: 'audio';
+}
+
+interface MaterializedCollectionRows {
+  albumRows: MaterializedAlbumRow[];
+  playlistRows: MaterializedPlaylistRow[];
+}
+
 const MATERIALIZED_FILE_OBJECT_TYPES = new Set<VfsObjectType>([
   'file',
   'photo',
@@ -107,24 +129,37 @@ function getMaterializedStoragePath(itemId: string): string {
   return `${REMATERIALIZED_STORAGE_PREFIX}${sanitizeStoragePathSegment(itemId)}${REMATERIALIZED_STORAGE_SUFFIX}`;
 }
 
-export function buildMaterializedAlbumRows(
+export function buildMaterializedCollectionRows(
   registryRows: readonly RegistryRowForMaterialization[]
-): Array<{
-  id: string;
-  encryptedName: string | null;
-  encryptedDescription: null;
-  coverPhotoId: null;
-  albumType: 'custom';
-}> {
-  return registryRows
-    .filter((entry) => entry.objectType === 'album')
-    .map((entry) => ({
-      id: entry.id,
-      encryptedName: entry.encryptedName,
-      encryptedDescription: null,
-      coverPhotoId: null,
-      albumType: 'custom'
-    }));
+): MaterializedCollectionRows {
+  const albumRows: MaterializedAlbumRow[] = [];
+  const playlistRows: MaterializedPlaylistRow[] = [];
+
+  for (const entry of registryRows) {
+    if (entry.objectType === 'album') {
+      albumRows.push({
+        id: entry.id,
+        encryptedName: entry.encryptedName,
+        encryptedDescription: null,
+        coverPhotoId: null,
+        albumType: 'custom'
+      });
+      continue;
+    }
+
+    if (entry.objectType === 'playlist') {
+      playlistRows.push({
+        id: entry.id,
+        encryptedName: entry.encryptedName,
+        encryptedDescription: null,
+        coverImageId: null,
+        shuffleMode: 0,
+        mediaType: 'audio'
+      });
+    }
+  }
+
+  return { albumRows, playlistRows };
 }
 
 export function buildMaterializedFileRows(
