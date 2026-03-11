@@ -1,17 +1,20 @@
 #!/usr/bin/env -S node --import tsx
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setupBobNotesShareForAliceDb } from '../../../packages/shared/src/scaffolding/setupBobNotesShareForAliceDb.ts';
 import { setupBobPhotoAlbumShareForAliceDb } from '../../../packages/shared/src/scaffolding/setupBobPhotoAlbumShareForAliceDb.ts';
+import { setupBobPlaylistShareForAliceDb } from '../../../packages/shared/src/scaffolding/setupBobPlaylistShareForAliceDb.ts';
 import { setupWelcomeEmailsDb } from '../../../packages/shared/src/scaffolding/setupWelcomeEmailsDb.ts';
 import { createPool } from '../../postgres/lib/pool.ts';
 import { runCreateTestUsers } from './createTestUsers.ts';
 import { alice, bob } from './testUsers.ts';
 
 export async function runCreateBobAndAlice(): Promise<void> {
-  console.log('Step 1/4: creating or verifying test users...');
+  console.log('Step 1/5: creating or verifying test users...');
   await runCreateTestUsers();
 
-  console.log('Step 2/4: creating Bob folder+note and sharing with Alice...');
+  console.log('Step 2/5: creating Bob folder+note and sharing with Alice...');
   const pool = await createPool();
   const client = await pool.connect();
 
@@ -32,7 +35,7 @@ export async function runCreateBobAndAlice(): Promise<void> {
     console.log(`  Bob user ID: ${result.bobUserId}`);
     console.log(`  Alice user ID: ${result.aliceUserId}`);
 
-    console.log('Step 3/4: seeding welcome emails for Bob and Alice...');
+    console.log('Step 3/5: seeding welcome emails for Bob and Alice...');
     const emailResult = await setupWelcomeEmailsDb({
       client,
       bobEmail: bob.email,
@@ -45,7 +48,7 @@ export async function runCreateBobAndAlice(): Promise<void> {
     console.log(`  Alice email item ID: ${emailResult.alice.emailItemId}`);
 
     console.log(
-      'Step 4/4: creating shared photo album with a scaffolded logo SVG...'
+      'Step 4/5: creating shared photo album with a scaffolded logo SVG...'
     );
     const photoResult = await setupBobPhotoAlbumShareForAliceDb({
       client,
@@ -57,6 +60,26 @@ export async function runCreateBobAndAlice(): Promise<void> {
     console.log(`  Shared photo ID: ${photoResult.photoId}`);
     console.log(`  Album share ACL ID: ${photoResult.albumShareAclId}`);
     console.log(`  Photo share ACL ID: ${photoResult.photoShareAclId}`);
+
+    console.log('Step 5/5: creating shared playlist with audio track (MP3)...');
+    const mp3Path = resolve(
+      import.meta.dirname ?? '.',
+      '../../../.test_files/The Blessing [jkNfm6PwVAA].mp3'
+    );
+    const audioContentBase64 = (await readFile(mp3Path)).toString('base64');
+    const playlistResult = await setupBobPlaylistShareForAliceDb({
+      client,
+      bobEmail: bob.email,
+      aliceEmail: alice.email,
+      audioContentBase64
+    });
+
+    console.log(`  Shared playlist ID: ${playlistResult.playlistId}`);
+    console.log(`  Shared audio ID: ${playlistResult.audioId}`);
+    console.log(
+      `  Playlist share ACL ID: ${playlistResult.playlistShareAclId}`
+    );
+    console.log(`  Audio share ACL ID: ${playlistResult.audioShareAclId}`);
 
     console.log('Done.');
   } finally {

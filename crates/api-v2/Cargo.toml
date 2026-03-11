@@ -14,7 +14,7 @@ tearleads-api-v2-contracts = { version = "0.1.0", path = "../api-v2-contracts" }
 tearleads-data-access-traits = { version = "0.1.0", path = "../data-access-traits" }
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "net"] }
 tonic = { version = "0.13.1", default-features = false, features = ["codegen", "prost"] }
-tonic-web = "0.13.1"
+tonic-web = "0.14.5"
 tower = { version = "0.5.2", features = ["util"] }
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"

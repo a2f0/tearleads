@@ -95,7 +95,7 @@
     "@bufbuild/protoc-gen-es": "2.11.0",
     "@commitlint/cli": "20.4.2",
     "@commitlint/config-conventional": "20.4.2",
-    "@commitlint/types": "20.4.0",
+    "@commitlint/types": "20.4.3",
     "@connectrpc/protoc-gen-connect-es": "1.7.0",
     "@octokit/rest": "22.0.1",
     "@tearleads/api": "workspace:*",
