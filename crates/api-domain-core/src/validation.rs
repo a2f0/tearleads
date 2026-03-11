@@ -3,6 +3,8 @@
 use std::{error::Error, fmt};
 
 const SUPPORTED_SQL_IDENTIFIER_FIELDS: [&str; 4] = ["schema", "table", "key", "cursor"];
+const DEFAULT_ADMIN_ROWS_LIMIT: u32 = 50;
+const MAX_ADMIN_ROWS_LIMIT: u32 = 1_000;
 
 /// Validation error for user-controlled domain inputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,12 +133,40 @@ pub fn normalize_sort_direction(
     ))
 }
 
+/// Normalizes optional organization identifiers by trimming empty values to `None`.
+pub fn normalize_optional_organization_id(value: Option<String>) -> Option<String> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Normalizes required Redis keys while rejecting blank values.
+pub fn normalize_required_redis_key(key: &str) -> Result<String, DomainValidationError> {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err(DomainValidationError::new("key", "must not be empty"));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Normalizes admin rows limits to defaults and a max safety cap.
+pub fn normalize_admin_rows_limit(limit: u32) -> u32 {
+    if limit == 0 {
+        return DEFAULT_ADMIN_ROWS_LIMIT;
+    }
+
+    limit.min(MAX_ADMIN_ROWS_LIMIT)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        DomainValidationError, canonical_sql_identifier_field, normalize_redis_scan_cursor,
-        normalize_redis_scan_limit, normalize_required_resource_id, normalize_sort_direction,
-        normalize_sql_identifier,
+        DomainValidationError, canonical_sql_identifier_field, normalize_admin_rows_limit,
+        normalize_optional_organization_id, normalize_redis_scan_cursor,
+        normalize_redis_scan_limit, normalize_required_redis_key, normalize_required_resource_id,
+        normalize_sort_direction, normalize_sql_identifier,
     };
 
     #[test]
@@ -259,5 +289,42 @@ mod tests {
             error,
             DomainValidationError::new("sort_direction", "must be \"asc\" or \"desc\"")
         );
+    }
+
+    #[test]
+    fn optional_organization_id_normalization_trims_and_drops_blank_values() {
+        assert_eq!(
+            normalize_optional_organization_id(Some(String::from("  org-1  "))),
+            Some(String::from("org-1"))
+        );
+        assert_eq!(
+            normalize_optional_organization_id(Some(String::from("   "))),
+            None
+        );
+        assert_eq!(normalize_optional_organization_id(None), None);
+    }
+
+    #[test]
+    fn required_redis_key_normalization_trims_and_rejects_blank_values() {
+        assert_eq!(
+            normalize_required_redis_key("  feature_flag  "),
+            Ok(String::from("feature_flag"))
+        );
+
+        let error = match normalize_required_redis_key("   ") {
+            Ok(value) => panic!("blank key should fail, got: {value}"),
+            Err(error) => error,
+        };
+        assert_eq!(
+            error,
+            DomainValidationError::new("key", "must not be empty")
+        );
+    }
+
+    #[test]
+    fn admin_rows_limit_normalization_defaults_and_caps() {
+        assert_eq!(normalize_admin_rows_limit(0), 50);
+        assert_eq!(normalize_admin_rows_limit(10), 10);
+        assert_eq!(normalize_admin_rows_limit(5_000), 1_000);
     }
 }
