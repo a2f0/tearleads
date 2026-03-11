@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { canShareFiles, saveFile, shareFile } from './fileUtils';
+import {
+  canShareFiles,
+  resetFileUtilsRuntimeForTesting,
+  saveFile,
+  setFileUtilsMobileImportersForTesting,
+  shareFile
+} from './fileUtils';
 
 // Mock Capacitor
 vi.mock('@capacitor/core', () => ({
@@ -163,6 +169,7 @@ describe('file-utils sharing', () => {
     });
 
     afterEach(() => {
+      resetFileUtilsRuntimeForTesting();
       vi.restoreAllMocks();
     });
 
@@ -194,29 +201,24 @@ describe('file-utils sharing', () => {
         .mockResolvedValue({ uri: 'file:///cache/test.db' });
       const mockShare = vi.fn().mockResolvedValue(undefined);
 
-      vi.doMock('@capacitor/filesystem', () => ({
-        Filesystem: {
-          writeFile: mockWriteFile
-        },
-        Directory: {
-          Cache: 'CACHE'
-        }
-      }));
-
-      vi.doMock('@capacitor/share', () => ({
-        Share: {
-          share: mockShare
-        }
-      }));
-
-      // Reset module cache to pick up mocks
-      vi.resetModules();
-
-      // Re-import with fresh mocks
-      const { saveFile: saveFileMobile } = await import('./fileUtils');
+      setFileUtilsMobileImportersForTesting({
+        filesystem: async () => ({
+          Filesystem: {
+            writeFile: mockWriteFile
+          },
+          Directory: {
+            Cache: 'CACHE'
+          }
+        }),
+        share: async () => ({
+          Share: {
+            share: mockShare
+          }
+        })
+      });
 
       const data = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
-      await saveFileMobile(data, 'backup.db');
+      await saveFile(data, 'backup.db');
 
       expect(mockWriteFile).toHaveBeenCalledWith({
         path: 'backup.db',
@@ -242,31 +244,28 @@ describe('file-utils sharing', () => {
       });
       const mockShare = vi.fn().mockResolvedValue(undefined);
 
-      vi.doMock('@capacitor/filesystem', () => ({
-        Filesystem: {
-          writeFile: mockWriteFile
-        },
-        Directory: {
-          Cache: 'CACHE'
-        }
-      }));
-
-      vi.doMock('@capacitor/share', () => ({
-        Share: {
-          share: mockShare
-        }
-      }));
-
-      vi.resetModules();
-
-      const { saveFile: saveFileMobile } = await import('./fileUtils');
+      setFileUtilsMobileImportersForTesting({
+        filesystem: async () => ({
+          Filesystem: {
+            writeFile: mockWriteFile
+          },
+          Directory: {
+            Cache: 'CACHE'
+          }
+        }),
+        share: async () => ({
+          Share: {
+            share: mockShare
+          }
+        })
+      });
 
       // Create test data that can be verified via base64
       const testString = 'Hello, World!';
       const data = new Uint8Array(
         testString.split('').map((c) => c.charCodeAt(0))
       );
-      await saveFileMobile(data, 'test.db');
+      await saveFile(data, 'test.db');
 
       // Verify the base64 encoding is correct and mocks were called
       expect(capturedBase64).toBe(btoa(testString));
@@ -285,24 +284,21 @@ describe('file-utils sharing', () => {
       });
       const mockShare = vi.fn().mockResolvedValue(undefined);
 
-      vi.doMock('@capacitor/filesystem', () => ({
-        Filesystem: {
-          writeFile: mockWriteFile
-        },
-        Directory: {
-          Cache: 'CACHE'
-        }
-      }));
-
-      vi.doMock('@capacitor/share', () => ({
-        Share: {
-          share: mockShare
-        }
-      }));
-
-      vi.resetModules();
-
-      const { saveFile: saveFileMobile } = await import('./fileUtils');
+      setFileUtilsMobileImportersForTesting({
+        filesystem: async () => ({
+          Filesystem: {
+            writeFile: mockWriteFile
+          },
+          Directory: {
+            Cache: 'CACHE'
+          }
+        }),
+        share: async () => ({
+          Share: {
+            share: mockShare
+          }
+        })
+      });
 
       // Create data larger than CHUNK_SIZE (32k) to test chunking
       const largeData = new Uint8Array(50000);
@@ -310,7 +306,7 @@ describe('file-utils sharing', () => {
         largeData[i] = i % 256;
       }
 
-      await saveFileMobile(largeData, 'large.db');
+      await saveFile(largeData, 'large.db');
 
       // Verify data integrity by decoding and comparing with original
       expect(capturedBase64).toBeDefined();
