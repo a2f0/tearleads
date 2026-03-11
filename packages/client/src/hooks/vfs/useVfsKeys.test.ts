@@ -113,8 +113,8 @@ describe('useVfsKeys', () => {
   describe('clearVfsKeysCache', () => {
     it('clears cached keypair', async () => {
       // First ensure keys are cached by calling ensureVfsKeys
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       await ensureVfsKeys();
 
@@ -122,8 +122,8 @@ describe('useVfsKeys', () => {
       clearVfsKeysCache();
 
       // Now getMyKeys should be called again (cache was cleared)
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       await ensureVfsKeys();
 
@@ -138,7 +138,7 @@ describe('useVfsKeys', () => {
 
   describe('hasVfsKeys', () => {
     it('returns true when keys exist on server', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'key',
         publicSigningKey: 'sign'
       });
@@ -148,14 +148,14 @@ describe('useVfsKeys', () => {
     });
 
     it('returns false when keys do not exist (404)', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
 
       const result = await hasVfsKeys();
       expect(result).toBe(false);
     });
 
     it('returns false when keys are not set up', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(
+      api.vfs.getMyKeys.mockRejectedValueOnce(
         new Error('VFS keys not set up')
       );
 
@@ -164,7 +164,7 @@ describe('useVfsKeys', () => {
     });
 
     it('throws on other errors', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('500'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('500'));
 
       await expect(hasVfsKeys()).rejects.toThrow('500');
     });
@@ -173,8 +173,8 @@ describe('useVfsKeys', () => {
   describe('ensureVfsKeys', () => {
     it('returns cached keys if available', async () => {
       // First call - no keys on server, generate new
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       const keys1 = await ensureVfsKeys();
 
@@ -186,7 +186,7 @@ describe('useVfsKeys', () => {
     });
 
     it('fetches existing keys from server', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'existing-key',
         publicSigningKey: 'sign'
       });
@@ -199,8 +199,8 @@ describe('useVfsKeys', () => {
     });
 
     it('generates and stores new keys when none exist', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       const keys = await ensureVfsKeys();
 
@@ -215,10 +215,10 @@ describe('useVfsKeys', () => {
     });
 
     it('generates and stores new keys when server says keys are not set up', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(
+      api.vfs.getMyKeys.mockRejectedValueOnce(
         new Error('VFS keys not set up')
       );
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       const keys = await ensureVfsKeys();
 
@@ -228,7 +228,7 @@ describe('useVfsKeys', () => {
     });
 
     it('throws when recovery password is unavailable', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
       setVfsRecoveryPassword(null);
 
       await expect(ensureVfsKeys()).rejects.toThrow(
@@ -245,7 +245,7 @@ describe('useVfsKeys', () => {
           resolveMaterial = resolve;
         }
       );
-      vi.mocked(importVfsPrivateKeyPasswordMaterial).mockReturnValueOnce(
+      importVfsPrivateKeyPasswordMaterial.mockReturnValueOnce(
         pendingMaterial
       );
 
@@ -254,7 +254,7 @@ describe('useVfsKeys', () => {
       resolveMaterial?.({ algorithm: { name: 'PBKDF2' } });
       await Promise.resolve();
 
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
       await expect(ensureVfsKeys()).rejects.toThrow(
         'VFS key recovery requires re-authentication'
       );
@@ -283,7 +283,7 @@ describe('useVfsKeys', () => {
 
   describe('ensureVfsKeyPair', () => {
     it('returns decrypted private keys when available', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign',
         encryptedPrivateKeys: 'ZW5jcnlwdGVk',
@@ -297,7 +297,7 @@ describe('useVfsKeys', () => {
     });
 
     it('throws when private keys are unavailable', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign'
       });
@@ -310,8 +310,8 @@ describe('useVfsKeys', () => {
 
   describe('wrapSessionKey', () => {
     it('wraps session key with public key', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       const sessionKey = new Uint8Array(32).fill(99);
       const wrapped = await wrapSessionKey(sessionKey);
@@ -322,9 +322,9 @@ describe('useVfsKeys', () => {
 
   describe('registerVfsItemWithCurrentKeys', () => {
     it('wraps and registers by default', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      vi.mocked(api.vfs.setupKeys).mockResolvedValueOnce({ created: true });
-      vi.mocked(api.vfs.register).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
+      api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
+      api.vfs.register.mockResolvedValueOnce({
         id: 'item-1',
         createdAt: '2026-02-19T00:00:00.000Z'
       });
@@ -343,7 +343,7 @@ describe('useVfsKeys', () => {
     });
 
     it('skips server registration when registerOnServer is false', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign'
       });
@@ -359,13 +359,13 @@ describe('useVfsKeys', () => {
     });
 
     it('ignores already-registered conflict from server', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign'
       });
       const conflictError = new Error('Conflict');
       Reflect.set(conflictError, 'status', 409);
-      vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+      api.vfs.register.mockRejectedValueOnce(conflictError);
 
       await expect(
         registerVfsItemWithCurrentKeys({
@@ -382,7 +382,7 @@ describe('useVfsKeys', () => {
 
   describe('getVfsPublicKey', () => {
     it('returns public key from server', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+      api.vfs.getMyKeys.mockResolvedValueOnce({
         publicEncryptionKey: 'server-key',
         publicSigningKey: 'sign'
       });
@@ -395,7 +395,7 @@ describe('useVfsKeys', () => {
     });
 
     it('returns null when keys do not exist', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('404'));
 
       const key = await getVfsPublicKey();
 
@@ -403,7 +403,7 @@ describe('useVfsKeys', () => {
     });
 
     it('throws on other errors', async () => {
-      vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('500'));
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('500'));
 
       await expect(getVfsPublicKey()).rejects.toThrow('500');
     });

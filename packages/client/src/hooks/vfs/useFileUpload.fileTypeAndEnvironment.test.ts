@@ -122,37 +122,37 @@ describe('useFileUpload file type and environment', () => {
     vi.resetAllMocks();
     mockSelectResult = [];
 
-    vi.mocked(getKeyManager).mockReturnValue({
+    getKeyManager.mockReturnValue({
       getCurrentKey: () => mockEncryptionKey
     } as ReturnType<typeof getKeyManager>);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getDatabase).mockReturnValue(
+    isFileStorageInitialized.mockReturnValue(true);
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getFileStorage).mockReturnValue(
+    getFileStorage.mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
     );
-    vi.mocked(readFileAsUint8Array).mockResolvedValue(
+    readFileAsUint8Array.mockResolvedValue(
       new Uint8Array([1, 2, 3])
     );
-    vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
-    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
-    vi.mocked(mockStorage.measureStoreBlob).mockResolvedValue('storage/path');
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
-    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(logEvent).mockResolvedValue(undefined);
+    computeContentHashStreaming.mockResolvedValue('mock-hash');
+    mockStorage.measureStore.mockResolvedValue('storage/path');
+    mockStorage.measureStoreBlob.mockResolvedValue('storage/path');
+    isThumbnailSupported.mockReturnValue(false);
+    generateThumbnail.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    logEvent.mockResolvedValue(undefined);
 
     vi.stubGlobal('crypto', {
       randomUUID: () => 'test-uuid-1234'
     });
 
-    vi.mocked(isLoggedIn).mockReturnValue(false);
-    vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
-    vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');
+    isLoggedIn.mockReturnValue(false);
+    generateSessionKey.mockReturnValue(new Uint8Array(32));
+    wrapSessionKey.mockResolvedValue('wrapped-key');
   });
 
   it('throws UnsupportedFileTypeError when file type cannot be detected', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+    fileTypeFromBuffer.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'unknown.bin', {
@@ -168,7 +168,7 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('successfully uploads text files using browser-provided MIME type', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+    fileTypeFromBuffer.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['Hello, world!'], 'notes.txt', {
@@ -202,7 +202,7 @@ describe('useFileUpload file type and environment', () => {
     name,
     data
   }) => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({ ext, mime });
+    fileTypeFromBuffer.mockResolvedValue({ ext, mime });
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File([data], name, { type: mime });
@@ -214,7 +214,7 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('successfully uploads SVG files using browser-provided MIME type', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+    fileTypeFromBuffer.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(
@@ -231,7 +231,7 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('uses detected MIME type instead of browser-provided type', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
@@ -265,11 +265,11 @@ describe('useFileUpload file type and environment', () => {
     data,
     name
   }) => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: type.toLowerCase(),
       mime
     });
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
+    isThumbnailSupported.mockReturnValue(false);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File([data], name, { type: mime });
@@ -283,8 +283,8 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('throws when no active instance is available', async () => {
-    vi.mocked(getCurrentInstanceId).mockReturnValue(null);
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    getCurrentInstanceId.mockReturnValue(null);
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
@@ -300,8 +300,8 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('initializes storage when not already initialized', async () => {
-    vi.mocked(isFileStorageInitialized).mockReturnValue(false);
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    isFileStorageInitialized.mockReturnValue(false);
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
@@ -320,11 +320,11 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('uses streaming local storage for large files without thumbnail buffers', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'pdf',
       mime: 'application/pdf'
     });
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
+    isThumbnailSupported.mockReturnValue(false);
 
     const largeFile = new File(
       [new Uint8Array(17 * 1024 * 1024)],
@@ -348,13 +348,13 @@ describe('useFileUpload file type and environment', () => {
 
   it('logs a warning when thumbnail analytics fail', async () => {
     const warnSpy = mockConsoleWarn();
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
-    vi.mocked(isThumbnailSupported).mockReturnValue(true);
-    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(logEvent).mockRejectedValue(new Error('log failed'));
+    isThumbnailSupported.mockReturnValue(true);
+    generateThumbnail.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    logEvent.mockRejectedValue(new Error('log failed'));
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['fake-png-data'], 'image.png', {
@@ -371,12 +371,12 @@ describe('useFileUpload file type and environment', () => {
   });
 
   it('skips storing thumbnails when none are generated', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
-    vi.mocked(isThumbnailSupported).mockReturnValue(true);
-    vi.mocked(generateThumbnail).mockResolvedValue(null);
+    isThumbnailSupported.mockReturnValue(true);
+    generateThumbnail.mockResolvedValue(null);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['fake-png-data'], 'image.png', {

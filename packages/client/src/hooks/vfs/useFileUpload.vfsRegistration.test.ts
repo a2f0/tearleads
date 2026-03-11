@@ -131,41 +131,41 @@ describe('useFileUpload VFS registration', () => {
     vi.resetAllMocks();
     mockSelectResult = [];
 
-    vi.mocked(getKeyManager).mockReturnValue({
+    getKeyManager.mockReturnValue({
       getCurrentKey: () => mockEncryptionKey
     } as ReturnType<typeof getKeyManager>);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getDatabase).mockReturnValue(
+    isFileStorageInitialized.mockReturnValue(true);
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getFileStorage).mockReturnValue(
+    getFileStorage.mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
     );
-    vi.mocked(readFileAsUint8Array).mockResolvedValue(
+    readFileAsUint8Array.mockResolvedValue(
       new Uint8Array([1, 2, 3])
     );
-    vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
-    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
-    vi.mocked(mockStorage.measureStoreBlob).mockResolvedValue('storage/path');
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
-    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(logEvent).mockResolvedValue(undefined);
+    computeContentHashStreaming.mockResolvedValue('mock-hash');
+    mockStorage.measureStore.mockResolvedValue('storage/path');
+    mockStorage.measureStoreBlob.mockResolvedValue('storage/path');
+    isThumbnailSupported.mockReturnValue(false);
+    generateThumbnail.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    logEvent.mockResolvedValue(undefined);
 
     vi.stubGlobal('crypto', {
       randomUUID: () => 'test-uuid-1234'
     });
 
-    vi.mocked(isLoggedIn).mockReturnValue(false);
-    vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
-    vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    isLoggedIn.mockReturnValue(false);
+    generateSessionKey.mockReturnValue(new Uint8Array(32));
+    wrapSessionKey.mockResolvedValue('wrapped-key');
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
   });
 
   it('still registers locally when user is not logged in', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(false);
+    isLoggedIn.mockReturnValue(false);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -176,7 +176,7 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('wraps session keys when user is logged in', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
+    isLoggedIn.mockReturnValue(true);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -189,8 +189,8 @@ describe('useFileUpload VFS registration', () => {
 
   it('still saves locally when session key wrapping fails', async () => {
     const consoleSpy = mockConsoleWarn();
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(wrapSessionKey).mockRejectedValue(new Error('VFS error'));
+    isLoggedIn.mockReturnValue(true);
+    wrapSessionKey.mockRejectedValue(new Error('VFS error'));
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -206,8 +206,8 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('uses secure facade when vfsSecureUpload feature flag is enabled', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
 
@@ -217,14 +217,14 @@ describe('useFileUpload VFS registration', () => {
         manifest: {}
       })
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
 
     const mockOrchestrator = {
       flushAll: vi.fn().mockResolvedValue({ success: true })
     };
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+    useVfsOrchestratorInstance.mockReturnValue(
       mockOrchestrator as unknown as ReturnType<
         typeof useVfsOrchestratorInstance
       >
@@ -265,8 +265,8 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('fails closed when secure facade upload fails', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
 
@@ -275,14 +275,14 @@ describe('useFileUpload VFS registration', () => {
         .fn()
         .mockRejectedValue(new Error('Network error'))
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
 
     const mockOrchestrator = {
       flushAll: vi.fn().mockResolvedValue({ success: true })
     };
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+    useVfsOrchestratorInstance.mockReturnValue(
       mockOrchestrator as unknown as ReturnType<
         typeof useVfsOrchestratorInstance
       >
@@ -306,23 +306,23 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('fails closed when secure upload registration fails', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
-    vi.mocked(api.vfs.register).mockRejectedValue(new Error('register failed'));
+    api.vfs.register.mockRejectedValue(new Error('register failed'));
 
     const mockSecureFacade = {
       stageAttachEncryptedBlobAndPersist: vi.fn()
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
 
     const mockOrchestrator = {
       flushAll: vi.fn()
     };
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+    useVfsOrchestratorInstance.mockReturnValue(
       mockOrchestrator as unknown as ReturnType<
         typeof useVfsOrchestratorInstance
       >
@@ -350,8 +350,8 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('fails closed when secure upload flushAll fails', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
 
@@ -361,14 +361,14 @@ describe('useFileUpload VFS registration', () => {
         manifest: {}
       })
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
 
     const mockOrchestrator = {
       flushAll: vi.fn().mockRejectedValue(new Error('Network flush failed'))
     };
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(
+    useVfsOrchestratorInstance.mockReturnValue(
       mockOrchestrator as unknown as ReturnType<
         typeof useVfsOrchestratorInstance
       >
@@ -392,12 +392,12 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('fails closed when secure upload is enabled but facade is unavailable', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
-    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue(null);
+    useVfsSecureFacade.mockReturnValue(null);
+    useVfsOrchestratorInstance.mockReturnValue(null);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -417,11 +417,11 @@ describe('useFileUpload VFS registration', () => {
   });
 
   it('does not register on server when secure upload is disabled', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsServerRegistration';
     });
-    vi.mocked(useVfsSecureFacade).mockReturnValue(null);
+    useVfsSecureFacade.mockReturnValue(null);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
