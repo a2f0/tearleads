@@ -390,9 +390,8 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         deleted: itemState?.deleted ?? false
       };
     });
-  const { albumRows, playlistRows } = buildMaterializedCollectionRows(
-    registryRows
-  );
+  const { albumRows, playlistRows } =
+    buildMaterializedCollectionRows(registryRows);
   const fileRows = buildMaterializedFileRows(registryRows, itemStateByItemId);
   await materializeFilePayloadsToStorage(fileRows, itemStateByItemId);
 
