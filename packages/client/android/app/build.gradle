@@ -22,8 +22,8 @@ android {
         applicationId appBundleId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1760
-        versionName "1.0.1760"
+        versionCode 1761
+        versionName "1.0.1761"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
