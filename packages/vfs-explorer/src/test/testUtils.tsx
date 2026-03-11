@@ -1,3 +1,4 @@
+// one-component-per-file: allow — test utility with mock UI components and wrapper factory
 import type { VfsSharePolicyPreviewResponse } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
