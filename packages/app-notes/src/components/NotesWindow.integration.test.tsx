@@ -277,9 +277,11 @@ describe('NotesWindow integration', () => {
     };
     const { db, readNote } = createStatefulDatabase(initialNote);
 
+    const queueItemUpsertAndFlush = vi.fn(async () => undefined);
+    const queueItemDeleteAndFlush = vi.fn(async () => undefined);
     const vfsItemSync: VfsItemSyncFunctions = {
-      queueItemUpsertAndFlush: vi.fn(async () => undefined),
-      queueItemDeleteAndFlush: vi.fn(async () => undefined)
+      queueItemUpsertAndFlush,
+      queueItemDeleteAndFlush
     };
 
     render(
@@ -326,8 +328,7 @@ describe('NotesWindow integration', () => {
       expect(vfsItemSync.queueItemUpsertAndFlush).toHaveBeenCalled();
     });
 
-    const upsertCalls = vi.mocked(vfsItemSync.queueItemUpsertAndFlush).mock
-      .calls;
+    const upsertCalls = queueItemUpsertAndFlush.mock.calls;
     const lastCall = upsertCalls[upsertCalls.length - 1];
     if (!lastCall) {
       throw new Error('Expected at least one sync upsert call');
@@ -356,9 +357,11 @@ describe('NotesWindow integration', () => {
     };
     const { db, readNote } = createStatefulDatabase(initialNote);
 
+    const queueItemUpsertAndFlush = vi.fn(async () => undefined);
+    const queueItemDeleteAndFlush = vi.fn(async () => undefined);
     const vfsItemSync: VfsItemSyncFunctions = {
-      queueItemUpsertAndFlush: vi.fn(async () => undefined),
-      queueItemDeleteAndFlush: vi.fn(async () => undefined)
+      queueItemUpsertAndFlush,
+      queueItemDeleteAndFlush
     };
 
     render(
@@ -391,7 +394,7 @@ describe('NotesWindow integration', () => {
 
     await waitFor(() => {
       expect(readNote().content).toBe('saved by debounce');
-      expect(vfsItemSync.queueItemUpsertAndFlush).toHaveBeenCalled();
+      expect(queueItemUpsertAndFlush).toHaveBeenCalled();
     });
 
     fireEvent.click(screen.getByTestId('notes-window-control-back'));

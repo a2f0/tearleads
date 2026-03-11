@@ -16,7 +16,7 @@ vi.mock('../lib/mimeParser.js', () => ({
 
 async function getMimeParserMock() {
   const mod = await import('../lib/mimeParser.js');
-  return vi.mocked(mod.parseMimeMessage);
+  return vi.spyOn(mod, 'parseMimeMessage');
 }
 
 const mockUI: EmailUIComponents = {
