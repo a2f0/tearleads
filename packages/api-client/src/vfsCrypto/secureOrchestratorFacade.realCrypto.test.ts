@@ -44,11 +44,13 @@ function createTestKeyResolver() {
 
 describe('secureOrchestratorFacade with real crypto', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -148,7 +150,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
   });
 
   it('queues encrypted blob through facade with real crypto', async () => {
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         _init?: RequestInit
@@ -226,7 +228,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
   });
 
   it('creates facade with runtime options factory', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',
@@ -310,7 +312,7 @@ describe('secureOrchestratorFacade with real crypto', () => {
   });
 
   it('auto-creates item key on first upload with real crypto pipeline bundle', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',

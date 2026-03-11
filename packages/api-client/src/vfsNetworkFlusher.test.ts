@@ -22,11 +22,13 @@ function connectJsonEnvelope(payload: unknown): string {
 
 describe('vfsNetworkFlusher', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -39,7 +41,7 @@ describe('vfsNetworkFlusher', () => {
     (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
     let pushAttempt = 0;
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
@@ -307,7 +309,7 @@ describe('vfsNetworkFlusher', () => {
 
   it('falls back to server snapshot rematerialization on stale cursor', async () => {
     let pullCalls = 0;
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit

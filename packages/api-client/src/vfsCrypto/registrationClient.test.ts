@@ -17,6 +17,15 @@ vi.mock('./onboardingClient', () => ({
 
 import { ensureVfsOnboardingKeys } from './onboardingClient';
 
+function queueOnboardingKeysResponse(
+  response: Awaited<ReturnType<typeof ensureVfsOnboardingKeys>>
+): void {
+  if (!vi.isMockFunction(ensureVfsOnboardingKeys)) {
+    throw new Error('ensureVfsOnboardingKeys mock is not configured');
+  }
+  ensureVfsOnboardingKeys.mockResolvedValueOnce(response);
+}
+
 function createServerKeys(): VfsUserKeysResponse {
   const publicEncryptionKey = combinePublicKey(
     serializePublicKey(extractPublicKey(generateKeyPair()))
@@ -37,7 +46,7 @@ describe('vfs registration client', () => {
   it('registers using wrapped session key and returns createdKeys', async () => {
     const serverKeys = createServerKeys();
     const publicParts = serverKeys.publicEncryptionKey.split('.');
-    vi.mocked(ensureVfsOnboardingKeys).mockResolvedValueOnce({
+    queueOnboardingKeysResponse({
       created: true,
       publicKey: {
         x25519PublicKey: publicParts[0] ?? '',
@@ -78,7 +87,7 @@ describe('vfs registration client', () => {
   it('generates a new session key when one is not provided', async () => {
     const serverKeys = createServerKeys();
     const publicParts = serverKeys.publicEncryptionKey.split('.');
-    vi.mocked(ensureVfsOnboardingKeys).mockResolvedValueOnce({
+    queueOnboardingKeysResponse({
       created: false,
       publicKey: {
         x25519PublicKey: publicParts[0] ?? '',

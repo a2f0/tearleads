@@ -27,11 +27,13 @@ function createTestKeyResolver() {
 
 describe('secureOrchestratorFacade checkpoint fields', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -40,7 +42,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
   });
 
   it('sets checkpoint nextChunkIndex to 1 for single-chunk upload', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',
@@ -113,7 +115,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
   });
 
   it('sets checkpoint nextChunkIndex to chunkCount for multi-chunk upload', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',
@@ -189,7 +191,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
   });
 
   it('sets checkpoint nextChunkIndex to 1 for empty stream', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',
@@ -262,7 +264,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
   });
 
   it('checkpoint uploadId is unique per upload', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',
@@ -353,7 +355,7 @@ describe('secureOrchestratorFacade checkpoint fields', () => {
   });
 
   it('checkpoint contains correct encryption metadata fields', async () => {
-    vi.mocked(global.fetch).mockImplementation(async (): Promise<Response> => {
+    fetchMock.mockImplementation(async (): Promise<Response> => {
       return new Response(
         JSON.stringify({
           clientId: 'desktop',

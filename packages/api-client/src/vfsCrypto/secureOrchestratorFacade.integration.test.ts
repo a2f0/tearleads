@@ -11,11 +11,13 @@ function connectJsonEnvelope(payload: unknown): string {
 
 describe('secureOrchestratorFacade integration', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -25,7 +27,7 @@ describe('secureOrchestratorFacade integration', () => {
 
   it('queues and flushes stage/chunks/commit/attach through write orchestrator', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
@@ -194,7 +196,7 @@ describe('secureOrchestratorFacade integration', () => {
 
   it('maps encrypted CRDT ops and flushes them through CRDT push', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
@@ -329,7 +331,7 @@ describe('secureOrchestratorFacade integration', () => {
 
   it('flushes encrypted CRDT ops with default mapper including encryption metadata', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit

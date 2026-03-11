@@ -15,6 +15,7 @@ import { setTestEnv } from './test/env.js';
 
 describe('api edge cases requiring direct fetch mocking', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -31,7 +32,8 @@ describe('api edge cases requiring direct fetch mocking', () => {
           }
         })
     }));
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_refresh_lock');
@@ -57,15 +59,13 @@ describe('api edge cases requiring direct fetch mocking', () => {
         resolveRefresh = resolve;
       });
 
-      vi.mocked(global.fetch).mockImplementation(
-        async (input: RequestInfo | URL) => {
-          const url = input.toString();
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
-            return refreshPromise;
-          }
-          throw new Error(`Unexpected request: ${url}`);
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = input.toString();
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          return refreshPromise;
         }
-      );
+        throw new Error(`Unexpected request: ${url}`);
+      });
 
       const { tryRefreshToken } = await import('./api');
 
@@ -94,7 +94,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       );
 
       await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
-      expect(vi.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('reuses refresh promise across concurrent requests hitting 401', async () => {
@@ -106,7 +106,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         resolveRefresh = resolve;
       });
 
-      vi.mocked(global.fetch).mockImplementation(
+      fetchMock.mockImplementation(
         async (input: RequestInfo | URL, init?: RequestInit) => {
           const url = input.toString();
           if (url.endsWith('/v2/ping')) {
@@ -190,7 +190,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         'old-refresh-token'
       );
 
-      vi.mocked(global.fetch).mockImplementationOnce(async () => {
+      fetchMock.mockImplementationOnce(async () => {
         // Simulate another tab updating localStorage during our fetch
         (await import('./authStorage')).setStoredRefreshToken(
           'new-refresh-from-other-tab'
@@ -223,31 +223,29 @@ describe('api edge cases requiring direct fetch mocking', () => {
         throw new Error('blocked');
       };
 
-      vi.mocked(global.fetch).mockImplementation(
-        async (input: RequestInfo | URL) => {
-          const url = input.toString();
-          if (url.endsWith('/v2/ping')) {
-            return new Response(null, { status: 401 });
-          }
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
-            return new Response(
-              JSON.stringify({
-                accessToken: 'new-token',
-                refreshToken: 'new-refresh',
-                tokenType: 'Bearer',
-                expiresIn: 3600,
-                refreshExpiresIn: 604800,
-                user: { id: 'user-1', email: 'user@example.com' }
-              }),
-              {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-              }
-            );
-          }
-          throw new Error(`Unexpected request: ${url}`);
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = input.toString();
+        if (url.endsWith('/v2/ping')) {
+          return new Response(null, { status: 401 });
         }
-      );
+        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          return new Response(
+            JSON.stringify({
+              accessToken: 'new-token',
+              refreshToken: 'new-refresh',
+              tokenType: 'Bearer',
+              expiresIn: 3600,
+              refreshExpiresIn: 604800,
+              user: { id: 'user-1', email: 'user@example.com' }
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      });
 
       try {
         const { api } = await import('./api');
@@ -293,7 +291,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       );
 
       // Mock refresh to fail with 401
-      vi.mocked(global.fetch).mockResolvedValue(
+      fetchMock.mockResolvedValue(
         new Response(JSON.stringify({ error: 'Invalid' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
@@ -321,7 +319,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       );
 
       // Server returns 401 because session was destroyed (e.g. DB/Redis reset)
-      vi.mocked(global.fetch).mockResolvedValue(
+      fetchMock.mockResolvedValue(
         new Response(
           JSON.stringify({ error: 'Refresh token has been revoked' }),
           { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -350,7 +348,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
       );
 
       // Mock refresh to fail with network error
-      vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
+      fetchMock.mockRejectedValue(new Error('Network error'));
 
       const { tryRefreshToken } = await import('./api');
       const result = await tryRefreshToken();

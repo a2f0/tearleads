@@ -5,6 +5,7 @@ import { setTestEnv } from './test/env.js';
 
 describe('vfsWriteOrchestrator encrypted blob flush', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   const isRecord = (value: unknown): value is Record<string, unknown> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,7 +32,8 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -45,7 +47,7 @@ describe('vfsWriteOrchestrator encrypted blob flush', () => {
       body: unknown;
       headers: Headers;
     }> = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit

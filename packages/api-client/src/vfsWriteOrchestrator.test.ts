@@ -6,11 +6,13 @@ import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator'
 
 describe('vfsWriteOrchestrator', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
 
@@ -144,7 +146,7 @@ describe('vfsWriteOrchestrator', () => {
   it('flushes both queues and persists final state', async () => {
     const { encodeVfsSyncCursor } = await import('@tearleads/vfs-sync/vfs');
 
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {

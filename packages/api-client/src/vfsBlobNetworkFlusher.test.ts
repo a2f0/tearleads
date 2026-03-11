@@ -12,10 +12,12 @@ function getAuthorizationHeader(init: RequestInit | undefined): string | null {
 
 describe('vfsBlobNetworkFlusher', () => {
   const originalFetch = global.fetch;
+  let fetchMock = vi.fn();
   beforeEach(() => {
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
-    global.fetch = vi.fn();
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
     localStorage.clear();
   });
   afterEach(() => {
@@ -25,7 +27,7 @@ describe('vfsBlobNetworkFlusher', () => {
     localStorage.setItem('auth_token', 'stale-access-token');
     (await import('./authStorage')).setStoredRefreshToken('refresh-token');
     let stageAttempts = 0;
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
@@ -107,7 +109,7 @@ describe('vfsBlobNetworkFlusher', () => {
     const saveState = vi.fn(
       async (state: VfsBlobNetworkFlusherPersistedState) => state
     );
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/StageBlob`)) {
@@ -187,7 +189,7 @@ describe('vfsBlobNetworkFlusher', () => {
 
   it('flushes queued chunk upload and manifest commit operations', async () => {
     const requestBodies: Array<{ url: string; body: unknown }> = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         input: RequestInfo | URL,
         init?: RequestInit
@@ -273,7 +275,7 @@ describe('vfsBlobNetworkFlusher', () => {
   });
   it('persists and forwards stage encryption metadata', async () => {
     const requestBodies: unknown[] = [];
-    vi.mocked(global.fetch).mockImplementation(
+    fetchMock.mockImplementation(
       async (
         _input: RequestInfo | URL,
         init?: RequestInit
@@ -418,9 +420,7 @@ describe('vfsBlobNetworkFlusher', () => {
     );
   });
   it('handles non-json responses and invalid queue operation kinds', async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
-      new Response('not-json', { status: 200 })
-    );
+    fetchMock.mockResolvedValue(new Response('not-json', { status: 200 }));
     const { VfsBlobNetworkFlusher } = await import('./vfsBlobNetworkFlusher');
     const flusher = new VfsBlobNetworkFlusher({
       baseUrl: 'http://localhost'
