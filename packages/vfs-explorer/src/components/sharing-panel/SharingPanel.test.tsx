@@ -129,18 +129,6 @@ describe('SharingPanel', () => {
     expect(screen.getByTestId('share-list-empty')).toBeInTheDocument();
   });
 
-  it('treats missing orgShares as empty instead of crashing', () => {
-    mockUseVfsShares.mockReturnValueOnce({
-      ...buildUseVfsSharesResult(),
-      orgShares: undefined
-    });
-
-    render(<SharingPanel {...defaultProps} />);
-
-    expect(screen.getByText('Not shared')).toBeInTheDocument();
-    expect(screen.getByTestId('share-list-empty')).toBeInTheDocument();
-  });
-
   it('shows Share button that toggles the form', async () => {
     const user = userEvent.setup();
     render(<SharingPanel {...defaultProps} />);

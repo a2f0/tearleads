@@ -38,8 +38,6 @@ export function SharingPanel({
     deleteShare,
     deleteOrgShare
   } = useVfsShares(item.id);
-  const safeShares = Array.isArray(shares) ? shares : [];
-  const safeOrgShares = Array.isArray(orgShares) ? orgShares : [];
 
   const [showForm, setShowForm] = useState(false);
   const [editingShare, setEditingShare] = useState<ShareEditState | null>(null);
@@ -61,7 +59,7 @@ export function SharingPanel({
     ariaLabel: 'Resize sharing panel'
   });
 
-  const totalCount = safeShares.length + safeOrgShares.length;
+  const totalCount = shares.length + orgShares.length;
 
   const handleShareCreated = useCallback(() => {
     setShowForm(false);
@@ -163,8 +161,8 @@ export function SharingPanel({
 
       {/* Share list */}
       <ShareList
-        shares={safeShares}
-        orgShares={safeOrgShares}
+        shares={shares}
+        orgShares={orgShares}
         loading={loading}
         error={error}
         editState={editingShare}
