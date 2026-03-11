@@ -24,7 +24,7 @@ export function TagSidebarSearchInput({
       value={searchValue}
       onChange={(event) => onSearchChange(event.target.value)}
       onKeyDown={onSearchKeyDown}
-      className="box-border w-full border border-border px-2 py-1 text-sm focus:border-ring focus:outline-none"
+      className="box-border w-full border border-border px-2 py-1 text-base focus:border-ring focus:outline-none"
       aria-label={t('searchTags')}
     />
   );

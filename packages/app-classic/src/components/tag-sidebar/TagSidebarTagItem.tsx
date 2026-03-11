@@ -1,3 +1,4 @@
+// component-complexity: allow -- tag item handles inline editing, drag-drop, context menu, and count display.
 import { useTranslation } from 'react-i18next';
 import { DRAG_TYPE_NOTE, DRAG_TYPE_TAG } from '../../lib/constants';
 import { highlightText } from '../../lib/highlightText';
@@ -248,7 +249,7 @@ export function TagSidebarTagItem({
               onChange={(event) => setEditValue(event.target.value)}
               onKeyDown={(event) => handleEditKeyDown(event, tag.id)}
               onBlur={() => handleEditBlur(tag.id)}
-              className="w-full border border-border px-1.5 py-0.5 text-base text-sm focus:border-ring focus:outline-none"
+              className="w-full border border-border px-1.5 py-0.5 text-base focus:border-ring focus:outline-none"
               aria-label={`Edit tag ${tag.name}`}
             />
             <div className="mt-1 grid grid-cols-2 gap-0.5">

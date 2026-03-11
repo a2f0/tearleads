@@ -1,3 +1,8 @@
+// component-complexity: allow -- notes pane centralizes list, search, editing, and drag-drop for entries.
+import {
+  DESKTOP_WINDOW_FOOTER_HEIGHT,
+  useIsMobile
+} from '@tearleads/window-manager';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,6 +17,7 @@ import {
   ClassicContextMenu,
   type ClassicContextMenuComponents
 } from './ClassicContextMenu';
+import { useMobileKeyboardInset } from './useMobileKeyboardInset';
 
 interface NotesPaneProps {
   activeTagName: string | null;
@@ -63,6 +69,8 @@ export function NotesPane({
   contextMenuComponents
 }: NotesPaneProps) {
   const { t } = useTranslation('classic');
+  const isMobile = useIsMobile();
+  const keyboardInset = useMobileKeyboardInset();
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
   );
@@ -169,6 +177,11 @@ export function NotesPane({
       (hasPlainText || hasSafariPlainText) && draggedNoteId === null;
     return hasTag || hasExternalClassicTagDrag;
   };
+  const searchContainerStyle = isMobile
+    ? {
+        paddingBottom: `calc(${DESKTOP_WINDOW_FOOTER_HEIGHT + keyboardInset}px + env(safe-area-inset-bottom, 0px))`
+      }
+    : undefined;
 
   return (
     <section className="flex flex-1 flex-col" aria-label={t('notesPane')}>
@@ -382,7 +395,7 @@ export function NotesPane({
                           onChange={(e) => setEditTitle(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-border px-1.5 py-0.5 text-base text-sm focus:border-ring focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 text-base focus:border-ring focus:outline-none"
                           aria-label={t('editEntryTitle')}
                         />
                         <textarea
@@ -390,7 +403,7 @@ export function NotesPane({
                           onChange={(e) => setEditBody(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-border px-1.5 py-0.5 font-mono text-base text-xs focus:border-ring focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 font-mono text-base focus:border-ring focus:outline-none"
                           rows={2}
                           aria-label={t('editEntryBody')}
                         />
@@ -430,14 +443,18 @@ export function NotesPane({
           </ol>
         )}
       </div>
-      <div className="p-3">
+      <div
+        className="p-3"
+        style={searchContainerStyle}
+        data-testid="notes-search-container"
+      >
         <input
           ref={searchInputRef}
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           onKeyDown={onSearchKeyDown}
-          className="w-64 border border-border px-2 py-1 text-sm focus:border-ring focus:outline-none"
+          className="w-64 border border-border px-2 py-1 text-base focus:border-ring focus:outline-none"
           aria-label={t('searchEntries')}
         />
       </div>

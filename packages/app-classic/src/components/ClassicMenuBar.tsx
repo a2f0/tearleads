@@ -35,7 +35,7 @@ export function ClassicMenuBar({
             }
             onTagSortOrderChange(nextSortOrder);
           }}
-          className="rounded border border-border bg-background px-2 py-1 text-foreground text-sm"
+          className="rounded border border-border bg-background px-2 py-1 text-base text-foreground"
           aria-label={t('sortTags')}
         >
           {TAG_SORT_OPTIONS.map((option) => (
@@ -56,7 +56,7 @@ export function ClassicMenuBar({
             }
             onEntrySortOrderChange(nextSortOrder);
           }}
-          className="rounded border border-border bg-background px-2 py-1 text-foreground text-sm"
+          className="rounded border border-border bg-background px-2 py-1 text-base text-foreground"
           aria-label={t('sortEntries')}
         >
           {ENTRY_SORT_OPTIONS.map((option) => (

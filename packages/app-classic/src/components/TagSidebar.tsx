@@ -1,3 +1,8 @@
+import {
+  DESKTOP_WINDOW_FOOTER_HEIGHT,
+  useWindowSidebar
+} from '@tearleads/window-manager';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
@@ -11,6 +16,7 @@ import { TagSidebarTagItem } from './tag-sidebar/TagSidebarTagItem';
 import { TagSidebarVirtualTags } from './tag-sidebar/TagSidebarVirtualTags';
 import type { TagSidebarProps } from './tagSidebarState';
 import { useTagSidebarState } from './tagSidebarState';
+import { useMobileKeyboardInset } from './useMobileKeyboardInset';
 
 export function TagSidebar({
   tags,
@@ -38,6 +44,8 @@ export function TagSidebar({
   contextMenuComponents
 }: TagSidebarProps) {
   const { t } = useTranslation('classic');
+  const { closeSidebar, isMobileDrawer } = useWindowSidebar();
+  const keyboardInset = useMobileKeyboardInset();
   const {
     contextMenu,
     setContextMenu,
@@ -87,10 +95,22 @@ export function TagSidebar({
 
   const showEmptyState =
     tags.length === 0 && untaggedCount === 0 && deletedTags.length === 0;
+  const handleSelectTag = useCallback(
+    (tagId: string) => {
+      onSelectTag(tagId);
+      closeSidebar();
+    },
+    [closeSidebar, onSelectTag]
+  );
+  const searchSectionStyle = isMobileDrawer
+    ? {
+        paddingBottom: `calc(${DESKTOP_WINDOW_FOOTER_HEIGHT + keyboardInset}px + env(safe-area-inset-bottom, 0px))`
+      }
+    : undefined;
 
   return (
     <aside
-      className="flex w-64 flex-col border-r"
+      className="flex h-full min-h-0 flex-col"
       aria-label={t('tagsSidebar')}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
@@ -120,7 +140,7 @@ export function TagSidebar({
             activeTagId={activeTagId}
             totalNoteCount={totalNoteCount}
             untaggedCount={untaggedCount}
-            onSelectTag={onSelectTag}
+            onSelectTag={handleSelectTag}
           />
 
           <TagSidebarDeletedTags
@@ -170,7 +190,7 @@ export function TagSidebar({
                     handleCancel
                   }}
                   actions={{
-                    onSelectTag,
+                    onSelectTag: handleSelectTag,
                     onMoveTag,
                     onReorderTag,
                     onStartEditTag,
@@ -184,7 +204,11 @@ export function TagSidebar({
           )}
         </div>
       </div>
-      <div className="py-3">
+      <div
+        className="py-3"
+        style={searchSectionStyle}
+        data-testid="tag-sidebar-search-container"
+      >
         <div className="pr-2">
           <TagSidebarSearchInput
             searchInputRef={effectiveSearchInputRef}

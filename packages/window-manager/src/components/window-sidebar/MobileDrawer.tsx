@@ -68,7 +68,7 @@ export function MobileDrawer({
 
   return (
     <WindowSidebarProvider value={contextValue}>
-      <div className="fixed inset-0 z-50" data-testid={testId}>
+      <div className="fixed inset-0 z-[60]" data-testid={testId}>
         <div
           className={cn(
             'fixed inset-0 bg-black/50 transition-opacity duration-300',

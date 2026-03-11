@@ -25,7 +25,6 @@ const NotificationCenterTrigger = lazy(() =>
   }))
 );
 
-import { useKeyboardHeight } from '@/hooks/ui';
 import { AccountSwitcher } from '../components/AccountSwitcher';
 import { MiniPlayer } from '../components/audio/MiniPlayer';
 import { RuntimeLanguagePicker } from '../components/language-picker';
@@ -47,9 +46,6 @@ import { SSESystemTrayItems } from './SSESystemTrayItems';
 import { useStartMenuContextMenu } from './useStartMenuContextMenu';
 import { VfsSyncStatusIndicator } from './VfsSyncStatusIndicator';
 
-/** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
-const KEYBOARD_EXTRA_PADDING = 64;
-
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,7 +58,6 @@ function App() {
   const startMenu = useStartMenuContextMenu();
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
-  const keyboardHeight = useKeyboardHeight();
   const { isUnlocked, lock, currentInstanceId, instances } =
     useDatabaseContext();
   const auth = useOptionalAuth();
@@ -254,16 +249,8 @@ function App() {
               <AccountSwitcher />
             </div>
           </header>
-          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-14">
-            <div
-              className="container relative mx-auto flex min-h-0 max-w-2xl flex-1 flex-col overflow-auto px-4 pb-16 lg:max-w-none lg:px-8"
-              style={{
-                paddingBottom:
-                  keyboardHeight > 0
-                    ? `${keyboardHeight + KEYBOARD_EXTRA_PADDING}px`
-                    : undefined
-              }}
-            >
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip pb-14">
+            <div className="container relative mx-auto flex min-h-0 max-w-2xl flex-1 flex-col overflow-auto px-4 pb-16 lg:max-w-none lg:px-8">
               <Outlet />
             </div>
           </main>

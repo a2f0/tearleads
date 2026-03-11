@@ -101,6 +101,16 @@ describe('WindowSidebar', () => {
       expect(screen.getByText('Drawer content')).toBeInTheDocument();
     });
 
+    it('renders drawer above footer/taskbar layer', () => {
+      render(
+        <WindowSidebar {...defaultProps}>
+          <div>Drawer content</div>
+        </WindowSidebar>
+      );
+
+      expect(screen.getByTestId('window-sidebar')).toHaveClass('z-[60]');
+    });
+
     it('renders backdrop', () => {
       render(
         <WindowSidebar {...defaultProps}>
