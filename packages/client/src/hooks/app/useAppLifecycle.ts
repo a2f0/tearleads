@@ -7,9 +7,6 @@ import { App, type AppState } from '@capacitor/app';
 import { useEffect } from 'react';
 import { detectPlatform } from '@/lib/utils';
 
-const platform = detectPlatform();
-const isMobile = platform === 'ios' || platform === 'android';
-
 interface AppLifecycleCallbacks {
   onResume?: () => void;
   onPause?: () => void;
@@ -27,6 +24,9 @@ interface AppLifecycleCallbacks {
  */
 export function useAppLifecycle(callbacks?: AppLifecycleCallbacks): void {
   useEffect(() => {
+    const platform = detectPlatform();
+    const isMobile = platform === 'ios' || platform === 'android';
+
     if (!isMobile) {
       // Web fallback using visibility API
       const handleVisibilityChange = () => {
@@ -80,7 +80,7 @@ const LAST_MODEL_KEY_PREFIX = 'tearleads_last_loaded_model';
 /**
  * Get the instance-scoped key for last loaded model.
  * If instanceId is provided, returns a scoped key.
- * Falls back to the legacy key for backwards compatibility.
+ * Uses the unscoped key when no instanceId is provided.
  */
 function getLastModelKey(instanceId?: string): string {
   return instanceId

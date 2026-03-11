@@ -63,8 +63,9 @@ describe('useLLM classification', () => {
     vi.mocked(getLastLoadedModel).mockReturnValue(null);
   });
 
-  afterEach(() => {
-    vi.resetModules();
+  afterEach(async () => {
+    const { resetLLMStoreRuntimeForTesting } = await import('./llm');
+    resetLLMStoreRuntimeForTesting();
     vi.unstubAllGlobals();
   });
 

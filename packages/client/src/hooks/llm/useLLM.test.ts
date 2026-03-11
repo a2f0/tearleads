@@ -63,9 +63,9 @@ describe('useLLM', () => {
     vi.mocked(getLastLoadedModel).mockReturnValue(null);
   });
 
-  afterEach(() => {
-    // Reset modules to clear module-level state
-    vi.resetModules();
+  afterEach(async () => {
+    const { resetLLMStoreRuntimeForTesting } = await import('./store');
+    resetLLMStoreRuntimeForTesting();
     vi.unstubAllGlobals();
   });
 
