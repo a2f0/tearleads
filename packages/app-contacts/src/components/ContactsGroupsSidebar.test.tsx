@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as contactsHooks from '../hooks';
-import { createMockDatabase, TestContactsProvider } from '../test/testUtils';
 import { ALL_CONTACTS_ID } from '../lib/constants';
+import { createMockDatabase, TestContactsProvider } from '../test/testUtils';
 import { ContactsGroupsSidebar } from './ContactsGroupsSidebar';
 
 const mockUseContactGroups = vi.fn();
