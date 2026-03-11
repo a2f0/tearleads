@@ -5,13 +5,6 @@ import type { Migration } from './types.js';
 describe('v036 migration', () => {
   let pool: ReturnType<typeof createMockPool>;
 
-  function getPoolQueryMock() {
-    if (!vi.isMockFunction(pool.query)) {
-      throw new Error('pool.query mock is not configured');
-    }
-    return pool.query;
-  }
-
   function getV036Migration(): Migration {
     const v036 = migrations.find(
       (migration: Migration) => migration.version === 36
@@ -49,7 +42,7 @@ describe('v036 migration', () => {
 
   it('fails when unscoped rows remain after backfill', async () => {
     const v036 = getV036Migration();
-    getPoolQueryMock().mockImplementation((sql: string) => {
+    vi.spyOn(pool, 'query').mockImplementation((sql: string) => {
       pool.queries.push(sql);
       if (sql.includes('COUNT(*)::text AS count')) {
         return Promise.resolve({ rows: [{ count: '2' }], rowCount: 1 });
