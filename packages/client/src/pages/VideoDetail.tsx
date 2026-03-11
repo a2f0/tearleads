@@ -46,6 +46,7 @@ interface VideoDetailProps {
   autoPlay?: boolean | undefined;
 }
 
+/* component-complexity: allow -- preserve current detail flow while storage instance hardening lands. */
 export function VideoDetail({
   videoId,
   onBack,

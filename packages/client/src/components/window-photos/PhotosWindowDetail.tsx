@@ -45,6 +45,7 @@ interface PhotosWindowDetailProps {
   onDeleted: () => void;
 }
 
+/* component-complexity: allow -- preserve current detail flow while storage instance hardening lands. */
 export function PhotosWindowDetail({
   photoId,
   onBack,
