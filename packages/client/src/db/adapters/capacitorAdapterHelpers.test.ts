@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as helpers from './capacitorAdapterHelpers';
 
 interface HelpersModule {
@@ -94,10 +94,6 @@ function loadHelpers(options: LoadHelpersOptions = {}): LoadedHelpers {
 
 beforeEach(() => {
   mockedCapacitorModules.reset();
-  helpers.resetSQLiteConnectionCache();
-});
-
-afterEach(() => {
   helpers.resetSQLiteConnectionCache();
 });
 

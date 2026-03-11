@@ -23,9 +23,6 @@ describe('WasmNodeAdapter', () => {
   let warnSpy: ReturnType<typeof mockConsoleWarn>;
 
   beforeEach(async () => {
-    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
-    sqliteWasmRuntime.resetSqliteWasmRuntimeForTesting();
-
     const module = await import('./wasmNode.adapter');
     WasmNodeAdapter = module.WasmNodeAdapter;
     warnSpy = mockConsoleWarn();
