@@ -3,7 +3,6 @@
  */
 
 export type {
-  AnalyticsEvent,
   AnalyticsEventSlug,
   DatabaseInsert
 } from '@tearleads/app-analytics/analytics';
