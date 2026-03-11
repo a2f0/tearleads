@@ -44,17 +44,22 @@ async function getApiClient() {
 }
 
 beforeEach(async () => {
-  vi.resetModules();
   vi.unmock('../../lib/api');
   vi.unmock('@/lib/api');
   vi.unmock('@tearleads/api-client/clientEntry');
   setTestEnv('VITE_API_URL', 'http://localhost');
   localStorage.clear();
-  const [{ clearActiveOrganizationId }, { resetApiRequestHeadersProvider }] =
-    await Promise.all([
-      import('../../lib/orgStorage'),
-      import('@tearleads/api-client/clientEntry')
-    ]);
+  const [
+    { clearActiveOrganizationId },
+    { resetApiCoreRuntimeForTesting, resetApiRequestHeadersProvider },
+    { resetAuthStorageRuntimeForTesting }
+  ] = await Promise.all([
+    import('../../lib/orgStorage'),
+    import('@tearleads/api-client/clientEntry'),
+    import('@/lib/authStorage')
+  ]);
+  resetAuthStorageRuntimeForTesting();
+  resetApiCoreRuntimeForTesting();
   clearActiveOrganizationId();
   resetApiRequestHeadersProvider();
   const ctx = getSharedTestContext();

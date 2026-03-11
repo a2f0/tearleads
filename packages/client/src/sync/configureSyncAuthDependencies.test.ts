@@ -1,10 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('configureSyncAuthDependencies', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
   it('configures sync auth dependencies only once', async () => {
     const setSyncAuthDependencies = vi.fn();
     const LoginForm = () => null;
