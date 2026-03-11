@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { resetAuthStorageRuntimeForTesting } from './authStorage';
+import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
 import { setTestEnv } from './test/env.js';
 
 describe('api edge cases requiring direct fetch mocking', () => {
@@ -61,7 +62,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
       fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(AUTH_V2_REFRESH_CONNECT_PATH)) {
           return refreshPromise;
         }
         throw new Error(`Unexpected request: ${url}`);
@@ -129,7 +130,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
             return new Response(null, { status: 401 });
           }
 
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          if (url.endsWith(AUTH_V2_REFRESH_CONNECT_PATH)) {
             return refreshPromise;
           }
 
@@ -173,7 +174,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
           .mock.calls.filter(([input]) =>
             input
               .toString()
-              .endsWith('/connect/tearleads.v2.AuthService/RefreshToken')
+              .endsWith(AUTH_V2_REFRESH_CONNECT_PATH)
           )
       ).toHaveLength(1);
     });
@@ -228,7 +229,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         if (url.endsWith('/v2/ping')) {
           return new Response(null, { status: 401 });
         }
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(AUTH_V2_REFRESH_CONNECT_PATH)) {
           return new Response(
             JSON.stringify({
               accessToken: 'new-token',

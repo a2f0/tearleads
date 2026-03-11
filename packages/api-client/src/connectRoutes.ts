@@ -1,6 +1,8 @@
 import { AdminService } from '@tearleads/shared/gen/tearleads/v2/admin_pb';
 import { AiService } from '@tearleads/shared/gen/tearleads/v2/ai_pb';
 import { AuthService } from '@tearleads/shared/gen/tearleads/v2/auth_pb';
+import { VfsService } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
+import { VfsSharesService } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 
 function trimTrailingSlash(pathname: string): string {
   return pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
@@ -72,3 +74,13 @@ export const ADMIN_V2_CONNECT_BASE_PATH = buildConnectBasePath(
   AdminService.typeName
 );
 export const AI_V2_CONNECT_BASE_PATH = buildConnectBasePath(AiService.typeName);
+export const VFS_V2_SERVICE_NAME = VfsService.typeName;
+export const VFS_SHARES_V2_SERVICE_NAME = VfsSharesService.typeName;
+export const VFS_V2_CONNECT_BASE_PATH = buildConnectBasePath(VFS_V2_SERVICE_NAME);
+export const VFS_SHARES_V2_CONNECT_BASE_PATH = buildConnectBasePath(
+  VFS_SHARES_V2_SERVICE_NAME
+);
+export const VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH = buildConnectMethodPath(
+  VFS_V2_CONNECT_BASE_PATH,
+  'PushCrdtOps'
+);

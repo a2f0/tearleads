@@ -4,6 +4,9 @@ import {
   AI_V2_CONNECT_BASE_PATH,
   AUTH_V2_LOGIN_CONNECT_PATH,
   AUTH_V2_REFRESH_CONNECT_PATH,
+  VFS_SHARES_V2_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH,
+  VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH,
   buildConnectMethodPath,
   getApiBasePathPrefix,
   resolveConnectPathForApiBase,
@@ -41,5 +44,15 @@ describe('connectRoutes', () => {
     expect(
       buildConnectMethodPath(AI_V2_CONNECT_BASE_PATH, 'GetUsageSummary')
     ).toBe('/connect/tearleads.v2.AiService/GetUsageSummary');
+  });
+
+  it('builds vfs service paths from generated type names', () => {
+    expect(VFS_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.VfsService');
+    expect(VFS_SHARES_V2_CONNECT_BASE_PATH).toBe(
+      '/connect/tearleads.v2.VfsSharesService'
+    );
+    expect(VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH).toBe(
+      '/connect/tearleads.v2.VfsService/PushCrdtOps'
+    );
   });
 });
