@@ -116,36 +116,34 @@ describe('useFileUpload error handling and deduplication', () => {
     vi.resetAllMocks();
     mockSelectResult = [];
 
-    vi.mocked(getKeyManager).mockReturnValue({
+    getKeyManager.mockReturnValue({
       getCurrentKey: () => mockEncryptionKey
     } as ReturnType<typeof getKeyManager>);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getDatabase).mockReturnValue(
+    isFileStorageInitialized.mockReturnValue(true);
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getFileStorage).mockReturnValue(
+    getFileStorage.mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
     );
-    vi.mocked(readFileAsUint8Array).mockResolvedValue(
-      new Uint8Array([1, 2, 3])
-    );
-    vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
-    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
-    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(logEvent).mockResolvedValue(undefined);
+    readFileAsUint8Array.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    computeContentHashStreaming.mockResolvedValue('mock-hash');
+    mockStorage.measureStore.mockResolvedValue('storage/path');
+    isThumbnailSupported.mockReturnValue(false);
+    generateThumbnail.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    logEvent.mockResolvedValue(undefined);
 
     vi.stubGlobal('crypto', {
       randomUUID: () => 'test-uuid-1234'
     });
 
-    vi.mocked(isLoggedIn).mockReturnValue(false);
-    vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
-    vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');
+    isLoggedIn.mockReturnValue(false);
+    generateSessionKey.mockReturnValue(new Uint8Array(32));
+    wrapSessionKey.mockResolvedValue('wrapped-key');
   });
 
   it('throws error when database is not unlocked', async () => {
-    vi.mocked(getKeyManager).mockReturnValue({
+    getKeyManager.mockReturnValue({
       getCurrentKey: () => null
     } as unknown as ReturnType<typeof getKeyManager>);
 
@@ -158,13 +156,11 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('throws error when file read fails', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
-    vi.mocked(readFileAsUint8Array).mockRejectedValue(
-      new Error('Failed to read file')
-    );
+    readFileAsUint8Array.mockRejectedValue(new Error('Failed to read file'));
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
@@ -175,11 +171,11 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('throws error when storage fails', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
-    vi.mocked(mockStorage.measureStore).mockRejectedValue(
+    mockStorage.measureStore.mockRejectedValue(
       new Error('Storage quota exceeded')
     );
 
@@ -192,7 +188,7 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('throws UnsupportedFileTypeError with descriptive message', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+    fileTypeFromBuffer.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['unknown data'], 'mystery_file.xyz', {
@@ -205,7 +201,7 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('throws UnsupportedFileTypeError for non-text files with no magic bytes', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+    fileTypeFromBuffer.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['random binary data'], 'mystery.dat', {
@@ -218,7 +214,7 @@ describe('useFileUpload error handling and deduplication', () => {
   });
 
   it('returns existing file ID for duplicate content', async () => {
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
