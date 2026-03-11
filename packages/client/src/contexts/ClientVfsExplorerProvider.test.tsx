@@ -57,6 +57,10 @@ vi.mock('@/lib/authStorage', () => ({
   readStoredAuth: vi.fn(() => ({ user: { id: 'user-1' } }))
 }));
 
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: true })
+}));
+
 vi.mock('@/lib/featureFlags', () => ({
   getFeatureFlagValue: vi.fn(() => false)
 }));
