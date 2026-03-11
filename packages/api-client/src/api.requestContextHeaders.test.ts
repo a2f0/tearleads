@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { resetAuthStorageRuntimeForTesting } from './authStorage';
+import {
+  AUTH_V2_REFRESH_CONNECT_PATH,
+  VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH
+} from './connectRoutes';
 import { setTestEnv } from './test/env.js';
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
-  const vfsWritePaths = ['/connect/tearleads.v2.VfsService/PushCrdtOps'];
+  const vfsWritePaths = [VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -66,7 +70,7 @@ describe('api request context headers', () => {
           );
         }
 
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(AUTH_V2_REFRESH_CONNECT_PATH)) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-token',

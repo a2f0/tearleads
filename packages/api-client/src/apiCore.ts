@@ -12,7 +12,11 @@ import {
   updateStoredTokens,
   waitForRefreshCompletion
 } from './authStorage';
-import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
+import {
+  AUTH_V2_REFRESH_CONNECT_PATH,
+  VFS_SHARES_V2_SERVICE_NAME,
+  VFS_V2_SERVICE_NAME
+} from './connectRoutes';
 
 export let API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
@@ -37,12 +41,9 @@ const REQUIRE_DECLARED_ORGANIZATION_BY_SERVICE = new Map<
   string,
   ReadonlySet<string>
 >([
+  [VFS_V2_SERVICE_NAME, VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION],
   [
-    'tearleads.v2.VfsService',
-    VFS_WRITE_METHODS_REQUIRING_DECLARED_ORGANIZATION
-  ],
-  [
-    'tearleads.v2.VfsSharesService',
+    VFS_SHARES_V2_SERVICE_NAME,
     new Set([
       'CreateShare',
       'UpdateShare',
