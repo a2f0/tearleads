@@ -19,7 +19,9 @@ test('findProtoCodegenParityIssues reports missing service artifacts', () => {
 });
 
 test('findProtoCodegenParityIssues reports stale artifacts', () => {
-  const definitions: ProtoDefinition[] = [{ basename: 'auth', hasService: true }];
+  const definitions: ProtoDefinition[] = [
+    { basename: 'auth', hasService: true }
+  ];
   const generatedArtifacts = new Set([
     'auth_connect.ts',
     'auth_pb.ts',
