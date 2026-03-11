@@ -20,38 +20,46 @@ const CONNECT_ROUTER_FILE = path.join(
   'connect',
   'router.ts'
 );
-const CONNECT_ROUTE_PREFIX = '/v1/connect';
+const V1_API_PREFIX = '/v1';
+const CONNECT_ROUTE_PREFIX = `${V1_API_PREFIX}/connect`;
 
 const withPrefix = (prefix: string, routePath: string): string =>
   `${prefix}${routePath === '/' ? '' : routePath}`;
 
 const routePrefixForFile = (filePath: string): string | null => {
   const normalized = filePath.replace(/\\/g, '/');
-  if (normalized.includes('/routes/admin/users/')) return '/v1/admin/users';
-  if (normalized.includes('/routes/admin/groups/')) return '/v1/admin/groups';
+  if (normalized.includes('/routes/admin/users/'))
+    return `${V1_API_PREFIX}/admin/users`;
+  if (normalized.includes('/routes/admin/groups/'))
+    return `${V1_API_PREFIX}/admin/groups`;
   if (normalized.includes('/routes/admin/organizations/')) {
-    return '/v1/admin/organizations';
+    return `${V1_API_PREFIX}/admin/organizations`;
   }
   if (normalized.includes('/routes/admin/postgres/'))
-    return '/v1/admin/postgres';
-  if (normalized.includes('/routes/admin/redis/')) return '/v1/admin/redis';
+    return `${V1_API_PREFIX}/admin/postgres`;
+  if (normalized.includes('/routes/admin/redis/'))
+    return `${V1_API_PREFIX}/admin/redis`;
   if (normalized.endsWith('/routes/admin/context.ts'))
-    return '/v1/admin/context';
-  if (normalized.includes('/routes/auth/')) return '/v1/auth';
-  if (normalized.includes('/routes/billing/')) return '/v1/billing';
-  if (normalized.includes('/routes/chat/')) return '/v1/chat';
-  if (normalized.includes('/routes/ai-conversations/')) return '/v1/ai';
-  if (normalized.includes('/routes/emailsCompose/')) return '/v1/emails';
-  if (normalized.includes('/routes/emails/')) return '/v1/emails';
-  if (normalized.includes('/routes/sse/')) return '/v1/sse';
+    return `${V1_API_PREFIX}/admin/context`;
+  if (normalized.includes('/routes/auth/')) return `${V1_API_PREFIX}/auth`;
+  if (normalized.includes('/routes/billing/'))
+    return `${V1_API_PREFIX}/billing`;
+  if (normalized.includes('/routes/chat/')) return `${V1_API_PREFIX}/chat`;
+  if (normalized.includes('/routes/ai-conversations/'))
+    return `${V1_API_PREFIX}/ai`;
+  if (normalized.includes('/routes/emailsCompose/'))
+    return `${V1_API_PREFIX}/emails`;
+  if (normalized.includes('/routes/emails/')) return `${V1_API_PREFIX}/emails`;
+  if (normalized.includes('/routes/sse/')) return `${V1_API_PREFIX}/sse`;
   if (normalized.includes('/routes/vfs-shares/')) {
-    return `/v1${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
+    return `${V1_API_PREFIX}${VFS_SHARES_V2_CONNECT_BASE_PATH}`;
   }
   if (normalized.includes('/routes/vfs/')) {
-    return `/v1${VFS_V2_CONNECT_BASE_PATH}`;
+    return `${V1_API_PREFIX}${VFS_V2_CONNECT_BASE_PATH}`;
   }
-  if (normalized.includes('/routes/mls/')) return '/v1/mls';
-  if (normalized.includes('/routes/revenuecat/')) return '/v1/revenuecat';
+  if (normalized.includes('/routes/mls/')) return `${V1_API_PREFIX}/mls`;
+  if (normalized.includes('/routes/revenuecat/'))
+    return `${V1_API_PREFIX}/revenuecat`;
   return null;
 };
 
