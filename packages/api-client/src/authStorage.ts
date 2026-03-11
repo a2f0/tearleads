@@ -157,6 +157,17 @@ export function setStoredRefreshToken(refreshToken: string | null): void {
   inMemoryRefreshToken = refreshToken;
 }
 
+export function resetAuthStorageRuntimeForTesting(): void {
+  authError = null;
+  inMemoryAuthToken = null;
+  inMemoryRefreshToken = null;
+  try {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 /**
  * Cross-tab refresh coordination to prevent race conditions.
  * Uses a localStorage-based lock with timeout to coordinate refresh attempts.

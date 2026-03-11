@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetAuthStorageRuntimeForTesting } from './authStorage';
 
 describe('auth-storage without window', () => {
   it('no-ops when window is undefined', async () => {
@@ -24,7 +25,7 @@ describe('auth-storage without window', () => {
 
 describe('refresh token storage', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     localStorage.clear();
   });
 
@@ -73,7 +74,7 @@ describe('refresh token storage', () => {
 
 describe('cross-tab refresh coordination', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     localStorage.clear();
   });
 

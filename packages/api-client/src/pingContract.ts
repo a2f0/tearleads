@@ -40,6 +40,10 @@ async function loadPingWasmBindings(): Promise<PingWasmBindings> {
   return pingWasmBindingsPromise;
 }
 
+export function resetPingContractRuntimeForTesting(): void {
+  pingWasmBindingsPromise = null;
+}
+
 export async function getV2PingEndpoint(): Promise<string> {
   const bindings = await loadPingWasmBindings();
   return bindings.v2_ping_path();

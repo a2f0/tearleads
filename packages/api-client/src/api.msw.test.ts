@@ -7,7 +7,12 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './authStorage';
+import { resetApiCoreRuntimeForTesting } from './apiCore';
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  resetAuthStorageRuntimeForTesting
+} from './authStorage';
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
@@ -39,7 +44,7 @@ let seededUser: SeededUser;
 
 describe('api with msw', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({
@@ -54,6 +59,7 @@ describe('api with msw', () => {
     }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     const ctx = getSharedTestContext();
     seededUser = await seedTestUser(ctx, { admin: true });
@@ -334,6 +340,7 @@ describe('api with msw', () => {
 
     it('returns false when API_BASE_URL is not set during refresh', async () => {
       setTestEnv('VITE_API_URL', '');
+      resetApiCoreRuntimeForTesting();
       (await import('./authStorage')).setStoredRefreshToken('refresh-token');
 
       const { tryRefreshToken } = await import('./api');
@@ -345,7 +352,7 @@ describe('api with msw', () => {
 
 describe('URL resolution with path-suffixed API base', () => {
   beforeEach(async () => {
-    vi.resetModules();
+    resetAuthStorageRuntimeForTesting();
     vi.doMock('./pingWasmImport', () => ({
       importPingWasmModule: () =>
         Promise.resolve({
@@ -360,6 +367,7 @@ describe('URL resolution with path-suffixed API base', () => {
     }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost/v1');
+    resetApiCoreRuntimeForTesting();
     localStorage.clear();
     mockLogApiEvent.mockResolvedValue(undefined);
     const { setApiEventLogger } = await import('./apiLogger');
