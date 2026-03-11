@@ -1,10 +1,11 @@
 #!/bin/bash
 # Build and push containers to ECR
 set -eu
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-
+# shellcheck source=lib/dockerHelpers.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/dockerHelpers.sh"
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
@@ -13,7 +14,12 @@ DOCKER_BUILD_PLATFORM="${DOCKER_BUILD_PLATFORM:-}"
 DOCKER_BUILD_PLATFORM_SOURCE=""
 PARALLEL="${PARALLEL:-false}"
 MAX_PARALLEL_JOBS=1
-
+DOCKER_MAINTENANCE="${DOCKER_MAINTENANCE:-true}"
+DOCKER_MAINTENANCE_UNTIL="${DOCKER_MAINTENANCE_UNTIL:-168h}"
+DOCKER_MAINTENANCE_MAX_CACHE="${DOCKER_MAINTENANCE_MAX_CACHE:-20GB}"
+DOCKER_DAEMON_HEALTHCHECK_TIMEOUT="${DOCKER_DAEMON_HEALTHCHECK_TIMEOUT:-15}"
+DOCKER_LOGIN_TIMEOUT="${DOCKER_LOGIN_TIMEOUT:-45}"
+DOCKER_TIMEOUT_BIN="$(detect_timeout_binary)"
 usage() {
   echo "Usage: $0 <environment> [options]"
   echo ""
@@ -32,28 +38,33 @@ usage() {
   echo "  --no-website    Skip building the website container"
   echo "  --parallel      Build selected containers in parallel (bounded by CPU cores)"
   echo "  --no-push       Build only, don't push to ECR"
+  echo "  --maintenance   Run safe Docker cleanup after successful builds"
+  echo "  --no-maintenance  Skip post-build Docker cleanup"
+  echo "  --maintenance-until AGE  Prune resources older than AGE (default: 168h)"
+  echo "  --maintenance-max-cache SIZE  Keep build cache at or below SIZE (default: 20GB)"
   echo "  --tag TAG       Use specific tag (default: latest)"
   echo ""
   echo "Environment variables:"
   echo "  AWS_REGION      AWS region (default: us-east-1)"
   echo "  AWS_ACCOUNT_ID  AWS account ID (auto-detected when pushing)"
   echo "  DOCKER_BUILD_PLATFORM  Docker platform (linux/amd64, linux/arm64, or auto)"
+  echo "  DOCKER_MAINTENANCE  Enable post-build safe cleanup (default: true)"
+  echo "  DOCKER_MAINTENANCE_UNTIL  Age filter for cleanup (default: 168h)"
+  echo "  DOCKER_MAINTENANCE_MAX_CACHE  Build cache cap (default: 20GB)"
+  echo "  DOCKER_DAEMON_HEALTHCHECK_TIMEOUT  Docker daemon readiness timeout in seconds (default: 15)"
+  echo "  DOCKER_LOGIN_TIMEOUT  docker login timeout in seconds (default: 45)"
   echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
-
 if [[ $# -lt 1 ]]; then
   usage
 fi
-
 ENV="$1"
 shift
-
 if [[ "$ENV" != "staging" && "$ENV" != "prod" ]]; then
   echo "Error: Environment must be 'staging' or 'prod'"
   exit 1
 fi
-
 # Source environment secrets
 ENV_FILE="$REPO_ROOT/.secrets/${ENV}.env"
 if [[ -f "$ENV_FILE" ]]; then
@@ -62,7 +73,6 @@ if [[ -f "$ENV_FILE" ]]; then
 else
   echo "Warning: Missing secrets file: $ENV_FILE — falling back to exported environment variables"
 fi
-
 require_var() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
@@ -70,10 +80,8 @@ require_var() {
     exit 1
   fi
 }
-
 count_selected_builds() {
   local selected=0
-
   if [[ "$BUILD_API" == "true" ]]; then
     selected=$((selected + 1))
   fi
@@ -89,13 +97,10 @@ count_selected_builds() {
   if [[ "$BUILD_WEBSITE" == "true" ]]; then
     selected=$((selected + 1))
   fi
-
   echo "$selected"
 }
-
 detect_cpu_cores() {
   local cores=""
-
   if command -v nproc >/dev/null 2>&1; then
     cores="$(nproc)"
   elif command -v sysctl >/dev/null 2>&1; then
@@ -105,18 +110,14 @@ detect_cpu_cores() {
   if [[ -z "$cores" ]] && command -v getconf >/dev/null 2>&1; then
     cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
   fi
-
   if [[ -z "$cores" || ! "$cores" =~ ^[0-9]+$ || "$cores" -lt 1 ]]; then
     cores=1
   fi
-
   echo "$cores"
 }
-
 detect_host_docker_platform() {
   local arch
   arch="$(uname -m)"
-
   case "$arch" in
     arm64|aarch64)
       echo "linux/arm64"
@@ -129,7 +130,6 @@ detect_host_docker_platform() {
       ;;
   esac
 }
-
 # Parse options
 BUILD_API=true
 BUILD_API_V2=false
@@ -204,7 +204,26 @@ while [[ $# -gt 0 ]]; do
       PUSH=false
       shift
       ;;
+    --maintenance)
+      DOCKER_MAINTENANCE=true
+      shift
+      ;;
+    --no-maintenance)
+      DOCKER_MAINTENANCE=false
+      shift
+      ;;
+    --maintenance-until)
+      require_option_value "$1" "${2:-}"
+      DOCKER_MAINTENANCE_UNTIL="$2"
+      shift 2
+      ;;
+    --maintenance-max-cache)
+      require_option_value "$1" "${2:-}"
+      DOCKER_MAINTENANCE_MAX_CACHE="$2"
+      shift 2
+      ;;
     --tag)
+      require_option_value "$1" "${2:-}"
       TAG="$2"
       shift 2
       ;;
@@ -247,6 +266,8 @@ else
   DOCKER_BUILD_PLATFORM_SOURCE="explicit"
 fi
 
+ensure_docker_daemon_ready "$DOCKER_TIMEOUT_BIN" "$DOCKER_DAEMON_HEALTHCHECK_TIMEOUT"
+
 # Resolve AWS account ID after parsing options so usage/help paths do not require AWS calls.
 if [[ -z "$AWS_ACCOUNT_ID" ]]; then
   if [[ "$PUSH" == "true" ]]; then
@@ -282,16 +303,25 @@ echo "Parallel Build: $PARALLEL"
 if [[ "$PARALLEL" == "true" ]]; then
   echo "Parallel Jobs: $MAX_PARALLEL_JOBS (CPU cores: $CPU_CORES)"
 fi
+echo "Docker Maintenance: $DOCKER_MAINTENANCE"
+if [[ "$DOCKER_MAINTENANCE" == "true" ]]; then
+  echo "Maintenance Until: $DOCKER_MAINTENANCE_UNTIL"
+  echo "Maintenance Max Cache: $DOCKER_MAINTENANCE_MAX_CACHE"
+fi
+echo "Docker Daemon Healthcheck Timeout: ${DOCKER_DAEMON_HEALTHCHECK_TIMEOUT}s"
+echo "Docker Login Timeout: ${DOCKER_LOGIN_TIMEOUT}s"
 if [[ "$PUSH" == "true" && "$DOCKER_BUILD_PLATFORM" != "linux/amd64" ]]; then
   echo "WARNING: Pushing non-amd64 images. Verify your runtime supports $DOCKER_BUILD_PLATFORM."
+fi
+if [[ -z "$DOCKER_TIMEOUT_BIN" ]]; then
+  echo "WARNING: timeout command not found; Docker login timeout enforcement is disabled."
 fi
 echo ""
 
 # Login to ECR
 if [[ "$PUSH" == "true" ]]; then
   echo "=== Logging into ECR ==="
-  aws ecr get-login-password --region "$AWS_REGION" | \
-    docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  docker_login_to_ecr "$DOCKER_TIMEOUT_BIN" "$DOCKER_LOGIN_TIMEOUT" "$AWS_REGION" "$ECR_REGISTRY"
   echo ""
 fi
 
@@ -434,6 +464,8 @@ if [[ "$PARALLEL" == "true" && "${#BUILD_PIDS[@]}" -gt 0 ]]; then
     exit 1
   fi
 fi
+
+run_docker_maintenance_safe "$DOCKER_MAINTENANCE" "$DOCKER_MAINTENANCE_UNTIL" "$DOCKER_MAINTENANCE_MAX_CACHE"
 
 echo "=== Build complete ==="
 if [[ "$PUSH" == "true" ]]; then
