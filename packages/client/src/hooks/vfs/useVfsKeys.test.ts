@@ -155,9 +155,7 @@ describe('useVfsKeys', () => {
     });
 
     it('returns false when keys are not set up', async () => {
-      api.vfs.getMyKeys.mockRejectedValueOnce(
-        new Error('VFS keys not set up')
-      );
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('VFS keys not set up'));
 
       const result = await hasVfsKeys();
       expect(result).toBe(false);
@@ -215,9 +213,7 @@ describe('useVfsKeys', () => {
     });
 
     it('generates and stores new keys when server says keys are not set up', async () => {
-      api.vfs.getMyKeys.mockRejectedValueOnce(
-        new Error('VFS keys not set up')
-      );
+      api.vfs.getMyKeys.mockRejectedValueOnce(new Error('VFS keys not set up'));
       api.vfs.setupKeys.mockResolvedValueOnce({ created: true });
 
       const keys = await ensureVfsKeys();
@@ -245,9 +241,7 @@ describe('useVfsKeys', () => {
           resolveMaterial = resolve;
         }
       );
-      importVfsPrivateKeyPasswordMaterial.mockReturnValueOnce(
-        pendingMaterial
-      );
+      importVfsPrivateKeyPasswordMaterial.mockReturnValueOnce(pendingMaterial);
 
       setVfsRecoveryPassword('pending-password');
       setVfsRecoveryPassword(null);

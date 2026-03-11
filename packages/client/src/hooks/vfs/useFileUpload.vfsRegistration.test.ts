@@ -141,9 +141,7 @@ describe('useFileUpload VFS registration', () => {
     getFileStorage.mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
     );
-    readFileAsUint8Array.mockResolvedValue(
-      new Uint8Array([1, 2, 3])
-    );
+    readFileAsUint8Array.mockResolvedValue(new Uint8Array([1, 2, 3]));
     computeContentHashStreaming.mockResolvedValue('mock-hash');
     mockStorage.measureStore.mockResolvedValue('storage/path');
     mockStorage.measureStoreBlob.mockResolvedValue('storage/path');
