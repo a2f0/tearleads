@@ -17,6 +17,7 @@ import {
 } from '@tearleads/window-manager';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineLogin } from '@/components/auth/InlineLogin';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -64,6 +65,7 @@ export function ClientVfsExplorerProvider({
   const keyManager = useVfsKeyManager();
   const orchestrator = useVfsOrchestratorInstance();
   const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
+  const { isAuthenticated } = useAuth();
 
   const vfsKeys = useMemo(
     () => ({
@@ -191,6 +193,7 @@ export function ClientVfsExplorerProvider({
       syncRemoteState={syncRemoteState}
       getItemSyncCursor={getItemSyncCursor}
       loginFallback={<InlineLogin description="shared items" />}
+      isAuthenticated={isAuthenticated}
     >
       {children}
     </VfsExplorerProvider>

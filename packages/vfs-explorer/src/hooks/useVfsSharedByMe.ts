@@ -54,7 +54,8 @@ export function useVfsSharedByMe(
   options: UseVfsSharedByMeOptions = {}
 ): UseVfsSharedByMeResult {
   const { enabled = true, sort = DEFAULT_SORT } = options;
-  const { databaseState, getDatabase, auth } = useVfsExplorerContext();
+  const { databaseState, getDatabase, auth, isAuthenticated } =
+    useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
   const [items, setItems] = useState<VfsSharedByMeItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,7 +129,7 @@ export function useVfsSharedByMe(
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [enabled, isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
+  }, [enabled, isUnlocked, loading, hasFetched, currentInstanceId, fetchItems, isAuthenticated]);
 
   // Refetch when sort changes
   const prevSortRef = useRef<VfsSortState>(DEFAULT_SORT);
