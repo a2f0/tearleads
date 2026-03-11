@@ -106,8 +106,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use super::{admin_harness_static_redis, app_with_origins, app_with_repos};
     use super::admin_harness::StaticPostgresRepository;
+    use super::{admin_harness_static_redis, app_with_origins, app_with_repos};
 
     fn admin_tables_request(path: &str) -> Request<Body> {
         Request::builder()
