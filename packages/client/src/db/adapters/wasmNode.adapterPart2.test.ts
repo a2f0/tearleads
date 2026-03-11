@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleWarn } from '@/test/consoleMocks';
 import {
@@ -24,6 +23,9 @@ describe('WasmNodeAdapter', () => {
   let warnSpy: ReturnType<typeof mockConsoleWarn>;
 
   beforeEach(async () => {
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.resetSqliteWasmRuntimeForTesting();
+
     const module = await import('./wasmNode.adapter');
     WasmNodeAdapter = module.WasmNodeAdapter;
     warnSpy = mockConsoleWarn();
@@ -35,6 +37,9 @@ describe('WasmNodeAdapter', () => {
       await adapter.close();
     }
     warnSpy.mockRestore();
+
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.resetSqliteWasmRuntimeForTesting();
   });
 
   it('leaves fetch unchanged when restore is called without patching', async () => {
@@ -138,62 +143,40 @@ describe('WasmNodeAdapter', () => {
   });
 
   it('throws when sqlite3 module export is missing', async () => {
-    const modulePath = path.resolve(
-      import.meta.dirname,
-      '../../workers/sqlite-wasm/sqlite3.js'
-    );
-
-    vi.doMock(modulePath, () => ({ default: undefined }));
-    vi.resetModules();
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.setSqliteWasmModuleImporterForTesting(async () => ({
+      default: undefined
+    }));
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValue(true);
 
-    const { initializeSqliteWasm } = await import(
-      './wasmNode/initializeSqliteWasm'
-    );
-    await expect(initializeSqliteWasm()).rejects.toThrow(
+    await expect(sqliteWasmRuntime.initializeSqliteWasm()).rejects.toThrow(
       'Failed to load sqlite3InitModule from module'
     );
 
     existsSpy.mockRestore();
-    vi.doUnmock(modulePath);
-    vi.resetModules();
   });
 
   it('throws when sqlite3 module is missing required properties', async () => {
-    const modulePath = path.resolve(
-      import.meta.dirname,
-      '../../workers/sqlite-wasm/sqlite3.js'
-    );
-
-    vi.doMock(modulePath, () => ({
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.setSqliteWasmModuleImporterForTesting(async () => ({
       default: async () => ({})
     }));
-    vi.resetModules();
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
     existsSpy.mockReturnValue(true);
 
-    const { initializeSqliteWasm } = await import(
-      './wasmNode/initializeSqliteWasm'
-    );
-    await expect(initializeSqliteWasm()).rejects.toThrow(
+    await expect(sqliteWasmRuntime.initializeSqliteWasm()).rejects.toThrow(
       'SQLite module loaded but missing expected properties'
     );
 
     existsSpy.mockRestore();
-    vi.doUnmock(modulePath);
-    vi.resetModules();
   });
 
   it('wraps errors when opening encrypted databases', async () => {
-    const modulePath = path.resolve(
-      import.meta.dirname,
-      '../../workers/sqlite-wasm/sqlite3.js'
-    );
-
-    vi.doMock(modulePath, () => ({
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.setSqliteWasmModuleImporterForTesting(async () => ({
       default: async () => ({
         oo1: {
           DB: () => {
@@ -203,7 +186,6 @@ describe('WasmNodeAdapter', () => {
         capi: {}
       })
     }));
-    vi.resetModules();
     const module = await import('./wasmNode.adapter');
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
@@ -215,17 +197,11 @@ describe('WasmNodeAdapter', () => {
     ).rejects.toThrow('Failed to open encrypted database');
 
     existsSpy.mockRestore();
-    vi.doUnmock(modulePath);
-    vi.resetModules();
   });
 
   it('wraps non-error failures when opening encrypted databases', async () => {
-    const modulePath = path.resolve(
-      import.meta.dirname,
-      '../../workers/sqlite-wasm/sqlite3.js'
-    );
-
-    vi.doMock(modulePath, () => ({
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.setSqliteWasmModuleImporterForTesting(async () => ({
       default: async () => ({
         oo1: {
           DB: () => {
@@ -235,7 +211,6 @@ describe('WasmNodeAdapter', () => {
         capi: {}
       })
     }));
-    vi.resetModules();
     const module = await import('./wasmNode.adapter');
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
@@ -247,17 +222,11 @@ describe('WasmNodeAdapter', () => {
     ).rejects.toThrow('Failed to open encrypted database');
 
     existsSpy.mockRestore();
-    vi.doUnmock(modulePath);
-    vi.resetModules();
   });
 
   it('wraps non-error failures when importing JSON', async () => {
-    const modulePath = path.resolve(
-      import.meta.dirname,
-      '../../workers/sqlite-wasm/sqlite3.js'
-    );
-
-    vi.doMock(modulePath, () => ({
+    const sqliteWasmRuntime = await import('./wasmNode/initializeSqliteWasm');
+    sqliteWasmRuntime.setSqliteWasmModuleImporterForTesting(async () => ({
       default: async () => ({
         oo1: {
           DB: () => ({
@@ -270,7 +239,6 @@ describe('WasmNodeAdapter', () => {
         capi: {}
       })
     }));
-    vi.resetModules();
     const module = await import('./wasmNode.adapter');
 
     const existsSpy = vi.spyOn(fs, 'existsSync');
@@ -294,7 +262,5 @@ describe('WasmNodeAdapter', () => {
     ).rejects.toThrow('Failed to import database from JSON');
 
     existsSpy.mockRestore();
-    vi.doUnmock(modulePath);
-    vi.resetModules();
   });
 });
