@@ -85,7 +85,8 @@ vi.mock('./lazyPages', () => ({
   VideoPage: makePage('video-page'),
   Wallet: makePage('wallet'),
   WalletDetail: makePage('wallet-detail'),
-  WalletNewItem: makePage('wallet-new-item')
+  WalletNewItem: makePage('wallet-new-item'),
+  WalletPageLayout: () => <Outlet />
 }));
 
 describe('AppRoutes', () => {
