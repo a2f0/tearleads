@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  initSync as initMlsCoreWasmSync,
-  mls_generate_credential as generatedMlsGenerateCredential
+  mls_generate_credential as generatedMlsGenerateCredential,
+  initSync as initMlsCoreWasmSync
 } from '../.generated/mlsCoreWasm/tearleads_mls_core_wasm.js';
 
 type WasmGenerateCredential =
