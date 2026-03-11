@@ -18,7 +18,7 @@ vi.mock('./analyticsState', () => ({
 import type { Database } from '@tearleads/db/sqlite';
 // Import after mocks
 import { logApiEvent, logEvent, measureOperation } from './analytics';
-import { isDatabaseInitialized } from './analyticsState';
+import * as analyticsState from './analyticsState';
 
 // Create mock database
 const mockDb = {
@@ -286,7 +286,9 @@ describe('analytics', () => {
     });
 
     it('skips logging when database is not initialized', async () => {
-      vi.mocked(isDatabaseInitialized).mockReturnValueOnce(false);
+      vi.spyOn(analyticsState, 'isDatabaseInitialized').mockReturnValueOnce(
+        false
+      );
 
       await logApiEvent('api_get_ping', 100, true);
 

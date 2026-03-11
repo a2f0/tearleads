@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
+import * as exportTableCsv from '@/components/sqlite/exportTableCsv';
 import { Analytics } from './Analytics';
 
 // Note: userEvent is used for the export handler test with sorting
@@ -153,7 +153,7 @@ describe('Analytics - Rendering', () => {
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
     mockGetEventCount.mockResolvedValue(0);
-    vi.mocked(exportTableAsCsv).mockResolvedValue(undefined);
+    vi.spyOn(exportTableCsv, 'exportTableAsCsv').mockResolvedValue(undefined);
 
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
@@ -272,7 +272,7 @@ describe('Analytics - Rendering', () => {
         await handler();
       });
 
-      expect(exportTableAsCsv).toHaveBeenCalledWith({
+      expect(exportTableCsv.exportTableAsCsv).toHaveBeenCalledWith({
         tableName: 'analytics_events',
         sortColumn: 'duration_ms',
         sortDirection: 'asc'

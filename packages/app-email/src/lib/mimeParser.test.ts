@@ -9,7 +9,7 @@ vi.mock('postal-mime', () => ({
 
 async function getPostalMimeMock() {
   const mod = await import('postal-mime');
-  return vi.mocked(mod.default.parse);
+  return vi.spyOn(mod.default, 'parse');
 }
 
 describe('parseMimeMessage', () => {
