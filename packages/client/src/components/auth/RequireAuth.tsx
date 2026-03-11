@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { BackLink } from '@/components/ui/back-link';
 import { LoginForm } from './LoginForm';
 
 interface RequireAuthProps {
@@ -26,6 +27,9 @@ export function RequireAuth({
   if (!isAuthenticated) {
     return (
       <div className="h-full overflow-y-auto p-4">
+        <div className="mb-4">
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        </div>
         <LoginForm title={loginTitle} description={loginDescription} />
       </div>
     );
