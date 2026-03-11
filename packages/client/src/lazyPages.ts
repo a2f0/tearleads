@@ -159,6 +159,11 @@ export const Wallet = lazy(() =>
     default: m.Wallet
   }))
 );
+export const WalletPageLayout = lazy(() =>
+  import('./components/page-wallet/WalletPageLayout').then((m) => ({
+    default: m.WalletPageLayout
+  }))
+);
 export const WalletDetail = lazy(() =>
   import('@tearleads/app-wallet/clientEntry').then((m) => ({
     default: m.WalletDetail

@@ -63,7 +63,8 @@ import {
   VideoPage,
   Wallet,
   WalletDetail,
-  WalletNewItem
+  WalletNewItem,
+  WalletPageLayout
 } from './lazyPages';
 
 export function AppRoutes() {
@@ -181,10 +182,12 @@ export function AppRoutes() {
         <Route path="analytics" element={<Analytics />} />
         <Route path="keychain" element={<Keychain />} />
         <Route path="keychain/:id" element={<KeychainDetail />} />
-        <Route path="wallet" element={<Wallet />} />
-        <Route path="wallet/new" element={<WalletNewItem />} />
-        <Route path="wallet/new/:itemType" element={<WalletDetail />} />
-        <Route path="wallet/:id" element={<WalletDetail />} />
+        <Route path="wallet" element={<WalletPageLayout />}>
+          <Route index element={<Wallet />} />
+          <Route path="new" element={<WalletNewItem />} />
+          <Route path="new/:itemType" element={<WalletDetail />} />
+          <Route path=":id" element={<WalletDetail />} />
+        </Route>
         <Route path="admin" element={<AdminLauncher />} />
         <Route path="admin/redis" element={<Admin />} />
         <Route path="admin/postgres" element={<PostgresAdmin />} />
