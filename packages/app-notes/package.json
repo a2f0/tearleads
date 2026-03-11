@@ -33,7 +33,7 @@
     "react-router-dom": "7.13.1"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "3.13.19",
+    "@tanstack/react-virtual": "3.13.21",
     "@uiw/react-md-editor": "4.0.11",
     "lucide-react": "0.576.0"
   },
