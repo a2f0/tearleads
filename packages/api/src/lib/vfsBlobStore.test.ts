@@ -31,8 +31,11 @@ vi.mock('@aws-sdk/client-s3', () => ({
 }));
 
 describe('vfsBlobStore', () => {
-  beforeEach(() => {
-    vi.resetModules();
+  beforeEach(async () => {
+    const { resetVfsBlobStoreRuntimeForTesting } = await import(
+      './vfsBlobStore.js'
+    );
+    resetVfsBlobStoreRuntimeForTesting();
     mockSend.mockReset();
     mockPutObjectCommand.mockClear();
     mockGetObjectCommand.mockClear();

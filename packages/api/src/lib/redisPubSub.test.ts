@@ -15,11 +15,11 @@ vi.mock('redis', () => ({
 describe('Redis PubSub Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
   });
 
   afterEach(async () => {
-    vi.resetModules();
+    const { closeRedisSubscriberClient } = await import('./redisPubSub.js');
+    await closeRedisSubscriberClient();
   });
 
   describe('getRedisSubscriberClient', () => {

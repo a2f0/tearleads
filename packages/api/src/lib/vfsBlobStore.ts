@@ -19,6 +19,11 @@ const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
 let runtime: BlobStoreRuntime | null = null;
 let runtimeKey: string | null = null;
 
+export function resetVfsBlobStoreRuntimeForTesting(): void {
+  runtime = null;
+  runtimeKey = null;
+}
+
 function normalizeRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value || value.trim().length === 0) {
