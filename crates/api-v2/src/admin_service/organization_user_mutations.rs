@@ -6,7 +6,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_traits::{
     AdminCreateOrganizationInput, AdminOrganizationSummary, AdminUpdateOrganizationInput,
-    AdminUpdateUserInput, PostgresAdminReadRepository, RedisAdminRepository,
+    AdminUpdateUserInput, PostgresAdminRepository, RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
 
@@ -36,7 +36,7 @@ fn normalize_optional_patch_field(value: String) -> Option<String> {
 
 impl<P, R, A> AdminServiceHandler<P, R, A>
 where
-    P: PostgresAdminReadRepository + Send + Sync + 'static,
+    P: PostgresAdminRepository + Send + Sync + 'static,
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {

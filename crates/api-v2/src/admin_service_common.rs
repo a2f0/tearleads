@@ -15,7 +15,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 use tearleads_data_access_traits::{DataAccessError, DataAccessErrorKind, RedisValue};
 use tonic::Status;
 
-use crate::AdminAccessContext;
+use crate::admin_auth::AdminAccessContext;
 
 pub(crate) fn map_redis_value(value: Option<RedisValue>) -> Option<AdminRedisValue> {
     value.map(|value_variant| match value_variant {

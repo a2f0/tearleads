@@ -1,6 +1,6 @@
 use tearleads_data_access_traits::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminUpdateOrganizationInput,
-    AdminUpdateUserInput, DataAccessErrorKind, PostgresAdminReadRepository,
+    AdminUpdateUserInput, DataAccessErrorKind, PostgresAdminRepository,
 };
 
 use super::StaticPostgresRepository;

@@ -5,8 +5,7 @@ use std::sync::Arc;
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
@@ -46,7 +45,7 @@ fn sample_user_summary() -> AdminUserSummary {
 
 #[tokio::test]
 async fn create_organization_trims_fields_and_maps_response() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         create_organization_result: Ok(AdminOrganizationSummary {
             id: String::from("org-created"),
             name: String::from("Org Created"),
@@ -94,7 +93,7 @@ async fn create_organization_trims_fields_and_maps_response() {
 #[tokio::test]
 async fn create_organization_maps_data_access_error() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             create_organization_result: Err(DataAccessError::new(
                 DataAccessErrorKind::InvalidInput,
                 "organization name already exists",
@@ -122,7 +121,7 @@ async fn create_organization_maps_data_access_error() {
 
 #[tokio::test]
 async fn update_organization_translates_patch_fields() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         update_organization_result: Ok(AdminOrganizationSummary {
             id: String::from("org-1"),
             name: String::from("Renamed"),
@@ -170,7 +169,7 @@ async fn update_organization_translates_patch_fields() {
 
 #[tokio::test]
 async fn update_organization_rejects_empty_patch() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let update_calls = Arc::clone(&postgres_repo.update_organization_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -197,7 +196,7 @@ async fn update_organization_rejects_empty_patch() {
 
 #[tokio::test]
 async fn delete_organization_returns_repository_boolean() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         delete_organization_result: Ok(false),
         ..Default::default()
     };
@@ -227,7 +226,7 @@ async fn delete_organization_returns_repository_boolean() {
 async fn update_user_translates_payload_and_maps_response() {
     let mut updated_user = sample_user_summary();
     updated_user.organization_ids = vec![String::from("org-1"), String::from("org-2")];
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         update_user_result: Ok(updated_user),
         ..Default::default()
     };
@@ -278,7 +277,7 @@ async fn update_user_translates_payload_and_maps_response() {
 
 #[tokio::test]
 async fn update_user_rejects_empty_patch() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let update_calls = Arc::clone(&postgres_repo.update_user_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -309,7 +308,7 @@ async fn update_user_rejects_empty_patch() {
 
 #[tokio::test]
 async fn update_user_rejects_blank_organization_ids_before_repository_call() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let update_calls = Arc::clone(&postgres_repo.update_user_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,

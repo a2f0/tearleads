@@ -10,7 +10,7 @@ pub(crate) use redis_repository::StaticRedisRepository;
 
 use crate::AdminServiceHandler;
 
-pub(crate) fn create_admin_harness_handler() -> AdminServiceHandler<
+pub(crate) fn create_admin_handler() -> AdminServiceHandler<
     StaticPostgresRepository,
     StaticRedisRepository,
     AuthorizationHeaderAdminAuthorizer,

@@ -2,15 +2,18 @@ use std::sync::{Mutex, MutexGuard};
 
 use futures::executor::block_on;
 use tearleads_data_access_traits::{
-    AdminGroupSummary, AdminScopeOrganization, BoxFuture, DataAccessError, DataAccessErrorKind,
-    PostgresAdminReadRepository, PostgresConnectionInfo, PostgresRowsQuery, PostgresTableInfo,
+    AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupSummary, AdminScopeOrganization,
+    AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, BoxFuture,
+    DataAccessError, DataAccessErrorKind, PostgresAdminRepository, PostgresConnectionInfo,
+    PostgresRowsQuery, PostgresTableInfo,
 };
 
-use super::PostgresAdminReadAdapter;
+use super::PostgresAdminAdapter;
 use crate::{
-    AdminGroupSummaryRecord, AdminOrganizationUserRecord, AdminScopeOrganizationRecord,
-    AdminUserAccountingRecord, AdminUserRecord, PostgresAdminGateway, PostgresColumnRecord,
-    PostgresRowsPageRecord, PostgresTableRecord,
+    AdminGroupDetailRecord, AdminGroupSummaryRecord, AdminOrganizationRecord,
+    AdminOrganizationUserRecord, AdminScopeOrganizationRecord, AdminUserAccountingRecord,
+    AdminUserRecord, PostgresAdminGateway, PostgresColumnRecord, PostgresRowsPageRecord,
+    PostgresTableRecord,
 };
 
 type GetUserCall = (String, Option<Vec<String>>);
@@ -23,7 +26,12 @@ struct FakeGateway {
     scope_organizations_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     scoped_organizations_by_ids_result: Result<Vec<AdminScopeOrganizationRecord>, DataAccessError>,
     groups_result: Result<Vec<AdminGroupSummaryRecord>, DataAccessError>,
+    group_detail_result: Result<AdminGroupDetailRecord, DataAccessError>,
+    organization_result: Result<AdminOrganizationRecord, DataAccessError>,
+    organizations_result: Result<Vec<AdminOrganizationRecord>, DataAccessError>,
     organization_users_result: Result<Vec<AdminOrganizationUserRecord>, DataAccessError>,
+    user_result: Result<AdminUserRecord, DataAccessError>,
+    users_result: Result<Vec<AdminUserRecord>, DataAccessError>,
     get_user_result: Result<Option<AdminUserRecord>, DataAccessError>,
     tables_result: Result<Vec<PostgresTableRecord>, DataAccessError>,
     table_exists_result: Result<bool, DataAccessError>,
@@ -46,7 +54,26 @@ impl Default for FakeGateway {
             scope_organizations_result: Ok(Vec::new()),
             scoped_organizations_by_ids_result: Ok(Vec::new()),
             groups_result: Ok(Vec::new()),
+            group_detail_result: Ok(AdminGroupDetailRecord {
+                id: String::from("id"),
+                organization_id: String::from("org-id"),
+                name: String::from("name"),
+                description: None,
+                created_at: String::from("2026-01-01T00:00:00Z"),
+                updated_at: String::from("2026-01-01T00:00:00Z"),
+                members: Vec::new(),
+            }),
+            organization_result: Ok(AdminOrganizationRecord {
+                id: String::from("id"),
+                name: String::from("name"),
+                description: None,
+                created_at: String::from("2026-01-01T00:00:00Z"),
+                updated_at: String::from("2026-01-01T00:00:00Z"),
+            }),
+            organizations_result: Ok(Vec::new()),
             organization_users_result: Ok(Vec::new()),
+            user_result: Ok(AdminUserRecord::default()),
+            users_result: Ok(Vec::new()),
             get_user_result: Ok(None),
             tables_result: Ok(Vec::new()),
             table_exists_result: Ok(true),
@@ -140,6 +167,100 @@ impl PostgresAdminGateway for FakeGateway {
         Box::pin(async move { result })
     }
 
+    fn get_group(
+        &self,
+        _group_id: &str,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        let result = self.group_detail_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn create_group(
+        &self,
+        _input: AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        let result = self.group_detail_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_group(
+        &self,
+        _group_id: &str,
+        _input: AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        let result = self.group_detail_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_group(&self, _group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn add_group_member(
+        &self,
+        _group_id: &str,
+        _user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn remove_group_member(
+        &self,
+        _group_id: &str,
+        _user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn list_organizations(
+        &self,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationRecord>, DataAccessError>> {
+        let result = self.organizations_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn create_organization(
+        &self,
+        _input: AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        let result = self.organization_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_organization(
+        &self,
+        _organization_id: &str,
+        _input: AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        let result = self.organization_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn delete_organization(
+        &self,
+        _organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn list_users(
+        &self,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminUserRecord>, DataAccessError>> {
+        let result = self.users_result.clone();
+        Box::pin(async move { result })
+    }
+
+    fn update_user(
+        &self,
+        _user_id: &str,
+        _input: AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserRecord, DataAccessError>> {
+        let result = self.user_result.clone();
+        Box::pin(async move { result })
+    }
+
     fn get_user(
         &self,
         user_id: &str,
@@ -192,174 +313,9 @@ impl PostgresAdminGateway for FakeGateway {
 }
 
 #[test]
-fn postgres_info_uses_gateway_connection_and_version() {
-    let gateway = FakeGateway {
-        connection_info: PostgresConnectionInfo {
-            host: Some(String::from("localhost")),
-            port: Some(5432),
-            database: Some(String::from("tearleads")),
-            user: Some(String::from("tearleads")),
-        },
-        server_version_result: Ok(Some(String::from("PostgreSQL 16.3"))),
-        ..Default::default()
-    };
-
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-    let result = block_on(adapter.get_postgres_info());
-    let snapshot = match result {
-        Ok(value) => value,
-        Err(error) => panic!("postgres info should succeed, got: {error}"),
-    };
-
-    assert_eq!(snapshot.connection.host.as_deref(), Some("localhost"));
-    assert_eq!(snapshot.connection.port, Some(5432));
-    assert_eq!(snapshot.connection.database.as_deref(), Some("tearleads"));
-    assert_eq!(snapshot.connection.user.as_deref(), Some("tearleads"));
-    assert_eq!(snapshot.server_version.as_deref(), Some("PostgreSQL 16.3"));
-}
-
-#[test]
-fn list_tables_maps_gateway_rows() {
-    let gateway = FakeGateway {
-        tables_result: Ok(vec![PostgresTableRecord {
-            schema: String::from("public"),
-            name: String::from("users"),
-            row_count: 10,
-            total_bytes: 2048,
-            table_bytes: 1024,
-            index_bytes: 1024,
-        }]),
-        ..Default::default()
-    };
-
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-    let result = block_on(adapter.list_tables());
-    let tables = match result {
-        Ok(value) => value,
-        Err(error) => panic!("table listing should succeed, got: {error}"),
-    };
-
-    assert_eq!(
-        tables,
-        vec![PostgresTableInfo {
-            schema: String::from("public"),
-            name: String::from("users"),
-            row_count: 10,
-            total_bytes: 2048,
-            table_bytes: 1024,
-            index_bytes: 1024,
-        }]
-    );
-}
-
-#[test]
-fn list_scope_organizations_maps_gateway_rows() {
-    let gateway = FakeGateway {
-        scope_organizations_result: Ok(vec![AdminScopeOrganizationRecord {
-            id: String::from("org-1"),
-            name: String::from("Alpha"),
-        }]),
-        ..Default::default()
-    };
-
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-    let result = block_on(adapter.list_scope_organizations());
-    let organizations = match result {
-        Ok(value) => value,
-        Err(error) => panic!("scope organization listing should succeed, got: {error}"),
-    };
-
-    assert_eq!(
-        organizations,
-        vec![AdminScopeOrganization {
-            id: String::from("org-1"),
-            name: String::from("Alpha"),
-        }]
-    );
-    assert_eq!(adapter.gateway.list_scope_organizations_calls(), 1);
-}
-
-#[test]
-fn list_scope_organizations_by_ids_forwards_ids_and_maps_gateway_rows() {
-    let gateway = FakeGateway {
-        scoped_organizations_by_ids_result: Ok(vec![AdminScopeOrganizationRecord {
-            id: String::from("org-2"),
-            name: String::from("Beta"),
-        }]),
-        ..Default::default()
-    };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-
-    let result = block_on(
-        adapter.list_scope_organizations_by_ids(vec![String::from("org-2"), String::from("org-1")]),
-    );
-    let organizations = match result {
-        Ok(value) => value,
-        Err(error) => panic!("scoped organization listing should succeed, got: {error}"),
-    };
-
-    assert_eq!(
-        organizations,
-        vec![AdminScopeOrganization {
-            id: String::from("org-2"),
-            name: String::from("Beta"),
-        }]
-    );
-    assert_eq!(
-        adapter.gateway.list_scope_organizations_by_ids_calls(),
-        vec![vec![String::from("org-2"), String::from("org-1")]]
-    );
-}
-
-#[test]
-fn list_groups_forwards_optional_filters_and_maps_gateway_rows() {
-    let gateway = FakeGateway {
-        groups_result: Ok(vec![AdminGroupSummaryRecord {
-            id: String::from("group-1"),
-            organization_id: String::from("org-2"),
-            name: String::from("Ops"),
-            description: Some(String::from("Operators")),
-            created_at: String::from("2026-01-01T00:00:00Z"),
-            updated_at: String::from("2026-01-02T00:00:00Z"),
-            member_count: 3,
-        }]),
-        ..Default::default()
-    };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
-
-    let filtered_result = block_on(adapter.list_groups(Some(vec![String::from("org-2")])));
-    let filtered_groups = match filtered_result {
-        Ok(value) => value,
-        Err(error) => panic!("filtered list_groups should succeed, got: {error}"),
-    };
-    assert_eq!(
-        filtered_groups,
-        vec![AdminGroupSummary {
-            id: String::from("group-1"),
-            organization_id: String::from("org-2"),
-            name: String::from("Ops"),
-            description: Some(String::from("Operators")),
-            created_at: String::from("2026-01-01T00:00:00Z"),
-            updated_at: String::from("2026-01-02T00:00:00Z"),
-            member_count: 3,
-        }]
-    );
-
-    let unfiltered_result = block_on(adapter.list_groups(None));
-    if let Err(error) = unfiltered_result {
-        panic!("unfiltered list_groups should succeed, got: {error}");
-    }
-
-    assert_eq!(
-        adapter.gateway.list_groups_calls(),
-        vec![Some(vec![String::from("org-2")]), None]
-    );
-}
-
-#[test]
 fn list_columns_forwards_identifiers_to_gateway_calls() {
     let gateway = FakeGateway::default();
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.list_columns(" public ", " users "));
     if let Err(error) = result {
@@ -382,7 +338,7 @@ fn list_columns_returns_not_found_when_table_is_absent() {
         table_exists_result: Ok(false),
         ..Default::default()
     };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.list_columns("public", "users"));
     let error = match result {
@@ -401,7 +357,7 @@ fn list_columns_propagates_gateway_errors() {
         table_exists_result: Err(unavailable.clone()),
         ..Default::default()
     };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.list_columns("public", "users"));
     let error = match result {
@@ -423,7 +379,7 @@ fn list_rows_forwards_query_before_gateway_calls() {
         }),
         ..Default::default()
     };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.list_rows(PostgresRowsQuery {
         schema: String::from(" public "),
@@ -459,7 +415,7 @@ fn list_rows_forwards_query_before_gateway_calls() {
 #[test]
 fn list_rows_forwards_invalid_sort_direction() {
     let gateway = FakeGateway::default();
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.list_rows(PostgresRowsQuery {
         schema: String::from("public"),
@@ -488,6 +444,7 @@ fn list_rows_forwards_invalid_sort_direction() {
 
 mod get_organization_users_tests;
 mod get_user_tests;
+mod read_mapping_tests;
 
 fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     match mutex.lock() {

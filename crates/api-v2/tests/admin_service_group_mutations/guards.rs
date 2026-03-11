@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use super::support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
@@ -16,7 +15,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn update_group_rejects_forbidden_current_group_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-9"),
@@ -55,7 +54,7 @@ async fn update_group_rejects_forbidden_current_group_scope() {
 
 #[tokio::test]
 async fn update_group_rejects_target_organization_outside_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -94,7 +93,7 @@ async fn update_group_rejects_target_organization_outside_scope() {
 
 #[tokio::test]
 async fn update_group_rejects_no_fields_to_update() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -133,7 +132,7 @@ async fn update_group_rejects_no_fields_to_update() {
 
 #[tokio::test]
 async fn update_group_trims_non_empty_description() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -187,7 +186,7 @@ async fn update_group_trims_non_empty_description() {
 
 #[tokio::test]
 async fn delete_group_routes_through_repository_for_authorized_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -229,7 +228,7 @@ async fn delete_group_routes_through_repository_for_authorized_scope() {
 
 #[tokio::test]
 async fn delete_group_rejects_forbidden_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-9"),
@@ -266,7 +265,7 @@ async fn delete_group_rejects_forbidden_scope() {
 
 #[tokio::test]
 async fn add_group_member_returns_repository_boolean_for_authorized_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -309,7 +308,7 @@ async fn add_group_member_returns_repository_boolean_for_authorized_scope() {
 
 #[tokio::test]
 async fn add_group_member_rejects_forbidden_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-9"),
@@ -347,7 +346,7 @@ async fn add_group_member_rejects_forbidden_scope() {
 
 #[tokio::test]
 async fn add_group_member_maps_repository_errors() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -386,7 +385,7 @@ async fn add_group_member_maps_repository_errors() {
 
 #[tokio::test]
 async fn remove_group_member_rejects_forbidden_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-9"),

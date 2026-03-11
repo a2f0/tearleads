@@ -11,9 +11,9 @@ pub use postgres::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupMember,
     AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
     AdminScopeOrganization, AdminUpdateGroupInput, AdminUpdateOrganizationInput,
-    AdminUpdateUserInput, AdminUserAccountingSummary, AdminUserSummary,
-    PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
-    PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
+    AdminUpdateUserInput, AdminUserAccountingSummary, AdminUserSummary, PostgresAdminRepository,
+    PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage,
+    PostgresRowsQuery, PostgresTableInfo,
 };
 pub use redis::{
     RedisAdminRepository, RedisKeyInfo, RedisKeyScanPage, RedisKeyValueRecord, RedisValue,

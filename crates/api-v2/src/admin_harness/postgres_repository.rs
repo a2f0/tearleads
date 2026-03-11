@@ -2,7 +2,7 @@ use tearleads_data_access_traits::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupSummary,
     AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
     AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, AdminUserSummary,
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminRepository,
     PostgresConnectionInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
     PostgresTableInfo,
 };
@@ -12,7 +12,7 @@ mod fixtures;
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StaticPostgresRepository;
 
-impl PostgresAdminReadRepository for StaticPostgresRepository {
+impl PostgresAdminRepository for StaticPostgresRepository {
     fn get_postgres_info(
         &self,
     ) -> BoxFuture<'_, Result<PostgresInfoSnapshot, tearleads_data_access_traits::DataAccessError>>

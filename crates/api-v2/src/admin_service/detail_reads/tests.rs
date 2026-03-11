@@ -8,7 +8,7 @@ use tonic::Request;
 
 #[tokio::test]
 async fn detail_read_routes_execute_under_harness_authorizer() {
-    let handler = crate::admin_harness::create_admin_harness_handler();
+    let handler = crate::admin_harness::create_admin_handler();
 
     let context = handler
         .get_context(request_with_auth(AdminGetContextRequest {}))

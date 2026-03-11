@@ -29,7 +29,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminUpdateUserRequest, AdminUpdateUserResponse, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    PostgresAdminReadRepository, PostgresRowsQuery, RedisAdminRepository,
+    PostgresAdminRepository, PostgresRowsQuery, RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
 
@@ -69,7 +69,7 @@ impl<P, R> AdminServiceHandler<P, R, HeaderRoleAdminAuthorizer> {
 #[tonic::async_trait]
 impl<P, R, A> AdminService for AdminServiceHandler<P, R, A>
 where
-    P: PostgresAdminReadRepository + Send + Sync + 'static,
+    P: PostgresAdminRepository + Send + Sync + 'static,
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {

@@ -1,4 +1,4 @@
-use super::support::admin_service::{FakeAuthorizer, FakePostgresRepository, FakeRedisRepository};
+use super::support::admin_service::{FakeAuthorizer, FakePostgresGateway, FakeRedisRepository};
 use tearleads_api_v2::{AdminAuthErrorKind, AdminServiceHandler};
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetContextRequest, AdminGetGroupMembersRequest, AdminGetOrgGroupsRequest,
@@ -11,7 +11,7 @@ use tonic::{Code, Request};
 #[tokio::test]
 async fn detail_read_routes_map_authorizer_denials() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
         FakeAuthorizer::deny(AdminAuthErrorKind::PermissionDenied, "denied"),
     );
@@ -75,7 +75,7 @@ async fn detail_read_routes_map_authorizer_denials() {
 #[tokio::test]
 async fn detail_read_routes_reject_blank_required_ids() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
         FakeAuthorizer::allow_all(),
     );
@@ -128,7 +128,7 @@ async fn detail_read_routes_reject_blank_required_ids() {
 #[tokio::test]
 async fn scoped_filter_denials_map_to_permission_denied() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
         FakeAuthorizer::allow_scoped(vec![String::from("org-7")]),
     );
@@ -181,7 +181,7 @@ async fn scoped_filter_denials_map_to_permission_denied() {
 #[tokio::test]
 async fn get_context_maps_root_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             scope_organizations_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "scope organizations unavailable",
@@ -207,7 +207,7 @@ async fn get_context_maps_root_repository_errors() {
 #[tokio::test]
 async fn get_context_maps_scoped_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             scope_organizations_by_ids_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "scoped organizations unavailable",
@@ -233,7 +233,7 @@ async fn get_context_maps_scoped_repository_errors() {
 #[tokio::test]
 async fn get_group_members_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             get_group_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "group lookup failed",
@@ -261,7 +261,7 @@ async fn get_group_members_maps_repository_errors() {
 #[tokio::test]
 async fn get_organization_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_organizations_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "organization query failed",
@@ -289,7 +289,7 @@ async fn get_organization_maps_repository_errors() {
 #[tokio::test]
 async fn get_org_groups_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_groups_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "group query failed",
@@ -317,7 +317,7 @@ async fn get_org_groups_maps_repository_errors() {
 #[tokio::test]
 async fn get_org_users_maps_scope_lookup_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_organizations_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "scope lookup failed",
@@ -345,7 +345,7 @@ async fn get_org_users_maps_scope_lookup_errors() {
 #[tokio::test]
 async fn get_user_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             get_user_result: Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 "user lookup failed",

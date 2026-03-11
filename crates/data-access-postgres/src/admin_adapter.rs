@@ -5,7 +5,7 @@ use tearleads_data_access_traits::{
     AdminGroupSummary, AdminOrganizationSummary, AdminOrganizationUserSummary,
     AdminScopeOrganization, AdminUpdateGroupInput, AdminUpdateOrganizationInput,
     AdminUpdateUserInput, AdminUserAccountingSummary, AdminUserSummary, BoxFuture, DataAccessError,
-    DataAccessErrorKind, PostgresAdminReadRepository, PostgresColumnInfo, PostgresInfoSnapshot,
+    DataAccessErrorKind, PostgresAdminRepository, PostgresColumnInfo, PostgresInfoSnapshot,
     PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo,
 };
 
@@ -16,18 +16,18 @@ use crate::{
 };
 
 /// Postgres repository implementation over a driver-specific gateway.
-pub struct PostgresAdminReadAdapter<G> {
+pub struct PostgresAdminAdapter<G> {
     gateway: G,
 }
 
-impl<G> PostgresAdminReadAdapter<G> {
+impl<G> PostgresAdminAdapter<G> {
     /// Builds an adapter around a gateway implementation.
     pub fn new(gateway: G) -> Self {
         Self { gateway }
     }
 }
 
-impl<G> PostgresAdminReadRepository for PostgresAdminReadAdapter<G>
+impl<G> PostgresAdminRepository for PostgresAdminAdapter<G>
 where
     G: PostgresAdminGateway + Send + Sync,
 {

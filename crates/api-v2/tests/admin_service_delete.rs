@@ -5,8 +5,7 @@ use std::sync::Arc;
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
@@ -22,7 +21,7 @@ async fn delete_redis_key_trims_key_and_maps_repository_response() {
     };
     let delete_key_calls = Arc::clone(&redis_repo.delete_key_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );
@@ -47,7 +46,7 @@ async fn delete_redis_key_rejects_empty_keys_before_repository_calls() {
     let redis_repo = FakeRedisRepository::default();
     let delete_key_calls = Arc::clone(&redis_repo.delete_key_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );

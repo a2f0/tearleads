@@ -5,8 +5,7 @@ use std::sync::Arc;
 // support module provided by parent test crate
 
 use super::support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::{AdminAuthErrorKind, AdminServiceHandler};
 use tearleads_api_v2_contracts::tearleads::v2::{
@@ -21,7 +20,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn list_groups_for_root_admin_treats_blank_filter_as_unfiltered() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_groups_result: Ok(vec![
             AdminGroupSummary {
                 id: String::from("group-1"),
@@ -67,7 +66,7 @@ async fn list_groups_for_root_admin_treats_blank_filter_as_unfiltered() {
 
 #[tokio::test]
 async fn list_groups_for_scoped_admin_defaults_to_authorized_organizations() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_groups_result: Ok(vec![AdminGroupSummary {
             id: String::from("group-7"),
             organization_id: String::from("org-7"),
@@ -104,7 +103,7 @@ async fn list_groups_for_scoped_admin_defaults_to_authorized_organizations() {
 
 #[tokio::test]
 async fn list_groups_rejects_scoped_filter_outside_authorized_org_ids() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let list_groups_calls = Arc::clone(&postgres_repo.list_groups_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -129,7 +128,7 @@ async fn list_groups_rejects_scoped_filter_outside_authorized_org_ids() {
 
 #[tokio::test]
 async fn get_group_rejects_scoped_access_forbidden_organization() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-1"),
@@ -172,7 +171,7 @@ async fn get_group_rejects_scoped_access_forbidden_organization() {
 
 #[tokio::test]
 async fn get_group_rejects_blank_id_before_repository_calls() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let get_group_calls = Arc::clone(&postgres_repo.get_group_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -198,7 +197,7 @@ async fn get_group_rejects_blank_id_before_repository_calls() {
 #[tokio::test]
 async fn group_read_routes_map_authorizer_denials() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
         FakeAuthorizer::deny(AdminAuthErrorKind::PermissionDenied, "denied"),
     );
@@ -255,7 +254,7 @@ async fn group_read_routes_map_authorizer_denials() {
 #[tokio::test]
 async fn list_groups_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_groups_result: Err(DataAccessError::new(
                 DataAccessErrorKind::NotFound,
                 "group storage unavailable",
@@ -283,7 +282,7 @@ async fn list_groups_maps_repository_errors() {
 #[tokio::test]
 async fn get_group_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             get_group_result: Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 "group lookup failed",
@@ -311,7 +310,7 @@ async fn get_group_maps_repository_errors() {
 #[tokio::test]
 async fn list_organizations_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_organizations_result: Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 "organization query failed",
@@ -339,7 +338,7 @@ async fn list_organizations_maps_repository_errors() {
 #[tokio::test]
 async fn list_users_maps_repository_errors() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             list_users_result: Err(DataAccessError::new(
                 DataAccessErrorKind::Internal,
                 "user query failed",
@@ -366,7 +365,7 @@ async fn list_users_maps_repository_errors() {
 
 #[tokio::test]
 async fn list_organizations_for_scoped_admin_defaults_to_authorized_organizations() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
             id: String::from("org-7"),
             name: String::from("Scoped Org"),
@@ -401,7 +400,7 @@ async fn list_organizations_for_scoped_admin_defaults_to_authorized_organization
 
 #[tokio::test]
 async fn list_organizations_accepts_authorized_scoped_filter() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
             id: String::from("org-7"),
             name: String::from("Scoped Org"),
@@ -436,7 +435,7 @@ async fn list_organizations_accepts_authorized_scoped_filter() {
 
 #[tokio::test]
 async fn list_users_rejects_scoped_filter_outside_authorized_org_ids() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_users_result: Ok(vec![AdminUserSummary {
             id: String::from("user-1"),
             email: String::from("admin@example.com"),

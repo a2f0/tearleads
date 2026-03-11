@@ -19,7 +19,7 @@ export type MlsCipherSuite =
 export interface MlsKeyPackage {
   id: string;
   userId: string;
-  keyPackageData: string; // base64
+  keyPackageData: string;
   keyPackageRef: string; // base64 hash
   cipherSuite: MlsCipherSuite;
   createdAt: string;
@@ -29,7 +29,7 @@ export interface MlsKeyPackage {
 /** MLS group metadata */
 export interface MlsGroup {
   id: string;
-  groupIdMls: string; // base64 MLS group ID
+  groupIdMls: string;
   name: string;
   description: string | null;
   creatorUserId: string;
@@ -63,7 +63,7 @@ export interface MlsMessage {
   senderUserId: string | null; // null if sender was deleted
   senderEmail?: string;
   epoch: number;
-  ciphertext: string; // base64
+  ciphertext: string;
   messageType: MlsMessageType;
   contentType: string;
   sequenceNumber: number;
@@ -76,7 +76,7 @@ export interface MlsWelcomeMessage {
   id: string;
   groupId: string;
   groupName: string;
-  welcome: string; // base64 welcome data
+  welcome: string;
   keyPackageRef: string; // reference to the key package used
   epoch: number;
   createdAt: string;
@@ -87,7 +87,7 @@ export interface MlsGroupState {
   id: string;
   groupId: string;
   epoch: number;
-  encryptedState: string; // base64, encrypted client-side
+  encryptedState: string;
   stateHash: string;
   createdAt: string;
 }
@@ -137,8 +137,8 @@ export interface UpdateMlsGroupRequest {
 
 export interface AddMlsMemberRequest {
   userId: string;
-  commit: string; // base64 MLS commit
-  welcome: string; // base64 MLS welcome
+  commit: string;
+  welcome: string;
   keyPackageRef: string;
   newEpoch: number;
 }
@@ -148,7 +148,7 @@ export interface AddMlsMemberResponse {
 }
 
 export interface RemoveMlsMemberRequest {
-  commit: string; // base64 MLS commit
+  commit: string;
   newEpoch: number;
 }
 
@@ -157,7 +157,7 @@ export interface MlsGroupMembersResponse {
 }
 
 export interface SendMlsMessageRequest {
-  ciphertext: string; // base64
+  ciphertext: string;
   epoch: number;
   messageType: MlsMessageType;
   contentType?: string;

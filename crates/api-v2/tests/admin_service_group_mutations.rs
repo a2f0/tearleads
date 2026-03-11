@@ -7,8 +7,7 @@ mod guards;
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
-    lock_or_recover,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic, lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
 use tearleads_api_v2_contracts::tearleads::v2::{
@@ -22,7 +21,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn create_group_accepts_scoped_admin_for_authorized_organization() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         create_group_result: Ok(AdminGroupDetail {
             id: String::from("group-created"),
             organization_id: String::from("org-7"),
@@ -71,7 +70,7 @@ async fn create_group_accepts_scoped_admin_for_authorized_organization() {
 
 #[tokio::test]
 async fn create_group_rejects_scoped_admin_forbidden_organization() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let create_group_calls = Arc::clone(&postgres_repo.create_group_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -98,7 +97,7 @@ async fn create_group_rejects_scoped_admin_forbidden_organization() {
 
 #[tokio::test]
 async fn create_group_trims_blank_description_to_none() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         create_group_result: Ok(AdminGroupDetail {
             id: String::from("group-created"),
             organization_id: String::from("org-7"),
@@ -139,7 +138,7 @@ async fn create_group_trims_blank_description_to_none() {
 
 #[tokio::test]
 async fn update_group_translates_optional_patch_fields() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -200,7 +199,7 @@ async fn update_group_translates_optional_patch_fields() {
 
 #[tokio::test]
 async fn add_group_member_rejects_blank_user_id_before_repository_calls() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-7"),
@@ -239,7 +238,7 @@ async fn add_group_member_rejects_blank_user_id_before_repository_calls() {
 
 #[tokio::test]
 async fn remove_group_member_returns_repository_boolean() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-1"),
             organization_id: String::from("org-1"),
