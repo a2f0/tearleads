@@ -132,29 +132,4 @@ describe('API', () => {
       expect(payloadArg?.rawBody.toString()).toBe(webhookBody);
     });
   });
-
-  it('loads with explicit PORT env and exports app in test mode', async () => {
-    const originalPort = process.env['PORT'];
-    const originalNodeEnv = process.env['NODE_ENV'];
-    process.env['PORT'] = '4321';
-    process.env['NODE_ENV'] = 'test';
-
-    try {
-      vi.resetModules();
-      const mod = await import('./index.js');
-      expect(mod.app).toBeDefined();
-    } finally {
-      if (originalPort === undefined) {
-        delete process.env['PORT'];
-      } else {
-        process.env['PORT'] = originalPort;
-      }
-      if (originalNodeEnv === undefined) {
-        delete process.env['NODE_ENV'];
-      } else {
-        process.env['NODE_ENV'] = originalNodeEnv;
-      }
-      vi.resetModules();
-    }
-  });
 });

@@ -9,8 +9,8 @@ import {
 } from './postgresTestHarness.js';
 
 describe('postgres lib', () => {
-  beforeEach(() => {
-    resetPostgresTestEnv();
+  beforeEach(async () => {
+    await resetPostgresTestEnv();
   });
 
   afterEach(() => {

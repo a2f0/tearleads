@@ -91,8 +91,9 @@ function clearResetEnvKeys(): void {
   }
 }
 
-export function resetPostgresTestEnv(): void {
-  vi.resetModules();
+export async function resetPostgresTestEnv(): Promise<void> {
+  const { closePostgresPool } = await import('./postgres.js');
+  await closePostgresPool();
   poolQueryMock.mockReset();
   poolQueryMock.mockResolvedValue({
     rows: [{ pg_is_in_recovery: true, replay_lag_seconds: 0 }]
