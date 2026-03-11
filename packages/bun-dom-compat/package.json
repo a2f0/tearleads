@@ -31,8 +31,8 @@
     "jsdom": "28.1.0"
   },
   "devDependencies": {
-    "@types/jsdom": "27.0.0",
-    "@types/node": "25.3.3",
+    "@types/jsdom": "28.0.0",
+    "@types/node": "25.3.5",
     "typescript": "5.9.3"
   }
 }
