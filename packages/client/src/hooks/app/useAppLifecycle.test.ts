@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Capacitor App plugin
 const mockAddListener = vi.fn().mockResolvedValue({ remove: vi.fn() });
@@ -18,14 +18,14 @@ vi.mock('@/lib/utils', () => ({
 describe('useAppLifecycle utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAddListener.mockReset();
+    mockAddListener.mockResolvedValue({
+      remove: vi.fn().mockResolvedValue(undefined)
+    });
     mockDetectPlatform.mockReturnValue('web');
     // Clear sessionStorage and localStorage before each test
     sessionStorage.clear();
     localStorage.clear();
-  });
-
-  afterEach(() => {
-    vi.resetModules();
   });
 
   describe('session active tracking', () => {
@@ -168,24 +168,12 @@ describe('useAppLifecycle utilities', () => {
 
   describe('useAppLifecycle hook on mobile', () => {
     beforeEach(() => {
-      vi.resetModules();
       mockDetectPlatform.mockReturnValue('ios');
     });
 
     it('registers app state change listener on iOS', async () => {
-      vi.doMock('@/lib/utils', () => ({
-        detectPlatform: () => 'ios'
-      }));
-
       const mockRemove = vi.fn().mockResolvedValue(undefined);
-      const mockStateListener = vi
-        .fn()
-        .mockResolvedValue({ remove: mockRemove });
-      vi.doMock('@capacitor/app', () => ({
-        App: {
-          addListener: mockStateListener
-        }
-      }));
+      mockAddListener.mockResolvedValue({ remove: mockRemove });
 
       const { useAppLifecycle } = await import('./useAppLifecycle');
       const onResume = vi.fn();
@@ -197,7 +185,7 @@ describe('useAppLifecycle utilities', () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       });
 
-      expect(mockStateListener).toHaveBeenCalledWith(
+      expect(mockAddListener).toHaveBeenCalledWith(
         'appStateChange',
         expect.any(Function)
       );
@@ -208,25 +196,13 @@ describe('useAppLifecycle utilities', () => {
         null;
       const mockRemove = vi.fn().mockResolvedValue(undefined);
 
-      vi.doMock('@/lib/utils', () => ({
-        detectPlatform: () => 'ios'
-      }));
-
-      vi.doMock('@capacitor/app', () => ({
-        App: {
-          addListener: vi
-            .fn()
-            .mockImplementation(
-              (
-                _event: string,
-                callback: (state: { isActive: boolean }) => void
-              ) => {
-                stateChangeCallback = callback;
-                return Promise.resolve({ remove: mockRemove });
-              }
-            )
+      mockDetectPlatform.mockReturnValue('ios');
+      mockAddListener.mockImplementation(
+        (_event: string, callback: (state: { isActive: boolean }) => void) => {
+          stateChangeCallback = callback;
+          return Promise.resolve({ remove: mockRemove });
         }
-      }));
+      );
 
       const { useAppLifecycle } = await import('./useAppLifecycle');
       const onResume = vi.fn();
@@ -250,25 +226,13 @@ describe('useAppLifecycle utilities', () => {
         null;
       const mockRemove = vi.fn().mockResolvedValue(undefined);
 
-      vi.doMock('@/lib/utils', () => ({
-        detectPlatform: () => 'android'
-      }));
-
-      vi.doMock('@capacitor/app', () => ({
-        App: {
-          addListener: vi
-            .fn()
-            .mockImplementation(
-              (
-                _event: string,
-                callback: (state: { isActive: boolean }) => void
-              ) => {
-                stateChangeCallback = callback;
-                return Promise.resolve({ remove: mockRemove });
-              }
-            )
+      mockDetectPlatform.mockReturnValue('android');
+      mockAddListener.mockImplementation(
+        (_event: string, callback: (state: { isActive: boolean }) => void) => {
+          stateChangeCallback = callback;
+          return Promise.resolve({ remove: mockRemove });
         }
-      }));
+      );
 
       const { useAppLifecycle } = await import('./useAppLifecycle');
       const onResume = vi.fn();
@@ -289,16 +253,8 @@ describe('useAppLifecycle utilities', () => {
 
     it('removes listener on unmount (mobile)', async () => {
       const mockRemove = vi.fn().mockResolvedValue(undefined);
-
-      vi.doMock('@/lib/utils', () => ({
-        detectPlatform: () => 'ios'
-      }));
-
-      vi.doMock('@capacitor/app', () => ({
-        App: {
-          addListener: vi.fn().mockResolvedValue({ remove: mockRemove })
-        }
-      }));
+      mockDetectPlatform.mockReturnValue('ios');
+      mockAddListener.mockResolvedValue({ remove: mockRemove });
 
       const { useAppLifecycle } = await import('./useAppLifecycle');
 
@@ -320,16 +276,8 @@ describe('useAppLifecycle utilities', () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
         .mockImplementation(() => {});
-
-      vi.doMock('@/lib/utils', () => ({
-        detectPlatform: () => 'ios'
-      }));
-
-      vi.doMock('@capacitor/app', () => ({
-        App: {
-          addListener: vi.fn().mockRejectedValue(new Error('Capacitor error'))
-        }
-      }));
+      mockDetectPlatform.mockReturnValue('ios');
+      mockAddListener.mockRejectedValue(new Error('Capacitor error'));
 
       const { useAppLifecycle } = await import('./useAppLifecycle');
 

@@ -50,6 +50,12 @@ let currentClassifyReject: ((error: Error) => void) | null = null;
 let loadResolve: (() => void) | null = null;
 let loadReject: ((error: Error) => void) | null = null;
 
+function assertLLMStoreTestingHookRuntime(): void {
+  if (import.meta.env.MODE !== 'test') {
+    throw new Error('llm store testing hooks are only available in test mode.');
+  }
+}
+
 export function setLoadingModelId(id: string | null): void {
   loadingModelId = id;
 }
@@ -98,6 +104,39 @@ export function emitChange(): void {
 
 export function getSnapshot(): LLMState {
   return snapshot;
+}
+
+/**
+ * Resets all module-level LLM store runtime state for tests.
+ *
+ * @remarks
+ * This should be used in `afterEach` when tests exercise module singletons.
+ */
+export function resetLLMStoreRuntimeForTesting(): void {
+  assertLLMStoreTestingHookRuntime();
+
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+
+  listeners.clear();
+  loadingModelId = null;
+  currentTokenCallback = null;
+  currentGenerateResolve = null;
+  currentGenerateReject = null;
+  currentClassifyResolve = null;
+  currentClassifyReject = null;
+  loadResolve = null;
+  loadReject = null;
+
+  store.loadedModel = null;
+  store.modelType = null;
+  store.isLoading = false;
+  store.loadProgress = null;
+  store.error = null;
+  store.isClassifying = false;
+  snapshot = { ...store };
 }
 
 /**

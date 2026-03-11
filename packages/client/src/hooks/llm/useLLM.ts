@@ -34,7 +34,7 @@ import type {
 } from './types';
 import { checkWebGPUSupport, loadLocalModel } from './webgpu';
 
-export { resetLLMUIState } from './store';
+export { resetLLMStoreRuntimeForTesting, resetLLMUIState } from './store';
 // Re-export types and utilities
 export type { ClassificationResult } from './types';
 
