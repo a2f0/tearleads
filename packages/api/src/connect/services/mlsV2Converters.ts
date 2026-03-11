@@ -17,6 +17,48 @@ import {
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
 
+function normalizeBase64(value: string): string {
+  return value.trim().replace(/\s+/gu, '');
+}
+
+function trimBase64Padding(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 61) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
+export function encodeProtoBytes(value: Uint8Array | string): string {
+  if (typeof value === 'string') {
+    return normalizeBase64(value);
+  }
+  return Buffer.from(value).toString('base64');
+}
+
+export function decodeProtoBytes(
+  value: Uint8Array | string,
+  fieldName: string
+): Uint8Array {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+
+  const normalized = normalizeBase64(value);
+  try {
+    const decoded = Buffer.from(normalized, 'base64');
+    if (
+      trimBase64Padding(Buffer.from(decoded).toString('base64')) !==
+      trimBase64Padding(normalized)
+    ) {
+      throw new Error(`${fieldName} must be valid base64`);
+    }
+    return Uint8Array.from(decoded);
+  } catch {
+    throw new Error(`${fieldName} must be valid base64`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Enum converters
 // ---------------------------------------------------------------------------
@@ -96,7 +138,7 @@ export function toProtoKeyPackage(kp: MlsKeyPackage) {
   return {
     id: kp.id,
     userId: kp.userId,
-    keyPackageData: kp.keyPackageData,
+    keyPackageData: decodeProtoBytes(kp.keyPackageData, 'keyPackageData'),
     keyPackageRef: kp.keyPackageRef,
     cipherSuite: toProtoCipherSuite(kp.cipherSuite),
     createdAt: kp.createdAt,
@@ -140,7 +182,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: msg.ciphertext,
+    ciphertext: decodeProtoBytes(msg.ciphertext, 'ciphertext'),
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -154,7 +196,7 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: s.encryptedState,
+    encryptedState: decodeProtoBytes(s.encryptedState, 'encryptedState'),
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -165,7 +207,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: w.welcome,
+    welcome: decodeProtoBytes(w.welcome, 'welcome'),
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt
@@ -187,7 +229,7 @@ export interface V2UploadKeyPackagesRequest {
 export interface V2CreateGroupRequest {
   name: string;
   description: string;
-  groupIdMls: Uint8Array;
+  groupIdMls: string;
   cipherSuite: ProtoCipherSuite;
 }
 
