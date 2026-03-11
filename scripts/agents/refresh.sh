@@ -41,8 +41,8 @@ if [ -f "$REPO_ROOT/Cargo.toml" ]; then
   }
 
   # Clear RUSTC_WRAPPER if the wrapper binary isn't on PATH
-  if [ -n "${RUSTC_WRAPPER:-}" ] && ! command -v "$RUSTC_WRAPPER" >/dev/null 2>&1; then
-    echo "RUSTC_WRAPPER=$RUSTC_WRAPPER not found in PATH; building without it."
+  if [[ -n "${RUSTC_WRAPPER:-}" ]] && ! command -v "$RUSTC_WRAPPER" &>/dev/null; then
+    echo "RUSTC_WRAPPER=$RUSTC_WRAPPER not found in PATH; building without it." >&2
     unset RUSTC_WRAPPER
   fi
 
