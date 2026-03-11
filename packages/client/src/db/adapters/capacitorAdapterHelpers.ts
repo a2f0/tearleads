@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { SQLiteConnection } from '@capacitor-community/sqlite';
 
 /**
@@ -33,8 +35,6 @@ interface FilesystemDeleteTarget {
 export async function deleteCapacitorDatabaseFile(
   databaseName: string
 ): Promise<void> {
-  const { Capacitor } = await import('@capacitor/core');
-  const { Directory, Filesystem } = await import('@capacitor/filesystem');
   const dbFileName = `${databaseName}SQLite.db`;
   const platform = Capacitor.getPlatform();
 
