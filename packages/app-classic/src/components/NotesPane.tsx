@@ -1,3 +1,4 @@
+// component-complexity: allow -- notes pane centralizes list, search, editing, and drag-drop for entries.
 import {
   DESKTOP_WINDOW_FOOTER_HEIGHT,
   useIsMobile

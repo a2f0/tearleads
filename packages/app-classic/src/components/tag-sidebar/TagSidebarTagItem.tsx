@@ -1,3 +1,4 @@
+// component-complexity: allow -- tag item handles inline editing, drag-drop, context menu, and count display.
 import { useTranslation } from 'react-i18next';
 import { DRAG_TYPE_NOTE, DRAG_TYPE_TAG } from '../../lib/constants';
 import { highlightText } from '../../lib/highlightText';
