@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetModulesIfSupported } from '../test/bunCompat.js';
+
 const sendMock = vi.fn(async (_command: unknown) => ({}));
 const s3CtorMock = vi.fn();
 const putObjectCtorMock = vi.fn();

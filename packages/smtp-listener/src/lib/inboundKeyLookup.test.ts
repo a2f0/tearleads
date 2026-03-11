@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetModulesIfSupported } from '../test/bunCompat.js';
+
 const getPostgresPoolMock = vi.fn();
 const poolQueryMock = vi.fn();
 
