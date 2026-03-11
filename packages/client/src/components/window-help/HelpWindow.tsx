@@ -4,11 +4,12 @@ import {
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
-  type WindowDimensions
+  type WindowDimensions,
+  WindowSidebarToggle
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import type { OpenAPIV3 } from 'openapi-types';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
 import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
@@ -23,6 +24,15 @@ import {
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
+
+function isDocView(view: HelpView): boolean {
+  return (
+    view !== 'index' &&
+    view !== 'developer' &&
+    view !== 'legal' &&
+    view !== 'api'
+  );
+}
 
 function isOpenApiDocument(value: unknown): value is OpenAPIV3.Document {
   return typeof value === 'object' && value !== null && 'openapi' in value;
@@ -65,6 +75,7 @@ export function HelpWindow({
   initialDimensions
 }: HelpWindowProps) {
   const [view, setView] = useState<HelpView>('index');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openapiSpec, setOpenapiSpec] = useState<OpenAPIV3.Document | null>(
     null
   );
@@ -113,6 +124,13 @@ export function HelpWindow({
 
   const title = getHelpWindowTitle(view);
 
+  const navigateTo = useCallback((next: HelpView) => {
+    if (!isDocView(next)) {
+      setSidebarOpen(false);
+    }
+    setView(next);
+  }, []);
+
   return (
     <FloatingWindow
       id={id}
@@ -136,10 +154,15 @@ export function HelpWindow({
         <HelpWindowMenuBar onClose={onClose} />
         <WindowControlBar>
           <WindowControlGroup>
+            {isDocView(view) && (
+              <WindowSidebarToggle
+                onToggle={() => setSidebarOpen((prev) => !prev)}
+              />
+            )}
             {view !== 'index' && (
               <WindowControlButton
                 icon={<ArrowLeft className="h-3 w-3" />}
-                onClick={() => setView('index')}
+                onClick={() => navigateTo('index')}
                 data-testid="help-window-control-back"
               >
                 Back
@@ -157,10 +180,10 @@ export function HelpWindow({
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 <HelpLinksGrid
                   view="topLevel"
-                  onApiDocsClick={() => setView('api')}
-                  onDeveloperClick={() => setView('developer')}
-                  onLegalClick={() => setView('legal')}
-                  onDocClick={(docId) => setView(docId)}
+                  onApiDocsClick={() => navigateTo('api')}
+                  onDeveloperClick={() => navigateTo('developer')}
+                  onLegalClick={() => navigateTo('legal')}
+                  onDocClick={(docId) => navigateTo(docId)}
                 />
               </div>
             </div>
@@ -169,10 +192,10 @@ export function HelpWindow({
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 <HelpLinksGrid
                   view={view}
-                  onApiDocsClick={() => setView('api')}
-                  onDeveloperClick={() => setView('developer')}
-                  onLegalClick={() => setView('legal')}
-                  onDocClick={(docId) => setView(docId)}
+                  onApiDocsClick={() => navigateTo('api')}
+                  onDeveloperClick={() => navigateTo('developer')}
+                  onLegalClick={() => navigateTo('legal')}
+                  onDocClick={(docId) => navigateTo(docId)}
                 />
               </div>
             </div>
@@ -193,7 +216,11 @@ export function HelpWindow({
           ) : (
             <div className="flex h-full min-h-0 flex-col overflow-hidden">
               <div className="min-h-0 flex-1">
-                <HelpDocumentation docId={view} />
+                <HelpDocumentation
+                  docId={view}
+                  sidebarOpen={sidebarOpen}
+                  onSidebarOpenChange={setSidebarOpen}
+                />
               </div>
             </div>
           )}

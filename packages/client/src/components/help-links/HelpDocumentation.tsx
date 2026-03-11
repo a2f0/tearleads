@@ -134,9 +134,15 @@ function resolveLanguage(language: string | undefined): SupportedLanguage {
 
 interface HelpDocumentationProps {
   docId: HelpDocId;
+  sidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
 }
 
-export function HelpDocumentation({ docId }: HelpDocumentationProps) {
+export function HelpDocumentation({
+  docId,
+  sidebarOpen,
+  onSidebarOpenChange
+}: HelpDocumentationProps) {
   const { i18n } = useTypedTranslation('common');
   const { resolvedTheme } = useTheme();
   const markdownColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
@@ -160,6 +166,8 @@ export function HelpDocumentation({ docId }: HelpDocumentationProps) {
       <MarkdownWithToc
         source={documentation}
         markdownColorMode={markdownColorMode}
+        sidebarOpen={sidebarOpen}
+        onSidebarOpenChange={onSidebarOpenChange}
       />
     </div>
   );

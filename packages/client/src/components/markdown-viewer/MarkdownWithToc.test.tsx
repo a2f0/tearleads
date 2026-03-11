@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MarkdownWithToc } from './MarkdownWithToc';
 
@@ -9,6 +8,17 @@ vi.mock('@uiw/react-md-editor', () => ({
       <div data-testid="markdown">{source.slice(0, 20)}</div>
     )
   }
+}));
+
+vi.mock('@tearleads/window-manager', () => ({
+  WindowSidebar: ({
+    children,
+    'data-testid': testId
+  }: {
+    children: React.ReactNode;
+    'data-testid'?: string;
+  }) => <div data-testid={testId}>{children}</div>,
+  useWindowSidebar: () => ({ closeSidebar: vi.fn(), isMobileDrawer: false })
 }));
 
 describe('MarkdownWithToc', () => {
@@ -24,11 +34,6 @@ describe('MarkdownWithToc', () => {
     expect(screen.getByTestId('markdown-content-scroll')).toBeInTheDocument();
     expect(
       screen.getByRole('navigation', { name: 'Table of contents' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('separator', {
-        name: 'Resize table of contents sidebar'
-      })
     ).toBeInTheDocument();
   });
 
@@ -77,30 +82,5 @@ describe('MarkdownWithToc', () => {
       screen.queryByTestId('markdown-toc-sidebar')
     ).not.toBeInTheDocument();
     expect(screen.getByTestId('markdown-content-scroll')).toBeInTheDocument();
-  });
-
-  it('resizes toc sidebar from keyboard', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <MarkdownWithToc
-        markdownColorMode="light"
-        source={'# Intro\n## Installation\n## Usage'}
-      />
-    );
-
-    const sidebar = screen.getByTestId('markdown-toc-sidebar');
-    const resizeHandle = screen.getByRole('separator', {
-      name: 'Resize table of contents sidebar'
-    });
-
-    expect(sidebar).toHaveStyle({ width: '220px' });
-
-    resizeHandle.focus();
-    await user.keyboard('{ArrowRight}');
-    expect(sidebar).toHaveStyle({ width: '230px' });
-
-    await user.keyboard('{ArrowLeft}');
-    expect(sidebar).toHaveStyle({ width: '220px' });
   });
 });

@@ -1,6 +1,13 @@
+// one-component-per-file: allow - renderExternalMarkdownLink and renderMarkdownLink are JSX-returning helpers, not standalone components.
 import { cn, useTheme } from '@tearleads/ui';
+import { WindowSidebarToggle } from '@tearleads/window-manager';
 import { FileText, ShieldCheck } from 'lucide-react';
-import { type AnchorHTMLAttributes, type ReactNode, useCallback } from 'react';
+import {
+  type AnchorHTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useState
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import { BackLink } from '@/components/ui/back-link';
@@ -40,6 +47,7 @@ export function ComplianceDocPage() {
   const params = useParams<{ framework: string; '*': string }>();
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const frameworkId = decodeRouteSegment(params.framework);
   const frameworkDocuments = frameworkId
@@ -116,7 +124,12 @@ export function ComplianceDocPage() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
       <div className="space-y-2">
-        <BackLink defaultTo="/compliance" defaultLabel="Back to Compliance" />
+        <div className="flex items-center gap-4">
+          <WindowSidebarToggle
+            onToggle={() => setSidebarOpen((prev) => !prev)}
+          />
+          <BackLink defaultTo="/compliance" defaultLabel="Back to Compliance" />
+        </div>
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">
@@ -164,6 +177,8 @@ export function ComplianceDocPage() {
               source={activeDocument.source}
               markdownColorMode={markdownColorMode}
               linkComponent={renderMarkdownLink}
+              sidebarOpen={sidebarOpen}
+              onSidebarOpenChange={setSidebarOpen}
             />
           ) : (
             <div className="rounded-md border bg-card p-4">
