@@ -1,43 +1,43 @@
 {
   "releases": [
     {
+      "version": "0.0.1692",
+      "date": "2026-03-11",
+      "platforms": {
+        "macos": {
+          "arch": "arm64",
+          "ext": "dmg"
+        },
+        "windows": {
+          "arch": "x64",
+          "ext": "exe"
+        },
+        "linux": {
+          "arch": "x64",
+          "ext": "AppImage"
+        }
+      }
+    },
+    {
+      "version": "0.0.1691",
+      "date": "2026-03-11",
+      "platforms": {
+        "macos": {
+          "arch": "arm64",
+          "ext": "dmg"
+        },
+        "windows": {
+          "arch": "x64",
+          "ext": "exe"
+        },
+        "linux": {
+          "arch": "x64",
+          "ext": "AppImage"
+        }
+      }
+    },
+    {
       "version": "0.0.1690",
-      "date": "2026-03-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.1689",
-      "date": "2026-03-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.1688",
       "date": "2026-03-11",
       "platforms": {
         "macos": {
