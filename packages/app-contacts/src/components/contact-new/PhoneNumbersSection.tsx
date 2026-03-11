@@ -1,7 +1,6 @@
 import { Phone, Plus, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import type { PhoneFormData } from './types';
+import { useContactsContext, useContactsUI } from '../../context';
+import type { PhoneFormData } from '../contact-detail/types';
 
 interface PhoneNumbersSectionProps {
   phonesForm: PhoneFormData[];
@@ -22,10 +21,13 @@ export function PhoneNumbersSection({
   onDeletePhone,
   onAddPhone
 }: PhoneNumbersSectionProps) {
+  const { t } = useContactsContext();
+  const { Button, Input } = useContactsUI();
+
   return (
     <div className="rounded-lg border">
       <div className="border-b px-4 py-3">
-        <h2 className="font-semibold">Phone Numbers</h2>
+        <h2 className="font-semibold">{t('phoneNumbers')}</h2>
       </div>
       <div className="divide-y">
         {phonesForm.map((phone) => (
@@ -35,10 +37,10 @@ export function PhoneNumbersSection({
               <Input
                 type="tel"
                 value={phone.phoneNumber}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onPhoneChange(phone.id, 'phoneNumber', e.target.value)
                 }
-                placeholder="Phone number"
+                placeholder={t('phoneNumber')}
                 className="min-w-0 flex-1"
                 data-testid={`new-phone-${phone.id}`}
               />
@@ -47,10 +49,10 @@ export function PhoneNumbersSection({
               <Input
                 type="text"
                 value={phone.label}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onPhoneChange(phone.id, 'label', e.target.value)
                 }
-                placeholder="Label (e.g., Mobile)"
+                placeholder={t('label')}
                 className="w-full sm:w-32"
                 data-testid={`new-phone-label-${phone.id}`}
               />
@@ -62,7 +64,7 @@ export function PhoneNumbersSection({
                   onChange={() => onPhonePrimaryChange(phone.id)}
                   className="h-4 w-4"
                 />
-                Primary
+                {t('primary')}
               </label>
               <Button
                 variant="ghost"
@@ -72,7 +74,7 @@ export function PhoneNumbersSection({
                 data-testid={`delete-phone-${phone.id}`}
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                Remove
+                {t('delete')}
               </Button>
             </div>
           </div>
@@ -86,7 +88,7 @@ export function PhoneNumbersSection({
           data-testid="add-phone-button"
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Phone
+          {t('addPhone')}
         </Button>
       </div>
     </div>

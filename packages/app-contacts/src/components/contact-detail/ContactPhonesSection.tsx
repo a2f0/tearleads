@@ -1,5 +1,5 @@
 import { Phone } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useContactsContext } from '../../context';
 import { ContactEditableListSection } from './ContactEditableListSection';
 import type { ContactPhone, PhoneFormData } from './types';
 
@@ -26,7 +26,7 @@ export function ContactPhonesSection({
   onDeletePhone,
   onAddPhone
 }: ContactPhonesSectionProps) {
-  const { t } = useTranslation('contacts');
+  const { t } = useContactsContext();
 
   return (
     <ContactEditableListSection

@@ -29,9 +29,20 @@ vi.mock('@tearleads/app-contacts', async () => {
   const actual = await vi.importActual('@tearleads/app-contacts');
   return {
     ...actual,
-    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />
+    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />,
+    ContactsPage: () => (
+      <div>
+        <input placeholder="Search contacts..." type="text" />
+      </div>
+    )
   };
 });
+
+vi.mock('@/contexts/ClientContactsProvider', () => ({
+  ClientContactsProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
+}));
 
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({

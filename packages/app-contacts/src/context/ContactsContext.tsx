@@ -7,6 +7,11 @@ import type {
 } from '@tearleads/shared';
 import type { ComponentType, ReactNode, Ref } from 'react';
 import { createContext, useContext, useMemo } from 'react';
+import type {
+  ContactFormData,
+  EmailFormData,
+  PhoneFormData
+} from '../lib/validation';
 
 /**
  * Database context state shared with host-runtime adapters.
@@ -212,7 +217,24 @@ export type ContactsTranslationKey =
   | 'thisContact'
   | 'createContact'
   | 'name'
-  | 'value';
+  | 'value'
+  | 'backToContacts'
+  | 'backToHome'
+  | 'contactNotFound'
+  | 'firstNameIsRequired'
+  | 'emailCannotBeEmpty'
+  | 'phoneCannotBeEmpty'
+  | 'export'
+  | 'addEmail'
+  | 'addPhone'
+  | 'emailAddress'
+  | 'phoneNumber'
+  | 'noContactsFound'
+  | 'mapCsvColumns'
+  | 'imported'
+  | 'saveContact'
+  | 'newContactTitle'
+  | 'addNewContact';
 
 /**
  * Translation function type - accepts contacts-specific keys
@@ -261,6 +283,24 @@ export type OnContactsImportedFunction = (
 ) => Promise<void>;
 
 /**
+ * Callback params for when a contact is saved (created or updated)
+ */
+export interface OnContactSavedParams {
+  contactId: string;
+  isNew: boolean;
+  formData: ContactFormData;
+  emails: EmailFormData[];
+  phones: PhoneFormData[];
+}
+
+/**
+ * Callback function type for after a contact is saved
+ */
+export type OnContactSavedFunction = (
+  params: OnContactSavedParams
+) => Promise<void>;
+
+/**
  * Context value interface
  */
 /**
@@ -302,6 +342,8 @@ export interface ContactsContextValue {
   openEmailComposer?: (recipients: string[]) => boolean;
   /** Active organization ID for org-scoped data attribution */
   activeOrganizationId: string | null;
+  /** Optional callback after a contact is saved (created or updated) */
+  onContactSaved: OnContactSavedFunction;
 }
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
@@ -313,6 +355,7 @@ export interface ContactsProviderProps extends HostRuntimeBaseProps {
   saveFile: SaveFileFunction;
   registerInVfs: RegisterInVfsFunction;
   onContactsImported?: OnContactsImportedFunction;
+  onContactSaved?: OnContactSavedFunction;
   ui: ContactsUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;
@@ -334,6 +377,7 @@ export function ContactsProvider({
   saveFile,
   registerInVfs,
   onContactsImported,
+  onContactSaved,
   ui,
   t,
   tooltipZIndex = 10050,
@@ -355,6 +399,11 @@ export function ContactsProvider({
         (async () => {
           return;
         }),
+      onContactSaved:
+        onContactSaved ??
+        (async () => {
+          return;
+        }),
       ui,
       t,
       tooltipZIndex,
@@ -371,6 +420,7 @@ export function ContactsProvider({
       saveFile,
       registerInVfs,
       onContactsImported,
+      onContactSaved,
       ui,
       t,
       tooltipZIndex,

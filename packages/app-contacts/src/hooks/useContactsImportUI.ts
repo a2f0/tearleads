@@ -3,17 +3,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import {
-  type ColumnMapping,
-  type ParsedCSV,
-  useContactsImport
-} from '@/hooks/contacts';
-
-interface ImportResult {
-  imported: number;
-  skipped: number;
-  errors: string[];
-}
+import type { ColumnMapping, ImportResult, ParsedCSV } from './useContactsImport';
+import { useContactsImport } from './useContactsImport';
 
 interface UseContactsImportUIResult {
   parsedData: ParsedCSV | null;
@@ -23,7 +14,6 @@ interface UseContactsImportUIResult {
   handleFilesSelected: (files: File[]) => Promise<void>;
   handleImport: (mapping: ColumnMapping) => Promise<void>;
   handleCancelMapping: () => void;
-  setImportResult: React.Dispatch<React.SetStateAction<ImportResult | null>>;
 }
 
 export function useContactsImportUI(
@@ -68,14 +58,13 @@ export function useContactsImportUI(
       const result = await importContacts(parsedData, mapping);
 
       setImportResult({
+        total: result.total,
         imported: result.imported,
         skipped: result.skipped,
         errors: result.errors
       });
 
       setParsedData(null);
-
-      // Refresh contacts list
       await fetchContacts();
     },
     [parsedData, importContacts, fetchContacts]
@@ -92,7 +81,6 @@ export function useContactsImportUI(
     progress,
     handleFilesSelected,
     handleImport,
-    handleCancelMapping,
-    setImportResult
+    handleCancelMapping
   };
 }

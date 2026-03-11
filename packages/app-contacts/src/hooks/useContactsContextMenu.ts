@@ -2,23 +2,22 @@
  * Hook for contacts context menu handling.
  */
 
+import { contacts as contactsTable } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
-import { getDatabase } from '@/db';
-import { contacts as contactsTable } from '@/db/schema';
-import { useContactsExport } from '@/hooks/contacts';
-import { useNavigateWithFrom } from '@/lib/navigation';
-import type { ContactInfo } from './types';
+import { useContactsContext } from '../context';
+import { useContactsExport } from './useContactsExport';
+import type { ContactsPageInfo } from './useContactsPageData';
 
 interface ContextMenuState {
-  contact: ContactInfo;
+  contact: ContactsPageInfo;
   x: number;
   y: number;
 }
 
 interface UseContactsContextMenuResult {
   contextMenu: ContextMenuState | null;
-  handleContextMenu: (e: React.MouseEvent, contact: ContactInfo) => void;
+  handleContextMenu: (e: React.MouseEvent, contact: ContactsPageInfo) => void;
   handleGetInfo: () => void;
   handleEdit: () => void;
   handleDelete: () => Promise<void>;
@@ -31,12 +30,14 @@ export function useContactsContextMenu(
   fetchContacts: (search?: string) => Promise<void>,
   setError: (error: string | null) => void
 ): UseContactsContextMenuResult {
-  const navigateWithFrom = useNavigateWithFrom();
+  const { getDatabase, navigateWithFrom } = useContactsContext();
   const { exportContact } = useContactsExport();
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
+    null
+  );
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, contact: ContactInfo) => {
+    (e: React.MouseEvent, contact: ContactsPageInfo) => {
       e.preventDefault();
       setContextMenu({ contact, x: e.clientX, y: e.clientY });
     },
@@ -79,7 +80,7 @@ export function useContactsContextMenu(
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu, fetchContacts, debouncedSearch, setError]);
+  }, [contextMenu, getDatabase, fetchContacts, debouncedSearch, setError]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);

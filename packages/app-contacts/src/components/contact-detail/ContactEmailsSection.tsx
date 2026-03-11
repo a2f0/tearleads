@@ -1,5 +1,5 @@
 import { Mail } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useContactsContext } from '../../context';
 import { ContactEditableListSection } from './ContactEditableListSection';
 import type { ContactEmail, EmailFormData } from './types';
 
@@ -26,7 +26,7 @@ export function ContactEmailsSection({
   onDeleteEmail,
   onAddEmail
 }: ContactEmailsSectionProps) {
-  const { t } = useTranslation('contacts');
+  const { t } = useContactsContext();
 
   return (
     <ContactEditableListSection

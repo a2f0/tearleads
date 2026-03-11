@@ -1,7 +1,6 @@
 import { Mail, Plus, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import type { EmailFormData } from './types';
+import { useContactsContext, useContactsUI } from '../../context';
+import type { EmailFormData } from '../contact-detail/types';
 
 interface EmailAddressesSectionProps {
   emailsForm: EmailFormData[];
@@ -22,10 +21,13 @@ export function EmailAddressesSection({
   onDeleteEmail,
   onAddEmail
 }: EmailAddressesSectionProps) {
+  const { t } = useContactsContext();
+  const { Button, Input } = useContactsUI();
+
   return (
     <div className="rounded-lg border">
       <div className="border-b px-4 py-3">
-        <h2 className="font-semibold">Email Addresses</h2>
+        <h2 className="font-semibold">{t('emailAddresses')}</h2>
       </div>
       <div className="divide-y">
         {emailsForm.map((email) => (
@@ -35,10 +37,10 @@ export function EmailAddressesSection({
               <Input
                 type="email"
                 value={email.email}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onEmailChange(email.id, 'email', e.target.value)
                 }
-                placeholder="Email address"
+                placeholder={t('emailAddress')}
                 className="min-w-0 flex-1"
                 data-testid={`new-email-${email.id}`}
               />
@@ -47,10 +49,10 @@ export function EmailAddressesSection({
               <Input
                 type="text"
                 value={email.label}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onEmailChange(email.id, 'label', e.target.value)
                 }
-                placeholder="Label (e.g., Work)"
+                placeholder={t('label')}
                 className="w-full sm:w-32"
                 data-testid={`new-email-label-${email.id}`}
               />
@@ -62,7 +64,7 @@ export function EmailAddressesSection({
                   onChange={() => onEmailPrimaryChange(email.id)}
                   className="h-4 w-4"
                 />
-                Primary
+                {t('primary')}
               </label>
               <Button
                 variant="ghost"
@@ -72,7 +74,7 @@ export function EmailAddressesSection({
                 data-testid={`delete-email-${email.id}`}
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                Remove
+                {t('delete')}
               </Button>
             </div>
           </div>
@@ -86,7 +88,7 @@ export function EmailAddressesSection({
           data-testid="add-email-button"
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Email
+          {t('addEmail')}
         </Button>
       </div>
     </div>

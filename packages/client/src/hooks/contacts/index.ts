@@ -1,6 +1,6 @@
-export { useContactsExport } from './useContactsExport';
 export {
   type ColumnMapping,
   type ParsedCSV,
+  useContactsExport,
   useContactsImport
-} from './useContactsImport';
+} from '@tearleads/app-contacts';

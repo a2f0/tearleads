@@ -1,7 +1,5 @@
 import { Cake, Download, Loader2, Pencil, Save, User, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useContactsContext, useContactsUI } from '../../context';
 import type { ContactFormData, ContactInfo } from './types';
 
 interface ContactDetailHeaderProps {
@@ -29,7 +27,8 @@ export function ContactDetailHeader({
   onExport,
   onFormChange
 }: ContactDetailHeaderProps) {
-  const { t } = useTranslation('contacts');
+  const { t } = useContactsContext();
+  const { Button, Input } = useContactsUI();
 
   const displayName = `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;
 

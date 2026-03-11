@@ -1,6 +1,5 @@
 import { Calendar } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/utils';
+import { useContactsContext } from '../../context';
 import type { ContactInfo } from './types';
 
 interface ContactDetailsSectionProps {
@@ -8,7 +7,7 @@ interface ContactDetailsSectionProps {
 }
 
 export function ContactDetailsSection({ contact }: ContactDetailsSectionProps) {
-  const { t } = useTranslation('contacts');
+  const { t, formatDate } = useContactsContext();
 
   return (
     <div className="rounded-lg border">

@@ -17,6 +17,8 @@ export type {
   ContactsUIComponents,
   DatabaseState,
   ImportedContactRecord,
+  OnContactSavedFunction,
+  OnContactSavedParams,
   OnContactsImportedFunction,
   RegisterInVfsFunction,
   VfsRegistrationResult
@@ -31,6 +33,7 @@ export type {
   ColumnMapping,
   ContactGroup,
   ContactInfo,
+  ContactsPageInfo,
   ImportResult,
   ParsedCSV,
   SortColumn,
@@ -38,7 +41,17 @@ export type {
 } from './hooks';
 export {
   useContactGroups,
+  useContactNewForm,
   useContacts,
+  useContactsContextMenu,
   useContactsExport,
-  useContactsImport
+  useContactsImport,
+  useContactsImportUI,
+  useContactSave,
+  useContactsPageData
 } from './hooks';
+export {
+  ContactDetailPage,
+  ContactNewPage,
+  ContactsPage
+} from './pages';

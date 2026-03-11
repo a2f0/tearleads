@@ -1,23 +1,32 @@
 /**
- * Hook for fetching and managing contacts data.
+ * Hook for fetching and managing contacts list data for the page view.
  */
 
-import { ALL_CONTACTS_ID } from '@tearleads/app-contacts';
-import { and, asc, eq, isNull, like, or, type SQL } from 'drizzle-orm';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOrg } from '@/contexts/OrgContext';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
 import {
   contactEmails,
   contactPhones,
   contacts as contactsTable,
   vfsLinks
-} from '@/db/schema';
-import type { ContactInfo } from './types';
+} from '@tearleads/db/sqlite';
+import { and, asc, eq, isNull, like, or, type SQL } from 'drizzle-orm';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ALL_CONTACTS_ID } from '../components/ContactsGroupsSidebar';
+import { useContactsContext } from '../context';
 
-interface UseContactsDataResult {
-  contacts: ContactInfo[];
+export interface ContactsPageInfo {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  birthday: string | null;
+  primaryEmail: string | null;
+  primaryPhone: string | null;
+  createdAt: Date;
+}
+
+export const ROW_HEIGHT_ESTIMATE = 72;
+
+interface UseContactsPageDataResult {
+  contacts: ContactsPageInfo[];
   loading: boolean;
   error: string | null;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
@@ -27,33 +36,31 @@ interface UseContactsDataResult {
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   debouncedSearch: string;
   selectedGroupId: string | null;
-  setSelectedGroupId: React.Dispatch<React.SetStateAction<string | null>>;
   fetchContacts: (search?: string) => Promise<void>;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
-  setContacts: React.Dispatch<React.SetStateAction<ContactInfo[]>>;
 }
 
-export function useContactsData(
-  routeGroupId: string | undefined,
+export function useContactsPageData(
+  groupId: string | undefined,
   parsedDataExists: boolean
-): UseContactsDataResult {
-  const { isUnlocked, currentInstanceId } = useDatabaseContext();
-  const { activeOrganizationId } = useOrg();
-  const [contacts, setContacts] = useState<ContactInfo[]>([]);
+): UseContactsPageDataResult {
+  const { databaseState, getDatabase, activeOrganizationId } =
+    useContactsContext();
+  const { isUnlocked, currentInstanceId } = databaseState;
+  const [contacts, setContacts] = useState<ContactsPageInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
-    routeGroupId ?? ALL_CONTACTS_ID
+    groupId ?? ALL_CONTACTS_ID
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fetchedForInstanceRef = useRef<string | null>(null);
   const previousOrgIdRef = useRef<string | null>(activeOrganizationId);
 
-  // Debounce search query
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -68,24 +75,21 @@ export function useContactsData(
     };
   }, [searchQuery]);
 
-  // Sync selectedGroupId with route
   useEffect(() => {
-    const newGroupId = routeGroupId ?? ALL_CONTACTS_ID;
+    const newGroupId = groupId ?? ALL_CONTACTS_ID;
     if (selectedGroupId !== newGroupId) {
       setSelectedGroupId(newGroupId);
       setContacts([]);
       setHasFetched(false);
     }
-  }, [routeGroupId, selectedGroupId]);
+  }, [groupId, selectedGroupId]);
 
-  // Focus search input when database is unlocked
   useEffect(() => {
     if (isUnlocked && !parsedDataExists) {
       searchInputRef.current?.focus();
     }
   }, [isUnlocked, parsedDataExists]);
 
-  // Refetch when active org changes
   useEffect(() => {
     if (previousOrgIdRef.current === activeOrganizationId) return;
     previousOrgIdRef.current = activeOrganizationId;
@@ -102,8 +106,6 @@ export function useContactsData(
 
       try {
         const db = getDatabase();
-
-        // Build query with optional search
         const searchTerm = search?.trim();
         const searchPattern = searchTerm ? `%${searchTerm}%` : null;
         const groupFilterId =
@@ -111,7 +113,6 @@ export function useContactsData(
             ? selectedGroupId
             : null;
 
-        // Query contacts with LEFT JOINs for primary email/phone
         let baseQuery = db
           .select({
             id: contactsTable.id,
@@ -148,7 +149,6 @@ export function useContactsData(
           );
         }
 
-        // Build where conditions
         const deletedCondition = eq(contactsTable.deleted, false);
         const orgFilter = activeOrganizationId
           ? or(
@@ -160,7 +160,6 @@ export function useContactsData(
         let whereCondition: SQL | undefined;
 
         if (searchPattern) {
-          // Search across name, email, and phone (SQLite LIKE is case-insensitive by default)
           const searchCondition = or(
             like(contactsTable.firstName, searchPattern),
             like(contactsTable.lastName, searchPattern),
@@ -195,19 +194,16 @@ export function useContactsData(
         setLoading(false);
       }
     },
-    [isUnlocked, selectedGroupId, activeOrganizationId]
+    [isUnlocked, selectedGroupId, activeOrganizationId, getDatabase]
   );
 
-  // Fetch contacts on initial load, when search query changes, or when instance changes
   useEffect(() => {
     if (!isUnlocked) return;
 
-    // Check if we need to reset for instance change
     if (
       fetchedForInstanceRef.current !== currentInstanceId &&
       fetchedForInstanceRef.current !== null
     ) {
-      // Instance changed - clear contacts and reset state
       setContacts([]);
       setHasFetched(false);
       setError(null);
@@ -215,10 +211,8 @@ export function useContactsData(
       setDebouncedSearch('');
     }
 
-    // Update ref before fetching
     fetchedForInstanceRef.current = currentInstanceId;
 
-    // Defer fetch to next tick to ensure database singleton is updated
     const timeoutId = setTimeout(() => {
       fetchContacts(debouncedSearch);
     }, 0);
@@ -237,9 +231,7 @@ export function useContactsData(
     setSearchQuery,
     debouncedSearch,
     selectedGroupId,
-    setSelectedGroupId,
     fetchContacts,
-    searchInputRef,
-    setContacts
+    searchInputRef
   };
 }

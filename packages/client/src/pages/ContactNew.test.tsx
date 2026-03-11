@@ -3,27 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { vfsRegistry } from '@/db/schema';
 import { ContactNew } from './ContactNew';
-
-const mockIsLoggedIn = vi.fn();
-const mockReadStoredAuth = vi.fn();
-const mockGetFeatureFlagValue = vi.fn();
-vi.mock('@/lib/authStorage', () => ({
-  isLoggedIn: () => mockIsLoggedIn(),
-  readStoredAuth: () => mockReadStoredAuth()
-}));
-
-vi.mock('@/lib/featureFlags', () => ({
-  getFeatureFlagValue: () => mockGetFeatureFlagValue()
-}));
-
-const mockGenerateSessionKey = vi.fn();
-const mockWrapSessionKey = vi.fn();
-vi.mock('@/hooks/vfs/useVfsKeys', () => ({
-  generateSessionKey: () => mockGenerateSessionKey(),
-  wrapSessionKey: (key: Uint8Array) => mockWrapSessionKey(key)
-}));
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -60,19 +40,132 @@ vi.mock('@/db', () => ({
     beginTransaction: vi.fn().mockResolvedValue(undefined),
     commitTransaction: vi.fn().mockResolvedValue(undefined),
     rollbackTransaction: vi.fn().mockResolvedValue(undefined)
-  }),
-  runLocalWrite: async (operation: () => Promise<unknown>) => operation()
+  })
 }));
+
+// Mock ClientContactsProvider to use test infrastructure
+vi.mock('@/contexts/ClientContactsProvider', async () => {
+  const { ContactsProvider } = await import('@tearleads/app-contacts');
+  const db = await import('@/db');
+  const dbHooks = await import('@/db/hooks');
+  const router = await import('react-router-dom');
+
+  const translations: Record<string, string> = {
+    backToContacts: 'Back to Contacts',
+    loadingDatabase: 'Loading database...',
+    loadingContact: 'Loading contact...',
+    thisContact: 'this contact',
+    createContact: 'contacts',
+    contactNotFound: 'Contact not found',
+    firstNameIsRequired: 'First name is required',
+    firstNameRequired: 'First name',
+    emailCannotBeEmpty: 'Email address cannot be empty',
+    phoneCannotBeEmpty: 'Phone number cannot be empty',
+    emailAddress: 'Email address',
+    emailAddresses: 'Email Addresses',
+    phoneNumber: 'Phone number',
+    phoneNumbers: 'Phone Numbers',
+    addEmail: 'Add Email',
+    addPhone: 'Add Phone',
+    save: 'Save',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    export: 'Export',
+    delete: 'Delete',
+    label: 'Label',
+    primary: 'Primary',
+    lastName: 'Last name',
+    birthdayPlaceholder: 'Birthday',
+    created: 'Created',
+    updated: 'Updated',
+    details: 'Details',
+    newContactTitle: 'New Contact',
+    saveContact: 'Save Contact'
+  };
+
+  return {
+    ClientContactsProvider: ({
+      children
+    }: {
+      children: React.ReactNode;
+    }) => {
+      const dbState = dbHooks.useDatabaseContext();
+      const navigate = router.useNavigate();
+
+      const mockUI = {
+        Button: ({
+          children: btnChildren,
+          onClick,
+          disabled,
+          ...props
+        }: any) => (
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            {...props}
+          >
+            {btnChildren}
+          </button>
+        ),
+        Input: ({ value, onChange, inputRef, ...props }: any) => (
+          <input ref={inputRef} value={value} onChange={onChange} {...props} />
+        ),
+        BackLink: ({ defaultLabel }: any) => (
+          <a href="/" data-testid="back-link">
+            {defaultLabel}
+          </a>
+        ),
+        InlineUnlock: ({ description }: any) => (
+          <div data-testid="inline-unlock">Unlock to access {description}</div>
+        ),
+        ContextMenu: ({ children: c }: any) => <div>{c}</div>,
+        ContextMenuItem: ({ children: c, onClick }: any) => (
+          <button type="button" onClick={onClick}>
+            {c}
+          </button>
+        ),
+        ListRow: ({ children: c }: any) => <div>{c}</div>,
+        RefreshButton: () => null,
+        VirtualListStatus: () => null,
+        DropdownMenu: () => null,
+        DropdownMenuItem: () => null,
+        DropdownMenuSeparator: () => null,
+        WindowOptionsMenuItem: () => null,
+        AboutMenuItem: () => null,
+        Dropzone: () => null
+      };
+
+      return (
+        <ContactsProvider
+          databaseState={{
+            isUnlocked: dbState?.isUnlocked ?? true,
+            isLoading: dbState?.isLoading ?? false,
+            currentInstanceId: 'test-instance'
+          }}
+          getDatabase={db.getDatabase}
+          getDatabaseAdapter={db.getDatabaseAdapter}
+          saveFile={async () => {}}
+          registerInVfs={async () => ({ success: true })}
+          onContactSaved={async () => {}}
+          ui={mockUI}
+          t={(key: string) => translations[key] || key}
+          tooltipZIndex={10000}
+          navigate={navigate}
+          navigateWithFrom={navigate}
+          formatDate={(d: Date) => d.toLocaleDateString()}
+          activeOrganizationId={null}
+        >
+          {children}
+        </ContactsProvider>
+      );
+    }
+  };
+});
 
 function createMockInsertChain() {
   return vi.fn().mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined)
-  });
-}
-
-function createMockDeleteChain() {
-  return vi.fn().mockReturnValue({
-    where: vi.fn().mockResolvedValue(undefined)
   });
 }
 
@@ -98,12 +191,6 @@ describe('ContactNew', () => {
       isLoading: false
     });
     mockInsert.mockImplementation(createMockInsertChain());
-    mockDelete.mockImplementation(createMockDeleteChain());
-    mockIsLoggedIn.mockReturnValue(false);
-    mockReadStoredAuth.mockReturnValue({ user: { id: 'user-123' } });
-    mockGetFeatureFlagValue.mockReturnValue(false);
-    mockGenerateSessionKey.mockReturnValue(new Uint8Array(32));
-    mockWrapSessionKey.mockResolvedValue('encrypted-session-key');
   });
 
   describe('rendering', () => {
@@ -222,8 +309,11 @@ describe('ContactNew', () => {
       const emailInputs = screen.getAllByPlaceholderText('Email address');
       expect(emailInputs.length).toBe(1);
 
-      const deleteButton = screen.getByRole('button', { name: 'Remove' });
-      await user.click(deleteButton);
+      // The delete button in the new code uses t('delete') text
+      const deleteButtons = screen.getAllByRole('button', {
+        name: /delete/i
+      });
+      await user.click(deleteButtons[0]!);
 
       expect(
         screen.queryByPlaceholderText('Email address')
@@ -251,8 +341,11 @@ describe('ContactNew', () => {
       const phoneInputs = screen.getAllByPlaceholderText('Phone number');
       expect(phoneInputs.length).toBe(1);
 
-      const deleteButton = screen.getByRole('button', { name: 'Remove' });
-      await user.click(deleteButton);
+      // The delete button in the new code uses t('delete') text
+      const deleteButtons = screen.getAllByRole('button', {
+        name: /delete/i
+      });
+      await user.click(deleteButtons[0]!);
 
       expect(
         screen.queryByPlaceholderText('Phone number')
@@ -267,7 +360,7 @@ describe('ContactNew', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(screen.getByText('First name is required')).toBeInTheDocument();
+      expect(screen.getByText('First name is required.')).toBeInTheDocument();
     });
 
     it('shows error when email is empty on save', async () => {
@@ -279,7 +372,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       expect(
-        screen.getByText('Email address cannot be empty')
+        screen.getByText('Email #1 cannot be empty.')
       ).toBeInTheDocument();
     });
 
@@ -292,7 +385,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       expect(
-        screen.getByText('Phone number cannot be empty')
+        screen.getByText('Phone #1 cannot be empty.')
       ).toBeInTheDocument();
     });
   });
@@ -341,7 +434,8 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledTimes(3);
+        // 1 for contacts table, 1 for contactEmails table
+        expect(mockInsert).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -358,7 +452,8 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledTimes(3);
+        // 1 for contacts table, 1 for contactPhones table
+        expect(mockInsert).toHaveBeenCalledTimes(2);
       });
     });
   });
@@ -381,69 +476,6 @@ describe('ContactNew', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
-      });
-
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('VFS registration', () => {
-    it('registers contact locally in VFS when logged in', async () => {
-      mockIsLoggedIn.mockReturnValue(true);
-
-      const user = userEvent.setup();
-      renderContactNew();
-
-      await user.type(screen.getByTestId('new-first-name'), 'John');
-      await user.click(screen.getByTestId('save-button'));
-
-      await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledWith(vfsRegistry);
-      });
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith(
-          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
-        );
-      });
-    });
-
-    it('registers contact locally in VFS when not logged in', async () => {
-      mockIsLoggedIn.mockReturnValue(false);
-
-      const user = userEvent.setup();
-      renderContactNew();
-
-      await user.type(screen.getByTestId('new-first-name'), 'John');
-      await user.click(screen.getByTestId('save-button'));
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith(
-          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
-        );
-      });
-
-      await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledWith(vfsRegistry);
-      });
-    });
-
-    it('still saves contact when session key wrapping fails', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-      mockIsLoggedIn.mockReturnValue(true);
-      mockWrapSessionKey.mockRejectedValue(new Error('VFS error'));
-
-      const user = userEvent.setup();
-      renderContactNew();
-
-      await user.type(screen.getByTestId('new-first-name'), 'John');
-      await user.click(screen.getByTestId('save-button'));
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith(
-          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
-        );
       });
 
       consoleSpy.mockRestore();

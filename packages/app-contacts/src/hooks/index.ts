@@ -1,4 +1,5 @@
 export { type ContactGroup, useContactGroups } from './useContactGroups';
+export { useContactNewForm } from './useContactNewForm';
 export { useContactSave } from './useContactSave';
 export {
   type ContactInfo,
@@ -6,6 +7,7 @@ export {
   type SortDirection,
   useContacts
 } from './useContacts';
+export { useContactsContextMenu } from './useContactsContextMenu';
 export { useContactsExport } from './useContactsExport';
 export {
   type ColumnMapping,
@@ -13,3 +15,9 @@ export {
   type ParsedCSV,
   useContactsImport
 } from './useContactsImport';
+export { useContactsImportUI } from './useContactsImportUI';
+export {
+  type ContactsPageInfo,
+  ROW_HEIGHT_ESTIMATE,
+  useContactsPageData
+} from './useContactsPageData';

@@ -1,8 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useContactsContext, useContactsUI } from '../../context';
 
 interface BaseFormItem {
   id: string;
@@ -66,7 +64,8 @@ export function ContactEditableListSection<
   onDelete,
   onAdd
 }: ContactEditableListSectionProps<TDisplay, TForm>) {
-  const { t } = useTranslation('contacts');
+  const { t } = useContactsContext();
+  const { Button, Input } = useContactsUI();
 
   if (isEditing) {
     return (
@@ -83,7 +82,7 @@ export function ContactEditableListSection<
                 <Input
                   type={inputType}
                   value={String(item[valueField])}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onValueChange(item.id, valueField, e.target.value)
                   }
                   placeholder={inputPlaceholder}
@@ -93,7 +92,7 @@ export function ContactEditableListSection<
                 <Input
                   type="text"
                   value={item.label}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onValueChange(item.id, 'label', e.target.value)
                   }
                   placeholder={t('label')}
