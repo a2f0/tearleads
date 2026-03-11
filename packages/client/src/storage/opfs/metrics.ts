@@ -10,11 +10,35 @@ type OpfsLogEvent = typeof logEvent;
 
 let opfsLogEvent: OpfsLogEvent = logEvent;
 
+function assertOpfsMetricsTestingHookRuntime(): void {
+  if (import.meta.env.MODE !== 'test') {
+    throw new Error(
+      'opfs metrics testing hooks are only available in test mode.'
+    );
+  }
+}
+
+/**
+ * Overrides `logEvent` for tests.
+ *
+ * @remarks
+ * This mutates module-level state and is intended only for tests.
+ * It is not safe for concurrent tests that require different logger mocks.
+ * Pair with `resetOpfsMetricsRuntimeForTesting` in `afterEach`/`beforeEach`.
+ */
 export function setOpfsLogEventForTesting(logEventImpl: OpfsLogEvent): void {
+  assertOpfsMetricsTestingHookRuntime();
   opfsLogEvent = logEventImpl;
 }
 
+/**
+ * Resets `logEvent` to the default implementation.
+ *
+ * @remarks
+ * Use this between tests to avoid state leaking across test cases.
+ */
 export function resetOpfsMetricsRuntimeForTesting(): void {
+  assertOpfsMetricsTestingHookRuntime();
   opfsLogEvent = logEvent;
 }
 

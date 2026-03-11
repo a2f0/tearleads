@@ -21,10 +21,25 @@ let shareModuleImporter: ShareModuleImporter = defaultShareModuleImporter;
 let filesystemModuleImporter: FilesystemModuleImporter =
   defaultFilesystemModuleImporter;
 
+function assertFileUtilsTestingHookRuntime(): void {
+  if (import.meta.env.MODE !== 'test') {
+    throw new Error('fileUtils testing hooks are only available in test mode.');
+  }
+}
+
+/**
+ * Sets module importers for mobile functionality for testing purposes.
+ *
+ * @remarks
+ * This mutates module-level state and is intended only for tests.
+ * It is not safe for concurrent tests that require different importer mocks.
+ * Pair with `resetFileUtilsRuntimeForTesting` in `afterEach` to avoid leakage.
+ */
 export function setFileUtilsMobileImportersForTesting(importers: {
   share?: ShareModuleImporter;
   filesystem?: FilesystemModuleImporter;
 }): void {
+  assertFileUtilsTestingHookRuntime();
   if (importers.share) {
     shareModuleImporter = importers.share;
   }
@@ -33,7 +48,14 @@ export function setFileUtilsMobileImportersForTesting(importers: {
   }
 }
 
+/**
+ * Resets mobile module importers to their default implementations.
+ *
+ * @remarks
+ * This should be called in `afterEach` when tests override mobile importers.
+ */
 export function resetFileUtilsRuntimeForTesting(): void {
+  assertFileUtilsTestingHookRuntime();
   shareModuleImporter = defaultShareModuleImporter;
   filesystemModuleImporter = defaultFilesystemModuleImporter;
 }
