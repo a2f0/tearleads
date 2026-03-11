@@ -48,6 +48,10 @@ updates:
         patterns:
           - 'react-pdf'
           - 'pdfjs-dist'
+      media:
+        patterns:
+          - 'file-type'
+          - 'music-metadata'
       types:
         patterns:
           - '@types/*'
