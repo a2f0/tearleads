@@ -286,9 +286,9 @@ describe('analytics', () => {
     });
 
     it('skips logging when database is not initialized', async () => {
-      vi
-        .spyOn(analyticsState, 'isDatabaseInitialized')
-        .mockReturnValueOnce(false);
+      vi.spyOn(analyticsState, 'isDatabaseInitialized').mockReturnValueOnce(
+        false
+      );
 
       await logApiEvent('api_get_ping', 100, true);
 
