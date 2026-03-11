@@ -8,7 +8,6 @@ describe('vfsWriteOrchestrator', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
     global.fetch = vi.fn();
