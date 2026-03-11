@@ -114,9 +114,7 @@ describe('vfsRecipientKeyResolver', () => {
 
     it('handles API errors gracefully', async () => {
       const { api } = await import('@/lib/api');
-      api.vfs.searchShareTargets.mockRejectedValue(
-        new Error('Network error')
-      );
+      api.vfs.searchShareTargets.mockRejectedValue(new Error('Network error'));
 
       const consoleErrorSpy = vi
         .spyOn(console, 'error')

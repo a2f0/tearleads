@@ -41,9 +41,7 @@ describe('vfsUserKeyProvider', () => {
 
     it('propagates errors from ensureVfsKeyPair', async () => {
       const { ensureVfsKeyPair } = await import('@/hooks/vfs');
-      ensureVfsKeyPair.mockRejectedValue(
-        new Error('Keys not set up')
-      );
+      ensureVfsKeyPair.mockRejectedValue(new Error('Keys not set up'));
 
       const provider = createUserKeyProvider(() => ({
         id: 'user-1',
