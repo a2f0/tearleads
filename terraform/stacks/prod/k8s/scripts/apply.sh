@@ -7,7 +7,7 @@ format_duration() {
   local total_seconds=$1
   local minutes=$((total_seconds / 60))
   local seconds=$((total_seconds % 60))
-  if [ "$minutes" -gt 0 ]; then
+  if (( minutes > 0 )); then
     printf "%dm %ds" "$minutes" "$seconds"
   else
     printf "%ds" "$seconds"
