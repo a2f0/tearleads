@@ -64,11 +64,25 @@ function parseHeaderMap(envelope: unknown): Record<string, string> {
   }
 
   const headers = envelope['headers'];
+  const parsedHeaders: Record<string, string> = {};
+
+  if (headers instanceof Map) {
+    for (const [name, value] of headers.entries()) {
+      if (typeof name !== 'string') {
+        throw new Error('api-v2 wasm header names must be strings');
+      }
+      if (typeof value !== 'string') {
+        throw new Error(`api-v2 wasm header "${name}" must be a string`);
+      }
+      parsedHeaders[name] = value;
+    }
+    return parsedHeaders;
+  }
+
   if (!isRecord(headers)) {
     throw new Error('api-v2 wasm header envelope must include object headers');
   }
 
-  const parsedHeaders: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     if (typeof value !== 'string') {
       throw new Error(`api-v2 wasm header "${name}" must be a string`);

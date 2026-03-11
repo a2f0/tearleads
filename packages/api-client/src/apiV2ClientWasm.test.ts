@@ -166,6 +166,28 @@ describe('apiV2ClientWasm', () => {
     });
   });
 
+  it('builds headers when wasm bindings return a map envelope', async () => {
+    const buildRequestHeaders = vi.fn(() => ({
+      headers: new Map<string, string>([
+        ['authorization', 'Bearer token-abc'],
+        ['x-tearleads-organization-id', 'org_123']
+      ])
+    }));
+
+    mockApiV2WasmImport(createValidWasmBindings({ buildRequestHeaders }));
+
+    const { buildApiV2RequestHeaders } = await loadApiV2ClientWasm();
+    const headers = await buildApiV2RequestHeaders({
+      bearerToken: 'token-abc',
+      organizationId: 'org_123'
+    });
+
+    expect(headers).toEqual({
+      authorization: 'Bearer token-abc',
+      'x-tearleads-organization-id': 'org_123'
+    });
+  });
+
   it('throws when wasm module shape is invalid', async () => {
     mockApiV2WasmImport({});
 
