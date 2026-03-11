@@ -161,7 +161,8 @@ function main(): void {
     process.env['PROTO_CODEGEN_PARITY_GENERATED_DIR'],
     defaultGeneratedDir
   );
-  const extension = process.env['PROTO_CODEGEN_PARITY_ARTIFACT_EXTENSION'] ?? '.ts';
+  const extension =
+    process.env['PROTO_CODEGEN_PARITY_ARTIFACT_EXTENSION'] ?? '.ts';
   const definitions = readProtoDefinitions(protoDir);
   const generatedArtifacts = readGeneratedArtifactNamesWithExtension(
     generatedDir,
