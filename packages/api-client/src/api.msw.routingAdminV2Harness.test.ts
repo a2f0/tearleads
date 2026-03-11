@@ -1,4 +1,5 @@
 import { wasApiRequestMade } from '@tearleads/msw/node';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
@@ -39,25 +40,19 @@ describe('api adminV2 with msw runtime harness', () => {
     expect(redisValue.key).toBe('session:test');
     expect(redisDbSize.count).toBe(1);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetContext')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetContext'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetTables'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRows'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisValue'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisValue'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisDbSize'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisDbSize'))
     ).toBe(true);
   });
 });

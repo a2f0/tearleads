@@ -1,5 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { setStoredAuthToken } from '@tearleads/api-client/authStorage';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import {
   AdminDeleteRedisKeyResponseSchema,
   AdminGetContextResponseSchema,
@@ -358,87 +359,87 @@ describe('admin api client', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetContext')
+        url.includes(buildAdminV2ConnectMethodPath('GetContext'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetColumns')
+        url.includes(buildAdminV2ConnectMethodPath('GetColumns'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetRedisKeys')
+        url.includes(buildAdminV2ConnectMethodPath('GetRedisKeys'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/ListGroups')
+        url.includes(buildAdminV2ConnectMethodPath('ListGroups'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetGroup')
+        url.includes(buildAdminV2ConnectMethodPath('GetGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/CreateGroup')
+        url.includes(buildAdminV2ConnectMethodPath('CreateGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateGroup')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/DeleteGroup')
+        url.includes(buildAdminV2ConnectMethodPath('DeleteGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/AddGroupMember')
+        url.includes(buildAdminV2ConnectMethodPath('AddGroupMember'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/RemoveGroupMember')
+        url.includes(buildAdminV2ConnectMethodPath('RemoveGroupMember'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/ListOrganizations')
+        url.includes(buildAdminV2ConnectMethodPath('ListOrganizations'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetOrgUsers')
+        url.includes(buildAdminV2ConnectMethodPath('GetOrgUsers'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/CreateOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('CreateOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/DeleteOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('DeleteOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/ListUsers')
+        url.includes(buildAdminV2ConnectMethodPath('ListUsers'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateUser')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateUser'))
       )
     ).toBe(true);
     expect(
