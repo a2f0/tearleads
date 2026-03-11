@@ -1,7 +1,4 @@
-import {
-  useWindowSidebar,
-  WindowSidebar
-} from '@tearleads/window-manager';
+import { useWindowSidebar, WindowSidebar } from '@tearleads/window-manager';
 import MDEditor from '@uiw/react-md-editor';
 import {
   type AnchorHTMLAttributes,

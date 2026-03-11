@@ -83,5 +83,4 @@ describe('MarkdownWithToc', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByTestId('markdown-content-scroll')).toBeInTheDocument();
   });
-
 });

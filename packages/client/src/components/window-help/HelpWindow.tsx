@@ -27,7 +27,10 @@ type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
 
 function isDocView(view: HelpView): boolean {
   return (
-    view !== 'index' && view !== 'developer' && view !== 'legal' && view !== 'api'
+    view !== 'index' &&
+    view !== 'developer' &&
+    view !== 'legal' &&
+    view !== 'api'
   );
 }
 
