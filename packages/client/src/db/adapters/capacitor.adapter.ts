@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { normalizeSqlStatements } from '@/db/sql/sqlBatch';
 import {
+  deleteCapacitorDatabaseFile,
   getSQLiteConnection,
   isIgnorableDeleteDbError,
   resetSQLiteConnectionCache
@@ -89,6 +90,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
             if (!isIgnorableDeleteDbError(deleteErr)) {
               throw deleteErr;
             }
+            await deleteCapacitorDatabaseFile(config.name);
           }
         }
 
@@ -144,19 +146,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
           await CapacitorSQLite.deleteDatabase({ database: config.name });
         } catch (deleteErr: unknown) {
           if (!isIgnorableDeleteDbError(deleteErr)) {
-            // If plugin-level delete fails, try direct file deletion
-            try {
-              const { Filesystem, Directory } = await import(
-                '@capacitor/filesystem'
-              );
-              await Filesystem.deleteFile({
-                path: `CapacitorDatabase/${config.name}SQLite.db`,
-                directory: Directory.Library
-              });
-            } catch {
-              // Best effort
-            }
+            throw deleteErr;
           }
+          await deleteCapacitorDatabaseFile(config.name);
         }
 
         // Recreate connection and open (creates a fresh empty database)
