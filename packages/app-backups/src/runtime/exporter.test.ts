@@ -120,9 +120,7 @@ describe('exporter', () => {
 
       // Mock file storage
       existsMock.mockResolvedValue(true);
-      retrieveMock.mockResolvedValue(
-        new TextEncoder().encode('Hello, World!')
-      );
+      retrieveMock.mockResolvedValue(new TextEncoder().encode('Hello, World!'));
 
       const backup = await createBackup(mockAdapter, mockFileStorage, {
         password: 'test-password',
