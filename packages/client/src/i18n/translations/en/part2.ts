@@ -110,6 +110,8 @@ export const enPart2 = {
     loadingContacts: 'Loading contacts...',
     // Empty states
     noContactsYet: 'No contacts yet',
+    noContactsFound: 'No contacts found',
+    addNewContact: 'Add New Contact',
     createFirstContact: 'Create your first contact',
     noContactInfo: 'No contact info',
     // Search
@@ -133,6 +135,7 @@ export const enPart2 = {
     deleting: 'Deleting...',
     renameGroup: 'Rename Group',
     // Import
+    mapCsvColumns: 'Map CSV Columns',
     importCsv: 'Import CSV',
     done: 'Done',
     parsingCsv: 'Parsing CSV...',
