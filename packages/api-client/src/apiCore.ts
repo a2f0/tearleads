@@ -95,15 +95,12 @@ async function executeTokenRefresh(
   let receivedValidRefreshResponse = false;
 
   try {
-    const response = await fetch(
-      `${API_BASE_URL}${AUTH_CONNECT_REFRESH_PATH}`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(refreshToken ? { refreshToken } : {})
-      }
-    );
+    const response = await fetch(resolveRequestUrl(AUTH_CONNECT_REFRESH_PATH), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(refreshToken ? { refreshToken } : {})
+    });
 
     if (response.status === 401 || response.status === 403) {
       // Permanent failure - token is invalid or session was destroyed
@@ -273,7 +270,7 @@ function resolveRequestUrl(endpoint: string): string {
     return endpoint;
   }
 
-  if (endpoint.startsWith('/v2/')) {
+  if (endpoint.startsWith('/v2/') || endpoint.startsWith('/connect/')) {
     const apiBaseUrl = new URL(API_BASE_URL);
     return `${apiBaseUrl.origin}${endpoint}`;
   }
