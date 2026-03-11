@@ -35,7 +35,7 @@ module "rds" {
 
   # Keep minimal backup retention in prod while still minimizing cost.
   backup_retention_period      = 1
-  performance_insights_enabled = false
+  performance_insights_enabled = true
 
   # Protection
   deletion_protection = false
