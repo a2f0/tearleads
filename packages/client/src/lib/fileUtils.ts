@@ -13,8 +13,7 @@ type FilesystemModuleImporter = () => Promise<
   typeof import('@capacitor/filesystem')
 >;
 
-const defaultShareModuleImporter: ShareModuleImporter = async () =>
-  shareModule;
+const defaultShareModuleImporter: ShareModuleImporter = async () => shareModule;
 
 const defaultFilesystemModuleImporter: FilesystemModuleImporter = async () =>
   filesystemModule;
