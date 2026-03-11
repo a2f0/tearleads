@@ -3,6 +3,8 @@
 use std::{error::Error, fmt};
 
 const SUPPORTED_SQL_IDENTIFIER_FIELDS: [&str; 4] = ["schema", "table", "key", "cursor"];
+const DEFAULT_ADMIN_ROWS_LIMIT: u32 = 50;
+const MAX_ADMIN_ROWS_LIMIT: u32 = 1_000;
 
 /// Validation error for user-controlled domain inputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -152,10 +154,10 @@ pub fn normalize_required_redis_key(key: &str) -> Result<String, DomainValidatio
 /// Normalizes admin rows limits to defaults and a max safety cap.
 pub fn normalize_admin_rows_limit(limit: u32) -> u32 {
     if limit == 0 {
-        return 50;
+        return DEFAULT_ADMIN_ROWS_LIMIT;
     }
 
-    limit.min(1000)
+    limit.min(MAX_ADMIN_ROWS_LIMIT)
 }
 
 #[cfg(test)]

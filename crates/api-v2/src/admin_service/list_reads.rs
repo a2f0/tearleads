@@ -1,3 +1,4 @@
+use tearleads_api_domain_core::normalize_optional_organization_id;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGroupWithMemberCount, AdminListGroupsRequest, AdminListGroupsResponse,
     AdminListOrganizationsRequest, AdminListOrganizationsResponse, AdminListUsersRequest,
@@ -7,9 +8,7 @@ use tearleads_data_access_traits::{PostgresAdminReadRepository, RedisAdminReposi
 use tonic::{Request, Response, Status};
 
 use crate::admin_auth::{AdminOperation, AdminRequestAuthorizer, map_admin_auth_error};
-use crate::admin_service_common::{
-    map_data_access_error, normalize_optional_organization_id, resolve_organization_scope_filter,
-};
+use crate::admin_service_common::{map_data_access_error, resolve_organization_scope_filter};
 
 use super::{AdminServiceHandler, detail_reads};
 

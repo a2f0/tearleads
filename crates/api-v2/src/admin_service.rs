@@ -6,6 +6,7 @@ mod list_reads;
 mod organization_user_mutations;
 mod storage_reads;
 
+use tearleads_api_domain_core::normalize_admin_rows_limit;
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminAddGroupMemberRequest, AdminAddGroupMemberResponse, AdminCreateGroupRequest,
     AdminCreateGroupResponse, AdminCreateOrganizationRequest, AdminCreateOrganizationResponse,
@@ -37,7 +38,7 @@ use crate::admin_auth::{
 };
 use crate::admin_service_common::{
     map_data_access_error, map_redis_value, normalize_redis_key, normalize_required_resource_id,
-    normalize_rows_limit, normalize_schema_or_table, normalize_sort_direction, parse_row_struct,
+    normalize_schema_or_table, normalize_sort_direction, parse_row_struct,
 };
 
 /// Trait-backed implementation of `tearleads.v2.AdminService`.
@@ -328,7 +329,7 @@ where
             .map_err(Status::invalid_argument)?;
         let sort_direction =
             normalize_sort_direction(payload.sort_direction).map_err(Status::invalid_argument)?;
-        let limit = normalize_rows_limit(payload.limit);
+        let limit = normalize_admin_rows_limit(payload.limit);
 
         let rows_page = self
             .postgres_repo

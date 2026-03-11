@@ -5,8 +5,6 @@ use std::collections::{BTreeMap, HashMap};
 use prost_types::{ListValue, Struct, Value, value::Kind as ProtobufValueKind};
 use serde_json::Value as JsonValue;
 use tearleads_api_domain_core::{
-    normalize_admin_rows_limit as normalize_domain_admin_rows_limit,
-    normalize_optional_organization_id as normalize_domain_optional_organization_id,
     normalize_required_redis_key as normalize_domain_required_redis_key,
     normalize_required_resource_id as normalize_domain_required_resource_id,
     normalize_sort_direction as normalize_domain_sort_direction, normalize_sql_identifier,
@@ -60,10 +58,6 @@ pub(crate) fn normalize_redis_key(key: &str) -> Result<String, &'static str> {
     normalize_domain_required_redis_key(key).map_err(|_| "key must not be empty")
 }
 
-pub(crate) fn normalize_optional_organization_id(value: Option<String>) -> Option<String> {
-    normalize_domain_optional_organization_id(value)
-}
-
 pub(crate) fn normalize_required_resource_id(
     field: &'static str,
     value: &str,
@@ -99,10 +93,6 @@ pub(crate) fn normalize_sort_direction(
 ) -> Result<Option<String>, &'static str> {
     normalize_domain_sort_direction("sort_direction", value)
         .map_err(|_| "sort_direction must be \"asc\" or \"desc\"")
-}
-
-pub(crate) fn normalize_rows_limit(limit: u32) -> u32 {
-    normalize_domain_admin_rows_limit(limit)
 }
 
 pub(crate) fn parse_row_struct(row_json: &str) -> Result<Struct, String> {
