@@ -3,6 +3,7 @@ import {
   type EmailBodyOperations,
   type EmailContactOperations,
   type EmailDatabaseState,
+  type EmailDraftOperations,
   type EmailFolderOperations,
   EmailProvider,
   type EmailUIComponents
@@ -18,6 +19,7 @@ interface TestEmailProviderProps {
   contactOperations?: EmailContactOperations;
   folderOperations?: EmailFolderOperations;
   bodyOperations?: EmailBodyOperations;
+  draftOperations?: EmailDraftOperations;
 }
 
 export function TestEmailProvider({
@@ -32,7 +34,8 @@ export function TestEmailProvider({
   ui = mockUIComponents,
   contactOperations,
   folderOperations,
-  bodyOperations
+  bodyOperations,
+  draftOperations
 }: TestEmailProviderProps) {
   return (
     <EmailProvider
@@ -43,6 +46,7 @@ export function TestEmailProvider({
       {...(contactOperations !== undefined && { contactOperations })}
       {...(folderOperations !== undefined && { folderOperations })}
       {...(bodyOperations !== undefined && { bodyOperations })}
+      {...(draftOperations !== undefined && { draftOperations })}
     >
       {children}
     </EmailProvider>

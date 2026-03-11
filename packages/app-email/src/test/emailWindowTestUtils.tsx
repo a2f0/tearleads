@@ -4,12 +4,17 @@ import type { ComponentProps } from 'react';
 import { expect, vi } from 'vitest';
 import { EmailWindow } from '../components/EmailWindow';
 import { mockEmails } from '../components/emailWindowTestFixtures';
-import type { EmailContactOperations, EmailFolderOperations } from '../context';
+import type {
+  EmailContactOperations,
+  EmailDraftOperations,
+  EmailFolderOperations
+} from '../context';
 import { TestEmailProvider } from './testUtils';
 
 export interface RenderEmailWindowOptions {
   contactOperations?: EmailContactOperations;
   folderOperations?: EmailFolderOperations;
+  draftOperations?: EmailDraftOperations;
 }
 
 export const defaultProps: ComponentProps<typeof EmailWindow> = {
@@ -31,6 +36,9 @@ export const renderWithProvider = (
       })}
       {...(options?.folderOperations && {
         folderOperations: options.folderOperations
+      })}
+      {...(options?.draftOperations && {
+        draftOperations: options.draftOperations
       })}
     >
       <EmailWindow {...props} />
