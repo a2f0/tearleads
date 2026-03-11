@@ -106,7 +106,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use super::app_with_origins;
+    use super::{admin_harness_static_redis, app_with_origins, app_with_repos};
+    use super::admin_harness::StaticPostgresRepository;
 
     fn admin_tables_request(path: &str) -> Request<Body> {
         Request::builder()
@@ -136,5 +137,18 @@ mod tests {
             .await
             .expect("router should return a response");
         assert_ne!(v1_prefixed.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn app_with_repos_mounts_connect_routes() {
+        let pg = StaticPostgresRepository;
+        let rd = admin_harness_static_redis();
+        let response = app_with_repos("", pg, rd)
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
+            .await
+            .expect("router should return a response");
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
     }
 }
