@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import {
   AdminAddGroupMemberResponseSchema,
   AdminCreateGroupResponseSchema,
@@ -289,47 +290,47 @@ describe('admin api client v2 mutation routes', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/CreateGroup')
+        url.includes(buildAdminV2ConnectMethodPath('CreateGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateGroup')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/DeleteGroup')
+        url.includes(buildAdminV2ConnectMethodPath('DeleteGroup'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/AddGroupMember')
+        url.includes(buildAdminV2ConnectMethodPath('AddGroupMember'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/RemoveGroupMember')
+        url.includes(buildAdminV2ConnectMethodPath('RemoveGroupMember'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/CreateOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('CreateOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/DeleteOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('DeleteOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/UpdateUser')
+        url.includes(buildAdminV2ConnectMethodPath('UpdateUser'))
       )
     ).toBe(true);
     expect(
@@ -337,7 +338,7 @@ describe('admin api client v2 mutation routes', () => {
     ).toBe(false);
 
     const updateUserCall = fetchMock.mock.calls.find(([url]) =>
-      String(url).includes('/connect/tearleads.v2.AdminService/UpdateUser')
+      String(url).includes(buildAdminV2ConnectMethodPath('UpdateUser'))
     );
     expect(updateUserCall).toBeDefined();
     if (!updateUserCall) {

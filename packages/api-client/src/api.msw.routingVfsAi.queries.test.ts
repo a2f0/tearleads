@@ -1,5 +1,6 @@
 import { seedTestUser } from '@tearleads/api-test-utils';
 import { getRecordedApiRequests } from '@tearleads/msw/node';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
@@ -146,7 +147,7 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const postgresRowsRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v2.AdminService/GetRows'
+      buildAdminV2ConnectMethodPath('GetRows')
     );
     expect(postgresRowsRequests).toHaveLength(2);
 
@@ -161,7 +162,7 @@ describe('api with msw vfs/ai query metadata', () => {
 
     const redisKeysRequests = getRequestsFor(
       'POST',
-      '/connect/tearleads.v2.AdminService/GetRedisKeys'
+      buildAdminV2ConnectMethodPath('GetRedisKeys')
     );
     expect(redisKeysRequests).toHaveLength(2);
   });

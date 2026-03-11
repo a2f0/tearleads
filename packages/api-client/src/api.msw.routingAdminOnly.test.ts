@@ -1,5 +1,6 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
@@ -151,139 +152,109 @@ describe('api with msw admin routing', () => {
 
     expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetContext')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetContext'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetPostgresInfo'
+        buildAdminV2ConnectMethodPath('GetPostgresInfo')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetTables'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetColumns')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetColumns'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetRows')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRows'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisKeys'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisValue'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('DeleteRedisKey'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisDbSize'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('ListGroups'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetGroup'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('CreateGroup'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('UpdateGroup'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('DeleteGroup'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisKeys'
+        buildAdminV2ConnectMethodPath('GetGroupMembers')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisValue'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('AddGroupMember'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/DeleteRedisKey'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisDbSize'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/ListGroups')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetGroup')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/CreateGroup'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/UpdateGroup'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/DeleteGroup'
+        buildAdminV2ConnectMethodPath('RemoveGroupMember')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetGroupMembers'
+        buildAdminV2ConnectMethodPath('ListOrganizations')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/AddGroupMember'
+        buildAdminV2ConnectMethodPath('GetOrganization')
+      )
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetOrgUsers'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetOrgGroups'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade(
+        'POST',
+        buildAdminV2ConnectMethodPath('CreateOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/RemoveGroupMember'
+        buildAdminV2ConnectMethodPath('UpdateOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/ListOrganizations'
+        buildAdminV2ConnectMethodPath('DeleteOrganization')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetOrganization'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('ListUsers'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetOrgUsers'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetUser'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetOrgGroups'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/CreateOrganization'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/UpdateOrganization'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/DeleteOrganization'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/ListUsers')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetUser')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/UpdateUser')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('UpdateUser'))
     ).toBe(true);
   });
 });

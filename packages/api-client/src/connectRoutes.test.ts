@@ -1,3 +1,4 @@
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_V2_CONNECT_BASE_PATH,
@@ -40,7 +41,7 @@ describe('connectRoutes', () => {
   it('builds admin and ai method paths from canonical base paths', () => {
     expect(
       buildConnectMethodPath(ADMIN_V2_CONNECT_BASE_PATH, 'GetRedisDbSize')
-    ).toBe('/connect/tearleads.v2.AdminService/GetRedisDbSize');
+    ).toBe(buildAdminV2ConnectMethodPath('GetRedisDbSize'));
     expect(
       buildConnectMethodPath(AI_V2_CONNECT_BASE_PATH, 'GetUsageSummary')
     ).toBe('/connect/tearleads.v2.AiService/GetUsageSummary');

@@ -5,6 +5,7 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
@@ -302,10 +303,7 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AdminService/GetRedisKeys'
-        )
+        wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisKeys'))
       ).toBe(true);
     });
 
@@ -324,7 +322,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v2.AdminService/GetRedisValue'
+          buildAdminV2ConnectMethodPath('GetRedisValue')
         )
       ).toBe(true);
     });
@@ -341,7 +339,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v2.AdminService/DeleteRedisKey'
+          buildAdminV2ConnectMethodPath('DeleteRedisKey')
         )
       ).toBe(true);
     });
@@ -358,7 +356,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v2.AdminService/GetRedisDbSize'
+          buildAdminV2ConnectMethodPath('GetRedisDbSize')
         )
       ).toBe(true);
     });
@@ -375,7 +373,7 @@ describe('api with msw', () => {
       expect(
         wasApiRequestMade(
           'POST',
-          '/connect/tearleads.v2.AdminService/GetPostgresInfo'
+          buildAdminV2ConnectMethodPath('GetPostgresInfo')
         )
       ).toBe(true);
     });
@@ -390,10 +388,7 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AdminService/GetTables'
-        )
+        wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetTables'))
       ).toBe(true);
     });
 
@@ -407,7 +402,7 @@ describe('api with msw', () => {
         true
       );
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetUser')
+        wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetUser'))
       ).toBe(true);
     });
   });

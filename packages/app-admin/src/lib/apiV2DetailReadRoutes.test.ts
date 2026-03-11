@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import {
   AdminGetGroupMembersResponseSchema,
   AdminGetOrganizationResponseSchema,
@@ -193,28 +194,26 @@ describe('admin api client v2 detail read routes', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetGroupMembers')
+        url.includes(buildAdminV2ConnectMethodPath('GetGroupMembers'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetOrganization')
+        url.includes(buildAdminV2ConnectMethodPath('GetOrganization'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetOrgUsers')
+        url.includes(buildAdminV2ConnectMethodPath('GetOrgUsers'))
       )
     ).toBe(true);
     expect(
       urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetOrgGroups')
+        url.includes(buildAdminV2ConnectMethodPath('GetOrgGroups'))
       )
     ).toBe(true);
     expect(
-      urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AdminService/GetUser')
-      )
+      urls.some((url) => url.includes(buildAdminV2ConnectMethodPath('GetUser')))
     ).toBe(true);
   });
 });
