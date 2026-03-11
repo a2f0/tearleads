@@ -20,14 +20,10 @@ import { ensureVfsOnboardingKeys } from './onboardingClient';
 function queueOnboardingKeysResponse(
   response: Awaited<ReturnType<typeof ensureVfsOnboardingKeys>>
 ): void {
-  const mockResolvedValueOnce = Reflect.get(
-    ensureVfsOnboardingKeys,
-    'mockResolvedValueOnce'
-  );
-  if (typeof mockResolvedValueOnce !== 'function') {
+  if (!vi.isMockFunction(ensureVfsOnboardingKeys)) {
     throw new Error('ensureVfsOnboardingKeys mock is not configured');
   }
-  mockResolvedValueOnce.call(ensureVfsOnboardingKeys, response);
+  ensureVfsOnboardingKeys.mockResolvedValueOnce(response);
 }
 
 function createServerKeys(): VfsUserKeysResponse {
