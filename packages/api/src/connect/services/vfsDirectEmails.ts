@@ -1,6 +1,11 @@
 import { Buffer } from 'node:buffer';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
+import {
+  buildVfsV2ConnectMethodPath,
+  VFS_V2_GET_EMAIL_CONNECT_PATH,
+  VFS_V2_GET_EMAILS_CONNECT_PATH,
+  VFS_V2_SEND_EMAIL_CONNECT_PATH
+} from '@tearleads/shared';
 import { type EmailAttachment, sendEmail } from '../../lib/emailSender.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { deleteVfsBlobByStorageKey } from '../../lib/vfsBlobStore.js';
@@ -119,7 +124,7 @@ export async function getEmailsDirect(
   limit: number;
 }> {
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/GetEmails`,
+    VFS_V2_GET_EMAILS_CONNECT_PATH,
     context.requestHeader
   );
 
@@ -207,7 +212,7 @@ export async function getEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/GetEmail`,
+    VFS_V2_GET_EMAIL_CONNECT_PATH,
     context.requestHeader
   );
 
@@ -278,7 +283,7 @@ export async function deleteEmailDirect(
   }
 
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/DeleteEmail`,
+    buildVfsV2ConnectMethodPath('DeleteEmail'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
@@ -379,7 +384,7 @@ export async function sendEmailDirect(
   context: { requestHeader: Headers }
 ): Promise<{ success: boolean; messageId?: string }> {
   await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/SendEmail`,
+    VFS_V2_SEND_EMAIL_CONNECT_PATH,
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

@@ -3,7 +3,7 @@ import type {
   VfsKeySetupRequest,
   VfsUserKeysResponse
 } from '@tearleads/shared';
-import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
+import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { parseKeySetupPayload } from './vfsDirectShared.js';
@@ -20,7 +20,7 @@ export async function getMyKeysDirect(
   context: { requestHeader: Headers }
 ): Promise<VfsUserKeysResponse> {
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/GetMyKeys`,
+    buildVfsV2ConnectMethodPath('GetMyKeys'),
     context.requestHeader
   );
 
@@ -66,7 +66,7 @@ export async function setupKeysDirect(
   context: { requestHeader: Headers }
 ): Promise<{ created: boolean }> {
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/SetupKeys`,
+    buildVfsV2ConnectMethodPath('SetupKeys'),
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );

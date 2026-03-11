@@ -1,6 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
-  VFS_V2_CONNECT_BASE_PATH,
+  buildVfsV2ConnectMethodPath,
   type VfsCrdtReconcileResponse
 } from '@tearleads/shared';
 import {
@@ -35,7 +35,7 @@ export async function reconcileCrdtDirect(
 ): Promise<VfsCrdtReconcileResponse> {
   const declaredOrganizationId = request.organizationId.trim();
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`,
+    buildVfsV2ConnectMethodPath('ReconcileCrdt'),
     context.requestHeader,
     {
       requireDeclaredOrganization: true,

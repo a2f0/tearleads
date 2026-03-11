@@ -1,6 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
-  VFS_V2_CONNECT_BASE_PATH,
+  buildVfsV2ConnectMethodPath,
   type VfsCrdtSyncSessionResponse
 } from '@tearleads/shared';
 import {
@@ -211,7 +211,7 @@ export async function runCrdtSessionDirect(
   }
 
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/RunCrdtSession`,
+    buildVfsV2ConnectMethodPath('RunCrdtSession'),
     context.requestHeader,
     {
       requireDeclaredOrganization: true,

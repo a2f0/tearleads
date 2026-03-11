@@ -1,6 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
-  VFS_V2_CONNECT_BASE_PATH,
+  buildVfsV2ConnectMethodPath,
   type VfsCrdtPushResponse
 } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
@@ -38,7 +38,7 @@ export async function pushCrdtOpsDirect(
   }
 
   const claims = await requireVfsClaims(
-    `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`,
+    buildVfsV2ConnectMethodPath('PushCrdtOps'),
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
