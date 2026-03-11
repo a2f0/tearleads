@@ -4,6 +4,7 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=lib/dockerHelpers.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/dockerHelpers.sh"
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
