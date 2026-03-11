@@ -12,7 +12,7 @@ interface ItemStateForMaterialization {
   deleted: boolean;
 }
 
-export interface MaterializedAlbumRow {
+interface MaterializedAlbumRow {
   id: string;
   encryptedName: string | null;
   encryptedDescription: null;
@@ -20,7 +20,7 @@ export interface MaterializedAlbumRow {
   albumType: 'custom';
 }
 
-export interface MaterializedPlaylistRow {
+interface MaterializedPlaylistRow {
   id: string;
   encryptedName: string | null;
   encryptedDescription: null;
