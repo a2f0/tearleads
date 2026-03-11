@@ -4,7 +4,9 @@ import { useEmailBody } from '../hooks/useEmailBody.js';
 import { formatEmailDate, formatEmailSize } from '../lib';
 import type { EmailItem } from '../lib/email.js';
 import type { ComposeMode } from '../lib/quoteText.js';
+import type { DraftListItem } from '../types';
 import { ComposeDialog } from './compose/ComposeDialog.js';
+import { DraftListView } from './DraftListView.js';
 import { EmailInboxView } from './EmailInboxView.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailBodyView } from './emailBody/EmailBodyView.js';
@@ -41,8 +43,11 @@ interface EmailWindowContentProps {
   selectedEmailId: string | null;
   selectedEmail: EmailItem | undefined;
   isListBackedFolder: boolean;
+  isDraftsFolder: boolean;
   selectedFolderName: string;
   emails: EmailItem[];
+  drafts: DraftListItem[];
+  draftsLoading: boolean;
   onSelectEmail: (id: string) => void;
   viewMode: ViewMode;
   onComposeForEmail?: (email: EmailItem, mode: ComposeMode) => void;
@@ -61,8 +66,11 @@ export function EmailWindowContent({
   selectedEmailId,
   selectedEmail,
   isListBackedFolder,
+  isDraftsFolder,
   selectedFolderName,
   emails,
+  drafts,
+  draftsLoading,
   onSelectEmail,
   viewMode,
   onComposeForEmail
@@ -147,6 +155,16 @@ export function EmailWindowContent({
           />
         </div>
       </div>
+    );
+  }
+
+  if (isDraftsFolder) {
+    return (
+      <DraftListView
+        drafts={drafts}
+        loading={draftsLoading}
+        folderName={selectedFolderName}
+      />
     );
   }
 

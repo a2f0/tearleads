@@ -7,10 +7,8 @@ import {
   useEmailDatabaseState,
   useHasEmailFolderOperations
 } from '../context/EmailContext.js';
-import { useEmailBody, useEmails } from '../hooks';
-import type { EmailItem } from '../lib/email.js';
-import type { ComposeMode } from '../lib/quoteText.js';
-import { buildComposeRequest } from '../lib/quoteText.js';
+import { useDrafts, useEmailBody, useEmails } from '../hooks';
+import { useComposeTab } from '../hooks/useComposeTab.js';
 import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
 import type { ComposeOpenRequest } from './EmailWindowContent.js';
 import { EmailWindowContent } from './EmailWindowContent.js';
@@ -21,15 +19,6 @@ import { EmailWindowTabBar } from './EmailWindowTabBar.js';
 import { EmailFoldersSidebar } from './sidebar/EmailFoldersSidebar.js';
 
 const DEFAULT_SIDEBAR_WIDTH = 180;
-
-const COMPOSE_MODE_TAB_LABELS: Record<ComposeMode, string> = {
-  new: 'New Message',
-  reply: 'Reply',
-  replyAll: 'Reply All',
-  forward: 'Forward'
-};
-
-type MainTab = 'inbox' | 'compose';
 
 interface EmailWindowProps {
   id: string;
@@ -80,28 +69,35 @@ export function EmailWindow({
     null
   );
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
-  const [activeTab, setActiveTab] = useState<MainTab>('inbox');
-  const [isComposeTabOpen, setIsComposeTabOpen] = useState(false);
-  const [composeOpenRequest, setComposeOpenRequest] =
-    useState<ComposeOpenRequest | null>(null);
-  const [composeRequestCounter, setComposeRequestCounter] = useState(0);
 
   const { body: emailBody } = useEmailBody(selectedEmailId);
+  const { drafts, loading: draftsLoading, fetchDrafts } = useDrafts();
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
+  const isDraftsFolder = selectedFolder?.folderType === 'drafts';
+
+  const {
+    activeTab,
+    setActiveTab,
+    isComposeTabOpen,
+    composeOpenRequest: resolvedComposeRequest,
+    composeLabel,
+    closeComposeTab,
+    handleCompose,
+    openComposeForMode,
+    handleComposeForEmail,
+    handleEmailSent
+  } = useComposeTab({
+    selectedEmail,
+    emailBodyText: emailBody?.text ?? '',
+    openComposeRequest,
+    openEmailId,
+    openRequestId,
+    fetchEmails,
+    setSelectedEmailId
+  });
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
-  }, []);
-
-  const closeComposeTab = useCallback(() => {
-    setIsComposeTabOpen(false);
-    setActiveTab('inbox');
-  }, []);
-
-  const handleCompose = useCallback(() => {
-    setComposeOpenRequest(null);
-    setIsComposeTabOpen(true);
-    setActiveTab('compose');
   }, []);
 
   const handleFolderSelect = useCallback(
@@ -111,46 +107,13 @@ export function EmailWindow({
       setSelectedEmailId(null);
       setActiveTab('inbox');
     },
-    []
+    [setActiveTab]
   );
 
   const handleBackToInbox = useCallback(() => {
     setSelectedEmailId(null);
     setActiveTab('inbox');
-  }, []);
-
-  const handleEmailSent = useCallback(() => {
-    fetchEmails();
-    closeComposeTab();
-  }, [fetchEmails, closeComposeTab]);
-
-  const openComposeWith = useCallback(
-    (email: EmailItem, body: string, mode: ComposeMode) => {
-      const fields = buildComposeRequest(email, body, mode);
-      setComposeRequestCounter((c) => c + 1);
-      setComposeOpenRequest({
-        ...fields,
-        requestId: composeRequestCounter + 1
-      });
-      setSelectedEmailId(null);
-      setIsComposeTabOpen(true);
-      setActiveTab('compose');
-    },
-    [composeRequestCounter]
-  );
-
-  const openComposeForMode = useCallback(
-    (mode: ComposeMode) => {
-      if (!selectedEmail) return;
-      openComposeWith(selectedEmail, emailBody?.text ?? '', mode);
-    },
-    [selectedEmail, emailBody, openComposeWith]
-  );
-
-  const handleComposeForEmail = useCallback(
-    (email: EmailItem, mode: ComposeMode) => openComposeWith(email, '', mode),
-    [openComposeWith]
-  );
+  }, [setActiveTab]);
 
   useEffect(() => {
     if (!resolvedIsUnlocked) return;
@@ -158,25 +121,15 @@ export function EmailWindow({
   }, [fetchEmails, resolvedIsUnlocked]);
 
   useEffect(() => {
-    if (!openComposeRequest) return;
-    setComposeOpenRequest(openComposeRequest);
-    setSelectedEmailId(null);
-    setIsComposeTabOpen(true);
-    setActiveTab('compose');
-  }, [openComposeRequest]);
-
-  useEffect(() => {
-    if (!openRequestId || !openEmailId) return;
-    setSelectedEmailId(openEmailId);
-    setIsComposeTabOpen(false);
-    setActiveTab('inbox');
-  }, [openEmailId, openRequestId]);
+    if (!resolvedIsUnlocked || !isDraftsFolder) return;
+    fetchDrafts();
+  }, [fetchDrafts, resolvedIsUnlocked, isDraftsFolder]);
 
   const selectedFolderName = selectedFolder?.name ?? 'All Mail';
   const isListBackedFolder =
-    selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
-  const composeLabel =
-    COMPOSE_MODE_TAB_LABELS[composeOpenRequest?.composeMode ?? 'new'];
+    selectedFolderId === ALL_MAIL_ID ||
+    selectedFolder?.folderType === 'inbox' ||
+    isDraftsFolder;
 
   return (
     <FloatingWindow
@@ -249,14 +202,17 @@ export function EmailWindow({
                 activeTab={activeTab}
                 onCloseCompose={closeComposeTab}
                 onEmailSent={handleEmailSent}
-                composeOpenRequest={composeOpenRequest}
+                composeOpenRequest={resolvedComposeRequest}
                 loading={loading}
                 error={error}
                 selectedEmailId={selectedEmailId}
                 selectedEmail={selectedEmail}
                 isListBackedFolder={isListBackedFolder}
+                isDraftsFolder={isDraftsFolder}
                 selectedFolderName={selectedFolderName}
                 emails={emails}
+                drafts={drafts}
+                draftsLoading={draftsLoading}
                 onSelectEmail={setSelectedEmailId}
                 viewMode={viewMode}
                 onComposeForEmail={handleComposeForEmail}
