@@ -5,6 +5,12 @@ set -euo pipefail
 # Requires: cargo-sweep (installed via mise)
 
 DAYS="${1:-7}"
+
+if ! [[ "$DAYS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: Invalid number of days: '$DAYS'. Please provide an integer." >&2
+  exit 1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 if ! command -v cargo-sweep &>/dev/null; then
