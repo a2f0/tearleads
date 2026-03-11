@@ -218,8 +218,9 @@ async function mockRematerializationApi(page: Page): Promise<void> {
 
 async function triggerRematerialization(page: Page): Promise<void> {
   const didRematerialize = await page.evaluate(async () => {
+    const rematerializationModulePath = '/src/lib/' + 'vfsRematerialization.ts';
     const { rematerializeRemoteVfsStateIfNeeded } = await import(
-      '/src/lib/vfsRematerialization.ts'
+      /* @vite-ignore */ rematerializationModulePath
     );
     return rematerializeRemoteVfsStateIfNeeded();
   });
@@ -229,9 +230,11 @@ async function triggerRematerialization(page: Page): Promise<void> {
 
 async function initializeStorageForActiveInstance(page: Page): Promise<void> {
   await page.evaluate(async () => {
+    const cryptoModulePath = '/src/db/crypto/' + 'index.ts';
+    const opfsModulePath = '/src/storage/opfs/' + 'index.ts';
     const [cryptoModule, opfsModule] = await Promise.all([
-      import('/src/db/crypto/index.ts'),
-      import('/src/storage/opfs/index.ts')
+      import(/* @vite-ignore */ cryptoModulePath),
+      import(/* @vite-ignore */ opfsModulePath)
     ]);
 
     const instanceId = cryptoModule.getCurrentInstanceId();
