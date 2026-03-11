@@ -1,4 +1,11 @@
 import {
+  WindowControlBar,
+  WindowControlGroup,
+  WindowSidebar,
+  WindowSidebarToggle
+} from '@tearleads/window-manager';
+import { useState } from 'react';
+import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar
 } from './ContactsGroupsSidebar';
@@ -20,7 +27,7 @@ interface ContactsWindowContentProps {
   onGroupSelect: (groupId: string | null) => void;
   onGroupChanged: () => void;
   onDropToGroup: (groupId: string, contactIds: string[]) => Promise<void>;
-  controlBar?: React.ReactNode;
+  controlButtons?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -39,9 +46,11 @@ export function ContactsWindowContent({
   onGroupSelect,
   onGroupChanged,
   onDropToGroup,
-  controlBar,
+  controlButtons,
   children
 }: ContactsWindowContentProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-full flex-col">
       <ContactsWindowMenuBar
@@ -53,17 +62,33 @@ export function ContactsWindowContent({
         isNewContactDisabled={isNewContactDisabled}
         isImportDisabled={isImportDisabled}
       />
-      {isUnlocked && controlBar}
+      {isUnlocked && (
+        <WindowControlBar>
+          <WindowControlGroup>
+            <WindowSidebarToggle
+              onToggle={() => setSidebarOpen((prev) => !prev)}
+            />
+            {controlButtons}
+          </WindowControlGroup>
+        </WindowControlBar>
+      )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {isUnlocked && (
-          <ContactsGroupsSidebar
+          <WindowSidebar
             width={sidebarWidth}
             onWidthChange={onSidebarWidthChange}
-            selectedGroupId={selectedGroupId}
-            onGroupSelect={onGroupSelect}
-            onGroupChanged={onGroupChanged}
-            onDropToGroup={onDropToGroup}
-          />
+            open={sidebarOpen}
+            onOpenChange={setSidebarOpen}
+            ariaLabel="Contact groups"
+            data-testid="contacts-groups-sidebar"
+          >
+            <ContactsGroupsSidebar
+              selectedGroupId={selectedGroupId}
+              onGroupSelect={onGroupSelect}
+              onGroupChanged={onGroupChanged}
+              onDropToGroup={onDropToGroup}
+            />
+          </WindowSidebar>
         )}
         <div
           className="min-h-0 flex-1 overflow-y-auto"

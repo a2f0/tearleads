@@ -65,8 +65,6 @@ function ContactsSidebarDropHarness() {
 
   return (
     <ContactsGroupsSidebar
-      width={240}
-      onWidthChange={() => {}}
       selectedGroupId={ALL_CONTACTS_ID}
       onGroupSelect={() => {}}
       onDropToGroup={handleDropToGroup}

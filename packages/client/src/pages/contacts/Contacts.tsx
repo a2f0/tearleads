@@ -6,7 +6,8 @@ import {
 } from '@tearleads/app-contacts';
 import {
   DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem
+  DesktopContextMenuItem as ContextMenuItem,
+  WindowSidebar
 } from '@tearleads/window-manager';
 import {
   Download,
@@ -125,13 +126,20 @@ export function Contacts() {
     <ClientContactsProvider>
       <div className="flex h-full min-h-0">
         {isUnlocked && (
-          <ContactsGroupsSidebar
+          <WindowSidebar
             width={sidebarWidth}
             onWidthChange={setSidebarWidth}
-            selectedGroupId={selectedGroupId}
-            onGroupSelect={handleGroupSelect}
-            onGroupChanged={handleGroupChanged}
-          />
+            open={false}
+            onOpenChange={() => {}}
+            ariaLabel="Contact groups"
+            data-testid="contacts-groups-sidebar"
+          >
+            <ContactsGroupsSidebar
+              selectedGroupId={selectedGroupId}
+              onGroupSelect={handleGroupSelect}
+              onGroupChanged={handleGroupChanged}
+            />
+          </WindowSidebar>
         )}
         <div className="flex min-h-0 flex-1 flex-col space-y-6 px-6 pb-6">
           <div className="space-y-2">

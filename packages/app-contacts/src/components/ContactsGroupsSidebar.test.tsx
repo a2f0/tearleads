@@ -51,8 +51,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={onGroupSelect}
         />
@@ -83,8 +81,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -103,8 +99,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -126,8 +120,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
           onDropToGroup={onDropToGroup}
@@ -183,8 +175,6 @@ describe('ContactsGroupsSidebar', () => {
         openEmailComposer={openEmailComposer}
       >
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -212,8 +202,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -257,8 +245,6 @@ describe('ContactsGroupsSidebar', () => {
         openEmailComposer={openEmailComposer}
       >
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -302,8 +288,6 @@ describe('ContactsGroupsSidebar', () => {
         openEmailComposer={openEmailComposer}
       >
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -352,8 +336,6 @@ describe('ContactsGroupsSidebar', () => {
         openEmailComposer={openEmailComposer}
       >
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -411,8 +393,6 @@ describe('ContactsGroupsSidebar', () => {
     render(
       <TestContactsProvider database={mockDb}>
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
@@ -469,8 +449,6 @@ describe('ContactsGroupsSidebar', () => {
         openEmailComposer={openEmailComposer}
       >
         <ContactsGroupsSidebar
-          width={220}
-          onWidthChange={vi.fn()}
           selectedGroupId={ALL_CONTACTS_ID}
           onGroupSelect={vi.fn()}
         />
