@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@assistant-ui/react": "0.12.14",
-    "@capacitor-community/sqlite": "8.0.0",
+    "@capacitor-community/sqlite": "8.0.1",
     "@capacitor/app": "8.0.1",
     "@capacitor/core": "8.1.0",
     "@capacitor/filesystem": "8.1.2",

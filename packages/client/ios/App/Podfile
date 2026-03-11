@@ -28,7 +28,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios'
-  pod 'CapacitorCommunitySqlite', :path => '../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite'
+  pod 'CapacitorCommunitySqlite', :path => '../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite'
   pod 'CapacitorApp', :path => '../../../../node_modules/.pnpm/@capacitor+app@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/app'
   pod 'CapacitorFilesystem', :path => '../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem'
   pod 'CapacitorKeyboard', :path => '../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard'

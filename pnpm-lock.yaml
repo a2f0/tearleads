@@ -2028,8 +2028,8 @@ importers:
         specifier: 0.12.14
         version: 0.12.14(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(immer@11.1.4)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
       '@capacitor-community/sqlite':
-        specifier: 8.0.0
-        version: 8.0.0(@capacitor/core@8.1.0)
+        specifier: 8.0.1
+        version: 8.0.1(@capacitor/core@8.1.0)
       '@capacitor/app':
         specifier: 8.0.1
         version: 8.0.1(@capacitor/core@8.1.0)
@@ -4211,8 +4211,8 @@ packages:
   '@cacheable/utils@2.4.0':
     resolution: {integrity: sha512-PeMMsqjVq+bF0WBsxFBxr/WozBJiZKY0rUojuaCoIaKnEl3Ju1wfEwS+SV1DU/cSe8fqHIPiYJFif8T3MVt4cQ==}
 
-  '@capacitor-community/sqlite@8.0.0':
-    resolution: {integrity: sha512-Ss9Ac7OOYh8Z0mH8J1mHJHdXpkHehx+T58MfFVy7mflyXJvzNOnZejt3kl85/Yi/fIHr72qMDFyYFRGqDdwFpw==}
+  '@capacitor-community/sqlite@8.0.1':
+    resolution: {integrity: sha512-Bl1MhaWOWn912rgEwWOIy79Ou6HcAYHkVD1CiykE27CYunJMzK5cdooZbYVz5S9nEvBTG7flbmrD/PlCstYp5A==}
     engines: {node: '>=16.0.0'}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
@@ -16546,7 +16546,7 @@ snapshots:
       hashery: 1.5.0
       keyv: 5.6.0
 
-  '@capacitor-community/sqlite@8.0.0(@capacitor/core@8.1.0)':
+  '@capacitor-community/sqlite@8.0.1(@capacitor/core@8.1.0)':
     dependencies:
       '@capacitor/core': 8.1.0
       jeep-sqlite: 2.8.0
