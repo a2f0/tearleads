@@ -12,15 +12,31 @@ vi.mock('../db/index.js', () => ({
   isDatabaseUnlocked: vi.fn()
 }));
 
+function getDbStatusMocks() {
+  if (
+    !vi.isMockFunction(isDatabaseSetUp) ||
+    !vi.isMockFunction(hasPersistedSession) ||
+    !vi.isMockFunction(isDatabaseUnlocked)
+  ) {
+    throw new Error('database status mocks are not configured');
+  }
+  return {
+    isDatabaseSetUp,
+    hasPersistedSession,
+    isDatabaseUnlocked
+  };
+}
+
 describe('list-instances command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('prints default instance details when database is not set up', async () => {
-    vi.mocked(isDatabaseSetUp).mockResolvedValue(false);
-    vi.mocked(hasPersistedSession).mockResolvedValue(false);
-    vi.mocked(isDatabaseUnlocked).mockReturnValue(false);
+    const dbStatusMocks = getDbStatusMocks();
+    dbStatusMocks.isDatabaseSetUp.mockResolvedValue(false);
+    dbStatusMocks.hasPersistedSession.mockResolvedValue(false);
+    dbStatusMocks.isDatabaseUnlocked.mockReturnValue(false);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     await runListInstances();
@@ -33,9 +49,10 @@ describe('list-instances command', () => {
   });
 
   it('prints unlocked and persisted status when available', async () => {
-    vi.mocked(isDatabaseSetUp).mockResolvedValue(true);
-    vi.mocked(hasPersistedSession).mockResolvedValue(true);
-    vi.mocked(isDatabaseUnlocked).mockReturnValue(true);
+    const dbStatusMocks = getDbStatusMocks();
+    dbStatusMocks.isDatabaseSetUp.mockResolvedValue(true);
+    dbStatusMocks.hasPersistedSession.mockResolvedValue(true);
+    dbStatusMocks.isDatabaseUnlocked.mockReturnValue(true);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     await runListInstances();
