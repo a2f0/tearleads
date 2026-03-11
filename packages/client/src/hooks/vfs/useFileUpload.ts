@@ -66,9 +66,10 @@ export function useFileUpload() {
       if (!instanceId) {
         throw new Error('No active instance');
       }
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(instanceId)) {
         await initializeFileStorage(encryptionKey, instanceId);
       }
+      const storage = getFileStorage(instanceId);
 
       // Detect MIME type from file content (magic bytes only - memory efficient)
       const magicBytes = await readMagicBytes(file);
@@ -90,7 +91,6 @@ export function useFileUpload() {
         isLoggedIn() && getFeatureFlagValue('vfsSecureUpload');
 
       const db = getDatabase();
-      const storage = getFileStorage();
       const id = crypto.randomUUID();
       // Avoid tee() here: hashing is consumed immediately while secure upload
       // runs later, and tee can buffer the unread branch for large files.

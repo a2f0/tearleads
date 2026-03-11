@@ -159,14 +159,14 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(databaseState.currentInstanceId)) {
         await initializeFileStorage(
           encryptionKey,
           databaseState.currentInstanceId
         );
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(databaseState.currentInstanceId);
       const db = getDatabase();
       const logger = createRetrieveLogger(db);
 
@@ -358,14 +358,14 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(databaseState.currentInstanceId)) {
         await initializeFileStorage(
           encryptionKey,
           databaseState.currentInstanceId
         );
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(databaseState.currentInstanceId);
       const db = getDatabase();
       const logger = createRetrieveLogger(db);
       return storage.measureRetrieve(storagePath, logger);

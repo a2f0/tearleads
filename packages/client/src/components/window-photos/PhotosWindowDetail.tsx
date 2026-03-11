@@ -45,6 +45,7 @@ interface PhotosWindowDetailProps {
   onDeleted: () => void;
 }
 
+/* component-complexity: allow -- preserve current detail flow while storage instance hardening lands. */
 export function PhotosWindowDetail({
   photoId,
   onBack,
@@ -85,11 +86,11 @@ export function PhotosWindowDetail({
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
+      if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       return storage.measureRetrieve(
         photoToRetrieve.storagePath,
         createRetrieveLogger(db)

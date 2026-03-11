@@ -84,7 +84,9 @@ describe('retrieveFileData', () => {
 
     const data = await retrieveFileData('/files/test.txt', 'instance-1');
 
+    expect(isFileStorageInitialized).toHaveBeenCalledWith('instance-1');
     expect(initializeFileStorage).toHaveBeenCalledWith(mockKey, 'instance-1');
+    expect(getFileStorage).toHaveBeenCalledWith('instance-1');
     expect(createRetrieveLogger).toHaveBeenCalledWith(db);
     expect(data).toEqual(new Uint8Array([9, 8, 7]));
   });
@@ -106,6 +108,8 @@ describe('retrieveFileData', () => {
 
     await retrieveFileData('/files/test.txt', 'instance-1');
 
+    expect(isFileStorageInitialized).toHaveBeenCalledWith('instance-1');
     expect(initializeFileStorage).not.toHaveBeenCalled();
+    expect(getFileStorage).toHaveBeenCalledWith('instance-1');
   });
 });

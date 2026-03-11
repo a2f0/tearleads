@@ -35,7 +35,6 @@ let testInstances: InstanceMetadata[] = [
 let testActiveInstanceId: string | null = TEST_INSTANCE_ID;
 const mockFileStorageData = new Map<string, Map<string, Uint8Array>>();
 const mockFileStorageInstances = new Map<string, MockFileStorage>();
-let currentMockStorageInstanceId: string | null = null;
 
 interface MockFileStorage {
   instanceId: string;
@@ -258,7 +257,17 @@ vi.mock('@/storage/opfs', () => ({
         mockFileStorageInstances.set(instanceId, storage);
       }
       await storage.initialize(encryptionKey);
-      currentMockStorageInstanceId = instanceId;
+      return storage;
+    }
+  ),
+  getOrInitializeFileStorage: vi.fn(
+    async (encryptionKey: Uint8Array, instanceId: string) => {
+      let storage = mockFileStorageInstances.get(instanceId);
+      if (!storage) {
+        storage = createMockFileStorage(instanceId);
+        mockFileStorageInstances.set(instanceId, storage);
+        await storage.initialize(encryptionKey);
+      }
       return storage;
     }
   ),
@@ -271,46 +280,29 @@ vi.mock('@/storage/opfs', () => ({
     }
     return storage;
   }),
-  getFileStorage: vi.fn(() => {
-    if (!currentMockStorageInstanceId) {
-      throw new Error('No current file storage instance');
-    }
-    const storage = mockFileStorageInstances.get(currentMockStorageInstanceId);
+  getFileStorage: vi.fn((instanceId: string) => {
+    const storage = mockFileStorageInstances.get(instanceId);
     if (!storage) {
       throw new Error(
-        `File storage not initialized for instance ${currentMockStorageInstanceId}`
+        `File storage not initialized for instance ${instanceId}`
       );
     }
     return storage;
   }),
-  isFileStorageInitialized: vi.fn((instanceId?: string) => {
-    if (instanceId) {
-      return mockFileStorageInstances.has(instanceId);
-    }
-    return currentMockStorageInstanceId !== null;
+  isFileStorageInitialized: vi.fn((instanceId: string) => {
+    return mockFileStorageInstances.has(instanceId);
   }),
   clearFileStorageForInstance: vi.fn((instanceId: string) => {
     mockFileStorageInstances.delete(instanceId);
     mockFileStorageData.delete(instanceId);
-    if (currentMockStorageInstanceId === instanceId) {
-      currentMockStorageInstanceId = null;
-    }
   }),
   clearFileStorageInstance: vi.fn(() => {
     mockFileStorageInstances.clear();
     mockFileStorageData.clear();
-    currentMockStorageInstanceId = null;
   }),
-  setCurrentStorageInstanceId: vi.fn((instanceId: string | null) => {
-    currentMockStorageInstanceId = instanceId;
-  }),
-  getCurrentStorageInstanceId: vi.fn(() => currentMockStorageInstanceId),
   deleteFileStorageForInstance: vi.fn(async (instanceId: string) => {
     mockFileStorageInstances.delete(instanceId);
     mockFileStorageData.delete(instanceId);
-    if (currentMockStorageInstanceId === instanceId) {
-      currentMockStorageInstanceId = null;
-    }
   }),
   getFileStorageRoot: vi.fn(async () => null),
   saveFileToStorage: vi.fn(async () => ''),
@@ -367,7 +359,6 @@ beforeEach(async () => {
   resetTestInstanceRegistry();
   mockFileStorageInstances.clear();
   mockFileStorageData.clear();
-  currentMockStorageInstanceId = null;
   warnSpy = mockConsoleWarn();
 
   // Reset the database module's internal state

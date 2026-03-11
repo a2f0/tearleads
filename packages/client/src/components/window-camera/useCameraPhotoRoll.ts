@@ -67,7 +67,7 @@ export function useCameraPhotoRoll(): UseCameraPhotoRollResult {
         await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(currentInstanceId);
       const items = (
         await Promise.all(
           photoRows.map(async (photo) => {

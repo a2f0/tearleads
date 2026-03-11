@@ -23,12 +23,11 @@ import {
   clearFileStorageForInstance,
   clearFileStorageInstance,
   deleteFileStorageForInstance,
-  getCurrentStorageInstanceId,
   getFileStorage,
   getFileStorageForInstance,
+  getOrInitializeFileStorage,
   initializeFileStorage,
-  isFileStorageInitialized,
-  setCurrentStorageInstanceId
+  isFileStorageInitialized
 } from './opfs';
 
 type MockWritableStream = {
@@ -237,12 +236,6 @@ describe('opfs storage', () => {
         { create: true }
       );
     });
-
-    it('sets current instance ID', async () => {
-      await initializeFileStorage(testEncryptionKey, testInstanceId);
-
-      expect(getCurrentStorageInstanceId()).toBe(testInstanceId);
-    });
   });
 
   describe('getFileStorageForInstance', () => {
@@ -262,33 +255,42 @@ describe('opfs storage', () => {
   });
 
   describe('getFileStorage', () => {
-    it('returns storage for current instance', async () => {
+    it('returns storage for requested instance', async () => {
       await initializeFileStorage(testEncryptionKey, testInstanceId);
 
-      const storage = getFileStorage();
+      const storage = getFileStorage(testInstanceId);
 
       expect(storage.instanceId).toBe(testInstanceId);
     });
 
-    it('throws when no current instance', () => {
-      expect(() => getFileStorage()).toThrow(
-        'No current file storage instance'
+    it('throws when requested instance is not initialized', () => {
+      expect(() => getFileStorage('unknown-instance')).toThrow(
+        'File storage not initialized for instance unknown-instance'
+      );
+    });
+
+    it('returns the requested instance regardless of init order', async () => {
+      const firstInstanceId = 'instance-1';
+      const secondInstanceId = 'instance-2';
+      const firstStorage = await initializeFileStorage(
+        testEncryptionKey,
+        firstInstanceId
+      );
+      await initializeFileStorage(testEncryptionKey, secondInstanceId);
+
+      expect(getFileStorage(firstInstanceId)).toBe(firstStorage);
+      expect(getFileStorage(secondInstanceId).instanceId).toBe(
+        secondInstanceId
       );
     });
   });
 
   describe('isFileStorageInitialized', () => {
-    it('returns false when no storage initialized', () => {
-      expect(isFileStorageInitialized()).toBe(false);
+    it('returns false for uninitialized instance', () => {
+      expect(isFileStorageInitialized(testInstanceId)).toBe(false);
     });
 
-    it('returns true after initialization', async () => {
-      await initializeFileStorage(testEncryptionKey, testInstanceId);
-
-      expect(isFileStorageInitialized()).toBe(true);
-    });
-
-    it('checks specific instance when provided', async () => {
+    it('returns true after initialization for matching instance', async () => {
       await initializeFileStorage(testEncryptionKey, testInstanceId);
 
       expect(isFileStorageInitialized(testInstanceId)).toBe(true);
@@ -305,23 +307,15 @@ describe('opfs storage', () => {
       expect(isFileStorageInitialized(testInstanceId)).toBe(false);
     });
 
-    it('clears current instance ID if matching', async () => {
-      await initializeFileStorage(testEncryptionKey, testInstanceId);
-
-      clearFileStorageForInstance(testInstanceId);
-
-      expect(getCurrentStorageInstanceId()).toBeNull();
-    });
-
-    it('does not clear current instance ID if not matching', async () => {
+    it('keeps other initialized instances intact', async () => {
       await initializeFileStorage(testEncryptionKey, testInstanceId);
       const otherInstance = 'other-instance';
       await initializeFileStorage(testEncryptionKey, otherInstance);
-      setCurrentStorageInstanceId(testInstanceId);
 
       clearFileStorageForInstance(otherInstance);
 
-      expect(getCurrentStorageInstanceId()).toBe(testInstanceId);
+      expect(isFileStorageInitialized(testInstanceId)).toBe(true);
+      expect(isFileStorageInitialized(otherInstance)).toBe(false);
     });
   });
 
@@ -334,34 +328,29 @@ describe('opfs storage', () => {
 
       expect(isFileStorageInitialized('instance-1')).toBe(false);
       expect(isFileStorageInitialized('instance-2')).toBe(false);
-      expect(getCurrentStorageInstanceId()).toBeNull();
     });
   });
 
-  describe('setCurrentStorageInstanceId', () => {
-    it('sets the current instance ID', () => {
-      setCurrentStorageInstanceId('new-instance');
+  describe('getOrInitializeFileStorage', () => {
+    it('initializes and returns a storage instance', async () => {
+      const storage = await getOrInitializeFileStorage(
+        testEncryptionKey,
+        testInstanceId
+      );
 
-      expect(getCurrentStorageInstanceId()).toBe('new-instance');
+      expect(storage.instanceId).toBe(testInstanceId);
+      expect(isFileStorageInitialized(testInstanceId)).toBe(true);
     });
 
-    it('allows setting to null', () => {
-      setCurrentStorageInstanceId('instance');
-      setCurrentStorageInstanceId(null);
+    it('returns existing instance without reinitializing', async () => {
+      await getOrInitializeFileStorage(testEncryptionKey, testInstanceId);
+      const existing = await getOrInitializeFileStorage(
+        testEncryptionKey,
+        testInstanceId
+      );
 
-      expect(getCurrentStorageInstanceId()).toBeNull();
-    });
-  });
-
-  describe('getCurrentStorageInstanceId', () => {
-    it('returns null when not set', () => {
-      expect(getCurrentStorageInstanceId()).toBeNull();
-    });
-
-    it('returns current instance ID when set', async () => {
-      await initializeFileStorage(testEncryptionKey, testInstanceId);
-
-      expect(getCurrentStorageInstanceId()).toBe(testInstanceId);
+      expect(existing.instanceId).toBe(testInstanceId);
+      expect(mockImportKey).toHaveBeenCalledTimes(1);
     });
   });
 
