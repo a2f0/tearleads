@@ -132,5 +132,4 @@ describe('API', () => {
       expect(payloadArg?.rawBody.toString()).toBe(webhookBody);
     });
   });
-
 });
