@@ -12,6 +12,7 @@ import {
   albums,
   files,
   notes,
+  playlists,
   vfsAclEntries,
   vfsItemState,
   vfsLinks,
@@ -20,7 +21,7 @@ import {
 import { api } from './api';
 import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
 import {
-  buildMaterializedAlbumRows,
+  buildMaterializedCollectionRows,
   buildMaterializedFileRows
 } from './vfsRematerializationEntityRows';
 import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
@@ -389,7 +390,8 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         deleted: itemState?.deleted ?? false
       };
     });
-  const albumRows = buildMaterializedAlbumRows(registryRows);
+  const { albumRows, playlistRows } =
+    buildMaterializedCollectionRows(registryRows);
   const fileRows = buildMaterializedFileRows(registryRows, itemStateByItemId);
   await materializeFilePayloadsToStorage(fileRows, itemStateByItemId);
 
@@ -398,6 +400,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
   const hasAclEntriesTable = await tableExists('vfs_acl_entries');
   const hasNotesTable = await tableExists('notes');
   const hasAlbumsTable = await tableExists('albums');
+  const hasPlaylistsTable = await tableExists('playlists');
   const hasFilesTable = await tableExists('files');
   if (hasAclEntriesTable) {
     await ensureGrantorUsersExist(aclGrantorCandidates, INSERT_BATCH_SIZE);
@@ -407,6 +410,9 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
       await tx.delete(vfsLinks);
       if (hasAlbumsTable) {
         await tx.delete(albums);
+      }
+      if (hasPlaylistsTable) {
+        await tx.delete(playlists);
       }
       if (hasFilesTable) {
         await tx.delete(files);
@@ -431,6 +437,13 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
         for (const chunk of chunkArray(albumRows, INSERT_BATCH_SIZE)) {
           if (chunk.length > 0) {
             await tx.insert(albums).values(chunk);
+          }
+        }
+      }
+      if (hasPlaylistsTable) {
+        for (const chunk of chunkArray(playlistRows, INSERT_BATCH_SIZE)) {
+          if (chunk.length > 0) {
+            await tx.insert(playlists).values(chunk);
           }
         }
       }
