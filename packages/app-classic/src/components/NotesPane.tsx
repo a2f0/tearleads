@@ -382,7 +382,7 @@ export function NotesPane({
                           onChange={(e) => setEditTitle(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-border px-1.5 py-0.5 text-base text-sm focus:border-ring focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 text-base focus:border-ring focus:outline-none"
                           aria-label={t('editEntryTitle')}
                         />
                         <textarea
@@ -390,7 +390,7 @@ export function NotesPane({
                           onChange={(e) => setEditBody(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-border px-1.5 py-0.5 font-mono text-base text-xs focus:border-ring focus:outline-none"
+                          className="w-full border border-border px-1.5 py-0.5 font-mono text-base focus:border-ring focus:outline-none"
                           rows={2}
                           aria-label={t('editEntryBody')}
                         />
@@ -437,7 +437,7 @@ export function NotesPane({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           onKeyDown={onSearchKeyDown}
-          className="w-64 border border-border px-2 py-1 text-sm focus:border-ring focus:outline-none"
+          className="w-64 border border-border px-2 py-1 text-base focus:border-ring focus:outline-none"
           aria-label={t('searchEntries')}
         />
       </div>
