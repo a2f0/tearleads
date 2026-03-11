@@ -250,8 +250,9 @@ describe('key-manager', () => {
       await setupNewKey('test-password');
 
       // Make config paths point to a non-writable location
-      const originalWriteFile = fs.writeFile;
-      vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('Write error'));
+      const writeFileSpy = vi
+        .spyOn(fs, 'writeFile')
+        .mockRejectedValueOnce(new Error('Write error'));
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -264,7 +265,7 @@ describe('key-manager', () => {
       );
 
       // Restore
-      vi.mocked(fs.writeFile).mockImplementation(originalWriteFile);
+      writeFileSpy.mockRestore();
       consoleSpy.mockRestore();
     });
 
