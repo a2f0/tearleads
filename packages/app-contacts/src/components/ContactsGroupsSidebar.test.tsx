@@ -3,10 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as contactsHooks from '../hooks';
 import { createMockDatabase, TestContactsProvider } from '../test/testUtils';
-import {
-  ALL_CONTACTS_ID,
-  ContactsGroupsSidebar
-} from './ContactsGroupsSidebar';
+import { ALL_CONTACTS_ID } from '../lib/constants';
+import { ContactsGroupsSidebar } from './ContactsGroupsSidebar';
 
 const mockUseContactGroups = vi.fn();
 

@@ -11,10 +11,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';
 import { linkContactsToGroup } from '../lib/linkContactsToGroup';
-import {
-  ALL_CONTACTS_ID,
-  ContactsWindowContent
-} from './ContactsWindowContent';
+import { ALL_CONTACTS_ID } from '../lib/constants';
+import { ContactsWindowContent } from './ContactsWindowContent';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 import { ContactsWindowImport } from './ContactsWindowImport';
 import { ContactsWindowList } from './ContactsWindowList';

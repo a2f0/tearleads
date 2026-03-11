@@ -1,7 +1,4 @@
-export {
-  ALL_CONTACTS_ID,
-  ContactsGroupsSidebar
-} from './ContactsGroupsSidebar';
+export { ContactsGroupsSidebar } from './ContactsGroupsSidebar';
 export { ContactsWindow } from './ContactsWindow';
 export { ContactsWindowDetail } from './ContactsWindowDetail';
 export { ContactsWindowImport } from './ContactsWindowImport';

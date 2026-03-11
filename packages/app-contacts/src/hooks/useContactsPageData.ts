@@ -10,7 +10,7 @@ import {
 } from '@tearleads/db/sqlite';
 import { and, asc, eq, isNull, like, or, type SQL } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ALL_CONTACTS_ID } from '../components/ContactsGroupsSidebar';
+import { ALL_CONTACTS_ID } from '../lib/constants';
 import { useContactsContext } from '../context';
 
 export interface ContactsPageInfo {

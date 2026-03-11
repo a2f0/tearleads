@@ -17,10 +17,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { ColumnMapper } from '../components/column-mapper';
-import {
-  ALL_CONTACTS_ID,
-  ContactsGroupsSidebar
-} from '../components/ContactsGroupsSidebar';
+import { ContactsGroupsSidebar } from '../components/ContactsGroupsSidebar';
+import { ALL_CONTACTS_ID } from '../lib/constants';
 import { useContactsContext, useContactsUI } from '../context';
 import {
   ROW_HEIGHT_ESTIMATE,

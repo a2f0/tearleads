@@ -1,6 +1,6 @@
+export { ALL_CONTACTS_ID } from './lib/constants';
 export type { ViewMode } from './components';
 export {
-  ALL_CONTACTS_ID,
   ColumnMapper,
   ContactsGroupsSidebar,
   ContactsWindow,

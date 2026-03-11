@@ -12,14 +12,13 @@ import { Folder, FolderPlus, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactGroup, useContactGroups } from '../hooks';
+import { ALL_CONTACTS_ID } from '../lib/constants';
 import { getContactDragIds } from '../lib/contactDragData';
 import { openComposeEmail } from '../lib/contactEmail';
 import { getPrimaryEmailsForGroup } from '../lib/getPrimaryEmailsForGroup';
 import { DeleteContactGroupDialog } from './DeleteContactGroupDialog';
 import { NewContactGroupDialog } from './NewContactGroupDialog';
 import { RenameContactGroupDialog } from './RenameContactGroupDialog';
-
-export const ALL_CONTACTS_ID = '__all__';
 
 interface ContactsGroupsSidebarProps {
   selectedGroupId: string | null;
