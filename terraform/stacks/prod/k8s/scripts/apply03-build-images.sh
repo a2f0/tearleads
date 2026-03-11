@@ -9,5 +9,5 @@ STACK_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo ""
 echo "Step 3 complete. Images built and pushed to ECR."
-echo "Next: Run ./scripts/apply04.sh to deploy containers."
+echo "Next: Run ./scripts/apply04-rollout-containers.sh to deploy containers."
 echo "Terraform stack: $STACK_DIR"
