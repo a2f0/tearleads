@@ -8,7 +8,7 @@ describe('migrations (core through v021)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
-      vi.mocked(pool.query).mockRejectedValueOnce(
+      vi.spyOn(pool, 'query').mockRejectedValueOnce(
         new Error('relation "schema_migrations" does not exist')
       );
 
@@ -111,7 +111,7 @@ describe('migrations (core through v021)', () => {
     it('applies pending migrations when behind', async () => {
       let versionCallCount = 0;
       const pool = createMockPool(new Map());
-      vi.mocked(pool.query).mockImplementation((sql: string) => {
+      vi.spyOn(pool, 'query').mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
         if (sql.includes('MAX(version)')) {

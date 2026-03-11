@@ -42,7 +42,7 @@ describe('v036 migration', () => {
 
   it('fails when unscoped rows remain after backfill', async () => {
     const v036 = getV036Migration();
-    vi.mocked(pool.query).mockImplementation((sql: string) => {
+    vi.spyOn(pool, 'query').mockImplementation((sql: string) => {
       pool.queries.push(sql);
       if (sql.includes('COUNT(*)::text AS count')) {
         return Promise.resolve({ rows: [{ count: '2' }], rowCount: 1 });
