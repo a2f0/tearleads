@@ -172,9 +172,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         vi
           .mocked(global.fetch)
           .mock.calls.filter(([input]) =>
-            input
-              .toString()
-              .endsWith(AUTH_V2_REFRESH_CONNECT_PATH)
+            input.toString().endsWith(AUTH_V2_REFRESH_CONNECT_PATH)
           )
       ).toHaveLength(1);
     });

@@ -76,7 +76,8 @@ export const ADMIN_V2_CONNECT_BASE_PATH = buildConnectBasePath(
 export const AI_V2_CONNECT_BASE_PATH = buildConnectBasePath(AiService.typeName);
 export const VFS_V2_SERVICE_NAME = VfsService.typeName;
 export const VFS_SHARES_V2_SERVICE_NAME = VfsSharesService.typeName;
-export const VFS_V2_CONNECT_BASE_PATH = buildConnectBasePath(VFS_V2_SERVICE_NAME);
+export const VFS_V2_CONNECT_BASE_PATH =
+  buildConnectBasePath(VFS_V2_SERVICE_NAME);
 export const VFS_SHARES_V2_CONNECT_BASE_PATH = buildConnectBasePath(
   VFS_SHARES_V2_SERVICE_NAME
 );

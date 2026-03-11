@@ -4,13 +4,13 @@ import {
   AI_V2_CONNECT_BASE_PATH,
   AUTH_V2_LOGIN_CONNECT_PATH,
   AUTH_V2_REFRESH_CONNECT_PATH,
-  VFS_SHARES_V2_CONNECT_BASE_PATH,
-  VFS_V2_CONNECT_BASE_PATH,
-  VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH,
   buildConnectMethodPath,
   getApiBasePathPrefix,
   resolveConnectPathForApiBase,
-  resolveConnectUrlForApiBase
+  resolveConnectUrlForApiBase,
+  VFS_SHARES_V2_CONNECT_BASE_PATH,
+  VFS_V2_CONNECT_BASE_PATH,
+  VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH
 } from './connectRoutes';
 
 describe('connectRoutes', () => {
