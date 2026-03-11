@@ -40,6 +40,12 @@ if [ -f "$REPO_ROOT/Cargo.toml" ]; then
     exit 1
   }
 
+  # Clear RUSTC_WRAPPER if the wrapper binary isn't on PATH
+  if [ -n "${RUSTC_WRAPPER:-}" ] && ! command -v "$RUSTC_WRAPPER" >/dev/null 2>&1; then
+    echo "RUSTC_WRAPPER=$RUSTC_WRAPPER not found in PATH; building without it."
+    unset RUSTC_WRAPPER
+  fi
+
   echo "Building Rust crates..."
   cargo build --workspace
 else
