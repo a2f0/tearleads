@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as hooks from '../hooks';
 import { VFS_ROOT_ID } from '../constants';
 
 // Mock hooks
@@ -64,7 +65,6 @@ vi.mock('./FolderContextMenu', () => ({
   FolderContextMenu: () => null
 }));
 
-import { useEnsureVfsRoot, useVfsFolders } from '../hooks';
 import { VfsTreePanel } from './VfsTreePanel';
 
 const mockFolders = [
@@ -153,13 +153,13 @@ describe('VfsTreePanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useEnsureVfsRoot).mockReturnValue({
+    vi.spyOn(hooks, 'useEnsureVfsRoot').mockReturnValue({
       isReady: true,
       isCreating: false,
       error: null,
       ensureRoot: vi.fn()
     });
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: mockFolders,
       loading: false,
       error: null,
@@ -184,7 +184,7 @@ describe('VfsTreePanel', () => {
   });
 
   it('shows loading state', () => {
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: [],
       loading: true,
       error: null,
@@ -196,7 +196,7 @@ describe('VfsTreePanel', () => {
   });
 
   it('shows error state', () => {
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: [],
       loading: false,
       error: 'Failed to load folders',
@@ -208,7 +208,7 @@ describe('VfsTreePanel', () => {
   });
 
   it('shows unfiled items entry even when no folders', () => {
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: [],
       loading: false,
       error: null,
@@ -424,7 +424,7 @@ describe('VfsTreePanel', () => {
 
   it('calls refetch when refreshToken changes', () => {
     const mockRefetch = vi.fn();
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: mockFolders,
       loading: false,
       error: null,
@@ -445,7 +445,7 @@ describe('VfsTreePanel', () => {
 
   it('refetches when root provisioning transitions to ready', () => {
     const mockRefetch = vi.fn();
-    vi.mocked(useEnsureVfsRoot)
+    vi.spyOn(hooks, 'useEnsureVfsRoot')
       .mockReturnValueOnce({
         isReady: false,
         isCreating: true,
@@ -460,7 +460,7 @@ describe('VfsTreePanel', () => {
       });
     const { rerender } = render(<VfsTreePanel {...defaultProps} />);
 
-    vi.mocked(useVfsFolders).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolders').mockReturnValue({
       folders: mockFolders,
       loading: false,
       error: null,

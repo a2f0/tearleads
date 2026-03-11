@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as hooks from '../hooks';
 import type { DatabaseState } from '../context';
 
 const mockDatabaseState: DatabaseState = {
@@ -87,11 +88,6 @@ vi.mock('../hooks', () => ({
 }));
 
 import { NOT_LOGGED_IN_ERROR, SHARED_BY_ME_FOLDER_ID } from '../constants';
-import {
-  useVfsFolderContents,
-  useVfsSharedByMe,
-  useVfsUnfiledItems
-} from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
 
 const mockItems = [
@@ -140,7 +136,7 @@ describe('VfsDetailsPanel core behavior', () => {
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.isLoading = false;
     mockDatabaseState.currentInstanceId = 'test-instance';
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: mockItems,
       loading: false,
       error: null,
@@ -150,7 +146,7 @@ describe('VfsDetailsPanel core behavior', () => {
   });
 
   it('shows unfiled items view when no folder is selected', () => {
-    vi.mocked(useVfsUnfiledItems).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsUnfiledItems').mockReturnValue({
       items: [],
       loading: false,
       error: null,
@@ -162,7 +158,7 @@ describe('VfsDetailsPanel core behavior', () => {
   });
 
   it('shows loading state', () => {
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: [],
       loading: true,
       error: null,
@@ -174,7 +170,7 @@ describe('VfsDetailsPanel core behavior', () => {
   });
 
   it('shows error state', () => {
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: [],
       loading: false,
       error: 'Failed to load contents',
@@ -186,7 +182,7 @@ describe('VfsDetailsPanel core behavior', () => {
   });
 
   it('shows empty state when folder has no items', () => {
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: [],
       loading: false,
       error: null,
@@ -271,7 +267,7 @@ describe('VfsDetailsPanel core behavior', () => {
   });
 
   it('displays singular item text for one item', () => {
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: mockItems.slice(0, 1),
       loading: false,
       error: null,
@@ -316,7 +312,7 @@ describe('VfsDetailsPanel core behavior', () => {
 
   it('calls folder contents refetch when refreshToken changes', () => {
     const mockRefetch = vi.fn();
-    vi.mocked(useVfsFolderContents).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsFolderContents').mockReturnValue({
       items: [],
       loading: false,
       error: null,
@@ -337,7 +333,7 @@ describe('VfsDetailsPanel core behavior', () => {
 
   it('renders login fallback when error is NOT_LOGGED_IN_ERROR and loginFallback is provided', () => {
     mockLoginFallback = <div data-testid="mock-login-fallback">Sign in</div>;
-    vi.mocked(useVfsSharedByMe).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsSharedByMe').mockReturnValue({
       items: [],
       loading: false,
       error: NOT_LOGGED_IN_ERROR,
@@ -353,7 +349,7 @@ describe('VfsDetailsPanel core behavior', () => {
 
   it('renders plain error when NOT_LOGGED_IN_ERROR but no loginFallback', () => {
     mockLoginFallback = undefined;
-    vi.mocked(useVfsSharedByMe).mockReturnValue({
+    vi.spyOn(hooks, 'useVfsSharedByMe').mockReturnValue({
       items: [],
       loading: false,
       error: NOT_LOGGED_IN_ERROR,
