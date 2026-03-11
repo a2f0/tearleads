@@ -1,9 +1,9 @@
 use futures::executor::block_on;
 use tearleads_data_access_traits::{
-    AdminUserAccountingSummary, AdminUserSummary, PostgresAdminReadRepository,
+    AdminUserAccountingSummary, AdminUserSummary, PostgresAdminRepository,
 };
 
-use super::{AdminUserAccountingRecord, AdminUserRecord, FakeGateway, PostgresAdminReadAdapter};
+use super::{AdminUserAccountingRecord, AdminUserRecord, FakeGateway, PostgresAdminAdapter};
 
 #[test]
 fn get_user_forwards_identifier_and_optional_scope_filter() {
@@ -25,7 +25,7 @@ fn get_user_forwards_identifier_and_optional_scope_filter() {
         })),
         ..Default::default()
     };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let filtered_result = block_on(adapter.get_user(
         "user-7",

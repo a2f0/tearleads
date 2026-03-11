@@ -3,7 +3,7 @@
 use tearleads_data_access_traits::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminUpdateGroupInput,
     AdminUpdateOrganizationInput, AdminUpdateUserInput, BoxFuture, DataAccessError,
-    DataAccessErrorKind, PostgresConnectionInfo, PostgresRowsQuery,
+    PostgresConnectionInfo, PostgresRowsQuery,
 };
 
 /// Raw organization metadata returned by the backing Postgres driver.
@@ -181,7 +181,7 @@ pub struct PostgresRowsPageRecord {
     pub offset: u32,
 }
 
-/// Driver gateway used by [`crate::PostgresAdminReadAdapter`].
+/// Driver gateway used by [`crate::PostgresAdminAdapter`].
 pub trait PostgresAdminGateway: Send + Sync {
     /// Returns connection metadata from runtime configuration.
     fn connection_info(&self) -> PostgresConnectionInfo;
@@ -210,220 +210,88 @@ pub trait PostgresAdminGateway: Send + Sync {
     fn get_group(
         &self,
         group_id: &str,
-    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
-        let group_id = group_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("get_group not implemented for group_id={group_id}"),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>>;
 
     /// Creates one group and returns the persisted group payload.
     fn create_group(
         &self,
         input: AdminCreateGroupInput,
-    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "create_group not implemented for organization_id={} name={}",
-                    input.organization_id, input.name
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>>;
 
     /// Updates one group and returns the persisted group payload.
     fn update_group(
         &self,
         group_id: &str,
         input: AdminUpdateGroupInput,
-    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
-        let group_id = group_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("update_group not implemented for group_id={group_id} input={input:?}"),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>>;
 
     /// Deletes one group by identifier and returns whether it was removed.
-    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
-        let group_id = group_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("delete_group not implemented for group_id={group_id}"),
-            ))
-        })
-    }
+    fn delete_group(&self, group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Adds one user to a group and returns whether the membership was created.
     fn add_group_member(
         &self,
         group_id: &str,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
-        let group_id = group_id.to_string();
-        let user_id = user_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "add_group_member not implemented for group_id={group_id} user_id={user_id}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Removes one user from a group and returns whether the membership was removed.
     fn remove_group_member(
         &self,
         group_id: &str,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
-        let group_id = group_id.to_string();
-        let user_id = user_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "remove_group_member not implemented for group_id={group_id} user_id={user_id}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Lists organizations optionally constrained to organization IDs.
     fn list_organizations(
         &self,
         organization_ids: Option<&[String]>,
-    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationRecord>, DataAccessError>> {
-        let filter = organization_ids.map(<[String]>::to_vec).unwrap_or_default();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("list_organizations not implemented for organization_ids={filter:?}"),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationRecord>, DataAccessError>>;
 
     /// Creates one organization and returns persisted metadata.
     fn create_organization(
         &self,
         input: AdminCreateOrganizationInput,
-    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "create_organization not implemented for name={}",
-                    input.name
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>>;
 
     /// Updates one organization and returns persisted metadata.
     fn update_organization(
         &self,
         organization_id: &str,
         input: AdminUpdateOrganizationInput,
-    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
-        let organization_id = organization_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "update_organization not implemented for organization_id={organization_id} input={input:?}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>>;
 
     /// Deletes one organization and returns whether it was removed.
     fn delete_organization(
         &self,
         organization_id: &str,
-    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
-        let organization_id = organization_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "delete_organization not implemented for organization_id={organization_id}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>>;
 
     /// Lists users for one organization identifier.
     fn get_organization_users(
         &self,
         organization_id: &str,
-    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserRecord>, DataAccessError>> {
-        let organization_id = organization_id.to_string();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "get_organization_users not implemented for organization_id={organization_id}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserRecord>, DataAccessError>>;
 
     /// Lists users optionally constrained to organization IDs.
     fn list_users(
         &self,
         organization_ids: Option<&[String]>,
-    ) -> BoxFuture<'_, Result<Vec<AdminUserRecord>, DataAccessError>> {
-        let filter = organization_ids.map(<[String]>::to_vec).unwrap_or_default();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("list_users not implemented for organization_ids={filter:?}"),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<Vec<AdminUserRecord>, DataAccessError>>;
 
     /// Returns one user by identifier, optionally constrained to organization IDs.
     fn get_user(
         &self,
         user_id: &str,
         organization_ids: Option<&[String]>,
-    ) -> BoxFuture<'_, Result<Option<AdminUserRecord>, DataAccessError>> {
-        let user_id = user_id.to_string();
-        let filter = organization_ids.map(<[String]>::to_vec).unwrap_or_default();
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!(
-                    "get_user not implemented for user_id={user_id} organization_ids={filter:?}"
-                ),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<Option<AdminUserRecord>, DataAccessError>>;
 
     /// Updates one user and returns persisted metadata.
     fn update_user(
         &self,
         user_id: &str,
         input: AdminUpdateUserInput,
-    ) -> BoxFuture<'_, Result<AdminUserRecord, DataAccessError>> {
-        let user_id = user_id.to_string();
-        let _ = input;
-        Box::pin(async move {
-            Err(DataAccessError::new(
-                DataAccessErrorKind::Internal,
-                format!("update_user not implemented for user_id={user_id}"),
-            ))
-        })
-    }
+    ) -> BoxFuture<'_, Result<AdminUserRecord, DataAccessError>>;
 
     /// Lists all tables visible to the admin reader.
     fn list_tables(&self) -> BoxFuture<'_, Result<Vec<PostgresTableRecord>, DataAccessError>>;

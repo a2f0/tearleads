@@ -5,7 +5,7 @@ use std::sync::Arc;
 // support module provided by parent test crate
 
 use super::support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
@@ -17,7 +17,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn get_context_for_root_admin_uses_unfiltered_organizations() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         scope_organizations_result: Ok(vec![
             AdminScopeOrganization {
                 id: String::from("org-1"),
@@ -55,7 +55,7 @@ async fn get_context_for_root_admin_uses_unfiltered_organizations() {
 
 #[tokio::test]
 async fn get_context_for_scoped_admin_uses_filtered_organizations_and_default() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         scope_organizations_by_ids_result: Ok(vec![AdminScopeOrganization {
             id: String::from("org-7"),
             name: String::from("Gamma"),
@@ -89,7 +89,7 @@ async fn get_context_for_scoped_admin_uses_filtered_organizations_and_default() 
 #[tokio::test]
 async fn get_context_maps_authorizer_denials() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
         FakeAuthorizer::deny(
             tearleads_api_v2::AdminAuthErrorKind::PermissionDenied,

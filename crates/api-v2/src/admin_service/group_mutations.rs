@@ -5,7 +5,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminUpdateGroupResponse,
 };
 use tearleads_data_access_traits::{
-    AdminCreateGroupInput, AdminGroupDetail, AdminUpdateGroupInput, PostgresAdminReadRepository,
+    AdminCreateGroupInput, AdminGroupDetail, AdminUpdateGroupInput, PostgresAdminRepository,
     RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
@@ -37,7 +37,7 @@ fn map_admin_group(group: AdminGroupDetail) -> AdminGroup {
 
 impl<P, R, A> AdminServiceHandler<P, R, A>
 where
-    P: PostgresAdminReadRepository + Send + Sync + 'static,
+    P: PostgresAdminRepository + Send + Sync + 'static,
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {

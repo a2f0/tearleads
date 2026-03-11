@@ -1,7 +1,7 @@
 use futures::executor::block_on;
-use tearleads_data_access_traits::{AdminOrganizationUserSummary, PostgresAdminReadRepository};
+use tearleads_data_access_traits::{AdminOrganizationUserSummary, PostgresAdminRepository};
 
-use super::{AdminOrganizationUserRecord, FakeGateway, PostgresAdminReadAdapter};
+use super::{AdminOrganizationUserRecord, FakeGateway, PostgresAdminAdapter};
 
 #[test]
 fn get_organization_users_maps_gateway_rows() {
@@ -20,7 +20,7 @@ fn get_organization_users_maps_gateway_rows() {
         ]),
         ..Default::default()
     };
-    let adapter = PostgresAdminReadAdapter::new(gateway);
+    let adapter = PostgresAdminAdapter::new(gateway);
 
     let result = block_on(adapter.get_organization_users("org-1"));
     let users = match result {

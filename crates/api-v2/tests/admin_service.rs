@@ -8,7 +8,7 @@ use std::{
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
 use tearleads_api_v2::{AdminAuthErrorKind, AdminOperation, AdminServiceHandler};
@@ -27,7 +27,7 @@ use tonic::{Code, Request, Status};
 #[tokio::test]
 async fn postgres_info_maps_snapshot_to_contract_response() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             info_result: Ok(PostgresInfoSnapshot {
                 connection: PostgresConnectionInfo {
                     host: Some(String::from("localhost")),
@@ -61,7 +61,7 @@ async fn postgres_info_maps_snapshot_to_contract_response() {
 #[tokio::test]
 async fn get_tables_maps_rows_to_contract_shape() {
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository {
+        FakePostgresGateway {
             tables_result: Ok(vec![PostgresTableInfo {
                 schema: String::from("public"),
                 name: String::from("users"),
@@ -94,7 +94,7 @@ async fn get_tables_maps_rows_to_contract_shape() {
 #[tokio::test]
 async fn default_constructor_applies_header_role_authorizer() {
     let handler = AdminServiceHandler::new(
-        FakePostgresRepository {
+        FakePostgresGateway {
             tables_result: Ok(vec![PostgresTableInfo {
                 schema: String::from("public"),
                 name: String::from("users"),
@@ -125,7 +125,7 @@ async fn default_constructor_applies_header_role_authorizer() {
 #[tokio::test]
 async fn default_constructor_rejects_missing_role_header() {
     let handler = AdminServiceHandler::new(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
     );
 
@@ -143,7 +143,7 @@ async fn default_constructor_rejects_missing_role_header() {
 
 #[tokio::test]
 async fn get_columns_forwards_request_schema_table_and_maps_response() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         columns_result: Ok(vec![PostgresColumnInfo {
             name: String::from("id"),
             data_type: String::from("uuid"),
@@ -197,7 +197,7 @@ async fn get_redis_keys_passes_non_negative_limit_to_repository() {
     };
     let list_keys_calls = Arc::clone(&redis_repo.list_keys_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );
@@ -228,7 +228,7 @@ async fn get_redis_keys_rejects_negative_limits() {
     let redis_repo = FakeRedisRepository::default();
     let list_keys_calls = Arc::clone(&redis_repo.list_keys_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );
@@ -289,7 +289,7 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
         };
         let get_value_calls = Arc::clone(&redis_repo.get_value_calls);
         let handler = AdminServiceHandler::with_authorizer(
-            FakePostgresRepository::default(),
+            FakePostgresGateway::default(),
             redis_repo,
             FakeAuthorizer::allow_all(),
         );
@@ -316,7 +316,7 @@ async fn get_redis_value_maps_string_list_map_and_none_variants() {
 
 #[tokio::test]
 async fn get_columns_rejects_invalid_identifiers_before_repository_calls() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let columns_calls = Arc::clone(&postgres_repo.columns_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -350,7 +350,7 @@ async fn get_redis_value_rejects_empty_keys_before_repository_calls() {
     let redis_repo = FakeRedisRepository::default();
     let get_value_calls = Arc::clone(&redis_repo.get_value_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );
@@ -385,7 +385,7 @@ async fn repository_errors_map_to_expected_grpc_status_codes() {
 
     for (kind, expected_code) in cases {
         let handler = AdminServiceHandler::with_authorizer(
-            FakePostgresRepository {
+            FakePostgresGateway {
                 tables_result: Err(DataAccessError::new(kind, "boom")),
                 ..Default::default()
             },
@@ -412,7 +412,7 @@ async fn repository_errors_map_to_expected_grpc_status_codes() {
 
 #[tokio::test]
 async fn authorizer_denial_short_circuits_repository_calls() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         tables_result: Ok(vec![PostgresTableInfo {
             schema: String::from("public"),
             name: String::from("users"),

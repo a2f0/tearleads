@@ -11,7 +11,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_traits::{
     AdminGroupSummary, AdminScopeOrganization, BoxFuture, DataAccessError,
-    PostgresAdminReadRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
+    PostgresAdminRepository, PostgresColumnInfo, PostgresConnectionInfo, PostgresInfoSnapshot,
     PostgresRowsPage, PostgresRowsQuery, PostgresTableInfo, RedisAdminRepository, RedisKeyInfo,
     RedisKeyScanPage, RedisKeyValueRecord, RedisValue,
 };
@@ -23,7 +23,7 @@ use tonic::{
 };
 
 #[derive(Debug)]
-struct FakePostgresRepository {
+struct FakePostgresGateway {
     info_result: Result<PostgresInfoSnapshot, DataAccessError>,
     scope_organizations_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
     scope_organizations_by_ids_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
@@ -33,7 +33,7 @@ struct FakePostgresRepository {
     rows_result: Result<PostgresRowsPage, DataAccessError>,
 }
 
-impl Default for FakePostgresRepository {
+impl Default for FakePostgresGateway {
     fn default() -> Self {
         Self {
             info_result: Ok(PostgresInfoSnapshot::default()),
@@ -52,7 +52,7 @@ impl Default for FakePostgresRepository {
     }
 }
 
-impl PostgresAdminReadRepository for FakePostgresRepository {
+impl PostgresAdminRepository for FakePostgresGateway {
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
         let result = self.info_result.clone();
         Box::pin(async move { result })
@@ -165,7 +165,7 @@ struct AdminTransportHarness {
 }
 
 async fn spawn_admin_transport(
-    postgres_repo: FakePostgresRepository,
+    postgres_repo: FakePostgresGateway,
     redis_repo: FakeRedisRepository,
 ) -> AdminTransportHarness {
     let listener = match TcpListener::bind("127.0.0.1:0").await {
@@ -260,7 +260,7 @@ async fn shutdown_admin_transport(harness: AdminTransportHarness) {
 
 #[tokio::test]
 async fn transport_round_trip_for_wave1a_admin_endpoints() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         info_result: Ok(PostgresInfoSnapshot {
             connection: PostgresConnectionInfo {
                 host: Some(String::from("localhost")),
@@ -466,7 +466,7 @@ async fn transport_round_trip_for_wave1a_admin_endpoints() {
 #[tokio::test]
 async fn transport_rejects_requests_without_admin_role_metadata() {
     let mut harness = spawn_admin_transport(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         FakeRedisRepository::default(),
     )
     .await;

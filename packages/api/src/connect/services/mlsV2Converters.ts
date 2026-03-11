@@ -88,31 +88,6 @@ export function toProtoMessageType(value: string): ProtoMessageType {
   }
 }
 
-export function encodeProtoBytes(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64');
-}
-
-function decodeBase64ToProtoBytes(
-  value: string,
-  fieldName: string
-): Uint8Array {
-  const normalized = value.replace(/\s+/gu, '');
-  if (normalized.length === 0) {
-    throw new Error(`${fieldName} must be non-empty base64`);
-  }
-
-  const decoded = Buffer.from(normalized, 'base64');
-  if (
-    decoded.length === 0 ||
-    decoded.toString('base64').replace(/=+$/u, '') !==
-      normalized.replace(/=+$/u, '')
-  ) {
-    throw new Error(`${fieldName} must be valid base64`);
-  }
-
-  return new Uint8Array(decoded);
-}
-
 // ---------------------------------------------------------------------------
 // Response mappers (Direct typed models → proto typed fields)
 // ---------------------------------------------------------------------------
@@ -121,10 +96,7 @@ export function toProtoKeyPackage(kp: MlsKeyPackage) {
   return {
     id: kp.id,
     userId: kp.userId,
-    keyPackageData: decodeBase64ToProtoBytes(
-      kp.keyPackageData,
-      'keyPackageData'
-    ),
+    keyPackageData: kp.keyPackageData,
     keyPackageRef: kp.keyPackageRef,
     cipherSuite: toProtoCipherSuite(kp.cipherSuite),
     createdAt: kp.createdAt,
@@ -168,7 +140,7 @@ export function toProtoMessage(msg: MlsMessage) {
     senderUserId: msg.senderUserId ?? '',
     senderEmail: msg.senderEmail ?? '',
     epoch: BigInt(msg.epoch),
-    ciphertext: decodeBase64ToProtoBytes(msg.ciphertext, 'ciphertext'),
+    ciphertext: msg.ciphertext,
     messageType: toProtoMessageType(msg.messageType),
     contentType: msg.contentType,
     sequenceNumber: BigInt(msg.sequenceNumber),
@@ -182,10 +154,7 @@ export function toProtoGroupState(s: MlsGroupState) {
     id: s.id,
     groupId: s.groupId,
     epoch: BigInt(s.epoch),
-    encryptedState: decodeBase64ToProtoBytes(
-      s.encryptedState,
-      'encryptedState'
-    ),
+    encryptedState: s.encryptedState,
     stateHash: s.stateHash,
     createdAt: s.createdAt
   };
@@ -196,7 +165,7 @@ export function toProtoWelcome(w: MlsWelcomeMessage) {
     id: w.id,
     groupId: w.groupId,
     groupName: w.groupName,
-    welcome: decodeBase64ToProtoBytes(w.welcome, 'welcome'),
+    welcome: w.welcome,
     keyPackageRef: w.keyPackageRef,
     epoch: BigInt(w.epoch),
     createdAt: w.createdAt
@@ -218,7 +187,7 @@ export interface V2UploadKeyPackagesRequest {
 export interface V2CreateGroupRequest {
   name: string;
   description: string;
-  groupIdMls: string;
+  groupIdMls: Uint8Array;
   cipherSuite: ProtoCipherSuite;
 }
 

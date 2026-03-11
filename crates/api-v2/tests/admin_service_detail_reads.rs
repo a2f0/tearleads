@@ -11,7 +11,7 @@ mod groups;
 mod support;
 
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
@@ -28,7 +28,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn get_group_members_returns_members_for_authorized_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-7"),
             organization_id: String::from("org-7"),
@@ -76,7 +76,7 @@ async fn get_group_members_returns_members_for_authorized_scope() {
 
 #[tokio::test]
 async fn get_group_members_rejects_blank_id_before_repository_calls() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let get_group_calls = Arc::clone(&postgres_repo.get_group_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -101,7 +101,7 @@ async fn get_group_members_rejects_blank_id_before_repository_calls() {
 
 #[tokio::test]
 async fn get_group_members_rejects_forbidden_organization_scope() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_group_result: Ok(AdminGroupDetail {
             id: String::from("group-9"),
             organization_id: String::from("org-9"),
@@ -140,7 +140,7 @@ async fn get_group_members_rejects_forbidden_organization_scope() {
 
 #[tokio::test]
 async fn get_organization_uses_scoped_filter_and_returns_detail() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
             id: String::from("org-7"),
             name: String::from("Scoped Org"),
@@ -179,7 +179,7 @@ async fn get_organization_uses_scoped_filter_and_returns_detail() {
 
 #[tokio::test]
 async fn get_organization_returns_not_found_when_filtered_result_is_empty() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![]),
         ..Default::default()
     };
@@ -210,7 +210,7 @@ async fn get_organization_returns_not_found_when_filtered_result_is_empty() {
 
 #[tokio::test]
 async fn get_org_groups_uses_scoped_filter() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_groups_result: Ok(vec![AdminGroupSummary {
             id: String::from("group-7"),
             organization_id: String::from("org-7"),
@@ -248,7 +248,7 @@ async fn get_org_groups_uses_scoped_filter() {
 
 #[tokio::test]
 async fn get_org_users_returns_users_for_scoped_organization() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
             id: String::from("org-7"),
             name: String::from("Scoped Org"),
@@ -298,7 +298,7 @@ async fn get_org_users_returns_users_for_scoped_organization() {
 
 #[tokio::test]
 async fn get_org_users_maps_repository_errors() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(vec![AdminOrganizationSummary {
             id: String::from("org-7"),
             name: String::from("Scoped Org"),
@@ -334,7 +334,7 @@ async fn get_org_users_maps_repository_errors() {
 
 #[tokio::test]
 async fn get_org_users_returns_not_found_when_scope_filter_is_empty() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         list_organizations_result: Ok(Vec::new()),
         ..Default::default()
     };
@@ -362,7 +362,7 @@ async fn get_org_users_returns_not_found_when_scope_filter_is_empty() {
 
 #[tokio::test]
 async fn get_user_returns_not_found_after_scope_filter() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_user_result: Ok(None),
         ..Default::default()
     };
@@ -393,7 +393,7 @@ async fn get_user_returns_not_found_after_scope_filter() {
 
 #[tokio::test]
 async fn get_user_returns_user_for_root_admin_without_scope_filter() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         get_user_result: Ok(Some(AdminUserSummary {
             id: String::from("user-1"),
             email: String::from("admin@example.com"),

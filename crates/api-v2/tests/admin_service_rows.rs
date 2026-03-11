@@ -6,7 +6,7 @@ mod support;
 
 use prost_types::value::Kind as ProtobufValueKind;
 use support::admin_service::{
-    FakeAuthorizer, FakePostgresRepository, FakeRedisRepository, into_inner_or_panic,
+    FakeAuthorizer, FakePostgresGateway, FakeRedisRepository, into_inner_or_panic,
     lock_or_recover,
 };
 use tearleads_api_v2::AdminServiceHandler;
@@ -18,7 +18,7 @@ use tonic::{Code, Request};
 
 #[tokio::test]
 async fn get_rows_forwards_normalized_query_and_maps_response() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: vec![String::from("{\"id\":\"user-1\"}")],
             total_count: 1,
@@ -67,7 +67,7 @@ async fn get_rows_forwards_normalized_query_and_maps_response() {
 
 #[tokio::test]
 async fn get_rows_maps_nested_json_values_to_struct_fields() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: vec![String::from(
                 "{\"stringField\":\"text\",\"boolField\":true,\"numberField\":42.5,\"nullField\":null,\"listField\":[\"alpha\",2,false,{\"nested\":\"yes\"}],\"objectField\":{\"inner\":\"value\",\"innerNumber\":7}}",
@@ -145,7 +145,7 @@ async fn get_rows_maps_nested_json_values_to_struct_fields() {
 
 #[tokio::test]
 async fn get_rows_returns_internal_for_invalid_row_json() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: vec![String::from("{not-json")],
             total_count: 1,
@@ -185,7 +185,7 @@ async fn get_rows_returns_internal_for_invalid_row_json() {
 
 #[tokio::test]
 async fn get_rows_returns_internal_for_non_object_row_json() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: vec![String::from("\"not-an-object\"")],
             total_count: 1,
@@ -225,7 +225,7 @@ async fn get_rows_returns_internal_for_non_object_row_json() {
 
 #[tokio::test]
 async fn get_rows_rejects_invalid_sort_direction() {
-    let postgres_repo = FakePostgresRepository::default();
+    let postgres_repo = FakePostgresGateway::default();
     let rows_calls = Arc::clone(&postgres_repo.rows_calls);
     let handler = AdminServiceHandler::with_authorizer(
         postgres_repo,
@@ -258,7 +258,7 @@ async fn get_rows_rejects_invalid_sort_direction() {
 
 #[tokio::test]
 async fn get_rows_normalizes_asc_sort_direction() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: Vec::new(),
             total_count: 0,
@@ -303,7 +303,7 @@ async fn get_rows_normalizes_asc_sort_direction() {
 
 #[tokio::test]
 async fn get_rows_normalizes_zero_limit_to_default() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: Vec::new(),
             total_count: 0,
@@ -349,7 +349,7 @@ async fn get_rows_normalizes_zero_limit_to_default() {
 
 #[tokio::test]
 async fn get_rows_treats_blank_sort_direction_as_none() {
-    let postgres_repo = FakePostgresRepository {
+    let postgres_repo = FakePostgresGateway {
         rows_result: Ok(PostgresRowsPage {
             rows_json: Vec::new(),
             total_count: 0,
@@ -400,7 +400,7 @@ async fn get_redis_db_size_reads_count_from_repository() {
     };
     let db_size_calls = Arc::clone(&redis_repo.db_size_calls);
     let handler = AdminServiceHandler::with_authorizer(
-        FakePostgresRepository::default(),
+        FakePostgresGateway::default(),
         redis_repo,
         FakeAuthorizer::allow_all(),
     );

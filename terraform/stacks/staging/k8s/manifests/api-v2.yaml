@@ -26,8 +26,6 @@ spec:
               value: "5002"
             - name: ALLOWED_ORIGINS
               value: "https://DOMAIN_PLACEHOLDER,https://app.DOMAIN_PLACEHOLDER"
-            - name: API_V2_ENABLE_ADMIN_HARNESS
-              value: "1"
           resources:
             requests:
               memory: "64Mi"

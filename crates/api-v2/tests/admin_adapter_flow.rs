@@ -11,7 +11,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_postgres::{
     AdminGroupSummaryRecord, AdminScopeOrganizationRecord, PostgresAdminGateway,
-    PostgresAdminReadAdapter, PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
+    PostgresAdminAdapter, PostgresColumnRecord, PostgresRowsPageRecord, PostgresTableRecord,
 };
 use tearleads_data_access_redis::{
     RedisAdminAdapter, RedisAdminGateway, RedisKeyRecord, RedisScanResult,
@@ -144,6 +144,137 @@ impl PostgresAdminGateway for FakePostgresGateway {
         let result = self.rows_page.clone();
         Box::pin(async move { Ok(result) })
     }
+
+    fn get_group(
+        &self,
+        _group_id: &str,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
+
+    fn create_group(
+        &self,
+        _input: tearleads_data_access_traits::AdminCreateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
+
+    fn update_group(
+        &self,
+        _group_id: &str,
+        _input: tearleads_data_access_traits::AdminUpdateGroupInput,
+    ) -> BoxFuture<'_, Result<AdminGroupDetailRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
+
+    fn delete_group(&self, _group_id: &str) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn add_group_member(
+        &self,
+        _group_id: &str,
+        _user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn remove_group_member(
+        &self,
+        _group_id: &str,
+        _user_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn list_organizations(
+        &self,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationRecord>, DataAccessError>> {
+        Box::pin(async move { Ok(Vec::new()) })
+    }
+
+    fn create_organization(
+        &self,
+        _input: tearleads_data_access_traits::AdminCreateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
+
+    fn update_organization(
+        &self,
+        _organization_id: &str,
+        _input: tearleads_data_access_traits::AdminUpdateOrganizationInput,
+    ) -> BoxFuture<'_, Result<AdminOrganizationRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
+
+    fn delete_organization(
+        &self,
+        _organization_id: &str,
+    ) -> BoxFuture<'_, Result<bool, DataAccessError>> {
+        Box::pin(async move { Ok(true) })
+    }
+
+    fn get_organization_users(
+        &self,
+        _organization_id: &str,
+    ) -> BoxFuture<'_, Result<Vec<AdminOrganizationUserRecord>, DataAccessError>> {
+        Box::pin(async move { Ok(Vec::new()) })
+    }
+
+    fn list_users(
+        &self,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Vec<AdminUserRecord>, DataAccessError>> {
+        Box::pin(async move { Ok(Vec::new()) })
+    }
+
+    fn get_user(
+        &self,
+        _user_id: &str,
+        _organization_ids: Option<&[String]>,
+    ) -> BoxFuture<'_, Result<Option<AdminUserRecord>, DataAccessError>> {
+        Box::pin(async move { Ok(None) })
+    }
+
+    fn update_user(
+        &self,
+        _user_id: &str,
+        _input: tearleads_data_access_traits::AdminUpdateUserInput,
+    ) -> BoxFuture<'_, Result<AdminUserRecord, DataAccessError>> {
+        Box::pin(async move {
+            Err(DataAccessError::new(
+                DataAccessErrorKind::Internal,
+                "not implemented in fake",
+            ))
+        })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -259,7 +390,7 @@ async fn postgres_info_and_tables_flow_through_adapter_and_gateway() {
     };
     let postgres_calls = Arc::clone(&postgres_gateway.calls);
     let handler = AdminServiceHandler::new(
-        PostgresAdminReadAdapter::new(postgres_gateway),
+        PostgresAdminAdapter::new(postgres_gateway),
         RedisAdminAdapter::new(FakeRedisGateway::default()),
     );
 
@@ -337,7 +468,7 @@ async fn columns_flow_normalizes_schema_and_table_before_gateway_calls() {
     };
     let postgres_calls = Arc::clone(&postgres_gateway.calls);
     let handler = AdminServiceHandler::new(
-        PostgresAdminReadAdapter::new(postgres_gateway),
+        PostgresAdminAdapter::new(postgres_gateway),
         RedisAdminAdapter::new(FakeRedisGateway::default()),
     );
 
@@ -388,7 +519,7 @@ async fn redis_keys_and_value_flow_through_adapter_with_normalization() {
     };
     let redis_calls = Arc::clone(&redis_gateway.calls);
     let handler = AdminServiceHandler::new(
-        PostgresAdminReadAdapter::new(FakePostgresGateway::default()),
+        PostgresAdminAdapter::new(FakePostgresGateway::default()),
         RedisAdminAdapter::new(redis_gateway),
     );
 
@@ -464,7 +595,7 @@ async fn missing_role_header_short_circuits_before_gateway_calls() {
     let redis_calls = Arc::clone(&redis_gateway.calls);
 
     let handler = AdminServiceHandler::new(
-        PostgresAdminReadAdapter::new(postgres_gateway),
+        PostgresAdminAdapter::new(postgres_gateway),
         RedisAdminAdapter::new(redis_gateway),
     );
 

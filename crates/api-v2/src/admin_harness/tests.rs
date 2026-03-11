@@ -6,14 +6,14 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminListUsersRequest, admin_service_server::AdminService,
 };
 use tearleads_data_access_traits::{
-    AdminCreateGroupInput, AdminUpdateGroupInput, PostgresAdminReadRepository, PostgresRowsQuery,
+    AdminCreateGroupInput, AdminUpdateGroupInput, PostgresAdminRepository, PostgresRowsQuery,
     RedisAdminRepository, RedisValue,
 };
 use tonic::{Code, Request};
 
 use super::{
     AuthorizationHeaderAdminAuthorizer, StaticPostgresRepository, StaticRedisRepository,
-    create_admin_harness_handler,
+    create_admin_handler,
 };
 
 #[test]
@@ -307,7 +307,7 @@ async fn static_repositories_return_expected_wave1a_shapes() {
 
 #[tokio::test]
 async fn harness_handler_enforces_authorization_and_serves_responses() {
-    let handler = create_admin_harness_handler();
+    let handler = create_admin_handler();
 
     let missing_auth = handler
         .get_tables(Request::new(AdminGetTablesRequest {}))

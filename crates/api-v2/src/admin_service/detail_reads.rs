@@ -7,7 +7,7 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AdminUser, AdminUserAccounting,
 };
 use tearleads_data_access_traits::{
-    AdminOrganizationUserSummary, AdminUserSummary, PostgresAdminReadRepository,
+    AdminOrganizationUserSummary, AdminUserSummary, PostgresAdminRepository,
     RedisAdminRepository,
 };
 use tonic::{Request, Response, Status};
@@ -53,7 +53,7 @@ fn map_organization_user(user: AdminOrganizationUserSummary) -> AdminOrganizatio
 
 impl<P, R, A> AdminServiceHandler<P, R, A>
 where
-    P: PostgresAdminReadRepository + Send + Sync + 'static,
+    P: PostgresAdminRepository + Send + Sync + 'static,
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {

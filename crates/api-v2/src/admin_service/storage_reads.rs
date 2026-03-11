@@ -1,7 +1,7 @@
 use tearleads_api_v2_contracts::tearleads::v2::{
     AdminGetPostgresInfoRequest, AdminGetPostgresInfoResponse, AdminPostgresConnectionInfo,
 };
-use tearleads_data_access_traits::{PostgresAdminReadRepository, RedisAdminRepository};
+use tearleads_data_access_traits::{PostgresAdminRepository, RedisAdminRepository};
 use tonic::{Request, Response, Status};
 
 use crate::admin_auth::{AdminOperation, AdminRequestAuthorizer, map_admin_auth_error};
@@ -11,7 +11,7 @@ use super::AdminServiceHandler;
 
 impl<P, R, A> AdminServiceHandler<P, R, A>
 where
-    P: PostgresAdminReadRepository + Send + Sync + 'static,
+    P: PostgresAdminRepository + Send + Sync + 'static,
     R: RedisAdminRepository + Send + Sync + 'static,
     A: AdminRequestAuthorizer + Send + Sync + 'static,
 {

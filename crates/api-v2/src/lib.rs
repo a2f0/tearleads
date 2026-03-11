@@ -12,12 +12,6 @@ use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
-
-pub use admin_auth::{
-    AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
-    HeaderRoleAdminAuthorizer,
-};
 pub use admin_service::AdminServiceHandler;
 pub use ping::PingResponse;
 use ping::ping;
@@ -27,32 +21,23 @@ use ping::ping;
 /// When `origins` is empty, all origins are allowed (local development).
 /// Otherwise only the listed origins are accepted.
 pub fn app_with_origins(origins: &str) -> Router {
-    app_with_harness_flag(origins, should_enable_admin_harness())
-}
+    let build_admin_service = || {
+        tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(AdminServiceServer::new(
+                admin_harness::create_admin_handler(),
+            ))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            })
+    };
 
-fn app_with_harness_flag(origins: &str, enable_admin_harness: bool) -> Router {
-    let router = Router::new()
+    Router::new()
         .route("/v2/ping", get(ping))
+        .nest_service("/connect", build_admin_service())
+        .nest_service("/v1/connect", build_admin_service())
         .layer(cors_layer(origins))
-        .layer(TraceLayer::new_for_http());
-
-    if enable_admin_harness {
-        let build_admin_service = || {
-            tower::ServiceBuilder::new()
-                .layer(tonic_web::GrpcWebLayer::new())
-                .service(AdminServiceServer::new(
-                    admin_harness::create_admin_harness_handler(),
-                ))
-                .map_request(|request: axum::http::Request<axum::body::Body>| {
-                    request.map(tonic::body::Body::new)
-                })
-        };
-        router
-            .nest_service("/connect", build_admin_service())
-            .nest_service("/v1/connect", build_admin_service())
-    } else {
-        router
-    }
+        .layer(TraceLayer::new_for_http())
 }
 
 fn cors_layer(origins: &str) -> CorsLayer {
@@ -73,18 +58,6 @@ fn cors_layer(origins: &str) -> CorsLayer {
         .allow_headers(tower_http::cors::Any)
 }
 
-fn should_enable_admin_harness() -> bool {
-    let value = std::env::var(ADMIN_HARNESS_ENV_KEY).unwrap_or_default();
-    is_truthy_env_flag(&value)
-}
-
-fn is_truthy_env_flag(value: &str) -> bool {
-    matches!(
-        value.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on"
-    )
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -92,18 +65,7 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use super::{app_with_harness_flag, is_truthy_env_flag};
-
-    #[test]
-    fn truthy_flag_parsing_is_stable() {
-        assert!(is_truthy_env_flag("1"));
-        assert!(is_truthy_env_flag("TRUE"));
-        assert!(is_truthy_env_flag(" yes "));
-        assert!(is_truthy_env_flag("On"));
-        assert!(!is_truthy_env_flag("0"));
-        assert!(!is_truthy_env_flag("false"));
-        assert!(!is_truthy_env_flag(""));
-    }
+    use super::app_with_origins;
 
     fn admin_tables_request(path: &str) -> Request<Body> {
         Request::builder()
@@ -117,38 +79,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn harness_flag_controls_connect_route_mounting() {
-        let without_harness = app_with_harness_flag("", false)
+    async fn admin_connect_routes_are_mounted_by_default() {
+        let response = app_with_origins("")
             .oneshot(admin_tables_request(
                 "/connect/tearleads.v2.AdminService/GetTables",
             ))
             .await
             .expect("router should return a response");
-        assert_eq!(without_harness.status(), StatusCode::NOT_FOUND);
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
 
-        let with_harness_result = app_with_harness_flag("", true)
-            .oneshot(admin_tables_request(
-                "/connect/tearleads.v2.AdminService/GetTables",
-            ))
-            .await;
-        let with_harness = with_harness_result.expect("router should return a response");
-        assert_ne!(with_harness.status(), StatusCode::NOT_FOUND);
-
-        let without_harness_v1_prefixed = app_with_harness_flag("", false)
+        let v1_prefixed = app_with_origins("")
             .oneshot(admin_tables_request(
                 "/v1/connect/tearleads.v2.AdminService/GetTables",
             ))
             .await
             .expect("router should return a response");
-        assert_eq!(without_harness_v1_prefixed.status(), StatusCode::NOT_FOUND);
-
-        let with_harness_v1_prefixed_result = app_with_harness_flag("", true)
-            .oneshot(admin_tables_request(
-                "/v1/connect/tearleads.v2.AdminService/GetTables",
-            ))
-            .await;
-        let with_harness_v1_prefixed =
-            with_harness_v1_prefixed_result.expect("router should return a response");
-        assert_ne!(with_harness_v1_prefixed.status(), StatusCode::NOT_FOUND);
+        assert_ne!(v1_prefixed.status(), StatusCode::NOT_FOUND);
     }
 }

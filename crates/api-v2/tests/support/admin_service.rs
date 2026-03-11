@@ -7,7 +7,7 @@ use tearleads_data_access_traits::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupSummary,
     AdminOrganizationSummary, AdminOrganizationUserSummary, AdminScopeOrganization,
     AdminUpdateGroupInput, AdminUpdateOrganizationInput, AdminUpdateUserInput, AdminUserSummary,
-    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminReadRepository,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAdminRepository,
     PostgresColumnInfo, PostgresInfoSnapshot, PostgresRowsPage, PostgresRowsQuery,
     PostgresTableInfo, RedisAdminRepository, RedisKeyScanPage, RedisKeyValueRecord,
 };
@@ -70,7 +70,7 @@ type OrganizationDeleteCalls = Arc<Mutex<Vec<String>>>;
 type UserUpdateCalls = Arc<Mutex<Vec<(String, AdminUpdateUserInput)>>>;
 
 #[derive(Debug)]
-pub(crate) struct FakePostgresRepository {
+pub(crate) struct FakePostgresGateway {
     pub(crate) info_result: Result<PostgresInfoSnapshot, DataAccessError>,
     pub(crate) scope_organizations_result: Result<Vec<AdminScopeOrganization>, DataAccessError>,
     pub(crate) scope_organizations_by_ids_result:
@@ -114,7 +114,7 @@ pub(crate) struct FakePostgresRepository {
     pub(crate) rows_calls: Arc<Mutex<Vec<PostgresRowsQuery>>>,
 }
 
-impl Default for FakePostgresRepository {
+impl Default for FakePostgresGateway {
     fn default() -> Self {
         Self {
             info_result: Ok(PostgresInfoSnapshot::default()),
@@ -195,7 +195,7 @@ impl Default for FakePostgresRepository {
     }
 }
 
-impl PostgresAdminReadRepository for FakePostgresRepository {
+impl PostgresAdminRepository for FakePostgresGateway {
     fn get_postgres_info(&self) -> BoxFuture<'_, Result<PostgresInfoSnapshot, DataAccessError>> {
         let result = self.info_result.clone();
         Box::pin(async move { result })
