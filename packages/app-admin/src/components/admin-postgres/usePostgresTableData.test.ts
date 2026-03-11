@@ -34,13 +34,13 @@ describe('usePostgresTableData', () => {
     }
   ];
   const mockRows = [{ id: 1, email: 'test@example.com' }];
-  const mockedGetColumns = vi.mocked(api.adminV2.postgres.getColumns);
-  const mockedGetRows = vi.mocked(api.adminV2.postgres.getRows);
+  const getColumnsSpy = vi.spyOn(api.adminV2.postgres, 'getColumns');
+  const getRowsSpy = vi.spyOn(api.adminV2.postgres, 'getRows');
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGetColumns.mockResolvedValue({ columns: mockColumns });
-    mockedGetRows.mockResolvedValue({
+    getColumnsSpy.mockResolvedValue({ columns: mockColumns });
+    getRowsSpy.mockResolvedValue({
       rows: mockRows,
       totalCount: 1n,
       limit: 50,
