@@ -114,6 +114,8 @@ export const ptPart2 = {
     loadingContacts: 'Carregando contatos...',
     // Empty states
     noContactsYet: 'Sem contatos ainda',
+    noContactsFound: 'Nenhum contato encontrado',
+    addNewContact: 'Adicionar Novo Contato',
     createFirstContact: 'Crie seu primeiro contato',
     noContactInfo: 'Sem informações de contato',
     // Search
@@ -137,6 +139,7 @@ export const ptPart2 = {
     deleting: 'Excluindo...',
     renameGroup: 'Renomear Grupo',
     // Import
+    mapCsvColumns: 'Mapear Colunas CSV',
     importCsv: 'Importar CSV',
     done: 'Concluído',
     parsingCsv: 'Analisando CSV...',

@@ -114,6 +114,8 @@ export const uaPart2 = {
     loadingContacts: 'Завантаження контактів...',
     // Empty states
     noContactsYet: 'Контактів ще немає',
+    noContactsFound: 'Контактів не знайдено',
+    addNewContact: 'Додати Новий Контакт',
     createFirstContact: 'Створіть свій перший контакт',
     noContactInfo: 'Немає контактної інформації',
     // Search
@@ -137,6 +139,7 @@ export const uaPart2 = {
     deleting: 'Видалення...',
     renameGroup: 'Перейменувати Групу',
     // Import
+    mapCsvColumns: 'Зіставити Стовпці CSV',
     importCsv: 'Імпорт CSV',
     done: 'Готово',
     parsingCsv: 'Аналіз CSV...',

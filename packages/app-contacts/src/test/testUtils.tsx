@@ -1,3 +1,4 @@
+// one-component-per-file: allow
 import type { Database } from '@tearleads/db/sqlite';
 import i18next from 'i18next';
 import type { ReactNode } from 'react';
@@ -167,6 +168,10 @@ interface TestContactsProviderProps {
     createdAt: Date
   ) => Promise<{ success: boolean; error?: string }>;
   formatDate?: (date: Date) => string;
+  onContactSaved?: (params: {
+    contactId: string;
+    isNew: boolean;
+  }) => Promise<void>;
   openEmailComposer?: (recipients: string[]) => boolean;
   activeOrganizationId?: string | null;
 }
@@ -182,6 +187,7 @@ export function TestContactsProvider({
   navigateWithFrom = vi.fn(),
   saveFile = vi.fn().mockResolvedValue(undefined),
   registerInVfs = vi.fn().mockResolvedValue({ success: true }),
+  onContactSaved = vi.fn().mockResolvedValue(undefined),
   formatDate = (date) => date.toLocaleDateString(),
   openEmailComposer,
   activeOrganizationId = null
@@ -196,6 +202,7 @@ export function TestContactsProvider({
       getDatabaseAdapter={() => adapter}
       saveFile={saveFile}
       registerInVfs={registerInVfs}
+      onContactSaved={onContactSaved}
       ui={ui}
       t={t}
       tooltipZIndex={10000}

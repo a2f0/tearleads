@@ -23,6 +23,8 @@ export interface ContactsTranslations {
   loadingContacts: string;
   // Empty states
   noContactsYet: string;
+  noContactsFound: string;
+  addNewContact: string;
   createFirstContact: string;
   noContactInfo: string;
   // Search
@@ -45,6 +47,7 @@ export interface ContactsTranslations {
   deleting: string;
   renameGroup: string;
   // Import
+  mapCsvColumns: string;
   importCsv: string;
   done: string;
   parsingCsv: string;

@@ -1,9 +1,16 @@
-import { ThemeProvider } from '@tearleads/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContactDetail } from './ContactDetail';
+import {
+  createMockDeleteChain,
+  createMockInsertChain,
+  createMockSelectChain,
+  createMockUpdateChain,
+  renderContactDetail,
+  TEST_CONTACT,
+  TEST_EMAILS,
+  TEST_PHONES
+} from './contactDetailTestSetup';
 
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
@@ -40,100 +47,128 @@ vi.mock('@/db', () => ({
   })
 }));
 
-const TEST_CONTACT = {
-  id: 'contact-123',
-  firstName: 'John',
-  lastName: 'Doe',
-  birthday: '1990-05-15',
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date('2024-01-15'),
-  deleted: false
-};
+// Mock ClientContactsProvider to use test infrastructure
+vi.mock('@/contexts/ClientContactsProvider', async () => {
+  const { ContactsProvider } = await import('@tearleads/app-contacts');
+  const db = await import('@/db');
+  const dbHooks = await import('@/db/hooks');
+  const router = await import('react-router-dom');
 
-const TEST_EMAILS = [
-  {
-    id: 'email-1',
-    contactId: 'contact-123',
-    email: 'john@example.com',
-    label: 'work',
-    isPrimary: true
-  },
-  {
-    id: 'email-2',
-    contactId: 'contact-123',
-    email: 'john.personal@example.com',
-    label: 'personal',
-    isPrimary: false
-  }
-];
+  const translations: Record<string, string> = {
+    backToContacts: 'Back to Contacts',
+    loadingDatabase: 'Loading database...',
+    loadingContact: 'Loading contact...',
+    thisContact:
+      'Database is locked. Enter your password to view this contact.',
+    contactNotFound: 'Contact not found',
+    firstNameIsRequired: 'First name is required',
+    firstNameRequired: 'First name',
+    emailCannotBeEmpty: 'Email address cannot be empty',
+    phoneCannotBeEmpty: 'Phone number cannot be empty',
+    emailAddress: 'Email address',
+    emailAddresses: 'Email Addresses',
+    phoneNumber: 'Phone number',
+    phoneNumbers: 'Phone Numbers',
+    addEmail: 'Add Email',
+    addPhone: 'Add Phone',
+    save: 'Save',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    export: 'Export',
+    delete: 'Delete',
+    label: 'Label',
+    primary: 'Primary',
+    lastName: 'Last name',
+    birthdayPlaceholder: 'Birthday',
+    created: 'Created',
+    updated: 'Updated',
+    details: 'Details',
+    createContact: 'contacts',
+    newContactTitle: 'New Contact',
+    saveContact: 'Save Contact'
+  };
 
-const TEST_PHONES = [
-  {
-    id: 'phone-1',
-    contactId: 'contact-123',
-    phoneNumber: '+1-555-0100',
-    label: 'mobile',
-    isPrimary: true
-  }
-];
+  return {
+    ClientContactsProvider: ({ children }: { children: React.ReactNode }) => {
+      const dbState = dbHooks.useDatabaseContext();
+      const navigate = router.useNavigate();
 
-function createMockSelectChain(results: unknown[][]) {
-  let callIndex = 0;
-  return vi.fn().mockImplementation(() => ({
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockImplementation(() => {
-          const result = results[callIndex] ?? [];
-          callIndex++;
-          return Promise.resolve(result);
-        }),
-        orderBy: vi.fn().mockImplementation(() => {
-          const result = results[callIndex] ?? [];
-          callIndex++;
-          return Promise.resolve(result);
-        })
-      }),
-      orderBy: vi.fn().mockImplementation(() => {
-        const result = results[callIndex] ?? [];
-        callIndex++;
-        return Promise.resolve(result);
-      })
-    })
-  }));
-}
+      const mockUI = {
+        Button: ({
+          children: btnChildren,
+          onClick,
+          disabled,
+          ...props
+        }: any) => (
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            {...props}
+          >
+            {btnChildren}
+          </button>
+        ),
+        Input: ({ value, onChange, inputRef, ...props }: any) => (
+          <input ref={inputRef} value={value} onChange={onChange} {...props} />
+        ),
+        BackLink: ({ defaultLabel }: any) => (
+          <a href="/" data-testid="back-link">
+            {defaultLabel}
+          </a>
+        ),
+        InlineUnlock: ({ description }: any) => (
+          <div data-testid="inline-unlock">
+            {description}
+            <input data-testid="inline-unlock-password" type="password" />
+            <button type="button" data-testid="inline-unlock-button">
+              Unlock
+            </button>
+          </div>
+        ),
+        ContextMenu: ({ children: c }: any) => <div>{c}</div>,
+        ContextMenuItem: ({ children: c, onClick }: any) => (
+          <button type="button" onClick={onClick}>
+            {c}
+          </button>
+        ),
+        ListRow: ({ children: c }: any) => <div>{c}</div>,
+        RefreshButton: () => null,
+        VirtualListStatus: () => null,
+        DropdownMenu: () => null,
+        DropdownMenuItem: () => null,
+        DropdownMenuSeparator: () => null,
+        WindowOptionsMenuItem: () => null,
+        AboutMenuItem: () => null,
+        Dropzone: () => null
+      };
 
-function createMockUpdateChain() {
-  return vi.fn().mockReturnValue({
-    set: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined)
-    })
-  });
-}
-
-function createMockInsertChain() {
-  return vi.fn().mockReturnValue({
-    values: vi.fn().mockResolvedValue(undefined)
-  });
-}
-
-function createMockDeleteChain() {
-  return vi.fn().mockReturnValue({
-    where: vi.fn().mockResolvedValue(undefined)
-  });
-}
-
-function renderContactDetail(contactId: string = 'contact-123') {
-  return render(
-    <ThemeProvider>
-      <MemoryRouter initialEntries={[`/contacts/${contactId}`]}>
-        <Routes>
-          <Route path="/contacts/:id" element={<ContactDetail />} />
-          <Route path="/contacts" element={<div>Contacts List</div>} />
-        </Routes>
-      </MemoryRouter>
-    </ThemeProvider>
-  );
-}
+      return (
+        <ContactsProvider
+          databaseState={{
+            isUnlocked: dbState?.isUnlocked ?? true,
+            isLoading: dbState?.isLoading ?? false,
+            currentInstanceId: 'test-instance'
+          }}
+          getDatabase={db.getDatabase}
+          getDatabaseAdapter={db.getDatabaseAdapter}
+          saveFile={async () => {}}
+          registerInVfs={async () => ({ success: true })}
+          onContactSaved={async () => {}}
+          ui={mockUI}
+          t={(key: string) => translations[key] || key}
+          tooltipZIndex={10000}
+          navigate={navigate}
+          navigateWithFrom={navigate}
+          formatDate={(d: Date) => d.toLocaleDateString()}
+          activeOrganizationId={null}
+        >
+          {children}
+        </ContactsProvider>
+      );
+    }
+  };
+});
 
 describe('ContactDetail', () => {
   beforeEach(() => {
@@ -166,7 +201,7 @@ describe('ContactDetail', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(screen.getByText('First name is required')).toBeInTheDocument();
+      expect(screen.getByText('First name is required.')).toBeInTheDocument();
     });
 
     it('shows error when email is empty', async () => {
@@ -184,9 +219,7 @@ describe('ContactDetail', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Email address cannot be empty')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Email #1 cannot be empty.')).toBeInTheDocument();
     });
 
     it('shows error when phone is empty', async () => {
@@ -204,16 +237,12 @@ describe('ContactDetail', () => {
 
       await user.click(screen.getByTestId('save-button'));
 
-      expect(
-        screen.getByText('Phone number cannot be empty')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Phone #1 cannot be empty.')).toBeInTheDocument();
     });
   });
 
   describe('saving changes', () => {
     beforeEach(() => {
-      // For save tests, we need the select to work multiple times
-      // First for initial load, second for refresh after save
       let callCount = 0;
       mockSelect.mockImplementation(() => {
         const chain = {

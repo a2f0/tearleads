@@ -10,11 +10,9 @@ import { ArrowLeft, Plus, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';
+import { ALL_CONTACTS_ID } from '../lib/constants';
 import { linkContactsToGroup } from '../lib/linkContactsToGroup';
-import {
-  ALL_CONTACTS_ID,
-  ContactsWindowContent
-} from './ContactsWindowContent';
+import { ContactsWindowContent } from './ContactsWindowContent';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 import { ContactsWindowImport } from './ContactsWindowImport';
 import { ContactsWindowList } from './ContactsWindowList';

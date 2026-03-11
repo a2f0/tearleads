@@ -30,6 +30,7 @@ export function useContactSave() {
     getDatabase,
     getDatabaseAdapter,
     registerInVfs,
+    onContactSaved,
     activeOrganizationId
   } = useContactsContext();
   const [saving, setSaving] = useState(false);
@@ -95,6 +96,14 @@ export function useContactSave() {
             console.warn('VFS registration failed:', vfsResult.error);
           }
 
+          await onContactSaved({
+            contactId,
+            isNew: true,
+            formData,
+            emails,
+            phones
+          });
+
           return { success: true, contactId };
         } catch (err) {
           await adapter.rollbackTransaction();
@@ -110,7 +119,13 @@ export function useContactSave() {
         setSaving(false);
       }
     },
-    [getDatabase, getDatabaseAdapter, registerInVfs, activeOrganizationId]
+    [
+      getDatabase,
+      getDatabaseAdapter,
+      registerInVfs,
+      onContactSaved,
+      activeOrganizationId
+    ]
   );
 
   /**
@@ -219,6 +234,15 @@ export function useContactSave() {
           }
 
           await adapter.commitTransaction();
+
+          await onContactSaved({
+            contactId,
+            isNew: false,
+            formData,
+            emails,
+            phones
+          });
+
           return { success: true, contactId };
         } catch (err) {
           await adapter.rollbackTransaction();
@@ -234,7 +258,7 @@ export function useContactSave() {
         setSaving(false);
       }
     },
-    [getDatabase, getDatabaseAdapter]
+    [getDatabase, getDatabaseAdapter, onContactSaved]
   );
 
   return { createContact, updateContact, saving };

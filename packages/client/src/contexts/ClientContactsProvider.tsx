@@ -7,6 +7,7 @@ import {
   ContactsProvider,
   type ContactsUIComponents,
   type ImportedContactRecord,
+  type OnContactSavedParams,
   type VfsRegistrationResult
 } from '@tearleads/app-contacts';
 import contactsPackageJson from '@tearleads/app-contacts/package.json';
@@ -43,6 +44,7 @@ import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { saveFile as saveFileUtil } from '@/lib/fileUtils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatDate } from '@/lib/utils';
+import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { createContactDocument, indexDocuments } from '@/search';
 import { useWindowManagerActions } from './WindowManagerContext';
 
@@ -193,6 +195,39 @@ export function ClientContactsProvider({
     [databaseState.currentInstanceId]
   );
 
+  const handleContactSaved = useCallback(
+    async (params: OnContactSavedParams) => {
+      const activeEmails = params.emails.filter((e) => !e.isDeleted);
+      const activePhones = params.phones.filter((p) => !p.isDeleted);
+
+      await queueItemUpsertAndFlush({
+        itemId: params.contactId,
+        objectType: 'contact',
+        payload: {
+          id: params.contactId,
+          objectType: 'contact',
+          firstName: params.formData.firstName.trim(),
+          lastName: params.formData.lastName.trim() || null,
+          birthday: params.formData.birthday.trim() || null,
+          emails: activeEmails.map((email) => ({
+            id: email.id,
+            email: email.email.trim(),
+            label: email.label.trim() || null,
+            isPrimary: email.isPrimary
+          })),
+          phones: activePhones.map((phone) => ({
+            id: phone.id,
+            phoneNumber: phone.phoneNumber.trim(),
+            label: phone.label.trim() || null,
+            isPrimary: phone.isPrimary
+          })),
+          deleted: false
+        }
+      });
+    },
+    []
+  );
+
   const openEmailComposer = useCallback(
     (recipients: string[]): boolean => {
       const normalizedRecipients = Array.from(
@@ -221,6 +256,7 @@ export function ClientContactsProvider({
       saveFile={saveFile}
       registerInVfs={handleRegisterInVfs}
       onContactsImported={handleContactsImported}
+      onContactSaved={handleContactSaved}
       ui={contactsUIComponents}
       t={t}
       tooltipZIndex={zIndex.tooltip}

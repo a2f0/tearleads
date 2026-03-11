@@ -29,9 +29,20 @@ vi.mock('@tearleads/app-contacts', async () => {
   const actual = await vi.importActual('@tearleads/app-contacts');
   return {
     ...actual,
-    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />
+    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />,
+    ContactsPage: () => (
+      <div>
+        <input placeholder="Search contacts..." type="text" />
+      </div>
+    )
   };
 });
+
+vi.mock('@/contexts/ClientContactsProvider', () => ({
+  ClientContactsProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
+}));
 
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({
@@ -150,20 +161,6 @@ vi.mock('@/components/sqlite/DatabaseTest', () => ({
 
 vi.mock('@/components/sqlite/TableSizes', () => ({
   TableSizes: () => <div data-testid="table-sizes">TableSizes Mock</div>
-}));
-
-vi.mock('@/hooks/contacts', () => ({
-  useContactsImport: () => ({
-    parseFile: vi.fn(),
-    importContacts: vi.fn(),
-    importing: false,
-    progress: 0
-  }),
-  useContactsExport: () => ({
-    exportContact: vi.fn(),
-    exportAllContacts: vi.fn(),
-    exporting: false
-  })
 }));
 
 // Mock storage adapter

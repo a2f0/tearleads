@@ -7,6 +7,8 @@ export {
   type DatabaseAdapter,
   type DatabaseState,
   type ImportedContactRecord,
+  type OnContactSavedFunction,
+  type OnContactSavedParams,
   type OnContactsImportedFunction,
   type RegisterInVfsFunction,
   useContactsContext,

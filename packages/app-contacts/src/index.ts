@@ -1,6 +1,5 @@
 export type { ViewMode } from './components';
 export {
-  ALL_CONTACTS_ID,
   ColumnMapper,
   ContactsGroupsSidebar,
   ContactsWindow,
@@ -17,6 +16,8 @@ export type {
   ContactsUIComponents,
   DatabaseState,
   ImportedContactRecord,
+  OnContactSavedFunction,
+  OnContactSavedParams,
   OnContactsImportedFunction,
   RegisterInVfsFunction,
   VfsRegistrationResult
@@ -31,6 +32,7 @@ export type {
   ColumnMapping,
   ContactGroup,
   ContactInfo,
+  ContactsPageInfo,
   ImportResult,
   ParsedCSV,
   SortColumn,
@@ -38,7 +40,18 @@ export type {
 } from './hooks';
 export {
   useContactGroups,
+  useContactNewForm,
+  useContactSave,
   useContacts,
+  useContactsContextMenu,
   useContactsExport,
-  useContactsImport
+  useContactsImport,
+  useContactsImportUI,
+  useContactsPageData
 } from './hooks';
+export { ALL_CONTACTS_ID } from './lib/constants';
+export {
+  ContactDetailPage,
+  ContactNewPage,
+  ContactsPage
+} from './pages';

@@ -5,10 +5,7 @@ import {
   WindowSidebarToggle
 } from '@tearleads/window-manager';
 import { useState } from 'react';
-import {
-  ALL_CONTACTS_ID,
-  ContactsGroupsSidebar
-} from './ContactsGroupsSidebar';
+import { ContactsGroupsSidebar } from './ContactsGroupsSidebar';
 import type { ViewMode } from './ContactsWindowMenuBar';
 import { ContactsWindowMenuBar } from './ContactsWindowMenuBar';
 
@@ -100,5 +97,3 @@ export function ContactsWindowContent({
     </div>
   );
 }
-
-export { ALL_CONTACTS_ID };
