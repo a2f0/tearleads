@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { useOptionalAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '@/db';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/vfs/useVfsKeys';
@@ -64,6 +65,7 @@ export function ClientVfsExplorerProvider({
   const keyManager = useVfsKeyManager();
   const orchestrator = useVfsOrchestratorInstance();
   const { getItemCursor, refresh: refreshSyncState } = useVfsSyncState();
+  const isAuthenticated = useOptionalAuth()?.isAuthenticated ?? false;
 
   const vfsKeys = useMemo(
     () => ({
@@ -191,6 +193,7 @@ export function ClientVfsExplorerProvider({
       syncRemoteState={syncRemoteState}
       getItemSyncCursor={getItemSyncCursor}
       loginFallback={<InlineLogin description="shared items" />}
+      isAuthenticated={isAuthenticated}
     >
       {children}
     </VfsExplorerProvider>

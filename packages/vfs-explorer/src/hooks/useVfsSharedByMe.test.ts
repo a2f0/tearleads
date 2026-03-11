@@ -258,6 +258,55 @@ describe('useVfsSharedByMe', () => {
     expect(result.current.items[0]?.expiresAt).toBeInstanceOf(Date);
   });
 
+  it('refetches when isAuthenticated changes from false to true', async () => {
+    const readStoredAuth = vi.fn((): { user: { id: string } | null } => ({
+      user: null
+    }));
+    const state = { isAuthenticated: false };
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb,
+      auth: { readStoredAuth },
+      get isAuthenticated() {
+        return state.isAuthenticated;
+      }
+    });
+
+    const { result, rerender } = renderHook(() => useVfsSharedByMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(NOT_LOGGED_IN_ERROR);
+    });
+
+    readStoredAuth.mockReturnValue({ user: { id: 'test-user-id' } });
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'item-1',
+        objectType: 'folder',
+        name: 'Shared Folder',
+        createdAt: new Date(),
+        shareId: 'share-1',
+        targetId: 'user-2',
+        targetName: 'user-2',
+        shareType: 'user',
+        permissionLevel: 'view',
+        sharedAt: new Date(),
+        expiresAt: null
+      }
+    ]);
+
+    state.isAuthenticated = true;
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+      expect(result.current.items).toHaveLength(1);
+    });
+  });
+
   it('handles null expiresAt', async () => {
     mockDb.orderBy.mockResolvedValueOnce([
       {

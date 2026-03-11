@@ -229,6 +229,8 @@ export interface VfsExplorerContextValue {
     | undefined;
   /** Fallback UI to render when the user is not logged in */
   loginFallback?: ReactNode | undefined;
+  /** Reactive auth state to trigger re-fetches after inline login */
+  isAuthenticated?: boolean | undefined;
 }
 
 const VfsExplorerContext = createContext<VfsExplorerContextValue | null>(null);
@@ -247,6 +249,7 @@ export interface VfsExplorerProviderProps extends HostRuntimeBaseProps {
     | ((itemId: string) => VfsItemSyncCursor | null)
     | undefined;
   loginFallback?: ReactNode | undefined;
+  isAuthenticated?: boolean | undefined;
 }
 
 /**
@@ -264,7 +267,8 @@ export function VfsExplorerProvider({
   vfsShareApi,
   syncRemoteState,
   getItemSyncCursor,
-  loginFallback
+  loginFallback,
+  isAuthenticated
 }: VfsExplorerProviderProps) {
   return (
     <VfsExplorerContext.Provider
@@ -279,7 +283,8 @@ export function VfsExplorerProvider({
         vfsShareApi,
         syncRemoteState,
         getItemSyncCursor,
-        loginFallback
+        loginFallback,
+        isAuthenticated
       }}
     >
       {children}

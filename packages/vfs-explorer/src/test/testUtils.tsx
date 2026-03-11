@@ -1,3 +1,4 @@
+// one-component-per-file: allow — test utility with mock UI components and wrapper factory
 import type { VfsSharePolicyPreviewResponse } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -155,6 +156,7 @@ interface MockContextOptions {
   featureFlags?: Partial<ReturnType<typeof createMockFeatureFlags>>;
   vfsApi?: Partial<ReturnType<typeof createMockVfsApi>>;
   vfsShareApi?: Partial<ReturnType<typeof createMockVfsShareApi>>;
+  isAuthenticated?: boolean;
 }
 
 function createMockContextValue(options: MockContextOptions = {}) {
@@ -189,7 +191,8 @@ function createMockContextValue(options: MockContextOptions = {}) {
     vfsShareApi: {
       ...createMockVfsShareApi(),
       ...options.vfsShareApi
-    }
+    },
+    isAuthenticated: options.isAuthenticated
   };
 }
 
@@ -207,6 +210,7 @@ export function createWrapper(options: MockContextOptions = {}) {
         featureFlags={contextValue.featureFlags}
         vfsApi={contextValue.vfsApi}
         vfsShareApi={contextValue.vfsShareApi}
+        isAuthenticated={options.isAuthenticated}
       >
         {children}
       </VfsExplorerProvider>
