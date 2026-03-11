@@ -130,41 +130,39 @@ describe('useFileUpload secure streaming', () => {
     vi.resetAllMocks();
     mockSelectResult = [];
 
-    vi.mocked(getKeyManager).mockReturnValue({
+    getKeyManager.mockReturnValue({
       getCurrentKey: () => mockEncryptionKey
     } as ReturnType<typeof getKeyManager>);
-    vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getDatabase).mockReturnValue(
+    isFileStorageInitialized.mockReturnValue(true);
+    getDatabase.mockReturnValue(
       mockDb as unknown as ReturnType<typeof getDatabase>
     );
-    vi.mocked(getFileStorage).mockReturnValue(
+    getFileStorage.mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
     );
-    vi.mocked(readFileAsUint8Array).mockResolvedValue(
-      new Uint8Array([1, 2, 3])
-    );
-    vi.mocked(computeContentHashStreaming).mockResolvedValue('mock-hash');
-    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
-    vi.mocked(mockStorage.measureStoreBlob).mockResolvedValue('storage/path');
-    vi.mocked(isThumbnailSupported).mockReturnValue(false);
-    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
-    vi.mocked(logEvent).mockResolvedValue(undefined);
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(getFeatureFlagValue).mockImplementation((flag: string) => {
+    readFileAsUint8Array.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    computeContentHashStreaming.mockResolvedValue('mock-hash');
+    mockStorage.measureStore.mockResolvedValue('storage/path');
+    mockStorage.measureStoreBlob.mockResolvedValue('storage/path');
+    isThumbnailSupported.mockReturnValue(false);
+    generateThumbnail.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    logEvent.mockResolvedValue(undefined);
+    isLoggedIn.mockReturnValue(true);
+    getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
     });
-    vi.mocked(api.vfs.register).mockResolvedValue({
+    api.vfs.register.mockResolvedValue({
       id: 'test-uuid-1234',
       createdAt: new Date().toISOString()
     });
-    vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
-    vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');
+    generateSessionKey.mockReturnValue(new Uint8Array(32));
+    wrapSessionKey.mockResolvedValue('wrapped-key');
 
     vi.stubGlobal('crypto', {
       randomUUID: () => 'test-uuid-1234'
     });
 
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'png',
       mime: 'image/png'
     });
@@ -183,7 +181,7 @@ describe('useFileUpload secure streaming', () => {
         controller.close();
       }
     });
-    vi.mocked(createStreamFromFile)
+    createStreamFromFile
       .mockReturnValueOnce(hashStream)
       .mockReturnValueOnce(secureStream);
 
@@ -193,10 +191,10 @@ describe('useFileUpload secure streaming', () => {
         manifest: {}
       })
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+    useVfsOrchestratorInstance.mockReturnValue({
       flushAll: vi.fn().mockResolvedValue({ success: true })
     } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
 
@@ -221,14 +219,14 @@ describe('useFileUpload secure streaming', () => {
         manifest: {}
       })
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+    useVfsOrchestratorInstance.mockReturnValue({
       flushAll: vi.fn().mockResolvedValue({ success: true })
     } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
 
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'bin',
       mime: 'application/octet-stream'
     });
@@ -266,14 +264,14 @@ describe('useFileUpload secure streaming', () => {
         manifest: {}
       })
     };
-    vi.mocked(useVfsSecureFacade).mockReturnValue(
+    useVfsSecureFacade.mockReturnValue(
       mockSecureFacade as unknown as ReturnType<typeof useVfsSecureFacade>
     );
-    vi.mocked(useVfsOrchestratorInstance).mockReturnValue({
+    useVfsOrchestratorInstance.mockReturnValue({
       flushAll: vi.fn().mockResolvedValue({ success: true })
     } as unknown as ReturnType<typeof useVfsOrchestratorInstance>);
 
-    vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+    fileTypeFromBuffer.mockResolvedValue({
       ext: 'bin',
       mime: 'application/octet-stream'
     });
