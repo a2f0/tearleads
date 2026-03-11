@@ -277,8 +277,12 @@ describe('NotesWindow integration', () => {
     };
     const { db, readNote } = createStatefulDatabase(initialNote);
 
-    const queueItemUpsertAndFlush = vi.fn(async () => undefined);
-    const queueItemDeleteAndFlush = vi.fn(async () => undefined);
+    const queueItemUpsertAndFlush = vi.fn<
+      VfsItemSyncFunctions['queueItemUpsertAndFlush']
+    >(async (_params) => undefined);
+    const queueItemDeleteAndFlush = vi.fn<
+      VfsItemSyncFunctions['queueItemDeleteAndFlush']
+    >(async (_params) => undefined);
     const vfsItemSync: VfsItemSyncFunctions = {
       queueItemUpsertAndFlush,
       queueItemDeleteAndFlush
@@ -357,8 +361,12 @@ describe('NotesWindow integration', () => {
     };
     const { db, readNote } = createStatefulDatabase(initialNote);
 
-    const queueItemUpsertAndFlush = vi.fn(async () => undefined);
-    const queueItemDeleteAndFlush = vi.fn(async () => undefined);
+    const queueItemUpsertAndFlush = vi.fn<
+      VfsItemSyncFunctions['queueItemUpsertAndFlush']
+    >(async (_params) => undefined);
+    const queueItemDeleteAndFlush = vi.fn<
+      VfsItemSyncFunctions['queueItemDeleteAndFlush']
+    >(async (_params) => undefined);
     const vfsItemSync: VfsItemSyncFunctions = {
       queueItemUpsertAndFlush,
       queueItemDeleteAndFlush
