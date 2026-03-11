@@ -7,6 +7,21 @@ export {
   setApiRequestHeadersProvider,
   tryRefreshToken
 } from './api';
+export {
+  ADMIN_V2_CONNECT_BASE_PATH,
+  AI_V2_CONNECT_BASE_PATH,
+  AUTH_V2_CONNECT_BASE_PATH,
+  AUTH_V2_GET_ORGANIZATIONS_CONNECT_PATH,
+  AUTH_V2_GET_SESSIONS_CONNECT_PATH,
+  AUTH_V2_LOGIN_CONNECT_PATH,
+  AUTH_V2_LOGOUT_CONNECT_PATH,
+  AUTH_V2_REFRESH_CONNECT_PATH,
+  AUTH_V2_REGISTER_CONNECT_PATH,
+  buildConnectMethodPath,
+  getApiBasePathPrefix,
+  resolveConnectPathForApiBase,
+  resolveConnectUrlForApiBase
+} from './connectRoutes';
 export { openNotificationEventStream } from './notificationStream';
 export {
   createVfsSecurePipelineBundle,

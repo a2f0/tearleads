@@ -5,6 +5,7 @@ export {
   setStoredAuthToken,
   setStoredRefreshToken
 } from './authStorage';
+export * from './connectRoutes';
 export * from './vfsBlobNetworkFlusher';
 export * from './vfsCrypto';
 export * from './vfsNetworkFlusher';

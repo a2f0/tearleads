@@ -32,6 +32,18 @@ const API_V2_ADMIN_ROUTE_PATTERN =
   /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//;
 
 function installApiV2WasmBindingsOverride(): void {
+  const normalizeConnectBaseUrl = (apiBaseUrl: string): string => {
+    const trimmed = apiBaseUrl.trim();
+    const normalizedBaseUrl = trimmed.replace(/\/+$/u, '');
+    if (normalizedBaseUrl.length === 0) {
+      return '/connect';
+    }
+    if (normalizedBaseUrl.endsWith('/connect')) {
+      return normalizedBaseUrl;
+    }
+    return `${normalizedBaseUrl}/connect`;
+  };
+
   const normalizeBearerToken = (bearerToken?: string | null): string | null => {
     if (typeof bearerToken !== 'string' || bearerToken.length === 0) {
       return null;
@@ -44,7 +56,7 @@ function installApiV2WasmBindingsOverride(): void {
 
   Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>
     Promise.resolve({
-      normalizeConnectBaseUrl: (apiBaseUrl: string) => `${apiBaseUrl}/connect`,
+      normalizeConnectBaseUrl,
       resolveRpcPath: (serviceName: string, methodName: string) =>
         `/${serviceName}/${methodName}`,
       getProtocolConfig: () => ({
