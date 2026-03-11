@@ -1,4 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import {
+  WindowControlBar,
+  WindowControlGroup,
+  WindowSidebar,
+  WindowSidebarToggle,
+  useIsMobile
+} from '@tearleads/window-manager';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { UNTAGGED_TAG_NAME } from '../lib/constants';
 import { ClassicMenuBar } from './ClassicMenuBar';
 import { type ClassicAppProps, useClassicAppState } from './classicAppState';
@@ -22,6 +30,10 @@ export function ClassicApp({
   onUpdateNote,
   contextMenuComponents
 }: ClassicAppProps) {
+  const { t } = useTranslation('classic');
+  const isMobile = useIsMobile();
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const {
     state,
     tagSearch,
@@ -115,32 +127,51 @@ export function ClassicApp({
           onEntrySortOrderChange={handleEntrySortOrderChange}
         />
       )}
+      {isMobile && (
+        <WindowControlBar>
+          <WindowControlGroup>
+            <WindowSidebarToggle
+              onToggle={() => setSidebarOpen((current) => !current)}
+            />
+          </WindowControlGroup>
+        </WindowControlBar>
+      )}
       <div className="flex min-h-0 flex-1">
-        <TagSidebar
-          tags={filteredTags}
-          deletedTags={state.deletedTags}
-          activeTagId={state.activeTagId}
-          editingTagId={editingTagId}
-          {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
-          totalNoteCount={Object.keys(state.notesById).length}
-          untaggedCount={untaggedNoteIds.length}
-          noteCountByTagId={noteCountByTagId}
-          onSelectTag={handleSelectTag}
-          onMoveTag={handleMoveTag}
-          onReorderTag={handleReorderTag}
-          onCreateTag={handleCreateTag}
-          onStartEditTag={setEditingTagId}
-          onRenameTag={handleRenameTag}
-          onCancelEditTag={handleCancelEditTag}
-          onDeleteTag={handleDeleteTag}
-          onRestoreTag={handleRestoreTag}
-          onTagNote={handleTagNote}
-          searchValue={tagSearch}
-          onSearchChange={setTagSearch}
-          onSearchKeyDown={handleTagSearchKeyDown}
-          searchInputRef={tagSearchInputRef}
-          contextMenuComponents={contextMenuComponents}
-        />
+        <WindowSidebar
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          ariaLabel={t('tagsSidebar')}
+          data-testid="classic-tags-sidebar"
+          minWidth={200}
+        >
+          <TagSidebar
+            tags={filteredTags}
+            deletedTags={state.deletedTags}
+            activeTagId={state.activeTagId}
+            editingTagId={editingTagId}
+            {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
+            totalNoteCount={Object.keys(state.notesById).length}
+            untaggedCount={untaggedNoteIds.length}
+            noteCountByTagId={noteCountByTagId}
+            onSelectTag={handleSelectTag}
+            onMoveTag={handleMoveTag}
+            onReorderTag={handleReorderTag}
+            onCreateTag={handleCreateTag}
+            onStartEditTag={setEditingTagId}
+            onRenameTag={handleRenameTag}
+            onCancelEditTag={handleCancelEditTag}
+            onDeleteTag={handleDeleteTag}
+            onRestoreTag={handleRestoreTag}
+            onTagNote={handleTagNote}
+            searchValue={tagSearch}
+            onSearchChange={setTagSearch}
+            onSearchKeyDown={handleTagSearchKeyDown}
+            searchInputRef={tagSearchInputRef}
+            contextMenuComponents={contextMenuComponents}
+          />
+        </WindowSidebar>
         <NotesPane
           activeTagName={activeTagName}
           noteIds={filteredNoteIds}

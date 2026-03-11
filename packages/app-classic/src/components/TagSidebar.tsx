@@ -1,3 +1,5 @@
+import { useWindowSidebar } from '@tearleads/window-manager';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
@@ -38,6 +40,7 @@ export function TagSidebar({
   contextMenuComponents
 }: TagSidebarProps) {
   const { t } = useTranslation('classic');
+  const { closeSidebar } = useWindowSidebar();
   const {
     contextMenu,
     setContextMenu,
@@ -87,10 +90,17 @@ export function TagSidebar({
 
   const showEmptyState =
     tags.length === 0 && untaggedCount === 0 && deletedTags.length === 0;
+  const handleSelectTag = useCallback(
+    (tagId: string) => {
+      onSelectTag(tagId);
+      closeSidebar();
+    },
+    [closeSidebar, onSelectTag]
+  );
 
   return (
     <aside
-      className="flex w-64 flex-col border-r"
+      className="flex h-full min-h-0 flex-col"
       aria-label={t('tagsSidebar')}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
@@ -120,7 +130,7 @@ export function TagSidebar({
             activeTagId={activeTagId}
             totalNoteCount={totalNoteCount}
             untaggedCount={untaggedCount}
-            onSelectTag={onSelectTag}
+            onSelectTag={handleSelectTag}
           />
 
           <TagSidebarDeletedTags
@@ -170,7 +180,7 @@ export function TagSidebar({
                     handleCancel
                   }}
                   actions={{
-                    onSelectTag,
+                    onSelectTag: handleSelectTag,
                     onMoveTag,
                     onReorderTag,
                     onStartEditTag,

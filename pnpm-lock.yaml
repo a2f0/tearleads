@@ -889,6 +889,9 @@ importers:
       '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils
+      '@tearleads/window-manager':
+        specifier: workspace:*
+        version: link:../window-manager
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
