@@ -2051,9 +2051,6 @@ importers:
       '@capgo/capacitor-native-biometric':
         specifier: 8.4.2
         version: 8.4.2(@capacitor/core@8.1.0)
-      '@dnd-kit/core':
-        specifier: 6.3.1
-        version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@huggingface/transformers':
         specifier: 3.8.1
         version: 3.8.1
