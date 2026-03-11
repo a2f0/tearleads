@@ -79,10 +79,40 @@ function readNumber(record: RecordLike, field: string): number {
 
 function readUint8Array(record: RecordLike, field: string): Uint8Array {
   const value = record[field];
-  if (!(value instanceof Uint8Array)) {
-    throw new Error(`WASM response field '${field}' must be Uint8Array`);
+
+  if (value instanceof Uint8Array) {
+    return value;
   }
-  return value;
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const isByte =
+        typeof entry === 'number' &&
+        Number.isInteger(entry) &&
+        entry >= 0 &&
+        entry <= 255;
+
+      if (!isByte) {
+        throw new Error(
+          `WASM response field '${field}' array entries must be integers between 0 and 255`
+        );
+      }
+    }
+
+    return Uint8Array.from(value);
+  }
+
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+
+  throw new Error(
+    `WASM response field '${field}' must be Uint8Array-compatible binary data`
+  );
 }
 
 function readObjectArray(record: RecordLike, field: string): RecordLike[] {
