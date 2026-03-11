@@ -107,7 +107,9 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(false);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(
+      false
+    );
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
     await keyManager.setupNewKey('password');
@@ -144,7 +146,9 @@ describe('CapacitorKeyStorage session persistence', () => {
       .mockImplementation(() => undefined);
 
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(true);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(
+      true
+    );
     vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValueOnce(false);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);
@@ -246,7 +250,9 @@ describe('CapacitorKeyStorage session persistence', () => {
 
   it('persists session when native storage succeeds', async () => {
     const nativeStorage = await import('./nativeSecureStorage');
-    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(true);
+    vi.spyOn(nativeStorage, 'storeWrappingKeyBytes').mockResolvedValueOnce(
+      true
+    );
     vi.spyOn(nativeStorage, 'storeWrappedKey').mockResolvedValueOnce(true);
 
     const keyManager = new KeyManager(IOS_INSTANCE_ID);

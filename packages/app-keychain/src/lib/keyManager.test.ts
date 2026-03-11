@@ -293,9 +293,10 @@ describe('validateAndPruneOrphanedInstances', () => {
     const nativeStorage = await import('./nativeSecureStorage');
 
     vi.spyOn(utils, 'detectPlatform').mockReturnValue('ios');
-    vi.spyOn(nativeStorage, 'getTrackedKeystoreInstanceIds').mockRejectedValueOnce(
-      new Error('cleanup failed')
-    );
+    vi.spyOn(
+      nativeStorage,
+      'getTrackedKeystoreInstanceIds'
+    ).mockRejectedValueOnce(new Error('cleanup failed'));
 
     const result = await validateAndPruneOrphanedInstances(['id-1'], vi.fn());
 
