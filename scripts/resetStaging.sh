@@ -78,22 +78,21 @@ kubectl -n "$NAMESPACE" port-forward "service/postgres" "$LOCAL_PG_PORT:5432" >"
 port_forward_pid=$!
 
 PF_TIMEOUT=30
-PF_ELAPSED=0
+PF_START_TIME=$SECONDS
 while ! nc -z 127.0.0.1 "$LOCAL_PG_PORT" 2>/dev/null; do
   if ! kill -0 "$port_forward_pid" 2>/dev/null; then
     echo "ERROR: Port-forward process died. Log output:"
     cat "$PF_LOG"
     exit 1
   fi
-  if (( PF_ELAPSED >= PF_TIMEOUT )); then
+  if (( SECONDS - PF_START_TIME >= PF_TIMEOUT )); then
     echo "ERROR: Port-forward did not become ready within ${PF_TIMEOUT}s. Log output:"
     cat "$PF_LOG"
     exit 1
   fi
   sleep 1
-  PF_ELAPSED=$((PF_ELAPSED + 1))
 done
-echo "  Port-forward ready (${PF_ELAPSED}s)."
+echo "  Port-forward ready ($((SECONDS - PF_START_TIME))s)."
 
 export DATABASE_URL="postgresql://$PG_USER:$PG_PASS@127.0.0.1:$LOCAL_PG_PORT/$PG_DB"
 
