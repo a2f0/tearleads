@@ -88,22 +88,19 @@ describe('syncProtobuf envelope bytes behavior', () => {
   });
 
   it('decodes bytes-only envelope fields', () => {
-    const encryptedPayloadBytes = Buffer.from('ciphertext', 'utf8').toString(
-      'base64'
-    );
-    const expectedEncryptedPayload = Buffer.from(
-      encryptedPayloadBytes,
-      'base64'
-    ).toString('base64');
+    const textEncoder = new TextEncoder();
+    const encryptedPayloadBytes = textEncoder.encode('ciphertext');
+    const expectedEncryptedPayload =
+      Buffer.from(encryptedPayloadBytes).toString('base64');
     const encoded = PUSH_REQUEST_TYPE.encode(
       PUSH_REQUEST_TYPE.create({
-        clientId: 'desktop',
+        clientId: textEncoder.encode('desktop'),
         operations: [
           {
-            opId: 'op-1',
+            opId: textEncoder.encode('op-1'),
             opType: 'ITEM_UPSERT',
-            itemId: 'item-1',
-            replicaId: 'desktop',
+            itemId: textEncoder.encode('item-1'),
+            replicaId: textEncoder.encode('desktop'),
             writeId: 1,
             occurredAt: '2026-02-14T00:00:00.000Z',
             encryptedPayloadBytes,
