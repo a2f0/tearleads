@@ -5,13 +5,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock() calls must be in each test file (hoisted)
-type MockImportOriginal<ModuleShape> = () => Promise<ModuleShape>;
-
 function selectRunnerMockFactory<ModuleShape>(
   bunFactory: () => ModuleShape,
-  vitestFactory: (
-    importOriginal: MockImportOriginal<ModuleShape>
-  ) => Promise<ModuleShape>
+  vitestFactory: () => Promise<ModuleShape>
 ) {
   if (typeof Reflect.get(globalThis, 'Bun') !== 'undefined') {
     return bunFactory;
@@ -24,11 +20,11 @@ vi.mock(
   '@tearleads/shared',
   selectRunnerMockFactory(
     () => createSharedMock(),
-    async (importOriginal) => {
+    async () => {
       const { sharedModuleMockFactory } = await import(
         './keyManager.testUtils'
       );
-      return sharedModuleMockFactory(importOriginal);
+      return sharedModuleMockFactory();
     }
   )
 );
