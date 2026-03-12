@@ -57,10 +57,10 @@ export function DraftListView({
     );
   }
 
-  if (viewMode === 'list') {
-    return (
-      <div className="h-full overflow-auto">
-        {drafts.map((draft) => (
+  return (
+    <div className="h-full overflow-auto">
+      {viewMode === 'list' ? (
+        drafts.map((draft) => (
           <button
             key={draft.id}
             type="button"
@@ -83,56 +83,43 @@ export function DraftListView({
               </p>
             </div>
           </button>
-        ))}
-        {contextMenu && (
-          <DraftListContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onClose={() => setContextMenu(null)}
-            onEdit={() => onEditDraft(contextMenu.draft.id)}
-            onDelete={() => onDeleteDraft(contextMenu.draft.id)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full overflow-auto">
-      <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
-        <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
-          <tr>
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Subject</th>
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>To</th>
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {drafts.map((draft) => (
-            <WindowTableRow
-              key={draft.id}
-              onClick={() => onEditDraft(draft.id)}
-              onContextMenu={(e) => handleContextMenu(e, draft)}
-            >
-              <td
-                className={`max-w-[200px] truncate ${WINDOW_TABLE_TYPOGRAPHY.cell}`}
+        ))
+      ) : (
+        <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+          <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
+            <tr>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Subject</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>To</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {drafts.map((draft) => (
+              <WindowTableRow
+                key={draft.id}
+                onClick={() => onEditDraft(draft.id)}
+                onContextMenu={(e) => handleContextMenu(e, draft)}
               >
-                {draft.subject || '(No Subject)'}
-              </td>
-              <td
-                className={`max-w-[150px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
-              >
-                {draft.to.length > 0 ? draft.to.join(', ') : 'No recipients'}
-              </td>
-              <td
-                className={`whitespace-nowrap ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
-              >
-                {formatEmailDate(draft.updatedAt)}
-              </td>
-            </WindowTableRow>
-          ))}
-        </tbody>
-      </table>
+                <td
+                  className={`max-w-[200px] truncate ${WINDOW_TABLE_TYPOGRAPHY.cell}`}
+                >
+                  {draft.subject || '(No Subject)'}
+                </td>
+                <td
+                  className={`max-w-[150px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                >
+                  {draft.to.length > 0 ? draft.to.join(', ') : 'No recipients'}
+                </td>
+                <td
+                  className={`whitespace-nowrap ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                >
+                  {formatEmailDate(draft.updatedAt)}
+                </td>
+              </WindowTableRow>
+            ))}
+          </tbody>
+        </table>
+      )}
       {contextMenu && (
         <DraftListContextMenu
           x={contextMenu.x}
