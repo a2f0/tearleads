@@ -14,10 +14,12 @@ export const v038: Migration = {
   description: 'Materialize VFS effective visibility',
   up: async (pool: Pool) => {
     // 1. Create the table
+    // NOTE: In this migration, we use TEXT for user_id and item_id 
+    // to match the existing schema before v040 migrates them to UUID.
     await pool.query(`
       CREATE TABLE "vfs_effective_visibility_mat" (
-        user_id UUID NOT NULL,
-        item_id UUID NOT NULL,
+        user_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
         access_rank INTEGER NOT NULL,
         PRIMARY KEY (user_id, item_id)
       );
@@ -28,7 +30,7 @@ export const v038: Migration = {
 
     // 2. Define the refresh function logic
     await pool.query(`
-      CREATE OR REPLACE FUNCTION "vfs_refresh_visibility_for_item"(target_item_id UUID)
+      CREATE OR REPLACE FUNCTION "vfs_refresh_visibility_for_item"(target_item_id TEXT)
       RETURNS VOID AS $$
       BEGIN
         DELETE FROM "vfs_effective_visibility_mat" WHERE item_id = target_item_id;
@@ -101,7 +103,7 @@ export const v038: Migration = {
 
     // 3. Define refresh for user (for group/org membership changes)
     await pool.query(`
-      CREATE OR REPLACE FUNCTION "vfs_refresh_visibility_for_user"(target_user_id UUID)
+      CREATE OR REPLACE FUNCTION "vfs_refresh_visibility_for_user"(target_user_id TEXT)
       RETURNS VOID AS $$
       BEGIN
         DELETE FROM "vfs_effective_visibility_mat" WHERE user_id = target_user_id;
