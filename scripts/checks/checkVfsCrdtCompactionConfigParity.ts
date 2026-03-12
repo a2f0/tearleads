@@ -3,14 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import {
-  DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS,
-  DEFAULT_VFS_CRDT_HOT_RETENTION_MS,
-  DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS
-} from '../../packages/api/src/lib/vfsCrdtCompaction.ts';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MS_PER_HOUR = 60 * 60 * 1000;
+const API_DEFAULTS_PATH = 'packages/api/src/lib/vfsCrdtCompaction.ts';
 
 const CONFIG_PATHS = [
   'terraform/stacks/staging/k8s/manifests/configmap.yaml',
@@ -18,17 +11,12 @@ const CONFIG_PATHS = [
   'terraform/stacks/prod/k8s/manifests/configmap.yaml'
 ] as const;
 
-const EXPECTED_ENV = {
-  VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS: String(
-    DEFAULT_VFS_CRDT_HOT_RETENTION_MS / MS_PER_DAY
-  ),
-  VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(
-    DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS / MS_PER_DAY
-  ),
-  VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: String(
-    DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS / MS_PER_HOUR
-  )
-} as const;
+type ExpectedEnv = Record<
+  | 'VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS'
+  | 'VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS'
+  | 'VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS',
+  string
+>;
 
 function trimYamlValue(rawValue: string): string {
   const withoutComment = rawValue.split('#')[0]?.trim() ?? '';
@@ -61,32 +49,18 @@ function readEnvValue(content: string, key: string): string | null {
 
 async function checkParity(): Promise<void> {
   const errors: string[] = [];
-
-  if (DEFAULT_VFS_CRDT_HOT_RETENTION_MS % MS_PER_DAY !== 0) {
-    errors.push(
-      'DEFAULT_VFS_CRDT_HOT_RETENTION_MS is not an integer number of days'
-    );
-  }
-  if (DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS % MS_PER_DAY !== 0) {
-    errors.push(
-      'DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS is not an integer number of days'
-    );
-  }
-  if (DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS % MS_PER_HOUR !== 0) {
-    errors.push(
-      'DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS is not an integer number of hours'
-    );
-  }
-
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../..'
   );
+
+  const expectedEnv = await loadExpectedEnv(repoRoot, errors);
+
   for (const relativePath of CONFIG_PATHS) {
     const absolutePath = path.join(repoRoot, relativePath);
     const content = await fs.readFile(absolutePath, 'utf8');
 
-    for (const [key, expected] of Object.entries(EXPECTED_ENV)) {
+    for (const [key, expected] of Object.entries(expectedEnv)) {
       const actual = readEnvValue(content, key);
       if (actual === null) {
         errors.push(`${relativePath}: missing ${key}`);
@@ -109,6 +83,73 @@ async function checkParity(): Promise<void> {
   }
 
   console.log('VFS CRDT compaction config parity check passed.');
+}
+
+function extractMultiplierFromSource(input: {
+  content: string;
+  constantName: string;
+  unitName: 'MS_PER_DAY' | 'MS_PER_HOUR';
+}): number | null {
+  const pattern = new RegExp(
+    `${input.constantName}\\s*=\\s*(\\d+)\\s*\\*\\s*${input.unitName}`,
+    'u'
+  );
+  const match = input.content.match(pattern);
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function loadExpectedEnv(
+  repoRoot: string,
+  errors: string[]
+): Promise<ExpectedEnv> {
+  const defaultsSourcePath = path.join(repoRoot, API_DEFAULTS_PATH);
+  const content = await fs.readFile(defaultsSourcePath, 'utf8');
+
+  const hotRetentionDays = extractMultiplierFromSource({
+    content,
+    constantName: 'DEFAULT_VFS_CRDT_HOT_RETENTION_MS',
+    unitName: 'MS_PER_DAY'
+  });
+  const inactiveClientDays = extractMultiplierFromSource({
+    content,
+    constantName: 'DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS',
+    unitName: 'MS_PER_DAY'
+  });
+  const safetyBufferHours = extractMultiplierFromSource({
+    content,
+    constantName: 'DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS',
+    unitName: 'MS_PER_HOUR'
+  });
+
+  if (!hotRetentionDays) {
+    errors.push(
+      `${API_DEFAULTS_PATH}: failed to parse DEFAULT_VFS_CRDT_HOT_RETENTION_MS`
+    );
+  }
+  if (!inactiveClientDays) {
+    errors.push(
+      `${API_DEFAULTS_PATH}: failed to parse DEFAULT_VFS_CRDT_INACTIVE_CLIENT_WINDOW_MS`
+    );
+  }
+  if (!safetyBufferHours) {
+    errors.push(
+      `${API_DEFAULTS_PATH}: failed to parse DEFAULT_VFS_CRDT_CURSOR_SAFETY_BUFFER_MS`
+    );
+  }
+
+  // Keep shape deterministic to avoid undefined key handling downstream.
+  return {
+    VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS: String(hotRetentionDays ?? 30),
+    VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(
+      inactiveClientDays ?? 90
+    ),
+    VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: String(safetyBufferHours ?? 6)
+  };
 }
 
 await checkParity();
