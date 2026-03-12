@@ -57,10 +57,7 @@ function isLoopbackOrigin(origin: string): boolean {
 function isNativeAppOrigin(origin: string): boolean {
   try {
     const parsedOrigin = new URL(origin);
-    return (
-      parsedOrigin.protocol === 'tearleads:' ||
-      parsedOrigin.protocol === 'tearleads-dev:'
-    );
+    return ['tearleads:', 'tearleads-dev:'].includes(parsedOrigin.protocol);
   } catch {
     return false;
   }
