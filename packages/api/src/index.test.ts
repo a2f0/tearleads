@@ -92,23 +92,23 @@ describe('API', () => {
     it('allows Electron protocol origins in non-production mode', () => {
       const allowlist = new Set<string>();
 
-      expect(
-        isCorsOriginAllowed('tearleads://app', allowlist, true)
-      ).toBe(true);
-      expect(
-        isCorsOriginAllowed('tearleads-dev://app', allowlist, true)
-      ).toBe(true);
+      expect(isCorsOriginAllowed('tearleads://app', allowlist, true)).toBe(
+        true
+      );
+      expect(isCorsOriginAllowed('tearleads-dev://app', allowlist, true)).toBe(
+        true
+      );
     });
 
     it('blocks Electron protocol origins in production mode', () => {
       const allowlist = new Set<string>();
 
-      expect(
-        isCorsOriginAllowed('tearleads://app', allowlist, false)
-      ).toBe(false);
-      expect(
-        isCorsOriginAllowed('tearleads-dev://app', allowlist, false)
-      ).toBe(false);
+      expect(isCorsOriginAllowed('tearleads://app', allowlist, false)).toBe(
+        false
+      );
+      expect(isCorsOriginAllowed('tearleads-dev://app', allowlist, false)).toBe(
+        false
+      );
     });
   });
 

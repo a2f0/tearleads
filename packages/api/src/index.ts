@@ -75,7 +75,10 @@ export function isCorsOriginAllowed(
     return true;
   }
 
-  return allowLoopbackOrigins && (isLoopbackOrigin(origin) || isNativeAppOrigin(origin));
+  return (
+    allowLoopbackOrigins &&
+    (isLoopbackOrigin(origin) || isNativeAppOrigin(origin))
+  );
 }
 
 export function createCorsOriginPolicy({
