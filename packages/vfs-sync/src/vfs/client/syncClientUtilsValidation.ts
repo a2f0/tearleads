@@ -1,10 +1,10 @@
 import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { VfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
-import {
-  type VfsCrdtSyncPushResult,
-  type VfsCrdtSyncPushResponse,
-  type VfsCrdtSyncPushStatus
-} from './sync-client-utils-types.js';
+import type {
+  VfsCrdtSyncPushResponse,
+  VfsCrdtSyncPushResult,
+  VfsCrdtSyncPushStatus
+} from './syncClientUtilsTypes.js';
 
 export function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
   return (

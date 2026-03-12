@@ -13,7 +13,7 @@ import {
   VALID_ACCESS_LEVELS,
   VALID_OP_TYPES,
   VALID_PRINCIPAL_TYPES
-} from './sync-client-utils-types.js';
+} from './syncClientUtilsTypes.js';
 
 export function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
   return (

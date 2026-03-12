@@ -2,11 +2,11 @@ import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
   normalizeOccurredAt,
   normalizeRequiredString
-} from './sync-client-utils-base.js';
+} from './syncClientUtilsBase.js';
 
-export * from './sync-client-utils-types.js';
-export * from './sync-client-utils-base.js';
-export * from './sync-client-utils-validation.js';
+export * from './syncClientUtilsBase.js';
+export * from './syncClientUtilsTypes.js';
+export * from './syncClientUtilsValidation.js';
 
 export function normalizeCursor(
   cursor: VfsSyncCursor,
