@@ -99,7 +99,7 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
           onClick,
           disabled,
           ...props
-        }: any) => (
+        }: React.ComponentPropsWithoutRef<'button'>) => (
           <button
             type="button"
             onClick={onClick}
@@ -109,15 +109,22 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
             {btnChildren}
           </button>
         ),
-        Input: ({ value, onChange, inputRef, ...props }: any) => (
+        Input: ({
+          value,
+          onChange,
+          inputRef,
+          ...props
+        }: React.ComponentPropsWithoutRef<'input'> & {
+          inputRef?: React.Ref<HTMLInputElement>;
+        }) => (
           <input ref={inputRef} value={value} onChange={onChange} {...props} />
         ),
-        BackLink: ({ defaultLabel }: any) => (
+        BackLink: ({ defaultLabel }: { defaultLabel?: React.ReactNode }) => (
           <a href="/" data-testid="back-link">
             {defaultLabel}
           </a>
         ),
-        InlineUnlock: ({ description }: any) => (
+        InlineUnlock: ({ description }: { description?: React.ReactNode }) => (
           <div data-testid="inline-unlock">
             {description}
             <input data-testid="inline-unlock-password" type="password" />
@@ -126,13 +133,23 @@ vi.mock('@/contexts/ClientContactsProvider', async () => {
             </button>
           </div>
         ),
-        ContextMenu: ({ children: c }: any) => <div>{c}</div>,
-        ContextMenuItem: ({ children: c, onClick }: any) => (
+        ContextMenu: ({ children: c }: { children?: React.ReactNode }) => (
+          <div>{c}</div>
+        ),
+        ContextMenuItem: ({
+          children: c,
+          onClick
+        }: {
+          children?: React.ReactNode;
+          onClick?: React.MouseEventHandler<HTMLButtonElement>;
+        }) => (
           <button type="button" onClick={onClick}>
             {c}
           </button>
         ),
-        ListRow: ({ children: c }: any) => <div>{c}</div>,
+        ListRow: ({ children: c }: { children?: React.ReactNode }) => (
+          <div>{c}</div>
+        ),
         RefreshButton: () => null,
         VirtualListStatus: () => null,
         DropdownMenu: () => null,

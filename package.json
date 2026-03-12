@@ -64,6 +64,7 @@
     "checkDependencyCruiserExceptions": "./scripts/checks/checkDependencyCruiser.sh --exceptions",
     "checkDependencyCruiserExceptionsJson": "./scripts/checks/checkDependencyCruiser.sh --exceptions-json",
     "checkArchitectureGuardrailBudgets": "./scripts/checks/checkArchitectureGuardrailBudgets.ts",
+    "checkVfsCrdtCompactionConfigParity": "./scripts/checks/checkVfsCrdtCompactionConfigParity.ts",
     "checkVfsCrdtCompactionMetrics": "./scripts/checks/checkVfsCrdtCompactionMetrics.ts",
     "protoLint": "buf lint proto",
     "protoGenerate": "tsx scripts/lib/verifyProtoCodegenPlugins.ts && tsx scripts/lib/pruneStaleGeneratedProtoVersions.ts && buf generate proto --template proto/buf.gen.yaml",
