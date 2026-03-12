@@ -12,9 +12,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { TableRows } from './TableRows';
 
+// one-component-per-file: allow - test file keeps inline JSX helpers for icon mocks and table rendering.
+
 // Mock lucide-react icons to add testids
-vi.mock('lucide-react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('lucide-react')>();
+vi.mock('lucide-react', async () => {
+  const actual =
+    await vi.importActual<typeof import('lucide-react')>('lucide-react');
   const MockIcon =
     (testId: string): FC<ComponentProps<'svg'>> =>
     (props) => <svg {...props} data-testid={testId} />;
