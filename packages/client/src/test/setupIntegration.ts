@@ -311,8 +311,8 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 // Mock the adapter factory to use WasmNodeAdapter
-vi.mock('@/db/adapters', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/db/adapters')>();
+vi.mock('@/db/adapters', async () => {
+  const original = await vi.importActual<typeof import('@/db/adapters')>('@/db/adapters');
   return {
     ...original,
     createAdapter: vi.fn(async () => {
@@ -328,8 +328,8 @@ vi.mock('@/db/adapters', async (importOriginal) => {
 });
 
 // Mock the key manager to use TestKeyManager
-vi.mock('@/db/crypto', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/db/crypto')>();
+vi.mock('@/db/crypto', async () => {
+  const original = await vi.importActual<typeof import('@/db/crypto')>('@/db/crypto');
   return {
     ...original,
     getKeyManagerForInstance: vi.fn(() => getTestKeyManager()),

@@ -6,8 +6,8 @@ const mockAdminUsersWindowBase = vi.fn((_: unknown) => (
   <div>Admin Users Window</div>
 ));
 
-vi.mock('@tearleads/app-admin/clientEntry', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+vi.mock('@tearleads/app-admin/clientEntry', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('@tearleads/app-admin/clientEntry')),
   AdminUsersWindow: (props: unknown) => mockAdminUsersWindowBase(props)
 }));
 

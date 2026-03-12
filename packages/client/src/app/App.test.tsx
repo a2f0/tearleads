@@ -47,9 +47,9 @@ vi.mock('@tearleads/ui', () => ({
   )
 }));
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
+vi.mock('@tearleads/window-manager', async () => {
   const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
+    await vi.importActual<typeof import('@tearleads/window-manager')>('@tearleads/window-manager');
 
   return {
     ...actual

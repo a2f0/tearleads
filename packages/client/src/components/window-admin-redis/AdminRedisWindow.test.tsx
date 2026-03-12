@@ -6,8 +6,8 @@ const mockAdminRedisWindowBase = vi.fn((_: unknown) => (
   <div>Admin Redis Window</div>
 ));
 
-vi.mock('@tearleads/app-admin/clientEntry', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+vi.mock('@tearleads/app-admin/clientEntry', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('@tearleads/app-admin/clientEntry')),
   AdminRedisWindow: (props: unknown) => mockAdminRedisWindowBase(props)
 }));
 
