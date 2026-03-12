@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath,
   VFS_V2_CONNECT_BASE_PATH,
   type VfsCrdtPushOperation,
   type VfsCrdtPushResponse,
@@ -112,7 +114,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     });
 
     const noteId = `note-${randomUUID()}`;
-    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -123,7 +125,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       })
     });
 
-    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    await bob.fetchJson(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -151,7 +153,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       plaintext: 'bob-seed'
     });
     const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +248,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       plaintext: 'alice-edit-v2'
     });
     const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
