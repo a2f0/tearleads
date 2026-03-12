@@ -65,7 +65,7 @@ export function SearchWindow({
           onClose={onClose}
         />
         <WindowControlBar>{null}</WindowControlBar>
-        <SearchWindowContent viewMode={viewMode} autoFocusOnMount={false} />
+        <SearchWindowContent viewMode={viewMode} />
       </div>
     </FloatingWindow>
   );

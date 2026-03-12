@@ -225,8 +225,14 @@ describe('SearchWindowContent', () => {
       ).not.toBeInTheDocument();
     });
 
+    it('auto-focuses search input on mount', () => {
+      renderContent();
+      const input = screen.getByPlaceholderText('Search...');
+      expect(document.activeElement).toBe(input);
+    });
+
     it('refocuses search input when view mode changes', () => {
-      const view = render(
+      const { rerender } = render(
         <MemoryRouter>
           <ThemeProvider>
             <SearchWindowContent viewMode="list" />
@@ -238,7 +244,7 @@ describe('SearchWindowContent', () => {
       input.blur();
       expect(document.activeElement).not.toBe(input);
 
-      view.rerender(
+      rerender(
         <MemoryRouter>
           <ThemeProvider>
             <SearchWindowContent viewMode="table" />

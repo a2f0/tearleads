@@ -25,6 +25,7 @@ import {
   buildMaterializedCollectionRows,
   buildMaterializedFileRows
 } from './vfsRematerializationEntityRows';
+import { VFS_REMATERIALIZATION_COMPLETE_EVENT } from './vfsRematerializationEvents';
 import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
 import {
   resolveMaterializedNoteContent,
@@ -494,5 +495,6 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
     });
   });
 
+  window.dispatchEvent(new Event(VFS_REMATERIALIZATION_COMPLETE_EVENT));
   return true;
 }
