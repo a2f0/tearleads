@@ -19,6 +19,9 @@ DOCKER_MAINTENANCE_UNTIL="${DOCKER_MAINTENANCE_UNTIL:-168h}"
 DOCKER_MAINTENANCE_MAX_CACHE="${DOCKER_MAINTENANCE_MAX_CACHE:-20GB}"
 DOCKER_DAEMON_HEALTHCHECK_TIMEOUT="${DOCKER_DAEMON_HEALTHCHECK_TIMEOUT:-15}"
 DOCKER_LOGIN_TIMEOUT="${DOCKER_LOGIN_TIMEOUT:-45}"
+DOCKER_PUSH_TIMEOUT="${DOCKER_PUSH_TIMEOUT:-300}"
+DOCKER_PUSH_RETRIES="${DOCKER_PUSH_RETRIES:-3}"
+DOCKER_PUSH_RETRY_DELAY="${DOCKER_PUSH_RETRY_DELAY:-5}"
 DOCKER_TIMEOUT_BIN="$(detect_timeout_binary)"
 usage() {
   echo "Usage: $0 <environment> [options]"
@@ -53,6 +56,9 @@ usage() {
   echo "  DOCKER_MAINTENANCE_MAX_CACHE  Build cache cap (default: 20GB)"
   echo "  DOCKER_DAEMON_HEALTHCHECK_TIMEOUT  Docker daemon readiness timeout in seconds (default: 15)"
   echo "  DOCKER_LOGIN_TIMEOUT  docker login timeout in seconds (default: 45)"
+  echo "  DOCKER_PUSH_TIMEOUT  docker push timeout in seconds (default: 300)"
+  echo "  DOCKER_PUSH_RETRIES  Number of docker push retry attempts (default: 3)"
+  echo "  DOCKER_PUSH_RETRY_DELAY  Delay in seconds between push retries (default: 5)"
   echo "  VITE_API_URL    API URL for client build (derived from TF_VAR_domain)"
   exit 1
 }
@@ -348,10 +354,10 @@ build_and_push_image() {
 
   if [[ "$PUSH" == "true" ]]; then
     echo "=== Pushing ${image_name} container ==="
-    docker push "$image_tag"
+    docker_push_with_retry "$DOCKER_TIMEOUT_BIN" "$DOCKER_PUSH_TIMEOUT" "$DOCKER_PUSH_RETRIES" "$DOCKER_PUSH_RETRY_DELAY" "$image_tag"
     if [[ "$TAG" != "latest" ]]; then
       echo "=== Pushing ${image_name} container (latest) ==="
-      docker push "${image_tag%:*}:latest"
+      docker_push_with_retry "$DOCKER_TIMEOUT_BIN" "$DOCKER_PUSH_TIMEOUT" "$DOCKER_PUSH_RETRIES" "$DOCKER_PUSH_RETRY_DELAY" "${image_tag%:*}:latest"
     fi
   fi
   echo ""
