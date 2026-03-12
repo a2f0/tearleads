@@ -116,6 +116,7 @@ describe('BusinessesWindow', () => {
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
     expect(screen.getByText('File')).toBeInTheDocument();
     expect(screen.getByText('Help')).toBeInTheDocument();
+    expect(screen.getByText(/About Businesses/)).toBeInTheDocument();
     expect(screen.getByText('Body content')).toBeInTheDocument();
     expect(screen.getByTestId('window-control-bar')).toBeInTheDocument();
 
