@@ -32,6 +32,13 @@ import { renderWithDatabase } from '../test/renderWithDatabase';
 const LAZY_LOAD_TIMEOUT = 15000;
 const SLOW_FLOW_TEST_TIMEOUT = 45000;
 
+function insertBase64LineBreak(value: string): string {
+  if (value.length <= 8) {
+    return value;
+  }
+  return `${value.slice(0, 8)}\n${value.slice(8)}`;
+}
+
 function renderApp(initialRoute = '/vfs') {
   return renderWithDatabase(
     <Suspense fallback={<div>Loading...</div>}>
@@ -71,6 +78,12 @@ async function waitForVfsUnlocked(): Promise<void> {
 async function seedScaffoldMediaVfsRows(): Promise<void> {
   const db = getDatabase();
   const now = new Date('2026-01-01T00:00:00.000Z');
+  const photoPayload = insertBase64LineBreak(
+    Buffer.from('<svg>logo</svg>', 'utf8').toString('base64')
+  );
+  const audioPayload = insertBase64LineBreak(
+    Buffer.from('ID3-test-track-'.repeat(16), 'utf8').toString('base64')
+  );
   await db.insert(vfsRegistry).values([
     {
       id: 'root-item',
@@ -117,9 +130,7 @@ async function seedScaffoldMediaVfsRows(): Promise<void> {
   await db.insert(vfsItemState).values([
     {
       itemId: 'photo-item',
-      encryptedPayload: Buffer.from('<svg>logo</svg>', 'utf8').toString(
-        'base64'
-      ),
+      encryptedPayload: photoPayload,
       keyEpoch: 1,
       encryptionNonce: null,
       encryptionAad: null,
@@ -129,9 +140,7 @@ async function seedScaffoldMediaVfsRows(): Promise<void> {
     },
     {
       itemId: 'audio-item',
-      encryptedPayload: Buffer.from('ID3-test-track', 'utf8').toString(
-        'base64'
-      ),
+      encryptedPayload: audioPayload,
       keyEpoch: 1,
       encryptionNonce: null,
       encryptionAad: null,
