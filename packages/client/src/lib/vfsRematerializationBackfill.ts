@@ -61,7 +61,7 @@ function normalizeCreatedAt(value: Date | string | number | null): Date {
   const parsedDate =
     value instanceof Date
       ? new Date(value.getTime())
-      : new Date(value ?? Date.now());
+      : new Date(value ?? 0);
   return Number.isNaN(parsedDate.getTime()) ? new Date(0) : parsedDate;
 }
 
