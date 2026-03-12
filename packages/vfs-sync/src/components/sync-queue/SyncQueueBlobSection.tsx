@@ -7,7 +7,9 @@ interface SyncQueueBlobSectionProps {
   operations: SyncQueueSnapshotBlobOp[];
 }
 
-export function SyncQueueBlobSection({ operations }: SyncQueueBlobSectionProps) {
+export function SyncQueueBlobSection({
+  operations
+}: SyncQueueBlobSectionProps) {
   const { t } = useTranslation('sync');
   const [expanded, setExpanded] = useState(true);
 
@@ -19,10 +21,10 @@ export function SyncQueueBlobSection({ operations }: SyncQueueBlobSectionProps) 
         className="flex w-full items-center gap-2 py-1 text-left"
       >
         <span className="text-xs">{expanded ? '\u25BC' : '\u25B6'}</span>
-        <span className="text-foreground text-xs font-medium">
+        <span className="font-medium text-foreground text-xs">
           {t('blobOperations')}
         </span>
-        <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 font-mono text-[10px]">
+        <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           {operations.length}
         </span>
       </button>

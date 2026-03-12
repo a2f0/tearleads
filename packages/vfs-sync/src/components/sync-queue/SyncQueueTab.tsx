@@ -33,7 +33,7 @@ export function SyncQueueTab() {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h3 className="text-foreground mb-1 text-xs font-medium">
+        <h3 className="mb-1 font-medium text-foreground text-xs">
           {t('inboundStatus')}
         </h3>
         <SyncQueueInboundStatus inbound={snapshot.inbound} />

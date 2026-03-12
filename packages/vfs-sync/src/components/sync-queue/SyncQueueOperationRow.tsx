@@ -22,20 +22,20 @@ export function SyncQueueOperationRow({
     <div className="flex items-center gap-2 py-1">
       <span
         className={cn(
-          'inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase',
+          'inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-medium font-mono text-[10px] uppercase',
           'bg-muted text-muted-foreground'
         )}
       >
         {kind}
       </span>
-      <span className="text-foreground truncate font-mono text-xs" title={id}>
+      <span className="truncate font-mono text-foreground text-xs" title={id}>
         {truncateId(id)}
       </span>
       {detail ? (
-        <span className="text-muted-foreground truncate text-xs">{detail}</span>
+        <span className="truncate text-muted-foreground text-xs">{detail}</span>
       ) : null}
       {timestamp ? (
-        <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[10px]">
+        <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
           {timestamp}
         </span>
       ) : null}

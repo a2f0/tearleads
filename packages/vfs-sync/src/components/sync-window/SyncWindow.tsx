@@ -5,13 +5,10 @@ import {
 } from '@tearleads/window-manager';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SyncQueueTab } from '../sync-queue';
 import { Sync } from '../../pages/sync';
+import { SyncQueueTab } from '../sync-queue';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
-import {
-  SyncWindowTabBar,
-  type SyncWindowTab
-} from './SyncWindowTabBar';
+import { type SyncWindowTab, SyncWindowTabBar } from './SyncWindowTabBar';
 
 interface SyncWindowProps {
   id: string;

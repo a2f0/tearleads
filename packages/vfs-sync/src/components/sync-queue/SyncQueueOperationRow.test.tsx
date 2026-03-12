@@ -4,12 +4,7 @@ import { SyncQueueOperationRow } from './SyncQueueOperationRow';
 
 describe('SyncQueueOperationRow', () => {
   it('renders kind badge and truncated id', () => {
-    render(
-      <SyncQueueOperationRow
-        kind="create"
-        id="abcdef1234567890"
-      />
-    );
+    render(<SyncQueueOperationRow kind="create" id="abcdef1234567890" />);
     expect(screen.getByText('create')).toBeInTheDocument();
     expect(screen.getByText('abcdef12...')).toBeInTheDocument();
   });

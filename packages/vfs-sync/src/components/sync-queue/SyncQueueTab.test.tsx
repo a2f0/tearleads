@@ -48,9 +48,7 @@ describe('SyncQueueTab', () => {
 
     render(<SyncQueueTab />);
     expect(screen.getByText('CRDT Operations')).toBeInTheDocument();
-    expect(
-      screen.queryByText('No pending operations')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No pending operations')).not.toBeInTheDocument();
   });
 
   it('renders blob section when blob operations exist', () => {

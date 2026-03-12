@@ -5,10 +5,10 @@ export function SyncQueueEmptyState() {
 
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <p className="text-muted-foreground text-sm font-medium">
+      <p className="font-medium text-muted-foreground text-sm">
         {t('noPendingOperations')}
       </p>
-      <p className="text-muted-foreground mt-1 text-xs">{t('allSynced')}</p>
+      <p className="mt-1 text-muted-foreground text-xs">{t('allSynced')}</p>
     </div>
   );
 }
