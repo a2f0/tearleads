@@ -6,7 +6,10 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
-import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
+import {
+  buildAdminV2ConnectMethodPath,
+  DEFAULT_OPENROUTER_MODEL_ID
+} from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setTestEnv } from '../env.js';
 import { getSharedTestContext } from '../testContext';
@@ -89,10 +92,7 @@ describe('msw handlers', () => {
     const keysPayload = await api.adminV2.redis.getKeys('0', 50);
 
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisKeys'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisKeys'))
     ).toBe(true);
     expect(keysPayload).toHaveProperty('keys');
     expect(keysPayload).toHaveProperty('cursor');
@@ -107,10 +107,7 @@ describe('msw handlers', () => {
     const keyPayload = await api.adminV2.redis.getValue('user:1');
 
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisValue'
-      )
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetRedisValue'))
     ).toBe(true);
     expect(keyPayload).toHaveProperty('key', 'user:1');
     expect(keyPayload).toHaveProperty('value', 'test-value');
@@ -148,7 +145,7 @@ describe('msw handlers', () => {
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetPostgresInfo'
+        buildAdminV2ConnectMethodPath('GetPostgresInfo')
       )
     ).toBe(true);
     expect(infoPayload).toHaveProperty('info');
@@ -164,7 +161,7 @@ describe('msw handlers', () => {
     const tablesPayload = await api.adminV2.postgres.getTables();
 
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.AdminService/GetTables')
+      wasApiRequestMade('POST', buildAdminV2ConnectMethodPath('GetTables'))
     ).toBe(true);
     expect(tablesPayload).toHaveProperty('tables');
     expect(
@@ -333,8 +330,8 @@ describe('msw handlers', () => {
       },
       {
         method: 'POST',
-        pathname: '/connect/tearleads.v2.AdminService/GetRedisDbSize',
-        url: 'http://localhost/connect/tearleads.v2.AdminService/GetRedisDbSize'
+        pathname: buildAdminV2ConnectMethodPath('GetRedisDbSize'),
+        url: `http://localhost${buildAdminV2ConnectMethodPath('GetRedisDbSize')}`
       }
     ]);
   });
