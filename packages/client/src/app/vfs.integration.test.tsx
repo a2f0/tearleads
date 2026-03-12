@@ -8,7 +8,15 @@
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
 import '../test/setupIntegration';
 
-import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import { AudioProvider } from '@tearleads/app-audio';
+import {
+  albums,
+  files,
+  notes,
+  playlists,
+  vfsItemState,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -16,6 +24,7 @@ import { Suspense } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppRoutes } from '../AppRoutes';
 import { getDatabase } from '../db';
+import { rematerializeRemoteVfsStateIfNeeded } from '../lib/vfsRematerialization';
 import { renderWithDatabase } from '../test/renderWithDatabase';
 
 // Coverage-mode CI runs can delay lazy route resolution; keep waits generous
@@ -57,6 +66,109 @@ async function waitForVfsUnlocked(): Promise<void> {
     },
     { timeout: LAZY_LOAD_TIMEOUT }
   );
+}
+
+async function seedScaffoldMediaVfsRows(): Promise<void> {
+  const db = getDatabase();
+  const now = new Date('2026-01-01T00:00:00.000Z');
+  await db.insert(vfsRegistry).values([
+    {
+      id: 'root-item',
+      objectType: 'folder',
+      ownerId: null,
+      encryptedSessionKey: null,
+      encryptedName: 'Root Item',
+      createdAt: now
+    },
+    {
+      id: 'album-item',
+      objectType: 'album',
+      ownerId: null,
+      encryptedSessionKey: null,
+      encryptedName: 'Photos shared with Alice',
+      createdAt: now
+    },
+    {
+      id: 'photo-item',
+      objectType: 'photo',
+      ownerId: null,
+      encryptedSessionKey: null,
+      encryptedName: 'Tearleads logo.svg',
+      createdAt: now
+    },
+    {
+      id: 'playlist-item',
+      objectType: 'playlist',
+      ownerId: null,
+      encryptedSessionKey: null,
+      encryptedName: 'Music shared with Alice',
+      createdAt: now
+    },
+    {
+      id: 'audio-item',
+      objectType: 'audio',
+      ownerId: null,
+      encryptedSessionKey: null,
+      encryptedName: 'The Blessing.mp3',
+      createdAt: now
+    }
+  ]);
+
+  await db.insert(vfsItemState).values([
+    {
+      itemId: 'photo-item',
+      encryptedPayload: Buffer.from('<svg>logo</svg>', 'utf8').toString(
+        'base64'
+      ),
+      keyEpoch: 1,
+      encryptionNonce: null,
+      encryptionAad: null,
+      encryptionSignature: null,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      itemId: 'audio-item',
+      encryptedPayload: Buffer.from('ID3-test-track', 'utf8').toString(
+        'base64'
+      ),
+      keyEpoch: 1,
+      encryptionNonce: null,
+      encryptionAad: null,
+      encryptionSignature: null,
+      updatedAt: now,
+      deletedAt: null
+    }
+  ]);
+}
+
+async function seedUnrelatedMaterializedFileRows(): Promise<void> {
+  const db = getDatabase();
+  const now = new Date('2026-01-02T00:00:00.000Z');
+  await db.insert(files).values([
+    {
+      id: 'stale-file-1',
+      name: 'stale-1.txt',
+      size: 10,
+      mimeType: 'text/plain',
+      uploadDate: now,
+      contentHash: 'stale-hash-1',
+      storagePath: 'stale-storage-1.enc',
+      thumbnailPath: null,
+      deleted: false
+    },
+    {
+      id: 'stale-file-2',
+      name: 'stale-2.txt',
+      size: 20,
+      mimeType: 'text/plain',
+      uploadDate: now,
+      contentHash: 'stale-hash-2',
+      storagePath: 'stale-storage-2.enc',
+      thumbnailPath: null,
+      deleted: false
+    }
+  ]);
 }
 
 describe('VFS Integration Tests', () => {
@@ -206,5 +318,149 @@ describe('VFS Integration Tests', () => {
       },
       SLOW_FLOW_TEST_TIMEOUT
     );
+  });
+
+  describe('media rematerialization backfill', () => {
+    it('backfills photo/audio entity tables when registry already has remote rows', async () => {
+      await renderWithDatabase(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppRoutes />
+        </Suspense>,
+        {
+          initialRoute: '/vfs',
+          beforeRender: async () => {
+            await seedScaffoldMediaVfsRows();
+            // Guard against regressions where rematerialization early-exits and
+            // leaves files/albums/playlists empty despite local VFS rows.
+            await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(
+              false
+            );
+          }
+        }
+      );
+
+      const db = getDatabase();
+      const [albumRows, playlistRows, fileRows] = await Promise.all([
+        db.select().from(albums),
+        db.select().from(playlists),
+        db.select().from(files)
+      ]);
+      expect(albumRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'album-item',
+            encryptedName: 'Photos shared with Alice'
+          })
+        ])
+      );
+      expect(playlistRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'playlist-item',
+            encryptedName: 'Music shared with Alice'
+          })
+        ])
+      );
+      expect(fileRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'photo-item',
+            name: 'Tearleads logo.svg',
+            mimeType: 'image/svg+xml',
+            deleted: false
+          }),
+          expect.objectContaining({
+            id: 'audio-item',
+            name: 'The Blessing.mp3',
+            mimeType: 'audio/mpeg',
+            deleted: false
+          })
+        ])
+      );
+
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'VFS Explorer' })
+          ).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
+    });
+
+    it('backfills scaffold photo/audio rows even when stale file rows already exist', async () => {
+      await renderWithDatabase(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppRoutes />
+        </Suspense>,
+        {
+          initialRoute: '/vfs',
+          beforeRender: async () => {
+            await seedScaffoldMediaVfsRows();
+            await seedUnrelatedMaterializedFileRows();
+            await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(
+              false
+            );
+          }
+        }
+      );
+
+      const db = getDatabase();
+      const fileRows = await db.select().from(files);
+      const fileIds = new Set(fileRows.map((row) => row.id));
+
+      expect(fileIds.has('photo-item')).toBe(true);
+      expect(fileIds.has('audio-item')).toBe(true);
+      expect(fileIds.has('stale-file-1')).toBe(false);
+      expect(fileIds.has('stale-file-2')).toBe(false);
+    });
+
+    it('renders rematerialized scaffold photo/audio in app routes', async () => {
+      await renderWithDatabase(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AudioProvider>
+            <AppRoutes />
+          </AudioProvider>
+        </Suspense>,
+        {
+          initialRoute: '/photos',
+          beforeRender: async () => {
+            await seedScaffoldMediaVfsRows();
+            await expect(rematerializeRemoteVfsStateIfNeeded()).resolves.toBe(
+              false
+            );
+          }
+        }
+      );
+
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'Photos' })
+          ).toBeInTheDocument();
+          expect(screen.getByTestId('photos-grid')).toBeInTheDocument();
+          expect(
+            screen.queryByText('No photos yet. Use Upload to add images.')
+          ).not.toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
+
+      const user = userEvent.setup();
+      await navigateViaMobileMenu(user, 'audio-link');
+      await waitFor(
+        () => {
+          expect(
+            screen.getByRole('heading', { name: 'Audio' })
+          ).toBeInTheDocument();
+          expect(screen.queryByText('Loading audio...')).not.toBeInTheDocument();
+          expect(
+            screen.queryByText('Drop an audio file here to add it to your library')
+          ).not.toBeInTheDocument();
+          expect(screen.getByText(/1 track/)).toBeInTheDocument();
+        },
+        { timeout: LAZY_LOAD_TIMEOUT }
+      );
+    });
   });
 });

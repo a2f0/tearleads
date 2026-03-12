@@ -7,7 +7,7 @@ import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALL_PHOTOS_ID } from '@/components/window-photos/PhotosAlbumsSidebar';
 import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
+import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files, vfsLinks } from '@/db/schema';
 import {
@@ -108,10 +108,10 @@ export function usePhotosData({
       }));
 
       // Load image data and create object URLs
-      const keyManager = getKeyManager();
+      if (!currentInstanceId) throw new Error('No active instance');
+      const keyManager = getKeyManagerForInstance(currentInstanceId);
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
 
       if (!isFileStorageInitialized(currentInstanceId)) {
         await initializeFileStorage(encryptionKey, currentInstanceId);

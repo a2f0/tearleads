@@ -31,6 +31,9 @@ vi.mock('@/db', () => ({
 vi.mock('@/db/crypto', () => ({
   getKeyManager: () => ({
     getCurrentKey: () => null
+  }),
+  getKeyManagerForInstance: () => ({
+    getCurrentKey: () => null
   })
 }));
 

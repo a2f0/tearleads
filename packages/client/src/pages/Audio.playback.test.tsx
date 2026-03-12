@@ -142,6 +142,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
 vi.mock('@/db/crypto', () => ({
   getKeyManager: () => ({
     getCurrentKey: mockGetCurrentKey
+  }),
+  getKeyManagerForInstance: () => ({
+    getCurrentKey: mockGetCurrentKey
   })
 }));
 
