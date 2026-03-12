@@ -41,9 +41,7 @@ describe('DraftListView', () => {
         />
       );
 
-      expect(
-        container.querySelector('.animate-spin')
-      ).toBeInTheDocument();
+      expect(container.querySelector('.animate-spin')).toBeInTheDocument();
     });
   });
 
@@ -93,9 +91,7 @@ describe('DraftListView', () => {
         />
       );
 
-      expect(
-        screen.getByText('To: alice@example.com')
-      ).toBeInTheDocument();
+      expect(screen.getByText('To: alice@example.com')).toBeInTheDocument();
       expect(screen.getByText('No recipients')).toBeInTheDocument();
     });
 
@@ -137,9 +133,7 @@ describe('DraftListView', () => {
         keys: '[MouseRight]'
       });
 
-      expect(
-        screen.getByTestId('draft-list-context-menu')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('draft-list-context-menu')).toBeInTheDocument();
       expect(screen.getByText('Edit')).toBeInTheDocument();
       expect(screen.getByText('Delete')).toBeInTheDocument();
     });
@@ -223,9 +217,7 @@ describe('DraftListView', () => {
 
       expect(screen.getByText('Hello World')).toBeInTheDocument();
       expect(screen.getByText('(No Subject)')).toBeInTheDocument();
-      expect(
-        screen.getByText('alice@example.com')
-      ).toBeInTheDocument();
+      expect(screen.getByText('alice@example.com')).toBeInTheDocument();
       expect(screen.getByText('No recipients')).toBeInTheDocument();
     });
 
@@ -267,9 +259,7 @@ describe('DraftListView', () => {
         keys: '[MouseRight]'
       });
 
-      expect(
-        screen.getByTestId('draft-list-context-menu')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('draft-list-context-menu')).toBeInTheDocument();
     });
   });
 });
