@@ -347,7 +347,7 @@ describe('useFileUpload VFS registration', () => {
     );
   });
 
-  it('fails closed when secure upload flushAll fails', async () => {
+  it('succeeds even when flushAll fails (flush is fire-and-forget)', async () => {
     isLoggedIn.mockReturnValue(true);
     getFeatureFlagValue.mockImplementation((flag: string) => {
       return flag === 'vfsSecureUpload';
@@ -375,16 +375,17 @@ describe('useFileUpload VFS registration', () => {
     const { result } = renderHook(() => useFileUpload());
     const file = new File(['test'], 'test.png', { type: 'image/png' });
 
-    await expect(result.current.uploadFile(file)).rejects.toThrow(
-      'Secure upload failed (flush)'
-    );
+    const uploadResult = await result.current.uploadFile(file);
+    expect(uploadResult.isDuplicate).toBe(false);
+    expect(mockOrchestrator.flushAll).toHaveBeenCalledTimes(1);
     expect(logEvent).toHaveBeenCalledWith(
       expect.anything(),
       'vfs_secure_upload',
       expect.any(Number),
-      false,
+      true,
       expect.objectContaining({
-        failStage: 'flush'
+        fileSize: file.size,
+        mimeType: 'image/png'
       })
     );
   });

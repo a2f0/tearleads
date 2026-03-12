@@ -28,6 +28,7 @@ import {
   readMagicBytes
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
+import { handleFlushError } from '@/lib/vfsItemSyncWriter';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   createStoreLogger,
@@ -233,7 +234,6 @@ export function useFileUpload() {
           | 'register'
           | 'orchestrator_unavailable'
           | 'stage_attach'
-          | 'flush'
           | 'unknown'
           | null = null;
 
@@ -290,17 +290,10 @@ export function useFileUpload() {
             });
           }
 
-          // Flush queued operations to ensure data reaches the server.
-          // stageAttachEncryptedBlobAndPersist only queues operations locally;
-          // flushAll sends them over the network.
-          try {
-            await orchestrator.flushAll();
-          } catch (err) {
-            secureUploadFailStage = 'flush';
-            throw new Error('Secure upload failed (flush)', { cause: err });
-          }
-
           serverUploadSucceeded = true;
+          // Flush is fire-and-forget; local data is already persisted.
+          // Background retry handles failures.
+          void orchestrator.flushAll().catch(handleFlushError);
         } catch (err) {
           if (
             err instanceof Error &&
