@@ -40,10 +40,10 @@ describe('vfsRematerialization root-only bootstrap', () => {
     await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
   });
 
-  it('rematerializes when local registry only contains __vfs_root__', async () => {
+  it('rematerializes when local registry only contains 00000000-0000-0000-0000-000000000000', async () => {
     const db = getDatabase();
     await db.insert(vfsRegistry).values({
-      id: '__vfs_root__',
+      id: '00000000-0000-0000-0000-000000000000',
       objectType: 'folder',
       ownerId: null,
       encryptedSessionKey: null,

@@ -124,7 +124,7 @@ describe('vfsReadModelHydration scaffold regression', () => {
       items: [
         {
           changeId: 'sync-root-1',
-          itemId: '__vfs_root__',
+          itemId: '00000000-0000-0000-0000-000000000000',
           changeType: 'upsert',
           changedAt: '2026-03-01T00:00:00.000Z',
           objectType: 'folder',
@@ -169,7 +169,7 @@ describe('vfsReadModelHydration scaffold regression', () => {
           principalType: null,
           principalId: null,
           accessLevel: null,
-          parentId: '__vfs_root__',
+          parentId: '00000000-0000-0000-0000-000000000000',
           childId: 'folder-1',
           actorId: 'bob-id',
           sourceTable: 'vfs_links',
@@ -214,11 +214,11 @@ describe('vfsReadModelHydration scaffold regression', () => {
        FROM vfs_links
        WHERE parent_id = ?
        ORDER BY child_id`,
-      ['__vfs_root__']
+      ['00000000-0000-0000-0000-000000000000']
     );
     expect(rootChildrenRows.rows).toEqual([
       expect.objectContaining({
-        parent_id: '__vfs_root__',
+        parent_id: '00000000-0000-0000-0000-000000000000',
         child_id: 'folder-1'
       })
     ]);

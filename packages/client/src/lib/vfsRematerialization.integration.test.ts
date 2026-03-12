@@ -239,7 +239,7 @@ describe('vfsRematerialization integration', () => {
     ]);
   });
 
-  it('retains links to __vfs_root__ even when root is not in synced registry rows', async () => {
+  it('retains links to 00000000-0000-0000-0000-000000000000 even when root is not in synced registry rows', async () => {
     mockGetSync.mockResolvedValueOnce({
       items: [
         {
@@ -267,7 +267,7 @@ describe('vfsRematerialization integration', () => {
           principalType: null,
           principalId: null,
           accessLevel: null,
-          parentId: '__vfs_root__',
+          parentId: '00000000-0000-0000-0000-000000000000',
           childId: 'folder-item',
           actorId: 'user-1',
           sourceTable: 'vfs_links',
@@ -287,8 +287,8 @@ describe('vfsRematerialization integration', () => {
     expect(linkRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 'link:__vfs_root__:folder-item',
-          parentId: '__vfs_root__',
+          id: 'link:00000000-0000-0000-0000-000000000000:folder-item',
+          parentId: '00000000-0000-0000-0000-000000000000',
           childId: 'folder-item'
         })
       ])

@@ -44,7 +44,7 @@ export interface SetupBobPlaylistShareForAliceDbResult {
   audioShareAclId: string;
 }
 
-const DEFAULT_ROOT_ITEM_ID = '__vfs_root__';
+const DEFAULT_ROOT_ITEM_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_PLAYLIST_NAME = 'Music shared with Alice';
 const DEFAULT_AUDIO_NAME = 'The Blessing.mp3';
 const DEFAULT_SHARE_ACCESS_LEVEL: ShareAccessLevel = 'read';
@@ -74,8 +74,8 @@ export async function setupBobPlaylistShareForAliceDb(
   const idFactory = input.idFactory ?? randomUUID;
   const now = input.now ?? (() => new Date());
   const rootItemId = input.rootItemId ?? DEFAULT_ROOT_ITEM_ID;
-  const playlistId = input.playlistId ?? `playlist-${idFactory()}`;
-  const audioId = input.audioId ?? `audio-${idFactory()}`;
+  const playlistId = input.playlistId ?? idFactory();
+  const audioId = input.audioId ?? idFactory();
   const playlistName = input.playlistName ?? DEFAULT_PLAYLIST_NAME;
   const audioName = input.audioName ?? DEFAULT_AUDIO_NAME;
   const audioContentBase64 =
@@ -150,16 +150,16 @@ export async function setupBobPlaylistShareForAliceDb(
 
     await input.client.query(
       `INSERT INTO playlists (id, encrypted_name, shuffle_mode)
-       VALUES ($1, $2, 0)
+       VALUES ($1::uuid, $2, 0)
        ON CONFLICT (id) DO UPDATE SET
          encrypted_name = EXCLUDED.encrypted_name,
          shuffle_mode = EXCLUDED.shuffle_mode`,
       [playlistId, encryptedPlaylist.encryptedName]
     );
 
-    const audioNonce = encodeBase64(`nonce-${idFactory()}`);
-    const audioAad = encodeBase64(`aad-${idFactory()}`);
-    const audioSignature = encodeBase64(`sig-${idFactory()}`);
+    const audioNonce = encodeBase64(idFactory());
+    const audioAad = encodeBase64(idFactory());
+    const audioSignature = encodeBase64(idFactory());
 
     await input.client.query(
       `INSERT INTO vfs_item_state (
@@ -172,7 +172,7 @@ export async function setupBobPlaylistShareForAliceDb(
          updated_at,
          deleted_at
        )
-       VALUES ($1, $2, 1, $3, $4, $5, $6::timestamptz, NULL)
+       VALUES ($1::uuid, $2, 1, $3, $4, $5, $6::timestamptz, NULL)
        ON CONFLICT (item_id) DO UPDATE SET
          encrypted_payload = EXCLUDED.encrypted_payload,
          key_epoch = EXCLUDED.key_epoch,
@@ -204,14 +204,18 @@ export async function setupBobPlaylistShareForAliceDb(
          key_epoch,
          encryption_nonce,
          encryption_aad,
-         encryption_signature, encrypted_payload_bytes, encryption_nonce_bytes,
-         encryption_aad_bytes, encryption_signature_bytes
+         encryption_signature, 
+         encrypted_payload_bytes, 
+         encryption_nonce_bytes,
+         encryption_aad_bytes, 
+         encryption_signature_bytes,
+         root_id
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'item_upsert',
-         $3,
+         $3::uuid,
          'vfs_item_state',
          $4,
          $5::timestamptz,
@@ -220,8 +224,11 @@ export async function setupBobPlaylistShareForAliceDb(
          NULL,
          NULL,
          NULL,
-         decode($6::text, 'base64'), decode($7::text, 'base64'),
-         decode($8::text, 'base64'), decode($9::text, 'base64')
+         decode($6::text, 'base64'), 
+         decode($7::text, 'base64'),
+         decode($8::text, 'base64'), 
+         decode($9::text, 'base64'),
+         $10::uuid
        )
        ON CONFLICT (id) DO UPDATE SET
          item_id = EXCLUDED.item_id,
@@ -238,9 +245,10 @@ export async function setupBobPlaylistShareForAliceDb(
          encrypted_payload_bytes = EXCLUDED.encrypted_payload_bytes,
          encryption_nonce_bytes = EXCLUDED.encryption_nonce_bytes,
          encryption_aad_bytes = EXCLUDED.encryption_aad_bytes,
-         encryption_signature_bytes = EXCLUDED.encryption_signature_bytes`,
+         encryption_signature_bytes = EXCLUDED.encryption_signature_bytes,
+         root_id = EXCLUDED.root_id`,
       [
-        `crdt:item_upsert:${audioId}`,
+        idFactory(),
         audioId,
         bobUserId,
         `vfs_item_state:${audioId}`,
@@ -248,7 +256,8 @@ export async function setupBobPlaylistShareForAliceDb(
         audioContentBase64,
         audioNonce,
         audioAad,
-        audioSignature
+        audioSignature,
+        playlistId
       ]
     );
 
@@ -260,9 +269,9 @@ export async function setupBobPlaylistShareForAliceDb(
          wrapped_session_key,
          created_at
        )
-       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
-      [idFactory(), rootItemId, playlistId, 'scaffolding-link-wrap', nowIso]
+      [randomUUID(), rootItemId, playlistId, 'scaffolding-link-wrap', nowIso]
     );
 
     await input.client.query(
@@ -273,12 +282,12 @@ export async function setupBobPlaylistShareForAliceDb(
          wrapped_session_key,
          created_at
        )
-       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
-      [idFactory(), playlistId, audioId, 'scaffolding-link-wrap', nowIso]
+      [randomUUID(), playlistId, audioId, 'scaffolding-link-wrap', nowIso]
     );
 
-    const playlistShareId = `share:${idFactory()}`;
+    const playlistShareId = idFactory();
     const playlistShareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
@@ -295,14 +304,14 @@ export async function setupBobPlaylistShareForAliceDb(
          revoked_at
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'user',
-         $3,
+         $3::uuid,
          $4,
          $5,
          1,
-         $6,
+         $6::uuid,
          $7::timestamptz,
          $7::timestamptz,
          NULL,
@@ -328,7 +337,7 @@ export async function setupBobPlaylistShareForAliceDb(
       ]
     );
 
-    const audioShareId = `share:${idFactory()}`;
+    const audioShareId = idFactory();
     const audioShareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
@@ -345,14 +354,14 @@ export async function setupBobPlaylistShareForAliceDb(
          revoked_at
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'user',
-         $3,
+         $3::uuid,
          $4,
          $5,
          1,
-         $6,
+         $6::uuid,
          $7::timestamptz,
          $7::timestamptz,
          NULL,

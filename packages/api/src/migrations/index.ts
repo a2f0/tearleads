@@ -44,6 +44,7 @@ import { v037 } from './v037.js';
 import { v038 } from './v038.js';
 import { v039 } from './v039.js';
 import { v040 } from './v040.js';
+import { v041 } from './v041.js';
 
 export type { Migration };
 
@@ -91,7 +92,8 @@ export const migrations: Migration[] = [
   v037,
   v038,
   v039,
-  v040
+  v040,
+  v041
 ];
 
 export const getCurrentVersion = getCurrentVersionBase;
