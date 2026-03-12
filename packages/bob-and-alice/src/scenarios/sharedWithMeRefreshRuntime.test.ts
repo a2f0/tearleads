@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import {
@@ -89,7 +93,7 @@ describe('sharedWithMe refresh runtime', () => {
     ).toHaveLength(0);
 
     const folderId = `folder-${randomUUID()}`;
-    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -101,7 +105,7 @@ describe('sharedWithMe refresh runtime', () => {
 
     const shareResponse = await alice.fetchJson<{
       share: { id: string; targetId: string };
-    }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    }>(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

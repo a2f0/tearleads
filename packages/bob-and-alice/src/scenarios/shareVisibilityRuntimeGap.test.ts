@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import {
@@ -71,7 +75,7 @@ describe('share visibility runtime gap', () => {
     browserActors = [aliceBrowser, bobBrowser];
 
     const folderId = `folder-${randomUUID()}`;
-    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -82,7 +86,7 @@ describe('share visibility runtime gap', () => {
     });
 
     await alice.fetchJson<{ share: { targetId: string } }>(
-      '/connect/tearleads.v2.VfsSharesService/CreateShare',
+      buildVfsSharesV2ConnectMethodPath('CreateShare'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

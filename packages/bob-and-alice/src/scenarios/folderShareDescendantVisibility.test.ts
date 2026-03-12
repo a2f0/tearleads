@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
@@ -12,7 +16,7 @@ async function listSyncItems(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<SyncItem[]> {
   const response = await actor.fetchJson<{ items: SyncItem[] }>(
-    '/connect/tearleads.v2.VfsService/GetSync',
+    buildVfsV2ConnectMethodPath('GetSync'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,7 +60,7 @@ describe('folder share descendant visibility', () => {
     const folderId = `folder-${randomUUID()}`;
     const noteId = `note-${randomUUID()}`;
 
-    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -66,7 +70,7 @@ describe('folder share descendant visibility', () => {
         encryptedName: 'Notes shared with Alice'
       })
     });
-    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -105,7 +109,7 @@ describe('folder share descendant visibility', () => {
       [randomUUID(), folderId, noteId]
     );
 
-    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    await bob.fetchJson(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,7 +128,7 @@ describe('folder share descendant visibility', () => {
       aliceSyncAfterFolderShare.some((item) => item.itemId === noteId)
     ).toBe(false);
 
-    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    await bob.fetchJson(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
