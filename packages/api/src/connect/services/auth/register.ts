@@ -111,20 +111,6 @@ export async function register(
       const now = new Date().toISOString();
 
       await client.query(
-        `INSERT INTO users (
-           id,
-           email,
-           email_confirmed,
-           admin,
-           personal_organization_id,
-           created_at,
-           updated_at
-         )
-         VALUES ($1, $2, true, false, $3, $4, $4)`,
-        [userId, payload.email, personalOrganizationId, now]
-      );
-
-      await client.query(
         `INSERT INTO organizations (
            id,
            name,
@@ -140,6 +126,20 @@ export async function register(
           `Personal organization for ${payload.email}`,
           now
         ]
+      );
+
+      await client.query(
+        `INSERT INTO users (
+           id,
+           email,
+           email_confirmed,
+           admin,
+           personal_organization_id,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, true, false, $3, $4, $4)`,
+        [userId, payload.email, personalOrganizationId, now]
       );
 
       await client.query(

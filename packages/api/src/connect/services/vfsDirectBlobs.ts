@@ -36,7 +36,7 @@ export async function getBlobDirect(
       `
       SELECT object_type, owner_id
       FROM vfs_registry
-      WHERE id = $1::text
+      WHERE id = $1::uuid
       LIMIT 1
       `,
       [blobId]
@@ -103,7 +103,7 @@ export async function deleteBlobDirect(
       `
       SELECT object_type, owner_id
       FROM vfs_registry
-      WHERE id = $1::text
+      WHERE id = $1::uuid
       LIMIT 1
       FOR UPDATE
       `,
@@ -135,7 +135,7 @@ export async function deleteBlobDirect(
       `
       SELECT 1
       FROM vfs_links
-      WHERE child_id = $1::text
+      WHERE child_id = $1::uuid
         AND wrapped_session_key LIKE 'blob-link:%'
       LIMIT 1
       FOR UPDATE
@@ -154,7 +154,7 @@ export async function deleteBlobDirect(
     const deleted = await client.query(
       `
       DELETE FROM vfs_registry
-      WHERE id = $1::text
+      WHERE id = $1::uuid
         AND object_type = 'file'
       `,
       [blobId]

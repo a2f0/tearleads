@@ -20,6 +20,12 @@ import {
   assertPgUserOrganizationMembership
 } from '../harness/postgresAssertions.js';
 
+interface VfsShareProtoResponse {
+  share: {
+    targetId: string;
+  };
+}
+
 describe('sharedWithMe refresh runtime', () => {
   let harness: ApiScenarioHarness | null = null;
   let browserActors: BrowserRuntimeActor[] = [];

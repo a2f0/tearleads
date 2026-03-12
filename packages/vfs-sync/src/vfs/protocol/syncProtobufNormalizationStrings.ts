@@ -21,11 +21,3 @@ export function normalizeRequiredString(
   }
   return value;
 }
-
-function normalizeOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function normalizeOptionalNullableString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}

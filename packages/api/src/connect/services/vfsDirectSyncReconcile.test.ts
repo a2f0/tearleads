@@ -139,6 +139,10 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
     expect(queryMock).toHaveBeenCalled();
     const queryCall = queryMock.mock.calls[0];
+    expect(queryCall).toBeDefined();
+    if (!queryCall) {
+      throw new Error('expected reconcileSyncDirect to issue a SQL query');
+    }
     expect(queryCall[1]).toContain(realUserId);
   });
 });

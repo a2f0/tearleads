@@ -107,7 +107,7 @@ export async function abandonBlobDirect(
       INNER JOIN vfs_links AS stage_link
         ON stage_link.id = stage_registry.id
        AND stage_link.parent_id = stage_registry.id
-      WHERE stage_registry.id = $1::text
+      WHERE stage_registry.id = $1::uuid
         AND stage_registry.object_type = 'blobStage'
       FOR UPDATE OF stage_registry, stage_link
       `,
@@ -152,7 +152,7 @@ export async function abandonBlobDirect(
             to_jsonb($2::text),
             true
           )::json
-      WHERE id = $1::text
+      WHERE id = $1::uuid
         AND wrapped_session_key = 'blob-stage:staged'
       `,
       [stagingId, abandonedAtIso]
@@ -226,7 +226,7 @@ export async function commitBlobDirect(
       INNER JOIN vfs_links AS stage_link
         ON stage_link.id = stage_registry.id
        AND stage_link.parent_id = stage_registry.id
-      WHERE stage_registry.id = $1::text
+      WHERE stage_registry.id = $1::uuid
         AND stage_registry.object_type = 'blobStage'
       LIMIT 1
       `,
