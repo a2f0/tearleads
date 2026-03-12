@@ -41,7 +41,7 @@ export interface VfsCrdtSyncProtoResponse {
     data: string;
     capacity: number;
     errorRate: number;
-  } | null;
+  };
 }
 
 export interface VfsSyncProtoItem {
@@ -257,7 +257,7 @@ export function toProtoVfsCrdtSyncResponse(
     parsed.nextCursor = nextCursor;
   }
 
-  if (response.bloomFilter !== undefined) {
+  if (response.bloomFilter) {
     parsed.bloomFilter = response.bloomFilter;
   }
 
