@@ -1,3 +1,7 @@
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   fetchWithRetryableWriteValidationError,
@@ -8,7 +12,7 @@ describe('isRetryableWriteValidationError', () => {
   it('retries share requests with transient required-field validation failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsSharesService/CreateShare',
+        buildVfsSharesV2ConnectMethodPath('CreateShare'),
         { method: 'POST' },
         400,
         '{"error":"shareType, targetId, and permissionLevel are required"}'
@@ -16,7 +20,7 @@ describe('isRetryableWriteValidationError', () => {
     ).toBe(true);
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsSharesService/UpdateShare',
+        buildVfsSharesV2ConnectMethodPath('UpdateShare'),
         { method: 'POST' },
         400,
         '{"error":"shareType, targetId, and permissionLevel are required"}'
@@ -27,7 +31,7 @@ describe('isRetryableWriteValidationError', () => {
   it('retries register requests with transient required-field validation failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsService/Register',
+        buildVfsV2ConnectMethodPath('Register'),
         { method: 'POST' },
         400,
         '{"error":"id, objectType, and encryptedSessionKey are required"}'
@@ -38,7 +42,7 @@ describe('isRetryableWriteValidationError', () => {
   it('does not retry unrelated request failures', () => {
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsService/Register',
+        buildVfsV2ConnectMethodPath('Register'),
         { method: 'GET' },
         400,
         '{"error":"id, objectType, and encryptedSessionKey are required"}'
@@ -47,7 +51,7 @@ describe('isRetryableWriteValidationError', () => {
 
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsSharesService/CreateShare',
+        buildVfsSharesV2ConnectMethodPath('CreateShare'),
         { method: 'POST' },
         500,
         '{"error":"shareType, targetId, and permissionLevel are required"}'
@@ -56,7 +60,7 @@ describe('isRetryableWriteValidationError', () => {
 
     expect(
       isRetryableWriteValidationError(
-        '/connect/tearleads.v2.VfsService/Register',
+        buildVfsV2ConnectMethodPath('Register'),
         { method: 'POST' },
         400,
         '{"error":"unexpected payload"}'
@@ -92,7 +96,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/connect/tearleads.v2.VfsService/Register',
+      buildVfsV2ConnectMethodPath('Register'),
       { method: 'POST' },
       {
         sleep: async (ms: number): Promise<void> => {
@@ -139,7 +143,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
     await expect(
       fetchWithRetryableWriteValidationError(
         actorFetch,
-        '/connect/tearleads.v2.VfsService/Register',
+        buildVfsV2ConnectMethodPath('Register'),
         { method: 'POST' },
         {
           maxRetryAttempts: 2,
@@ -189,7 +193,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/connect/tearleads.v2.VfsService/Register',
+      buildVfsV2ConnectMethodPath('Register'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -237,7 +241,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
     const response = await fetchWithRetryableWriteValidationError(
       actorFetch,
-      '/connect/tearleads.v2.VfsService/Register',
+      buildVfsV2ConnectMethodPath('Register'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
