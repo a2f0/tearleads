@@ -16,7 +16,8 @@ cd "$SCRIPT_DIR/../packages/client"
 BUNDLE_ID="com.tearleads.app"
 DEVICE="${1:-"iPhone 16 Pro"}"
 
-export VITE_API_URL="${VITE_API_URL:-http://localhost:5001/v1}"
+API_PORT=5001
+export VITE_API_URL="${VITE_API_URL:-http://localhost:${API_PORT}/v1}"
 
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync ios
 xcrun simctl terminate booted "$BUNDLE_ID" 2>/dev/null || true

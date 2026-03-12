@@ -47,10 +47,11 @@ if [ ! -f "$TARGET_ASSET" ] || [ -n "$(find "$SVG_SOURCE" -newer "$TARGET_ASSET"
   ./scripts/buildAndroidImageAssets.sh
 fi
 
-export VITE_API_URL="${VITE_API_URL:-http://localhost:5001/v1}"
+API_PORT=5001
+export VITE_API_URL="${VITE_API_URL:-http://localhost:${API_PORT}/v1}"
 
-# Forward device localhost:5001 to host localhost:5001 so API requests reach the dev server
-adb -s "$DEVICE_SERIAL" reverse tcp:5001 tcp:5001
+# Forward device localhost to host so API requests reach the dev server
+adb -s "$DEVICE_SERIAL" reverse tcp:${API_PORT} tcp:${API_PORT}
 
 # Build web assets and sync to native project
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync android

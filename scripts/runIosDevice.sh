@@ -40,7 +40,8 @@ else
   echo "Detected device: $DEVICE_NAME ($DEVICE_ID)"
 fi
 
-export VITE_API_URL="${VITE_API_URL:-http://localhost:5001/v1}"
+API_PORT=5001
+export VITE_API_URL="${VITE_API_URL:-http://localhost:${API_PORT}/v1}"
 
 # Build web assets and sync to native project
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync ios
