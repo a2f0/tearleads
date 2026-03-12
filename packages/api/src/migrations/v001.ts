@@ -236,29 +236,38 @@ export const v001: Migration = {
       CREATE OR REPLACE FUNCTION "vfs_make_event_id"(prefix TEXT)
       RETURNS UUID LANGUAGE SQL AS $$ SELECT gen_random_uuid() $$;
 
-      CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"()
+      CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"(
+        p_item_id UUID,
+        p_change_type TEXT,
+        p_changed_by UUID,
+        p_root_id UUID
+      )
+      RETURNS VOID LANGUAGE plpgsql AS $$
+      BEGIN
+        INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, changed_by, root_id)
+        VALUES (gen_random_uuid()::text, p_item_id, p_change_type, NOW(), p_changed_by, p_root_id);
+      END;
+      $$;
+
+      CREATE OR REPLACE FUNCTION "vfs_emit_sync_change_tg"()
       RETURNS TRIGGER LANGUAGE plpgsql AS $$
       BEGIN
         IF TG_TABLE_NAME = 'vfs_registry' THEN
           IF TG_OP = 'DELETE' THEN
-            INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, changed_by)
-            VALUES (gen_random_uuid()::text, OLD.id, 'delete', NOW(), OLD.owner_id);
+            PERFORM "vfs_emit_sync_change"(OLD.id, 'delete', OLD.owner_id, NULL);
             RETURN OLD;
           ELSE
-            INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, changed_by)
-            VALUES (gen_random_uuid()::text, NEW.id, 'upsert', NOW(), NEW.owner_id);
+            PERFORM "vfs_emit_sync_change"(NEW.id, 'upsert', NEW.owner_id, NULL);
             RETURN NEW;
           END IF;
         ELSIF TG_TABLE_NAME = 'vfs_links' THEN
           IF TG_OP = 'DELETE' THEN
-            INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, root_id)
-            VALUES (gen_random_uuid()::text, OLD.child_id, 'upsert', NOW(), OLD.parent_id);
+            PERFORM "vfs_emit_sync_change"(OLD.child_id, 'upsert', NULL, OLD.parent_id);
             INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id)
             VALUES (OLD.child_id, 'link_remove', OLD.parent_id, OLD.child_id, 'vfs_links', OLD.id::text);
             RETURN OLD;
           ELSE
-            INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, root_id)
-            VALUES (gen_random_uuid()::text, NEW.child_id, 'upsert', NOW(), NEW.parent_id);
+            PERFORM "vfs_emit_sync_change"(NEW.child_id, 'upsert', NULL, NEW.parent_id);
             INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id)
             VALUES (NEW.child_id, 'link_add', NEW.parent_id, NEW.child_id, 'vfs_links', NEW.id::text);
             RETURN NEW;
@@ -268,8 +277,8 @@ export const v001: Migration = {
       END;
       $$;
 
-      CREATE TRIGGER "tg_vfs_registry_sync" AFTER INSERT OR UPDATE OR DELETE ON "vfs_registry" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change"();
-      CREATE TRIGGER "tg_vfs_links_sync" AFTER INSERT OR DELETE ON "vfs_links" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change"();
+      CREATE TRIGGER "tg_vfs_registry_sync" AFTER INSERT OR UPDATE OR DELETE ON "vfs_registry" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change_tg"();
+      CREATE TRIGGER "tg_vfs_links_sync" AFTER INSERT OR DELETE ON "vfs_links" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change_tg"();
     `);
   }
 };

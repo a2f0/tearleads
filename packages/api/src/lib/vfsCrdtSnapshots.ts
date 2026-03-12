@@ -204,7 +204,7 @@ async function loadVisibleItemIds(
     `
     SELECT item_id
     FROM vfs_effective_visibility
-    WHERE user_id = $1::text
+    WHERE user_id = $1::uuid
     `,
     [userId]
   );
@@ -231,7 +231,7 @@ async function loadClientReconcileState(
       last_reconciled_change_id,
       last_reconciled_write_ids
     FROM vfs_sync_client_state
-    WHERE user_id = $1::text
+    WHERE user_id = $1::uuid
       AND client_id = $2::text
     LIMIT 1
     `,

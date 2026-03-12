@@ -17,7 +17,7 @@ export const VFS_SYNC_SQL = `
         FROM vfs_sync_changes change_row
         INNER JOIN vfs_effective_visibility access 
            ON access.item_id = change_row.item_id
-          AND access.user_id = $1
+          AND access.user_id = $1::uuid
         WHERE (
           $2::timestamptz IS NULL
           OR change_row.changed_at > $2::timestamptz
@@ -28,8 +28,8 @@ export const VFS_SYNC_SQL = `
         )
         AND (
           $5::text IS NULL
-          OR change_row.item_id = $5::text
-          OR change_row.root_id = $5::text
+          OR change_row.item_id = $5::uuid
+          OR change_row.root_id = $5::uuid
         )
         ORDER BY change_row.changed_at ASC, change_row.id ASC
         LIMIT $4::integer

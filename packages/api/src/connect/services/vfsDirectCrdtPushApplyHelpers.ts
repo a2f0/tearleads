@@ -76,7 +76,7 @@ export async function upsertReplicaHead(
       max_occurred_at,
       updated_at
     ) VALUES (
-      $1::text,
+      $1::uuid,
       $2::text,
       $3::bigint,
       $4::timestamptz,
@@ -117,7 +117,7 @@ export async function applyCanonicalItemOperation(
         updated_at,
         deleted_at
       ) VALUES (
-        $1::text,
+        $1::uuid,
         $2::text,
         $3::integer,
         $4::text,
@@ -148,7 +148,7 @@ export async function applyCanonicalItemOperation(
 
     await runQuery(
       'canonical_sync_change_upsert',
-      `SELECT vfs_emit_sync_change($1::text, 'upsert', $2::text, NULL)`,
+      `SELECT vfs_emit_sync_change($1::uuid, 'upsert', $2::uuid, NULL)`,
       [operation.itemId, actorId]
     );
     return;
@@ -163,7 +163,7 @@ export async function applyCanonicalItemOperation(
         updated_at,
         deleted_at
       ) VALUES (
-        $1::text,
+        $1::uuid,
         NOW(),
         NOW()
       )
@@ -177,7 +177,7 @@ export async function applyCanonicalItemOperation(
 
     await runQuery(
       'canonical_sync_change_delete',
-      `SELECT vfs_emit_sync_change($1::text, 'delete', $2::text, NULL)`,
+      `SELECT vfs_emit_sync_change($1::uuid, 'delete', $2::uuid, NULL)`,
       [operation.itemId, actorId]
     );
   }

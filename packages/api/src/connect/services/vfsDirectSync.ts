@@ -98,20 +98,20 @@ async function loadOldestAccessibleCursor(
   const result = await pool.query<CursorBoundaryRow>(
     `
     WITH principals AS (
-      SELECT 'user'::text AS principal_type, $1::text AS principal_id
+      SELECT 'user'::text AS principal_type, $1::uuid AS principal_id
       UNION ALL
       SELECT 'group'::text AS principal_type, ug.group_id AS principal_id
       FROM user_groups ug
-      WHERE ug.user_id = $1
+      WHERE ug.user_id = $1::uuid
       UNION ALL
       SELECT 'organization'::text AS principal_type, uo.organization_id AS principal_id
       FROM user_organizations uo
-      WHERE uo.user_id = $1
+      WHERE uo.user_id = $1::uuid
     ),
     owner_items AS (
       SELECT registry.id AS item_id
       FROM vfs_registry registry
-      WHERE registry.owner_id = $1
+      WHERE registry.owner_id = $1::uuid
     ),
     acl_items AS (
       SELECT
@@ -134,13 +134,8 @@ async function loadOldestAccessibleCursor(
     INNER JOIN eligible_items access ON access.item_id = ops.item_id
     WHERE (
         $2::text IS NULL
-        OR ops.item_id = $2::text
-        OR EXISTS (
-          SELECT 1
-          FROM vfs_links link
-          WHERE link.parent_id = $2::text
-            AND link.child_id = ops.item_id
-        )
+        OR ops.item_id = $2::uuid
+        OR ops.root_id = $2::uuid
       )
     ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC
     LIMIT 1
@@ -411,7 +406,7 @@ export async function reconcileSyncDirect(
         last_reconciled_at,
         last_reconciled_change_id,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE

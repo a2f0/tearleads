@@ -21,7 +21,7 @@ export const VFS_CRDT_SYNC_SQL = `
         FROM vfs_crdt_ops ops
         INNER JOIN vfs_effective_visibility access 
            ON access.item_id = ops.item_id
-          AND access.user_id = $1
+          AND access.user_id = $1::uuid
         WHERE (
           $2::timestamptz IS NULL
           OR ops.occurred_at > $2::timestamptz
@@ -32,8 +32,8 @@ export const VFS_CRDT_SYNC_SQL = `
         )
         AND (
           $5::text IS NULL
-          OR ops.item_id = $5::text
-          OR ops.root_id = $5::text
+          OR ops.item_id = $5::uuid
+          OR ops.root_id = $5::uuid
         )
         ORDER BY ops.occurred_at ASC, ops.id ASC
         LIMIT $4::integer
