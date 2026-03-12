@@ -23,7 +23,6 @@ import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
-  extractSourceOrgIdFromOrgShareAclId,
   mapAclAccessLevelToSharePermissionLevel,
   type VfsAclAccessLevel
 } from './vfsSharesDirectShared.js';
@@ -229,7 +228,7 @@ export async function getItemSharesDirect(
         LEFT JOIN organizations o ON acl.principal_type = 'organization' AND o.id = acl.principal_id
         LEFT JOIN users creator ON creator.id = acl.granted_by
         WHERE acl.item_id = $1::uuid
-          AND acl.id LIKE 'share:%'
+          AND acl.principal_type IN ('user', 'group')
           AND acl.revoked_at IS NULL
         ORDER BY acl.created_at DESC`,
       [request.itemId]
@@ -263,6 +262,7 @@ export async function getItemSharesDirect(
 
     const orgSharesResult = await pool.query<{
       acl_id: string;
+      source_org_id: string;
       target_org_id: string;
       item_id: string;
       access_level: VfsAclAccessLevel;
@@ -278,6 +278,7 @@ export async function getItemSharesDirect(
     }>(
       `SELECT
           acl.id AS acl_id,
+          r.organization_id AS source_org_id,
           acl.principal_id AS target_org_id,
           acl.item_id,
           acl.access_level,
@@ -291,12 +292,12 @@ export async function getItemSharesDirect(
           target_org.name AS target_org_name,
           creator.email AS created_by_email
         FROM vfs_acl_entries acl
-        LEFT JOIN organizations source_org ON source_org.id = split_part(acl.id, ':', 2)::uuid
+        JOIN vfs_registry r ON r.id = acl.item_id
+        LEFT JOIN organizations source_org ON source_org.id = r.organization_id
         LEFT JOIN organizations target_org ON target_org.id = acl.principal_id
         LEFT JOIN users creator ON creator.id = acl.granted_by
         WHERE acl.item_id = $1::uuid
           AND acl.principal_type = 'organization'
-          AND acl.id LIKE 'org-share:%:%'
           AND acl.revoked_at IS NULL
         ORDER BY acl.created_at DESC`,
       [request.itemId]
@@ -312,7 +313,7 @@ export async function getItemSharesDirect(
 
       return {
         id: extractOrgShareIdFromAclId(row.acl_id),
-        sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
+        sourceOrgId: row.source_org_id,
         sourceOrgName: row.source_org_name ?? 'Unknown',
         targetOrgId: row.target_org_id,
         targetOrgName: row.target_org_name ?? 'Unknown',

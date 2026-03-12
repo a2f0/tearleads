@@ -105,7 +105,7 @@ export async function materializeScaffoldEncryptedNames(
   const keyRows = await pool.query<RegistrySessionKeyRow>(
     `SELECT id, encrypted_session_key
        FROM vfs_registry
-      WHERE id = ANY($1::text[])`,
+      WHERE id = ANY($1::uuid[])`,
     [candidateItemIds]
   );
   const keyByItemId = new Map(

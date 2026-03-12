@@ -117,7 +117,7 @@ describe('vfsCrdtRolloutQaSuite', () => {
       allPassed: true,
       checks: [
         {
-          id: 'api-crdt-core',
+          id: 'api-core',
           description: 'desc',
           command: 'pnpm',
           args: ['test'],
@@ -128,7 +128,7 @@ describe('vfsCrdtRolloutQaSuite', () => {
     });
 
     expect(markdown).toContain('# VFS CRDT Rollout QA Suite Report');
-    expect(markdown).toContain('| `api-crdt-core` | SKIP |');
+    expect(markdown).toContain('| `api-core` | SKIP |');
     expect(markdown).toContain('## Sign-off Fields');
     expect(markdown).toContain('pnpm checkVfsCrdtRoutePerfMetrics');
   });

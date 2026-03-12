@@ -91,22 +91,33 @@ describe('browserRuntimeHarness', () => {
 
     await adapter.execute(
       `INSERT INTO users (id, email) VALUES (?, ?), (?, ?)`,
-      ['owner-id', 'owner@example.com', 'target-id', 'target@example.com']
+      [
+        '00000000-0000-0000-0000-000000000001',
+        'owner@example.com',
+        '00000000-0000-0000-0000-000000000002',
+        'target@example.com'
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      ['item-1', 'folder', 'owner-id', null, now]
+      [
+        '00000000-0000-0000-0000-000000000003',
+        'folder',
+        '00000000-0000-0000-0000-000000000001',
+        null,
+        now
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_acl_entries (
          id, item_id, principal_type, principal_id, access_level, granted_by, created_at, updated_at, revoked_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
-        'policy-compiled:user:target-id:item-1',
-        'item-1',
+        'compiled:user:00000000-0000-0000-0000-000000000002:00000000-0000-0000-0000-000000000003',
+        '00000000-0000-0000-0000-000000000003',
         'user',
-        'target-id',
+        '00000000-0000-0000-0000-000000000002',
         'write',
         null,
         now,
@@ -118,10 +129,10 @@ describe('browserRuntimeHarness', () => {
          id, item_id, principal_type, principal_id, access_level, granted_by, created_at, updated_at, revoked_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
-        'policy-compiled:user:owner-id:item-1',
-        'item-1',
+        'compiled:user:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000003',
+        '00000000-0000-0000-0000-000000000003',
         'user',
-        'owner-id',
+        '00000000-0000-0000-0000-000000000001',
         'write',
         null,
         now,
@@ -131,26 +142,28 @@ describe('browserRuntimeHarness', () => {
 
     const sharedByMe = await queryLocalSharedByMe(
       runtimeActor.localDb,
-      'owner-id'
+      '00000000-0000-0000-0000-000000000001'
     );
     expect(sharedByMe).toEqual([
       {
-        id: 'item-1',
-        shareId: 'policy-compiled:user:target-id:item-1',
-        targetId: 'target-id',
+        id: '00000000-0000-0000-0000-000000000003',
+        shareId:
+          'compiled:user:00000000-0000-0000-0000-000000000002:00000000-0000-0000-0000-000000000003',
+        targetId: '00000000-0000-0000-0000-000000000002',
         permissionLevel: 'edit'
       }
     ]);
 
     const sharedWithMe = await queryLocalSharedWithMe(
       runtimeActor.localDb,
-      'target-id'
+      '00000000-0000-0000-0000-000000000002'
     );
     expect(sharedWithMe).toEqual([
       {
-        id: 'item-1',
-        shareId: 'policy-compiled:user:target-id:item-1',
-        sharedById: 'owner-id',
+        id: '00000000-0000-0000-0000-000000000003',
+        shareId:
+          'compiled:user:00000000-0000-0000-0000-000000000002:00000000-0000-0000-0000-000000000003',
+        sharedById: '00000000-0000-0000-0000-000000000001',
         sharedByEmail: 'owner@example.com'
       }
     ]);

@@ -8,18 +8,16 @@ import { v001 } from './v001.js';
 import { v002 } from './v002.js';
 import { v003 } from './v003.js';
 
-export type { Migration };
+/**
+ * Migration list.
+ *
+ * We consolidated 41 migrations into 3 clean stages for greenfield performance.
+ */
+export const migrations: Migration[] = [v001, v002, v003];
 
 /**
- * All migrations in order. Add new migrations to this array.
- * Migrations must have sequential version numbers starting from 1.
+ * Get the current migration version.
  */
-export const migrations: Migration[] = [
-  v001,
-  v002,
-  v003
-];
-
 export const getCurrentVersion = getCurrentVersionBase;
 
 /**

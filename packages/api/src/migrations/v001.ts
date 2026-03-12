@@ -12,8 +12,31 @@ export const v001: Migration = {
   version: 1,
   description: 'Core Initial Schema',
   up: async (pool: Pool) => {
-    // Enable UUID generation
-    await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // 1. Setup UUID generation (with fallback for pglite/test environments)
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION "gen_random_uuid"()
+      RETURNS UUID AS $$
+      DECLARE
+        v_uuid TEXT;
+      BEGIN
+        -- Try to use pgcrypto if available
+        BEGIN
+          RETURN public.gen_random_uuid();
+        EXCEPTION WHEN undefined_function THEN
+          -- Fallback RFC 4122 compliant UUID v4 implementation
+          v_uuid := lower(
+            lpad(to_hex(floor(random() * 4294967296)::bigint), 8, '0') || '-' ||
+            lpad(to_hex(floor(random() * 65536)::int), 4, '0') || '-' ||
+            '4' || lpad(to_hex(floor(random() * 4096)::int), 3, '0') || '-' ||
+            to_hex((floor(random() * 4)::int + 8)) || lpad(to_hex(floor(random() * 4096)::int), 3, '0') || '-' ||
+            lpad(to_hex(floor(random() * 4294967296)::bigint), 8, '0') ||
+            lpad(to_hex(floor(random() * 65536)::int), 4, '0')
+          );
+          RETURN v_uuid::UUID;
+        END;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
 
     // Schema migrations table (must exist for the runner)
     await pool.query(`
@@ -23,7 +46,7 @@ export const v001: Migration = {
       )
     `);
 
-    // 1. Identity & Access
+    // 2. Identity & Access
     await pool.query(`
       CREATE TABLE "users" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,7 +122,7 @@ export const v001: Migration = {
       ALTER TABLE "users" ADD COLUMN "personal_organization_id" UUID REFERENCES "organizations"("id") ON DELETE SET NULL;
     `);
 
-    // 2. Virtual Filesystem (VFS) Core
+    // 3. Virtual Filesystem (VFS) Core
     await pool.query(`
       CREATE TABLE "vfs_registry" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -159,10 +182,10 @@ export const v001: Migration = {
       );
     `);
 
-    // 3. Sync, CRDT & Event Log
+    // 4. Sync, CRDT & Event Log
     await pool.query(`
       CREATE TABLE "vfs_sync_changes" (
-        "id" TEXT PRIMARY KEY,
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "item_id" UUID NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
         "change_type" TEXT NOT NULL CHECK ("change_type" IN ('upsert', 'delete', 'acl')),
         "changed_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -195,7 +218,7 @@ export const v001: Migration = {
         "encryption_nonce_bytes" BYTEA,
         "encryption_aad_bytes" BYTEA,
         "encryption_signature_bytes" BYTEA,
-        "root_id" UUID
+        "root_id" UUID REFERENCES "vfs_registry"("id") ON DELETE SET NULL
       );
       CREATE INDEX "vfs_crdt_ops_item_idx" ON "vfs_crdt_ops" ("item_id");
       CREATE INDEX "vfs_crdt_ops_occurred_idx" ON "vfs_crdt_ops" ("occurred_at");
@@ -206,7 +229,7 @@ export const v001: Migration = {
         "snapshot_version" INTEGER NOT NULL DEFAULT 1,
         "snapshot_payload" JSONB NOT NULL,
         "snapshot_cursor_changed_at" TIMESTAMPTZ,
-        "snapshot_cursor_change_id" TEXT,
+        "snapshot_cursor_change_id" UUID,
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -224,14 +247,14 @@ export const v001: Migration = {
         "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
         "client_id" TEXT NOT NULL,
         "last_reconciled_at" TIMESTAMPTZ NOT NULL,
-        "last_reconciled_change_id" TEXT NOT NULL,
+        "last_reconciled_change_id" UUID NOT NULL,
         "last_reconciled_write_ids" JSONB NOT NULL DEFAULT '{}'::jsonb,
         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY ("user_id", "client_id")
       );
     `);
 
-    // 4. Core Functions & Triggers
+    // 5. Core Functions & Triggers
     await pool.query(`
       CREATE OR REPLACE FUNCTION "vfs_make_event_id"(prefix TEXT)
       RETURNS UUID LANGUAGE SQL AS $$ SELECT gen_random_uuid() $$;
@@ -245,7 +268,7 @@ export const v001: Migration = {
       RETURNS VOID LANGUAGE plpgsql AS $$
       BEGIN
         INSERT INTO "vfs_sync_changes" (id, item_id, change_type, changed_at, changed_by, root_id)
-        VALUES (gen_random_uuid()::text, p_item_id, p_change_type, NOW(), p_changed_by, p_root_id);
+        VALUES (gen_random_uuid(), p_item_id, p_change_type, NOW(), p_changed_by, p_root_id);
       END;
       $$;
 
@@ -263,13 +286,90 @@ export const v001: Migration = {
         ELSIF TG_TABLE_NAME = 'vfs_links' THEN
           IF TG_OP = 'DELETE' THEN
             PERFORM "vfs_emit_sync_change"(OLD.child_id, 'upsert', NULL, OLD.parent_id);
-            INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id)
-            VALUES (OLD.child_id, 'link_remove', OLD.parent_id, OLD.child_id, 'vfs_links', OLD.id::text);
+            INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id, root_id)
+            VALUES (OLD.child_id, 'link_remove', OLD.parent_id, OLD.child_id, 'vfs_links', OLD.id::uuid, OLD.parent_id);
             RETURN OLD;
           ELSE
             PERFORM "vfs_emit_sync_change"(NEW.child_id, 'upsert', NULL, NEW.parent_id);
-            INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id)
-            VALUES (NEW.child_id, 'link_add', NEW.parent_id, NEW.child_id, 'vfs_links', NEW.id::text);
+            INSERT INTO "vfs_crdt_ops" (item_id, op_type, parent_id, child_id, source_table, source_id, root_id)
+            VALUES (NEW.child_id, 'link_add', NEW.parent_id, NEW.child_id, 'vfs_links', NEW.id::uuid, NEW.parent_id);
+            RETURN NEW;
+          END IF;
+        ELSIF TG_TABLE_NAME = 'vfs_acl_entries' THEN
+          IF TG_OP = 'DELETE' THEN
+            PERFORM "vfs_emit_sync_change"(OLD.item_id, 'acl', OLD.granted_by, OLD.item_id);
+            INSERT INTO "vfs_crdt_ops" (
+              item_id,
+              op_type,
+              principal_type,
+              principal_id,
+              access_level,
+              actor_id,
+              source_table,
+              source_id,
+              root_id
+            )
+            VALUES (
+              OLD.item_id,
+              'acl_remove',
+              OLD.principal_type,
+              OLD.principal_id,
+              OLD.access_level,
+              OLD.granted_by,
+              'vfs_acl_entries',
+              OLD.id,
+              OLD.item_id
+            );
+            RETURN OLD;
+          ELSIF TG_OP = 'UPDATE' AND NEW.revoked_at IS NOT NULL THEN
+            PERFORM "vfs_emit_sync_change"(NEW.item_id, 'acl', NEW.granted_by, NEW.item_id);
+            INSERT INTO "vfs_crdt_ops" (
+              item_id,
+              op_type,
+              principal_type,
+              principal_id,
+              access_level,
+              actor_id,
+              source_table,
+              source_id,
+              root_id
+            )
+            VALUES (
+              NEW.item_id,
+              'acl_remove',
+              NEW.principal_type,
+              NEW.principal_id,
+              NEW.access_level,
+              NEW.granted_by,
+              'vfs_acl_entries',
+              NEW.id,
+              NEW.item_id
+            );
+            RETURN NEW;
+          ELSE
+            PERFORM "vfs_emit_sync_change"(NEW.item_id, 'acl', NEW.granted_by, NEW.item_id);
+            INSERT INTO "vfs_crdt_ops" (
+              item_id,
+              op_type,
+              principal_type,
+              principal_id,
+              access_level,
+              actor_id,
+              source_table,
+              source_id,
+              root_id
+            )
+            VALUES (
+              NEW.item_id,
+              'acl_add',
+              NEW.principal_type,
+              NEW.principal_id,
+              NEW.access_level,
+              NEW.granted_by,
+              'vfs_acl_entries',
+              NEW.id,
+              NEW.item_id
+            );
             RETURN NEW;
           END IF;
         END IF;
@@ -279,6 +379,7 @@ export const v001: Migration = {
 
       CREATE TRIGGER "tg_vfs_registry_sync" AFTER INSERT OR UPDATE OR DELETE ON "vfs_registry" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change_tg"();
       CREATE TRIGGER "tg_vfs_links_sync" AFTER INSERT OR DELETE ON "vfs_links" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change_tg"();
+      CREATE TRIGGER "tg_vfs_acl_entries_sync" AFTER INSERT OR UPDATE OR DELETE ON "vfs_acl_entries" FOR EACH ROW EXECUTE FUNCTION "vfs_emit_sync_change_tg"();
     `);
   }
 };

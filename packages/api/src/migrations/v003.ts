@@ -200,6 +200,7 @@ export const v003: Migration = {
         "state_hash" TEXT NOT NULL,
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE UNIQUE INDEX "mls_group_state_group_user_idx" ON "mls_group_state" ("group_id", "user_id");
     `);
 
     // 3. Billing & Analytics

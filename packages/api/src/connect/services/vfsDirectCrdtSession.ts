@@ -1,7 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
   buildVfsV2ConnectMethodPath,
-  type VfsCrdtSyncSessionResponse
+  type VfsCrdtSyncSessionResponse,
+  type VfsSyncBloomFilter
 } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
@@ -214,7 +215,9 @@ export async function runCrdtSessionDirect(
     cursor: request.cursor,
     limit: request.limit,
     rootId: request.rootId,
-    lastReconciledWriteIds: request.lastReconciledWriteIds
+    lastReconciledWriteIds: request.lastReconciledWriteIds,
+    bloomFilter: request.bloomFilter,
+    version: request.version
   });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
@@ -280,7 +283,7 @@ export async function runCrdtSessionDirect(
         last_reconciled_change_id,
         last_reconciled_write_ids,
         updated_at
-      ) VALUES ($1::uuid, $2, $3::timestamptz, $4, $5::jsonb, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4::uuid, $5::jsonb, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE

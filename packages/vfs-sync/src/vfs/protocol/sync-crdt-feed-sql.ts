@@ -27,13 +27,12 @@ export const VFS_CRDT_SYNC_SQL = `
           OR ops.occurred_at > $2::timestamptz
           OR (
             ops.occurred_at = $2::timestamptz
-            AND ops.id > COALESCE($3::text, '')
+            AND ops.id > COALESCE($3::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
           )
         )
         AND (
           $5::text IS NULL
-          OR ops.item_id = $5::uuid
-          OR ops.root_id = $5::uuid
+          OR ($5::text <> '' AND (ops.item_id = $5::uuid OR ops.root_id = $5::uuid))
         )
         ORDER BY ops.occurred_at ASC, ops.id ASC
         LIMIT $4::integer

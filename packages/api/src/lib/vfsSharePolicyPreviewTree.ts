@@ -198,20 +198,20 @@ export async function buildSharePolicyPreviewTree(
         child.id AS item_id,
         child.object_type,
         tree.depth + 1 AS depth,
-        tree.node_path || '/' || child.id AS node_path,
-        tree.path || child.id AS path
+        tree.node_path || '/' || child.id::text AS node_path,
+        tree.path || child.id::text AS path
       FROM tree
       JOIN vfs_links l
         ON l.parent_id = tree.item_id
       JOIN vfs_registry child
         ON child.id = l.child_id
       WHERE tree.depth < $2
-        AND NOT child.id = ANY(tree.path)
+        AND NOT child.id::text = ANY(tree.path)
     ),
     filtered AS (
       SELECT item_id, object_type, depth, node_path
       FROM tree
-      WHERE ($3::text IS NULL OR LOWER(item_id) LIKE $3 ESCAPE '\\' OR LOWER(object_type) LIKE $3 ESCAPE '\\')
+      WHERE ($3::text IS NULL OR LOWER(item_id::text) LIKE $3 ESCAPE '\\' OR LOWER(object_type) LIKE $3 ESCAPE '\\')
         AND ($4::text[] IS NULL OR object_type = ANY($4))
     ),
     total AS (

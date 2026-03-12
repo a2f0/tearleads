@@ -23,24 +23,35 @@ describe('browserRuntimePermissions', () => {
 
     await adapter.execute(
       `INSERT INTO users (id, email) VALUES (?, ?), (?, ?)`,
-      ['owner-id', 'owner@example.com', 'target-id', 'target@example.com']
+      [
+        '00000000-0000-0000-0000-000000000001',
+        'owner@example.com',
+        '00000000-0000-0000-0000-000000000002',
+        'target@example.com'
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      ['note-1', 'note', 'owner-id', 'encrypted-note', now]
+      [
+        '1',
+        'note',
+        '00000000-0000-0000-0000-000000000001',
+        'encrypted-note',
+        now
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_acl_entries (
          id, item_id, principal_type, principal_id, access_level, granted_by, created_at, updated_at, revoked_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
-        'share:read',
-        'note-1',
-        'user',
-        'target-id',
         'read',
-        'owner-id',
+        '1',
+        'user',
+        '00000000-0000-0000-0000-000000000002',
+        'read',
+        '00000000-0000-0000-0000-000000000001',
         now,
         now
       ]
@@ -48,14 +59,14 @@ describe('browserRuntimePermissions', () => {
 
     const permission = await queryLocalItemPermission({
       localDb: runtimeActor.localDb,
-      itemId: 'note-1',
-      currentUserId: 'target-id',
+      itemId: '1',
+      currentUserId: '00000000-0000-0000-0000-000000000002',
       nowMillis: now
     });
 
     expect(permission).toEqual({
-      itemId: 'note-1',
-      currentUserId: 'target-id',
+      itemId: '1',
+      currentUserId: '00000000-0000-0000-0000-000000000002',
       exists: true,
       isOwner: false,
       accessRank: 1,
@@ -74,9 +85,9 @@ describe('browserRuntimePermissions', () => {
     await adapter.execute(
       `INSERT INTO users (id, email) VALUES (?, ?), (?, ?), (?, ?)`,
       [
-        'owner-id',
+        '00000000-0000-0000-0000-000000000001',
         'owner@example.com',
-        'target-id',
+        '00000000-0000-0000-0000-000000000002',
         'target@example.com',
         'admin-id',
         'admin@example.com'
@@ -85,7 +96,13 @@ describe('browserRuntimePermissions', () => {
     await adapter.execute(
       `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      ['note-2', 'note', 'owner-id', 'encrypted-note', now]
+      [
+        '2',
+        'note',
+        '00000000-0000-0000-0000-000000000001',
+        'encrypted-note',
+        now
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_acl_entries (
@@ -94,20 +111,20 @@ describe('browserRuntimePermissions', () => {
          (?, ?, ?, ?, ?, ?, ?, ?, NULL),
          (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
-        'share:write',
-        'note-2',
-        'user',
-        'target-id',
         'write',
-        'owner-id',
+        '2',
+        'user',
+        '00000000-0000-0000-0000-000000000002',
+        'write',
+        '00000000-0000-0000-0000-000000000001',
         now,
         now,
-        'share:admin',
-        'note-2',
+        'admin',
+        '2',
         'user',
         'admin-id',
         'admin',
-        'owner-id',
+        '00000000-0000-0000-0000-000000000001',
         now,
         now
       ]
@@ -115,8 +132,8 @@ describe('browserRuntimePermissions', () => {
 
     const writePermission = await queryLocalItemPermission({
       localDb: runtimeActor.localDb,
-      itemId: 'note-2',
-      currentUserId: 'target-id',
+      itemId: '2',
+      currentUserId: '00000000-0000-0000-0000-000000000002',
       nowMillis: now
     });
     expect(writePermission.permissionLevel).toBe('edit');
@@ -125,7 +142,7 @@ describe('browserRuntimePermissions', () => {
 
     const adminPermission = await queryLocalItemPermission({
       localDb: runtimeActor.localDb,
-      itemId: 'note-2',
+      itemId: '2',
       currentUserId: 'admin-id',
       nowMillis: now
     });
@@ -135,8 +152,8 @@ describe('browserRuntimePermissions', () => {
 
     const ownerPermission = await queryLocalItemPermission({
       localDb: runtimeActor.localDb,
-      itemId: 'note-2',
-      currentUserId: 'owner-id',
+      itemId: '2',
+      currentUserId: '00000000-0000-0000-0000-000000000001',
       nowMillis: now
     });
     expect(ownerPermission.permissionLevel).toBe('owner');
@@ -152,12 +169,23 @@ describe('browserRuntimePermissions', () => {
 
     await adapter.execute(
       `INSERT INTO users (id, email) VALUES (?, ?), (?, ?)`,
-      ['owner-id', 'owner@example.com', 'target-id', 'target@example.com']
+      [
+        '00000000-0000-0000-0000-000000000001',
+        'owner@example.com',
+        '00000000-0000-0000-0000-000000000002',
+        'target@example.com'
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      ['note-3', 'note', 'owner-id', 'encrypted-note', now]
+      [
+        '3',
+        'note',
+        '00000000-0000-0000-0000-000000000001',
+        'encrypted-note',
+        now
+      ]
     );
     await adapter.execute(
       `INSERT INTO vfs_acl_entries (
@@ -166,21 +194,21 @@ describe('browserRuntimePermissions', () => {
          (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL),
          (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       [
-        'share:expired',
-        'note-3',
+        'expired',
+        '3',
         'user',
-        'target-id',
+        '00000000-0000-0000-0000-000000000002',
         'write',
-        'owner-id',
+        '00000000-0000-0000-0000-000000000001',
         now,
         now,
         now - 1,
-        'share:revoked',
-        'note-3',
+        'revoked',
+        '3',
         'user',
-        'target-id',
+        '00000000-0000-0000-0000-000000000002',
         'admin',
-        'owner-id',
+        '00000000-0000-0000-0000-000000000001',
         now,
         now,
         now - 1
@@ -189,8 +217,8 @@ describe('browserRuntimePermissions', () => {
 
     const permission = await queryLocalItemPermission({
       localDb: runtimeActor.localDb,
-      itemId: 'note-3',
-      currentUserId: 'target-id',
+      itemId: '3',
+      currentUserId: '00000000-0000-0000-0000-000000000002',
       nowMillis: now
     });
 

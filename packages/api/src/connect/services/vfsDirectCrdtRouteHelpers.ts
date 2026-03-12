@@ -249,13 +249,16 @@ export function toProtoVfsCrdtSyncResponse(
   const parsed: VfsCrdtSyncProtoResponse = {
     items: response.items.map((item) => toProtoCrdtSyncItem(item)),
     hasMore: response.hasMore,
-    lastReconciledWriteIds: response.lastReconciledWriteIds,
-    bloomFilter: response.bloomFilter
+    lastReconciledWriteIds: response.lastReconciledWriteIds
   };
 
   const nextCursor = toOptionalString(response.nextCursor);
   if (nextCursor) {
     parsed.nextCursor = nextCursor;
+  }
+
+  if (response.bloomFilter !== undefined) {
+    parsed.bloomFilter = response.bloomFilter;
   }
 
   return parsed;

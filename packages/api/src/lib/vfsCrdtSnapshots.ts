@@ -228,7 +228,7 @@ async function loadClientReconcileState(
     `
     SELECT
       last_reconciled_at,
-      last_reconciled_change_id,
+      last_reconciled_change_id::text,
       last_reconciled_write_ids
     FROM vfs_sync_client_state
     WHERE user_id = $1::uuid

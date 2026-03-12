@@ -55,7 +55,7 @@ export const CHECKS: Check[] = [
       'test',
       '--',
       'src/routes/vfs-rekey.test.ts',
-      'src/routes/vfs/post-crdt-push-parse.encrypted.test.ts'
+      'src/routes/vfs/post-push-parse.encrypted.test.ts'
     ]
   },
   {
@@ -91,7 +91,7 @@ export const CHECKS: Check[] = [
     ]
   },
   {
-    id: 'vfs-sync-guardrail',
+    id: 'vfs-guardrail',
     description:
       'Sync client fail-closed behavior for encrypted envelope unsupported contract remains deterministic',
     command: 'pnpm',
@@ -100,8 +100,8 @@ export const CHECKS: Check[] = [
       '@tearleads/vfs-sync',
       'test',
       '--',
-      'src/vfs/sync-client-shard-03.test.ts',
-      'src/vfs/sync-http-transport-parser.test.ts'
+      'src/vfs/client-shard-03.test.ts',
+      'src/vfs/http-transport-parser.test.ts'
     ]
   }
 ];

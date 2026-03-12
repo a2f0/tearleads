@@ -168,10 +168,10 @@ export const v002: Migration = {
       RETURNS TRIGGER AS $$
       BEGIN
         IF (TG_OP = 'DELETE') THEN
-          PERFORM "vfs_refresh_visibility_for_item"(OLD.item_id);
-          -- If item was in registry and deleted, also cleanup
           IF TG_TABLE_NAME = 'vfs_registry' THEN
             DELETE FROM "vfs_effective_visibility_mat" WHERE item_id = OLD.id;
+          ELSE
+            PERFORM "vfs_refresh_visibility_for_item"(OLD.item_id);
           END IF;
         ELSIF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
           IF TG_TABLE_NAME = 'vfs_registry' THEN

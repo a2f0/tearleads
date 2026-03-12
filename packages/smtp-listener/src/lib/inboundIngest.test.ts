@@ -29,7 +29,7 @@ describe('DefaultInboundMessageIngestor', () => {
               {
                 userId: '11111111-1111-4111-8111-111111111111',
                 publicEncryptionKey: buildPublicKeyString(),
-                organizationId: 'personal-org-11111111'
+                organizationId: '11111111'
               }
             ]
           ])
@@ -78,7 +78,7 @@ describe('DefaultInboundMessageIngestor', () => {
           {
             userId: '11111111-1111-4111-8111-111111111111',
             address: '11111111-1111-4111-8111-111111111111@test.com',
-            organizationId: 'personal-org-11111111'
+            organizationId: '11111111'
           }
         ]
       })
@@ -176,7 +176,7 @@ describe('DefaultInboundMessageIngestor', () => {
               {
                 userId,
                 publicEncryptionKey: buildPublicKeyString(),
-                organizationId: 'personal-org-11111111'
+                organizationId: '11111111'
               }
             ]
           ])
@@ -222,7 +222,7 @@ describe('DefaultInboundMessageIngestor', () => {
           {
             userId,
             address: `${userId}@unknown`,
-            organizationId: 'personal-org-11111111'
+            organizationId: '11111111'
           }
         ]
       })

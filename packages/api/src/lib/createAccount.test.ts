@@ -40,9 +40,7 @@ describe('buildCreateAccountInput', () => {
 
 describe('buildPersonalOrganizationId', () => {
   it('builds a stable personal organization id from user id', () => {
-    expect(buildPersonalOrganizationId('user-123')).toBe(
-      'personal-org-user-123'
-    );
+    expect(buildPersonalOrganizationId('user-123')).toBe('user-123');
   });
 });
 

@@ -45,7 +45,7 @@ describe('folder share descendant visibility', () => {
     const bob = harness.actor('bob');
     const alice = harness.actor('alice');
 
-    const sharedOrgId = `shared-org-${randomUUID()}`;
+    const sharedOrgId = `${randomUUID()}`;
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -57,8 +57,8 @@ describe('folder share descendant visibility', () => {
       [bob.user.userId, sharedOrgId, alice.user.userId]
     );
 
-    const folderId = `folder-${randomUUID()}`;
-    const noteId = `note-${randomUUID()}`;
+    const folderId = `${randomUUID()}`;
+    const noteId = `${randomUUID()}`;
 
     await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
@@ -66,7 +66,7 @@ describe('folder share descendant visibility', () => {
       body: JSON.stringify({
         id: folderId,
         objectType: 'folder',
-        encryptedSessionKey: 'bob-folder-key',
+        encryptedSessionKey: 'bob-key',
         encryptedName: 'Notes shared with Alice'
       })
     });
@@ -76,7 +76,7 @@ describe('folder share descendant visibility', () => {
       body: JSON.stringify({
         id: noteId,
         objectType: 'note',
-        encryptedSessionKey: 'bob-note-key',
+        encryptedSessionKey: 'bob-key',
         encryptedName: 'Shared note for Alice'
       })
     });

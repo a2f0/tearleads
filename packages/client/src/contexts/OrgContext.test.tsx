@@ -110,10 +110,10 @@ describe('OrgContext', () => {
 
     mockGetOrganizations.mockResolvedValueOnce({
       organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true },
+        { id: '1', name: 'Personal', isPersonal: true },
         { id: 'team-org-1', name: 'Team Alpha', isPersonal: false }
       ],
-      personalOrganizationId: 'personal-org-1'
+      personalOrganizationId: '1'
     });
 
     render(
@@ -124,14 +124,10 @@ describe('OrgContext', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('org-count')).toHaveTextContent('2');
-      expect(screen.getByTestId('active-org')).toHaveTextContent(
-        'personal-org-1'
-      );
+      expect(screen.getByTestId('active-org')).toHaveTextContent('1');
     });
 
-    expect(screen.getByTestId('org-personal-org-1')).toHaveTextContent(
-      'Personal'
-    );
+    expect(screen.getByTestId('org-1')).toHaveTextContent('Personal');
     expect(screen.getByTestId('org-team-org-1')).toHaveTextContent(
       'Team Alpha'
     );
@@ -146,10 +142,10 @@ describe('OrgContext', () => {
 
     mockGetOrganizations.mockResolvedValueOnce({
       organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true },
+        { id: '1', name: 'Personal', isPersonal: true },
         { id: 'team-org-1', name: 'Team Alpha', isPersonal: false }
       ],
-      personalOrganizationId: 'personal-org-1'
+      personalOrganizationId: '1'
     });
     mockGetActiveOrgForUser.mockResolvedValueOnce('team-org-1');
 
@@ -174,10 +170,8 @@ describe('OrgContext', () => {
     };
 
     mockGetOrganizations.mockResolvedValueOnce({
-      organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
-      ],
-      personalOrganizationId: 'personal-org-1'
+      organizations: [{ id: '1', name: 'Personal', isPersonal: true }],
+      personalOrganizationId: '1'
     });
     mockGetActiveOrgForUser.mockResolvedValueOnce('deleted-org');
 
@@ -188,15 +182,10 @@ describe('OrgContext', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('active-org')).toHaveTextContent(
-        'personal-org-1'
-      );
+      expect(screen.getByTestId('active-org')).toHaveTextContent('1');
     });
 
-    expect(mockSetActiveOrgForUser).toHaveBeenCalledWith(
-      'user-1',
-      'personal-org-1'
-    );
+    expect(mockSetActiveOrgForUser).toHaveBeenCalledWith('user-1', '1');
   });
 
   it('persists org choice when switching', async () => {
@@ -208,10 +197,10 @@ describe('OrgContext', () => {
 
     mockGetOrganizations.mockResolvedValueOnce({
       organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true },
+        { id: '1', name: 'Personal', isPersonal: true },
         { id: 'team-org-1', name: 'Team Alpha', isPersonal: false }
       ],
-      personalOrganizationId: 'personal-org-1'
+      personalOrganizationId: '1'
     });
 
     const user = userEvent.setup();
@@ -276,10 +265,8 @@ describe('OrgContext', () => {
     };
 
     mockGetOrganizations.mockResolvedValueOnce({
-      organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
-      ],
-      personalOrganizationId: 'personal-org-1'
+      organizations: [{ id: '1', name: 'Personal', isPersonal: true }],
+      personalOrganizationId: '1'
     });
 
     const { rerender } = render(
@@ -338,10 +325,8 @@ describe('OrgContext', () => {
     };
 
     mockGetOrganizations.mockResolvedValueOnce({
-      organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
-      ],
-      personalOrganizationId: 'personal-org-1'
+      organizations: [{ id: '1', name: 'Personal', isPersonal: true }],
+      personalOrganizationId: '1'
     });
 
     render(
@@ -351,7 +336,7 @@ describe('OrgContext', () => {
     );
 
     await waitFor(() => {
-      expect(mockSetStoredOrgId).toHaveBeenCalledWith('personal-org-1');
+      expect(mockSetStoredOrgId).toHaveBeenCalledWith('1');
     });
   });
 
@@ -364,10 +349,10 @@ describe('OrgContext', () => {
 
     mockGetOrganizations.mockResolvedValueOnce({
       organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true },
+        { id: '1', name: 'Personal', isPersonal: true },
         { id: 'team-org-1', name: 'Team Alpha', isPersonal: false }
       ],
-      personalOrganizationId: 'personal-org-1'
+      personalOrganizationId: '1'
     });
 
     const user = userEvent.setup();
@@ -398,10 +383,8 @@ describe('OrgContext', () => {
     };
 
     mockGetOrganizations.mockResolvedValueOnce({
-      organizations: [
-        { id: 'personal-org-1', name: 'Personal', isPersonal: true }
-      ],
-      personalOrganizationId: 'personal-org-1'
+      organizations: [{ id: '1', name: 'Personal', isPersonal: true }],
+      personalOrganizationId: '1'
     });
 
     const { rerender } = render(

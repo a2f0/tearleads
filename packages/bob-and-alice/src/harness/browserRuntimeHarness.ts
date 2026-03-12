@@ -421,7 +421,6 @@ export async function queryLocalSharedWithMe(
      WHERE a.principal_type = 'user'
        AND a.principal_id = ?
        AND a.revoked_at IS NULL
-       AND (a.id LIKE 'share:%' OR a.id LIKE 'policy-compiled:%')
      ORDER BY COALESCE(r.encrypted_name, '') COLLATE NOCASE, r.id`,
     [currentUserId]
   );
@@ -453,12 +452,14 @@ export async function queryLocalSharedByMe(
      FROM vfs_acl_entries a
      INNER JOIN vfs_registry r ON r.id = a.item_id
      WHERE (
-         (a.id LIKE 'share:%' AND a.granted_by = ?)
-         OR (a.id LIKE 'policy-compiled:%' AND r.owner_id = ?)
+         a.granted_by = ?
+         OR (
+           (a.id LIKE 'compiled:%' OR a.id LIKE 'policy-compiled:%')
+           AND r.owner_id = ?
+         )
        )
        AND NOT (a.principal_type = 'user' AND a.principal_id = ?)
        AND a.revoked_at IS NULL
-       AND (a.id LIKE 'share:%' OR a.id LIKE 'policy-compiled:%')
      ORDER BY COALESCE(r.encrypted_name, '') COLLATE NOCASE, r.id`,
     [currentUserId, currentUserId, currentUserId]
   );

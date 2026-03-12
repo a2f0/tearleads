@@ -23,13 +23,12 @@ export const VFS_SYNC_SQL = `
           OR change_row.changed_at > $2::timestamptz
           OR (
             change_row.changed_at = $2::timestamptz
-            AND change_row.id > COALESCE($3::text, '')
+            AND change_row.id > COALESCE($3::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
           )
         )
         AND (
           $5::text IS NULL
-          OR change_row.item_id = $5::uuid
-          OR change_row.root_id = $5::uuid
+          OR ($5::text <> '' AND (change_row.item_id = $5::uuid OR change_row.root_id = $5::uuid))
         )
         ORDER BY change_row.changed_at ASC, change_row.id ASC
         LIMIT $4::integer

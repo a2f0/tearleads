@@ -325,26 +325,23 @@ export async function getCrdtSyncDirect(
     });
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
     const replicaWriteIdsRows = await loadReplicaWriteIdRows(pool, claims.sub);
+    const lastReconciledWriteIds =
+      toLastReconciledWriteIds(replicaWriteIdsRows);
+    const mappedRows = mapVfsCrdtSyncRows(
+      result.rows,
+      parsedQuery.value.limit,
+      lastReconciledWriteIds
+    );
 
     const response: VfsCrdtSyncResponse = {
-      items: mapVfsCrdtSyncRows(
-        result.rows,
-        parsedQuery.value.limit,
-        toLastReconciledWriteIds(replicaWriteIdsRows)
-      ).items,
-      hasMore: mapVfsCrdtSyncRows(
-        result.rows,
-        parsedQuery.value.limit,
-        toLastReconciledWriteIds(replicaWriteIdsRows)
-      ).hasMore,
-      nextCursor: mapVfsCrdtSyncRows(
-        result.rows,
-        parsedQuery.value.limit,
-        toLastReconciledWriteIds(replicaWriteIdsRows)
-      ).nextCursor,
-      lastReconciledWriteIds: toLastReconciledWriteIds(replicaWriteIdsRows),
-      bloomFilter: request.bloomFilter
+      items: mappedRows.items,
+      hasMore: mappedRows.hasMore,
+      nextCursor: mappedRows.nextCursor,
+      lastReconciledWriteIds
     };
+    if (request.bloomFilter !== undefined) {
+      response.bloomFilter = request.bloomFilter;
+    }
 
     return toProtoVfsCrdtSyncResponse(response);
   } catch (error) {
@@ -439,7 +436,7 @@ export async function reconcileSyncDirect(
         last_reconciled_at,
         last_reconciled_change_id,
         updated_at
-      ) VALUES ($1::uuid, $2, $3::timestamptz, $4, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4::uuid, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE

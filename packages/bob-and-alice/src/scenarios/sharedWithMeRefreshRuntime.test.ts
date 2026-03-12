@@ -42,7 +42,7 @@ describe('sharedWithMe refresh runtime', () => {
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
 
-    const sharedOrgId = `shared-org-${randomUUID()}`;
+    const sharedOrgId = `${randomUUID()}`;
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -92,36 +92,37 @@ describe('sharedWithMe refresh runtime', () => {
       await queryLocalSharedWithMe(bobBrowser.localDb, bob.user.userId)
     ).toHaveLength(0);
 
-    const folderId = `folder-${randomUUID()}`;
+    const folderId = `${randomUUID()}`;
     await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: folderId,
         objectType: 'folder',
-        encryptedSessionKey: 'alice-folder-session-key'
+        encryptedSessionKey: 'alice-session-key'
       })
     });
 
-    const shareResponse = await alice.fetchJson<{
-      share: { id: string; targetId: string };
-    }>(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        itemId: folderId,
-        shareType: 'user',
-        targetId: bob.user.userId,
-        permissionLevel: 'view',
-        wrappedKey: {
-          recipientUserId: bob.user.userId,
-          recipientPublicKeyId: 'bob-public-key-id',
-          keyEpoch: 1,
-          encryptedKey: 'wrapped-key-for-bob',
-          senderSignature: 'alice-signature'
-        }
-      })
-    });
+    const shareResponse = await alice.fetchJson<VfsShareProtoResponse>(
+      buildVfsSharesV2ConnectMethodPath('CreateShare'),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: folderId,
+          shareType: 'user',
+          targetId: bob.user.userId,
+          permissionLevel: 'view',
+          wrappedKey: {
+            recipientUserId: bob.user.userId,
+            recipientPublicKeyId: 'bob-public-key-id',
+            keyEpoch: 1,
+            encryptedKey: 'wrapped-key-for-bob',
+            senderSignature: 'alice-signature'
+          }
+        })
+      }
+    );
     expect(shareResponse.share.targetId).toBe(bob.user.userId);
 
     await assertPgHasVfsRegistryItem({

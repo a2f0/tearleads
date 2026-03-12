@@ -83,10 +83,12 @@ describe('api with msw', () => {
 
   it('routes vfs and ai requests through msw', async () => {
     const ctx = getSharedTestContext();
+    const itemId = '00000000-0000-0000-0000-000000000101';
+    const nonContainerItemId = '00000000-0000-0000-0000-000000000103';
 
     // Create second user in a shared org for share operations
     const secondUser = await seedTestUser(ctx);
-    const sharedOrgId = 'shared-org-vfs';
+    const sharedOrgId = '00000000-0000-0000-0000-000000000002';
     await ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -99,7 +101,7 @@ describe('api with msw', () => {
     );
 
     // Create target org for org-share operations
-    const targetOrgId = 'target-org-vfs';
+    const targetOrgId = '00000000-0000-0000-0000-000000000003';
     await ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Target Org', NOW(), NOW())`,
@@ -119,15 +121,15 @@ describe('api with msw', () => {
 
     // Register VFS item
     await api.vfs.register({
-      id: 'item-1',
+      id: itemId,
       objectType: 'folder',
       encryptedSessionKey: 'encrypted-session-key'
     });
 
     // Share operations using real item and user IDs
-    await api.vfs.getShares('item-1');
+    await api.vfs.getShares(itemId);
     const shareResponse = await api.vfs.createShare({
-      itemId: 'item-1',
+      itemId,
       shareType: 'user',
       targetId: secondUser.userId,
       permissionLevel: 'view',
@@ -143,7 +145,7 @@ describe('api with msw', () => {
 
     // Org share operations
     const orgShareResponse = await api.vfs.createOrgShare({
-      itemId: 'item-1',
+      itemId,
       sourceOrgId: sharedOrgId,
       targetOrgId: targetOrgId,
       permissionLevel: 'view'
@@ -153,7 +155,7 @@ describe('api with msw', () => {
     expect(orgShareUuid).toBeTruthy();
 
     // Rekey while share is still active
-    await api.vfs.rekeyItem('item-1', {
+    await api.vfs.rekeyItem(itemId, {
       reason: 'manual',
       newEpoch: 2,
       wrappedKeys: [
@@ -175,7 +177,7 @@ describe('api with msw', () => {
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
     await api.vfs.getSharePolicyPreview({
-      rootItemId: 'item-1',
+      rootItemId: itemId,
       principalType: 'user',
       principalId: secondUser.userId,
       limit: 25,
@@ -186,13 +188,13 @@ describe('api with msw', () => {
 
     // Negative preview path: non-container roots should be rejected
     await api.vfs.register({
-      id: 'item-2',
+      id: nonContainerItemId,
       objectType: 'file',
       encryptedSessionKey: 'encrypted-session-key'
     });
     await expect(
       api.vfs.getSharePolicyPreview({
-        rootItemId: 'item-2',
+        rootItemId: nonContainerItemId,
         principalType: 'user',
         principalId: secondUser.userId
       })
@@ -212,8 +214,8 @@ describe('api with msw', () => {
          openrouter_request_id,
          created_at
        ) VALUES
-         ('usage-jan-1', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
-         ('usage-jan-2', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
+         ('00000000-0000-0000-0000-000000000201', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
+         ('00000000-0000-0000-0000-000000000202', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
       [seededUser.userId, seededUser.organizationId]
     );
 
@@ -333,9 +335,9 @@ describe('api with msw', () => {
          openrouter_request_id,
          created_at
        ) VALUES
-         ('usage-1', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 12, 8, 20, 'req-1', '2024-01-10T00:00:00.000Z'),
-         ('usage-2', NULL, NULL, $1, $2, 'openai/gpt-4o', 6, 4, 10, 'req-2', '2024-01-05T00:00:00.000Z'),
-         ('usage-3', NULL, NULL, $1, $2, 'openai/gpt-4.1', 7, 5, 12, 'req-3', '2024-02-10T00:00:00.000Z')`,
+         ('00000000-0000-0000-0000-000000000211', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 12, 8, 20, 'req-1', '2024-01-10T00:00:00.000Z'),
+         ('00000000-0000-0000-0000-000000000212', NULL, NULL, $1, $2, 'openai/gpt-4o', 6, 4, 10, 'req-2', '2024-01-05T00:00:00.000Z'),
+         ('00000000-0000-0000-0000-000000000213', NULL, NULL, $1, $2, 'openai/gpt-4.1', 7, 5, 12, 'req-3', '2024-02-10T00:00:00.000Z')`,
       [seededUser.userId, seededUser.organizationId]
     );
 
