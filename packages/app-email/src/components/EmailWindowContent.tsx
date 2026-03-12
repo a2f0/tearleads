@@ -38,6 +38,7 @@ interface EmailWindowContentProps {
   onCloseCompose: () => void;
   onEmailSent: () => void;
   composeOpenRequest: ComposeOpenRequest | null;
+  composeDraftId?: string | null;
   loading: boolean;
   error: string | null;
   selectedEmailId: string | null;
@@ -51,6 +52,8 @@ interface EmailWindowContentProps {
   onSelectEmail: (id: string) => void;
   viewMode: ViewMode;
   onComposeForEmail?: (email: EmailItem, mode: ComposeMode) => void;
+  onEditDraft?: (id: string) => void;
+  onDeleteDraft?: (id: string) => void;
 }
 
 export function EmailWindowContent({
@@ -73,7 +76,10 @@ export function EmailWindowContent({
   draftsLoading,
   onSelectEmail,
   viewMode,
-  onComposeForEmail
+  onComposeForEmail,
+  composeDraftId,
+  onEditDraft,
+  onDeleteDraft
 }: EmailWindowContentProps) {
   const {
     body: emailBody,
@@ -105,6 +111,7 @@ export function EmailWindowContent({
         open
         onOpenChange={onCloseCompose}
         onEmailSent={onEmailSent}
+        {...(composeDraftId && { draftId: composeDraftId })}
         {...(composeOpenRequest && { openRequest: composeOpenRequest })}
       />
     );
@@ -164,6 +171,9 @@ export function EmailWindowContent({
         drafts={drafts}
         loading={draftsLoading}
         folderName={selectedFolderName}
+        viewMode={viewMode}
+        onEditDraft={onEditDraft ?? (() => {})}
+        onDeleteDraft={onDeleteDraft ?? (() => {})}
       />
     );
   }
