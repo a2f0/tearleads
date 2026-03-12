@@ -1,3 +1,4 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import type { Database } from '@tearleads/db/sqlite';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -13,6 +14,30 @@ import {
   createMockVfsKeys
 } from '../test/testUtils';
 import { NotesWindow } from './NotesWindow';
+
+vi.mock('@tearleads/ui', () => ({
+  DropdownMenu: ({
+    trigger,
+    children
+  }: {
+    trigger: string;
+    children: ReactNode;
+  }) => <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  WindowOptionsMenuItem: () => <div>Options</div>,
+  AboutMenuItem: () => <div>About</div>
+}));
 
 vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
@@ -67,30 +92,7 @@ function createClickableUI() {
     RefreshButton: () => <button type="button">Refresh</button>,
     VirtualListStatus: () => <div>Status</div>,
     InlineUnlock: () => <div data-testid="inline-unlock">Unlock</div>,
-    EditableTitle: () => <div>Title</div>,
-    DropdownMenu: ({
-      trigger,
-      children
-    }: {
-      trigger: string;
-      children: ReactNode;
-    }) => (
-      <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-    ),
-    DropdownMenuItem: ({
-      children,
-      onClick
-    }: {
-      children: ReactNode;
-      onClick?: () => void;
-    }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    WindowOptionsMenuItem: () => <div>Options</div>,
-    AboutMenuItem: () => <div>About</div>
+    EditableTitle: () => <div>Title</div>
   };
 }
 

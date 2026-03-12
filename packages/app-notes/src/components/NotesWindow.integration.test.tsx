@@ -17,7 +17,39 @@ import { NotesProvider } from '../context/NotesContext';
 import { NotesWindow } from './NotesWindow';
 
 vi.mock('@tearleads/ui', () => ({
-  useTheme: () => ({ resolvedTheme: 'light' })
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
+  useTheme: () => ({ resolvedTheme: 'light' }),
+  DropdownMenu: ({
+    trigger,
+    children
+  }: {
+    trigger: string;
+    children: ReactNode;
+  }) => (
+    <div data-testid={`dropdown-${trigger}`}>
+      {trigger}
+      {children}
+    </div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  WindowOptionsMenuItem: () => <div>Options</div>,
+  AboutMenuItem: () => <div>About</div>,
+  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  )
 }));
 
 vi.mock('@uiw/react-md-editor', () => ({
@@ -149,17 +181,6 @@ function createUiComponents(): NotesUIComponents {
     EditableTitle: ({ value }) => (
       <div data-testid="editable-title">{value}</div>
     ),
-    DropdownMenu: ({ trigger, children }) => (
-      <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-    ),
-    DropdownMenuItem: ({ children, onClick }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    WindowOptionsMenuItem: () => <div>Options</div>,
-    AboutMenuItem: () => <div>About</div>,
     BackLink: ({ defaultLabel }) => <a href="/notes">{defaultLabel}</a>
   };
 }

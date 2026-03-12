@@ -1,6 +1,14 @@
+import contactsPackageJson from '@tearleads/app-contacts/package.json';
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { List, Table2, Upload } from 'lucide-react';
-import { useContactsContext, useContactsUI } from '../context';
+import { useContactsContext } from '../context';
 
 export type ViewMode = 'list' | 'table';
 
@@ -23,13 +31,6 @@ export function ContactsWindowMenuBar({
   isNewContactDisabled = false,
   isImportDisabled = false
 }: ContactsWindowMenuBarProps) {
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem,
-    AboutMenuItem
-  } = useContactsUI();
   const { t } = useContactsContext();
 
   return (
@@ -70,7 +71,10 @@ export function ContactsWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger={t('help')}>
-        <AboutMenuItem />
+        <AboutMenuItem
+          appName="Contacts"
+          version={contactsPackageJson.version}
+        />
       </DropdownMenu>
     </WindowMenuBar>
   );

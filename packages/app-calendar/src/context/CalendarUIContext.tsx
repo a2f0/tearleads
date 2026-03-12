@@ -58,26 +58,6 @@ export interface DialogProps {
   'data-testid'?: string;
 }
 
-export interface DropdownMenuProps {
-  trigger: string;
-  children: ReactNode;
-}
-
-export interface DropdownMenuItemProps {
-  onClick: () => void;
-  checked?: boolean;
-  icon?: ReactNode;
-  children: ReactNode;
-}
-
-export type WindowOptionsMenuItemProps = Record<string, never>;
-
-export interface AboutMenuItemProps {
-  appName: string;
-  version: string;
-  closeLabel: string;
-}
-
 export interface ContextMenuProps {
   x: number;
   y: number;
@@ -102,10 +82,6 @@ export interface CalendarUIComponents {
   Button: ComponentType<ButtonProps>;
   Input: ComponentType<InputProps>;
   Dialog: ComponentType<DialogProps>;
-  DropdownMenu: ComponentType<DropdownMenuProps>;
-  DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
-  WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
-  AboutMenuItem: ComponentType<AboutMenuItemProps>;
   ContextMenu: ComponentType<ContextMenuProps>;
   ContextMenuItem: ComponentType<ContextMenuItemProps>;
   InlineUnlock: ComponentType<InlineUnlockProps>;

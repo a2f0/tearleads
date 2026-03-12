@@ -9,13 +9,8 @@ import {
 import { useCompose } from './useCompose';
 
 const mockUIComponents: EmailUIComponents = {
-  AboutMenuItem: () => null,
   BackLink: () => null,
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  DropdownMenuSeparator: () => null,
-  RefreshButton: () => null,
-  WindowOptionsMenuItem: () => null
+  RefreshButton: () => null
 };
 
 const defaultDatabaseState: EmailDatabaseState = {

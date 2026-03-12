@@ -9,7 +9,6 @@ export {
   NewCalendarDialog
 } from './components';
 export type {
-  AboutMenuItemProps,
   ButtonProps,
   CalendarTranslationKey,
   CalendarUIComponents,
@@ -19,12 +18,9 @@ export type {
   ContextMenuProps,
   DatabaseState,
   DialogProps,
-  DropdownMenuItemProps,
-  DropdownMenuProps,
   InlineUnlockProps,
   InputProps,
-  TranslationFunction,
-  WindowOptionsMenuItemProps
+  TranslationFunction
 } from './context';
 export {
   CalendarUIProvider,

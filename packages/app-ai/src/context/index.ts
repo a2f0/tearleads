@@ -10,9 +10,6 @@ export {
   type DatabaseState,
   type DecryptedConversation,
   type DecryptedConversationMessage,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type GenerateCallback,
   type GenerateFunction,
   type InlineUnlockProps,
@@ -26,6 +23,5 @@ export {
   useAIDatabaseState,
   useAILLM,
   useAIUI,
-  useAIUIContext,
-  type WindowOptionsMenuItemProps
+  useAIUIContext
 } from './AIUIContext';

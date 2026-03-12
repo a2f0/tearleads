@@ -4,16 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   type BusinessesDatabaseState,
   BusinessesProvider,
-  type BusinessesUIComponents,
   useBusinesses,
   useBusinessesDatabaseState
 } from './BusinessesContext.js';
-
-const uiComponents: BusinessesUIComponents = {
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  AboutMenuItem: () => null
-};
 
 const defaultDatabaseState: BusinessesDatabaseState = {
   isUnlocked: true,
@@ -33,18 +26,17 @@ function createWrapper(
   return function Wrapper({ children }: { children: ReactNode }) {
     return createElement(BusinessesProvider, {
       children,
-      databaseState,
-      ui: uiComponents
+      databaseState
     });
   };
 }
 
 describe('BusinessesContext', () => {
-  it('provides ui components through BusinessesProvider', () => {
+  it('provides context through BusinessesProvider', () => {
     const { result } = renderHook(() => useBusinesses(), {
       wrapper: createWrapper()
     });
-    expect(result.current.ui).toBe(uiComponents);
+    expect(result.current.databaseState).toEqual(defaultDatabaseState);
   });
 
   it('throws when useBusinesses is used outside the provider', () => {

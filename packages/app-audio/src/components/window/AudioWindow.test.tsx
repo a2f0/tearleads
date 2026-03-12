@@ -39,6 +39,32 @@ vi.mock('@tearleads/window-manager', () => ({
   WindowSidebarToggle: () => null
 }));
 
+vi.mock('@tearleads/ui', () => ({
+  DropdownMenu: ({
+    trigger,
+    children
+  }: {
+    trigger: string;
+    children: React.ReactNode;
+  }) => <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  WindowOptionsMenuItem: () => <div>Options</div>,
+  AboutMenuItem: ({ appName }: { appName: string; version: string }) => (
+    <div>About {appName}</div>
+  )
+}));
+
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
     getVirtualItems: () => [],

@@ -67,12 +67,7 @@ function createMockContext(
     },
     ui: {
       BackLink: () => null,
-      RefreshButton: () => null,
-      DropdownMenu: () => null,
-      DropdownMenuItem: () => null,
-      DropdownMenuSeparator: () => null,
-      AboutMenuItem: () => null,
-      WindowOptionsMenuItem: () => null
+      RefreshButton: () => null
     },
     folderOperations: {
       fetchFolders,
@@ -97,12 +92,7 @@ function createMockContextWithoutFolderOps(): EmailContextValue {
     },
     ui: {
       BackLink: () => null,
-      RefreshButton: () => null,
-      DropdownMenu: () => null,
-      DropdownMenuItem: () => null,
-      DropdownMenuSeparator: () => null,
-      AboutMenuItem: () => null,
-      WindowOptionsMenuItem: () => null
+      RefreshButton: () => null
     }
   };
 }

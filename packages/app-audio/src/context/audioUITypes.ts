@@ -124,24 +124,6 @@ export interface EditableTitleProps {
   'data-testid'?: string;
 }
 
-export interface DropdownMenuProps {
-  trigger: string;
-  children: ReactNode;
-}
-
-export interface DropdownMenuItemProps {
-  onClick: () => void;
-  checked?: boolean;
-  icon?: ReactNode;
-  children: ReactNode;
-}
-
-export type DropdownMenuSeparatorProps = Record<string, never>;
-
-export type WindowOptionsMenuItemProps = Record<string, never>;
-
-export type AboutMenuItemProps = Record<string, never>;
-
 export interface BackLinkProps {
   defaultTo: string;
   defaultLabel: string;
@@ -199,11 +181,6 @@ export interface AudioUIComponents {
   VirtualListStatus: ComponentType<VirtualListStatusProps>;
   InlineUnlock: ComponentType<InlineUnlockProps>;
   EditableTitle: ComponentType<EditableTitleProps>;
-  DropdownMenu: ComponentType<DropdownMenuProps>;
-  DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
-  DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
-  WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
-  AboutMenuItem: ComponentType<AboutMenuItemProps>;
   BackLink: ComponentType<BackLinkProps>;
   Dropzone: ComponentType<DropzoneProps>;
   ActionToolbar: ComponentType<ActionToolbarProps>;

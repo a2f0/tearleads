@@ -1,12 +1,8 @@
 export type { BusinessesWindowProps } from './components/index.js';
 export { BusinessesManager, BusinessesWindow } from './components/index.js';
 export type {
-  AboutMenuItemProps,
   BusinessesDatabaseState,
-  BusinessesProviderProps,
-  BusinessesUIComponents,
-  DropdownMenuItemProps,
-  DropdownMenuProps
+  BusinessesProviderProps
 } from './context/index.js';
 export {
   BusinessesProvider,

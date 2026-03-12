@@ -20,11 +20,6 @@ async function getMimeParserMock() {
 }
 
 const mockUI: EmailUIComponents = {
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  DropdownMenuSeparator: () => null,
-  WindowOptionsMenuItem: () => null,
-  AboutMenuItem: () => null,
   BackLink: () => null,
   RefreshButton: () => null
 };

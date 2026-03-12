@@ -145,22 +145,6 @@ export interface InputProps {
   'data-testid'?: string;
 }
 
-export interface DropdownMenuProps {
-  trigger: string;
-  children: ReactNode;
-}
-
-export interface DropdownMenuItemProps {
-  onClick: () => void;
-  checked?: boolean;
-  icon?: ReactNode;
-  children: ReactNode;
-}
-
-export type DropdownMenuSeparatorProps = Record<string, never>;
-
-export type WindowOptionsMenuItemProps = Record<string, never>;
-
 export interface ModelSelectorProps {
   modelDisplayName: string | undefined;
   variant?: 'default' | 'compact';
@@ -173,10 +157,6 @@ export interface AIUIComponents {
   Button: ComponentType<ButtonProps>;
   Input: ComponentType<InputProps>;
   InlineUnlock: ComponentType<InlineUnlockProps>;
-  DropdownMenu: ComponentType<DropdownMenuProps>;
-  DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
-  DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
-  WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
   ModelSelector: ComponentType<ModelSelectorProps>;
 }
 

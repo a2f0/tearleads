@@ -1,7 +1,7 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import type {
-  AboutMenuItemProps,
   ActionToolbarProps,
   AudioInfo,
   AudioMetadata,
@@ -14,17 +14,13 @@ import type {
   ContextMenuItemProps,
   ContextMenuProps,
   DatabaseState,
-  DropdownMenuItemProps,
-  DropdownMenuProps,
-  DropdownMenuSeparatorProps,
   DropzoneProps,
   EditableTitleProps,
   InlineUnlockProps,
   InputProps,
   ListRowProps,
   RefreshButtonProps,
-  VirtualListStatusProps,
-  WindowOptionsMenuItemProps
+  VirtualListStatusProps
 } from '../context/AudioUIContext';
 import { AudioUIProvider } from '../context/AudioUIContext';
 
@@ -98,32 +94,6 @@ function MockEditableTitle({ value, onSave }: EditableTitleProps) {
   );
 }
 
-function MockDropdownMenu({ trigger, children }: DropdownMenuProps) {
-  return (
-    <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-  );
-}
-
-function MockDropdownMenuItem({ children, onClick }: DropdownMenuItemProps) {
-  return (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function MockDropdownMenuSeparator(_props: DropdownMenuSeparatorProps) {
-  return <hr />;
-}
-
-function MockWindowOptionsMenuItem(_props: WindowOptionsMenuItemProps) {
-  return <div>Options</div>;
-}
-
-function MockAboutMenuItem(_props: AboutMenuItemProps) {
-  return <div>About</div>;
-}
-
 function MockBackLink(_props: BackLinkProps) {
   return <a href="/">Back</a>;
 }
@@ -156,11 +126,6 @@ const createMockUI = (): AudioUIComponents => ({
   VirtualListStatus: MockVirtualListStatus,
   InlineUnlock: MockInlineUnlock,
   EditableTitle: MockEditableTitle,
-  DropdownMenu: MockDropdownMenu,
-  DropdownMenuItem: MockDropdownMenuItem,
-  DropdownMenuSeparator: MockDropdownMenuSeparator,
-  WindowOptionsMenuItem: MockWindowOptionsMenuItem,
-  AboutMenuItem: MockAboutMenuItem,
   BackLink: MockBackLink,
   Dropzone: MockDropzone,
   ActionToolbar: MockActionToolbar,

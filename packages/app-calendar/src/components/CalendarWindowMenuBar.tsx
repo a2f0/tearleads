@@ -1,6 +1,11 @@
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Cake } from 'lucide-react';
-import { useCalendarUI } from '../context/CalendarUIContext';
 import { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_ITEM_EVENT } from '../events';
 
 interface CalendarWindowMenuBarProps {
@@ -16,13 +21,6 @@ export function CalendarWindowMenuBar({
   onShowBirthdaysFromContactsChange,
   version
 }: CalendarWindowMenuBarProps) {
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    WindowOptionsMenuItem,
-    AboutMenuItem
-  } = useCalendarUI();
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
@@ -53,11 +51,7 @@ export function CalendarWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem
-          appName="Calendar"
-          version={version}
-          closeLabel="Close"
-        />
+        <AboutMenuItem appName="Calendar" version={version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

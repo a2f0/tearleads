@@ -13,13 +13,7 @@ import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { ModelSelector } from '@/components/ModelSelector';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { useConversations, useLLM } from '@/hooks/ai';
 import { useTranslation } from '@/i18n';
@@ -31,10 +25,6 @@ const aiUIComponents: AIUIComponents = {
   Button,
   Input,
   InlineUnlock,
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  WindowOptionsMenuItem,
   ModelSelector
 };
 

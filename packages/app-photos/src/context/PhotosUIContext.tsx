@@ -12,7 +12,6 @@ import type {
 } from './photosUITypes';
 
 export type {
-  AboutMenuItemProps,
   ActionToolbarProps,
   AlbumType,
   ButtonProps,
@@ -25,9 +24,6 @@ export type {
   DialogHeaderProps,
   DialogProps,
   DialogTitleProps,
-  DropdownMenuItemProps,
-  DropdownMenuProps,
-  DropdownMenuSeparatorProps,
   DropZoneOptions,
   DropZoneResult,
   DropzoneProps,
@@ -45,8 +41,7 @@ export type {
   RefreshButtonProps,
   TranslationFunction,
   UploadProgressProps,
-  VirtualListStatusProps,
-  WindowOptionsMenuItemProps
+  VirtualListStatusProps
 } from './photosUITypes';
 
 const PhotosUIContext = createContext<PhotosUIContextValue | null>(null);

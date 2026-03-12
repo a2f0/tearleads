@@ -3,7 +3,6 @@ export {
   AttachmentInput,
   AttachmentList,
   ComposeDialog,
-  EmailAboutMenuItem,
   EmailBodyView,
   EmailWindow,
   EmailWindowMenuBar,
@@ -12,11 +11,7 @@ export {
 
 // Context
 export {
-  type AboutMenuItemProps,
   type BackLinkProps,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type EmailBodyOperations,
   type EmailContactEmail,
   type EmailContactOperations,
@@ -38,8 +33,7 @@ export {
   useEmailUI,
   useHasEmailBodyOperations,
   useHasEmailContactOperations,
-  useHasEmailFolderOperations,
-  type WindowOptionsMenuItemProps
+  useHasEmailFolderOperations
 } from './context';
 
 // Hooks

@@ -1,3 +1,9 @@
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { useAIUI } from '../../context';
 
@@ -12,13 +18,7 @@ export function AIWindowMenuBar({
   onClose,
   modelDisplayName
 }: AIWindowMenuBarProps) {
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem,
-    ModelSelector
-  } = useAIUI();
+  const { ModelSelector } = useAIUI();
 
   return (
     <WindowMenuBar className="items-center justify-between gap-2">

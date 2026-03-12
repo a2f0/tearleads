@@ -18,11 +18,6 @@ const mockUi: NotesUIComponents = {
   VirtualListStatus: () => null,
   InlineUnlock: () => null,
   EditableTitle: () => null,
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  DropdownMenuSeparator: () => null,
-  WindowOptionsMenuItem: () => null,
-  AboutMenuItem: () => null,
   BackLink: () => null
 };
 

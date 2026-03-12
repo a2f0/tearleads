@@ -17,11 +17,6 @@ const mockUi: ContactsUIComponents = {
   RefreshButton: () => null,
   VirtualListStatus: () => null,
   InlineUnlock: () => null,
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  DropdownMenuSeparator: () => null,
-  WindowOptionsMenuItem: () => null,
-  AboutMenuItem: () => null,
   BackLink: () => null,
   Dropzone: () => null
 };

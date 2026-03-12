@@ -1,6 +1,13 @@
+import emailPackageJson from '@tearleads/app-email/package.json';
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Edit, List, RefreshCw, Table2 } from 'lucide-react';
-import { useEmailUI } from '../context';
 
 export type ViewMode = 'list' | 'table';
 
@@ -19,14 +26,6 @@ export function EmailWindowMenuBar({
   onClose,
   onCompose
 }: EmailWindowMenuBarProps) {
-  const {
-    AboutMenuItem,
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem
-  } = useEmailUI();
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
@@ -65,7 +64,7 @@ export function EmailWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem />
+        <AboutMenuItem appName="Email" version={emailPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

@@ -5,7 +5,6 @@
  */
 
 import {
-  AudioAboutMenuItem,
   type AudioInfo,
   type AudioMetadata,
   type AudioPlaylist,
@@ -26,18 +25,12 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/ActionToolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { getKeyManagerForInstance } from '@/db/crypto';
@@ -68,11 +61,6 @@ const audioUIComponents: AudioUIComponents = {
   VirtualListStatus,
   InlineUnlock,
   EditableTitle,
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  WindowOptionsMenuItem,
-  AboutMenuItem: AudioAboutMenuItem,
   BackLink,
   Dropzone,
   ActionToolbar,

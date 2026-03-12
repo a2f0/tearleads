@@ -1,5 +1,6 @@
+import businessesPackageJson from '@tearleads/app-businesses/package.json';
+import { AboutMenuItem, DropdownMenu, DropdownMenuItem } from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
-import { useBusinesses } from '../context/BusinessesContext.js';
 
 interface BusinessesWindowMenuBarProps {
   onClose: () => void;
@@ -8,16 +9,16 @@ interface BusinessesWindowMenuBarProps {
 export function BusinessesWindowMenuBar({
   onClose
 }: BusinessesWindowMenuBarProps) {
-  const { ui } = useBusinesses();
-  const { DropdownMenu, DropdownMenuItem, AboutMenuItem } = ui;
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem appName="Businesses" closeLabel="Close" />
+        <AboutMenuItem
+          appName="Businesses"
+          version={businessesPackageJson.version}
+        />
       </DropdownMenu>
     </WindowMenuBar>
   );

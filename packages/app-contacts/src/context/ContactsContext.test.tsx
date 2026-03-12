@@ -1,3 +1,4 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
 import { type ReactNode, useMemo } from 'react';
@@ -17,11 +18,6 @@ const mockUi: ContactsUIComponents = {
   RefreshButton: () => null,
   VirtualListStatus: () => null,
   InlineUnlock: () => null,
-  DropdownMenu: () => null,
-  DropdownMenuItem: () => null,
-  DropdownMenuSeparator: () => null,
-  WindowOptionsMenuItem: () => null,
-  AboutMenuItem: () => null,
   BackLink: () => null,
   Dropzone: () => null
 };

@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 export type {
-  AboutMenuItemProps,
   ActionToolbarProps,
   ActionType,
   AudioInfo,
@@ -22,9 +21,6 @@ export type {
   ContextMenuItemProps,
   ContextMenuProps,
   DatabaseState,
-  DropdownMenuItemProps,
-  DropdownMenuProps,
-  DropdownMenuSeparatorProps,
   DropzoneProps,
   EditableTitleProps,
   InlineUnlockProps,
@@ -36,8 +32,7 @@ export type {
   RefreshButtonProps,
   RetrievedFile,
   TranslationFunction,
-  VirtualListStatusProps,
-  WindowOptionsMenuItemProps
+  VirtualListStatusProps
 } from './audioUITypes';
 
 import type { HostRuntimeBaseProps } from '@tearleads/shared';
