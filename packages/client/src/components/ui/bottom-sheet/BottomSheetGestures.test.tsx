@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import {
   afterEach,
   beforeEach,
@@ -87,7 +87,7 @@ describe('BottomSheet gesture behavior', () => {
 
     await simulateGestureDrag(50, 1.0);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
@@ -103,7 +103,7 @@ describe('BottomSheet gesture behavior', () => {
 
     await simulateGestureDrag(150, 0);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
