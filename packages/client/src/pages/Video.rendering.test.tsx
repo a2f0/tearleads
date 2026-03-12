@@ -169,7 +169,6 @@ vi.mock('@/hooks/vfs/useFileUpload', () => ({
   })
 }));
 
-// Mock detectPlatform to return 'web' by default (supports drag and drop)
 function renderVideoRaw(props?: {
   onOpenVideo?: (
     videoId: string,

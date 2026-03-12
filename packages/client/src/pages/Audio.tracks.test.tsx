@@ -24,7 +24,9 @@ import {
   TEST_AUDIO_TRACK_2
 } from './Audio.testSetup';
 
-const mockDetectPlatform = vi.spyOn(utils, 'detectPlatform');
+const mockDetectPlatform = vi
+  .spyOn(utils, 'detectPlatform')
+  .mockImplementation(() => 'web');
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
