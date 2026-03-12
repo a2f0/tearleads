@@ -97,47 +97,17 @@ async function loadOldestAccessibleCursor(
 ): Promise<VfsSyncCursor | null> {
   const result = await pool.query<CursorBoundaryRow>(
     `
-    WITH principals AS (
-      SELECT 'user'::text AS principal_type, $1::uuid AS principal_id
-      UNION ALL
-      SELECT 'group'::text AS principal_type, ug.group_id AS principal_id
-      FROM user_groups ug
-      WHERE ug.user_id = $1::uuid
-      UNION ALL
-      SELECT 'organization'::text AS principal_type, uo.organization_id AS principal_id
-      FROM user_organizations uo
-      WHERE uo.user_id = $1::uuid
-    ),
-    owner_items AS (
-      SELECT registry.id AS item_id
-      FROM vfs_registry registry
-      WHERE registry.owner_id = $1::uuid
-    ),
-    acl_items AS (
-      SELECT
-        entry.item_id
-      FROM vfs_acl_entries entry
-      INNER JOIN principals principal
-        ON principal.principal_type = entry.principal_type
-       AND principal.principal_id = entry.principal_id
-      WHERE entry.revoked_at IS NULL
-        AND (entry.expires_at IS NULL OR entry.expires_at > NOW())
-      GROUP BY entry.item_id
-    ),
-    eligible_items AS (
-      SELECT item_id FROM owner_items
-      UNION
-      SELECT item_id FROM acl_items
-    )
-    SELECT date_trunc('milliseconds', ops.occurred_at) AS occurred_at, ops.id
+    SELECT ops.occurred_at, ops.id
     FROM vfs_crdt_ops ops
-    INNER JOIN eligible_items access ON access.item_id = ops.item_id
+    INNER JOIN vfs_effective_visibility access
+      ON access.item_id = ops.item_id
+     AND access.user_id = $1::uuid
     WHERE (
         $2::text IS NULL
         OR ops.item_id = $2::uuid
         OR ops.root_id = $2::uuid
       )
-    ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC
+    ORDER BY ops.occurred_at ASC, ops.id ASC
     LIMIT 1
     `,
     [userId, rootId]

@@ -150,6 +150,8 @@ describe('migrations (core through v003)', () => {
       expect(queries).toContain('CREATE TABLE "vfs_item_state"');
       expect(queries).toContain('CREATE TABLE "vfs_sync_changes"');
       expect(queries).toContain('CREATE TABLE "vfs_crdt_ops"');
+      expect(queries).toContain('CREATE INDEX "vfs_crdt_ops_item_idx"');
+      expect(queries).toContain('CREATE INDEX "vfs_crdt_ops_root_scope_idx"');
       expect(queries).toContain('CREATE TABLE "vfs_sync_client_state"');
     });
 
