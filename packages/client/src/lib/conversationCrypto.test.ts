@@ -21,7 +21,10 @@ const mockSplitEncapsulation = vi.fn();
 const mockUnwrapKeyWithKeyPair = vi.fn();
 
 vi.mock('@tearleads/shared', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/shared')>('@tearleads/shared');
+  const actual =
+    await vi.importActual<typeof import('@tearleads/shared')>(
+      '@tearleads/shared'
+    );
   return {
     ...actual,
     decrypt: (...args: unknown[]) => mockDecrypt(...args),

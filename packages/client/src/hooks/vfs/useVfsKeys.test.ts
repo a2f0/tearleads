@@ -15,7 +15,10 @@ import {
 
 // Mock @tearleads/shared crypto functions
 vi.mock('@tearleads/shared', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/shared')>('@tearleads/shared');
+  const actual =
+    await vi.importActual<typeof import('@tearleads/shared')>(
+      '@tearleads/shared'
+    );
   return {
     ...actual,
     combineEncapsulation: vi.fn(

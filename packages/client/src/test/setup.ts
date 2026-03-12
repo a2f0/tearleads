@@ -265,7 +265,9 @@ function createMockWindow(
 }
 
 vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>('@tearleads/app-keychain/clientEntry')),
+  ...(await vi.importActual<Record<string, unknown>>(
+    '@tearleads/app-keychain/clientEntry'
+  )),
   KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
 }));
 
@@ -274,7 +276,9 @@ vi.mock('@/components/window-sync', () => ({
 }));
 
 vi.mock('@tearleads/app-admin/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>('@tearleads/app-admin/clientEntry')),
+  ...(await vi.importActual<Record<string, unknown>>(
+    '@tearleads/app-admin/clientEntry'
+  )),
   AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
   AdminRedisWindow: createMockWindow('admin-redis', {
     width: 700,
