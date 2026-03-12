@@ -33,9 +33,10 @@ vi.mock('@tearleads/ui', async () => {
   };
 });
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
+vi.mock('@tearleads/window-manager', async () => {
+  const actual = await vi.importActual<
+    typeof import('@tearleads/window-manager')
+  >('@tearleads/window-manager');
   return {
     ...actual,
     DesktopFloatingWindow: ({
