@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
 const API_DEFAULTS_PATH = 'packages/api/src/lib/vfsCrdtCompaction.ts';
 
 const CONFIG_PATHS = [
@@ -145,9 +146,7 @@ async function loadExpectedEnv(
   // Keep shape deterministic to avoid undefined key handling downstream.
   return {
     VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS: String(hotRetentionDays ?? 30),
-    VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(
-      inactiveClientDays ?? 90
-    ),
+    VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(inactiveClientDays ?? 90),
     VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: String(safetyBufferHours ?? 6)
   };
 }
