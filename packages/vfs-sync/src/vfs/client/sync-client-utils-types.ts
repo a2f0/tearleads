@@ -39,6 +39,7 @@ export interface VfsCrdtSyncPullResponse {
   hasMore: boolean;
   nextCursor: VfsSyncCursor | null;
   lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+  bloomFilter?: VfsSyncBloomFilter | null;
 }
 
 export type VfsCrdtSyncPushStatus =

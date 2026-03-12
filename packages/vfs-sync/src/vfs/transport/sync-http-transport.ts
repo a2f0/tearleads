@@ -129,7 +129,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       hasMore: parsed.hasMore,
       nextCursor,
       lastReconciledWriteIds: parsed.lastReconciledWriteIds,
-      bloomFilter: parsed.bloomFilter
+      bloomFilter: parsed.bloomFilter ?? null
     };
   }
 
@@ -247,7 +247,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         hasMore: parsedPull.hasMore,
         nextCursor,
         lastReconciledWriteIds: parsedPull.lastReconciledWriteIds,
-        bloomFilter: parsedPull.bloomFilter
+        bloomFilter: parsedPull.bloomFilter ?? null
       },
       reconcile: {
         cursor: reconcileCursor,

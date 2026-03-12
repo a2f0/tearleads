@@ -22,8 +22,6 @@ import {
 } from './syncProtobufNormalizationNumbers.js';
 import {
   asRecord,
-  normalizeOptionalNullableString,
-  normalizeOptionalString,
   normalizeRequiredString
 } from './syncProtobufNormalizationStrings.js';
 
