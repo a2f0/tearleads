@@ -1,3 +1,4 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
