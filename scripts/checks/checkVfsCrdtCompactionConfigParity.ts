@@ -57,20 +57,22 @@ async function checkParity(): Promise<void> {
 
   const expectedEnv = await loadExpectedEnv(repoRoot, errors);
 
-  for (const relativePath of CONFIG_PATHS) {
-    const absolutePath = path.join(repoRoot, relativePath);
-    const content = await fs.readFile(absolutePath, 'utf8');
+  if (expectedEnv) {
+    for (const relativePath of CONFIG_PATHS) {
+      const absolutePath = path.join(repoRoot, relativePath);
+      const content = await fs.readFile(absolutePath, 'utf8');
 
-    for (const [key, expected] of Object.entries(expectedEnv)) {
-      const actual = readEnvValue(content, key);
-      if (actual === null) {
-        errors.push(`${relativePath}: missing ${key}`);
-        continue;
-      }
-      if (actual !== expected) {
-        errors.push(
-          `${relativePath}: ${key} expected ${expected} but found ${actual}`
-        );
+      for (const [key, expected] of Object.entries(expectedEnv)) {
+        const actual = readEnvValue(content, key);
+        if (actual === null) {
+          errors.push(`${relativePath}: missing ${key}`);
+          continue;
+        }
+        if (actual !== expected) {
+          errors.push(
+            `${relativePath}: ${key} expected ${expected} but found ${actual}`
+          );
+        }
       }
     }
   }
@@ -107,7 +109,7 @@ function extractMultiplierFromSource(input: {
 async function loadExpectedEnv(
   repoRoot: string,
   errors: string[]
-): Promise<ExpectedEnv> {
+): Promise<ExpectedEnv | null> {
   const defaultsSourcePath = path.join(repoRoot, API_DEFAULTS_PATH);
   const content = await fs.readFile(defaultsSourcePath, 'utf8');
 
@@ -143,11 +145,15 @@ async function loadExpectedEnv(
     );
   }
 
+  if (!hotRetentionDays || !inactiveClientDays || !safetyBufferHours) {
+    return null;
+  }
+
   // Keep shape deterministic to avoid undefined key handling downstream.
   return {
-    VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS: String(hotRetentionDays ?? 30),
-    VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(inactiveClientDays ?? 90),
-    VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: String(safetyBufferHours ?? 6)
+    VFS_CRDT_COMPACTION_HOT_RETENTION_DAYS: String(hotRetentionDays),
+    VFS_CRDT_COMPACTION_INACTIVE_CLIENT_DAYS: String(inactiveClientDays),
+    VFS_CRDT_COMPACTION_SAFETY_BUFFER_HOURS: String(safetyBufferHours)
   };
 }
 
