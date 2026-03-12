@@ -9,6 +9,9 @@ const config: CapacitorConfig = {
     iosScheme: 'https'
   },
   plugins: {
+    CapacitorHttp: {
+      enabled: true
+    },
     CapacitorSQLite: {
       // Store database in Library (hidden from Files app) instead of Documents
       iosDatabaseLocation: 'Library/CapacitorDatabase',
