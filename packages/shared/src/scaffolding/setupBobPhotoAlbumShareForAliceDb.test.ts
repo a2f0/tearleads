@@ -144,6 +144,23 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
       '00000000-0000-0000-0000-000000000010'
     );
 
+    const shareCalls = calls.filter((call) =>
+      call.text.includes('INSERT INTO vfs_acl_entries')
+    );
+    expect(shareCalls).toHaveLength(2);
+    expect(shareCalls[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
+    expect(shareCalls[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
+    expect(shareCalls[1]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(shareCalls[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
+
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
 

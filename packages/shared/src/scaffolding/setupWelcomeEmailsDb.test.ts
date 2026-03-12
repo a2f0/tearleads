@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { setupWelcomeEmailsDb } from './setupWelcomeEmailsDb.js';
+import {
+  SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
+  SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
+  setupWelcomeEmailsDb
+} from './setupWelcomeEmailsDb.js';
 import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
@@ -43,6 +47,20 @@ function createMockClient(): {
     })
   };
   return { calls, client };
+}
+
+function buildExpectedRawMime(recipientEmail: string): string {
+  return [
+    'From: system@tearleads.com',
+    `To: ${recipientEmail}`,
+    'Subject: Welcome to Tearleads',
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
+    ''
+  ].join('\r\n');
 }
 
 describe('setupWelcomeEmailsDb', () => {
@@ -116,6 +134,74 @@ describe('setupWelcomeEmailsDb', () => {
     expect(emailRegistryInserts).toHaveLength(2);
     expect(emailRegistryInserts[0]?.params?.[0]).toBe('id-2');
     expect(emailRegistryInserts[1]?.params?.[0]).toBe('id-4');
+
+    const emailInserts = calls.filter((call) =>
+      call.text.includes('INSERT INTO emails')
+    );
+    expect(emailInserts).toHaveLength(2);
+    const expectedSubject = Buffer.from(
+      'Welcome to Tearleads',
+      'utf8'
+    ).toString('base64');
+    const expectedFrom = Buffer.from('system@tearleads.com', 'utf8').toString(
+      'base64'
+    );
+    expect(emailInserts[0]?.params?.[1]).toBe(expectedSubject);
+    expect(emailInserts[0]?.params?.[2]).toBe(expectedFrom);
+    const bobEncryptedBodyPath = emailInserts[0]?.params?.[5];
+    expect(typeof bobEncryptedBodyPath).toBe('string');
+    if (typeof bobEncryptedBodyPath !== 'string') {
+      throw new Error('Expected scaffolded encrypted body path for Bob');
+    }
+    expect(
+      bobEncryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+    ).toBe(true);
+    const bobCiphertext = bobEncryptedBodyPath.slice(
+      SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
+    );
+    expect(Buffer.from(bobCiphertext, 'base64').toString('utf8')).toBe(
+      buildExpectedRawMime('bob@tearleads.com')
+    );
+    expect(emailInserts[0]?.params?.[6]).toBe(
+      Buffer.byteLength(buildExpectedRawMime('bob@tearleads.com'), 'utf8')
+    );
+    expect(emailInserts[1]?.params?.[1]).toBe(expectedSubject);
+    const aliceEncryptedBodyPath = emailInserts[1]?.params?.[5];
+    expect(typeof aliceEncryptedBodyPath).toBe('string');
+    if (typeof aliceEncryptedBodyPath !== 'string') {
+      throw new Error('Expected scaffolded encrypted body path for Alice');
+    }
+    expect(
+      aliceEncryptedBodyPath.startsWith(SCAFFOLD_INLINE_EMAIL_BODY_PREFIX)
+    ).toBe(true);
+    const aliceCiphertext = aliceEncryptedBodyPath.slice(
+      SCAFFOLD_INLINE_EMAIL_BODY_PREFIX.length
+    );
+    expect(Buffer.from(aliceCiphertext, 'base64').toString('utf8')).toBe(
+      buildExpectedRawMime('alice@tearleads.com')
+    );
+
+    const linkInserts = calls.filter((call) =>
+      call.text.includes('INSERT INTO vfs_links')
+    );
+    expect(linkInserts).toHaveLength(2);
+    expect(linkInserts[0]?.params?.[1]).toBe('id-1');
+    expect(linkInserts[0]?.params?.[2]).toBe('id-2');
+    expect(linkInserts[1]?.params?.[1]).toBe('id-3');
+    expect(linkInserts[1]?.params?.[2]).toBe('id-4');
+
+    const aclInserts = calls.filter((call) =>
+      call.text.includes('INSERT INTO vfs_acl_entries')
+    );
+    expect(aclInserts).toHaveLength(2);
+    expect(aclInserts[0]?.params?.[1]).toBe('id-2');
+    expect(aclInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    );
+    expect(aclInserts[1]?.params?.[1]).toBe('id-4');
+    expect(aclInserts[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });

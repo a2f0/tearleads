@@ -154,6 +154,13 @@ describe('setupBobNotesShareForAliceDb', () => {
       '00000000-0000-0000-0000-000000000003'
     );
     expect(shareCalls[0]?.params?.[3]).toBe('write');
+    expect(shareCalls[1]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(shareCalls[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
+    expect(shareCalls[1]?.params?.[3]).toBe('write');
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
