@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_REMATERIALIZATION_COMPLETE_EVENT } from '@/lib/vfsRematerializationEvents';
 import { SearchProvider } from './SearchProvider';
 
 const mockUseDatabaseContext = vi.fn();
@@ -21,6 +22,10 @@ vi.mock('@/hooks/app', () => ({
   useOnInstanceChange: (
     callback: (next: string | null, prev: string | null) => void
   ) => mockUseOnInstanceChange(callback)
+}));
+
+vi.mock('@/lib/vfsRematerializationEvents', () => ({
+  VFS_REMATERIALIZATION_COMPLETE_EVENT: 'vfs:rematerialization-complete'
 }));
 
 vi.mock('@tearleads/app-search', async () => {
@@ -131,6 +136,28 @@ describe('SearchProvider', () => {
         (doc: { entityType: string }) => doc.entityType === 'help_doc'
       )
     ).toBe(true);
+  });
+
+  it('rebuilds search index when vfs:rematerialization-complete event fires', async () => {
+    render(
+      <SearchProvider>
+        <div>child</div>
+      </SearchProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockInitialize).toHaveBeenCalledWith('test-key', 'instance-1');
+    });
+
+    expect(mockRebuildFromDatabase).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new Event(VFS_REMATERIALIZATION_COMPLETE_EVENT));
+
+    await waitFor(() => {
+      expect(mockRebuildFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockRebuildFromDatabase).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it('cancels deferred app/help indexing on unmount', async () => {

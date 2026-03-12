@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_REMATERIALIZATION_COMPLETE_EVENT } from '@/lib/vfsRematerializationEvents';
 import { VfsRematerializationBootstrap } from './VfsRematerializationBootstrap';
 
 const mockUseAuth = vi.fn();
@@ -49,6 +50,10 @@ vi.mock('@/contexts/VfsOrchestratorContext', () => ({
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/lib/vfsRematerializationEvents', () => ({
+  VFS_REMATERIALIZATION_COMPLETE_EVENT: 'vfs:rematerialization-complete'
 }));
 
 vi.mock('@/lib/vfsRematerialization', () => ({
@@ -429,6 +434,27 @@ describe('VfsRematerializationBootstrap', () => {
 
     await vi.advanceTimersByTimeAsync(5_000);
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches rematerialization-complete event after successful rematerialization', async () => {
+    vi.useRealTimers();
+    const eventSpy = vi.fn();
+    window.addEventListener(VFS_REMATERIALIZATION_COMPLETE_EVENT, eventSpy);
+
+    mockRematerializeRemoteVfsStateIfNeeded.mockImplementation(async () => {
+      window.dispatchEvent(new Event(VFS_REMATERIALIZATION_COMPLETE_EVENT));
+      return true;
+    });
+
+    render(<VfsRematerializationBootstrap />);
+
+    await waitFor(() => {
+      expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+    });
+
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener(VFS_REMATERIALIZATION_COMPLETE_EVENT, eventSpy);
   });
 
   it('waits until the active instance is bound to the authenticated user', async () => {

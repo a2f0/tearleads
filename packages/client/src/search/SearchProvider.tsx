@@ -27,6 +27,7 @@ import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { useOnInstanceChange } from '@/hooks/app';
 import { createSearchableAppDocuments } from './appCatalog';
 import { createSearchableHelpDocuments } from './helpCatalog';
+import { useSearchRematerializationListener } from './useSearchRematerializationListener';
 
 interface SearchContextValue {
   /**
@@ -281,6 +282,9 @@ export function SearchProvider({ children }: SearchProviderProps) {
       });
     }
   }, [isUnlocked, currentInstanceId]);
+
+  // Rebuild search index after VFS rematerialization
+  useSearchRematerializationListener(currentInstanceId, fetchAllDocuments);
 
   const rebuildIndex = useCallback(
     async (fetchAllDocuments: () => Promise<SearchableDocument[]>) => {

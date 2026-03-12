@@ -9,7 +9,7 @@ export function Search() {
         <h1 className="font-bold text-xl tracking-tight sm:text-2xl">Search</h1>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border [border-color:var(--soft-border)]">
-        <SearchWindowContent autoFocusOnMount={false} />
+        <SearchWindowContent />
       </div>
     </div>
   );
