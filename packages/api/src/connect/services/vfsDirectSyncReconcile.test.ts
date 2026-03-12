@@ -1,4 +1,4 @@
-import { Code } from '@connectrpc/connect';
+import { Code, ConnectError } from '@connectrpc/connect';
 import { encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,6 +53,26 @@ describe('vfsDirectSync reconcile & snapshots', () => {
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
+  it('rejects getCrdtSnapshot when clientId is not a string', async () => {
+    const invalidRequest = JSON.parse('{"clientId":123}');
+    await expect(
+      getCrdtSnapshotDirect(invalidRequest, { requestHeader: new Headers() })
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects getCrdtSnapshot when userId claim is invalid', async () => {
+    requireVfsClaimsMock.mockResolvedValueOnce({
+      sub: 'invalid-user-id'
+    });
+
+    await expect(
+      getCrdtSnapshotDirect(
+        { clientId: 'client-1' },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
   it('returns NotFound when no CRDT snapshot exists', async () => {
     loadVfsCrdtRematerializationSnapshotMock.mockResolvedValueOnce(null);
     await expect(
@@ -92,6 +112,40 @@ describe('vfsDirectSync reconcile & snapshots', () => {
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
+  it('rejects reconcileSync when clientId contains ":"', async () => {
+    await expect(
+      reconcileSyncDirect(
+        {
+          clientId: 'bad:client',
+          cursor: encodeVfsSyncCursor({
+            changedAt: '2026-03-03T00:00:00.000Z',
+            changeId: 'change-1'
+          })
+        },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
+  it('rejects reconcileSync when userId claim is invalid', async () => {
+    requireVfsClaimsMock.mockResolvedValueOnce({
+      sub: 'invalid-user-id'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        {
+          clientId: 'client-1',
+          cursor: encodeVfsSyncCursor({
+            changedAt: '2026-03-03T00:00:00.000Z',
+            changeId: 'change-1'
+          })
+        },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.InvalidArgument });
+  });
+
   it('stores reconcile cursor and returns encoded cursor', async () => {
     queryMock.mockResolvedValueOnce({
       rows: [
@@ -119,6 +173,60 @@ describe('vfsDirectSync reconcile & snapshots', () => {
         changeId: 'change-2'
       })
     });
+  });
+
+  it('returns Internal when reconcile writeback does not return a cursor', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        { clientId: 'client-1', cursor: inputCursor },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+  });
+
+  it('rethrows connect errors from reconcile storage', async () => {
+    queryMock.mockRejectedValueOnce(
+      new ConnectError('already mapped', Code.FailedPrecondition)
+    );
+
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        { clientId: 'client-1', cursor: inputCursor },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.FailedPrecondition });
+  });
+
+  it('maps unexpected reconcile storage failures to Internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('db unavailable'));
+
+    const inputCursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+
+    await expect(
+      reconcileSyncDirect(
+        { clientId: 'client-1', cursor: inputCursor },
+        { requestHeader: new Headers() }
+      )
+    ).rejects.toMatchObject({ code: Code.Internal });
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
   it('correctly handles real UUID for reconcileSyncDirect', async () => {

@@ -105,9 +105,9 @@ describe('connectRequestAuth', () => {
       error: 'Unauthorized'
     });
 
-    const blankBearer = await authenticate(
-      new Headers({ authorization: 'Bearer   ' })
-    );
+    const blankBearerHeaders = new Headers();
+    vi.spyOn(blankBearerHeaders, 'get').mockReturnValueOnce('Bearer   ');
+    const blankBearer = await authenticate(blankBearerHeaders);
     expect(blankBearer).toEqual({
       ok: false,
       status: 401,

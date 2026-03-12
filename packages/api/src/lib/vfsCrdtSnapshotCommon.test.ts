@@ -24,6 +24,7 @@ describe('vfsCrdtSnapshotCommon', () => {
     expect(parseOccurredAt('2026-02-24T12:00:00.000Z')).toBe(
       '2026-02-24T12:00:00.000Z'
     );
+    expect(parseOccurredAt(new Date('invalid-date'))).toBeNull();
     expect(parseOccurredAt(new Date('2026-02-24T12:00:01.000Z'))).toBe(
       '2026-02-24T12:00:01.000Z'
     );

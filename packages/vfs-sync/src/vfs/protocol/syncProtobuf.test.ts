@@ -9,15 +9,6 @@ function createBase64(value: string): string {
   return btoa(value);
 }
 
-function decodeBase64(value: string): Uint8Array {
-  const binary = atob(value);
-  const output = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    output[index] = binary.charCodeAt(index);
-  }
-  return output;
-}
-
 function readRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`expected ${label} to be an object`);
@@ -97,7 +88,12 @@ describe('syncProtobuf envelope bytes behavior', () => {
   });
 
   it('decodes bytes-only envelope fields', () => {
-    const encryptedPayload = createBase64('ciphertext');
+    const encryptedPayloadBytes = new Uint8Array(
+      Buffer.from('ciphertext', 'utf8')
+    );
+    const expectedEncryptedPayload = Buffer.from(
+      encryptedPayloadBytes
+    ).toString('base64');
     const encoded = PUSH_REQUEST_TYPE.encode(
       PUSH_REQUEST_TYPE.create({
         clientId: 'desktop',
@@ -109,7 +105,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
             replicaId: 'desktop',
             writeId: 1,
             occurredAt: '2026-02-14T00:00:00.000Z',
-            encryptedPayloadBytes: decodeBase64(encryptedPayload),
+            encryptedPayloadBytes,
             keyEpoch: 3
           }
         ]
@@ -125,7 +121,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
       throw new Error('expected operations[]');
     }
     const firstOperation = readRecord(operations[0], 'operations[0]');
-    expect(firstOperation['encryptedPayload']).toBe(encryptedPayload);
+    expect(firstOperation['encryptedPayload']).toBe(expectedEncryptedPayload);
   });
 
   it('rejects invalid base64 envelope payloads on encode', () => {
