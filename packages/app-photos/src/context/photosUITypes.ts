@@ -130,24 +130,6 @@ export interface EditableTitleProps {
   'data-testid'?: string;
 }
 
-export interface DropdownMenuProps {
-  trigger: string;
-  children: ReactNode;
-}
-
-export interface DropdownMenuItemProps {
-  onClick: () => void;
-  checked?: boolean;
-  icon?: ReactNode;
-  children: ReactNode;
-}
-
-export type DropdownMenuSeparatorProps = Record<string, never>;
-
-export type WindowOptionsMenuItemProps = Record<string, never>;
-
-export type AboutMenuItemProps = Record<string, never>;
-
 export interface DropzoneProps {
   onFilesSelected: (files: File[]) => void | Promise<void>;
   accept?: string;
@@ -212,11 +194,6 @@ export interface PhotosUIComponents {
   VirtualListStatus: ComponentType<VirtualListStatusProps>;
   InlineUnlock: ComponentType<InlineUnlockProps>;
   EditableTitle: ComponentType<EditableTitleProps>;
-  DropdownMenu: ComponentType<DropdownMenuProps>;
-  DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
-  DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
-  WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
-  AboutMenuItem: ComponentType<AboutMenuItemProps>;
   Dropzone: ComponentType<DropzoneProps>;
   UploadProgress: ComponentType<UploadProgressProps>;
   Dialog: ComponentType<DialogProps>;

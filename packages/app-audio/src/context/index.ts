@@ -8,7 +8,6 @@ export {
 } from './AudioContext';
 
 export {
-  type AboutMenuItemProps,
   type ActionToolbarProps,
   type ActionType,
   type AudioInfo,
@@ -26,9 +25,6 @@ export {
   type ContextMenuItemProps,
   type ContextMenuProps,
   type DatabaseState,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type DropzoneProps,
   type EditableTitleProps,
   type InlineUnlockProps,
@@ -43,6 +39,5 @@ export {
   useAudioDatabaseState,
   useAudioUI,
   useAudioUIContext,
-  type VirtualListStatusProps,
-  type WindowOptionsMenuItemProps
+  type VirtualListStatusProps
 } from './AudioUIContext';

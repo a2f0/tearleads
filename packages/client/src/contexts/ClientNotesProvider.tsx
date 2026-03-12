@@ -4,7 +4,6 @@
  */
 import {
   type NavigateToNote,
-  NotesAboutMenuItem,
   NotesProvider,
   type NotesUIComponents
 } from '@tearleads/app-notes';
@@ -16,17 +15,11 @@ import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
@@ -52,11 +45,6 @@ const notesUIComponents: NotesUIComponents = {
   VirtualListStatus,
   InlineUnlock,
   EditableTitle,
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  WindowOptionsMenuItem,
-  AboutMenuItem: NotesAboutMenuItem,
   BackLink
 };
 

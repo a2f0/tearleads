@@ -1,7 +1,6 @@
 // Components
 export {
   AddNoteCard,
-  NotesAboutMenuItem,
   NotesWindow,
   NotesWindowDetail,
   NotesWindowList,
@@ -12,15 +11,11 @@ export {
 
 // Context
 export {
-  type AboutMenuItemProps,
   type BackLinkProps,
   type ButtonProps,
   type ContextMenuItemProps,
   type ContextMenuProps,
   type DatabaseState,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type EditableTitleProps,
   type InlineUnlockProps,
   type InputProps,
@@ -37,8 +32,7 @@ export {
   useDatabaseState,
   useNotesContext,
   useNotesUI,
-  type VirtualListStatusProps,
-  type WindowOptionsMenuItemProps
+  type VirtualListStatusProps
 } from './context/index';
 // Utilities
 export {

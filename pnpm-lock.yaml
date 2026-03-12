@@ -384,6 +384,9 @@ importers:
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -704,6 +707,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -768,6 +774,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -1038,6 +1047,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -1472,9 +1484,6 @@ importers:
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@tearleads/ui':
-        specifier: workspace:*
-        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -1497,6 +1506,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -1622,6 +1634,9 @@ importers:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
     devDependencies:
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager

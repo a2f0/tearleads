@@ -1,5 +1,4 @@
 import {
-  EmailAboutMenuItem,
   type EmailContactOperations,
   type EmailDraftOperations,
   EmailProvider,
@@ -8,13 +7,7 @@ import {
 import { asc, desc, eq } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
 import { RefreshButton } from '@/components/ui/RefreshButton';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
 import {
   deleteEmailDraftFromDb,
@@ -31,11 +24,6 @@ import { useClientEmailBodyOperations } from './useClientEmailBodyOperations';
 import { useClientEmailFolderOperations } from './useClientEmailFolderOperations';
 
 const emailUIComponents: EmailUIComponents = {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  WindowOptionsMenuItem,
-  AboutMenuItem: EmailAboutMenuItem,
   BackLink,
   RefreshButton
 };

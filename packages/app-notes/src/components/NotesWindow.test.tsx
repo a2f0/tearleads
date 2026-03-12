@@ -14,6 +14,32 @@ import {
 } from '../test/testUtils';
 import { NotesWindow } from './NotesWindow';
 
+vi.mock('@tearleads/ui', () => ({
+  DropdownMenu: ({
+    trigger,
+    children
+  }: {
+    trigger: string;
+    children: ReactNode;
+  }) => (
+    <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  WindowOptionsMenuItem: () => <div>Options</div>,
+  AboutMenuItem: () => <div>About</div>
+}));
+
 vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div data-testid="floating-window">{children}</div>
@@ -68,29 +94,6 @@ function createClickableUI() {
     VirtualListStatus: () => <div>Status</div>,
     InlineUnlock: () => <div data-testid="inline-unlock">Unlock</div>,
     EditableTitle: () => <div>Title</div>,
-    DropdownMenu: ({
-      trigger,
-      children
-    }: {
-      trigger: string;
-      children: ReactNode;
-    }) => (
-      <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-    ),
-    DropdownMenuItem: ({
-      children,
-      onClick
-    }: {
-      children: ReactNode;
-      onClick?: () => void;
-    }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    WindowOptionsMenuItem: () => <div>Options</div>,
-    AboutMenuItem: () => <div>About</div>
   };
 }
 

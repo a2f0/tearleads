@@ -43,10 +43,6 @@ const mockUIComponents: AIUIComponents = {
   Button: ({ children }) => <button type="button">{children}</button>,
   Input: (props) => <input {...props} />,
   InlineUnlock: () => <div>InlineUnlock</div>,
-  DropdownMenu: ({ children }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children }) => <div>{children}</div>,
-  DropdownMenuSeparator: () => <hr />,
-  WindowOptionsMenuItem: () => <div>WindowOptionsMenuItem</div>,
   ModelSelector: () => <div>ModelSelector</div>
 };
 

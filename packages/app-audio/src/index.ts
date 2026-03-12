@@ -3,7 +3,6 @@
 // Components exports
 export {
   ALL_AUDIO_ID,
-  AudioAboutMenuItem,
   // Player components
   AudioControls,
   AudioPlayer,
@@ -31,7 +30,6 @@ export {
   type VisualizerVisibility
 } from './components';
 export {
-  type AboutMenuItemProps,
   type ActionToolbarProps,
   type ActionType,
   type AudioError,
@@ -54,9 +52,6 @@ export {
   type ContextMenuItemProps,
   type ContextMenuProps,
   type DatabaseState,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type DropzoneProps,
   type EditableTitleProps,
   type InlineUnlockProps,
@@ -74,8 +69,7 @@ export {
   useAudioDatabaseState,
   useAudioUI,
   useAudioUIContext,
-  type VirtualListStatusProps,
-  type WindowOptionsMenuItemProps
+  type VirtualListStatusProps
 } from './context';
 // Hooks exports
 export {

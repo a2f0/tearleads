@@ -10,7 +10,6 @@ import {
   type OnContactSavedParams,
   type VfsRegistrationResult
 } from '@tearleads/app-contacts';
-import contactsPackageJson from '@tearleads/app-contacts/package.json';
 import { vfsRegistry } from '@tearleads/db/sqlite';
 import {
   DesktopContextMenu as ContextMenu,
@@ -21,18 +20,11 @@ import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/ListRow';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { useOrg } from '@/contexts/OrgContext';
 import { getDatabase, getDatabaseAdapter } from '@/db';
@@ -48,12 +40,6 @@ import { queueItemUpsertAndFlush } from '@/lib/vfsItemSyncWriter';
 import { createContactDocument, indexDocuments } from '@/search';
 import { useWindowManagerActions } from './WindowManagerContext';
 
-function ContactsAboutMenuItem() {
-  return (
-    <AboutMenuItem appName="Contacts" version={contactsPackageJson.version} />
-  );
-}
-
 const ContactsInput: ContactsUIComponents['Input'] = ({
   inputRef,
   ...props
@@ -68,11 +54,6 @@ const contactsUIComponents: ContactsUIComponents = {
   RefreshButton,
   VirtualListStatus,
   InlineUnlock,
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  WindowOptionsMenuItem,
-  AboutMenuItem: ContactsAboutMenuItem,
   BackLink,
   Dropzone
 };

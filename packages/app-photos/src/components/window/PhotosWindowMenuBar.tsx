@@ -1,3 +1,11 @@
+import photosPackageJson from '@tearleads/app-photos/package.json';
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   Eye,
@@ -8,7 +16,6 @@ import {
   Table2,
   Upload
 } from 'lucide-react';
-import { usePhotosUIContext } from '../../context';
 
 export type ViewMode = 'list' | 'table' | 'thumbnail';
 
@@ -35,15 +42,6 @@ export function PhotosWindowMenuBar({
   onUpload,
   onClose
 }: PhotosWindowMenuBarProps) {
-  const { ui } = usePhotosUIContext();
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem,
-    AboutMenuItem
-  } = ui;
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
@@ -109,7 +107,7 @@ export function PhotosWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem />
+        <AboutMenuItem appName="Photos" version={photosPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

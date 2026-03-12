@@ -2,64 +2,28 @@ import type {
   HostRuntimeBaseProps,
   HostRuntimeDatabaseState
 } from '@tearleads/shared';
-import {
-  type ComponentType,
-  createContext,
-  type ReactNode,
-  useContext
-} from 'react';
-
-export interface DropdownMenuProps {
-  trigger: string;
-  children: ReactNode;
-}
-
-export interface DropdownMenuItemProps {
-  onClick: () => void;
-  checked?: boolean;
-  icon?: ReactNode;
-  children: ReactNode;
-}
-
-export interface AboutMenuItemProps {
-  appName: string;
-  closeLabel: string;
-}
-
-export type DropdownMenuComponent = ComponentType<DropdownMenuProps>;
-export type DropdownMenuItemComponent = ComponentType<DropdownMenuItemProps>;
-export type AboutMenuItemComponent = ComponentType<AboutMenuItemProps>;
-
-export interface BusinessesUIComponents {
-  DropdownMenu: DropdownMenuComponent;
-  DropdownMenuItem: DropdownMenuItemComponent;
-  AboutMenuItem: AboutMenuItemComponent;
-}
+import { createContext, type ReactNode, useContext } from 'react';
 
 export type BusinessesDatabaseState = HostRuntimeDatabaseState;
 
 interface BusinessesContextValue {
   databaseState: BusinessesDatabaseState;
-  ui: BusinessesUIComponents;
 }
 
 const BusinessesContext = createContext<BusinessesContextValue | null>(null);
 
 export interface BusinessesProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
-  ui: BusinessesUIComponents;
 }
 
 export function BusinessesProvider({
   children,
-  databaseState,
-  ui
+  databaseState
 }: BusinessesProviderProps) {
   return (
     <BusinessesContext.Provider
       value={{
-        databaseState,
-        ui
+        databaseState
       }}
     >
       {children}

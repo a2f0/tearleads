@@ -29,7 +29,6 @@ export {
   type ViewMode
 } from './components';
 export {
-  type AboutMenuItemProps,
   type ActionToolbarProps,
   type AlbumType,
   type ButtonProps,
@@ -42,9 +41,6 @@ export {
   type DialogHeaderProps,
   type DialogProps,
   type DialogTitleProps,
-  type DropdownMenuItemProps,
-  type DropdownMenuProps,
-  type DropdownMenuSeparatorProps,
   type DropZoneOptions,
   type DropZoneResult,
   type DropzoneProps,
@@ -67,8 +63,7 @@ export {
   usePhotosDatabaseState,
   usePhotosUI,
   usePhotosUIContext,
-  type VirtualListStatusProps,
-  type WindowOptionsMenuItemProps
+  type VirtualListStatusProps
 } from './context';
 
 // Type exports

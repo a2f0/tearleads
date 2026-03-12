@@ -1,6 +1,13 @@
+import notesPackageJson from '@tearleads/app-notes/package.json';
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, List, Table2 } from 'lucide-react';
-import { useNotesUI } from '../context/NotesContext';
 
 export type ViewMode = 'list' | 'table';
 
@@ -29,14 +36,6 @@ export function NotesWindowMenuBar({
   onNewNote,
   onClose
 }: NotesWindowMenuBarProps) {
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem,
-    AboutMenuItem
-  } = useNotesUI();
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
@@ -92,7 +91,7 @@ export function NotesWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem />
+        <AboutMenuItem appName="Notes" version={notesPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

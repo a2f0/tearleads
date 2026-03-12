@@ -1,6 +1,13 @@
+import audioPackageJson from '@tearleads/app-audio/package.json';
+import {
+  AboutMenuItem,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  WindowOptionsMenuItem
+} from '@tearleads/ui';
 import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, Upload } from 'lucide-react';
-import { useAudioUIContext } from '../../context/AudioUIContext';
 
 export type AudioViewMode = 'list' | 'table';
 
@@ -25,15 +32,6 @@ export function AudioWindowMenuBar({
   view,
   onViewChange
 }: AudioWindowMenuBarProps) {
-  const { ui } = useAudioUIContext();
-  const {
-    DropdownMenu,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    WindowOptionsMenuItem,
-    AboutMenuItem
-  } = ui;
-
   return (
     <WindowMenuBar>
       <DropdownMenu trigger="File">
@@ -84,7 +82,7 @@ export function AudioWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem />
+        <AboutMenuItem appName="Audio" version={audioPackageJson.version} />
       </DropdownMenu>
     </WindowMenuBar>
   );

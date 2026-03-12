@@ -2,10 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  BusinessesProvider,
-  type BusinessesUIComponents
-} from '../context/BusinessesContext.js';
+import { BusinessesProvider } from '../context/BusinessesContext.js';
 import { BusinessesWindow } from './BusinessesWindow.js';
 
 interface CapturedWindowProps {
@@ -55,24 +52,42 @@ vi.mock('@tearleads/window-manager', () => ({
   )
 }));
 
-const uiComponents: BusinessesUIComponents = {
-  DropdownMenu: ({ trigger, children }) => (
+vi.mock('@tearleads/ui', () => ({
+  DropdownMenu: ({
+    trigger,
+    children
+  }: {
+    trigger: string;
+    children: ReactNode;
+  }) => (
     <div>
       <span>{trigger}</span>
       {children}
     </div>
   ),
-  DropdownMenuItem: ({ children, onClick }) => (
+  DropdownMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+  }) => (
     <button type="button" onClick={onClick}>
       {children}
     </button>
   ),
-  AboutMenuItem: ({ appName, closeLabel }) => (
+  AboutMenuItem: ({
+    appName,
+    version
+  }: {
+    appName: string;
+    version: string;
+  }) => (
     <span>
-      {appName}:{closeLabel}
+      About {appName} v{version}
     </span>
   )
-};
+}));
 
 describe('BusinessesWindow', () => {
   it('renders menu bar and forwards window sizing defaults', () => {
@@ -85,7 +100,6 @@ describe('BusinessesWindow', () => {
           isLoading: false,
           currentInstanceId: null
         }}
-        ui={uiComponents}
       >
         <BusinessesWindow
           id="businesses-window"
@@ -126,7 +140,6 @@ describe('BusinessesWindow', () => {
           isLoading: false,
           currentInstanceId: null
         }}
-        ui={uiComponents}
       >
         <BusinessesWindow
           id="businesses-window"
@@ -140,6 +153,5 @@ describe('BusinessesWindow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Businesses:Close')).toBeInTheDocument();
   });
 });
