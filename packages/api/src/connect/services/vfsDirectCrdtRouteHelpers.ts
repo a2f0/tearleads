@@ -37,6 +37,11 @@ export interface VfsCrdtSyncProtoResponse {
   nextCursor?: string;
   hasMore: boolean;
   lastReconciledWriteIds: Record<string, number>;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
 }
 
 export interface VfsSyncProtoItem {
@@ -244,7 +249,8 @@ export function toProtoVfsCrdtSyncResponse(
   const parsed: VfsCrdtSyncProtoResponse = {
     items: response.items.map((item) => toProtoCrdtSyncItem(item)),
     hasMore: response.hasMore,
-    lastReconciledWriteIds: response.lastReconciledWriteIds
+    lastReconciledWriteIds: response.lastReconciledWriteIds,
+    bloomFilter: response.bloomFilter
   };
 
   const nextCursor = toOptionalString(response.nextCursor);

@@ -57,6 +57,12 @@ export interface VfsRegisterResponse {
   createdAt: string;
 }
 
+export interface VfsSyncBloomFilter {
+  data: string;
+  capacity: number;
+  errorRate: number;
+}
+
 // VFS sync + ACL types
 export type VfsAclPrincipalType = 'user' | 'group' | 'organization';
 export type VfsAclAccessLevel = 'read' | 'write' | 'admin';
@@ -128,6 +134,7 @@ export interface VfsCrdtSyncResponse {
   nextCursor: string | null;
   hasMore: boolean;
   lastReconciledWriteIds: Record<string, number>;
+  bloomFilter?: VfsSyncBloomFilter | null;
 }
 
 export interface VfsCrdtReconcileRequest {
@@ -196,6 +203,7 @@ export interface VfsCrdtSyncSessionRequest {
   operations: VfsCrdtPushOperation[];
   lastReconciledWriteIds?: Record<string, number>;
   rootId?: string | null;
+  bloomFilter?: VfsSyncBloomFilter | null;
 }
 
 export interface VfsCrdtSyncSessionResponse {

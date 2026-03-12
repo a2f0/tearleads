@@ -36,6 +36,12 @@ enum PushStatus {
   ENCRYPTED_ENVELOPE_UNSUPPORTED = 6;
 }
 
+message SyncBloomFilter {
+  bytes data = 1;
+  uint32 capacity = 2;
+  float errorRate = 3;
+}
+
 message CrdtOperation {
   bytes opId = 1;
   OpType opType = 2;
@@ -80,6 +86,7 @@ message PullResponse {
   bytes nextCursor = 3;
   map<string, uint64> lastReconciledWriteIds = 4;
   uint32 version = 5;
+  SyncBloomFilter bloomFilter = 6;
 }
 
 message ReconcileRequest {
@@ -103,6 +110,7 @@ message SyncSessionRequest {
   map<string, uint64> lastReconciledWriteIds = 5;
   bytes rootId = 6;
   uint32 version = 7;
+  SyncBloomFilter bloomFilter = 8;
 }
 
 message SyncSessionResponse {

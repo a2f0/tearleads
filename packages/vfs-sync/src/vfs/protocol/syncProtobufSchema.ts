@@ -59,6 +59,13 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 ENCRYPTED_ENVELOPE_UNSUPPORTED: 6
               }
             },
+            SyncBloomFilter: {
+              fields: {
+                data: { type: 'bytes', id: 1 },
+                capacity: { type: 'uint32', id: 2 },
+                errorRate: { type: 'float', id: 3 }
+              }
+            },
             CrdtOperation: {
               fields: {
                 opId: { type: 'bytes', id: 1 },
@@ -107,7 +114,8 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 hasMore: { type: 'bool', id: 2 },
                 nextCursor: { type: 'bytes', id: 3 },
                 lastReconciledWriteIds: createUint64MapField(4),
-                version: { type: 'uint32', id: 5 }
+                version: { type: 'uint32', id: 5 },
+                bloomFilter: { type: 'SyncBloomFilter', id: 6 }
               }
             },
             ReconcileRequest: {
@@ -133,7 +141,8 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 operations: { rule: 'repeated', type: 'CrdtOperation', id: 4 },
                 lastReconciledWriteIds: createUint64MapField(5),
                 rootId: { type: 'bytes', id: 6 },
-                version: { type: 'uint32', id: 7 }
+                version: { type: 'uint32', id: 7 },
+                bloomFilter: { type: 'SyncBloomFilter', id: 8 }
               }
             },
             SyncSessionResponse: {

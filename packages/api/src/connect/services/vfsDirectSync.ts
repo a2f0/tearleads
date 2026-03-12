@@ -39,7 +39,16 @@ import {
 } from './vfsDirectCrdtRouteHelpers.js';
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
 
-type GetSyncRequest = { cursor: string; limit: number; rootId: string };
+type GetSyncRequest = {
+  cursor: string;
+  limit: number;
+  rootId: string;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+};
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };
 
@@ -297,11 +306,25 @@ export async function getCrdtSyncDirect(
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
     const replicaWriteIdsRows = await loadReplicaWriteIdRows(pool, claims.sub);
 
-    const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(
-      result.rows,
-      parsedQuery.value.limit,
-      toLastReconciledWriteIds(replicaWriteIdsRows)
-    );
+    const response: VfsCrdtSyncResponse = {
+      items: mapVfsCrdtSyncRows(
+        result.rows,
+        parsedQuery.value.limit,
+        toLastReconciledWriteIds(replicaWriteIdsRows)
+      ).items,
+      hasMore: mapVfsCrdtSyncRows(
+        result.rows,
+        parsedQuery.value.limit,
+        toLastReconciledWriteIds(replicaWriteIdsRows)
+      ).hasMore,
+      nextCursor: mapVfsCrdtSyncRows(
+        result.rows,
+        parsedQuery.value.limit,
+        toLastReconciledWriteIds(replicaWriteIdsRows)
+      ).nextCursor,
+      lastReconciledWriteIds: toLastReconciledWriteIds(replicaWriteIdsRows),
+      bloomFilter: request.bloomFilter
+    };
 
     return toProtoVfsCrdtSyncResponse(response);
   } catch (error) {

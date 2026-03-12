@@ -41,6 +41,11 @@ interface RunCrdtSessionRequest {
   limit: number;
   rootId?: string | null;
   lastReconciledWriteIds?: Record<string, number>;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
   version?: number;
 }
 
@@ -57,6 +62,7 @@ interface ParsedSessionPayload {
   limit: number;
   rootId: string | null;
   lastReconciledWriteIds: Record<string, number>;
+  bloomFilter: VfsSyncBloomFilter | null;
   version: number;
 }
 
@@ -184,6 +190,7 @@ function parseSessionPayload(
       limit,
       rootId: parseOptionalRootId(body['rootId']),
       lastReconciledWriteIds: parsedLastWriteIds.value,
+      bloomFilter: (body['bloomFilter'] as VfsSyncBloomFilter) ?? null,
       version: typeof body['version'] === 'number' ? body['version'] : 1
     }
   };

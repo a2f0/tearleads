@@ -6,7 +6,8 @@ import type {
   VfsCrdtPushStatus,
   VfsCrdtReconcileResponse,
   VfsCrdtSyncItem,
-  VfsCrdtSyncResponse
+  VfsCrdtSyncResponse,
+  VfsSyncBloomFilter
 } from '@tearleads/shared';
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
@@ -161,6 +162,18 @@ function isPushStatus(value: unknown): value is VfsCrdtPushStatus {
     typeof value === 'string' &&
     VALID_PUSH_STATUSES.some((candidate) => candidate === value)
   );
+}
+
+function parseBloomFilter(value: unknown): VfsSyncBloomFilter | null {
+  if (!value || !isRecord(value)) {
+    return null;
+  }
+
+  return {
+    data: parseRequiredString(value['data'], 'bloomFilter.data'),
+    capacity: Number(value['capacity']),
+    errorRate: Number(value['errorRate'])
+  };
 }
 
 export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
@@ -373,7 +386,8 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     items,
     nextCursor: nextCursorValue,
     hasMore: normalizedHasMore,
-    lastReconciledWriteIds: parsedWriteIds.value
+    lastReconciledWriteIds: parsedWriteIds.value,
+    bloomFilter: parseBloomFilter(body['bloomFilter'])
   };
 }
 
