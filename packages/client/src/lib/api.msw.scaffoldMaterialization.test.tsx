@@ -278,156 +278,156 @@ describe('DB scaffolding plaintext render integration', () => {
       return parseConnectJsonString<TResponse>(JSON.stringify(parsedBody));
     };
 
-    vi.doMock('@/lib/api', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@/lib/api')>();
-      return {
-        ...actual,
-        api: {
-          ...actual.api,
-          vfs: {
-            ...actual.api.vfs,
-            getSync: async (cursor?: string, limit = 500) =>
-              fetchConnectVfsJson<VfsSyncResponse>('GetSync', {
-                limit,
-                ...(cursor ? { cursor } : {})
-              }),
-            getCrdtSync: async (cursor?: string, limit = 500) =>
-              fetchConnectVfsJson<VfsCrdtSyncResponse>('GetCrdtSync', {
-                limit,
-                ...(cursor ? { cursor } : {})
-              })
-          }
+    const { api } = await import('@/lib/api');
+    const getSyncSpy = vi
+      .spyOn(api.vfs, 'getSync')
+      .mockImplementation(async (cursor?: string, limit = 500) =>
+        fetchConnectVfsJson<VfsSyncResponse>('GetSync', {
+          limit,
+          ...(cursor ? { cursor } : {})
+        })
+      );
+    const getCrdtSyncSpy = vi
+      .spyOn(api.vfs, 'getCrdtSync')
+      .mockImplementation(async (cursor?: string, limit = 500) =>
+        fetchConnectVfsJson<VfsCrdtSyncResponse>('GetCrdtSync', {
+          limit,
+          ...(cursor ? { cursor } : {})
+        })
+      );
+
+    try {
+      const { Vfs: VfsPage } = await import('@/pages/Vfs');
+      const { Email: EmailPage } = await import('@/pages/Email');
+      const { rematerializeRemoteVfsStateIfNeeded } = await import(
+        '@/lib/vfsRematerialization'
+      );
+
+      const vfsRender = await renderWithDatabase(createElement(VfsPage), {
+        beforeRender: async () => {
+          const localDb = getDatabase();
+          await localDb.delete(vfsLinks);
+          await localDb.delete(vfsRegistry);
+          const rematerialized = await rematerializeRemoteVfsStateIfNeeded();
+          expect(rematerialized).toBe(true);
         }
-      };
-    });
+      });
 
-    const { Vfs: VfsPage } = await import('@/pages/Vfs');
-    const { Email: EmailPage } = await import('@/pages/Email');
-    const { rematerializeRemoteVfsStateIfNeeded } = await import(
-      '@/lib/vfsRematerialization'
-    );
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: 'VFS Explorer' })
+        ).toBeInTheDocument();
+        expect(screen.getByText('Notes shared with Alice')).toBeInTheDocument();
+        expect(
+          screen.queryByText(folderCiphertext ?? '')
+        ).not.toBeInTheDocument();
+      });
 
-    const vfsRender = await renderWithDatabase(createElement(VfsPage), {
-      beforeRender: async () => {
-        const localDb = getDatabase();
-        await localDb.delete(vfsLinks);
-        await localDb.delete(vfsRegistry);
-        const rematerialized = await rematerializeRemoteVfsStateIfNeeded();
-        expect(rematerialized).toBe(true);
-      }
-    });
+      const db = getDatabase();
+      const localFolder = await db
+        .select({
+          encryptedName: vfsRegistry.encryptedName,
+          objectType: vfsRegistry.objectType
+        })
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, seededShare.folderId));
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'VFS Explorer' })
-      ).toBeInTheDocument();
-      expect(screen.getByText('Notes shared with Alice')).toBeInTheDocument();
-      expect(
-        screen.queryByText(folderCiphertext ?? '')
-      ).not.toBeInTheDocument();
-    });
+      expect(localFolder[0]).toEqual(
+        expect.objectContaining({
+          objectType: 'folder',
+          encryptedName: 'Notes shared with Alice'
+        })
+      );
+      const localAlbum = await db
+        .select({
+          encryptedName: vfsRegistry.encryptedName,
+          objectType: vfsRegistry.objectType
+        })
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, seededPhotos.albumId));
+      expect(localAlbum[0]).toEqual(
+        expect.objectContaining({
+          objectType: 'album',
+          encryptedName: 'Photos shared with Alice'
+        })
+      );
+      const localPhoto = await db
+        .select({
+          encryptedName: vfsRegistry.encryptedName,
+          objectType: vfsRegistry.objectType
+        })
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, seededPhotos.photoId));
+      expect(localPhoto[0]).toEqual(
+        expect.objectContaining({
+          objectType: 'photo',
+          encryptedName: 'Tearleads logo.svg'
+        })
+      );
+      const localAlbumEntity = await db
+        .select({
+          id: albums.id,
+          encryptedName: albums.encryptedName,
+          albumType: albums.albumType
+        })
+        .from(albums)
+        .where(eq(albums.id, seededPhotos.albumId));
+      expect(localAlbumEntity[0]).toEqual(
+        expect.objectContaining({
+          id: seededPhotos.albumId,
+          encryptedName: 'Photos shared with Alice',
+          albumType: 'custom'
+        })
+      );
+      const localPhotoEntity = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          mimeType: files.mimeType,
+          deleted: files.deleted
+        })
+        .from(files)
+        .where(eq(files.id, seededPhotos.photoId));
+      expect(localPhotoEntity[0]).toEqual(
+        expect.objectContaining({
+          id: seededPhotos.photoId,
+          name: 'Tearleads logo.svg',
+          mimeType: 'image/svg+xml',
+          deleted: false
+        })
+      );
 
-    const db = getDatabase();
-    const localFolder = await db
-      .select({
-        encryptedName: vfsRegistry.encryptedName,
-        objectType: vfsRegistry.objectType
-      })
-      .from(vfsRegistry)
-      .where(eq(vfsRegistry.id, seededShare.folderId));
+      vfsRender.unmount();
 
-    expect(localFolder[0]).toEqual(
-      expect.objectContaining({
-        objectType: 'folder',
-        encryptedName: 'Notes shared with Alice'
-      })
-    );
-    const localAlbum = await db
-      .select({
-        encryptedName: vfsRegistry.encryptedName,
-        objectType: vfsRegistry.objectType
-      })
-      .from(vfsRegistry)
-      .where(eq(vfsRegistry.id, seededPhotos.albumId));
-    expect(localAlbum[0]).toEqual(
-      expect.objectContaining({
-        objectType: 'album',
-        encryptedName: 'Photos shared with Alice'
-      })
-    );
-    const localPhoto = await db
-      .select({
-        encryptedName: vfsRegistry.encryptedName,
-        objectType: vfsRegistry.objectType
-      })
-      .from(vfsRegistry)
-      .where(eq(vfsRegistry.id, seededPhotos.photoId));
-    expect(localPhoto[0]).toEqual(
-      expect.objectContaining({
-        objectType: 'photo',
-        encryptedName: 'Tearleads logo.svg'
-      })
-    );
-    const localAlbumEntity = await db
-      .select({
-        id: albums.id,
-        encryptedName: albums.encryptedName,
-        albumType: albums.albumType
-      })
-      .from(albums)
-      .where(eq(albums.id, seededPhotos.albumId));
-    expect(localAlbumEntity[0]).toEqual(
-      expect.objectContaining({
-        id: seededPhotos.albumId,
-        encryptedName: 'Photos shared with Alice',
-        albumType: 'custom'
-      })
-    );
-    const localPhotoEntity = await db
-      .select({
-        id: files.id,
-        name: files.name,
-        mimeType: files.mimeType,
-        deleted: files.deleted
-      })
-      .from(files)
-      .where(eq(files.id, seededPhotos.photoId));
-    expect(localPhotoEntity[0]).toEqual(
-      expect.objectContaining({
-        id: seededPhotos.photoId,
-        name: 'Tearleads logo.svg',
-        mimeType: 'image/svg+xml',
-        deleted: false
-      })
-    );
+      const emailRender = await renderWithDatabase(createElement(EmailPage));
 
-    vfsRender.unmount();
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
+        expect(screen.getByText('Inbox')).toBeInTheDocument();
+        expect(screen.getByText('Welcome to Tearleads')).toBeInTheDocument();
+        expect(
+          screen.getByText('From: system@tearleads.com')
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByText(inboxCiphertext ?? '')
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(subjectCiphertext ?? '')
+        ).not.toBeInTheDocument();
+      });
 
-    const emailRender = await renderWithDatabase(createElement(EmailPage));
+      const localEmailSubject = await db
+        .select({
+          subject: emails.encryptedSubject
+        })
+        .from(emails)
+        .where(eq(emails.id, seededEmails.bob.emailItemId));
+      expect(localEmailSubject).toHaveLength(0);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'Email' })
-      ).toBeInTheDocument();
-      expect(screen.getByText('Inbox')).toBeInTheDocument();
-      expect(screen.getByText('Welcome to Tearleads')).toBeInTheDocument();
-      expect(
-        screen.getByText('From: system@tearleads.com')
-      ).toBeInTheDocument();
-      expect(screen.queryByText(inboxCiphertext ?? '')).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(subjectCiphertext ?? '')
-      ).not.toBeInTheDocument();
-    });
-
-    const localEmailSubject = await db
-      .select({
-        subject: emails.encryptedSubject
-      })
-      .from(emails)
-      .where(eq(emails.id, seededEmails.bob.emailItemId));
-    expect(localEmailSubject).toHaveLength(0);
-
-    emailRender.unmount();
+      emailRender.unmount();
+    } finally {
+      getSyncSpy.mockRestore();
+      getCrdtSyncSpy.mockRestore();
+    }
   });
 });
