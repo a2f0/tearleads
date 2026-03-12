@@ -1,4 +1,7 @@
-import type { VfsObjectType } from '@tearleads/shared';
+import {
+  VFS_OBJECT_TYPES,
+  type VfsObjectType
+} from '@tearleads/shared';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
 import { albums, files, playlists, vfsItemState, vfsRegistry } from '@/db/schema';
@@ -15,13 +18,14 @@ const MATERIALIZED_FILE_OBJECT_TYPES = new Set<VfsObjectType>([
   'audio',
   'video'
 ]);
+const VFS_OBJECT_TYPE_SET = new Set<string>(VFS_OBJECT_TYPES);
 
 interface RegistryRowForBackfill {
   id: string;
   objectType: VfsObjectType;
   encryptedName: string | null;
   ownerId: string | null;
-  createdAt: Date | string | number;
+  createdAt: Date;
 }
 
 function chunkArray<T>(values: readonly T[], size: number): T[][] {
@@ -44,6 +48,18 @@ function parseTimestampMs(
     return fallback;
   }
   return parsed;
+}
+
+function isVfsObjectType(value: string): value is VfsObjectType {
+  return VFS_OBJECT_TYPE_SET.has(value);
+}
+
+function normalizeCreatedAt(value: Date | string | number | null): Date {
+  const parsedDate =
+    value instanceof Date
+      ? new Date(value.getTime())
+      : new Date(value ?? Date.now());
+  return Number.isNaN(parsedDate.getTime()) ? new Date(0) : parsedDate;
 }
 
 async function tableExists(tableName: string): Promise<boolean> {
@@ -153,11 +169,24 @@ export async function backfillMaterializedMediaFromLocalStateIfNeeded(): Promise
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry);
-  if (registryRows.length === 0) {
+  const normalizedRegistryRows: RegistryRowForBackfill[] = [];
+  for (const entry of registryRows) {
+    if (!isVfsObjectType(entry.objectType)) {
+      continue;
+    }
+    normalizedRegistryRows.push({
+      id: entry.id,
+      objectType: entry.objectType,
+      encryptedName: entry.encryptedName,
+      ownerId: entry.ownerId,
+      createdAt: normalizeCreatedAt(entry.createdAt)
+    });
+  }
+  if (normalizedRegistryRows.length === 0) {
     return;
   }
 
-  const expectedIds = collectExpectedMaterializedIds(registryRows);
+  const expectedIds = collectExpectedMaterializedIds(normalizedRegistryRows);
   if (
     expectedIds.albumIds.size === 0 &&
     expectedIds.playlistIds.size === 0 &&
@@ -205,15 +234,6 @@ export async function backfillMaterializedMediaFromLocalStateIfNeeded(): Promise
         deleted: entry.deletedAt !== null
       }
     ])
-  );
-  const normalizedRegistryRows: RegistryRowForBackfill[] = registryRows.map(
-    (entry) => ({
-      ...entry,
-      createdAt:
-        entry.createdAt instanceof Date
-          ? entry.createdAt
-          : new Date(entry.createdAt)
-    })
   );
   const { albumRows, playlistRows } = buildMaterializedCollectionRows(
     normalizedRegistryRows
