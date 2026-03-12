@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  VfsCrdtPushOperation,
-  VfsCrdtPushResponse,
-  VfsCrdtSyncItem,
-  VfsCrdtSyncResponse
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath,
+  type VfsCrdtPushOperation,
+  type VfsCrdtPushResponse,
+  type VfsCrdtSyncItem,
+  type VfsCrdtSyncResponse
 } from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
@@ -134,7 +136,7 @@ describe('shared note edit sync', () => {
     ];
 
     const noteId = `note-${randomUUID()}`;
-    await bob.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -145,7 +147,7 @@ describe('shared note edit sync', () => {
       })
     });
 
-    await bob.fetchJson('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    await bob.fetchJson(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -173,7 +175,7 @@ describe('shared note edit sync', () => {
       plaintext: 'bob-seed'
     });
     const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -205,7 +207,7 @@ describe('shared note edit sync', () => {
     });
     const aliceEditPayload = alicePushOperation.encryptedPayload ?? '';
     const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -251,7 +253,7 @@ describe('shared note edit sync', () => {
     const aliceSecondEditPayload =
       aliceSecondPushOperation.encryptedPayload ?? '';
     const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
