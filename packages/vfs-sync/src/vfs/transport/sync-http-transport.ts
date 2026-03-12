@@ -46,6 +46,11 @@ function toPackedIdBase64(value: string): string {
 function toCompactOperation(
   operation: VfsCrdtOperation
 ): Record<string, unknown> {
+  const occurredAtMs = Date.parse(operation.occurredAt);
+  if (!Number.isFinite(occurredAtMs)) {
+    throw new Error('operation occurredAt must be a valid ISO timestamp');
+  }
+
   const compact: Record<string, unknown> = {
     ...operation,
     opIdBytes: toPackedIdBase64(operation.opId),
@@ -53,7 +58,7 @@ function toCompactOperation(
     itemIdBytes: toPackedIdBase64(operation.itemId),
     replicaIdBytes: toPackedIdBase64(operation.replicaId),
     writeIdU64: operation.writeId,
-    occurredAtMs: Date.parse(operation.occurredAt)
+    occurredAtMs
   };
 
   if (operation.principalType) {

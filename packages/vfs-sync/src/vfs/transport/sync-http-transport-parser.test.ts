@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
   parseApiPullResponse,
-  parseApiPushResponse
+  parseApiPushResponse,
+  parseApiReconcileResponse
 } from './sync-http-transport-parser';
 
 function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
@@ -156,5 +158,23 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
         occurredAt: '2025-02-21T10:00:01.000Z'
       })
     );
+  });
+
+  it('parses compact reconcile response fields', () => {
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T20:10:05.000Z',
+      changeId: 'desktop-5'
+    });
+    const response = parseApiReconcileResponse({
+      clientIdBytes: encodeUtf8ToBase64('desktop'),
+      cursor,
+      lastReconciledWriteIds: { desktop: 5 }
+    });
+
+    expect(response).toEqual({
+      clientId: 'desktop',
+      cursor,
+      lastReconciledWriteIds: { desktop: 5 }
+    });
   });
 });

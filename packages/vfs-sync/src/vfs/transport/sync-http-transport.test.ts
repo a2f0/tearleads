@@ -36,6 +36,10 @@ function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
   return value;
 }
 
+function encodeUtf8ToBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 describe('VfsHttpCrdtSyncTransport', () => {
   it('pushes operations to Connect CRDT endpoint with auth headers', async () => {
     const fetchMock = vi.fn(async () => {
@@ -107,7 +111,18 @@ describe('VfsHttpCrdtSyncTransport', () => {
       throw new Error('expected push request operations');
     }
     expect(operations[0]).toEqual(
-      expect.objectContaining({ opId: 'desktop-1' })
+      expect.objectContaining({
+        opId: 'desktop-1',
+        opIdBytes: encodeUtf8ToBase64('desktop-1'),
+        opTypeEnum: 1,
+        itemIdBytes: encodeUtf8ToBase64('item-1'),
+        replicaIdBytes: encodeUtf8ToBase64('desktop'),
+        writeIdU64: 1,
+        occurredAtMs: Date.parse('2026-02-14T20:00:00.000Z'),
+        principalTypeEnum: 2,
+        principalIdBytes: encodeUtf8ToBase64('group-1'),
+        accessLevelEnum: 1
+      })
     );
 
     const requestHeaders = new Headers(requestInit?.headers);
