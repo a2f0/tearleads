@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-classic",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "description": "Classic tag-and-note workspace for Tearleads",
   "type": "module",
   "main": "dist/index.js",
