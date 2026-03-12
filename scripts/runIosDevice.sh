@@ -45,12 +45,10 @@ API_PORT=5001
 # For physical devices, localhost won't work — auto-detect the Mac's LAN IP.
 if [ -z "${VITE_API_URL:-}" ]; then
   LAN_IP=""
-  for iface in en0 en1 en2 en3 en4 en5 en6 en7 en8 en9; do
-    LAN_IP=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
-    if [ -n "$LAN_IP" ]; then
-      break
-    fi
-  done
+  IFACE=$(route -n get default 2>/dev/null | grep 'interface:' | awk '{print $2}')
+  if [ -n "$IFACE" ]; then
+    LAN_IP=$(ipconfig getifaddr "$IFACE" 2>/dev/null || true)
+  fi
   if [ -z "$LAN_IP" ]; then
     echo "Error: Could not detect LAN IP on any interface. Set VITE_API_URL manually." >&2
     exit 1
