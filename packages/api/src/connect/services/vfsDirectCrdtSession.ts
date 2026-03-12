@@ -1,7 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import {
   buildVfsV2ConnectMethodPath,
-  type VfsCrdtSyncSessionResponse
+  type VfsCrdtSyncSessionResponse,
+  type VfsSyncBloomFilter
 } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
@@ -41,6 +42,12 @@ interface RunCrdtSessionRequest {
   limit: number;
   rootId?: string | null;
   lastReconciledWriteIds?: Record<string, number>;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+  version?: number;
 }
 
 interface ReconcileRow {
@@ -56,6 +63,8 @@ interface ParsedSessionPayload {
   limit: number;
   rootId: string | null;
   lastReconciledWriteIds: Record<string, number>;
+  bloomFilter: VfsSyncBloomFilter | null;
+  version: number;
 }
 
 export interface RunCrdtSessionDirectResponse {
@@ -181,7 +190,9 @@ function parseSessionPayload(
       cursor: decodedCursor,
       limit,
       rootId: parseOptionalRootId(body['rootId']),
-      lastReconciledWriteIds: parsedLastWriteIds.value
+      lastReconciledWriteIds: parsedLastWriteIds.value,
+      bloomFilter: (body['bloomFilter'] as VfsSyncBloomFilter) ?? null,
+      version: typeof body['version'] === 'number' ? body['version'] : 1
     }
   };
 }
@@ -204,7 +215,9 @@ export async function runCrdtSessionDirect(
     cursor: request.cursor,
     limit: request.limit,
     rootId: request.rootId,
-    lastReconciledWriteIds: request.lastReconciledWriteIds
+    lastReconciledWriteIds: request.lastReconciledWriteIds,
+    bloomFilter: request.bloomFilter,
+    version: request.version
   });
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
@@ -270,7 +283,7 @@ export async function runCrdtSessionDirect(
         last_reconciled_change_id,
         last_reconciled_write_ids,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, $5::jsonb, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4::uuid, $5::jsonb, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE
@@ -287,9 +300,38 @@ export async function runCrdtSessionDirect(
             THEN EXCLUDED.last_reconciled_change_id
           ELSE vfs_sync_client_state.last_reconciled_change_id
         END,
-        last_reconciled_write_ids = "vfs_merge_reconciled_write_ids"(
-          vfs_sync_client_state.last_reconciled_write_ids,
-          EXCLUDED.last_reconciled_write_ids
+        last_reconciled_write_ids = (
+          SELECT COALESCE(
+            jsonb_object_agg(entry.key, to_jsonb(entry.max_write_id)),
+            '{}'::jsonb
+          )
+          FROM (
+            SELECT
+              kv.key,
+              MAX(kv.write_id) AS max_write_id
+            FROM (
+              SELECT
+                e.key,
+                CASE
+                  WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                  ELSE 0::bigint
+                END AS write_id
+              FROM jsonb_each_text(
+                COALESCE(vfs_sync_client_state.last_reconciled_write_ids, '{}'::jsonb)
+              ) AS e
+              UNION ALL
+              SELECT
+                e.key,
+                CASE
+                  WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                  ELSE 0::bigint
+                END AS write_id
+              FROM jsonb_each_text(
+                COALESCE(EXCLUDED.last_reconciled_write_ids, '{}'::jsonb)
+              ) AS e
+            ) AS kv
+            GROUP BY kv.key
+          ) AS entry
         ),
         updated_at = NOW()
       RETURNING last_reconciled_at, last_reconciled_change_id, last_reconciled_write_ids

@@ -339,10 +339,10 @@ describe('instance switch shared-note sync regression', () => {
            decode($8::text, 'base64'), decode($9::text, 'base64')
          )`,
         [
-          `crdt:item_upsert:${randomUUID()}`,
+          randomUUID(),
           seededShare.noteId,
           alice.userId,
-          `vfs_item_state:${seededShare.noteId}`,
+          seededShare.noteId,
           occurredAt,
           updatedPayload,
           toBase64(`nonce-${randomUUID()}`),

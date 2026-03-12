@@ -41,19 +41,19 @@ describe('orgBackfill', () => {
   it('backfills NULL rows to personal org', async () => {
     const { db, mockUpdate } = createMockDb();
 
-    await runOrgBackfillIfNeeded(db, 'user-1', 'personal-org-user-1');
+    await runOrgBackfillIfNeeded(db, 'user-1', 'user-1');
 
     expect(mockUpdate).toHaveBeenCalledTimes(2);
     expect(updatedRows).toEqual([
-      { table: 'contacts', orgId: 'personal-org-user-1' },
-      { table: 'vfs_registry', orgId: 'personal-org-user-1' }
+      { table: 'contacts', orgId: 'user-1' },
+      { table: 'vfs_registry', orgId: 'user-1' }
     ]);
   });
 
   it('sets completion flag in IndexedDB after backfill', async () => {
     const { db } = createMockDb();
 
-    await runOrgBackfillIfNeeded(db, 'user-1', 'personal-org-user-1');
+    await runOrgBackfillIfNeeded(db, 'user-1', 'user-1');
 
     expect(mockSetInStore).toHaveBeenCalledWith('org_backfill_user-1', true);
   });
@@ -62,7 +62,7 @@ describe('orgBackfill', () => {
     mockGetFromStore.mockResolvedValue(true);
     const { db, mockUpdate } = createMockDb();
 
-    await runOrgBackfillIfNeeded(db, 'user-1', 'personal-org-user-1');
+    await runOrgBackfillIfNeeded(db, 'user-1', 'user-1');
 
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockSetInStore).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('orgBackfill', () => {
   it('checks the correct IndexedDB key', async () => {
     const { db } = createMockDb();
 
-    await runOrgBackfillIfNeeded(db, 'user-42', 'personal-org-user-42');
+    await runOrgBackfillIfNeeded(db, 'user-42', 'user-42');
 
     expect(mockGetFromStore).toHaveBeenCalledWith('org_backfill_user-42');
   });

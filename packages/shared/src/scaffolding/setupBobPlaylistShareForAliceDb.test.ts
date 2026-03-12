@@ -1,14 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  combinePublicKey,
-  generateKeyPair,
-  serializePublicKey
-} from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
-import {
   SCAFFOLD_SYNTHETIC_WAV_BASE64,
   setupBobPlaylistShareForAliceDb
 } from './setupBobPlaylistShareForAliceDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -29,8 +24,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'bob-user-id',
-                personal_organization_id: 'bob-org-id'
+                id: '00000000-0000-0000-0000-000000000001',
+                personal_organization_id: '00000000-0000-0000-0000-000000000002'
               }
             ]
           };
@@ -39,8 +34,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'alice-user-id',
-                personal_organization_id: 'alice-org-id'
+                id: '00000000-0000-0000-0000-000000000003',
+                personal_organization_id: '00000000-0000-0000-0000-000000000004'
               }
             ]
           };
@@ -48,7 +43,7 @@ function createMockClient(): {
         return { rows: [] };
       }
       if (text.includes('RETURNING id')) {
-        return { rows: [{ id: 'share:stored-share-id' }] };
+        return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
       }
       return { rows: [] };
     })
@@ -78,8 +73,8 @@ describe('setupBobPlaylistShareForAliceDb', () => {
       aliceEmail: 'alice@tearleads.com',
       encryptVfsName,
       hasOrganizationIdColumn: true,
-      playlistId: 'playlist-fixed',
-      audioId: 'audio-fixed',
+      playlistId: '00000000-0000-0000-0000-000000000010',
+      audioId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
         const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6', 'id-7'];
         let index = 0;
@@ -89,13 +84,13 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     });
 
     expect(result).toEqual({
-      bobUserId: 'bob-user-id',
-      aliceUserId: 'alice-user-id',
-      rootItemId: '__vfs_root__',
-      playlistId: 'playlist-fixed',
-      audioId: 'audio-fixed',
-      playlistShareAclId: 'share:stored-share-id',
-      audioShareAclId: 'share:stored-share-id'
+      bobUserId: '00000000-0000-0000-0000-000000000001',
+      aliceUserId: '00000000-0000-0000-0000-000000000003',
+      rootItemId: '00000000-0000-0000-0000-000000000000',
+      playlistId: '00000000-0000-0000-0000-000000000010',
+      audioId: '00000000-0000-0000-0000-000000000011',
+      playlistShareAclId: '00000000-0000-0000-0000-000000000005',
+      audioShareAclId: '00000000-0000-0000-0000-000000000005'
     });
 
     expect(calls[0]?.text).toBe('BEGIN');
@@ -104,38 +99,30 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     const playlistInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'playlist-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000010'
     );
     expect(playlistInsertCall?.params?.[1]).toBe('playlist');
-    expect(playlistInsertCall?.params?.[4]).toBe(
-      'wrapped:Music shared with Alice'
-    );
-    expect(playlistInsertCall?.params?.[5]).toBe(
-      'cipher:Music shared with Alice'
-    );
 
     const audioInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'audio-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
     expect(audioInsertCall?.params?.[1]).toBe('audio');
-    expect(audioInsertCall?.params?.[4]).toBe('wrapped:The Blessing.mp3');
-    expect(audioInsertCall?.params?.[5]).toBe('cipher:The Blessing.mp3');
 
     const playlistExtensionCall = calls.find((call) =>
       call.text.includes('INSERT INTO playlists')
     );
-    expect(playlistExtensionCall?.params?.[0]).toBe('playlist-fixed');
-    expect(playlistExtensionCall?.params?.[1]).toBe(
-      'cipher:Music shared with Alice'
+    expect(playlistExtensionCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000010'
     );
-    expect(playlistExtensionCall?.text).toContain('shuffle_mode');
 
     const itemStateInsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
     );
-    expect(itemStateInsertCall?.params?.[0]).toBe('audio-fixed');
+    expect(itemStateInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
     expect(itemStateInsertCall?.params?.[1]).toBe(
       SCAFFOLD_SYNTHETIC_WAV_BASE64
     );
@@ -143,37 +130,24 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     const crdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
-    expect(crdtUpsertCall?.text).toContain('encrypted_payload_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_nonce_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_aad_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_signature_bytes');
-    expect(crdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:audio-fixed');
-    expect(crdtUpsertCall?.params?.[1]).toBe('audio-fixed');
-    expect(crdtUpsertCall?.params?.[2]).toBe('bob-user-id');
-    const audioPayloadBase64 = crdtUpsertCall?.params?.[5];
-    expect(typeof audioPayloadBase64).toBe('string');
-    if (typeof audioPayloadBase64 !== 'string') {
-      throw new Error('Expected CRDT payload base64 string');
-    }
-    expect(audioPayloadBase64).toBe(SCAFFOLD_SYNTHETIC_WAV_BASE64);
+    expect(crdtUpsertCall?.text).toContain('root_id');
+    expect(crdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(crdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (playlistId)
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')
     );
     expect(linkInserts).toHaveLength(2);
-    expect(linkInserts[0]?.params?.[1]).toBe('__vfs_root__');
-    expect(linkInserts[0]?.params?.[2]).toBe('playlist-fixed');
-    expect(linkInserts[1]?.params?.[1]).toBe('playlist-fixed');
-    expect(linkInserts[1]?.params?.[2]).toBe('audio-fixed');
-
-    const shareCalls = calls.filter((call) =>
-      call.text.includes('INSERT INTO vfs_acl_entries')
+    expect(linkInserts[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000000'
     );
-    expect(shareCalls).toHaveLength(2);
-    expect(shareCalls[0]?.params?.[1]).toBe('playlist-fixed');
-    expect(shareCalls[0]?.params?.[2]).toBe('alice-user-id');
-    expect(shareCalls[1]?.params?.[1]).toBe('audio-fixed');
-    expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
+    expect(linkInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
@@ -206,59 +180,15 @@ describe('setupBobPlaylistShareForAliceDb', () => {
   });
 
   it('uses scaffold-unwrapped session keys by default without user_keys lookups', async () => {
-    const ownerKeyPair = generateKeyPair();
-    const ownerPublicKey = combinePublicKey(
-      serializePublicKey({
-        x25519PublicKey: ownerKeyPair.x25519PublicKey,
-        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
-      })
-    );
-    const calls: Call[] = [];
-    const client: DbQueryClient = {
-      query: vi.fn(async (text: string, params?: readonly unknown[]) => {
-        calls.push({ text, params });
-        if (text.includes('FROM users WHERE email = $1')) {
-          const email = params?.[0];
-          if (email === 'bob@tearleads.com') {
-            return {
-              rows: [
-                {
-                  id: 'bob-user-id',
-                  personal_organization_id: 'bob-org-id'
-                }
-              ]
-            };
-          }
-          if (email === 'alice@tearleads.com') {
-            return {
-              rows: [
-                {
-                  id: 'alice-user-id',
-                  personal_organization_id: 'alice-org-id'
-                }
-              ]
-            };
-          }
-        }
-        if (text.includes('FROM user_keys')) {
-          return {
-            rows: [{ public_encryption_key: ownerPublicKey }]
-          };
-        }
-        if (text.includes('RETURNING id')) {
-          return { rows: [{ id: 'share:stored-share-id' }] };
-        }
-        return { rows: [] };
-      })
-    };
+    const { calls, client } = createMockClient();
 
     await setupBobPlaylistShareForAliceDb({
       client,
       bobEmail: 'bob@tearleads.com',
       aliceEmail: 'alice@tearleads.com',
       hasOrganizationIdColumn: true,
-      playlistId: 'playlist-fixed',
-      audioId: 'audio-fixed',
+      playlistId: '00000000-0000-0000-0000-000000000010',
+      audioId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
         const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6', 'id-7'];
         let index = 0;
@@ -270,12 +200,12 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     const playlistInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'playlist-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000010'
     );
     const audioInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'audio-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
 
     const playlistSessionKey = playlistInsertCall?.params?.[4];

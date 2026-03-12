@@ -123,8 +123,8 @@ export async function verifyOrganizationMembership(
     const result = await pool.query<{ organization_id: string }>(
       `SELECT organization_id
          FROM user_organizations
-         WHERE user_id = $1
-           AND organization_id = $2`,
+         WHERE user_id = $1::uuid
+           AND organization_id = $2::uuid`,
       [userId, organizationId]
     );
 
@@ -191,7 +191,7 @@ export async function resolveAdminAccess(
     const result = await pool.query<{ organization_id: string }>(
       `SELECT organization_id
          FROM user_organizations
-         WHERE user_id = $1
+         WHERE user_id = $1::uuid
            AND is_admin = TRUE
          ORDER BY organization_id`,
       [session.userId]

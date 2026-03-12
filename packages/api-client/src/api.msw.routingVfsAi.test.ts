@@ -84,9 +84,10 @@ describe('api with msw', () => {
   });
   it('routes vfs requests through msw', async () => {
     const ctx = getSharedTestContext();
+    const itemId = '00000000-0000-0000-0000-000000000101';
     // Create second user in a shared org for share operations
     const secondUser = await seedTestUser(ctx);
-    const sharedOrgId = 'shared-org-vfs';
+    const sharedOrgId = '00000000-0000-0000-0000-000000000002';
     await ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -98,7 +99,7 @@ describe('api with msw', () => {
       [seededUser.userId, sharedOrgId, secondUser.userId]
     );
     // Create target org for org-share operations
-    const targetOrgId = 'target-org-vfs';
+    const targetOrgId = '00000000-0000-0000-0000-000000000003';
     await ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Target Org', NOW(), NOW())`,
@@ -115,14 +116,14 @@ describe('api with msw', () => {
     await api.vfs.getMyKeys();
     // Register VFS item
     await api.vfs.register({
-      id: 'item-1',
+      id: itemId,
       objectType: 'folder',
       encryptedSessionKey: 'encrypted-session-key'
     });
     // Share operations using real item and user IDs
-    await api.vfs.getShares('item-1');
+    await api.vfs.getShares(itemId);
     const shareResponse = await api.vfs.createShare({
-      itemId: 'item-1',
+      itemId,
       shareType: 'user',
       targetId: secondUser.userId,
       permissionLevel: 'view',
@@ -137,7 +138,7 @@ describe('api with msw', () => {
     const shareUuid = shareResponse.id.replace('share:', '');
     // Org share operations
     const orgShareResponse = await api.vfs.createOrgShare({
-      itemId: 'item-1',
+      itemId,
       sourceOrgId: sharedOrgId,
       targetOrgId: targetOrgId,
       permissionLevel: 'view'
@@ -146,7 +147,7 @@ describe('api with msw', () => {
     const orgShareUuid = orgShareParts[orgShareParts.length - 1];
     expect(orgShareUuid).toBeTruthy();
     // Rekey while share is still active
-    await api.vfs.rekeyItem('item-1', {
+    await api.vfs.rekeyItem(itemId, {
       reason: 'manual',
       newEpoch: 2,
       wrappedKeys: [
@@ -166,7 +167,7 @@ describe('api with msw', () => {
     // Search share targets
     await api.vfs.searchShareTargets('test query', 'user');
     await api.vfs.getSharePolicyPreview({
-      rootItemId: 'item-1',
+      rootItemId: itemId,
       principalType: 'user',
       principalId: secondUser.userId,
       limit: 25,
@@ -239,16 +240,17 @@ describe('api with msw', () => {
     const { registerVfsItemWithApiOnboarding } = await import(
       './vfsCrypto/registrationClient'
     );
+    const onboardingItemId = '00000000-0000-0000-0000-000000000102';
     const sessionKey = new Uint8Array(32);
     sessionKey.fill(7);
     const result = await registerVfsItemWithApiOnboarding({
       password: 'test-password',
-      id: 'item-onboard-1',
+      id: onboardingItemId,
       objectType: 'file',
       sessionKey
     });
     expect(result.sessionKey).toEqual(sessionKey);
-    expect(result.registerResponse.id).toBe('item-onboard-1');
+    expect(result.registerResponse.id).toBe(onboardingItemId);
     expect(
       wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('GetMyKeys'))
     ).toBe(true);
@@ -272,8 +274,8 @@ describe('api with msw', () => {
          openrouter_request_id,
          created_at
        ) VALUES
-         ('usage-jan-1', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
-         ('usage-jan-2', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
+         ('00000000-0000-0000-0000-000000000201', NULL, NULL, $1, $2, 'mistralai/mistral-7b-instruct', 10, 5, 15, 'req-jan-1', '2024-01-10T00:00:00.000Z'),
+         ('00000000-0000-0000-0000-000000000202', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 7, 3, 10, 'req-jan-2', '2024-01-08T00:00:00.000Z')`,
       [seededUser.userId, seededUser.organizationId]
     );
 
@@ -328,8 +330,8 @@ describe('api with msw', () => {
     // Insert key packages for secondUser (one for addMember, one for getUserKeyPackages)
     await ctx.pool.query(
       `INSERT INTO mls_key_packages (id, user_id, key_package_data, key_package_ref, cipher_suite, created_at)
-       VALUES ('kp-add', $1, $2, 'kp-ref-add', 3, NOW()),
-              ('kp-extra', $1, $3, 'kp-ref-extra', 3, NOW())`,
+       VALUES ('00000000-0000-0000-0000-000000000301', $1, $2, 'kp-ref-add', 3, NOW()),
+              ('00000000-0000-0000-0000-000000000302', $1, $3, 'kp-ref-extra', 3, NOW())`,
       [secondUser.userId, keyPackageDataAdd, keyPackageDataExtra]
     );
     const api = await loadApi();
@@ -387,7 +389,7 @@ describe('api with msw', () => {
     // Welcome messages
     await api.mls.getWelcomeMessages();
     // Insert a welcome message for seededUser so we can acknowledge it
-    const welcomeId = 'welcome-for-ack';
+    const welcomeId = '00000000-0000-0000-0000-000000000303';
     await ctx.pool.query(
       `INSERT INTO mls_welcome_messages (id, group_id, recipient_user_id, key_package_ref, welcome_data, epoch, created_at)
        VALUES ($1, $2, $3, 'kp-ref-ack', 'welcome-data', $4, NOW())`,

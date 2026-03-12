@@ -92,7 +92,7 @@ describe('CRDT protocol chaos monkey', () => {
       server,
       now: () => nowFactory.next(),
       databaseOptions: {
-        instanceId: `crdt-chaos-${actor.alias}`
+        instanceId: `chaos-${actor.alias}`
       }
     });
   }
@@ -113,18 +113,14 @@ describe('CRDT protocol chaos monkey', () => {
 
     const aliases = actorDefinitions.map((definition) => definition.alias);
     const itemIds = [
-      'chaos-item-1',
+      'chaos-00000000-0000-0000-0000-000000000003',
       'chaos-item-2',
       'chaos-item-3',
       'chaos-item-4',
       'chaos-item-5',
       'chaos-item-6'
     ] as const;
-    const parentIds = [
-      'chaos-root',
-      'chaos-folder-a',
-      'chaos-folder-b'
-    ] as const;
+    const parentIds = ['chaos-root', 'chaos-a', 'chaos-b'] as const;
     const principals = [
       { principalType: 'user', principalId: 'user-chaos' },
       { principalType: 'user', principalId: 'user-chaos-peer' },

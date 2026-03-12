@@ -15,7 +15,7 @@ import {
   queueItemUpsertAndFlush
 } from '@/lib/vfsItemSyncWriter';
 
-export const CLASSIC_TAG_PARENT_ID = '__vfs_root__';
+export const CLASSIC_TAG_PARENT_ID = '00000000-0000-0000-0000-000000000000';
 
 export const CLASSIC_EMPTY_STATE: ClassicState = {
   tags: [],

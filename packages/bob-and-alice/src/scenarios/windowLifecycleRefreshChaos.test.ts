@@ -89,7 +89,7 @@ describe('window lifecycle refresh chaos', () => {
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
 
-    const sharedOrgId = `shared-org-chaos-${randomUUID()}`;
+    const sharedOrgId = `${randomUUID()}`;
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org Chaos', NOW(), NOW())`,
@@ -119,11 +119,8 @@ describe('window lifecycle refresh chaos', () => {
     ];
     const allItemIds: string[] = [];
     const activeShares = new Map<string, ActiveShare>();
-    let itemCounter = 0;
-
     async function registerItem(): Promise<string> {
-      const itemId = `chaos-folder-${String(itemCounter)}-${randomUUID()}`;
-      itemCounter += 1;
+      const itemId = `${randomUUID()}`;
       await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

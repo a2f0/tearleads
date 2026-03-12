@@ -85,7 +85,9 @@ describe('buildVfsSyncQuery', () => {
     });
 
     expect(query.text).toContain('change_row.changed_at > $2::timestamptz');
-    expect(query.text).toContain("change_row.id > COALESCE($3::text, '')");
+    expect(query.text).toContain(
+      "change_row.id > COALESCE($3::uuid, '00000000-0000-0000-0000-000000000000'::uuid)"
+    );
     expect(query.text).toContain(
       'ORDER BY change_row.changed_at ASC, change_row.id ASC'
     );

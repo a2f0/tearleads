@@ -7,7 +7,7 @@ vi.mock('../seedAccount.js', () => ({
     async (_client: HarnessSqlClient, input: { email: string }) => {
       const userId =
         input.email === 'bob@tearleads.com' ? 'bob-user-id' : 'alice-user-id';
-      const orgId = `personal-org-${userId}`;
+      const orgId = userId;
       return {
         userId,
         personalOrganizationId: orgId,

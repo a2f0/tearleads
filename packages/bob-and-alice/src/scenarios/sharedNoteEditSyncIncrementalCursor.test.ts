@@ -90,7 +90,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     const bob = harness.actor('bob');
     const alice = harness.actor('alice');
 
-    const sharedOrgId = `shared-org-${randomUUID()}`;
+    const sharedOrgId = `${randomUUID()}`;
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -113,14 +113,14 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       keyPrefix: 'alice-incremental'
     });
 
-    const noteId = `note-${randomUUID()}`;
+    const noteId = `${randomUUID()}`;
     await bob.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: noteId,
         objectType: 'note',
-        encryptedSessionKey: 'bob-note-session-key',
+        encryptedSessionKey: 'bob-session-key',
         encryptedName: 'Shared note from Bob'
       })
     });
@@ -138,7 +138,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
           recipientPublicKeyId: 'alice-public-key-id',
           keyEpoch: 1,
           encryptedKey: 'wrapped-key-for-alice',
-          senderSignature: 'bob-share-signature'
+          senderSignature: 'bob-signature'
         }
       })
     });

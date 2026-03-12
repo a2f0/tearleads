@@ -1,3 +1,4 @@
+import type { VfsSyncBloomFilter } from '@tearleads/shared';
 import {
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
@@ -78,7 +79,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         {
           organizationId: organizationId ?? '',
           clientId: input.clientId,
-          operations: input.operations
+          operations: input.operations,
+          version: 2
         },
         {
           organizationId
@@ -95,13 +97,18 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     clientId: string;
     cursor: VfsSyncCursor | null;
     limit: number;
+    bloomFilter?: VfsSyncBloomFilter | null;
   }): Promise<VfsCrdtSyncPullResponse> {
     const organizationId = this.resolveOrganizationId();
     const requestBody: Record<string, unknown> = {
-      limit: input.limit
+      limit: input.limit,
+      version: 2
     };
     if (input.cursor) {
       requestBody['cursor'] = encodeVfsSyncCursor(input.cursor);
+    }
+    if (input.bloomFilter) {
+      requestBody['bloomFilter'] = input.bloomFilter;
     }
 
     const parsed = parseApiPullResponse(
@@ -121,7 +128,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       items: parsed.items,
       hasMore: parsed.hasMore,
       nextCursor,
-      lastReconciledWriteIds: parsed.lastReconciledWriteIds
+      lastReconciledWriteIds: parsed.lastReconciledWriteIds,
+      bloomFilter: parsed.bloomFilter ?? null
     };
   }
 
@@ -144,7 +152,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
           organizationId,
           clientId: input.clientId,
           cursor: encodeVfsSyncCursor(input.cursor),
-          lastReconciledWriteIds: input.lastReconciledWriteIds
+          lastReconciledWriteIds: input.lastReconciledWriteIds,
+          version: 2
         },
         {
           organizationId
@@ -177,6 +186,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     operations: VfsCrdtOperation[];
     lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
     rootId?: string | null;
+    bloomFilter?: VfsSyncBloomFilter | null;
   }): Promise<{
     push: VfsCrdtSyncPushResponse;
     pull: VfsCrdtSyncPullResponse;
@@ -192,7 +202,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         limit: input.limit,
         operations: input.operations,
         lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ?? null
+        rootId: input.rootId ?? null,
+        bloomFilter: input.bloomFilter ?? null,
+        version: 2
       },
       {
         organizationId
@@ -234,7 +246,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         items: parsedPull.items,
         hasMore: parsedPull.hasMore,
         nextCursor,
-        lastReconciledWriteIds: parsedPull.lastReconciledWriteIds
+        lastReconciledWriteIds: parsedPull.lastReconciledWriteIds,
+        bloomFilter: parsedPull.bloomFilter ?? null
       },
       reconcile: {
         cursor: reconcileCursor,
@@ -315,6 +328,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     const headers = new Headers();
     headers.set('Accept', JSON_CONTENT_TYPE);
     headers.set('Content-Type', JSON_CONTENT_TYPE);
+    headers.set('Accept-Encoding', 'gzip');
 
     for (const [header, value] of Object.entries(this.headers)) {
       headers.set(header, value);

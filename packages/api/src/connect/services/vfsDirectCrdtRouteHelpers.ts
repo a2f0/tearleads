@@ -37,6 +37,11 @@ export interface VfsCrdtSyncProtoResponse {
   nextCursor?: string;
   hasMore: boolean;
   lastReconciledWriteIds: Record<string, number>;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
 }
 
 export interface VfsSyncProtoItem {
@@ -250,6 +255,10 @@ export function toProtoVfsCrdtSyncResponse(
   const nextCursor = toOptionalString(response.nextCursor);
   if (nextCursor) {
     parsed.nextCursor = nextCursor;
+  }
+
+  if (response.bloomFilter !== undefined) {
+    parsed.bloomFilter = response.bloomFilter;
   }
 
   return parsed;

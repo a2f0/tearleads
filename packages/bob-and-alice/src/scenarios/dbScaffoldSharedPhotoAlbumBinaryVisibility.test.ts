@@ -361,8 +361,8 @@ describe('DB scaffolding shared photo album binary visibility', () => {
 
     const logoBytes = new TextEncoder().encode(SCAFFOLD_SHARED_LOGO_SVG);
     const logoBase64 = Buffer.from(logoBytes).toString('base64');
-    const blobId = 'shared-logo-blob';
-    const stagingId = 'shared-logo-stage';
+    const blobId = 'aaaaaaaa-1111-4222-8333-bbbbbbbbbbbb';
+    const stagingId = 'cccccccc-1111-4222-8333-dddddddddddd';
     const uploadId = 'shared-logo-upload';
     await postVfsConnectJson(bob, harness, 'StageBlob', {
       stagingId,
@@ -399,7 +399,7 @@ describe('DB scaffolding shared photo album binary visibility', () => {
       relationKind: 'photo'
     });
 
-    const stored = s3Objects.get('blob-bucket/scaffold/shared-logo-blob');
+    const stored = s3Objects.get(`blob-bucket/scaffold/${blobId}`);
     expect(stored).toBeDefined();
     if (!stored) {
       throw new Error('Expected mocked S3 object to exist after commit');

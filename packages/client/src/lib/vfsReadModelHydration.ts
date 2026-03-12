@@ -52,7 +52,7 @@ interface PaginatedFeedPage<TItem> {
 
 const FEED_PAGE_SIZE = 500;
 const MAX_FEED_PAGES = 100;
-const VFS_ROOT_ID = '__vfs_root__';
+const VFS_ROOT_ID = '00000000-0000-0000-0000-000000000000';
 const HYDRATION_SAVEPOINT = 'sp_vfs_read_model_hydration';
 
 let hydrationInFlight: Promise<void> | null = null;

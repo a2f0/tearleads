@@ -36,7 +36,7 @@ export async function registerDirect(
     const pool = await getPostgresPool();
 
     const existing = await pool.query(
-      'SELECT 1 FROM vfs_registry WHERE id = $1',
+      'SELECT 1 FROM vfs_registry WHERE id = $1::uuid',
       [payload.id]
     );
     if (existing.rows.length > 0) {
@@ -55,7 +55,7 @@ export async function registerDirect(
         encrypted_session_key,
         encrypted_name,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      ) VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6, NOW())
       RETURNING created_at`,
       [
         payload.id,
@@ -123,9 +123,10 @@ export async function rekeyItemDirect(
       const itemResult = await client.query<{
         id: string;
         owner_id: string | null;
-      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1 FOR UPDATE', [
-        itemId
-      ]);
+      }>(
+        'SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid FOR UPDATE',
+        [itemId]
+      );
       const item = itemResult.rows[0];
 
       if (!item) {
@@ -174,8 +175,8 @@ export async function rekeyItemDirect(
              key_epoch = input_rows.key_epoch,
              updated_at = NOW()
          FROM input_rows
-         WHERE acl.item_id = $5
-           AND acl.principal_id = input_rows.recipient_user_id
+         WHERE acl.item_id = $5::uuid
+           AND acl.principal_id = input_rows.recipient_user_id::uuid
            AND acl.principal_type = ANY($6::text[])
            AND acl.revoked_at IS NULL
          RETURNING acl.id`,

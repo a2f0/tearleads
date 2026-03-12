@@ -96,6 +96,27 @@ describe('adminDirectOrganizations coverage branches', () => {
     expect(call?.[1]).toEqual([['org-1']]);
   });
 
+  it('preserves non-null organization descriptions in list responses', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'org-1',
+          name: 'Org One',
+          description: 'Primary org',
+          created_at: new Date('2026-03-03T01:00:00.000Z'),
+          updated_at: new Date('2026-03-03T01:05:00.000Z')
+        }
+      ]
+    });
+
+    const response = await listOrganizationsDirect(
+      { organizationId: 'org-1' },
+      { requestHeader: new Headers() }
+    );
+
+    expect(response.organizations[0]?.description).toBe('Primary org');
+  });
+
   it('maps listOrganizations query errors to internal', async () => {
     queryMock.mockRejectedValueOnce(new Error('read failed'));
 

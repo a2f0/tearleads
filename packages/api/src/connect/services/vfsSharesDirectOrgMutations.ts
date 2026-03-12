@@ -16,7 +16,6 @@ import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
 import {
   buildOrgShareAclId,
   extractOrgShareIdFromAclId,
-  extractSourceOrgIdFromOrgShareAclId,
   mapAclAccessLevelToSharePermissionLevel,
   mapSharePermissionLevelToAclAccessLevel,
   parseCreateOrgSharePayload,
@@ -69,7 +68,9 @@ export async function createOrgShareDirect(
     const itemResult = await pool.query<{
       id: string;
       owner_id: string | null;
-    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [payload.itemId]);
+    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid', [
+      payload.itemId
+    ]);
     if (!itemResult.rows[0]) {
       throw new ConnectError('Item not found', Code.NotFound);
     }
@@ -82,11 +83,11 @@ export async function createOrgShareDirect(
 
     const sourceOrgResult = await pool.query<{ name: string }>(
       `SELECT o.name
-         FROM organizations o
-         INNER JOIN user_organizations uo
-           ON uo.organization_id = o.id
-        WHERE o.id = $1
-          AND uo.user_id = $2
+        FROM organizations o
+        INNER JOIN user_organizations uo
+          ON uo.organization_id = o.id
+        WHERE o.id = $1::uuid
+          AND uo.user_id = $2::uuid
         LIMIT 1`,
       [payload.sourceOrgId, claims.sub]
     );
@@ -96,7 +97,7 @@ export async function createOrgShareDirect(
     const sourceOrgName = sourceOrgResult.rows[0].name;
 
     const targetOrgResult = await pool.query<{ name: string }>(
-      'SELECT name FROM organizations WHERE id = $1',
+      'SELECT name FROM organizations WHERE id = $1::uuid',
       [payload.targetOrgId]
     );
     if (!targetOrgResult.rows[0]) {
@@ -190,7 +191,7 @@ export async function createOrgShareDirect(
 
     const orgShare: VfsOrgShare = {
       id: extractOrgShareIdFromAclId(row.acl_id),
-      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
+      sourceOrgId: payload.sourceOrgId,
       sourceOrgName,
       targetOrgId: row.target_org_id,
       targetOrgName,

@@ -198,7 +198,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
       lastReconciledWriteIds: {
         desktop: 2,
         mobile: 5
-      }
+      },
+      bloomFilter: null
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -392,7 +393,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
           changedAt: '2026-02-14T20:10:07.000Z',
           changeId: 'desktop-7'
         },
-        lastReconciledWriteIds: { desktop: 7 }
+        lastReconciledWriteIds: { desktop: 7 },
+        bloomFilter: null
       },
       reconcile: {
         cursor: {

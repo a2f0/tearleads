@@ -30,7 +30,8 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
       items: [],
       nextCursor: null,
       hasMore: false,
-      lastReconciledWriteIds: {}
+      lastReconciledWriteIds: {},
+      bloomFilter: null
     });
   });
 

@@ -340,7 +340,7 @@ describe('instance switch shared-note sync regression', () => {
           occurredAt
         ]
       );
-      const expectedOpId = `crdt:item_upsert:${randomUUID()}`;
+      const expectedOpId = randomUUID();
 
       await ctx.pool.query(
         `INSERT INTO vfs_crdt_ops (
@@ -382,7 +382,7 @@ describe('instance switch shared-note sync regression', () => {
           expectedOpId,
           seededShare.noteId,
           alice.userId,
-          `vfs_item_state:${seededShare.noteId}`,
+          seededShare.noteId,
           occurredAt,
           updatedPayload,
           toBase64(`nonce-${randomUUID()}`),

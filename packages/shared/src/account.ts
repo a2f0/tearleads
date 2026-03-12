@@ -3,7 +3,7 @@ type CreateAccountInput = {
   password: string;
 };
 
-const PERSONAL_ORGANIZATION_ID_PREFIX = 'personal-org-';
+const PERSONAL_ORGANIZATION_ID_PREFIX = '';
 
 export function normalizeEmail(value: string): string {
   const normalized = value.trim().toLowerCase();

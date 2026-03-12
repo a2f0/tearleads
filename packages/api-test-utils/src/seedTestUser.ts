@@ -26,7 +26,7 @@ export async function seedTestUser(
   const admin = options?.admin ?? false;
   const sessionId = randomUUID();
   const refreshTokenId = randomUUID();
-  const orgId = `personal-org-${userId}`;
+  const orgId = userId;
 
   // Create the user's personal organization
   await ctx.pool.query(

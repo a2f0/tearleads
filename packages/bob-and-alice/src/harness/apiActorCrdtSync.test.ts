@@ -33,6 +33,7 @@ describe('createApiActorCrdtTransport', () => {
         expect(init?.body).toBe(
           JSON.stringify({
             limit: 25,
+            version: 2,
             cursor: encodeVfsSyncCursor(requestCursor)
           })
         );
@@ -71,6 +72,7 @@ describe('createApiActorCrdtTransport', () => {
     ).resolves.toEqual({
       items: [],
       hasMore: false,
+      bloomFilter: null,
       nextCursor,
       lastReconciledWriteIds: {
         desktop: 3

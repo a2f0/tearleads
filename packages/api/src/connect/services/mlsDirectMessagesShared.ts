@@ -121,10 +121,10 @@ export async function persistMlsMessageToVfs(
       organization_id,
       created_at
     ) VALUES (
-      $1::text,
+      $1::uuid,
       'mlsMessage',
       NULL,
-      $2::text,
+      $2::uuid,
       $3::timestamptz
     )
     ON CONFLICT (id) DO NOTHING
@@ -141,7 +141,7 @@ export async function persistMlsMessageToVfs(
       updated_at,
       deleted_at
     ) VALUES (
-      $1::text,
+      $1::uuid,
       $2::text,
       $3::integer,
       $4::timestamptz,
@@ -173,17 +173,17 @@ export async function persistMlsMessageToVfs(
     )
     SELECT
       vfs_make_event_id('acl'),
-      $1::text,
+      $1::uuid,
       'user',
       member.user_id,
       'read',
-      $2::text,
+      $2::uuid,
       $3::timestamptz,
       $3::timestamptz,
       NULL,
       NULL
     FROM mls_group_members member
-    WHERE member.group_id = $4::text
+    WHERE member.group_id = $4::uuid
       AND member.removed_at IS NULL
     ON CONFLICT (item_id, principal_type, principal_id) DO UPDATE
     SET
@@ -211,9 +211,9 @@ export async function persistMlsMessageToVfs(
       key_epoch
     ) VALUES (
       vfs_make_event_id('crdt'),
-      $1::text,
+      $1::uuid,
       'item_upsert',
-      $2::text,
+      $2::uuid,
       $8::text,
       $3::text,
       $4::timestamptz,

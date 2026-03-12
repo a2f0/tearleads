@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   buildPersonalOrganizationId,
   buildPersonalOrganizationName
@@ -12,6 +11,14 @@ import { hashPassword } from './passwords.js';
 import type { VfsKeySetupRequest } from './vfsTypes.js';
 
 const REVENUECAT_APP_USER_PREFIX = 'org:';
+
+function createUuid(): string {
+  const randomUuid = globalThis.crypto?.randomUUID;
+  if (typeof randomUuid !== 'function') {
+    throw new Error('crypto.randomUUID is unavailable in this runtime');
+  }
+  return randomUuid.call(globalThis.crypto);
+}
 
 function buildRevenueCatAppUserId(organizationId: string): string {
   return `${REVENUECAT_APP_USER_PREFIX}${organizationId}`;
@@ -73,7 +80,7 @@ export async function seedHarnessAccount(
     throw new Error(`Account already exists for ${input.email}.`);
   }
 
-  const userId = randomUUID();
+  const userId = createUuid();
   const personalOrganizationId = buildPersonalOrganizationId(userId);
   const personalOrganizationName = buildPersonalOrganizationName(userId);
   const revenueCatAppUserId = buildRevenueCatAppUserId(personalOrganizationId);
@@ -82,20 +89,6 @@ export async function seedHarnessAccount(
   const vfsKeySetup = includeVfsOnboardingKeys
     ? await buildVfsKeySetupFromPassword(input.password)
     : null;
-
-  await client.query(
-    `INSERT INTO users (
-       id,
-       email,
-       email_confirmed,
-       admin,
-       personal_organization_id,
-       created_at,
-       updated_at
-     )
-     VALUES ($1, $2, $3, $4, $5, $6, $6)`,
-    [userId, input.email, emailConfirmed, admin, personalOrganizationId, now]
-  );
 
   await client.query(
     `INSERT INTO organizations (
@@ -113,6 +106,20 @@ export async function seedHarnessAccount(
       `Personal organization for ${input.email}`,
       now
     ]
+  );
+
+  await client.query(
+    `INSERT INTO users (
+       id,
+       email,
+       email_confirmed,
+       admin,
+       personal_organization_id,
+       created_at,
+       updated_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+    [userId, input.email, emailConfirmed, admin, personalOrganizationId, now]
   );
 
   await client.query(

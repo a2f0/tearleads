@@ -39,7 +39,16 @@ import {
 } from './vfsDirectCrdtRouteHelpers.js';
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
 
-type GetSyncRequest = { cursor: string; limit: number; rootId: string };
+type GetSyncRequest = {
+  cursor: string;
+  limit: number;
+  rootId: string;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+};
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };
 
@@ -89,20 +98,20 @@ async function loadOldestAccessibleCursor(
   const result = await pool.query<CursorBoundaryRow>(
     `
     WITH principals AS (
-      SELECT 'user'::text AS principal_type, $1::text AS principal_id
+      SELECT 'user'::text AS principal_type, $1::uuid AS principal_id
       UNION ALL
       SELECT 'group'::text AS principal_type, ug.group_id AS principal_id
       FROM user_groups ug
-      WHERE ug.user_id = $1
+      WHERE ug.user_id = $1::uuid
       UNION ALL
       SELECT 'organization'::text AS principal_type, uo.organization_id AS principal_id
       FROM user_organizations uo
-      WHERE uo.user_id = $1
+      WHERE uo.user_id = $1::uuid
     ),
     owner_items AS (
       SELECT registry.id AS item_id
       FROM vfs_registry registry
-      WHERE registry.owner_id = $1
+      WHERE registry.owner_id = $1::uuid
     ),
     acl_items AS (
       SELECT
@@ -125,13 +134,8 @@ async function loadOldestAccessibleCursor(
     INNER JOIN eligible_items access ON access.item_id = ops.item_id
     WHERE (
         $2::text IS NULL
-        OR ops.item_id = $2::text
-        OR EXISTS (
-          SELECT 1
-          FROM vfs_links link
-          WHERE link.parent_id = $2::text
-            AND link.child_id = ops.item_id
-        )
+        OR ops.item_id = $2::uuid
+        OR ops.root_id = $2::uuid
       )
     ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC
     LIMIT 1
@@ -195,6 +199,15 @@ function normalizeRequiredClientId(value: unknown): string | null {
   return trimmed;
 }
 
+function isValidUuid(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/u.test(
+    value
+  );
+}
+
 export async function getSyncDirect(
   request: GetSyncRequest,
   context: { requestHeader: Headers }
@@ -204,9 +217,17 @@ export async function getSyncDirect(
     context.requestHeader
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const parsedQuery = parseVfsSyncQuery(normalizeSyncQueryRequest(request));
   if (!parsedQuery.ok) {
     throw new ConnectError(parsedQuery.error, Code.InvalidArgument);
+  }
+
+  if (parsedQuery.value.rootId && !isValidUuid(parsedQuery.value.rootId)) {
+    throw new ConnectError('Invalid rootId', Code.InvalidArgument);
   }
 
   try {
@@ -244,9 +265,17 @@ export async function getCrdtSyncDirect(
     context.requestHeader
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const parsedQuery = parseVfsCrdtSyncQuery(normalizeSyncQueryRequest(request));
   if (!parsedQuery.ok) {
     throw new ConnectError(parsedQuery.error, Code.InvalidArgument);
+  }
+
+  if (parsedQuery.value.rootId && !isValidUuid(parsedQuery.value.rootId)) {
+    throw new ConnectError('Invalid rootId', Code.InvalidArgument);
   }
 
   try {
@@ -296,12 +325,23 @@ export async function getCrdtSyncDirect(
     });
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
     const replicaWriteIdsRows = await loadReplicaWriteIdRows(pool, claims.sub);
-
-    const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(
+    const lastReconciledWriteIds =
+      toLastReconciledWriteIds(replicaWriteIdsRows);
+    const mappedRows = mapVfsCrdtSyncRows(
       result.rows,
       parsedQuery.value.limit,
-      toLastReconciledWriteIds(replicaWriteIdsRows)
+      lastReconciledWriteIds
     );
+
+    const response: VfsCrdtSyncResponse = {
+      items: mappedRows.items,
+      hasMore: mappedRows.hasMore,
+      nextCursor: mappedRows.nextCursor,
+      lastReconciledWriteIds
+    };
+    if (request.bloomFilter !== undefined) {
+      response.bloomFilter = request.bloomFilter;
+    }
 
     return toProtoVfsCrdtSyncResponse(response);
   } catch (error) {
@@ -322,6 +362,10 @@ export async function getCrdtSnapshotDirect(
     buildVfsV2ConnectMethodPath('GetCrdtSnapshot'),
     context.requestHeader
   );
+
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
 
   const clientId = normalizeRequiredClientId(request.clientId);
   if (!clientId) {
@@ -363,6 +407,10 @@ export async function reconcileSyncDirect(
     { requireDeclaredOrganization: true }
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const parsedPayload = parseVfsSyncReconcilePayload({
     clientId: request.clientId,
     cursor: request.cursor
@@ -388,7 +436,7 @@ export async function reconcileSyncDirect(
         last_reconciled_at,
         last_reconciled_change_id,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4::uuid, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE

@@ -79,7 +79,7 @@ interface NoteRowState {
   deleted: boolean;
 }
 
-const VFS_ROOT_ID = '__vfs_root__';
+const VFS_ROOT_ID = '00000000-0000-0000-0000-000000000000';
 function chunkArray<T>(values: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size) {

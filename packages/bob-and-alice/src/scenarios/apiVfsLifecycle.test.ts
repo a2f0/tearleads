@@ -26,9 +26,10 @@ describe('API VFS lifecycle', () => {
 
     const alice = harness.actor('alice');
     const bob = harness.actor('bob');
+    const noteItemId = '11111111-2222-4333-8444-555555555555';
 
     // Put Alice and Bob in a shared organization for share operations
-    const sharedOrgId = 'shared-org-vfs-lifecycle';
+    const sharedOrgId = '11111111-1111-4111-8111-111111111111';
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Shared Org', NOW(), NOW())`,
@@ -66,12 +67,12 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: 'note-1',
+        id: noteItemId,
         objectType: 'file',
         encryptedSessionKey: 'encrypted-session-key'
       })
     });
-    expect(registerBody.id).toBe('note-1');
+    expect(registerBody.id).toBe(noteItemId);
     expect(registerBody).toHaveProperty('createdAt');
 
     // Alice lists shares for the item (should be empty initially)
@@ -81,7 +82,7 @@ describe('API VFS lifecycle', () => {
     }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId: 'note-1' })
+      body: JSON.stringify({ itemId: noteItemId })
     });
     expect(sharesEmpty.shares ?? []).toHaveLength(0);
     expect(sharesEmpty.orgShares ?? []).toHaveLength(0);
@@ -98,7 +99,7 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemId: 'note-1',
+        itemId: noteItemId,
         shareType: 'user',
         targetId: bob.user.userId,
         permissionLevel: 'view',
@@ -112,7 +113,7 @@ describe('API VFS lifecycle', () => {
       })
     });
     const shareBody = shareResponse.share;
-    expect(shareBody.itemId).toBe('note-1');
+    expect(shareBody.itemId).toBe(noteItemId);
     expect(shareBody.targetId).toBe(bob.user.userId);
     expect(shareBody.permissionLevel).toBe('view');
 
@@ -122,7 +123,7 @@ describe('API VFS lifecycle', () => {
     }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId: 'note-1' })
+      body: JSON.stringify({ itemId: noteItemId })
     });
     expect(sharesAfter.shares).toHaveLength(1);
     expect(sharesAfter.shares[0]?.targetId).toBe(bob.user.userId);
@@ -150,7 +151,7 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemId: 'note-1',
+        itemId: noteItemId,
         reason: 'manual',
         newEpoch: 2,
         wrappedKeys: [
@@ -164,7 +165,7 @@ describe('API VFS lifecycle', () => {
         ]
       })
     });
-    expect(rekeyBody.itemId).toBe('note-1');
+    expect(rekeyBody.itemId).toBe(noteItemId);
     expect(rekeyBody.newEpoch).toBe(2);
 
     // Alice deletes the share
@@ -186,7 +187,7 @@ describe('API VFS lifecycle', () => {
     }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId: 'note-1' })
+      body: JSON.stringify({ itemId: noteItemId })
     });
     expect(sharesFinal.shares ?? []).toHaveLength(0);
   });
@@ -200,8 +201,9 @@ describe('API VFS lifecycle', () => {
     const alice = harness.actor('alice');
 
     // Create source and target organizations
-    const sourceOrgId = 'source-org-lifecycle';
-    const targetOrgId = 'target-org-lifecycle';
+    const sourceOrgId = '22222222-2222-4222-8222-222222222222';
+    const targetOrgId = '33333333-3333-4333-8333-333333333333';
+    const orgSharedItemId = '66666666-7777-4888-8999-aaaaaaaaaaaa';
     await harness.ctx.pool.query(
       `INSERT INTO organizations (id, name, created_at, updated_at)
        VALUES ($1, 'Source Org', NOW(), NOW()), ($2, 'Target Org', NOW(), NOW())`,
@@ -222,7 +224,7 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: 'org-shared-item',
+        id: orgSharedItemId,
         objectType: 'file',
         encryptedSessionKey: 'org-session-key'
       })
@@ -240,7 +242,7 @@ describe('API VFS lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemId: 'org-shared-item',
+        itemId: orgSharedItemId,
         sourceOrgId,
         targetOrgId,
         permissionLevel: 'view'
@@ -312,13 +314,13 @@ describe('API VFS lifecycle', () => {
   });
 
   it('handles blob stage/chunk/attach lifecycle transitions', async () => {
-    const hostItemId = 'blob-host-item';
+    const hostItemId = 'bbbbbbbb-1111-4222-8333-cccccccccccc';
     const hostItemSessionKey = 'host-item-session-key';
-    const stageOneId = 'blob-stage-1';
-    const blobOneId = 'blob-object-1';
+    const stageOneId = 'dddddddd-1111-4222-8333-eeeeeeeeeeee';
+    const blobOneId = 'ffffffff-1111-4222-8333-000000000001';
     const uploadOneId = 'upload-1';
-    const stageTwoId = 'blob-stage-2';
-    const blobTwoId = 'blob-object-2';
+    const stageTwoId = 'ffffffff-1111-4222-8333-000000000002';
+    const blobTwoId = 'ffffffff-1111-4222-8333-000000000003';
 
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const alice = harness.actor('alice');

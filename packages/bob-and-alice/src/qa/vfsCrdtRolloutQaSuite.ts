@@ -45,7 +45,7 @@ interface QaSuiteReport {
 
 export const CHECKS: Check[] = [
   {
-    id: 'api-crdt-core',
+    id: 'api-core',
     description:
       'CRDT push/sync/session/snapshot core behavior remains deterministic',
     command: 'pnpm',
@@ -61,7 +61,7 @@ export const CHECKS: Check[] = [
     ]
   },
   {
-    id: 'api-crdt-blob-guardrails',
+    id: 'api-blob-guardrails',
     description:
       'Blob attach visibility, chunk commit, and Redis upload-session guardrails are enforced',
     command: 'pnpm',
@@ -76,7 +76,7 @@ export const CHECKS: Check[] = [
     ]
   },
   {
-    id: 'api-crdt-rollout-flags',
+    id: 'api-rollout-flags',
     description:
       'CRDT rollout fallback/rollback controls and parity checks remain covered',
     command: 'pnpm',

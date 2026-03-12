@@ -135,6 +135,13 @@ describe('adminAccess middleware coverage', () => {
       }
     });
 
+    app.get('/org-access-allowed', (req, res) => {
+      req.adminAccess = { isRootAdmin: false, organizationIds: ['org-1'] };
+      if (ensureOrganizationAccess(req, res, 'org-1')) {
+        res.json({ allowed: true });
+      }
+    });
+
     const rootRequired = await request(app).get('/root-required');
     expect(rootRequired.status).toBe(200);
     expect(rootRequired.body).toEqual({ allowed: true });
@@ -146,6 +153,10 @@ describe('adminAccess middleware coverage', () => {
     const deniedOrgAccess = await request(app).get('/org-access-denied');
     expect(deniedOrgAccess.status).toBe(403);
     expect(deniedOrgAccess.body).toEqual({ error: 'Forbidden' });
+
+    const allowedOrgAccess = await request(app).get('/org-access-allowed');
+    expect(allowedOrgAccess.status).toBe(200);
+    expect(allowedOrgAccess.body).toEqual({ allowed: true });
   });
 
   it('parses organization id query values', async () => {

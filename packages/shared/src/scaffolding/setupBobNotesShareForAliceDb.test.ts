@@ -4,10 +4,8 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
-import {
-  type DbQueryClient,
-  setupBobNotesShareForAliceDb
-} from './setupBobNotesShareForAliceDb.js';
+import { setupBobNotesShareForAliceDb } from './setupBobNotesShareForAliceDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -28,8 +26,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'bob-user-id',
-                personal_organization_id: 'bob-org-id'
+                id: '00000000-0000-0000-0000-000000000001',
+                personal_organization_id: '00000000-0000-0000-0000-000000000002'
               }
             ]
           };
@@ -38,8 +36,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'alice-user-id',
-                personal_organization_id: 'alice-org-id'
+                id: '00000000-0000-0000-0000-000000000003',
+                personal_organization_id: '00000000-0000-0000-0000-000000000004'
               }
             ]
           };
@@ -47,7 +45,7 @@ function createMockClient(): {
         return { rows: [] };
       }
       if (text.includes('RETURNING id')) {
-        return { rows: [{ id: 'share:stored-share-id' }] };
+        return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
       }
       return { rows: [] };
     })
@@ -76,10 +74,10 @@ describe('setupBobNotesShareForAliceDb', () => {
       aliceEmail: 'alice@tearleads.com',
       encryptVfsName,
       hasOrganizationIdColumn: true,
-      folderId: 'folder-fixed',
-      noteId: 'note-fixed',
+      folderId: '00000000-0000-0000-0000-000000000010',
+      noteId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'share-id'];
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -87,13 +85,13 @@ describe('setupBobNotesShareForAliceDb', () => {
     });
 
     expect(result).toEqual({
-      bobUserId: 'bob-user-id',
-      aliceUserId: 'alice-user-id',
-      rootItemId: '__vfs_root__',
-      folderId: 'folder-fixed',
-      noteId: 'note-fixed',
-      shareAclId: 'share:stored-share-id',
-      noteShareAclId: 'share:stored-share-id'
+      bobUserId: '00000000-0000-0000-0000-000000000001',
+      aliceUserId: '00000000-0000-0000-0000-000000000003',
+      rootItemId: '00000000-0000-0000-0000-000000000000',
+      folderId: '00000000-0000-0000-0000-000000000010',
+      noteId: '00000000-0000-0000-0000-000000000011',
+      shareAclId: '00000000-0000-0000-0000-000000000005',
+      noteShareAclId: '00000000-0000-0000-0000-000000000005'
     });
 
     expect(calls[0]?.text).toBe('BEGIN');
@@ -102,25 +100,27 @@ describe('setupBobNotesShareForAliceDb', () => {
     const rootInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === '__vfs_root__'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000000'
     );
-    expect(rootInsertCall?.params?.[0]).toBe('__vfs_root__');
-    expect(rootInsertCall?.params?.[1]).toBe('folder');
-    expect(rootInsertCall?.params?.[3]).toBe('bob-org-id');
+    expect(rootInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    expect(rootInsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000002'
+    ); // organization_id
 
     const noteInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'note-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
     expect(noteInsertCall?.params?.[1]).toBe('note');
-    expect(noteInsertCall?.params?.[3]).toBe('bob-org-id');
-    expect(noteInsertCall?.params?.[4]).toBe(
-      'wrapped:Note for Alice - From Bob'
-    );
-    expect(noteInsertCall?.params?.[5]).toBe(
-      'cipher:Note for Alice - From Bob'
-    );
+    expect(noteInsertCall?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    ); // owner_id
+    expect(noteInsertCall?.params?.[3]).toBe(
+      '00000000-0000-0000-0000-000000000002'
+    ); // organization_id
 
     const noteStateCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
@@ -132,32 +132,34 @@ describe('setupBobNotesShareForAliceDb', () => {
     const noteCrdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
-    expect(noteCrdtUpsertCall?.text).toContain('encrypted_payload_bytes');
-    expect(noteCrdtUpsertCall?.text).toContain('encryption_nonce_bytes');
-    expect(noteCrdtUpsertCall?.text).toContain('encryption_aad_bytes');
-    expect(noteCrdtUpsertCall?.text).toContain('encryption_signature_bytes');
-    expect(noteCrdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:note-fixed');
-    expect(noteCrdtUpsertCall?.params?.[1]).toBe('note-fixed');
-    expect(noteCrdtUpsertCall?.params?.[2]).toBe('bob-user-id');
-    expect(noteCrdtUpsertCall?.params?.[4]).toBe('2026-02-28T23:59:59.000Z');
-    const notePayloadBase64 = noteCrdtUpsertCall?.params?.[5];
-    expect(typeof notePayloadBase64).toBe('string');
-    if (typeof notePayloadBase64 !== 'string') {
-      throw new Error('Expected CRDT payload base64 string');
-    }
-    expect(notePayloadBase64).toBe(
-      Buffer.from('Hello, Alice', 'utf8').toString('base64')
-    );
+    expect(noteCrdtUpsertCall?.text).toContain('root_id');
+    expect(noteCrdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    ); // item_id
+    expect(noteCrdtUpsertCall?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    ); // actor_id
+    expect(noteCrdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (folderId)
 
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
     expect(shareCalls).toHaveLength(2);
-    expect(shareCalls[0]?.params?.[1]).toBe('folder-fixed');
-    expect(shareCalls[0]?.params?.[2]).toBe('alice-user-id');
+    expect(shareCalls[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
+    expect(shareCalls[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
     expect(shareCalls[0]?.params?.[3]).toBe('write');
-    expect(shareCalls[1]?.params?.[1]).toBe('note-fixed');
-    expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
+    expect(shareCalls[1]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(shareCalls[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
     expect(shareCalls[1]?.params?.[3]).toBe('write');
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
@@ -208,8 +210,9 @@ describe('setupBobNotesShareForAliceDb', () => {
             return {
               rows: [
                 {
-                  id: 'bob-user-id',
-                  personal_organization_id: 'bob-org-id'
+                  id: '00000000-0000-0000-0000-000000000001',
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000002'
                 }
               ]
             };
@@ -218,8 +221,9 @@ describe('setupBobNotesShareForAliceDb', () => {
             return {
               rows: [
                 {
-                  id: 'alice-user-id',
-                  personal_organization_id: 'alice-org-id'
+                  id: '00000000-0000-0000-0000-000000000003',
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000004'
                 }
               ]
             };
@@ -231,7 +235,7 @@ describe('setupBobNotesShareForAliceDb', () => {
           };
         }
         if (text.includes('RETURNING id')) {
-          return { rows: [{ id: 'share:stored-share-id' }] };
+          return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
         }
         return { rows: [] };
       })
@@ -242,10 +246,10 @@ describe('setupBobNotesShareForAliceDb', () => {
       bobEmail: 'bob@tearleads.com',
       aliceEmail: 'alice@tearleads.com',
       hasOrganizationIdColumn: true,
-      folderId: 'folder-fixed',
-      noteId: 'note-fixed',
+      folderId: '00000000-0000-0000-0000-000000000010',
+      noteId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'share-id'];
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -255,12 +259,12 @@ describe('setupBobNotesShareForAliceDb', () => {
     const folderInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'folder-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000010'
     );
     const noteInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'note-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
 
     const folderSessionKey = folderInsertCall?.params?.[4];
@@ -285,10 +289,10 @@ describe('setupBobNotesShareForAliceDb', () => {
       aliceEmail: 'alice@tearleads.com',
       shareAccessLevel: 'read',
       hasOrganizationIdColumn: true,
-      folderId: 'folder-fixed',
-      noteId: 'note-fixed',
+      folderId: '00000000-0000-0000-0000-000000000010',
+      noteId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'share-id'];
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),

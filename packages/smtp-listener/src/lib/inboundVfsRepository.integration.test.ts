@@ -110,7 +110,7 @@ function buildRecipients(): ResolvedInboundRecipient[] {
     {
       userId: 'user-1',
       address: 'user-1@test.com',
-      organizationId: 'personal-org-user-1'
+      organizationId: 'user-1'
     }
   ];
 }
@@ -159,7 +159,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
       id: 'email-inbox:user-1',
       object_type: 'emailFolder',
       owner_id: 'user-1',
-      organization_id: 'personal-org-user-1',
+      organization_id: 'user-1',
       encrypted_name: 'Inbox'
     });
 
@@ -172,7 +172,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     expect(emailResult.rows[0]).toMatchObject({
       object_type: 'email',
       owner_id: 'user-1',
-      organization_id: 'personal-org-user-1',
+      organization_id: 'user-1',
       encrypted_session_key: 'wrapped-dek'
     });
 

@@ -58,13 +58,13 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
       if (path === buildVfsSharesV2ConnectMethodPath('CreateShare')) {
         return {
           share: {
-            id: 'share:test-share-id',
-            itemId: 'folder-fixed',
+            id: '00000000-0000-0000-0000-000000000004',
+            itemId: '00000000-0000-0000-0000-000000000005',
             shareType: 'user',
-            targetId: 'alice-user-id',
+            targetId: '00000000-0000-0000-0000-000000000002',
             targetName: 'alice@example.com',
             permissionLevel: 'view',
-            createdBy: 'bob-user-id',
+            createdBy: '00000000-0000-0000-0000-000000000001',
             createdByEmail: 'bob@example.com',
             createdAt: '2026-03-01T00:00:03.000Z',
             expiresAt: null
@@ -82,12 +82,12 @@ describe('setupBobNotesShareForAlice', () => {
     const calls: RequestCall[] = [];
     const linkCalls: LinkCall[] = [];
     const idValues = [
-      'folder-suffix',
-      'note-suffix',
-      'upsert-op',
-      'nonce-id',
-      'aad-id',
-      'sig-id'
+      '00000000-0000-0000-0000-000000000005', // folder
+      '00000000-0000-0000-0000-000000000006', // note
+      '00000000-0000-0000-0000-000000000007', // 00000000-0000-0000-0000-000000000007
+      '00000000-0000-0000-0000-000000000008', // nonce
+      '00000000-0000-0000-0000-000000000009', // aad
+      '00000000-0000-0000-0000-000000000010' // sig
     ];
     let idIndex = 0;
     const idFactory = (): string => {
@@ -102,24 +102,27 @@ describe('setupBobNotesShareForAlice', () => {
     const bob = createMockBobActor(calls);
     const result = await setupBobNotesShareForAlice({
       bob,
-      aliceUserId: 'alice-user-id',
+      aliceUserId: '00000000-0000-0000-0000-000000000002',
       createLink: async (link) => {
         linkCalls.push(link);
       },
       idFactory,
       now: () => new Date('2026-03-01T00:00:00.000Z'),
-      rootItemId: 'root'
+      rootItemId: '00000000-0000-0000-0000-000000000000'
     });
 
-    expect(result.folderId).toBe('folder-folder-suffix');
-    expect(result.noteId).toBe('note-note-suffix');
-    expect(result.share.targetId).toBe('alice-user-id');
+    expect(result.folderId).toBe('00000000-0000-0000-0000-000000000005');
+    expect(result.noteId).toBe('00000000-0000-0000-0000-000000000006');
+    expect(result.share.targetId).toBe('00000000-0000-0000-0000-000000000002');
     expect(result.crdtResults).toHaveLength(1);
     expect(linkCalls).toEqual([
-      { parentId: 'root', childId: 'folder-folder-suffix' },
       {
-        parentId: 'folder-folder-suffix',
-        childId: 'note-note-suffix'
+        parentId: '00000000-0000-0000-0000-000000000000',
+        childId: '00000000-0000-0000-0000-000000000005'
+      },
+      {
+        parentId: '00000000-0000-0000-0000-000000000005',
+        childId: '00000000-0000-0000-0000-000000000006'
       }
     ]);
 
@@ -133,17 +136,17 @@ describe('setupBobNotesShareForAlice', () => {
 
     const firstRegisterBody = JSON.parse(calls[0]?.bodyText ?? '');
     expect(firstRegisterBody).toEqual({
-      id: 'folder-folder-suffix',
+      id: '00000000-0000-0000-0000-000000000005',
       objectType: 'folder',
-      encryptedSessionKey: 'bob-folder-session-key',
+      encryptedSessionKey: 'bob-session-key',
       encryptedName: 'Notes shared with Alice'
     });
 
     const secondRegisterBody = JSON.parse(calls[1]?.bodyText ?? '');
     expect(secondRegisterBody).toEqual({
-      id: 'note-note-suffix',
+      id: '00000000-0000-0000-0000-000000000006',
       objectType: 'note',
-      encryptedSessionKey: 'bob-note-session-key',
+      encryptedSessionKey: 'bob-session-key',
       encryptedName: 'Note for Alice - From Bob'
     });
 
@@ -154,18 +157,18 @@ describe('setupBobNotesShareForAlice', () => {
     expect(pushBody['clientId']).toBe('bob-scaffolding');
     expect(pushBody['operations']).toHaveLength(1);
     expect(pushBody['operations'][0]).toMatchObject({
-      opId: 'op-upsert-op',
+      opId: '00000000-0000-0000-0000-000000000007',
       opType: 'item_upsert',
-      itemId: 'note-note-suffix',
+      itemId: '00000000-0000-0000-0000-000000000006',
       replicaId: 'bob-scaffolding',
       writeId: 1
     });
 
     const shareBody = JSON.parse(calls[3]?.bodyText ?? '');
     expect(shareBody).toEqual({
-      itemId: 'folder-folder-suffix',
+      itemId: '00000000-0000-0000-0000-000000000005',
       shareType: 'user',
-      targetId: 'alice-user-id',
+      targetId: '00000000-0000-0000-0000-000000000002',
       permissionLevel: 'view'
     });
   });

@@ -69,9 +69,9 @@ export interface SetupBobNotesShareForAliceResult {
   crdtResults: Array<{ opId: string; status: string }>;
 }
 
-const DEFAULT_ROOT_ITEM_ID = 'root';
-const DEFAULT_FOLDER_SESSION_KEY = 'bob-folder-session-key';
-const DEFAULT_NOTE_SESSION_KEY = 'bob-note-session-key';
+const DEFAULT_ROOT_ITEM_ID = '00000000-0000-0000-0000-000000000000';
+const DEFAULT_FOLDER_SESSION_KEY = 'bob-session-key';
+const DEFAULT_NOTE_SESSION_KEY = 'bob-session-key';
 const DEFAULT_FOLDER_NAME = 'Notes shared with Alice';
 const DEFAULT_NOTE_NAME = 'Note for Alice - From Bob';
 const DEFAULT_NOTE_PLAINTEXT = 'Hello, Alice';
@@ -162,8 +162,8 @@ export async function setupBobNotesShareForAlice(
 ): Promise<SetupBobNotesShareForAliceResult> {
   const idFactory = input.idFactory ?? randomUUID;
   const now = input.now ?? (() => new Date());
-  const folderId = input.folderId ?? `folder-${idFactory()}`;
-  const noteId = input.noteId ?? `note-${idFactory()}`;
+  const folderId = input.folderId ?? `${idFactory()}`;
+  const noteId = input.noteId ?? `${idFactory()}`;
   const rootItemId = input.rootItemId ?? DEFAULT_ROOT_ITEM_ID;
   const folderName = input.folderName ?? DEFAULT_FOLDER_NAME;
   const noteName = input.noteName ?? DEFAULT_NOTE_NAME;
@@ -197,7 +197,7 @@ export async function setupBobNotesShareForAlice(
 
   const operations: VfsCrdtPushOperation[] = [
     {
-      opId: `op-${idFactory()}`,
+      opId: idFactory(),
       opType: 'item_upsert',
       itemId: noteId,
       replicaId: clientId,

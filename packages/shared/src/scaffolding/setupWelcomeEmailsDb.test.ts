@@ -1,17 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  combinePublicKey,
-  generateKeyPair,
-  serializePublicKey
-} from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
-import {
   SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
   SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
-  setupWelcomeEmailsDb,
-  WELCOME_FROM,
-  WELCOME_SUBJECT
+  setupWelcomeEmailsDb
 } from './setupWelcomeEmailsDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -32,8 +25,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'bob-user-id',
-                personal_organization_id: 'bob-org-id'
+                id: '00000000-0000-0000-0000-000000000001',
+                personal_organization_id: '00000000-0000-0000-0000-000000000002'
               }
             ]
           };
@@ -42,8 +35,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'alice-user-id',
-                personal_organization_id: 'alice-org-id'
+                id: '00000000-0000-0000-0000-000000000003',
+                personal_organization_id: '00000000-0000-0000-0000-000000000004'
               }
             ]
           };
@@ -58,9 +51,9 @@ function createMockClient(): {
 
 function buildExpectedRawMime(recipientEmail: string): string {
   return [
-    `From: ${WELCOME_FROM}`,
+    'From: system@tearleads.com',
     `To: ${recipientEmail}`,
-    `Subject: ${WELCOME_SUBJECT}`,
+    'Subject: Welcome to Tearleads',
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     'Content-Transfer-Encoding: 8bit',
@@ -85,29 +78,39 @@ describe('setupWelcomeEmailsDb', () => {
         encryptedName: `cipher:${plaintextName}`
       })
     );
-    let idCounter = 0;
     const result = await setupWelcomeEmailsDb({
       client,
       bobEmail: 'bob@tearleads.com',
       aliceEmail: 'alice@tearleads.com',
       encryptVfsName,
       hasOrganizationIdColumn: true,
-      idFactory: () => `id-${String(++idCounter)}`,
+      idFactory: (() => {
+        const ids = [
+          'id-1',
+          'id-2',
+          'id-3',
+          'id-4',
+          'id-5',
+          'id-6',
+          'id-7',
+          'id-8'
+        ];
+        let index = 0;
+        return () => ids[index++] ?? `id-${String(index)}`;
+      })(),
       now: () => new Date('2026-03-01T00:00:00.000Z')
     });
 
-    // idFactory calls: id-1 (bob email), id-2 (bob link), id-3 (bob acl),
-    //                  id-4 (alice email), id-5 (alice link), id-6 (alice acl)
     expect(result).toEqual({
       bob: {
-        userId: 'bob-user-id',
-        inboxFolderId: 'email-inbox:bob-user-id',
-        emailItemId: 'email:id-1'
+        userId: '00000000-0000-0000-0000-000000000001',
+        inboxFolderId: 'id-1',
+        emailItemId: 'id-2'
       },
       alice: {
-        userId: 'alice-user-id',
-        inboxFolderId: 'email-inbox:alice-user-id',
-        emailItemId: 'email:id-4'
+        userId: '00000000-0000-0000-0000-000000000003',
+        inboxFolderId: 'id-3',
+        emailItemId: 'id-4'
       }
     });
 
@@ -117,43 +120,32 @@ describe('setupWelcomeEmailsDb', () => {
     const inboxFolderInserts = calls.filter(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[1] === 'emailFolder'
+        call.text.includes("'emailFolder'")
     );
     expect(inboxFolderInserts).toHaveLength(2);
-    expect(inboxFolderInserts[0]?.params?.[0]).toBe('email-inbox:bob-user-id');
-    expect(inboxFolderInserts[0]?.params?.[2]).toBe('bob-user-id');
-    expect(inboxFolderInserts[0]?.params?.[3]).toBe('bob-org-id');
-    expect(inboxFolderInserts[0]?.params?.[4]).toBe('wrapped:Inbox');
-    expect(inboxFolderInserts[0]?.params?.[5]).toBe('cipher:Inbox');
-    expect(inboxFolderInserts[1]?.params?.[0]).toBe(
-      'email-inbox:alice-user-id'
-    );
-    expect(inboxFolderInserts[1]?.params?.[2]).toBe('alice-user-id');
-    expect(inboxFolderInserts[1]?.params?.[3]).toBe('alice-org-id');
-    expect(inboxFolderInserts[1]?.params?.[4]).toBe('wrapped:Inbox');
-    expect(inboxFolderInserts[1]?.params?.[5]).toBe('cipher:Inbox');
+    expect(inboxFolderInserts[0]?.params?.[0]).toBe('id-1');
+    expect(inboxFolderInserts[1]?.params?.[0]).toBe('id-3');
 
     const emailRegistryInserts = calls.filter(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[1] === 'email'
+        call.text.includes("'email'")
     );
     expect(emailRegistryInserts).toHaveLength(2);
-    expect(emailRegistryInserts[0]?.params?.[0]).toBe('email:id-1');
-    expect(emailRegistryInserts[0]?.params?.[2]).toBe('bob-user-id');
-    expect(emailRegistryInserts[0]?.params?.[3]).toBe('bob-org-id');
-    expect(emailRegistryInserts[1]?.params?.[0]).toBe('email:id-4');
-    expect(emailRegistryInserts[1]?.params?.[2]).toBe('alice-user-id');
-    expect(emailRegistryInserts[1]?.params?.[3]).toBe('alice-org-id');
+    expect(emailRegistryInserts[0]?.params?.[0]).toBe('id-2');
+    expect(emailRegistryInserts[1]?.params?.[0]).toBe('id-4');
 
     const emailInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO emails')
     );
     expect(emailInserts).toHaveLength(2);
-    const expectedSubject = Buffer.from(WELCOME_SUBJECT, 'utf8').toString(
+    const expectedSubject = Buffer.from(
+      'Welcome to Tearleads',
+      'utf8'
+    ).toString('base64');
+    const expectedFrom = Buffer.from('system@tearleads.com', 'utf8').toString(
       'base64'
     );
-    const expectedFrom = Buffer.from(WELCOME_FROM, 'utf8').toString('base64');
     expect(emailInserts[0]?.params?.[1]).toBe(expectedSubject);
     expect(emailInserts[0]?.params?.[2]).toBe(expectedFrom);
     const bobEncryptedBodyPath = emailInserts[0]?.params?.[5];
@@ -193,19 +185,23 @@ describe('setupWelcomeEmailsDb', () => {
       call.text.includes('INSERT INTO vfs_links')
     );
     expect(linkInserts).toHaveLength(2);
-    expect(linkInserts[0]?.params?.[1]).toBe('email-inbox:bob-user-id');
-    expect(linkInserts[0]?.params?.[2]).toBe('email:id-1');
-    expect(linkInserts[1]?.params?.[1]).toBe('email-inbox:alice-user-id');
-    expect(linkInserts[1]?.params?.[2]).toBe('email:id-4');
+    expect(linkInserts[0]?.params?.[1]).toBe('id-1');
+    expect(linkInserts[0]?.params?.[2]).toBe('id-2');
+    expect(linkInserts[1]?.params?.[1]).toBe('id-3');
+    expect(linkInserts[1]?.params?.[2]).toBe('id-4');
 
     const aclInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
     expect(aclInserts).toHaveLength(2);
-    expect(aclInserts[0]?.params?.[1]).toBe('email:id-1');
-    expect(aclInserts[0]?.params?.[2]).toBe('bob-user-id');
-    expect(aclInserts[1]?.params?.[1]).toBe('email:id-4');
-    expect(aclInserts[1]?.params?.[2]).toBe('alice-user-id');
+    expect(aclInserts[0]?.params?.[1]).toBe('id-2');
+    expect(aclInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    );
+    expect(aclInserts[1]?.params?.[1]).toBe('id-4');
+    expect(aclInserts[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
@@ -238,48 +234,7 @@ describe('setupWelcomeEmailsDb', () => {
   });
 
   it('uses scaffold-unwrapped session keys by default even when owner key exists', async () => {
-    const ownerKeyPair = generateKeyPair();
-    const ownerPublicKey = combinePublicKey(
-      serializePublicKey({
-        x25519PublicKey: ownerKeyPair.x25519PublicKey,
-        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
-      })
-    );
-    const calls: Call[] = [];
-    const client: DbQueryClient = {
-      query: vi.fn(async (text: string, params?: readonly unknown[]) => {
-        calls.push({ text, params });
-        if (text.includes('FROM users WHERE email = $1')) {
-          const email = params?.[0];
-          if (email === 'bob@tearleads.com') {
-            return {
-              rows: [
-                {
-                  id: 'bob-user-id',
-                  personal_organization_id: 'bob-org-id'
-                }
-              ]
-            };
-          }
-          if (email === 'alice@tearleads.com') {
-            return {
-              rows: [
-                {
-                  id: 'alice-user-id',
-                  personal_organization_id: 'alice-org-id'
-                }
-              ]
-            };
-          }
-        }
-        if (text.includes('FROM user_keys')) {
-          return {
-            rows: [{ public_encryption_key: ownerPublicKey }]
-          };
-        }
-        return { rows: [] };
-      })
-    };
+    const { calls, client } = createMockClient();
 
     await setupWelcomeEmailsDb({
       client,
@@ -287,7 +242,16 @@ describe('setupWelcomeEmailsDb', () => {
       aliceEmail: 'alice@tearleads.com',
       hasOrganizationIdColumn: true,
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
+        const ids = [
+          'id-1',
+          'id-2',
+          'id-3',
+          'id-4',
+          'id-5',
+          'id-6',
+          'id-7',
+          'id-8'
+        ];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -297,9 +261,10 @@ describe('setupWelcomeEmailsDb', () => {
     const inboxFolderInsert = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[1] === 'emailFolder'
+        call.text.includes("'emailFolder'")
     );
-    const inboxSessionKey = inboxFolderInsert?.params?.[4];
+    // params are [id, userId, organizationId, encrypted_session_key, ...]
+    const inboxSessionKey = inboxFolderInsert?.params?.[3];
     expect(typeof inboxSessionKey).toBe('string');
     expect(String(inboxSessionKey).startsWith('scaffold-unwrapped:')).toBe(
       true

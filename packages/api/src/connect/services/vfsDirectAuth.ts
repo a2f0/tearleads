@@ -54,7 +54,7 @@ async function resolveRequiredOrganizationId(
   const result = await pool.query<{ personal_organization_id: string | null }>(
     `SELECT personal_organization_id
        FROM users
-      WHERE id = $1
+      WHERE id = $1::uuid
       LIMIT 1`,
     [userId]
   );

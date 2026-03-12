@@ -5,18 +5,25 @@ import type {
   VfsCrdtReconcileResponse,
   VfsCrdtSyncResponse,
   VfsCrdtSyncSessionRequest,
-  VfsCrdtSyncSessionResponse
+  VfsCrdtSyncSessionResponse,
+  VfsSyncBloomFilter
 } from '@tearleads/shared';
 import type protobuf from 'protobufjs';
 import {
   asRecord,
+  decodeBase64ToBytes,
   decodePushOperation,
   decodeSyncItem,
-  normalizeOptionalString,
+  encodeBytesToBase64,
+  normalizeOptionalBytes,
+  normalizeOptionalBytesString,
   normalizePositiveSafeInteger,
-  normalizeRequiredString,
+  normalizePushStatus,
+  normalizeRequiredBytes,
   normalizeWriteIdMap,
-  toOperationPayload
+  packUuidToBytes,
+  toOperationPayload,
+  toPushStatus
 } from './syncProtobufNormalization.js';
 import {
   PULL_RESPONSE_TYPE,
@@ -56,14 +63,45 @@ function encode(
   return type.encode(type.create(payload)).finish();
 }
 
+function toBloomFilterPayload(
+  filter: VfsSyncBloomFilter
+): Record<string, unknown> {
+  const data = decodeBase64ToBytes(filter.data);
+  if (!data) {
+    throw new Error('invalid bloom filter data (must be base64)');
+  }
+  return {
+    data,
+    capacity: filter.capacity,
+    errorRate: filter.errorRate
+  };
+}
+
+function decodeBloomFilter(value: unknown): VfsSyncBloomFilter | null {
+  if (!value) return null;
+  const filter = asRecord(value, 'bloomFilter');
+  const dataBytes = normalizeOptionalBytes(filter['data']);
+  if (!dataBytes) return null;
+
+  return {
+    data: encodeBytesToBase64(dataBytes),
+    capacity: normalizePositiveSafeInteger(
+      filter['capacity'],
+      'bloomFilter.capacity'
+    ),
+    errorRate: Number(filter['errorRate'])
+  };
+}
+
 export function encodeVfsCrdtPushRequestProtobuf(
   request: VfsCrdtPushRequest
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
-    clientId: request.clientId,
+    clientId: packUuidToBytes(request.clientId),
     operations: request.operations.map((operation) =>
       toOperationPayload(operation)
-    )
+    ),
+    version: 2
   });
 }
 export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
@@ -72,18 +110,19 @@ export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
     ? payload['operations'].map((operation) => decodePushOperation(operation))
     : [];
   return {
-    clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
-    operations
+    clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
+    operations,
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtPushResponseProtobuf(
   response: VfsCrdtPushResponse
 ): Uint8Array {
   return encode(PUSH_RESPONSE_TYPE, {
-    clientId: response.clientId,
+    clientId: packUuidToBytes(response.clientId),
     results: response.results.map((result) => ({
-      opId: result.opId,
-      status: result.status
+      opId: packUuidToBytes(result.opId),
+      status: toPushStatus(result.status)
     }))
   });
 }
@@ -93,12 +132,12 @@ export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
     ? payload['results']
     : [];
   return {
-    clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
+    clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
     results: rawResults.map((entry) => {
       const result = asRecord(entry, 'results[]');
       return {
-        opId: normalizeRequiredString(result['opId'], 'results[].opId'),
-        status: normalizeRequiredString(result['status'], 'results[].status')
+        opId: normalizeRequiredBytes(result['opId'], 'results[].opId'),
+        status: normalizePushStatus(result['status'])
       };
     })
   };
@@ -106,17 +145,23 @@ export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
 export function encodeVfsCrdtSyncResponseProtobuf(
   response: VfsCrdtSyncResponse
 ): Uint8Array {
-  return encode(PULL_RESPONSE_TYPE, {
+  const payload: Record<string, unknown> = {
     items: response.items.map((item) => toOperationPayload(item)),
     hasMore: response.hasMore,
-    nextCursor: response.nextCursor ?? '',
-    lastReconciledWriteIds: response.lastReconciledWriteIds
-  });
+    nextCursor: response.nextCursor ? packUuidToBytes(response.nextCursor) : [],
+    lastReconciledWriteIds: response.lastReconciledWriteIds,
+    version: 2
+  };
+  if (response.bloomFilter) {
+    payload['bloomFilter'] = toBloomFilterPayload(response.bloomFilter);
+  }
+  return encode(PULL_RESPONSE_TYPE, payload);
 }
 export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
   const payload = toObject(PULL_RESPONSE_TYPE, bytes);
   const rawItems = Array.isArray(payload['items']) ? payload['items'] : [];
-  const nextCursor = normalizeOptionalString(payload['nextCursor']) ?? null;
+  const nextCursor =
+    normalizeOptionalBytesString(payload['nextCursor']) ?? null;
   const hasMore = payload['hasMore'] === true;
   return {
     items: rawItems.map((entry) => decodeSyncItem(entry)),
@@ -124,16 +169,19 @@ export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
     nextCursor: nextCursor && nextCursor.length > 0 ? nextCursor : null,
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
-    )
+    ),
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version'),
+    bloomFilter: decodeBloomFilter(payload['bloomFilter'])
   };
 }
 export function encodeVfsCrdtReconcileRequestProtobuf(
   request: VfsCrdtReconcileRequest
 ): Uint8Array {
   return encode(RECONCILE_REQUEST_TYPE, {
-    clientId: request.clientId,
-    cursor: request.cursor,
-    lastReconciledWriteIds: request.lastReconciledWriteIds ?? {}
+    clientId: packUuidToBytes(request.clientId),
+    cursor: packUuidToBytes(request.cursor),
+    lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
+    version: 2
   });
 }
 export function decodeVfsCrdtReconcileRequestProtobuf(
@@ -141,19 +189,20 @@ export function decodeVfsCrdtReconcileRequestProtobuf(
 ): unknown {
   const payload = toObject(RECONCILE_REQUEST_TYPE, bytes);
   return {
-    clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
-    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
+    clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
+    cursor: normalizeRequiredBytes(payload['cursor'], 'cursor'),
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
-    )
+    ),
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtReconcileResponseProtobuf(
   response: VfsCrdtReconcileResponse
 ): Uint8Array {
   return encode(RECONCILE_RESPONSE_TYPE, {
-    clientId: response.clientId,
-    cursor: response.cursor,
+    clientId: packUuidToBytes(response.clientId),
+    cursor: packUuidToBytes(response.cursor),
     lastReconciledWriteIds: response.lastReconciledWriteIds
   });
 }
@@ -162,8 +211,8 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
 ): unknown {
   const payload = toObject(RECONCILE_RESPONSE_TYPE, bytes);
   return {
-    clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
-    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
+    clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
+    cursor: normalizeRequiredBytes(payload['cursor'], 'cursor'),
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
     )
@@ -172,24 +221,29 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
 export function encodeVfsCrdtSyncSessionRequestProtobuf(
   request: VfsCrdtSyncSessionRequest
 ): Uint8Array {
-  return encode(SYNC_SESSION_REQUEST_TYPE, {
-    clientId: request.clientId,
-    cursor: request.cursor,
+  const payload: Record<string, unknown> = {
+    clientId: packUuidToBytes(request.clientId),
+    cursor: packUuidToBytes(request.cursor),
     limit: request.limit,
     operations: request.operations.map((operation) =>
       toOperationPayload(operation)
     ),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
-    rootId: request.rootId ?? ''
-  });
+    rootId: request.rootId ? packUuidToBytes(request.rootId) : [],
+    version: 2
+  };
+  if (request.bloomFilter) {
+    payload['bloomFilter'] = toBloomFilterPayload(request.bloomFilter);
+  }
+  return encode(SYNC_SESSION_REQUEST_TYPE, payload);
 }
 export function decodeVfsCrdtSyncSessionRequestProtobuf(
   bytes: Uint8Array
 ): unknown {
   const payload = toObject(SYNC_SESSION_REQUEST_TYPE, bytes);
   return {
-    clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
-    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
+    clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
+    cursor: normalizeRequiredBytes(payload['cursor'], 'cursor'),
     limit: normalizePositiveSafeInteger(payload['limit'], 'limit'),
     operations: Array.isArray(payload['operations'])
       ? payload['operations'].map((operation) => decodePushOperation(operation))
@@ -197,7 +251,9 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
     ),
-    rootId: normalizeOptionalString(payload['rootId']) ?? null
+    rootId: normalizeOptionalBytesString(payload['rootId']) ?? null,
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version'),
+    bloomFilter: decodeBloomFilter(payload['bloomFilter'])
   };
 }
 export function encodeVfsCrdtSyncSessionResponseProtobuf(
@@ -205,21 +261,27 @@ export function encodeVfsCrdtSyncSessionResponseProtobuf(
 ): Uint8Array {
   return encode(SYNC_SESSION_RESPONSE_TYPE, {
     push: {
-      clientId: response.push.clientId,
+      clientId: packUuidToBytes(response.push.clientId),
       results: response.push.results.map((result) => ({
-        opId: result.opId,
-        status: result.status
+        opId: packUuidToBytes(result.opId),
+        status: toPushStatus(result.status)
       }))
     },
     pull: {
       items: response.pull.items.map((item) => toOperationPayload(item)),
       hasMore: response.pull.hasMore,
-      nextCursor: response.pull.nextCursor ?? '',
-      lastReconciledWriteIds: response.pull.lastReconciledWriteIds
+      nextCursor: response.pull.nextCursor
+        ? packUuidToBytes(response.pull.nextCursor)
+        : [],
+      lastReconciledWriteIds: response.pull.lastReconciledWriteIds,
+      version: 2,
+      bloomFilter: response.pull.bloomFilter
+        ? toBloomFilterPayload(response.pull.bloomFilter)
+        : undefined
     },
     reconcile: {
-      clientId: response.reconcile.clientId,
-      cursor: response.reconcile.cursor,
+      clientId: packUuidToBytes(response.reconcile.clientId),
+      cursor: packUuidToBytes(response.reconcile.cursor),
       lastReconciledWriteIds: response.reconcile.lastReconciledWriteIds
     }
   });
@@ -233,18 +295,16 @@ export function decodeVfsCrdtSyncSessionResponseProtobuf(
   const reconcile = asRecord(payload['reconcile'], 'reconcile');
   const pushResults = Array.isArray(push['results']) ? push['results'] : [];
   const pullItems = Array.isArray(pull['items']) ? pull['items'] : [];
-  const pullNextCursor = normalizeOptionalString(pull['nextCursor']) ?? null;
+  const pullNextCursor =
+    normalizeOptionalBytesString(pull['nextCursor']) ?? null;
   return {
     push: {
-      clientId: normalizeRequiredString(push['clientId'], 'push.clientId'),
+      clientId: normalizeRequiredBytes(push['clientId'], 'push.clientId'),
       results: pushResults.map((entry) => {
         const result = asRecord(entry, 'push.results[]');
         return {
-          opId: normalizeRequiredString(result['opId'], 'push.results[].opId'),
-          status: normalizeRequiredString(
-            result['status'],
-            'push.results[].status'
-          )
+          opId: normalizeRequiredBytes(result['opId'], 'push.results[].opId'),
+          status: normalizePushStatus(result['status'])
         };
       })
     },
@@ -255,14 +315,19 @@ export function decodeVfsCrdtSyncSessionResponseProtobuf(
         pullNextCursor && pullNextCursor.length > 0 ? pullNextCursor : null,
       lastReconciledWriteIds: normalizeWriteIdMap(
         pull['lastReconciledWriteIds']
-      )
+      ),
+      version: normalizePositiveSafeInteger(
+        pull['version'] ?? 1,
+        'pull.version'
+      ),
+      bloomFilter: decodeBloomFilter(pull['bloomFilter'])
     },
     reconcile: {
-      clientId: normalizeRequiredString(
+      clientId: normalizeRequiredBytes(
         reconcile['clientId'],
         'reconcile.clientId'
       ),
-      cursor: normalizeRequiredString(reconcile['cursor'], 'reconcile.cursor'),
+      cursor: normalizeRequiredBytes(reconcile['cursor'], 'reconcile.cursor'),
       lastReconciledWriteIds: normalizeWriteIdMap(
         reconcile['lastReconciledWriteIds']
       )

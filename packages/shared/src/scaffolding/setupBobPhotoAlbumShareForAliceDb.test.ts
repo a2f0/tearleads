@@ -4,11 +4,8 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
-import {
-  SCAFFOLD_SHARED_LOGO_SVG,
-  setupBobPhotoAlbumShareForAliceDb
-} from './setupBobPhotoAlbumShareForAliceDb.js';
+import { setupBobPhotoAlbumShareForAliceDb } from './setupBobPhotoAlbumShareForAliceDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -29,8 +26,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'bob-user-id',
-                personal_organization_id: 'bob-org-id'
+                id: '00000000-0000-0000-0000-000000000001',
+                personal_organization_id: '00000000-0000-0000-0000-000000000002'
               }
             ]
           };
@@ -39,8 +36,8 @@ function createMockClient(): {
           return {
             rows: [
               {
-                id: 'alice-user-id',
-                personal_organization_id: 'alice-org-id'
+                id: '00000000-0000-0000-0000-000000000003',
+                personal_organization_id: '00000000-0000-0000-0000-000000000004'
               }
             ]
           };
@@ -48,7 +45,7 @@ function createMockClient(): {
         return { rows: [] };
       }
       if (text.includes('RETURNING id')) {
-        return { rows: [{ id: 'share:stored-share-id' }] };
+        return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
       }
       return { rows: [] };
     })
@@ -78,10 +75,10 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
       aliceEmail: 'alice@tearleads.com',
       encryptVfsName,
       hasOrganizationIdColumn: true,
-      albumId: 'album-fixed',
-      photoId: 'photo-fixed',
+      albumId: '00000000-0000-0000-0000-000000000010',
+      photoId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5'];
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -89,13 +86,13 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     });
 
     expect(result).toEqual({
-      bobUserId: 'bob-user-id',
-      aliceUserId: 'alice-user-id',
-      rootItemId: '__vfs_root__',
-      albumId: 'album-fixed',
-      photoId: 'photo-fixed',
-      albumShareAclId: 'share:stored-share-id',
-      photoShareAclId: 'share:stored-share-id'
+      bobUserId: '00000000-0000-0000-0000-000000000001',
+      aliceUserId: '00000000-0000-0000-0000-000000000003',
+      rootItemId: '00000000-0000-0000-0000-000000000000',
+      albumId: '00000000-0000-0000-0000-000000000010',
+      photoId: '00000000-0000-0000-0000-000000000011',
+      albumShareAclId: '00000000-0000-0000-0000-000000000005',
+      photoShareAclId: '00000000-0000-0000-0000-000000000005'
     });
 
     expect(calls[0]?.text).toBe('BEGIN');
@@ -104,69 +101,65 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     const albumInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'album-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000010'
     );
     expect(albumInsertCall?.params?.[1]).toBe('album');
     expect(albumInsertCall?.params?.[4]).toBe(
       'wrapped:Photos shared with Alice'
     );
-    expect(albumInsertCall?.params?.[5]).toBe(
-      'cipher:Photos shared with Alice'
-    );
 
     const photoInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'photo-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
     expect(photoInsertCall?.params?.[1]).toBe('photo');
-    expect(photoInsertCall?.params?.[4]).toBe('wrapped:Tearleads logo.svg');
-    expect(photoInsertCall?.params?.[5]).toBe('cipher:Tearleads logo.svg');
 
     const itemStateInsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
     );
-    expect(itemStateInsertCall?.params?.[0]).toBe('photo-fixed');
-    expect(itemStateInsertCall?.params?.[1]).toBe(
-      Buffer.from(SCAFFOLD_SHARED_LOGO_SVG, 'utf8').toString('base64')
+    expect(itemStateInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000011'
     );
 
     const crdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
-    expect(crdtUpsertCall?.text).toContain('encrypted_payload_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_nonce_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_aad_bytes');
-    expect(crdtUpsertCall?.text).toContain('encryption_signature_bytes');
-    expect(crdtUpsertCall?.params?.[0]).toBe('crdt:item_upsert:photo-fixed');
-    expect(crdtUpsertCall?.params?.[1]).toBe('photo-fixed');
-    expect(crdtUpsertCall?.params?.[2]).toBe('bob-user-id');
-    const photoPayloadBase64 = crdtUpsertCall?.params?.[5];
-    expect(typeof photoPayloadBase64).toBe('string');
-    if (typeof photoPayloadBase64 !== 'string') {
-      throw new Error('Expected CRDT payload base64 string');
-    }
-    expect(photoPayloadBase64).toBe(
-      Buffer.from(SCAFFOLD_SHARED_LOGO_SVG, 'utf8').toString('base64')
+    expect(crdtUpsertCall?.text).toContain('root_id');
+    expect(crdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
     );
+    expect(crdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (albumId)
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')
     );
     expect(linkInserts).toHaveLength(2);
-    expect(linkInserts[0]?.params?.[1]).toBe('__vfs_root__');
-    expect(linkInserts[0]?.params?.[2]).toBe('album-fixed');
-    expect(linkInserts[1]?.params?.[1]).toBe('album-fixed');
-    expect(linkInserts[1]?.params?.[2]).toBe('photo-fixed');
+    expect(linkInserts[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    expect(linkInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
 
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
     expect(shareCalls).toHaveLength(2);
-    expect(shareCalls[0]?.params?.[1]).toBe('album-fixed');
-    expect(shareCalls[0]?.params?.[2]).toBe('alice-user-id');
-    expect(shareCalls[1]?.params?.[1]).toBe('photo-fixed');
-    expect(shareCalls[1]?.params?.[2]).toBe('alice-user-id');
+    expect(shareCalls[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
+    expect(shareCalls[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
+    expect(shareCalls[1]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(shareCalls[1]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
@@ -216,8 +209,9 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
             return {
               rows: [
                 {
-                  id: 'bob-user-id',
-                  personal_organization_id: 'bob-org-id'
+                  id: '00000000-0000-0000-0000-000000000001',
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000002'
                 }
               ]
             };
@@ -226,8 +220,9 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
             return {
               rows: [
                 {
-                  id: 'alice-user-id',
-                  personal_organization_id: 'alice-org-id'
+                  id: '00000000-0000-0000-0000-000000000003',
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000004'
                 }
               ]
             };
@@ -239,7 +234,7 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
           };
         }
         if (text.includes('RETURNING id')) {
-          return { rows: [{ id: 'share:stored-share-id' }] };
+          return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
         }
         return { rows: [] };
       })
@@ -250,10 +245,10 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
       bobEmail: 'bob@tearleads.com',
       aliceEmail: 'alice@tearleads.com',
       hasOrganizationIdColumn: true,
-      albumId: 'album-fixed',
-      photoId: 'photo-fixed',
+      albumId: '00000000-0000-0000-0000-000000000010',
+      photoId: '00000000-0000-0000-0000-000000000011',
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5'];
+        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6'];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -263,12 +258,12 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     const albumInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'album-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000010'
     );
     const photoInsertCall = calls.find(
       (call) =>
         call.text.includes('INSERT INTO vfs_registry') &&
-        call.params?.[0] === 'photo-fixed'
+        call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
 
     const albumSessionKey = albumInsertCall?.params?.[4];

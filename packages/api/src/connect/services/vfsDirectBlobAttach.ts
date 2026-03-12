@@ -122,7 +122,7 @@ export async function attachBlobDirect(
       INNER JOIN vfs_links AS stage_link
         ON stage_link.id = stage_registry.id
        AND stage_link.parent_id = stage_registry.id
-      WHERE stage_registry.id = $1::text
+      WHERE stage_registry.id = $1::uuid
         AND stage_registry.object_type = 'blobStage'
       FOR UPDATE OF stage_registry, stage_link
       `,
@@ -190,7 +190,7 @@ export async function attachBlobDirect(
           last_reconciled_change_id,
           last_reconciled_write_ids
         FROM vfs_sync_client_state
-        WHERE user_id = $1::text
+        WHERE user_id = $1::uuid
           AND client_id = $2::text
         FOR UPDATE
         `,
@@ -280,7 +280,7 @@ export async function attachBlobDirect(
             to_jsonb($3::text),
             true
           )::json
-      WHERE id = $1::text
+      WHERE id = $1::uuid
         AND wrapped_session_key = 'blob-stage:staged'
       RETURNING
         child_id AS blob_id,
@@ -309,10 +309,10 @@ export async function attachBlobDirect(
         organization_id,
         created_at
       ) VALUES (
-        $1::text,
+        $1::uuid,
         'file',
-        $2::text,
-        $3::text,
+        $2::uuid,
+        $3::uuid,
         NOW()
       )
       ON CONFLICT (id) DO NOTHING
@@ -324,7 +324,7 @@ export async function attachBlobDirect(
       `
       SELECT object_type, organization_id
       FROM vfs_registry
-      WHERE id = $1::text
+      WHERE id = $1::uuid
       LIMIT 1
       `,
       [stagedBlobId]
@@ -356,9 +356,9 @@ export async function attachBlobDirect(
         visible_children,
         created_at
       ) VALUES (
-        $1::text,
-        $2::text,
-        $3::text,
+        $1::uuid,
+        $2::uuid,
+        $3::uuid,
         $4::text,
         $5::json,
         NOW()
@@ -390,8 +390,8 @@ export async function attachBlobDirect(
         `
         SELECT id, created_at, wrapped_session_key, visible_children
         FROM vfs_links
-        WHERE parent_id = $1::text
-          AND child_id = $2::text
+        WHERE parent_id = $1::uuid
+          AND child_id = $2::uuid
         LIMIT 1
         `,
         [parsedBody.itemId, stagedBlobId]

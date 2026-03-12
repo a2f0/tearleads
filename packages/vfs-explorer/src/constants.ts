@@ -6,7 +6,7 @@
  * The VFS root folder ID. This is the parent of all top-level folders.
  * Unlike virtual folders, this exists in the database.
  */
-export const VFS_ROOT_ID = '__vfs_root__';
+export const VFS_ROOT_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Virtual folder ID for items that have no parent link.

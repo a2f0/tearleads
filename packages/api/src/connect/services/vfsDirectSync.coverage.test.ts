@@ -44,6 +44,9 @@ import {
   getSyncDirect
 } from './vfsDirectSync.js';
 
+const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
+const TEST_ROOT_ID = '00000000-0000-0000-0000-000000000010';
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('vfsDirectSync coverage branches', () => {
@@ -54,7 +57,7 @@ describe('vfsDirectSync coverage branches', () => {
       query: queryMock
     });
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: TEST_USER_ID
     });
     getVfsCrdtCompactionEpochMock.mockResolvedValue('0');
     readOldestAccessibleCursorCacheMock.mockResolvedValue(undefined);
@@ -98,10 +101,182 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
+  });
+
+  it('rejects invalid user ids for getSyncDirect', async () => {
+    requireVfsClaimsMock.mockResolvedValueOnce({
+      sub: 'invalid-user-id'
+    });
+
+    await expect(
+      getSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: ''
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('rejects non-string user ids for getSyncDirect', async () => {
+    requireVfsClaimsMock.mockResolvedValueOnce({
+      sub: 7
+    });
+
+    await expect(
+      getSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: ''
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('rejects invalid root ids for getSyncDirect', async () => {
+    await expect(
+      getSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: 'not-a-uuid'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('defaults non-positive limits instead of failing sync queries', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+
+    await getSyncDirect(
+      {
+        cursor: '',
+        limit: 0,
+        rootId: ''
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(queryMock).toHaveBeenCalled();
+  });
+
+  it('rejects invalid user ids for getCrdtSyncDirect', async () => {
+    requireVfsClaimsMock.mockResolvedValueOnce({
+      sub: 'invalid-user-id'
+    });
+
+    await expect(
+      getCrdtSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: ''
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('rejects invalid root ids for getCrdtSyncDirect', async () => {
+    await expect(
+      getCrdtSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: 'not-a-uuid'
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.InvalidArgument
+    });
+  });
+
+  it('propagates bloom filters when provided by callers', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const response = await getCrdtSyncDirect(
+      {
+        cursor: '',
+        limit: 10,
+        rootId: '',
+        bloomFilter: {
+          data: 'Zm9v',
+          capacity: 1024,
+          errorRate: 0.01
+        }
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(response.bloomFilter).toEqual({
+      data: 'Zm9v',
+      capacity: 1024,
+      errorRate: 0.01
+    });
+  });
+
+  it('uses cached oldest cursor without rewriting cursor cache', async () => {
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:02.000Z',
+      changeId: '00000000-0000-0000-0000-000000000003'
+    });
+    readOldestAccessibleCursorCacheMock.mockResolvedValueOnce({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: '00000000-0000-0000-0000-000000000001'
+    });
+    queryMock.mockResolvedValueOnce({
+      rows: []
+    });
+
+    await getCrdtSyncDirect(
+      {
+        cursor,
+        limit: 10,
+        rootId: ''
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(readOldestAccessibleCursorCacheMock).toHaveBeenCalledTimes(1);
+    expect(writeOldestAccessibleCursorCacheMock).not.toHaveBeenCalled();
   });
 
   it('drops invalid oldest cursor timestamps before continuing', async () => {
@@ -135,7 +310,44 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
+      rootId: null,
+      cursor: null
+    });
+  });
+
+  it('drops invalid oldest cursor date objects before continuing', async () => {
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-03-03T00:00:00.000Z',
+      changeId: 'change-1'
+    });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            occurred_at: new Date('invalid date'),
+            id: 'change-1'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: []
+      });
+
+    await getCrdtSyncDirect(
+      {
+        cursor,
+        limit: 10,
+        rootId: ''
+      },
+      {
+        requestHeader: new Headers()
+      }
+    );
+
+    expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
+      compactionEpoch: '0',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
@@ -172,7 +384,7 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
@@ -195,7 +407,7 @@ describe('vfsDirectSync coverage branches', () => {
       {
         cursor,
         limit: 10,
-        rootId: 'root-1'
+        rootId: TEST_ROOT_ID
       },
       {
         requestHeader: new Headers()
@@ -204,8 +416,8 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(readOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
-      rootId: 'root-1'
+      userId: TEST_USER_ID,
+      rootId: TEST_ROOT_ID
     });
     expect(writeOldestAccessibleCursorCacheMock).not.toHaveBeenCalled();
   });
@@ -248,6 +460,27 @@ describe('vfsDirectSync coverage branches', () => {
     ).rejects.toMatchObject({
       code: Code.Internal
     });
+  });
+
+  it('maps unexpected CRDT sync errors to Internal', async () => {
+    queryMock.mockRejectedValueOnce(new Error('db unavailable'));
+
+    await expect(
+      getCrdtSyncDirect(
+        {
+          cursor: '',
+          limit: 10,
+          rootId: ''
+        },
+        {
+          requestHeader: new Headers()
+        }
+      )
+    ).rejects.toMatchObject({
+      code: Code.Internal
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
   it('rejects blank snapshot client ids', async () => {

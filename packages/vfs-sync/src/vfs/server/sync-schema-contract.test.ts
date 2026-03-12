@@ -54,8 +54,7 @@ describe('sync schema contract', () => {
     // Snapshot tables are used by rematerialization routes, not hot-log pulls.
     expect(extractSqlTableReferences(crdtQuery.text)).toEqual([
       'vfs_crdt_ops',
-      'vfs_effective_visibility',
-      'vfs_links'
+      'vfs_effective_visibility'
     ]);
 
     expect(isSqlReferenceSubsetOfFlattenedContract(syncQuery.text)).toBe(true);

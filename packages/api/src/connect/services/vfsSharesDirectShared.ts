@@ -127,33 +127,63 @@ function parseOrgShareAclId(aclId: string): {
   };
 }
 
+function normalizeAclLookupId(shareId: string): string | null {
+  const normalizedShareId = normalizeAclIdPart(shareId);
+  if (!normalizedShareId) {
+    return null;
+  }
+
+  if (normalizedShareId.startsWith(SHARE_ID_PREFIX)) {
+    return requireAclIdPart(
+      normalizedShareId.slice(SHARE_ID_PREFIX.length),
+      'share id'
+    );
+  }
+
+  if (normalizedShareId.startsWith(ORG_SHARE_ID_PREFIX)) {
+    return parseOrgShareAclId(normalizedShareId).shareId;
+  }
+
+  if (!isValidAclIdPart(normalizedShareId)) {
+    return null;
+  }
+
+  return normalizedShareId;
+}
+
 export function buildShareAclId(shareId: string): string {
-  return `${SHARE_ID_PREFIX}${requireAclIdPart(shareId, 'share id')}`;
+  return requireAclIdPart(shareId, 'share id');
 }
 
 export function buildOrgShareAclId(
   sourceOrgId: string,
   shareId: string
 ): string {
-  return `${ORG_SHARE_ID_PREFIX}${requireAclIdPart(
-    sourceOrgId,
-    'org-share source org id'
-  )}:${requireAclIdPart(shareId, 'org-share id')}`;
+  requireAclIdPart(sourceOrgId, 'org-share source org id');
+  return requireAclIdPart(shareId, 'org-share id');
 }
 
 export function extractShareIdFromAclId(aclId: string): string {
-  if (!aclId.startsWith(SHARE_ID_PREFIX)) {
-    throw new Error('Unsupported ACL id in share response mapping');
+  if (aclId.startsWith(SHARE_ID_PREFIX)) {
+    return requireAclIdPart(aclId.slice(SHARE_ID_PREFIX.length), 'share id');
   }
 
-  return requireAclIdPart(aclId.slice(SHARE_ID_PREFIX.length), 'share id');
+  return requireAclIdPart(aclId, 'share id');
 }
 
 export function extractOrgShareIdFromAclId(aclId: string): string {
+  if (!aclId.startsWith(ORG_SHARE_ID_PREFIX)) {
+    return requireAclIdPart(aclId, 'share id');
+  }
+
   return parseOrgShareAclId(aclId).shareId;
 }
 
 export function extractSourceOrgIdFromOrgShareAclId(aclId: string): string {
+  if (!aclId.startsWith(ORG_SHARE_ID_PREFIX)) {
+    throw new Error('Source organization id is not encoded in ACL id');
+  }
+
   return parseOrgShareAclId(aclId).sourceOrgId;
 }
 
@@ -161,7 +191,8 @@ export async function loadShareAuthorizationContext(
   queryExecutor: QueryExecutor,
   shareId: string
 ): Promise<ShareAuthorizationContext | null> {
-  if (!isValidAclIdPart(shareId)) {
+  const aclLookupId = normalizeAclLookupId(shareId);
+  if (!aclLookupId) {
     return null;
   }
 
@@ -183,10 +214,10 @@ export async function loadShareAuthorizationContext(
        FROM vfs_acl_entries acl
        JOIN vfs_registry r
          ON r.id = acl.item_id
-      WHERE acl.id = $1
+      WHERE acl.id = $1::uuid
         AND acl.revoked_at IS NULL
       LIMIT 1`,
-    [buildShareAclId(shareId)]
+    [aclLookupId]
   );
   const canonicalRow = canonicalResult.rows[0];
   if (!canonicalRow) {
@@ -213,12 +244,14 @@ export async function loadOrgShareAuthorizationContext(
   queryExecutor: QueryExecutor,
   shareId: string
 ): Promise<OrgShareAuthorizationContext | null> {
-  if (!isValidAclIdPart(shareId)) {
+  const aclLookupId = normalizeAclLookupId(shareId);
+  if (!aclLookupId) {
     return null;
   }
 
   const canonicalResult = await queryExecutor.query<{
     owner_id: string | null;
+    organization_id: string;
     acl_id: string;
     item_id: string;
     principal_id: string;
@@ -226,6 +259,7 @@ export async function loadOrgShareAuthorizationContext(
   }>(
     `SELECT
         r.owner_id,
+        r.organization_id,
         acl.id AS acl_id,
         acl.item_id,
         acl.principal_id,
@@ -235,20 +269,10 @@ export async function loadOrgShareAuthorizationContext(
          ON r.id = acl.item_id
       WHERE acl.principal_type = 'organization'
         AND acl.revoked_at IS NULL
-        AND acl.id LIKE 'org-share:%:%'
-        AND split_part(acl.id, ':', 3) = $1
-      ORDER BY acl.created_at DESC
-      LIMIT 2`,
-    [shareId]
+        AND acl.id = $1::uuid
+      LIMIT 1`,
+    [aclLookupId]
   );
-
-  /**
-   * Guardrail: one org-share route id must resolve to at most one active ACL
-   * row. Multiple matches indicate malformed/duplicated ids and are rejected.
-   */
-  if (canonicalResult.rows.length > 1) {
-    throw new Error('Ambiguous org-share ACL authorization context');
-  }
 
   const canonicalRow = canonicalResult.rows[0];
   if (!canonicalRow || typeof canonicalRow.principal_id !== 'string') {
@@ -261,7 +285,7 @@ export async function loadOrgShareAuthorizationContext(
     itemId: canonicalRow.item_id,
     targetOrgId: canonicalRow.principal_id,
     accessLevel: parseAclAccessLevel(canonicalRow.access_level),
-    sourceOrgId: extractSourceOrgIdFromOrgShareAclId(canonicalRow.acl_id)
+    sourceOrgId: canonicalRow.organization_id
   };
 }
 

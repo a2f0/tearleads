@@ -161,7 +161,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
   it('normalizes stream request bodies so retries keep the payload', async () => {
     const payload = JSON.stringify({
-      id: 'note-stream',
+      id: 'stream',
       objectType: 'note',
       encryptedSessionKey: 'stream-key'
     });
@@ -210,7 +210,7 @@ describe('fetchWithRetryableWriteValidationError', () => {
 
   it('rebuilds RequestInit per retry when fetch mutates init', async () => {
     const payload = JSON.stringify({
-      id: 'note-retry-init',
+      id: 'retry-init',
       objectType: 'note',
       encryptedSessionKey: 'retry-init-key'
     });

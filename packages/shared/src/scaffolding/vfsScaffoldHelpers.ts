@@ -2,7 +2,15 @@ import {
   type EncryptScaffoldVfsNameResult,
   encryptScaffoldVfsName
 } from './encryptScaffoldVfsName.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
+
+export type ShareAccessLevel = 'read' | 'write' | 'admin';
+
+export interface DbQueryClient {
+  query(
+    text: string,
+    params?: readonly unknown[]
+  ): Promise<{ rows: Record<string, unknown>[] }>;
+}
 
 export function defaultEncryptVfsName(input: {
   client: DbQueryClient;
@@ -53,26 +61,21 @@ interface InsertVfsRootInput {
 }
 
 export async function insertVfsRoot(input: InsertVfsRootInput): Promise<void> {
-  const columns = ['id', 'object_type', 'owner_id'];
-  const params: unknown[] = [input.rootItemId, 'folder', null];
-
   if (input.hasOrganizationIdColumn) {
-    columns.push('organization_id');
-    params.push(input.organizationId);
+    await input.client.query(
+      `INSERT INTO vfs_registry (id, object_type, owner_id, organization_id, encrypted_session_key, encrypted_name, created_at)
+       VALUES ($1::uuid, 'folder', NULL, $2::uuid, NULL, 'VFS Root', $3::timestamptz)
+       ON CONFLICT (id) DO NOTHING`,
+      [input.rootItemId, input.organizationId, input.nowIso]
+    );
+  } else {
+    await input.client.query(
+      `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_session_key, encrypted_name, created_at)
+       VALUES ($1::uuid, 'folder', NULL, NULL, 'VFS Root', $2::timestamptz)
+       ON CONFLICT (id) DO NOTHING`,
+      [input.rootItemId, input.nowIso]
+    );
   }
-
-  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
-  params.push(null, 'VFS Root', input.nowIso);
-
-  const placeholders = params
-    .map((_value, index) => `$${index + 1}`)
-    .join(', ');
-  await input.client.query(
-    `INSERT INTO vfs_registry (${columns.join(', ')})
-     VALUES (${placeholders})
-     ON CONFLICT (id) DO NOTHING`,
-    params
-  );
 }
 
 interface UpsertVfsRegistryItemInput {
@@ -90,34 +93,43 @@ interface UpsertVfsRegistryItemInput {
 export async function upsertVfsRegistryItem(
   input: UpsertVfsRegistryItemInput
 ): Promise<void> {
-  const columns = ['id', 'object_type', 'owner_id'];
-  const params: unknown[] = [input.itemId, input.objectType, input.ownerId];
-  const updateAssignments = [
-    'object_type = EXCLUDED.object_type',
-    'owner_id = EXCLUDED.owner_id'
-  ];
-
   if (input.hasOrganizationIdColumn) {
-    columns.push('organization_id');
-    params.push(input.organizationId);
-    updateAssignments.push('organization_id = EXCLUDED.organization_id');
+    await input.client.query(
+      `INSERT INTO vfs_registry (id, object_type, owner_id, organization_id, encrypted_session_key, encrypted_name, created_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6, $7::timestamptz)
+       ON CONFLICT (id) DO UPDATE SET
+         object_type = EXCLUDED.object_type,
+         owner_id = EXCLUDED.owner_id,
+         organization_id = EXCLUDED.organization_id,
+         encrypted_session_key = EXCLUDED.encrypted_session_key,
+         encrypted_name = EXCLUDED.encrypted_name`,
+      [
+        input.itemId,
+        input.objectType,
+        input.ownerId,
+        input.organizationId,
+        input.encryptedSessionKey,
+        input.encryptedName,
+        input.nowIso
+      ]
+    );
+  } else {
+    await input.client.query(
+      `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_session_key, encrypted_name, created_at)
+       VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::timestamptz)
+       ON CONFLICT (id) DO UPDATE SET
+         object_type = EXCLUDED.object_type,
+         owner_id = EXCLUDED.owner_id,
+         encrypted_session_key = EXCLUDED.encrypted_session_key,
+         encrypted_name = EXCLUDED.encrypted_name`,
+      [
+        input.itemId,
+        input.objectType,
+        input.ownerId,
+        input.encryptedSessionKey,
+        input.encryptedName,
+        input.nowIso
+      ]
+    );
   }
-
-  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
-  params.push(input.encryptedSessionKey, input.encryptedName, input.nowIso);
-  updateAssignments.push(
-    'encrypted_session_key = EXCLUDED.encrypted_session_key',
-    'encrypted_name = EXCLUDED.encrypted_name'
-  );
-
-  const placeholders = params
-    .map((_value, index) => `$${index + 1}`)
-    .join(', ');
-  await input.client.query(
-    `INSERT INTO vfs_registry (${columns.join(', ')})
-     VALUES (${placeholders})
-     ON CONFLICT (id) DO UPDATE SET
-       ${updateAssignments.join(', ')}`,
-    params
-  );
 }

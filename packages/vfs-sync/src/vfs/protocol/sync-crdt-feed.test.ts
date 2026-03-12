@@ -63,15 +63,9 @@ describe('buildVfsCrdtSyncQuery', () => {
       26,
       'root-1'
     ]);
-    expect(query.text).toContain(
-      "ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC"
-    );
-    expect(query.text).toContain(
-      "date_trunc('milliseconds', ops.occurred_at) > $2::timestamptz"
-    );
-    expect(query.text).toContain(
-      "date_trunc('milliseconds', ops.occurred_at) AS occurred_at"
-    );
+    expect(query.text).toContain('ORDER BY ops.occurred_at ASC, ops.id ASC');
+    expect(query.text).toContain('ops.occurred_at > $2::timestamptz');
+    expect(query.text).toContain('ops.occurred_at,');
     expect(query.text).toContain(
       "encode(ops.encrypted_payload_bytes, 'base64') AS encrypted_payload"
     );

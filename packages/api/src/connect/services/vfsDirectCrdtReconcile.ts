@@ -71,7 +71,7 @@ export async function reconcileCrdtDirect(
         last_reconciled_change_id,
         last_reconciled_write_ids,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, $5::jsonb, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4::uuid, $5::jsonb, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE
@@ -88,9 +88,38 @@ export async function reconcileCrdtDirect(
             THEN EXCLUDED.last_reconciled_change_id
           ELSE vfs_sync_client_state.last_reconciled_change_id
         END,
-        last_reconciled_write_ids = "vfs_merge_reconciled_write_ids"(
-          vfs_sync_client_state.last_reconciled_write_ids,
-          EXCLUDED.last_reconciled_write_ids
+        last_reconciled_write_ids = (
+          SELECT COALESCE(
+            jsonb_object_agg(entry.key, to_jsonb(entry.max_write_id)),
+            '{}'::jsonb
+          )
+          FROM (
+            SELECT
+              kv.key,
+              MAX(kv.write_id) AS max_write_id
+            FROM (
+              SELECT
+                e.key,
+                CASE
+                  WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                  ELSE 0::bigint
+                END AS write_id
+              FROM jsonb_each_text(
+                COALESCE(vfs_sync_client_state.last_reconciled_write_ids, '{}'::jsonb)
+              ) AS e
+              UNION ALL
+              SELECT
+                e.key,
+                CASE
+                  WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                  ELSE 0::bigint
+                END AS write_id
+              FROM jsonb_each_text(
+                COALESCE(EXCLUDED.last_reconciled_write_ids, '{}'::jsonb)
+              ) AS e
+            ) AS kv
+            GROUP BY kv.key
+          ) AS entry
         ),
         updated_at = NOW()
       RETURNING last_reconciled_at, last_reconciled_change_id, last_reconciled_write_ids

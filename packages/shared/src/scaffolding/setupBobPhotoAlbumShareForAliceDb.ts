@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import {
-  type EncryptScaffoldVfsNameResult,
-  encryptScaffoldVfsName
-} from './encryptScaffoldVfsName.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
+import type { EncryptScaffoldVfsNameResult } from './encryptScaffoldVfsName.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
-
-type ShareAccessLevel = 'read' | 'write' | 'admin';
+import {
+  type DbQueryClient,
+  defaultEncryptVfsName,
+  encodeBase64,
+  insertVfsRoot,
+  readRequiredAclId,
+  readRequiredUserId,
+  type ShareAccessLevel,
+  upsertVfsRegistryItem
+} from './vfsScaffoldHelpers.js';
 
 export interface SetupBobPhotoAlbumShareForAliceDbInput {
   client: DbQueryClient;
@@ -39,7 +43,7 @@ export interface SetupBobPhotoAlbumShareForAliceDbResult {
   photoShareAclId: string;
 }
 
-const DEFAULT_ROOT_ITEM_ID = '__vfs_root__';
+const DEFAULT_ROOT_ITEM_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_ALBUM_NAME = 'Photos shared with Alice';
 const DEFAULT_PHOTO_NAME = 'Tearleads logo.svg';
 const DEFAULT_SHARE_ACCESS_LEVEL: ShareAccessLevel = 'read';
@@ -59,135 +63,14 @@ export const SCAFFOLD_SHARED_LOGO_SVG = `<?xml version="1.0" encoding="UTF-8"?>
 </svg>
 `;
 
-function defaultEncryptVfsName(input: {
-  client: DbQueryClient;
-  ownerUserId: string;
-  plaintextName: string;
-}): Promise<EncryptScaffoldVfsNameResult> {
-  return encryptScaffoldVfsName({
-    ...input,
-    allowOwnerWrappedSessionKey: false
-  });
-}
-
-function encodeBase64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
-function readRequiredUserId(
-  rows: Array<{ id?: unknown; personal_organization_id?: unknown }>,
-  email: string
-): { userId: string; organizationId: string } {
-  const userId = rows[0]?.id;
-  const organizationId = rows[0]?.personal_organization_id;
-  if (
-    typeof userId !== 'string' ||
-    userId.length === 0 ||
-    typeof organizationId !== 'string' ||
-    organizationId.length === 0
-  ) {
-    throw new Error(`Could not resolve user id for ${email}`);
-  }
-  return {
-    userId,
-    organizationId
-  };
-}
-
-function readRequiredAclId(rows: Array<{ id?: unknown }>): string {
-  const aclId = rows[0]?.id;
-  if (typeof aclId !== 'string' || aclId.length === 0) {
-    throw new Error('Failed to create or update share ACL row');
-  }
-  return aclId;
-}
-
-interface InsertVfsRootInput {
-  client: DbQueryClient;
-  rootItemId: string;
-  organizationId: string;
-  hasOrganizationIdColumn: boolean;
-  nowIso: string;
-}
-
-async function insertVfsRoot(input: InsertVfsRootInput): Promise<void> {
-  const columns = ['id', 'object_type', 'owner_id'];
-  const params: unknown[] = [input.rootItemId, 'folder', null];
-
-  if (input.hasOrganizationIdColumn) {
-    columns.push('organization_id');
-    params.push(input.organizationId);
-  }
-
-  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
-  params.push(null, 'VFS Root', input.nowIso);
-
-  const placeholders = params
-    .map((_value, index) => `$${index + 1}`)
-    .join(', ');
-  await input.client.query(
-    `INSERT INTO vfs_registry (${columns.join(', ')})
-     VALUES (${placeholders})
-     ON CONFLICT (id) DO NOTHING`,
-    params
-  );
-}
-
-interface UpsertVfsRegistryItemInput {
-  client: DbQueryClient;
-  itemId: string;
-  objectType: 'album' | 'photo';
-  ownerId: string;
-  organizationId: string;
-  hasOrganizationIdColumn: boolean;
-  encryptedSessionKey: string;
-  encryptedName: string;
-  nowIso: string;
-}
-
-async function upsertVfsRegistryItem(
-  input: UpsertVfsRegistryItemInput
-): Promise<void> {
-  const columns = ['id', 'object_type', 'owner_id'];
-  const params: unknown[] = [input.itemId, input.objectType, input.ownerId];
-  const updateAssignments = [
-    'object_type = EXCLUDED.object_type',
-    'owner_id = EXCLUDED.owner_id'
-  ];
-
-  if (input.hasOrganizationIdColumn) {
-    columns.push('organization_id');
-    params.push(input.organizationId);
-    updateAssignments.push('organization_id = EXCLUDED.organization_id');
-  }
-
-  columns.push('encrypted_session_key', 'encrypted_name', 'created_at');
-  params.push(input.encryptedSessionKey, input.encryptedName, input.nowIso);
-  updateAssignments.push(
-    'encrypted_session_key = EXCLUDED.encrypted_session_key',
-    'encrypted_name = EXCLUDED.encrypted_name'
-  );
-
-  const placeholders = params
-    .map((_value, index) => `$${index + 1}`)
-    .join(', ');
-  await input.client.query(
-    `INSERT INTO vfs_registry (${columns.join(', ')})
-     VALUES (${placeholders})
-     ON CONFLICT (id) DO UPDATE SET
-       ${updateAssignments.join(', ')}`,
-    params
-  );
-}
-
 export async function setupBobPhotoAlbumShareForAliceDb(
   input: SetupBobPhotoAlbumShareForAliceDbInput
 ): Promise<SetupBobPhotoAlbumShareForAliceDbResult> {
   const idFactory = input.idFactory ?? randomUUID;
   const now = input.now ?? (() => new Date());
   const rootItemId = input.rootItemId ?? DEFAULT_ROOT_ITEM_ID;
-  const albumId = input.albumId ?? `album-${idFactory()}`;
-  const photoId = input.photoId ?? `photo-${idFactory()}`;
+  const albumId = input.albumId ?? idFactory();
+  const photoId = input.photoId ?? idFactory();
   const albumName = input.albumName ?? DEFAULT_ALBUM_NAME;
   const photoName = input.photoName ?? DEFAULT_PHOTO_NAME;
   const photoSvg = input.photoSvg ?? SCAFFOLD_SHARED_LOGO_SVG;
@@ -262,9 +145,9 @@ export async function setupBobPhotoAlbumShareForAliceDb(
     });
 
     const photoPayload = encodeBase64(photoSvg);
-    const photoNonce = encodeBase64(`nonce-${idFactory()}`);
-    const photoAad = encodeBase64(`aad-${idFactory()}`);
-    const photoSignature = encodeBase64(`sig-${idFactory()}`);
+    const photoNonce = encodeBase64(idFactory());
+    const photoAad = encodeBase64(idFactory());
+    const photoSignature = encodeBase64(idFactory());
 
     await input.client.query(
       `INSERT INTO vfs_item_state (
@@ -277,7 +160,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          updated_at,
          deleted_at
        )
-       VALUES ($1, $2, 1, $3, $4, $5, $6::timestamptz, NULL)
+       VALUES ($1::uuid, $2, 1, $3, $4, $5, $6::timestamptz, NULL)
        ON CONFLICT (item_id) DO UPDATE SET
          encrypted_payload = EXCLUDED.encrypted_payload,
          key_epoch = EXCLUDED.key_epoch,
@@ -302,14 +185,18 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          key_epoch,
          encryption_nonce,
          encryption_aad,
-         encryption_signature, encrypted_payload_bytes, encryption_nonce_bytes,
-         encryption_aad_bytes, encryption_signature_bytes
+         encryption_signature, 
+         encrypted_payload_bytes, 
+         encryption_nonce_bytes,
+         encryption_aad_bytes, 
+         encryption_signature_bytes,
+         root_id
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'item_upsert',
-         $3,
+         $3::uuid,
          'vfs_item_state',
          $4,
          $5::timestamptz,
@@ -318,8 +205,11 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          NULL,
          NULL,
          NULL,
-         decode($6::text, 'base64'), decode($7::text, 'base64'),
-         decode($8::text, 'base64'), decode($9::text, 'base64')
+         decode($6::text, 'base64'), 
+         decode($7::text, 'base64'),
+         decode($8::text, 'base64'), 
+         decode($9::text, 'base64'),
+         $10::uuid
        )
        ON CONFLICT (id) DO UPDATE SET
          item_id = EXCLUDED.item_id,
@@ -336,9 +226,10 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          encrypted_payload_bytes = EXCLUDED.encrypted_payload_bytes,
          encryption_nonce_bytes = EXCLUDED.encryption_nonce_bytes,
          encryption_aad_bytes = EXCLUDED.encryption_aad_bytes,
-         encryption_signature_bytes = EXCLUDED.encryption_signature_bytes`,
+         encryption_signature_bytes = EXCLUDED.encryption_signature_bytes,
+         root_id = EXCLUDED.root_id`,
       [
-        `crdt:item_upsert:${photoId}`,
+        idFactory(),
         photoId,
         bobUserId,
         `vfs_item_state:${photoId}`,
@@ -346,7 +237,8 @@ export async function setupBobPhotoAlbumShareForAliceDb(
         photoPayload,
         photoNonce,
         photoAad,
-        photoSignature
+        photoSignature,
+        albumId
       ]
     );
 
@@ -358,7 +250,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          wrapped_session_key,
          created_at
        )
-       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
       [idFactory(), rootItemId, albumId, 'scaffolding-link-wrap', nowIso]
     );
@@ -371,12 +263,12 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          wrapped_session_key,
          created_at
        )
-       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::timestamptz)
        ON CONFLICT (parent_id, child_id) DO NOTHING`,
       [idFactory(), albumId, photoId, 'scaffolding-link-wrap', nowIso]
     );
 
-    const albumShareId = `share:${idFactory()}`;
+    const albumShareId = idFactory();
     const albumShareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
@@ -393,14 +285,14 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          revoked_at
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'user',
-         $3,
+         $3::uuid,
          $4,
          $5,
          1,
-         $6,
+         $6::uuid,
          $7::timestamptz,
          $7::timestamptz,
          NULL,
@@ -426,7 +318,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
       ]
     );
 
-    const photoShareId = `share:${idFactory()}`;
+    const photoShareId = idFactory();
     const photoShareRows = await input.client.query(
       `INSERT INTO vfs_acl_entries (
          id,
@@ -443,14 +335,14 @@ export async function setupBobPhotoAlbumShareForAliceDb(
          revoked_at
        )
        VALUES (
-         $1,
-         $2,
+         $1::uuid,
+         $2::uuid,
          'user',
-         $3,
+         $3::uuid,
          $4,
          $5,
          1,
-         $6,
+         $6::uuid,
          $7::timestamptz,
          $7::timestamptz,
          NULL,
