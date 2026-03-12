@@ -54,6 +54,15 @@ function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
+function isNativeAppOrigin(origin: string): boolean {
+  try {
+    const parsedOrigin = new URL(origin);
+    return ['tearleads:', 'tearleads-dev:'].includes(parsedOrigin.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export function isCorsOriginAllowed(
   origin: string,
   allowedOrigins: ReadonlySet<string>,
@@ -63,7 +72,10 @@ export function isCorsOriginAllowed(
     return true;
   }
 
-  return allowLoopbackOrigins && isLoopbackOrigin(origin);
+  return (
+    allowLoopbackOrigins &&
+    (isLoopbackOrigin(origin) || isNativeAppOrigin(origin))
+  );
 }
 
 export function createCorsOriginPolicy({
