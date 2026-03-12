@@ -73,7 +73,7 @@ PG_DB="$(kubectl -n "$NAMESPACE" get configmap tearleads-config -o jsonpath='{.d
 PG_PASS="$(kubectl -n "$NAMESPACE" get secret "$SECRET_NAME" -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 --decode)"
 
 echo "Port-forwarding staging Postgres to localhost:$LOCAL_PG_PORT..."
-PF_LOG="$(mktemp /tmp/pg-port-forward-XXXXXX)"
+PF_LOG="$(mktemp "${TMPDIR:-/tmp}/pg-port-forward-XXXXXX")"
 kubectl -n "$NAMESPACE" port-forward "service/postgres" "$LOCAL_PG_PORT:5432" >"$PF_LOG" 2>&1 &
 port_forward_pid=$!
 
