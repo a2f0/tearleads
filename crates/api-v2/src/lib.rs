@@ -5,9 +5,12 @@ mod admin_harness;
 mod admin_service;
 mod admin_service_common;
 mod ping;
+/// Concrete Postgres gateway backed by `tokio-postgres` and `deadpool`.
+mod postgres_gateway;
 
 use axum::{Router, routing::get};
 use tearleads_api_v2_contracts::tearleads::v2::admin_service_server::AdminServiceServer;
+use tearleads_data_access_traits::{PostgresAdminRepository, RedisAdminRepository};
 use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -18,11 +21,46 @@ pub use admin_auth::{
 pub use admin_service::AdminServiceHandler;
 pub use ping::PingResponse;
 use ping::ping;
+pub use postgres_gateway::TokioPostgresGateway;
 
-/// Builds the router with the given comma-separated allowed origins.
-///
-/// When `origins` is empty, all origins are allowed (local development).
-/// Otherwise only the listed origins are accepted.
+/// Builds the router with the given comma-separated allowed origins and
+/// repository implementations.
+pub fn app_with_repos<P, R>(origins: &str, postgres_repo: P, redis_repo: R) -> Router
+where
+    P: PostgresAdminRepository + Clone + Send + Sync + 'static,
+    R: RedisAdminRepository + Clone + Send + Sync + 'static,
+{
+    let build_admin_service = {
+        let pg = postgres_repo.clone();
+        let rd = redis_repo.clone();
+        move || {
+            tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(AdminServiceServer::new(AdminServiceHandler::new(
+                    pg.clone(),
+                    rd.clone(),
+                )))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                })
+        }
+    };
+
+    Router::new()
+        .route("/v2/ping", get(ping))
+        .nest_service("/connect", build_admin_service())
+        .nest_service("/v1/connect", build_admin_service())
+        .layer(cors_layer(origins))
+        .layer(TraceLayer::new_for_http())
+}
+
+/// Returns a static Redis repository suitable for use when no real Redis
+/// is available (e.g. local dev or when only Postgres is wired up).
+pub fn admin_harness_static_redis() -> admin_harness::StaticRedisRepository {
+    admin_harness::StaticRedisRepository
+}
+
+/// Builds the router with static fixture repositories (for tests / local dev).
 pub fn app_with_origins(origins: &str) -> Router {
     let build_admin_service = || {
         tower::ServiceBuilder::new()
@@ -68,7 +106,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use super::app_with_origins;
+    use super::admin_harness::StaticPostgresRepository;
+    use super::{admin_harness_static_redis, app_with_origins, app_with_repos};
 
     fn admin_tables_request(path: &str) -> Request<Body> {
         Request::builder()
@@ -98,5 +137,18 @@ mod tests {
             .await
             .expect("router should return a response");
         assert_ne!(v1_prefixed.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn app_with_repos_mounts_connect_routes() {
+        let pg = StaticPostgresRepository;
+        let rd = admin_harness_static_redis();
+        let response = app_with_repos("", pg, rd)
+            .oneshot(admin_tables_request(
+                "/connect/tearleads.v2.AdminService/GetTables",
+            ))
+            .await
+            .expect("router should return a response");
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
     }
 }

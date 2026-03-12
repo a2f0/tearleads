@@ -16,9 +16,29 @@ async fn main() -> std::io::Result<()> {
     let address = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(address).await?;
 
+    let app = build_app(&origins);
+
     tracing::info!("api-v2 listening on http://{address}");
 
-    axum::serve(listener, tearleads_api_v2::app_with_origins(&origins)).await
+    axum::serve(listener, app).await
+}
+
+fn build_app(origins: &str) -> axum::Router {
+    use tearleads_api_v2::TokioPostgresGateway;
+    use tearleads_data_access_postgres::PostgresAdminAdapter;
+
+    match TokioPostgresGateway::from_env() {
+        Some(gateway) => {
+            tracing::info!("postgres gateway initialized from environment");
+            let postgres_repo = PostgresAdminAdapter::new(gateway);
+            let redis_repo = tearleads_api_v2::admin_harness_static_redis();
+            tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo)
+        }
+        None => {
+            tracing::warn!("POSTGRES_HOST not set — using static fixture repositories");
+            tearleads_api_v2::app_with_origins(origins)
+        }
+    }
 }
 
 fn read_port() -> u16 {

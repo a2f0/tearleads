@@ -16,6 +16,7 @@ use crate::{
 };
 
 /// Postgres repository implementation over a driver-specific gateway.
+#[derive(Clone)]
 pub struct PostgresAdminAdapter<G> {
     gateway: G,
 }

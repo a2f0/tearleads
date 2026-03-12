@@ -6,7 +6,7 @@ mod redis_repository;
 
 use authorizer::AuthorizationHeaderAdminAuthorizer;
 pub(crate) use postgres_repository::StaticPostgresRepository;
-pub(crate) use redis_repository::StaticRedisRepository;
+pub use redis_repository::StaticRedisRepository;
 
 use crate::AdminServiceHandler;
 
