@@ -98,7 +98,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   }): Promise<VfsCrdtSyncPullResponse> {
     const organizationId = this.resolveOrganizationId();
     const requestBody: Record<string, unknown> = {
-      limit: input.limit
+      limit: input.limit,
+      version: 2
     };
     if (input.cursor) {
       requestBody['cursor'] = encodeVfsSyncCursor(input.cursor);
@@ -192,7 +193,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         limit: input.limit,
         operations: input.operations,
         lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ?? null
+        rootId: input.rootId ?? null,
+        version: 2
       },
       {
         organizationId

@@ -2,16 +2,50 @@ syntax = "proto3";
 
 package tearleads.vfs;
 
+enum OpType {
+  OP_TYPE_UNSPECIFIED = 0;
+  ACL_ADD = 1;
+  ACL_REMOVE = 2;
+  LINK_ADD = 3;
+  LINK_REMOVE = 4;
+  ITEM_UPSERT = 5;
+  ITEM_DELETE = 6;
+}
+
+enum PrincipalType {
+  PRINCIPAL_TYPE_UNSPECIFIED = 0;
+  USER = 1;
+  GROUP = 2;
+  ORGANIZATION = 3;
+}
+
+enum AccessLevel {
+  ACCESS_LEVEL_UNSPECIFIED = 0;
+  READ = 1;
+  WRITE = 2;
+  ADMIN = 3;
+}
+
+enum PushStatus {
+  PUSH_STATUS_UNSPECIFIED = 0;
+  APPLIED = 1;
+  STALE_WRITE_ID = 2;
+  OUTDATED_OP = 3;
+  INVALID_OP = 4;
+  ALREADY_APPLIED = 5;
+  ENCRYPTED_ENVELOPE_UNSUPPORTED = 6;
+}
+
 message CrdtOperation {
   string opId = 1;
-  string opType = 2;
+  OpType opType = 2;
   string itemId = 3;
   string replicaId = 4;
   uint64 writeId = 5;
-  string occurredAt = 6;
+  uint64 occurredAtMs = 6;
   string principalId = 7;
-  string principalType = 8;
-  string accessLevel = 9;
+  PrincipalType principalType = 8;
+  AccessLevel accessLevel = 9;
   string parentId = 10;
   string childId = 11;
   string actorId = 12;
@@ -27,11 +61,12 @@ message CrdtOperation {
 message PushRequest {
   string clientId = 1;
   repeated CrdtOperation operations = 2;
+  uint32 version = 3;
 }
 
 message PushResult {
   string opId = 1;
-  string status = 2;
+  PushStatus status = 2;
 }
 
 message PushResponse {
@@ -44,12 +79,14 @@ message PullResponse {
   bool hasMore = 2;
   string nextCursor = 3;
   map<string, uint64> lastReconciledWriteIds = 4;
+  uint32 version = 5;
 }
 
 message ReconcileRequest {
   string clientId = 1;
   string cursor = 2;
   map<string, uint64> lastReconciledWriteIds = 3;
+  uint32 version = 4;
 }
 
 message ReconcileResponse {
@@ -65,6 +102,7 @@ message SyncSessionRequest {
   repeated CrdtOperation operations = 4;
   map<string, uint64> lastReconciledWriteIds = 5;
   string rootId = 6;
+  uint32 version = 7;
 }
 
 message SyncSessionResponse {

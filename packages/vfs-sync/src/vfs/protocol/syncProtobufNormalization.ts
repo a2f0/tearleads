@@ -1,3 +1,34 @@
+import {
+  ACCESS_LEVEL_MAP,
+  OP_TYPE_MAP,
+  PRINCIPAL_TYPE_MAP,
+  PUSH_STATUS_MAP,
+  REV_ACCESS_LEVEL_MAP,
+  REV_OP_TYPE_MAP,
+  REV_PRINCIPAL_TYPE_MAP,
+  REV_PUSH_STATUS_MAP
+} from './syncProtobufNormalizationEnums.js';
+import {
+  readEnvelopeField,
+  writeEnvelopeField
+} from './syncProtobufNormalizationBytes.js';
+import {
+  normalizeNonNegativeSafeIntegerOrNull,
+  normalizePositiveSafeInteger,
+  normalizePositiveSafeIntegerOrNull
+} from './syncProtobufNormalizationNumbers.js';
+import {
+  asRecord,
+  normalizeOptionalNullableString,
+  normalizeOptionalString,
+  normalizeRequiredString
+} from './syncProtobufNormalizationStrings.js';
+
+export * from './syncProtobufNormalizationEnums.js';
+export * from './syncProtobufNormalizationStrings.js';
+export * from './syncProtobufNormalizationNumbers.js';
+export * from './syncProtobufNormalizationBytes.js';
+
 interface OperationPayloadSource {
   opId: string;
   opType: string;
@@ -20,257 +51,14 @@ interface OperationPayloadSource {
   encryptionSignature?: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function asRecord(
-  value: unknown,
-  fieldName: string
-): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new Error(`invalid protobuf payload field: ${fieldName}`);
-  }
-  return value;
-}
-
-export function normalizeRequiredString(
-  value: unknown,
-  fieldName: string
-): string {
-  if (typeof value !== 'string') {
-    throw new Error(`invalid protobuf payload field: ${fieldName}`);
-  }
-  return value;
-}
-
-export function normalizeOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function normalizeOptionalNullableString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function encodeBytesToBase64(value: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x2000;
-
-  for (let offset = 0; offset < value.length; offset += chunkSize) {
-    const chunk = value.subarray(offset, offset + chunkSize);
-    for (const byte of chunk) {
-      binary += String.fromCharCode(byte);
-    }
-  }
-
-  return btoa(binary);
-}
-
-function normalizeOptionalBytes(value: unknown): Uint8Array | null {
-  if (value instanceof Uint8Array) {
-    return value;
-  }
-
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const output: number[] = [];
-  for (const candidate of value) {
-    if (
-      typeof candidate !== 'number' ||
-      !Number.isInteger(candidate) ||
-      candidate < 0 ||
-      candidate > 255
-    ) {
-      return null;
-    }
-    output.push(candidate);
-  }
-
-  return new Uint8Array(output);
-}
-
-function toBase64WithoutPadding(value: string): string {
-  return value.replace(/=+$/u, '');
-}
-
-function decodeBase64ToBytes(value: string): Uint8Array | null {
-  const normalized = value
-    .replace(/\s+/gu, '')
-    .replace(/-/gu, '+')
-    .replace(/_/gu, '/');
-  if (normalized.length === 0 || /[^A-Za-z0-9+/=]/u.test(normalized)) {
-    return null;
-  }
-
-  const remainder = normalized.length % 4;
-  if (remainder === 1) {
-    return null;
-  }
-
-  const padded =
-    remainder === 0
-      ? normalized
-      : normalized.padEnd(normalized.length + (4 - remainder), '=');
-
-  try {
-    const binary = atob(padded);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    if (
-      toBase64WithoutPadding(encodeBytesToBase64(bytes)) !==
-      toBase64WithoutPadding(normalized)
-    ) {
-      return null;
-    }
-    return bytes;
-  } catch {
-    return null;
-  }
-}
-
-function readEnvelopeField(bytesValue: unknown): string | undefined {
-  const parsedBytes = normalizeOptionalBytes(bytesValue);
-  if (parsedBytes) {
-    return encodeBytesToBase64(parsedBytes);
-  }
-
-  return undefined;
-}
-
-function writeEnvelopeField(
-  payload: Record<string, unknown>,
-  input: {
-    bytesKey: string;
-    value: string;
-    fieldName: string;
-  }
-): void {
-  const decoded = decodeBase64ToBytes(input.value);
-  if (!decoded) {
-    throw new Error(`invalid protobuf payload field: ${input.fieldName}`);
-  }
-
-  payload[input.bytesKey] = decoded;
-}
-
-export function normalizePositiveSafeInteger(
-  value: unknown,
-  fieldName: string
-): number {
-  const parsed = normalizePositiveSafeIntegerOrNull(value);
-  if (parsed === null) {
-    throw new Error(`invalid protobuf payload field: ${fieldName}`);
-  }
-  return parsed;
-}
-
-function normalizePositiveSafeIntegerOrNull(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (
-      Number.isFinite(value) &&
-      Number.isInteger(value) &&
-      value >= 1 &&
-      value <= Number.MAX_SAFE_INTEGER
-    ) {
-      return value;
-    }
-    return null;
-  }
-
-  if (typeof value === 'string') {
-    if (!/^[0-9]+$/.test(value)) {
-      return null;
-    }
-    const parsed = Number.parseInt(value, 10);
-    if (
-      Number.isFinite(parsed) &&
-      Number.isInteger(parsed) &&
-      parsed >= 1 &&
-      parsed <= Number.MAX_SAFE_INTEGER
-    ) {
-      return parsed;
-    }
-    return null;
-  }
-
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toString' in value &&
-    typeof value.toString === 'function'
-  ) {
-    return normalizePositiveSafeIntegerOrNull(value.toString());
-  }
-
-  return null;
-}
-
-function normalizeNonNegativeSafeIntegerOrNull(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (
-      Number.isFinite(value) &&
-      Number.isInteger(value) &&
-      value >= 0 &&
-      value <= Number.MAX_SAFE_INTEGER
-    ) {
-      return value;
-    }
-    return null;
-  }
-
-  if (typeof value === 'string') {
-    if (!/^[0-9]+$/.test(value)) {
-      return null;
-    }
-    const parsed = Number.parseInt(value, 10);
-    if (
-      Number.isFinite(parsed) &&
-      Number.isInteger(parsed) &&
-      parsed >= 0 &&
-      parsed <= Number.MAX_SAFE_INTEGER
-    ) {
-      return parsed;
-    }
-    return null;
-  }
-
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toString' in value &&
-    typeof value.toString === 'function'
-  ) {
-    return normalizeNonNegativeSafeIntegerOrNull(value.toString());
-  }
-
-  return null;
-}
-
-export function normalizeWriteIdMap(value: unknown): Record<string, unknown> {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  const output: Record<string, unknown> = {};
-  for (const [replicaId, rawWriteId] of Object.entries(value)) {
-    const parsedWriteId = normalizeNonNegativeSafeIntegerOrNull(rawWriteId);
-    output[replicaId] = parsedWriteId === null ? rawWriteId : parsedWriteId;
-  }
-  return output;
-}
-
 export function toOperationPayload(
   operation: OperationPayloadSource
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     opId: operation.opId,
-    opType: operation.opType,
+    opType: OP_TYPE_MAP[operation.opType] ?? 0,
     itemId: operation.itemId,
-    occurredAt: operation.occurredAt
+    occurredAtMs: Date.parse(operation.occurredAt)
   };
   if (typeof operation.replicaId === 'string') {
     payload['replicaId'] = operation.replicaId;
@@ -282,10 +70,10 @@ export function toOperationPayload(
     payload['principalId'] = operation.principalId;
   }
   if (typeof operation.principalType === 'string') {
-    payload['principalType'] = operation.principalType;
+    payload['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
   }
   if (typeof operation.accessLevel === 'string') {
-    payload['accessLevel'] = operation.accessLevel;
+    payload['accessLevel'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
   }
   if (typeof operation.parentId === 'string') {
     payload['parentId'] = operation.parentId;
@@ -338,25 +126,32 @@ export function toOperationPayload(
 
 export function decodePushOperation(value: unknown): Record<string, unknown> {
   const operation = asRecord(value, 'operations[]');
+  const occurredAtMs = normalizeNonNegativeSafeIntegerOrNull(
+    operation['occurredAtMs']
+  );
   const decoded: Record<string, unknown> = {
     opId: normalizeRequiredString(operation['opId'], 'opId'),
-    opType: normalizeRequiredString(operation['opType'], 'opType'),
+    opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
     itemId: normalizeRequiredString(operation['itemId'], 'itemId'),
     replicaId: normalizeRequiredString(operation['replicaId'], 'replicaId'),
     writeId: normalizePositiveSafeInteger(operation['writeId'], 'writeId'),
-    occurredAt: normalizeRequiredString(operation['occurredAt'], 'occurredAt')
+    occurredAt:
+      occurredAtMs !== null
+        ? new Date(occurredAtMs).toISOString()
+        : '1970-01-01T00:00:00.000Z'
   };
-  const principalType = normalizeOptionalString(operation['principalType']);
-  if (principalType !== undefined) {
-    decoded['principalType'] = principalType;
+  const principalType = operation['principalType'];
+  if (typeof principalType === 'number' || typeof principalType === 'string') {
+    decoded['principalType'] =
+      REV_PRINCIPAL_TYPE_MAP[Number(principalType)] ?? 'user';
   }
   const principalId = normalizeOptionalString(operation['principalId']);
   if (principalId !== undefined) {
     decoded['principalId'] = principalId;
   }
-  const accessLevel = normalizeOptionalString(operation['accessLevel']);
-  if (accessLevel !== undefined) {
-    decoded['accessLevel'] = accessLevel;
+  const accessLevel = operation['accessLevel'];
+  if (typeof accessLevel === 'number' || typeof accessLevel === 'string') {
+    decoded['accessLevel'] = REV_ACCESS_LEVEL_MAP[Number(accessLevel)] ?? 'read';
   }
   const parentId = normalizeOptionalString(operation['parentId']);
   if (parentId !== undefined) {
@@ -395,13 +190,18 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
 
 export function decodeSyncItem(value: unknown): Record<string, unknown> {
   const operation = asRecord(value, 'items[]');
+  const occurredAtMs = normalizeNonNegativeSafeIntegerOrNull(
+    operation['occurredAtMs']
+  );
   const decoded: Record<string, unknown> = {
     opId: normalizeRequiredString(operation['opId'], 'opId'),
     itemId: normalizeRequiredString(operation['itemId'], 'itemId'),
-    opType: normalizeRequiredString(operation['opType'], 'opType'),
-    principalType: normalizeOptionalNullableString(operation['principalType']),
+    opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
+    principalType:
+      REV_PRINCIPAL_TYPE_MAP[Number(operation['principalType'])] ?? null,
     principalId: normalizeOptionalNullableString(operation['principalId']),
-    accessLevel: normalizeOptionalNullableString(operation['accessLevel']),
+    accessLevel:
+      REV_ACCESS_LEVEL_MAP[Number(operation['accessLevel'])] ?? null,
     parentId: normalizeOptionalNullableString(operation['parentId']),
     childId: normalizeOptionalNullableString(operation['childId']),
     actorId: normalizeOptionalNullableString(operation['actorId']),
@@ -410,7 +210,10 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
       'sourceTable'
     ),
     sourceId: normalizeRequiredString(operation['sourceId'], 'sourceId'),
-    occurredAt: normalizeRequiredString(operation['occurredAt'], 'occurredAt')
+    occurredAt:
+      occurredAtMs !== null
+        ? new Date(occurredAtMs).toISOString()
+        : '1970-01-01T00:00:00.000Z'
   };
   const encryptedPayload = readEnvelopeField(
     operation['encryptedPayloadBytes']
@@ -437,4 +240,12 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     decoded['encryptionSignature'] = encryptionSignature;
   }
   return decoded;
+}
+
+export function normalizePushStatus(value: unknown): string {
+  return REV_PUSH_STATUS_MAP[Number(value)] ?? 'invalidOp';
+}
+
+export function toPushStatus(value: string): number {
+  return PUSH_STATUS_MAP[value] ?? 0;
 }

@@ -37,7 +37,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
       operations: [
         {
           opId: 'op-1',
-          opType: 'item_upsert',
+          opType: 'ITEM_UPSERT',
           itemId: 'item-1',
           replicaId: 'desktop',
           writeId: 1,
@@ -104,7 +104,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
         operations: [
           {
             opId: 'op-1',
-            opType: 'item_upsert',
+            opType: 'ITEM_UPSERT',
             itemId: 'item-1',
             replicaId: 'desktop',
             writeId: 1,
@@ -135,7 +135,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
         operations: [
           {
             opId: 'op-1',
-            opType: 'item_upsert',
+            opType: 'ITEM_UPSERT',
             itemId: 'item-1',
             replicaId: 'desktop',
             writeId: 1,

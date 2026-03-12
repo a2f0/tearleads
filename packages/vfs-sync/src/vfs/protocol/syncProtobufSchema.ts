@@ -21,17 +21,55 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
       nested: {
         vfs: {
           nested: {
+            OpType: {
+              values: {
+                OP_TYPE_UNSPECIFIED: 0,
+                ACL_ADD: 1,
+                ACL_REMOVE: 2,
+                LINK_ADD: 3,
+                LINK_REMOVE: 4,
+                ITEM_UPSERT: 5,
+                ITEM_DELETE: 6
+              }
+            },
+            PrincipalType: {
+              values: {
+                PRINCIPAL_TYPE_UNSPECIFIED: 0,
+                USER: 1,
+                GROUP: 2,
+                ORGANIZATION: 3
+              }
+            },
+            AccessLevel: {
+              values: {
+                ACCESS_LEVEL_UNSPECIFIED: 0,
+                READ: 1,
+                WRITE: 2,
+                ADMIN: 3
+              }
+            },
+            PushStatus: {
+              values: {
+                PUSH_STATUS_UNSPECIFIED: 0,
+                APPLIED: 1,
+                STALE_WRITE_ID: 2,
+                OUTDATED_OP: 3,
+                INVALID_OP: 4,
+                ALREADY_APPLIED: 5,
+                ENCRYPTED_ENVELOPE_UNSUPPORTED: 6
+              }
+            },
             CrdtOperation: {
               fields: {
                 opId: { type: 'string', id: 1 },
-                opType: { type: 'string', id: 2 },
+                opType: { type: 'OpType', id: 2 },
                 itemId: { type: 'string', id: 3 },
                 replicaId: { type: 'string', id: 4 },
                 writeId: { type: 'uint64', id: 5 },
-                occurredAt: { type: 'string', id: 6 },
+                occurredAtMs: { type: 'uint64', id: 6 },
                 principalId: { type: 'string', id: 7 },
-                principalType: { type: 'string', id: 8 },
-                accessLevel: { type: 'string', id: 9 },
+                principalType: { type: 'PrincipalType', id: 8 },
+                accessLevel: { type: 'AccessLevel', id: 9 },
                 parentId: { type: 'string', id: 10 },
                 childId: { type: 'string', id: 11 },
                 actorId: { type: 'string', id: 12 },
@@ -47,13 +85,14 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
             PushRequest: {
               fields: {
                 clientId: { type: 'string', id: 1 },
-                operations: { rule: 'repeated', type: 'CrdtOperation', id: 2 }
+                operations: { rule: 'repeated', type: 'CrdtOperation', id: 2 },
+                version: { type: 'uint32', id: 3 }
               }
             },
             PushResult: {
               fields: {
                 opId: { type: 'string', id: 1 },
-                status: { type: 'string', id: 2 }
+                status: { type: 'PushStatus', id: 2 }
               }
             },
             PushResponse: {
@@ -67,14 +106,16 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 items: { rule: 'repeated', type: 'CrdtOperation', id: 1 },
                 hasMore: { type: 'bool', id: 2 },
                 nextCursor: { type: 'string', id: 3 },
-                lastReconciledWriteIds: createUint64MapField(4)
+                lastReconciledWriteIds: createUint64MapField(4),
+                version: { type: 'uint32', id: 5 }
               }
             },
             ReconcileRequest: {
               fields: {
                 clientId: { type: 'string', id: 1 },
                 cursor: { type: 'string', id: 2 },
-                lastReconciledWriteIds: createUint64MapField(3)
+                lastReconciledWriteIds: createUint64MapField(3),
+                version: { type: 'uint32', id: 4 }
               }
             },
             ReconcileResponse: {
@@ -91,7 +132,8 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 limit: { type: 'uint32', id: 3 },
                 operations: { rule: 'repeated', type: 'CrdtOperation', id: 4 },
                 lastReconciledWriteIds: createUint64MapField(5),
-                rootId: { type: 'string', id: 6 }
+                rootId: { type: 'string', id: 6 },
+                version: { type: 'uint32', id: 7 }
               }
             },
             SyncSessionResponse: {

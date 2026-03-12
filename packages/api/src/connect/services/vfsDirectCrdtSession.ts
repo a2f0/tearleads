@@ -41,6 +41,7 @@ interface RunCrdtSessionRequest {
   limit: number;
   rootId?: string | null;
   lastReconciledWriteIds?: Record<string, number>;
+  version?: number;
 }
 
 interface ReconcileRow {
@@ -56,6 +57,7 @@ interface ParsedSessionPayload {
   limit: number;
   rootId: string | null;
   lastReconciledWriteIds: Record<string, number>;
+  version: number;
 }
 
 export interface RunCrdtSessionDirectResponse {
@@ -181,7 +183,8 @@ function parseSessionPayload(
       cursor: decodedCursor,
       limit,
       rootId: parseOptionalRootId(body['rootId']),
-      lastReconciledWriteIds: parsedLastWriteIds.value
+      lastReconciledWriteIds: parsedLastWriteIds.value,
+      version: typeof body['version'] === 'number' ? body['version'] : 1
     }
   };
 }

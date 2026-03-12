@@ -14,9 +14,11 @@ import {
   decodeSyncItem,
   normalizeOptionalString,
   normalizePositiveSafeInteger,
+  normalizePushStatus,
   normalizeRequiredString,
   normalizeWriteIdMap,
-  toOperationPayload
+  toOperationPayload,
+  toPushStatus
 } from './syncProtobufNormalization.js';
 import {
   PULL_RESPONSE_TYPE,
@@ -63,7 +65,8 @@ export function encodeVfsCrdtPushRequestProtobuf(
     clientId: request.clientId,
     operations: request.operations.map((operation) =>
       toOperationPayload(operation)
-    )
+    ),
+    version: 2
   });
 }
 export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
@@ -73,7 +76,8 @@ export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
     : [];
   return {
     clientId: normalizeRequiredString(payload['clientId'], 'clientId'),
-    operations
+    operations,
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtPushResponseProtobuf(
@@ -83,7 +87,7 @@ export function encodeVfsCrdtPushResponseProtobuf(
     clientId: response.clientId,
     results: response.results.map((result) => ({
       opId: result.opId,
-      status: result.status
+      status: toPushStatus(result.status)
     }))
   });
 }
@@ -98,7 +102,7 @@ export function decodeVfsCrdtPushResponseProtobuf(bytes: Uint8Array): unknown {
       const result = asRecord(entry, 'results[]');
       return {
         opId: normalizeRequiredString(result['opId'], 'results[].opId'),
-        status: normalizeRequiredString(result['status'], 'results[].status')
+        status: normalizePushStatus(result['status'])
       };
     })
   };
@@ -110,7 +114,8 @@ export function encodeVfsCrdtSyncResponseProtobuf(
     items: response.items.map((item) => toOperationPayload(item)),
     hasMore: response.hasMore,
     nextCursor: response.nextCursor ?? '',
-    lastReconciledWriteIds: response.lastReconciledWriteIds
+    lastReconciledWriteIds: response.lastReconciledWriteIds,
+    version: 2
   });
 }
 export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
@@ -124,7 +129,8 @@ export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
     nextCursor: nextCursor && nextCursor.length > 0 ? nextCursor : null,
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
-    )
+    ),
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtReconcileRequestProtobuf(
@@ -133,7 +139,8 @@ export function encodeVfsCrdtReconcileRequestProtobuf(
   return encode(RECONCILE_REQUEST_TYPE, {
     clientId: request.clientId,
     cursor: request.cursor,
-    lastReconciledWriteIds: request.lastReconciledWriteIds ?? {}
+    lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
+    version: 2
   });
 }
 export function decodeVfsCrdtReconcileRequestProtobuf(
@@ -145,7 +152,8 @@ export function decodeVfsCrdtReconcileRequestProtobuf(
     cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
-    )
+    ),
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtReconcileResponseProtobuf(
@@ -180,7 +188,8 @@ export function encodeVfsCrdtSyncSessionRequestProtobuf(
       toOperationPayload(operation)
     ),
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
-    rootId: request.rootId ?? ''
+    rootId: request.rootId ?? '',
+    version: 2
   });
 }
 export function decodeVfsCrdtSyncSessionRequestProtobuf(
@@ -197,7 +206,8 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
     ),
-    rootId: normalizeOptionalString(payload['rootId']) ?? null
+    rootId: normalizeOptionalString(payload['rootId']) ?? null,
+    version: normalizePositiveSafeInteger(payload['version'] ?? 1, 'version')
   };
 }
 export function encodeVfsCrdtSyncSessionResponseProtobuf(
@@ -208,14 +218,15 @@ export function encodeVfsCrdtSyncSessionResponseProtobuf(
       clientId: response.push.clientId,
       results: response.push.results.map((result) => ({
         opId: result.opId,
-        status: result.status
+        status: toPushStatus(result.status)
       }))
     },
     pull: {
       items: response.pull.items.map((item) => toOperationPayload(item)),
       hasMore: response.pull.hasMore,
       nextCursor: response.pull.nextCursor ?? '',
-      lastReconciledWriteIds: response.pull.lastReconciledWriteIds
+      lastReconciledWriteIds: response.pull.lastReconciledWriteIds,
+      version: 2
     },
     reconcile: {
       clientId: response.reconcile.clientId,
@@ -241,10 +252,7 @@ export function decodeVfsCrdtSyncSessionResponseProtobuf(
         const result = asRecord(entry, 'push.results[]');
         return {
           opId: normalizeRequiredString(result['opId'], 'push.results[].opId'),
-          status: normalizeRequiredString(
-            result['status'],
-            'push.results[].status'
-          )
+          status: normalizePushStatus(result['status'])
         };
       })
     },
@@ -255,7 +263,8 @@ export function decodeVfsCrdtSyncSessionResponseProtobuf(
         pullNextCursor && pullNextCursor.length > 0 ? pullNextCursor : null,
       lastReconciledWriteIds: normalizeWriteIdMap(
         pull['lastReconciledWriteIds']
-      )
+      ),
+      version: normalizePositiveSafeInteger(pull['version'] ?? 1, 'pull.version')
     },
     reconcile: {
       clientId: normalizeRequiredString(
