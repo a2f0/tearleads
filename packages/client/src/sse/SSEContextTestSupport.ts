@@ -3,6 +3,24 @@ import { vi } from 'vitest';
 export const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 export const mockIsJwtExpired = vi.fn().mockReturnValue(false);
 
+function getMockJwtExpiration(token: string): number {
+  return mockIsJwtExpired(token)
+    ? Math.floor(Date.now() / 1000) - 60
+    : Math.floor(Date.now() / 1000) + 60;
+}
+
+export function createJwtModuleMock() {
+  return {
+    decodeJwt: (token: string) => ({ exp: getMockJwtExpiration(token) }),
+    isJwtExpired: (token: string) => mockIsJwtExpired(token),
+    getJwtExpiration: (token: string) => getMockJwtExpiration(token),
+    getJwtTimeRemaining: (token: string) => {
+      const remainingMs = getMockJwtExpiration(token) * 1000 - Date.now();
+      return remainingMs > 0 ? remainingMs : null;
+    }
+  };
+}
+
 export interface OpenNotificationStreamOptions {
   apiBaseUrl: string;
   channels: string[];

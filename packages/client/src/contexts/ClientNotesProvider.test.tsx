@@ -31,16 +31,10 @@ vi.mock('@/components/ui/button', () => ({
   Button: () => <button type="button">Button</button>
 }));
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-
-  return {
-    ...actual,
-    DesktopContextMenu: () => <div>ContextMenu</div>,
-    DesktopContextMenuItem: () => <div>ContextMenuItem</div>
-  };
-});
+vi.mock('@tearleads/window-manager', () => ({
+  DesktopContextMenu: () => <div>ContextMenu</div>,
+  DesktopContextMenuItem: () => <div>ContextMenuItem</div>
+}));
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: () => <div>DropdownMenu</div>,
