@@ -19,8 +19,8 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { api } from './api';
-import { backfillMaterializedMediaFromLocalStateIfNeeded } from './vfsRematerializationBackfill';
 import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
+import { backfillMaterializedMediaFromLocalStateIfNeeded } from './vfsRematerializationBackfill';
 import {
   buildMaterializedCollectionRows,
   buildMaterializedFileRows

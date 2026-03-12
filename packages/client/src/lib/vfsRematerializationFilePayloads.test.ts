@@ -19,7 +19,8 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 vi.mock('@/storage/opfs', () => ({
-  initializeFileStorage: (...args: unknown[]) => mockInitializeFileStorage(...args),
+  initializeFileStorage: (...args: unknown[]) =>
+    mockInitializeFileStorage(...args),
   isFileStorageInitialized: (...args: unknown[]) =>
     mockIsFileStorageInitialized(...args),
   getFileStorageForInstance: () => ({

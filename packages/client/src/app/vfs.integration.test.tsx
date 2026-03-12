@@ -453,9 +453,13 @@ describe('VFS Integration Tests', () => {
           expect(
             screen.getByRole('heading', { name: 'Audio' })
           ).toBeInTheDocument();
-          expect(screen.queryByText('Loading audio...')).not.toBeInTheDocument();
           expect(
-            screen.queryByText('Drop an audio file here to add it to your library')
+            screen.queryByText('Loading audio...')
+          ).not.toBeInTheDocument();
+          expect(
+            screen.queryByText(
+              'Drop an audio file here to add it to your library'
+            )
           ).not.toBeInTheDocument();
           expect(screen.getByText(/1 track/)).toBeInTheDocument();
         },

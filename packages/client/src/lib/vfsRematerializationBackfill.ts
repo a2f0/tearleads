@@ -1,10 +1,13 @@
-import {
-  VFS_OBJECT_TYPES,
-  type VfsObjectType
-} from '@tearleads/shared';
+import { VFS_OBJECT_TYPES, type VfsObjectType } from '@tearleads/shared';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { runLocalWrite } from '@/db/localWrite';
-import { albums, files, playlists, vfsItemState, vfsRegistry } from '@/db/schema';
+import {
+  albums,
+  files,
+  playlists,
+  vfsItemState,
+  vfsRegistry
+} from '@/db/schema';
 import {
   buildMaterializedCollectionRows,
   buildMaterializedFileRows
