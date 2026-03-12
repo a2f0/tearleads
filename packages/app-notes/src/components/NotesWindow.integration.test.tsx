@@ -149,17 +149,6 @@ function createUiComponents(): NotesUIComponents {
     EditableTitle: ({ value }) => (
       <div data-testid="editable-title">{value}</div>
     ),
-    DropdownMenu: ({ trigger, children }) => (
-      <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-    ),
-    DropdownMenuItem: ({ children, onClick }) => (
-      <button type="button" onClick={onClick}>
-        {children}
-      </button>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    WindowOptionsMenuItem: () => <div>Options</div>,
-    AboutMenuItem: () => <div>About</div>,
     BackLink: ({ defaultLabel }) => <a href="/notes">{defaultLabel}</a>
   };
 }

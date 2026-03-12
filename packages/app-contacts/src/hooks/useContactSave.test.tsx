@@ -36,11 +36,6 @@ const mockUIComponents: ContactsUIComponents = {
   RefreshButton: () => <button type="button">Refresh</button>,
   VirtualListStatus: () => <div>Status</div>,
   InlineUnlock: () => <div>Unlock</div>,
-  DropdownMenu: ({ children }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children }) => <div>{children}</div>,
-  DropdownMenuSeparator: () => <div />,
-  WindowOptionsMenuItem: () => <div />,
-  AboutMenuItem: () => <div />,
   BackLink: () => <a href="#">Back</a>,
   Dropzone: () => <div>Dropzone</div>
 };
