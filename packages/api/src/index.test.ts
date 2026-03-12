@@ -28,6 +28,16 @@ describe('API', () => {
       );
     });
 
+    it('allows Electron custom protocol origins in non-production mode', async () => {
+      const response = await request(app)
+        .get('/healthz')
+        .set('Origin', 'tearleads://app');
+
+      expect(response.headers['access-control-allow-origin']).toBe(
+        'tearleads://app'
+      );
+    });
+
     it('blocks non-allowlisted origins by default', async () => {
       const response = await request(app)
         .get('/healthz')
@@ -77,6 +87,28 @@ describe('API', () => {
       expect(isCorsOriginAllowed('https://evil.example', allowlist, true)).toBe(
         false
       );
+    });
+
+    it('allows Electron protocol origins in non-production mode', () => {
+      const allowlist = new Set<string>();
+
+      expect(
+        isCorsOriginAllowed('tearleads://app', allowlist, true)
+      ).toBe(true);
+      expect(
+        isCorsOriginAllowed('tearleads-dev://app', allowlist, true)
+      ).toBe(true);
+    });
+
+    it('blocks Electron protocol origins in production mode', () => {
+      const allowlist = new Set<string>();
+
+      expect(
+        isCorsOriginAllowed('tearleads://app', allowlist, false)
+      ).toBe(false);
+      expect(
+        isCorsOriginAllowed('tearleads-dev://app', allowlist, false)
+      ).toBe(false);
     });
   });
 

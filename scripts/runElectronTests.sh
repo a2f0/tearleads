@@ -18,6 +18,9 @@ PM_SCRIPT="$SCRIPT_DIR/tooling/pm.sh"
 
 cd "$SCRIPT_DIR/../packages/client"
 
+API_PORT=5001
+export VITE_API_URL="${VITE_API_URL:-http://localhost:${API_PORT}/v1}"
+
 echo "==> Building Electron app..."
 sh "$PM_SCRIPT" run electron:build
 
