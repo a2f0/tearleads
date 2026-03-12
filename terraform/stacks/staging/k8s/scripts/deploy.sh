@@ -14,7 +14,6 @@ KUSTOMIZE_OVERLAY="$MANIFESTS_DIR/kustomize/overlays/staging"
 USE_KUSTOMIZE="${USE_KUSTOMIZE:-false}"
 STAGING_DOMAIN="${TF_VAR_domain:-}"
 K8S_HOSTNAME=""
-LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 
@@ -71,10 +70,6 @@ if [[ -z "$STAGING_DOMAIN" ]]; then
   exit 1
 fi
 
-if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
-  LETSENCRYPT_EMAIL="admin@$STAGING_DOMAIN"
-fi
-ESCAPED_LETSENCRYPT_EMAIL="$(printf '%s' "$LETSENCRYPT_EMAIL" | sed -e 's/[&|\\]/\\&/g')"
 require_secret_env_vars
 
 if ! command -v envsubst >/dev/null 2>&1; then
@@ -86,7 +81,6 @@ fi
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
-RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
 RENDERED_SECRETS="$TMP_DIR/secrets.yaml"
 RENDERED_CONFIGMAP="$TMP_DIR/configmap.yaml"
 RENDERED_GARAGE="$TMP_DIR/garage.yaml"
@@ -94,7 +88,6 @@ RENDERED_API_V2="$TMP_DIR/api-v2.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/garage.yaml" > "$RENDERED_GARAGE"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/api-v2.yaml" > "$RENDERED_API_V2"
-sed "s|REPLACE_WITH_YOUR_EMAIL|$ESCAPED_LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
 envsubst < "$MANIFESTS_DIR/secrets.yaml" > "$RENDERED_SECRETS"
 envsubst < "$MANIFESTS_DIR/configmap.yaml" > "$RENDERED_CONFIGMAP"
 
@@ -130,9 +123,7 @@ else
   kubectl apply -f "$MANIFESTS_DIR/cloudflared.yaml"
 fi
 
-# Ingress and issuer remain rendered templates.
 kubectl apply -f "$RENDERED_INGRESS"
-kubectl apply -f "$RENDERED_ISSUER"
 
 echo ""
 echo "Deployment complete!"
