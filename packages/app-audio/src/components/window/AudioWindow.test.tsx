@@ -46,9 +46,7 @@ vi.mock('@tearleads/ui', () => ({
   }: {
     trigger: string;
     children: React.ReactNode;
-  }) => (
-    <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-  ),
+  }) => <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>,
   DropdownMenuItem: ({
     children,
     onClick
@@ -62,12 +60,9 @@ vi.mock('@tearleads/ui', () => ({
   ),
   DropdownMenuSeparator: () => <hr />,
   WindowOptionsMenuItem: () => <div>Options</div>,
-  AboutMenuItem: ({
-    appName
-  }: {
-    appName: string;
-    version: string;
-  }) => <div>About {appName}</div>
+  AboutMenuItem: ({ appName }: { appName: string; version: string }) => (
+    <div>About {appName}</div>
+  )
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({

@@ -22,9 +22,7 @@ vi.mock('@tearleads/ui', () => ({
   }: {
     trigger: string;
     children: ReactNode;
-  }) => (
-    <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
-  ),
+  }) => <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>,
   DropdownMenuItem: ({
     children,
     onClick
@@ -94,7 +92,7 @@ function createClickableUI() {
     RefreshButton: () => <button type="button">Refresh</button>,
     VirtualListStatus: () => <div>Status</div>,
     InlineUnlock: () => <div data-testid="inline-unlock">Unlock</div>,
-    EditableTitle: () => <div>Title</div>,
+    EditableTitle: () => <div>Title</div>
   };
 }
 

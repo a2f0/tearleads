@@ -71,7 +71,10 @@ export function ContactsWindowMenuBar({
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger={t('help')}>
-        <AboutMenuItem appName="Contacts" version={contactsPackageJson.version} />
+        <AboutMenuItem
+          appName="Contacts"
+          version={contactsPackageJson.version}
+        />
       </DropdownMenu>
     </WindowMenuBar>
   );
