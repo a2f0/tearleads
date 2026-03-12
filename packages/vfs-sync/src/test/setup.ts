@@ -21,7 +21,19 @@ vi.mock('react-i18next', () => ({
         file: 'File',
         view: 'View',
         close: 'Close',
-        help: 'Help'
+        help: 'Help',
+        accountTab: 'Account',
+        queueTab: 'Queue',
+        noPendingOperations: 'No pending operations',
+        allSynced: 'All data is synced',
+        inboundStatus: 'Inbound Status',
+        cursor: 'Cursor',
+        noCursor: 'None',
+        pendingOps: 'Pending',
+        nextWriteId: 'Next Write ID',
+        crdtOperations: 'CRDT Operations',
+        blobOperations: 'Blob Operations',
+        encrypted: 'Encrypted'
       };
       let translated = translations[key] ?? key;
       if (options?.time !== undefined) {

@@ -27,7 +27,21 @@ export const uaPart3 = {
     file: 'Файл',
     close: 'Закрити',
     view: 'Вигляд',
-    help: 'Допомога'
+    help: 'Допомога',
+    // Tabs
+    accountTab: 'Обліковий запис',
+    queueTab: 'Черга',
+    // Queue tab
+    noPendingOperations: 'Немає очікуваних операцій',
+    allSynced: 'Усі дані синхронізовані',
+    inboundStatus: 'Вхідний Статус',
+    cursor: 'Курсор',
+    noCursor: 'Немає',
+    pendingOps: 'Очікують',
+    nextWriteId: 'Наступний ID Запису',
+    crdtOperations: 'Операції CRDT',
+    blobOperations: 'Операції Blob',
+    encrypted: 'Зашифровано'
   },
 
   debug: {

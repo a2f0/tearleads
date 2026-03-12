@@ -29,7 +29,21 @@ export const esPart3 = {
     file: 'Archivo',
     close: 'Cerrar',
     view: 'Ver',
-    help: 'Ayuda'
+    help: 'Ayuda',
+    // Tabs
+    accountTab: 'Cuenta',
+    queueTab: 'Cola',
+    // Queue tab
+    noPendingOperations: 'Sin operaciones pendientes',
+    allSynced: 'Todos los datos están sincronizados',
+    inboundStatus: 'Estado Entrante',
+    cursor: 'Cursor',
+    noCursor: 'Ninguno',
+    pendingOps: 'Pendientes',
+    nextWriteId: 'Próximo ID de Escritura',
+    crdtOperations: 'Operaciones CRDT',
+    blobOperations: 'Operaciones Blob',
+    encrypted: 'Cifrado'
   },
 
   debug: {

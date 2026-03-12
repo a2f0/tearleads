@@ -229,6 +229,20 @@ export interface SyncTranslations {
   close: string;
   view: string;
   help: string;
+  // Tabs
+  accountTab: string;
+  queueTab: string;
+  // Queue tab
+  noPendingOperations: string;
+  allSynced: string;
+  inboundStatus: string;
+  cursor: string;
+  noCursor: string;
+  pendingOps: string;
+  nextWriteId: string;
+  crdtOperations: string;
+  blobOperations: string;
+  encrypted: string;
 }
 
 export interface AdminTranslations {
