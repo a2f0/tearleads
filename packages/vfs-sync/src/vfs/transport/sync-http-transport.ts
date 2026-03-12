@@ -18,6 +18,13 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
+  ACCESS_LEVEL_MAP,
+  encodeBytesToBase64,
+  OP_TYPE_MAP,
+  packUuidToBytes,
+  PRINCIPAL_TYPE_MAP
+} from '../protocol/syncProtobufNormalization.js';
+import {
   parseApiErrorResponse,
   parseApiPullResponse,
   parseApiPushResponse,
@@ -31,6 +38,41 @@ const JSON_CONTENT_TYPE = 'application/json';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
+
+function toPackedIdBase64(value: string): string {
+  return encodeBytesToBase64(packUuidToBytes(value));
+}
+
+function toCompactOperation(operation: VfsCrdtOperation): Record<string, unknown> {
+  const compact: Record<string, unknown> = {
+    ...operation,
+    opIdBytes: toPackedIdBase64(operation.opId),
+    opTypeEnum: OP_TYPE_MAP[operation.opType] ?? 0,
+    itemIdBytes: toPackedIdBase64(operation.itemId),
+    replicaIdBytes: toPackedIdBase64(operation.replicaId),
+    writeIdU64: operation.writeId,
+    occurredAtMs: Date.parse(operation.occurredAt)
+  };
+
+  if (operation.principalType) {
+    compact['principalTypeEnum'] =
+      PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
+  }
+  if (operation.principalId) {
+    compact['principalIdBytes'] = toPackedIdBase64(operation.principalId);
+  }
+  if (operation.accessLevel) {
+    compact['accessLevelEnum'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
+  }
+  if (operation.parentId) {
+    compact['parentIdBytes'] = toPackedIdBase64(operation.parentId);
+  }
+  if (operation.childId) {
+    compact['childIdBytes'] = toPackedIdBase64(operation.childId);
+  }
+
+  return compact;
+}
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;
@@ -79,7 +121,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         {
           organizationId: organizationId ?? '',
           clientId: input.clientId,
-          operations: input.operations,
+          ...(organizationId
+            ? { organizationIdBytes: toPackedIdBase64(organizationId) }
+            : {}),
+          clientIdBytes: toPackedIdBase64(input.clientId),
+          operations: input.operations.map((operation) =>
+            toCompactOperation(operation)
+          ),
           version: 2
         },
         {
@@ -151,6 +199,10 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         {
           organizationId,
           clientId: input.clientId,
+          ...(organizationId
+            ? { organizationIdBytes: toPackedIdBase64(organizationId) }
+            : {}),
+          clientIdBytes: toPackedIdBase64(input.clientId),
           cursor: encodeVfsSyncCursor(input.cursor),
           lastReconciledWriteIds: input.lastReconciledWriteIds,
           version: 2
@@ -198,11 +250,18 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       {
         organizationId: organizationId ?? '',
         clientId: input.clientId,
+        ...(organizationId
+          ? { organizationIdBytes: toPackedIdBase64(organizationId) }
+          : {}),
+        clientIdBytes: toPackedIdBase64(input.clientId),
         cursor: encodeVfsSyncCursor(input.cursor),
         limit: input.limit,
-        operations: input.operations,
+        operations: input.operations.map((operation) =>
+          toCompactOperation(operation)
+        ),
         lastReconciledWriteIds: input.lastReconciledWriteIds,
         rootId: input.rootId ?? null,
+        ...(input.rootId ? { rootIdBytes: toPackedIdBase64(input.rootId) } : {}),
         bloomFilter: input.bloomFilter ?? null,
         version: 2
       },

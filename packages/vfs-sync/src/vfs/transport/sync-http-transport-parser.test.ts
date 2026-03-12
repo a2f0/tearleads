@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseApiPullResponse } from './sync-http-transport-parser';
+import {
+  parseApiPullResponse,
+  parseApiPushResponse
+} from './sync-http-transport-parser';
 
 function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
   return {
@@ -18,6 +21,10 @@ function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
     encryptedPayload: 'base64-ciphertext',
     keyEpoch
   };
+}
+
+function encodeUtf8ToBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
 }
 
 describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
@@ -89,6 +96,64 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
         parentId: null,
         childId: null,
         actorId: null
+      })
+    );
+  });
+
+  it('parses compact push response fields', () => {
+    const response = parseApiPushResponse({
+      clientIdBytes: encodeUtf8ToBase64('desktop'),
+      results: [
+        {
+          opIdBytes: encodeUtf8ToBase64('desktop-1'),
+          statusEnum: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+        }
+      ]
+    });
+
+    expect(response).toEqual({
+      clientId: 'desktop',
+      results: [
+        {
+          opId: 'desktop-1',
+          status: 'applied'
+        }
+      ]
+    });
+  });
+
+  it('parses compact pull item fields', () => {
+    const response = parseApiPullResponse({
+      items: [
+        {
+          opIdBytes: encodeUtf8ToBase64('desktop-2'),
+          itemIdBytes: encodeUtf8ToBase64('item-2'),
+          opTypeEnum: 5,
+          principalTypeEnum: 2,
+          principalIdBytes: encodeUtf8ToBase64('group-1'),
+          accessLevelEnum: 2,
+          actorIdBytes: encodeUtf8ToBase64('user-1'),
+          sourceTable: 'vfs_crdt_client_push',
+          sourceIdBytes: encodeUtf8ToBase64('source-row-2'),
+          occurredAtMs: '1740132001000'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response.items[0]).toEqual(
+      expect.objectContaining({
+        opId: 'desktop-2',
+        itemId: 'item-2',
+        opType: 'item_upsert',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write',
+        actorId: 'user-1',
+        sourceId: 'source-row-2',
+        occurredAt: '2025-02-21T10:00:01.000Z'
       })
     );
   });

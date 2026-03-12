@@ -228,7 +228,7 @@ export function encodeVfsCrdtSyncSessionRequestProtobuf(
     operations: request.operations.map((operation) =>
       toOperationPayload(operation)
     ),
-    lastReconciledWriteIds: request.lastReconciledWriteIds ?? {},
+    lastReconciledWriteIds: request.lastReconciledWriteIds,
     rootId: request.rootId ? packUuidToBytes(request.rootId) : [],
     version: 2
   };

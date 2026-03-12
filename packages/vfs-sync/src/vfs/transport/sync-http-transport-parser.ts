@@ -11,6 +11,11 @@ import type {
 } from '@tearleads/shared';
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
+import {
+  normalizePushResponseRecord,
+  normalizeReconcileResponseRecord,
+  normalizeSyncItemRecord
+} from './syncHttpTransportCompactNormalization.js';
 
 interface ParsedApiErrorResponse {
   message: string;
@@ -181,12 +186,13 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
    * Guardrail: push acknowledgements are authoritative for queue advancement.
    * We therefore parse every field explicitly and fail closed on any shape drift.
    */
-  if (!isRecord(body)) {
+  const normalizedBody = normalizePushResponseRecord(body);
+  if (!isRecord(normalizedBody)) {
     throw new Error('transport returned invalid push response payload');
   }
 
-  const clientId = parseRequiredString(body['clientId'], 'clientId');
-  const rawResults = body['results'];
+  const clientId = parseRequiredString(normalizedBody['clientId'], 'clientId');
+  const rawResults = normalizedBody['results'];
   if (!Array.isArray(rawResults)) {
     throw new Error('transport returned invalid push response results');
   }
@@ -222,51 +228,61 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
 }
 
 function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
-  if (!isRecord(value)) {
+  const normalizedValue = normalizeSyncItemRecord(value, index);
+  if (!isRecord(normalizedValue)) {
     throw new Error(`transport returned invalid items[${index}]`);
   }
 
   const parsedItem: VfsCrdtSyncItem = {
-    opId: parseRequiredString(value['opId'], `items[${index}].opId`),
-    itemId: parseRequiredString(value['itemId'], `items[${index}].itemId`),
-    opType: parseOpType(value['opType'], `items[${index}].opType`),
+    opId: parseRequiredString(normalizedValue['opId'], `items[${index}].opId`),
+    itemId: parseRequiredString(
+      normalizedValue['itemId'],
+      `items[${index}].itemId`
+    ),
+    opType: parseOpType(normalizedValue['opType'], `items[${index}].opType`),
     principalType: parseNullablePrincipalType(
-      value['principalType'],
+      normalizedValue['principalType'],
       `items[${index}].principalType`
     ),
     principalId: parseNullableString(
-      value['principalId'],
+      normalizedValue['principalId'],
       `items[${index}].principalId`
     ),
     accessLevel: parseNullableAccessLevel(
-      value['accessLevel'],
+      normalizedValue['accessLevel'],
       `items[${index}].accessLevel`
     ),
     parentId: parseNullableString(
-      value['parentId'],
+      normalizedValue['parentId'],
       `items[${index}].parentId`
     ),
-    childId: parseNullableString(value['childId'], `items[${index}].childId`),
-    actorId: parseNullableString(value['actorId'], `items[${index}].actorId`),
+    childId: parseNullableString(
+      normalizedValue['childId'],
+      `items[${index}].childId`
+    ),
+    actorId: parseNullableString(
+      normalizedValue['actorId'],
+      `items[${index}].actorId`
+    ),
     sourceTable: parseRequiredString(
-      value['sourceTable'],
+      normalizedValue['sourceTable'],
       `items[${index}].sourceTable`
     ),
     sourceId: parseRequiredString(
-      value['sourceId'],
+      normalizedValue['sourceId'],
       `items[${index}].sourceId`
     ),
     occurredAt: parseIsoString(
-      value['occurredAt'],
+      normalizedValue['occurredAt'],
       `items[${index}].occurredAt`
     )
   };
 
   const encryptedPayload = parseOptionalNullableString(
-    value['encryptedPayload'],
+    normalizedValue['encryptedPayload'],
     `items[${index}].encryptedPayload`
   );
-  const keyEpochValue = value['keyEpoch'];
+  const keyEpochValue = normalizedValue['keyEpoch'];
   if (encryptedPayload !== undefined && encryptedPayload !== null) {
     if (
       typeof keyEpochValue !== 'number' ||
@@ -284,7 +300,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionNonce = parseOptionalNullableString(
-    value['encryptionNonce'],
+    normalizedValue['encryptionNonce'],
     `items[${index}].encryptionNonce`
   );
   if (encryptionNonce !== undefined && encryptionNonce !== null) {
@@ -292,7 +308,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionAad = parseOptionalNullableString(
-    value['encryptionAad'],
+    normalizedValue['encryptionAad'],
     `items[${index}].encryptionAad`
   );
   if (encryptionAad !== undefined && encryptionAad !== null) {
@@ -300,7 +316,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionSignature = parseOptionalNullableString(
-    value['encryptionSignature'],
+    normalizedValue['encryptionSignature'],
     `items[${index}].encryptionSignature`
   );
   if (encryptionSignature !== undefined && encryptionSignature !== null) {
@@ -399,19 +415,20 @@ export function parseApiReconcileResponse(
    * local state and server state. Cursor or replica-clock corruption here would
    * poison stale-write recovery and future flush ordering.
    */
-  if (!isRecord(body)) {
+  const normalizedBody = normalizeReconcileResponseRecord(body);
+  if (!isRecord(normalizedBody)) {
     throw new Error('transport returned invalid reconcile response payload');
   }
 
-  const clientId = parseRequiredString(body['clientId'], 'clientId');
-  const rawCursor = parseRequiredString(body['cursor'], 'cursor');
+  const clientId = parseRequiredString(normalizedBody['clientId'], 'clientId');
+  const rawCursor = parseRequiredString(normalizedBody['cursor'], 'cursor');
   const parsedCursor = decodeVfsSyncCursor(rawCursor);
   if (!parsedCursor) {
     throw new Error('transport returned invalid reconcile cursor');
   }
 
   const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    body['lastReconciledWriteIds']
+    normalizedBody['lastReconciledWriteIds']
   );
   if (!parsedWriteIds.ok) {
     throw new Error(parsedWriteIds.error);

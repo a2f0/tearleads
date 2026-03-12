@@ -52,7 +52,16 @@ type RegisterPayloadRequest = {
   encryptedSessionKey: string;
   encryptedName?: string;
 };
-type GetSyncRequest = { cursor: string; limit: number; rootId: string };
+type GetSyncRequest = {
+  cursor: string;
+  limit: number;
+  rootId: string;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+};
 type GetCrdtSnapshotRequest = { clientId: string };
 type ReconcileSyncRequest = { clientId: string; cursor: string };
 type ReconcileCrdtRequest = {
@@ -74,6 +83,11 @@ type RunCrdtSessionRequest = {
   operations: unknown[];
   lastReconciledWriteIds: Record<string, number>;
   rootId?: string | null;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
 };
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
