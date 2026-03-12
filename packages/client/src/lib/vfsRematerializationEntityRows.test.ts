@@ -51,6 +51,7 @@ describe('vfsRematerializationEntityRows', () => {
   it('builds file rows with inferred mime types and fallbacks', () => {
     const createdAt = new Date('2026-03-04T01:02:03.000Z');
     const encodedPayload = Buffer.from('hello').toString('base64');
+    const wrappedPayload = `${encodedPayload.slice(0, 4)}\n${encodedPayload.slice(4)}`;
 
     const rows = buildMaterializedFileRows(
       [
@@ -165,6 +166,13 @@ describe('vfsRematerializationEntityRows', () => {
             encryptedPayload: null,
             deleted: false
           }
+        ],
+        [
+          'file-png',
+          {
+            encryptedPayload: wrappedPayload,
+            deleted: false
+          }
         ]
       ])
     );
@@ -184,6 +192,7 @@ describe('vfsRematerializationEntityRows', () => {
     });
 
     expect(byId.get('file-png')?.mimeType).toBe('image/png');
+    expect(byId.get('file-png')?.size).toBe(5);
     expect(byId.get('photo-jpg')?.mimeType).toBe('image/jpeg');
     expect(byId.get('photo-jpeg')?.mimeType).toBe('image/jpeg');
     expect(byId.get('photo-gif')?.mimeType).toBe('image/gif');

@@ -289,6 +289,7 @@ vi.mock('@/storage/opfs', () => ({
     }
     return storage;
   }),
+  createRetrieveLogger: vi.fn(() => vi.fn()),
   isFileStorageInitialized: vi.fn((instanceId: string) => {
     return mockFileStorageInstances.has(instanceId);
   }),

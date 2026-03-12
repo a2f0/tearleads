@@ -20,6 +20,7 @@ import {
 } from '@/db/schema';
 import { api } from './api';
 import { ensureGrantorUsersExist } from './vfsRematerializationAclGrantors';
+import { backfillMaterializedMediaFromLocalStateIfNeeded } from './vfsRematerializationBackfill';
 import {
   buildMaterializedCollectionRows,
   buildMaterializedFileRows
@@ -286,6 +287,7 @@ export async function rematerializeRemoteVfsStateIfNeeded(): Promise<boolean> {
 
   const shouldRematerialize = await isLocalRegistryEmpty();
   if (!shouldRematerialize) {
+    await backfillMaterializedMediaFromLocalStateIfNeeded();
     return false;
   }
 

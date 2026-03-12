@@ -40,7 +40,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
+import { getKeyManagerForInstance } from '@/db/crypto';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useFileUpload } from '@/hooks/vfs/useFileUpload';
@@ -153,11 +153,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     ): Promise<AudioWithUrl[]> => {
       const audioFiles = await fetchAudioFiles(ids, includeDeleted);
 
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
       if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
+      const keyManager = getKeyManagerForInstance(
+        databaseState.currentInstanceId
+      );
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
 
       if (!isFileStorageInitialized(databaseState.currentInstanceId)) {
         await initializeFileStorage(
@@ -352,11 +354,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
 
   const retrieveFile = useCallback(
     async (storagePath: string): Promise<ArrayBuffer | Uint8Array> => {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
       if (!databaseState.currentInstanceId)
         throw new Error('No active instance');
+      const keyManager = getKeyManagerForInstance(
+        databaseState.currentInstanceId
+      );
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
 
       if (!isFileStorageInitialized(databaseState.currentInstanceId)) {
         await initializeFileStorage(

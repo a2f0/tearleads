@@ -88,6 +88,9 @@ vi.mock('@/db', () => ({
 vi.mock('@/db/crypto', () => ({
   getKeyManager: vi.fn(() => ({
     getCurrentKey: vi.fn(() => new Uint8Array(32))
+  })),
+  getKeyManagerForInstance: vi.fn(() => ({
+    getCurrentKey: vi.fn(() => new Uint8Array(32))
   }))
 }));
 

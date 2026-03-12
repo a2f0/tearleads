@@ -5,15 +5,24 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { logStore } from '@/stores/logStore';
 
 const ENCRYPTED_FILE_EXTENSION = '.enc';
+
+function reportMaterializationError(message: string, details: string): void {
+  logStore.error(message, details);
+  console.error(message, details);
+}
 
 function decodeBase64Binary(value: string): Uint8Array | null {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     return null;
   }
-  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  const normalized = trimmed
+    .replace(/\s+/g, '')
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
   const missingPadding = normalized.length % 4;
   const padded =
     missingPadding === 0
@@ -43,15 +52,8 @@ export async function materializeFilePayloadsToStorage(
     { encryptedPayload: string | null; updatedAtMs: number; deleted: boolean }
   >
 ): Promise<void> {
-  const rowsWithPayload = fileRows.filter((row) => {
-    if (row.deleted) {
-      return false;
-    }
-    const payload = itemStateByItemId.get(row.id)?.encryptedPayload;
-    return typeof payload === 'string' && payload.trim().length > 0;
-  });
-
-  if (rowsWithPayload.length === 0) {
+  const activeRows = fileRows.filter((row) => !row.deleted);
+  if (activeRows.length === 0) {
     return;
   }
 
@@ -75,13 +77,21 @@ export async function materializeFilePayloadsToStorage(
 
   const storage = getFileStorageForInstance(instanceId);
 
-  for (const row of rowsWithPayload) {
+  for (const row of activeRows) {
     const payload = itemStateByItemId.get(row.id)?.encryptedPayload;
-    if (!payload) {
+    if (typeof payload !== 'string' || payload.trim().length === 0) {
+      reportMaterializationError(
+        'VFS rematerialization payload missing',
+        `itemId=${row.id}, storagePath=${row.storagePath}`
+      );
       continue;
     }
     const decoded = decodeBase64Binary(payload);
     if (!decoded) {
+      reportMaterializationError(
+        'VFS rematerialization payload decode failed',
+        `itemId=${row.id}, storagePath=${row.storagePath}`
+      );
       continue;
     }
     const storageId = row.storagePath.endsWith(ENCRYPTED_FILE_EXTENSION)
