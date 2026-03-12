@@ -12,6 +12,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { TableRows } from './TableRows';
 
+// one-component-per-file: allow - test file keeps inline JSX helpers for icon mocks and table rendering.
+
 // Mock lucide-react icons to add testids
 vi.mock('lucide-react', async () => {
   const actual =
