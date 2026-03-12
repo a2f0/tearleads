@@ -73,7 +73,10 @@ function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseOptionalBytes(value: unknown, fieldName: string): Uint8Array | null {
+function parseOptionalBytes(
+  value: unknown,
+  fieldName: string
+): Uint8Array | null {
   if (value === undefined || value === null) {
     return null;
   }
@@ -292,7 +295,10 @@ export function normalizePushResponseRecord(value: unknown): unknown {
   return normalized;
 }
 
-export function normalizeSyncItemRecord(value: unknown, index: number): unknown {
+export function normalizeSyncItemRecord(
+  value: unknown,
+  index: number
+): unknown {
   if (!isRecord(value)) {
     return value;
   }

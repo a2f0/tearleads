@@ -21,8 +21,8 @@ import {
   ACCESS_LEVEL_MAP,
   encodeBytesToBase64,
   OP_TYPE_MAP,
-  packUuidToBytes,
-  PRINCIPAL_TYPE_MAP
+  PRINCIPAL_TYPE_MAP,
+  packUuidToBytes
 } from '../protocol/syncProtobufNormalization.js';
 import {
   parseApiErrorResponse,
@@ -43,7 +43,9 @@ function toPackedIdBase64(value: string): string {
   return encodeBytesToBase64(packUuidToBytes(value));
 }
 
-function toCompactOperation(operation: VfsCrdtOperation): Record<string, unknown> {
+function toCompactOperation(
+  operation: VfsCrdtOperation
+): Record<string, unknown> {
   const compact: Record<string, unknown> = {
     ...operation,
     opIdBytes: toPackedIdBase64(operation.opId),
@@ -261,7 +263,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
         ),
         lastReconciledWriteIds: input.lastReconciledWriteIds,
         rootId: input.rootId ?? null,
-        ...(input.rootId ? { rootIdBytes: toPackedIdBase64(input.rootId) } : {}),
+        ...(input.rootId
+          ? { rootIdBytes: toPackedIdBase64(input.rootId) }
+          : {}),
         bloomFilter: input.bloomFilter ?? null,
         version: 2
       },
