@@ -41,7 +41,21 @@ else
 fi
 
 API_PORT=5001
-export VITE_API_URL="${VITE_API_URL:-http://localhost:${API_PORT}/v1}"
+
+# For physical devices, localhost won't work — auto-detect the Mac's LAN IP.
+if [ -z "${VITE_API_URL:-}" ]; then
+  LAN_IP=""
+  IFACE=$(route -n get default 2>/dev/null | grep 'interface:' | awk '{print $2}')
+  if [ -n "$IFACE" ]; then
+    LAN_IP=$(ipconfig getifaddr "$IFACE" 2>/dev/null || true)
+  fi
+  if [ -z "$LAN_IP" ]; then
+    echo "Error: Could not detect LAN IP on any interface. Set VITE_API_URL manually." >&2
+    exit 1
+  fi
+  echo "Using LAN IP for API: $LAN_IP (ensure your device is on the same network)"
+  export VITE_API_URL="http://${LAN_IP}:${API_PORT}/v1"
+fi
 
 # Build web assets and sync to native project
 sh "$PM_SCRIPT" run build && sh "$PM_SCRIPT" exec cap sync ios

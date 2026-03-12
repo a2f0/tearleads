@@ -41,11 +41,13 @@ export function parseCorsAllowedOrigins(
 function isLoopbackOrigin(origin: string): boolean {
   try {
     const parsedOrigin = new URL(origin);
-    const isHttpProtocol =
-      parsedOrigin.protocol === 'http:' || parsedOrigin.protocol === 'https:';
+    const isAllowedProtocol =
+      parsedOrigin.protocol === 'http:' ||
+      parsedOrigin.protocol === 'https:' ||
+      parsedOrigin.protocol === 'capacitor:';
 
     return (
-      isHttpProtocol &&
+      isAllowedProtocol &&
       (parsedOrigin.hostname === 'localhost' ||
         parsedOrigin.hostname === '127.0.0.1')
     );
