@@ -18,7 +18,7 @@ async function loadReplicaWriteIdsFromReplicaHeads(
       replica_id,
       max_write_id
     FROM vfs_crdt_replica_heads
-    WHERE actor_id = $1::text
+    WHERE actor_id = $1::uuid
     `,
     [userId]
   );

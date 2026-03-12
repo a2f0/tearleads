@@ -199,6 +199,15 @@ function normalizeRequiredClientId(value: unknown): string | null {
   return trimmed;
 }
 
+function isValidUuid(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/u.test(
+    value
+  );
+}
+
 export async function getSyncDirect(
   request: GetSyncRequest,
   context: { requestHeader: Headers }
@@ -208,9 +217,17 @@ export async function getSyncDirect(
     context.requestHeader
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const parsedQuery = parseVfsSyncQuery(normalizeSyncQueryRequest(request));
   if (!parsedQuery.ok) {
     throw new ConnectError(parsedQuery.error, Code.InvalidArgument);
+  }
+
+  if (parsedQuery.value.rootId && !isValidUuid(parsedQuery.value.rootId)) {
+    throw new ConnectError('Invalid rootId', Code.InvalidArgument);
   }
 
   try {
@@ -248,9 +265,17 @@ export async function getCrdtSyncDirect(
     context.requestHeader
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const parsedQuery = parseVfsCrdtSyncQuery(normalizeSyncQueryRequest(request));
   if (!parsedQuery.ok) {
     throw new ConnectError(parsedQuery.error, Code.InvalidArgument);
+  }
+
+  if (parsedQuery.value.rootId && !isValidUuid(parsedQuery.value.rootId)) {
+    throw new ConnectError('Invalid rootId', Code.InvalidArgument);
   }
 
   try {
@@ -341,6 +366,10 @@ export async function getCrdtSnapshotDirect(
     context.requestHeader
   );
 
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
+
   const clientId = normalizeRequiredClientId(request.clientId);
   if (!clientId) {
     throw new ConnectError(
@@ -380,6 +409,10 @@ export async function reconcileSyncDirect(
     context.requestHeader,
     { requireDeclaredOrganization: true }
   );
+
+  if (!isValidUuid(claims.sub)) {
+    throw new ConnectError('Invalid userId', Code.InvalidArgument);
+  }
 
   const parsedPayload = parseVfsSyncReconcilePayload({
     clientId: request.clientId,

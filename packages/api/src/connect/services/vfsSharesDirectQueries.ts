@@ -228,7 +228,7 @@ export async function getItemSharesDirect(
         LEFT JOIN groups g ON acl.principal_type = 'group' AND g.id = acl.principal_id
         LEFT JOIN organizations o ON acl.principal_type = 'organization' AND o.id = acl.principal_id
         LEFT JOIN users creator ON creator.id = acl.granted_by
-        WHERE acl.item_id = $1
+        WHERE acl.item_id = $1::uuid
           AND acl.id LIKE 'share:%'
           AND acl.revoked_at IS NULL
         ORDER BY acl.created_at DESC`,
@@ -294,7 +294,7 @@ export async function getItemSharesDirect(
         LEFT JOIN organizations source_org ON source_org.id = split_part(acl.id, ':', 2)::uuid
         LEFT JOIN organizations target_org ON target_org.id = acl.principal_id
         LEFT JOIN users creator ON creator.id = acl.granted_by
-        WHERE acl.item_id = $1
+        WHERE acl.item_id = $1::uuid
           AND acl.principal_type = 'organization'
           AND acl.id LIKE 'org-share:%:%'
           AND acl.revoked_at IS NULL

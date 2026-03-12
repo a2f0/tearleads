@@ -203,7 +203,7 @@ export async function deleteShareDirect(
       `UPDATE vfs_acl_entries
          SET revoked_at = $2,
              updated_at = $2
-         WHERE id = $1
+         WHERE id = $1::uuid
            AND revoked_at IS NULL`,
       [authContext.aclId, revokedAt]
     );
@@ -250,7 +250,7 @@ export async function deleteOrgShareDirect(
       `UPDATE vfs_acl_entries
          SET revoked_at = $2,
              updated_at = $2
-         WHERE id = $1
+         WHERE id = $1::uuid
            AND revoked_at IS NULL`,
       [authContext.aclId, revokedAt]
     );
@@ -290,7 +290,7 @@ export async function searchShareTargetsDirect(
     const results: ShareTargetSearchResult[] = [];
 
     const userOrgResult = await pool.query<{ organization_id: string }>(
-      `SELECT organization_id FROM user_organizations WHERE user_id = $1`,
+      `SELECT organization_id FROM user_organizations WHERE user_id = $1::uuid`,
       [claims.sub]
     );
     const userOrgIds = userOrgResult.rows.map((row) => row.organization_id);
@@ -300,7 +300,7 @@ export async function searchShareTargetsDirect(
         `SELECT DISTINCT u.id, u.email FROM users u
            INNER JOIN user_organizations uo ON uo.user_id = u.id
            WHERE LOWER(u.email) LIKE $1
-             AND uo.organization_id = ANY($2)
+             AND uo.organization_id = ANY($2::uuid[])
            ORDER BY u.email
            LIMIT 10`,
         [searchQuery, userOrgIds]
@@ -324,7 +324,7 @@ export async function searchShareTargetsDirect(
            FROM groups g
            LEFT JOIN organizations o ON o.id = g.organization_id
            WHERE LOWER(g.name) LIKE $1
-             AND g.organization_id = ANY($2)
+             AND g.organization_id = ANY($2::uuid[])
            ORDER BY g.name
            LIMIT 10`,
         [searchQuery, userOrgIds]
@@ -350,7 +350,7 @@ export async function searchShareTargetsDirect(
       }>(
         `SELECT id, name, description FROM organizations
            WHERE LOWER(name) LIKE $1
-             AND id = ANY($2)
+             AND id = ANY($2::uuid[])
            ORDER BY name
            LIMIT 10`,
         [searchQuery, userOrgIds]
@@ -421,7 +421,7 @@ export async function getSharePolicyPreviewDirect(
     }>(
       `SELECT owner_id, object_type
          FROM vfs_registry
-         WHERE id = $1`,
+         WHERE id = $1::uuid`,
       [rootItemId]
     );
 

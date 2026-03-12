@@ -71,7 +71,7 @@ export async function reconcileCrdtDirect(
         last_reconciled_change_id,
         last_reconciled_write_ids,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, $5::jsonb, NOW())
+      ) VALUES ($1::uuid, $2, $3::timestamptz, $4, $5::jsonb, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE

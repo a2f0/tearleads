@@ -123,7 +123,7 @@ export async function updateShareDirect(
     }>(
       `UPDATE vfs_acl_entries
          SET ${updates.join(', ')}
-         WHERE id = $${paramIndex}
+         WHERE id = $${paramIndex}::uuid
            AND revoked_at IS NULL
          RETURNING
            id AS acl_id,
@@ -224,7 +224,7 @@ export async function createShareDirect(
     const itemResult = await pool.query<{
       id: string;
       owner_id: string | null;
-    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [payload.itemId]);
+    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid', [payload.itemId]);
     if (!itemResult.rows[0]) {
       throw new ConnectError('Item not found', Code.NotFound);
     }
@@ -241,13 +241,13 @@ export async function createShareDirect(
       const result = await pool.query<{ email: string }>(
         `SELECT u.email
            FROM users u
-          WHERE u.id = $1
+          WHERE u.id = $1::uuid
             AND EXISTS (
               SELECT 1
                 FROM user_organizations requestor_uo
                 INNER JOIN user_organizations target_uo
                   ON target_uo.organization_id = requestor_uo.organization_id
-               WHERE requestor_uo.user_id = $2
+               WHERE requestor_uo.user_id = $2::uuid
                  AND target_uo.user_id = u.id
             )
           LIMIT 1`,
@@ -263,8 +263,8 @@ export async function createShareDirect(
            FROM groups g
            INNER JOIN user_organizations uo
              ON uo.organization_id = g.organization_id
-          WHERE g.id = $1
-            AND uo.user_id = $2
+          WHERE g.id = $1::uuid
+            AND uo.user_id = $2::uuid
           LIMIT 1`,
         [payload.targetId, claims.sub]
       );
@@ -278,8 +278,8 @@ export async function createShareDirect(
            FROM organizations o
            INNER JOIN user_organizations uo
              ON uo.organization_id = o.id
-          WHERE o.id = $1
-            AND uo.user_id = $2
+          WHERE o.id = $1::uuid
+            AND uo.user_id = $2::uuid
           LIMIT 1`,
         [payload.targetId, claims.sub]
       );
@@ -331,7 +331,7 @@ export async function createShareDirect(
           expires_at,
           revoked_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, NULL)
+        VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9::uuid, $10, $10, $11, NULL)
         ON CONFLICT (item_id, principal_type, principal_id)
         DO UPDATE SET
           id = EXCLUDED.id,
@@ -376,7 +376,7 @@ export async function createShareDirect(
 
     const creatorId = row.created_by ?? claims.sub;
     const creatorResult = await pool.query<{ email: string }>(
-      'SELECT email FROM users WHERE id = $1',
+      'SELECT email FROM users WHERE id = $1::uuid',
       [creatorId]
     );
 
