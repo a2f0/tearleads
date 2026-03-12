@@ -28,6 +28,7 @@ import {
   readMagicBytes
 } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
+import { handleFlushError } from '@/lib/vfsItemSyncWriter';
 import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import {
   createStoreLogger,
@@ -292,7 +293,7 @@ export function useFileUpload() {
           serverUploadSucceeded = true;
           // Flush is fire-and-forget; local data is already persisted.
           // Background retry handles failures.
-          void orchestrator.flushAll().catch(() => {});
+          void orchestrator.flushAll().catch(handleFlushError);
         } catch (err) {
           if (
             err instanceof Error &&

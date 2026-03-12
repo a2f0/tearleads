@@ -67,6 +67,11 @@ function notifySyncActivityListeners(): void {
   }
 }
 
+export function handleFlushError(err: unknown): void {
+  lastSyncError = err instanceof Error ? err : new Error(String(err));
+  notifySyncActivityListeners();
+}
+
 export function getSyncActivity(): {
   uploadInflightCount: number;
   downloadInflightCount: number;
@@ -351,10 +356,7 @@ export async function queueItemUpsertAndFlush(
         opPayload: input.payload
       });
     }
-    void runtime.orchestrator.flushAll().catch((err) => {
-      lastSyncError = err instanceof Error ? err : new Error(String(err));
-      notifySyncActivityListeners();
-    });
+    void runtime.orchestrator.flushAll().catch(handleFlushError);
   });
 }
 
@@ -384,9 +386,6 @@ export async function queueItemDeleteAndFlush(
       itemId: input.itemId,
       opType: 'item_delete'
     });
-    void runtime.orchestrator.flushAll().catch((err) => {
-      lastSyncError = err instanceof Error ? err : new Error(String(err));
-      notifySyncActivityListeners();
-    });
+    void runtime.orchestrator.flushAll().catch(handleFlushError);
   });
 }
