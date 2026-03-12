@@ -5,8 +5,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-// Get the mocked detectPlatform for test manipulation
-import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
+import * as utils from '@/lib/utils';
 import { Audio } from './Audio';
 import {
   createMockQueryChain,
@@ -31,7 +30,7 @@ import {
   TEST_ENCRYPTION_KEY
 } from './Audio.testSetup';
 
-const mockDetectPlatform = mockDetectPlatformFn as ReturnType<typeof vi.fn>;
+const mockDetectPlatform = vi.spyOn(utils, 'detectPlatform');
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -174,15 +173,6 @@ vi.mock('@/hooks/vfs/useFileUpload', () => ({
     uploadFile: mockUploadFile
   })
 }));
-
-// Mock detectPlatform to return 'web' by default (supports drag and drop)
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils')>();
-  return {
-    ...actual,
-    detectPlatform: vi.fn(() => 'web')
-  };
-});
 
 function renderAudioWrapper(route = '/audio') {
   return render(
