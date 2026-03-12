@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bootstrap k8s cluster with ingress and cert-manager (staging)
+# Bootstrap k8s cluster with ingress (staging)
 #
 # Loads .secrets/root.env + .secrets/staging.env so the dynamic inventory
 # script can reach the Terraform S3 backend for host resolution.

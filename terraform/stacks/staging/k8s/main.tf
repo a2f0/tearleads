@@ -75,18 +75,6 @@ module "server" {
     {
       direction  = "in"
       protocol   = "tcp"
-      port       = "80"
-      source_ips = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      direction  = "in"
-      protocol   = "tcp"
-      port       = "443"
-      source_ips = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      direction  = "in"
-      protocol   = "tcp"
       port       = "6443"
       source_ips = var.allowed_k8s_api_ips
     },
@@ -117,8 +105,6 @@ module "tunnel" {
   zone_name           = var.domain
   lookup_zone_by_name = false
   tunnel_name         = "k8s-staging"
-  create_dns_records  = false
-
   ingress_rules = [
     {
       hostname = "${var.domain}"
@@ -141,44 +127,6 @@ module "tunnel" {
       service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
     }
   ]
-}
-
-locals {
-  ingress_hostnames = [
-    "${var.domain}",
-    "app.${var.domain}",
-    "api.${var.domain}",
-    "download.${var.domain}",
-    "pkgs.${var.domain}"
-  ]
-}
-
-resource "cloudflare_record" "k8s_ingress" {
-  for_each = {
-    for record in flatten([
-      for hostname in local.ingress_hostnames : [
-        {
-          key      = "${hostname}-A"
-          hostname = hostname
-          type     = "A"
-          content  = module.server.ipv4_address
-        },
-        {
-          key      = "${hostname}-AAAA"
-          hostname = hostname
-          type     = "AAAA"
-          content  = module.server.ipv6_address
-        }
-      ]
-    ]) : record.key => record
-  }
-
-  zone_id = data.cloudflare_zone.staging.id
-  name    = each.value.hostname
-  type    = each.value.type
-  content = each.value.content
-  proxied = false
-  ttl     = 1
 }
 
 resource "cloudflare_record" "k8s_api" {
