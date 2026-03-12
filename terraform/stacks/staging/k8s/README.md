@@ -7,7 +7,7 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 | Resource | Description |
 |----------|-------------|
 | Hetzner Server | Single-node k3s cluster |
-| Hetzner Firewall | Ports 22, 80, 443, 6443 |
+| Hetzner Firewall | Ports 22, 6443 |
 | Cloudflare DNS | `k8s.{staging_domain}`, `app.k8s.{staging_domain}`, `api.k8s.{staging_domain}` |
 | Cloudflare Tunnel | Secure ingress routing through `cloudflared` |
 
@@ -79,7 +79,6 @@ The zone uses `prevent_destroy`, so `terraform destroy` will not remove it.
 | `website.yaml` | Marketing website deployment |
 | `cloudflared.yaml` | Cloudflare Tunnel connector deployment |
 | `ingress.yaml` | Nginx ingress routes |
-| `cert-manager-issuer.yaml` | Let's Encrypt certificate issuer |
 
 ### Kustomize Scaffold
 
@@ -102,7 +101,7 @@ With `USE_KUSTOMIZE=true`, core resources are applied via:
 `manifests/secrets.yaml` is still applied directly by `scripts/deploy.sh`
 (outside kustomize) to avoid placeholder expansion pitfalls.
 
-Ingress and cert issuer are still rendered from templates at runtime.
+Ingress is still rendered from templates at runtime.
 
 ## Architecture
 
@@ -110,15 +109,15 @@ Ingress and cert issuer are still rendered from templates at runtime.
                     ┌─────────────────────────────────────────┐
                     │         Hetzner Cloud Server            │
                     │                                         │
-Internet ──────────►│  ┌─────────────────────────────────┐   │
-   :80/:443         │  │           k3s Cluster            │   │
+Cloudflare ────────►│  ┌─────────────────────────────────┐   │
+  Tunnel            │  │           k3s Cluster            │   │
                     │  │                                  │   │
-                    │  │  ┌──────────┐  ┌──────────────┐ │   │
-                    │  │  │  nginx   │  │ cert-manager │ │   │
-                    │  │  │ ingress  │  │              │ │   │
-                    │  │  └────┬─────┘  └──────────────┘ │   │
-                    │  │       │                          │   │
-                    │  │  ┌────▼─────────────────────┐   │   │
+                    │  │  ┌────────────┐  ┌───────────┐  │   │
+                    │  │  │ cloudflared│  │   nginx   │  │   │
+                    │  │  │  (tunnel)  │──►  ingress  │  │   │
+                    │  │  └────────────┘  └─────┬─────┘  │   │
+                    │  │                        │        │   │
+                    │  │  ┌─────────────────────▼────┐   │   │
                     │  │  │      tearleads namespace │   │   │
                     │  │  │                          │   │   │
                     │  │  │  ┌─────┐ ┌──────┐ ┌───┐ │   │   │
@@ -305,17 +304,6 @@ kubectl logs <pod-name> -n tearleads
 
 # Verify secret exists
 kubectl get secret ecr-registry -n tearleads
-```
-
-### Certificate issues
-
-```bash
-# Check cert-manager logs
-kubectl logs -n cert-manager -l app=cert-manager
-
-# Check certificate status
-kubectl get certificates -n tearleads
-kubectl describe certificate <cert-name> -n tearleads
 ```
 
 ### Garage / Object storage issues

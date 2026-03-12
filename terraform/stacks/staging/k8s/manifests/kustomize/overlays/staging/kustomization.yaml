@@ -4,6 +4,6 @@ kind: Kustomization
 resources:
   - ../../base
 
-# Ingress + cert issuer are currently rendered dynamically in scripts/deploy.sh
-# from manifests/ingress.yaml and manifests/cert-manager-issuer.yaml.
-# They are intentionally left out of this initial scaffold to avoid behavior changes.
+# Ingress is currently rendered dynamically in scripts/deploy.sh
+# from manifests/ingress.yaml.
+# It is intentionally left out of this initial scaffold to avoid behavior changes.

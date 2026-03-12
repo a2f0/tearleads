@@ -1,14 +1,11 @@
 ---
 # COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-hardening
-- name: Bootstrap k8s cluster with ingress and cert-manager
+- name: Bootstrap k8s cluster with ingress
   hosts: all
   become: true
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    cert_manager_version: "v1.14.4"
-    cert_manager_url: "https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml"
-    cert_manager_checksum: "sha256:fcaaf51002a56a59f65b64ca2da021a93a51733c21a8e8478e7263c00eff7cd0"
     nginx_ingress_version: "v1.10.0"
     nginx_ingress_base: "https://raw.githubusercontent.com/kubernetes/ingress-nginx"
     nginx_ingress_url: "{{ nginx_ingress_base }}/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml"
@@ -129,29 +126,6 @@
       delay: 30
       changed_when: false
 
-    - name: Download cert-manager manifest
-      ansible.builtin.get_url:
-        url: "{{ cert_manager_url }}"
-        dest: "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
-        checksum: "{{ cert_manager_checksum }}"
-        mode: "0644"
-
-    - name: Install cert-manager
-      ansible.builtin.command:
-        cmd: k3s kubectl apply -f /tmp/cert-manager-{{ cert_manager_version }}.yaml
-      register: cert_manager_result
-      changed_when: "'created' in cert_manager_result.stdout or 'configured' in cert_manager_result.stdout"
-
-    - name: Wait for cert-manager to be ready
-      ansible.builtin.shell:
-        cmd: |
-          k3s kubectl -n cert-manager wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=300s
-      register: cert_manager_wait
-      until: cert_manager_wait.rc == 0
-      retries: 5
-      delay: 30
-      changed_when: false
-
     - name: Display cluster status
       ansible.builtin.shell:
         cmd: |
@@ -160,9 +134,6 @@
           echo ""
           echo "=== Ingress Controller ==="
           k3s kubectl -n ingress-nginx get pods
-          echo ""
-          echo "=== Cert Manager ==="
-          k3s kubectl -n cert-manager get pods
       register: cluster_status
       changed_when: false
 
@@ -176,7 +147,6 @@
         state: absent
       loop:
         - "/tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml"
-        - "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
 
   handlers:
     - name: Restart k3s
