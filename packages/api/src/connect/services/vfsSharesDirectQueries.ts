@@ -221,13 +221,13 @@ export async function getItemSharesDirect(
           acl.wrapped_session_key,
           acl.wrapped_hierarchical_key,
           acl.key_epoch,
-          CASE
-            WHEN acl.principal_type = 'user' THEN (SELECT email FROM users WHERE id = acl.principal_id)
-            WHEN acl.principal_type = 'group' THEN (SELECT name FROM groups WHERE id = acl.principal_id)
-            WHEN acl.principal_type = 'organization' THEN (SELECT name FROM organizations WHERE id = acl.principal_id)
-          END AS target_name,
-          (SELECT email FROM users WHERE id = acl.granted_by) AS created_by_email
+          COALESCE(u.email, g.name, o.name) AS target_name,
+          creator.email AS created_by_email
         FROM vfs_acl_entries acl
+        LEFT JOIN users u ON acl.principal_type = 'user' AND u.id = acl.principal_id
+        LEFT JOIN groups g ON acl.principal_type = 'group' AND g.id = acl.principal_id
+        LEFT JOIN organizations o ON acl.principal_type = 'organization' AND o.id = acl.principal_id
+        LEFT JOIN users creator ON creator.id = acl.granted_by
         WHERE acl.item_id = $1
           AND acl.id LIKE 'share:%'
           AND acl.revoked_at IS NULL
@@ -287,14 +287,13 @@ export async function getItemSharesDirect(
           acl.wrapped_session_key,
           acl.wrapped_hierarchical_key,
           acl.key_epoch,
-          (
-            SELECT name
-            FROM organizations
-            WHERE id = split_part(acl.id, ':', 2)
-          ) AS source_org_name,
-          (SELECT name FROM organizations WHERE id = acl.principal_id) AS target_org_name,
-          (SELECT email FROM users WHERE id = acl.granted_by) AS created_by_email
+          source_org.name AS source_org_name,
+          target_org.name AS target_org_name,
+          creator.email AS created_by_email
         FROM vfs_acl_entries acl
+        LEFT JOIN organizations source_org ON source_org.id = split_part(acl.id, ':', 2)::uuid
+        LEFT JOIN organizations target_org ON target_org.id = acl.principal_id
+        LEFT JOIN users creator ON creator.id = acl.granted_by
         WHERE acl.item_id = $1
           AND acl.principal_type = 'organization'
           AND acl.id LIKE 'org-share:%:%'

@@ -12,7 +12,7 @@ export const VFS_CRDT_SYNC_SQL = `
           ops.actor_id,
           ops.source_table,
           ops.source_id,
-          date_trunc('milliseconds', ops.occurred_at) AS occurred_at,
+          ops.occurred_at,
           encode(ops.encrypted_payload_bytes, 'base64') AS encrypted_payload,
           ops.key_epoch,
           encode(ops.encryption_nonce_bytes, 'base64') AS encryption_nonce,
@@ -24,22 +24,18 @@ export const VFS_CRDT_SYNC_SQL = `
           AND access.user_id = $1
         WHERE (
           $2::timestamptz IS NULL
-          OR date_trunc('milliseconds', ops.occurred_at) > $2::timestamptz
+          OR ops.occurred_at > $2::timestamptz
           OR (
-            date_trunc('milliseconds', ops.occurred_at) = $2::timestamptz
+            ops.occurred_at = $2::timestamptz
             AND ops.id > COALESCE($3::text, '')
           )
         )
         AND (
           $5::text IS NULL
           OR ops.item_id = $5::text
-          OR EXISTS (
-            SELECT 1 FROM vfs_links 
-            WHERE parent_id = $5::text 
-              AND child_id = ops.item_id
-          )
+          OR ops.root_id = $5::text
         )
-        ORDER BY date_trunc('milliseconds', ops.occurred_at) ASC, ops.id ASC
+        ORDER BY ops.occurred_at ASC, ops.id ASC
         LIMIT $4::integer
       )
       SELECT

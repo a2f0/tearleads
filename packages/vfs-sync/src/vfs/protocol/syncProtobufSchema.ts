@@ -61,20 +61,20 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
             },
             CrdtOperation: {
               fields: {
-                opId: { type: 'string', id: 1 },
+                opId: { type: 'bytes', id: 1 },
                 opType: { type: 'OpType', id: 2 },
-                itemId: { type: 'string', id: 3 },
-                replicaId: { type: 'string', id: 4 },
+                itemId: { type: 'bytes', id: 3 },
+                replicaId: { type: 'bytes', id: 4 },
                 writeId: { type: 'uint64', id: 5 },
                 occurredAtMs: { type: 'uint64', id: 6 },
-                principalId: { type: 'string', id: 7 },
+                principalId: { type: 'bytes', id: 7 },
                 principalType: { type: 'PrincipalType', id: 8 },
                 accessLevel: { type: 'AccessLevel', id: 9 },
-                parentId: { type: 'string', id: 10 },
-                childId: { type: 'string', id: 11 },
-                actorId: { type: 'string', id: 12 },
+                parentId: { type: 'bytes', id: 10 },
+                childId: { type: 'bytes', id: 11 },
+                actorId: { type: 'bytes', id: 12 },
                 sourceTable: { type: 'string', id: 13 },
-                sourceId: { type: 'string', id: 14 },
+                sourceId: { type: 'bytes', id: 14 },
                 keyEpoch: { type: 'uint32', id: 16 },
                 encryptedPayloadBytes: { type: 'bytes', id: 20 },
                 encryptionNonceBytes: { type: 'bytes', id: 21 },
@@ -84,20 +84,20 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
             },
             PushRequest: {
               fields: {
-                clientId: { type: 'string', id: 1 },
+                clientId: { type: 'bytes', id: 1 },
                 operations: { rule: 'repeated', type: 'CrdtOperation', id: 2 },
                 version: { type: 'uint32', id: 3 }
               }
             },
             PushResult: {
               fields: {
-                opId: { type: 'string', id: 1 },
+                opId: { type: 'bytes', id: 1 },
                 status: { type: 'PushStatus', id: 2 }
               }
             },
             PushResponse: {
               fields: {
-                clientId: { type: 'string', id: 1 },
+                clientId: { type: 'bytes', id: 1 },
                 results: { rule: 'repeated', type: 'PushResult', id: 2 }
               }
             },
@@ -105,34 +105,34 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
               fields: {
                 items: { rule: 'repeated', type: 'CrdtOperation', id: 1 },
                 hasMore: { type: 'bool', id: 2 },
-                nextCursor: { type: 'string', id: 3 },
+                nextCursor: { type: 'bytes', id: 3 },
                 lastReconciledWriteIds: createUint64MapField(4),
                 version: { type: 'uint32', id: 5 }
               }
             },
             ReconcileRequest: {
               fields: {
-                clientId: { type: 'string', id: 1 },
-                cursor: { type: 'string', id: 2 },
+                clientId: { type: 'bytes', id: 1 },
+                cursor: { type: 'bytes', id: 2 },
                 lastReconciledWriteIds: createUint64MapField(3),
                 version: { type: 'uint32', id: 4 }
               }
             },
             ReconcileResponse: {
               fields: {
-                clientId: { type: 'string', id: 1 },
-                cursor: { type: 'string', id: 2 },
+                clientId: { type: 'bytes', id: 1 },
+                cursor: { type: 'bytes', id: 2 },
                 lastReconciledWriteIds: createUint64MapField(3)
               }
             },
             SyncSessionRequest: {
               fields: {
-                clientId: { type: 'string', id: 1 },
-                cursor: { type: 'string', id: 2 },
+                clientId: { type: 'bytes', id: 1 },
+                cursor: { type: 'bytes', id: 2 },
                 limit: { type: 'uint32', id: 3 },
                 operations: { rule: 'repeated', type: 'CrdtOperation', id: 4 },
                 lastReconciledWriteIds: createUint64MapField(5),
-                rootId: { type: 'string', id: 6 },
+                rootId: { type: 'bytes', id: 6 },
                 version: { type: 'uint32', id: 7 }
               }
             },

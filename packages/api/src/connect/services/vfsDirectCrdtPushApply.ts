@@ -92,7 +92,7 @@ export async function applyCrdtPushOperations(input: {
       `
       SELECT id, owner_id, organization_id
       FROM vfs_registry
-      WHERE id = ANY($1::text[])
+      WHERE id = ANY($1::uuid[])
       `,
       [uniqueItemIds]
     );
@@ -110,8 +110,8 @@ export async function applyCrdtPushOperations(input: {
       `
       SELECT item_id
       FROM vfs_effective_visibility
-      WHERE user_id = $1::text
-        AND item_id = ANY($2::text[])
+      WHERE user_id = $1::uuid
+        AND item_id = ANY($2::uuid[])
         AND access_rank >= 2
       `,
       [input.userId, uniqueItemIds]
@@ -149,7 +149,7 @@ export async function applyCrdtPushOperations(input: {
         max_write_id,
         max_occurred_at
       FROM vfs_crdt_replica_heads
-      WHERE actor_id = $1::text
+      WHERE actor_id = $1::uuid
       `,
       [input.userId]
     );
@@ -264,17 +264,18 @@ export async function applyCrdtPushOperations(input: {
         encrypted_payload_bytes,
         encryption_nonce_bytes,
         encryption_aad_bytes,
-        encryption_signature_bytes
+        encryption_signature_bytes,
+        root_id
       ) VALUES (
         vfs_make_event_id('crdt'),
-        $1::text,
+        $1::uuid,
         $2::text,
         $3::text,
-        $4::text,
+        $4::uuid,
         $5::text,
-        $6::text,
-        $7::text,
-        $8::text,
+        $6::uuid,
+        $7::uuid,
+        $8::uuid,
         $9::text,
         $10::text,
         $11::timestamptz,
@@ -286,7 +287,8 @@ export async function applyCrdtPushOperations(input: {
         $17::bytea,
         $18::bytea,
         $19::bytea,
-        $20::bytea
+        $20::bytea,
+        $21::uuid
       )
       RETURNING id, occurred_at
       `,
@@ -310,7 +312,8 @@ export async function applyCrdtPushOperations(input: {
         encryptedPayload.bytes,
         encryptionNonce.bytes,
         encryptionAad.bytes,
-        encryptionSignature.bytes
+        encryptionSignature.bytes,
+        resolveContainerId(operation)
       ]
     );
 

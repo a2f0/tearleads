@@ -9,7 +9,10 @@ import {
   REV_PUSH_STATUS_MAP
 } from './syncProtobufNormalizationEnums.js';
 import {
+  normalizeOptionalBytes,
+  packUuidToBytes,
   readEnvelopeField,
+  unpackBytesToUuid,
   writeEnvelopeField
 } from './syncProtobufNormalizationBytes.js';
 import {
@@ -51,23 +54,42 @@ interface OperationPayloadSource {
   encryptionSignature?: string;
 }
 
+export function normalizeRequiredBytes(
+  value: unknown,
+  fieldName: string
+): string {
+  const bytes = normalizeOptionalBytes(value);
+  if (!bytes) {
+    throw new Error(`invalid protobuf payload field: ${fieldName}`);
+  }
+  return unpackBytesToUuid(bytes);
+}
+
+export function normalizeOptionalBytesString(value: unknown): string | undefined {
+  const bytes = normalizeOptionalBytes(value);
+  if (!bytes) {
+    return undefined;
+  }
+  return unpackBytesToUuid(bytes);
+}
+
 export function toOperationPayload(
   operation: OperationPayloadSource
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
-    opId: operation.opId,
+    opId: packUuidToBytes(operation.opId),
     opType: OP_TYPE_MAP[operation.opType] ?? 0,
-    itemId: operation.itemId,
+    itemId: packUuidToBytes(operation.itemId),
     occurredAtMs: Date.parse(operation.occurredAt)
   };
   if (typeof operation.replicaId === 'string') {
-    payload['replicaId'] = operation.replicaId;
+    payload['replicaId'] = packUuidToBytes(operation.replicaId);
   }
   if (typeof operation.writeId === 'number') {
     payload['writeId'] = operation.writeId;
   }
   if (typeof operation.principalId === 'string') {
-    payload['principalId'] = operation.principalId;
+    payload['principalId'] = packUuidToBytes(operation.principalId);
   }
   if (typeof operation.principalType === 'string') {
     payload['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
@@ -76,19 +98,19 @@ export function toOperationPayload(
     payload['accessLevel'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
   }
   if (typeof operation.parentId === 'string') {
-    payload['parentId'] = operation.parentId;
+    payload['parentId'] = packUuidToBytes(operation.parentId);
   }
   if (typeof operation.childId === 'string') {
-    payload['childId'] = operation.childId;
+    payload['childId'] = packUuidToBytes(operation.childId);
   }
   if (typeof operation.actorId === 'string') {
-    payload['actorId'] = operation.actorId;
+    payload['actorId'] = packUuidToBytes(operation.actorId);
   }
   if (typeof operation.sourceTable === 'string') {
     payload['sourceTable'] = operation.sourceTable;
   }
   if (typeof operation.sourceId === 'string') {
-    payload['sourceId'] = operation.sourceId;
+    payload['sourceId'] = packUuidToBytes(operation.sourceId);
   }
   if (typeof operation.encryptedPayload === 'string') {
     writeEnvelopeField(payload, {
@@ -130,10 +152,10 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
     operation['occurredAtMs']
   );
   const decoded: Record<string, unknown> = {
-    opId: normalizeRequiredString(operation['opId'], 'opId'),
+    opId: normalizeRequiredBytes(operation['opId'], 'opId'),
     opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
-    itemId: normalizeRequiredString(operation['itemId'], 'itemId'),
-    replicaId: normalizeRequiredString(operation['replicaId'], 'replicaId'),
+    itemId: normalizeRequiredBytes(operation['itemId'], 'itemId'),
+    replicaId: normalizeRequiredBytes(operation['replicaId'], 'replicaId'),
     writeId: normalizePositiveSafeInteger(operation['writeId'], 'writeId'),
     occurredAt:
       occurredAtMs !== null
@@ -145,7 +167,7 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
     decoded['principalType'] =
       REV_PRINCIPAL_TYPE_MAP[Number(principalType)] ?? 'user';
   }
-  const principalId = normalizeOptionalString(operation['principalId']);
+  const principalId = normalizeOptionalBytesString(operation['principalId']);
   if (principalId !== undefined) {
     decoded['principalId'] = principalId;
   }
@@ -153,11 +175,11 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (typeof accessLevel === 'number' || typeof accessLevel === 'string') {
     decoded['accessLevel'] = REV_ACCESS_LEVEL_MAP[Number(accessLevel)] ?? 'read';
   }
-  const parentId = normalizeOptionalString(operation['parentId']);
+  const parentId = normalizeOptionalBytesString(operation['parentId']);
   if (parentId !== undefined) {
     decoded['parentId'] = parentId;
   }
-  const childId = normalizeOptionalString(operation['childId']);
+  const childId = normalizeOptionalBytesString(operation['childId']);
   if (childId !== undefined) {
     decoded['childId'] = childId;
   }
@@ -194,22 +216,22 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     operation['occurredAtMs']
   );
   const decoded: Record<string, unknown> = {
-    opId: normalizeRequiredString(operation['opId'], 'opId'),
-    itemId: normalizeRequiredString(operation['itemId'], 'itemId'),
+    opId: normalizeRequiredBytes(operation['opId'], 'opId'),
+    itemId: normalizeRequiredBytes(operation['itemId'], 'itemId'),
     opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
     principalType:
       REV_PRINCIPAL_TYPE_MAP[Number(operation['principalType'])] ?? null,
-    principalId: normalizeOptionalNullableString(operation['principalId']),
+    principalId: normalizeOptionalBytesString(operation['principalId']) ?? null,
     accessLevel:
       REV_ACCESS_LEVEL_MAP[Number(operation['accessLevel'])] ?? null,
-    parentId: normalizeOptionalNullableString(operation['parentId']),
-    childId: normalizeOptionalNullableString(operation['childId']),
-    actorId: normalizeOptionalNullableString(operation['actorId']),
+    parentId: normalizeOptionalBytesString(operation['parentId']) ?? null,
+    childId: normalizeOptionalBytesString(operation['childId']) ?? null,
+    actorId: normalizeOptionalBytesString(operation['actorId']) ?? null,
     sourceTable: normalizeRequiredString(
       operation['sourceTable'],
       'sourceTable'
     ),
-    sourceId: normalizeRequiredString(operation['sourceId'], 'sourceId'),
+    sourceId: normalizeRequiredBytes(operation['sourceId'], 'sourceId'),
     occurredAt:
       occurredAtMs !== null
         ? new Date(occurredAtMs).toISOString()

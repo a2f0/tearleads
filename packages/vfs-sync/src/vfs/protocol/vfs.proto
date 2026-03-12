@@ -37,20 +37,20 @@ enum PushStatus {
 }
 
 message CrdtOperation {
-  string opId = 1;
+  bytes opId = 1;
   OpType opType = 2;
-  string itemId = 3;
-  string replicaId = 4;
+  bytes itemId = 3;
+  bytes replicaId = 4;
   uint64 writeId = 5;
   uint64 occurredAtMs = 6;
-  string principalId = 7;
+  bytes principalId = 7;
   PrincipalType principalType = 8;
   AccessLevel accessLevel = 9;
-  string parentId = 10;
-  string childId = 11;
-  string actorId = 12;
+  bytes parentId = 10;
+  bytes childId = 11;
+  bytes actorId = 12;
   string sourceTable = 13;
-  string sourceId = 14;
+  bytes sourceId = 14;
   uint32 keyEpoch = 16;
   bytes encryptedPayloadBytes = 20;
   bytes encryptionNonceBytes = 21;
@@ -59,49 +59,49 @@ message CrdtOperation {
 }
 
 message PushRequest {
-  string clientId = 1;
+  bytes clientId = 1;
   repeated CrdtOperation operations = 2;
   uint32 version = 3;
 }
 
 message PushResult {
-  string opId = 1;
+  bytes opId = 1;
   PushStatus status = 2;
 }
 
 message PushResponse {
-  string clientId = 1;
+  bytes clientId = 1;
   repeated PushResult results = 2;
 }
 
 message PullResponse {
   repeated CrdtOperation items = 1;
   bool hasMore = 2;
-  string nextCursor = 3;
+  bytes nextCursor = 3;
   map<string, uint64> lastReconciledWriteIds = 4;
   uint32 version = 5;
 }
 
 message ReconcileRequest {
-  string clientId = 1;
-  string cursor = 2;
+  bytes clientId = 1;
+  bytes cursor = 2;
   map<string, uint64> lastReconciledWriteIds = 3;
   uint32 version = 4;
 }
 
 message ReconcileResponse {
-  string clientId = 1;
-  string cursor = 2;
+  bytes clientId = 1;
+  bytes cursor = 2;
   map<string, uint64> lastReconciledWriteIds = 3;
 }
 
 message SyncSessionRequest {
-  string clientId = 1;
-  string cursor = 2;
+  bytes clientId = 1;
+  bytes cursor = 2;
   uint32 limit = 3;
   repeated CrdtOperation operations = 4;
   map<string, uint64> lastReconciledWriteIds = 5;
-  string rootId = 6;
+  bytes rootId = 6;
   uint32 version = 7;
 }
 
