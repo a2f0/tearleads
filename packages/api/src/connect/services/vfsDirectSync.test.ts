@@ -29,10 +29,7 @@ vi.mock('./vfsDirectAuth.js', () => ({
   requireVfsClaims: (...args: unknown[]) => requireVfsClaimsMock(...args)
 }));
 
-import {
-  getCrdtSyncDirect,
-  getSyncDirect
-} from './vfsDirectSync.js';
+import { getCrdtSyncDirect, getSyncDirect } from './vfsDirectSync.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 

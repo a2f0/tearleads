@@ -3,7 +3,7 @@ import {
   SCAFFOLD_SYNTHETIC_WAV_BASE64,
   setupBobPlaylistShareForAliceDb
 } from './setupBobPlaylistShareForAliceDb.js';
-import { type DbQueryClient } from './vfsScaffoldHelpers.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -113,12 +113,16 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     const playlistExtensionCall = calls.find((call) =>
       call.text.includes('INSERT INTO playlists')
     );
-    expect(playlistExtensionCall?.params?.[0]).toBe('00000000-0000-0000-0000-000000000010');
+    expect(playlistExtensionCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
 
     const itemStateInsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
     );
-    expect(itemStateInsertCall?.params?.[0]).toBe('00000000-0000-0000-0000-000000000011');
+    expect(itemStateInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
     expect(itemStateInsertCall?.params?.[1]).toBe(
       SCAFFOLD_SYNTHETIC_WAV_BASE64
     );
@@ -127,15 +131,23 @@ describe('setupBobPlaylistShareForAliceDb', () => {
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
     expect(crdtUpsertCall?.text).toContain('root_id');
-    expect(crdtUpsertCall?.params?.[1]).toBe('00000000-0000-0000-0000-000000000011');
-    expect(crdtUpsertCall?.params?.[9]).toBe('00000000-0000-0000-0000-000000000010'); // root_id (playlistId)
+    expect(crdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(crdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (playlistId)
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')
     );
     expect(linkInserts).toHaveLength(2);
-    expect(linkInserts[0]?.params?.[1]).toBe('00000000-0000-0000-0000-000000000000');
-    expect(linkInserts[0]?.params?.[2]).toBe('00000000-0000-0000-0000-000000000010');
+    expect(linkInserts[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    expect(linkInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });

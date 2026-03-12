@@ -1,3 +1,4 @@
+import type { VfsSyncBloomFilter } from '@tearleads/shared';
 import {
   isPlainRecord,
   parseConnectJsonEnvelopeBody,
@@ -22,7 +23,6 @@ import {
   parseApiPushResponse,
   parseApiReconcileResponse
 } from './sync-http-transport-parser.js';
-import type { VfsSyncBloomFilter } from '@tearleads/shared';
 
 type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';

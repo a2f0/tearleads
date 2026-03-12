@@ -224,7 +224,9 @@ export async function createShareDirect(
     const itemResult = await pool.query<{
       id: string;
       owner_id: string | null;
-    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid', [payload.itemId]);
+    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid', [
+      payload.itemId
+    ]);
     if (!itemResult.rows[0]) {
       throw new ConnectError('Item not found', Code.NotFound);
     }

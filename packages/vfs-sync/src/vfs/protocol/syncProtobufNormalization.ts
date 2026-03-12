@@ -1,4 +1,11 @@
 import {
+  normalizeOptionalBytes,
+  packUuidToBytes,
+  readEnvelopeField,
+  unpackBytesToUuid,
+  writeEnvelopeField
+} from './syncProtobufNormalizationBytes.js';
+import {
   ACCESS_LEVEL_MAP,
   OP_TYPE_MAP,
   PRINCIPAL_TYPE_MAP,
@@ -9,13 +16,6 @@ import {
   REV_PUSH_STATUS_MAP
 } from './syncProtobufNormalizationEnums.js';
 import {
-  normalizeOptionalBytes,
-  packUuidToBytes,
-  readEnvelopeField,
-  unpackBytesToUuid,
-  writeEnvelopeField
-} from './syncProtobufNormalizationBytes.js';
-import {
   normalizeNonNegativeSafeIntegerOrNull,
   normalizePositiveSafeInteger,
   normalizePositiveSafeIntegerOrNull
@@ -25,10 +25,10 @@ import {
   normalizeRequiredString
 } from './syncProtobufNormalizationStrings.js';
 
-export * from './syncProtobufNormalizationEnums.js';
-export * from './syncProtobufNormalizationStrings.js';
-export * from './syncProtobufNormalizationNumbers.js';
 export * from './syncProtobufNormalizationBytes.js';
+export * from './syncProtobufNormalizationEnums.js';
+export * from './syncProtobufNormalizationNumbers.js';
+export * from './syncProtobufNormalizationStrings.js';
 
 interface OperationPayloadSource {
   opId: string;
@@ -63,7 +63,9 @@ export function normalizeRequiredBytes(
   return unpackBytesToUuid(bytes);
 }
 
-export function normalizeOptionalBytesString(value: unknown): string | undefined {
+export function normalizeOptionalBytesString(
+  value: unknown
+): string | undefined {
   const bytes = normalizeOptionalBytes(value);
   if (!bytes) {
     return undefined;
@@ -171,7 +173,8 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   }
   const accessLevel = operation['accessLevel'];
   if (typeof accessLevel === 'number' || typeof accessLevel === 'string') {
-    decoded['accessLevel'] = REV_ACCESS_LEVEL_MAP[Number(accessLevel)] ?? 'read';
+    decoded['accessLevel'] =
+      REV_ACCESS_LEVEL_MAP[Number(accessLevel)] ?? 'read';
   }
   const parentId = normalizeOptionalBytesString(operation['parentId']);
   if (parentId !== undefined) {
@@ -220,8 +223,7 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
     principalType:
       REV_PRINCIPAL_TYPE_MAP[Number(operation['principalType'])] ?? null,
     principalId: normalizeOptionalBytesString(operation['principalId']) ?? null,
-    accessLevel:
-      REV_ACCESS_LEVEL_MAP[Number(operation['accessLevel'])] ?? null,
+    accessLevel: REV_ACCESS_LEVEL_MAP[Number(operation['accessLevel'])] ?? null,
     parentId: normalizeOptionalBytesString(operation['parentId']) ?? null,
     childId: normalizeOptionalBytesString(operation['childId']) ?? null,
     actorId: normalizeOptionalBytesString(operation['actorId']) ?? null,

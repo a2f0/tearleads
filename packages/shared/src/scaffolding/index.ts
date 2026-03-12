@@ -1,8 +1,4 @@
 export { createTestUsersDb } from './createTestUsersDb.js';
-export {
-  type DbQueryClient,
-  type ShareAccessLevel
-} from './vfsScaffoldHelpers.js';
 export type {
   SetupBobNotesShareForAliceDbInput,
   SetupBobNotesShareForAliceDbResult
@@ -36,3 +32,7 @@ export {
 } from './setupWelcomeEmailsDb.js';
 export type { TestUser } from './testUsers.js';
 export { alice, allTestUsers, bob } from './testUsers.js';
+export type {
+  DbQueryClient,
+  ShareAccessLevel
+} from './vfsScaffoldHelpers.js';

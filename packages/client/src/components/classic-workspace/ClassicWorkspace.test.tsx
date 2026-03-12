@@ -113,10 +113,20 @@ describe('ClassicWorkspace', () => {
         noteOrderByTagId: { 'tag-a': [] },
         activeTagId: 'tag-a'
       },
-      linkRows: [{ parentId: '00000000-0000-0000-0000-000000000000', childId: 'tag-a', position: 0 }]
+      linkRows: [
+        {
+          parentId: '00000000-0000-0000-0000-000000000000',
+          childId: 'tag-a',
+          position: 0
+        }
+      ]
     });
     mockPersistClassicOrderToDatabase.mockResolvedValue([
-      { parentId: '00000000-0000-0000-0000-000000000000', childId: 'tag-a', position: 0 }
+      {
+        parentId: '00000000-0000-0000-0000-000000000000',
+        childId: 'tag-a',
+        position: 0
+      }
     ]);
     mockDeleteClassicTag.mockResolvedValue(undefined);
     mockRestoreClassicTag.mockResolvedValue(undefined);

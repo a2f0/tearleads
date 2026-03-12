@@ -19,7 +19,11 @@ export const MAX_CLIENT_ID_LENGTH = 128;
 export const DEFAULT_REMATERIALIZATION_ATTEMPTS = 1;
 export const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
 
-export const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
+export const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = [
+  'read',
+  'write',
+  'admin'
+];
 export const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',
   'group',

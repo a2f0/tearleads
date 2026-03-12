@@ -30,10 +30,13 @@ export class VfsBloomFilter {
   constructor(options: VfsBloomFilterOptions) {
     const { capacity, errorRate } = options;
     // Optimal size m = -(n * ln(p)) / (ln(2)^2)
-    this.size = Math.ceil(-(capacity * Math.log(errorRate)) / (Math.log(2) ** 2));
+    this.size = Math.ceil(-(capacity * Math.log(errorRate)) / Math.log(2) ** 2);
     // Optimal hash functions k = (m/n) * ln(2)
-    this.numHashFunctions = Math.max(1, Math.round((this.size / capacity) * Math.log(2)));
-    
+    this.numHashFunctions = Math.max(
+      1,
+      Math.round((this.size / capacity) * Math.log(2))
+    );
+
     this.bitArray = new Uint8Array(Math.ceil(this.size / 8));
   }
 
@@ -41,7 +44,8 @@ export class VfsBloomFilter {
    * Adds a value to the bloom filter.
    */
   add(value: string | Uint8Array): void {
-    const data = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+    const data =
+      typeof value === 'string' ? new TextEncoder().encode(value) : value;
     for (let i = 0; i < this.numHashFunctions; i++) {
       const hash = fnv1a(data, i); // Use 'i' as a seed for different hash functions
       const index = hash % this.size;
@@ -54,7 +58,8 @@ export class VfsBloomFilter {
    * Returns true if it might be present, false if it is definitely not.
    */
   has(value: string | Uint8Array): boolean {
-    const data = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+    const data =
+      typeof value === 'string' ? new TextEncoder().encode(value) : value;
     for (let i = 0; i < this.numHashFunctions; i++) {
       const hash = fnv1a(data, i);
       const index = hash % this.size;

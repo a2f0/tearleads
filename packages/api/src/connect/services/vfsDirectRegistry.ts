@@ -123,9 +123,10 @@ export async function rekeyItemDirect(
       const itemResult = await client.query<{
         id: string;
         owner_id: string | null;
-      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid FOR UPDATE', [
-        itemId
-      ]);
+      }>(
+        'SELECT id, owner_id FROM vfs_registry WHERE id = $1::uuid FOR UPDATE',
+        [itemId]
+      );
       const item = itemResult.rows[0];
 
       if (!item) {

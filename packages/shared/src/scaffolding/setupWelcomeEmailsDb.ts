@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  type EncryptScaffoldVfsNameResult
-} from './encryptScaffoldVfsName.js';
+import type { EncryptScaffoldVfsNameResult } from './encryptScaffoldVfsName.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 import {
   type DbQueryClient,
@@ -92,7 +90,14 @@ async function insertEmailForUser(
          organization_id = EXCLUDED.organization_id,
          encrypted_session_key = EXCLUDED.encrypted_session_key,
          encrypted_name = EXCLUDED.encrypted_name`,
-      [inboxFolderId, userId, organizationId, encryptedInboxName.encryptedSessionKey, encryptedInboxName.encryptedName, nowIso]
+      [
+        inboxFolderId,
+        userId,
+        organizationId,
+        encryptedInboxName.encryptedSessionKey,
+        encryptedInboxName.encryptedName,
+        nowIso
+      ]
     );
   } else {
     await client.query(
@@ -101,7 +106,13 @@ async function insertEmailForUser(
        ON CONFLICT (id) DO UPDATE SET
          encrypted_session_key = EXCLUDED.encrypted_session_key,
          encrypted_name = EXCLUDED.encrypted_name`,
-      [inboxFolderId, userId, encryptedInboxName.encryptedSessionKey, encryptedInboxName.encryptedName, nowIso]
+      [
+        inboxFolderId,
+        userId,
+        encryptedInboxName.encryptedSessionKey,
+        encryptedInboxName.encryptedName,
+        nowIso
+      ]
     );
   }
 
@@ -186,13 +197,7 @@ async function insertEmailForUser(
        access_level = EXCLUDED.access_level,
        wrapped_session_key = EXCLUDED.wrapped_session_key,
        updated_at = EXCLUDED.updated_at`,
-    [
-      randomUUID(),
-      emailItemId,
-      userId,
-      'scaffolding-email-acl-wrap',
-      nowIso
-    ]
+    [randomUUID(), emailItemId, userId, 'scaffolding-email-acl-wrap', nowIso]
   );
 }
 

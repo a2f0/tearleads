@@ -103,7 +103,15 @@ export async function upsertVfsRegistryItem(
          organization_id = EXCLUDED.organization_id,
          encrypted_session_key = EXCLUDED.encrypted_session_key,
          encrypted_name = EXCLUDED.encrypted_name`,
-      [input.itemId, input.objectType, input.ownerId, input.organizationId, input.encryptedSessionKey, input.encryptedName, input.nowIso]
+      [
+        input.itemId,
+        input.objectType,
+        input.ownerId,
+        input.organizationId,
+        input.encryptedSessionKey,
+        input.encryptedName,
+        input.nowIso
+      ]
     );
   } else {
     await input.client.query(
@@ -114,7 +122,14 @@ export async function upsertVfsRegistryItem(
          owner_id = EXCLUDED.owner_id,
          encrypted_session_key = EXCLUDED.encrypted_session_key,
          encrypted_name = EXCLUDED.encrypted_name`,
-      [input.itemId, input.objectType, input.ownerId, input.encryptedSessionKey, input.encryptedName, input.nowIso]
+      [
+        input.itemId,
+        input.objectType,
+        input.ownerId,
+        input.encryptedSessionKey,
+        input.encryptedName,
+        input.nowIso
+      ]
     );
   }
 }

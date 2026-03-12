@@ -4,10 +4,8 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
-import {
-  setupBobPhotoAlbumShareForAliceDb
-} from './setupBobPhotoAlbumShareForAliceDb.js';
-import { type DbQueryClient } from './vfsScaffoldHelpers.js';
+import { setupBobPhotoAlbumShareForAliceDb } from './setupBobPhotoAlbumShareForAliceDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -120,21 +118,31 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     const itemStateInsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
     );
-    expect(itemStateInsertCall?.params?.[0]).toBe('00000000-0000-0000-0000-000000000011');
+    expect(itemStateInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
 
     const crdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
     expect(crdtUpsertCall?.text).toContain('root_id');
-    expect(crdtUpsertCall?.params?.[1]).toBe('00000000-0000-0000-0000-000000000011');
-    expect(crdtUpsertCall?.params?.[9]).toBe('00000000-0000-0000-0000-000000000010'); // root_id (albumId)
+    expect(crdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    );
+    expect(crdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (albumId)
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')
     );
     expect(linkInserts).toHaveLength(2);
-    expect(linkInserts[0]?.params?.[1]).toBe('00000000-0000-0000-0000-000000000000');
-    expect(linkInserts[0]?.params?.[2]).toBe('00000000-0000-0000-0000-000000000010');
+    expect(linkInserts[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    expect(linkInserts[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
   });
@@ -185,7 +193,8 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
               rows: [
                 {
                   id: '00000000-0000-0000-0000-000000000001',
-                  personal_organization_id: '00000000-0000-0000-0000-000000000002'
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000002'
                 }
               ]
             };
@@ -195,7 +204,8 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
               rows: [
                 {
                   id: '00000000-0000-0000-0000-000000000003',
-                  personal_organization_id: '00000000-0000-0000-0000-000000000004'
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000004'
                 }
               ]
             };

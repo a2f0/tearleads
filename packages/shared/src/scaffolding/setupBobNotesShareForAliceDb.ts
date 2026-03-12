@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  type EncryptScaffoldVfsNameResult
-} from './encryptScaffoldVfsName.js';
+import type { EncryptScaffoldVfsNameResult } from './encryptScaffoldVfsName.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 import {
   type DbQueryClient,

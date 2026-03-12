@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  setupWelcomeEmailsDb
-} from './setupWelcomeEmailsDb.js';
-import { type DbQueryClient } from './vfsScaffoldHelpers.js';
+import { setupWelcomeEmailsDb } from './setupWelcomeEmailsDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -69,7 +67,16 @@ describe('setupWelcomeEmailsDb', () => {
       encryptVfsName,
       hasOrganizationIdColumn: true,
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6', 'id-7', 'id-8'];
+        const ids = [
+          'id-1',
+          'id-2',
+          'id-3',
+          'id-4',
+          'id-5',
+          'id-6',
+          'id-7',
+          'id-8'
+        ];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),
@@ -149,7 +156,16 @@ describe('setupWelcomeEmailsDb', () => {
       aliceEmail: 'alice@tearleads.com',
       hasOrganizationIdColumn: true,
       idFactory: (() => {
-        const ids = ['id-1', 'id-2', 'id-3', 'id-4', 'id-5', 'id-6', 'id-7', 'id-8'];
+        const ids = [
+          'id-1',
+          'id-2',
+          'id-3',
+          'id-4',
+          'id-5',
+          'id-6',
+          'id-7',
+          'id-8'
+        ];
         let index = 0;
         return () => ids[index++] ?? `id-${String(index)}`;
       })(),

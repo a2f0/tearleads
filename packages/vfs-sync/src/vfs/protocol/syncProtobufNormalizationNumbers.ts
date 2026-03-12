@@ -11,7 +11,9 @@ export function normalizePositiveSafeInteger(
   return parsed;
 }
 
-export function normalizePositiveSafeIntegerOrNull(value: unknown): number | null {
+export function normalizePositiveSafeIntegerOrNull(
+  value: unknown
+): number | null {
   if (typeof value === 'number') {
     if (
       Number.isFinite(value) &&
@@ -52,7 +54,9 @@ export function normalizePositiveSafeIntegerOrNull(value: unknown): number | nul
   return null;
 }
 
-export function normalizeNonNegativeSafeIntegerOrNull(value: unknown): number | null {
+export function normalizeNonNegativeSafeIntegerOrNull(
+  value: unknown
+): number | null {
   if (typeof value === 'number') {
     if (
       Number.isFinite(value) &&

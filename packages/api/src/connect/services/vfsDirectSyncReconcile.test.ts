@@ -18,10 +18,7 @@ vi.mock('./vfsDirectAuth.js', () => ({
   requireVfsClaims: (...args: unknown[]) => requireVfsClaimsMock(...args)
 }));
 
-import {
-  getCrdtSnapshotDirect,
-  reconcileSyncDirect
-} from './vfsDirectSync.js';
+import { getCrdtSnapshotDirect, reconcileSyncDirect } from './vfsDirectSync.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -49,14 +46,20 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
   it('rejects getCrdtSnapshot when clientId is invalid', async () => {
     await expect(
-      getCrdtSnapshotDirect({ clientId: 'bad:client' }, { requestHeader: new Headers() })
+      getCrdtSnapshotDirect(
+        { clientId: 'bad:client' },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
   it('returns NotFound when no CRDT snapshot exists', async () => {
     loadVfsCrdtRematerializationSnapshotMock.mockResolvedValueOnce(null);
     await expect(
-      getCrdtSnapshotDirect({ clientId: 'client-1' }, { requestHeader: new Headers() })
+      getCrdtSnapshotDirect(
+        { clientId: 'client-1' },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.NotFound });
   });
 
@@ -82,7 +85,10 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
   it('rejects reconcileSync when payload is invalid', async () => {
     await expect(
-      reconcileSyncDirect({ clientId: '', cursor: '' }, { requestHeader: new Headers() })
+      reconcileSyncDirect(
+        { clientId: '', cursor: '' },
+        { requestHeader: new Headers() }
+      )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
   });
 
@@ -117,7 +123,10 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
   it('correctly handles real UUID for reconcileSyncDirect', async () => {
     const realUserId = '00000000-0000-0000-0000-000000000001';
-    requireVfsClaimsMock.mockResolvedValue({ sub: realUserId, organizationId: 'org-1' });
+    requireVfsClaimsMock.mockResolvedValue({
+      sub: realUserId,
+      organizationId: 'org-1'
+    });
     queryMock.mockResolvedValueOnce({
       rows: [
         {

@@ -4,10 +4,8 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
-import {
-  setupBobNotesShareForAliceDb
-} from './setupBobNotesShareForAliceDb.js';
-import { type DbQueryClient } from './vfsScaffoldHelpers.js';
+import { setupBobNotesShareForAliceDb } from './setupBobNotesShareForAliceDb.js';
+import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -104,8 +102,12 @@ describe('setupBobNotesShareForAliceDb', () => {
         call.text.includes('INSERT INTO vfs_registry') &&
         call.params?.[0] === '00000000-0000-0000-0000-000000000000'
     );
-    expect(rootInsertCall?.params?.[0]).toBe('00000000-0000-0000-0000-000000000000');
-    expect(rootInsertCall?.params?.[1]).toBe('00000000-0000-0000-0000-000000000002'); // organization_id
+    expect(rootInsertCall?.params?.[0]).toBe(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    expect(rootInsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000002'
+    ); // organization_id
 
     const noteInsertCall = calls.find(
       (call) =>
@@ -113,8 +115,12 @@ describe('setupBobNotesShareForAliceDb', () => {
         call.params?.[0] === '00000000-0000-0000-0000-000000000011'
     );
     expect(noteInsertCall?.params?.[1]).toBe('note');
-    expect(noteInsertCall?.params?.[2]).toBe('00000000-0000-0000-0000-000000000001'); // owner_id
-    expect(noteInsertCall?.params?.[3]).toBe('00000000-0000-0000-0000-000000000002'); // organization_id
+    expect(noteInsertCall?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    ); // owner_id
+    expect(noteInsertCall?.params?.[3]).toBe(
+      '00000000-0000-0000-0000-000000000002'
+    ); // organization_id
 
     const noteStateCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_item_state')
@@ -127,16 +133,26 @@ describe('setupBobNotesShareForAliceDb', () => {
       call.text.includes('INSERT INTO vfs_crdt_ops')
     );
     expect(noteCrdtUpsertCall?.text).toContain('root_id');
-    expect(noteCrdtUpsertCall?.params?.[1]).toBe('00000000-0000-0000-0000-000000000011'); // item_id
-    expect(noteCrdtUpsertCall?.params?.[2]).toBe('00000000-0000-0000-0000-000000000001'); // actor_id
-    expect(noteCrdtUpsertCall?.params?.[9]).toBe('00000000-0000-0000-0000-000000000010'); // root_id (folderId)
+    expect(noteCrdtUpsertCall?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000011'
+    ); // item_id
+    expect(noteCrdtUpsertCall?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    ); // actor_id
+    expect(noteCrdtUpsertCall?.params?.[9]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    ); // root_id (folderId)
 
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
     );
     expect(shareCalls).toHaveLength(2);
-    expect(shareCalls[0]?.params?.[1]).toBe('00000000-0000-0000-0000-000000000010');
-    expect(shareCalls[0]?.params?.[2]).toBe('00000000-0000-0000-0000-000000000003');
+    expect(shareCalls[0]?.params?.[1]).toBe(
+      '00000000-0000-0000-0000-000000000010'
+    );
+    expect(shareCalls[0]?.params?.[2]).toBe(
+      '00000000-0000-0000-0000-000000000003'
+    );
     expect(shareCalls[0]?.params?.[3]).toBe('write');
 
     expect(encryptVfsName).toHaveBeenCalledTimes(2);
@@ -188,7 +204,8 @@ describe('setupBobNotesShareForAliceDb', () => {
               rows: [
                 {
                   id: '00000000-0000-0000-0000-000000000001',
-                  personal_organization_id: '00000000-0000-0000-0000-000000000002'
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000002'
                 }
               ]
             };
@@ -198,7 +215,8 @@ describe('setupBobNotesShareForAliceDb', () => {
               rows: [
                 {
                   id: '00000000-0000-0000-0000-000000000003',
-                  personal_organization_id: '00000000-0000-0000-0000-000000000004'
+                  personal_organization_id:
+                    '00000000-0000-0000-0000-000000000004'
                 }
               ]
             };
