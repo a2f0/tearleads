@@ -15,6 +15,8 @@ vi.mock('./vfsDirectAuth.js', () => ({
 
 import { getSyncDirect } from './vfsDirectSync.js';
 
+const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
+
 async function encryptNameForScaffold(
   plaintextName: string,
   sessionKey: Uint8Array
@@ -32,7 +34,7 @@ describe('vfsDirectSync scaffold decryption', () => {
     vi.clearAllMocks();
     queryMock.mockReset();
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: TEST_USER_ID
     });
     getPostgresPoolMock.mockResolvedValue({
       query: queryMock
@@ -56,7 +58,7 @@ describe('vfsDirectSync scaffold decryption', () => {
             changed_at: '2026-03-03T00:00:00.000Z',
             object_type: 'folder',
             encrypted_name: encryptedName,
-            owner_id: 'user-1',
+            owner_id: TEST_USER_ID,
             created_at: '2026-03-03T00:00:00.000Z',
             access_level: 'admin'
           }
@@ -95,7 +97,7 @@ describe('vfsDirectSync scaffold decryption', () => {
           encryptedName: 'Notes shared with Alice',
           itemId: 'item-1',
           objectType: 'folder',
-          ownerId: 'user-1'
+          ownerId: TEST_USER_ID
         }
       ],
       hasMore: false

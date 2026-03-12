@@ -44,6 +44,9 @@ import {
   getSyncDirect
 } from './vfsDirectSync.js';
 
+const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
+const TEST_ROOT_ID = '00000000-0000-0000-0000-000000000010';
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('vfsDirectSync coverage branches', () => {
@@ -54,7 +57,7 @@ describe('vfsDirectSync coverage branches', () => {
       query: queryMock
     });
     requireVfsClaimsMock.mockResolvedValue({
-      sub: 'user-1'
+      sub: TEST_USER_ID
     });
     getVfsCrdtCompactionEpochMock.mockResolvedValue('0');
     readOldestAccessibleCursorCacheMock.mockResolvedValue(undefined);
@@ -98,7 +101,7 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
@@ -135,7 +138,7 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
@@ -172,7 +175,7 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(writeOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
+      userId: TEST_USER_ID,
       rootId: null,
       cursor: null
     });
@@ -195,7 +198,7 @@ describe('vfsDirectSync coverage branches', () => {
       {
         cursor,
         limit: 10,
-        rootId: 'root-1'
+        rootId: TEST_ROOT_ID
       },
       {
         requestHeader: new Headers()
@@ -204,8 +207,8 @@ describe('vfsDirectSync coverage branches', () => {
 
     expect(readOldestAccessibleCursorCacheMock).toHaveBeenCalledWith({
       compactionEpoch: '0',
-      userId: 'user-1',
-      rootId: 'root-1'
+      userId: TEST_USER_ID,
+      rootId: TEST_ROOT_ID
     });
     expect(writeOldestAccessibleCursorCacheMock).not.toHaveBeenCalled();
   });
