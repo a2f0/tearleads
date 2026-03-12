@@ -7,6 +7,7 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
+import { buildAuthV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTH_TOKEN_KEY,
@@ -131,7 +132,7 @@ describe('api with msw', () => {
     it('extracts error message from response body', async () => {
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/Register',
+          `http://localhost${buildAuthV2ConnectMethodPath('Register')}`,
           () =>
             HttpResponse.json(
               { error: 'Email already registered' },
@@ -146,7 +147,7 @@ describe('api with msw', () => {
         api.auth.register('existing@example.com', 'password123')
       ).rejects.toThrow('Email already registered');
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Register')
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('Register'))
       ).toBe(true);
     });
   });
@@ -193,7 +194,7 @@ describe('api with msw', () => {
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () => HttpResponse.json(null, { status: 500 })
         )
       );
@@ -208,10 +209,7 @@ describe('api with msw', () => {
       expect(getAuthError()).toBeNull();
       expect(wasApiRequestMade('GET', '/v2/ping')).toBe(true);
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AuthService/RefreshToken'
-        )
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('RefreshToken'))
       ).toBe(true);
     });
 
@@ -248,7 +246,7 @@ describe('api with msw', () => {
       );
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () => HttpResponse.json(null, { status: 401 })
         )
       );
@@ -262,10 +260,7 @@ describe('api with msw', () => {
       const { getAuthError } = await loadAuthStorage();
       expect(getAuthError()).toBe('Session expired. Please sign in again.');
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AuthService/RefreshToken'
-        )
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('RefreshToken'))
       ).toBe(true);
     });
 
@@ -281,10 +276,7 @@ describe('api with msw', () => {
       const { getStoredRefreshToken } = await loadAuthStorage();
       expect(getStoredRefreshToken()).toBeTruthy();
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AuthService/RefreshToken'
-        )
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('RefreshToken'))
       ).toBe(true);
     });
 
@@ -295,7 +287,7 @@ describe('api with msw', () => {
 
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () => HttpResponse.error()
         )
       );
@@ -308,10 +300,7 @@ describe('api with msw', () => {
 
       await expect(tryRefreshToken()).resolves.toBe(false);
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AuthService/RefreshToken'
-        )
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('RefreshToken'))
       ).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalled();
 
@@ -328,7 +317,7 @@ describe('api with msw', () => {
 
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () => HttpResponse.json(null, { status: 500 })
         )
       );
@@ -339,10 +328,7 @@ describe('api with msw', () => {
       const { getStoredRefreshToken } = await loadAuthStorage();
       expect(getStoredRefreshToken()).toBe(validRefreshToken);
       expect(
-        wasApiRequestMade(
-          'POST',
-          '/connect/tearleads.v2.AuthService/RefreshToken'
-        )
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('RefreshToken'))
       ).toBe(true);
     });
 

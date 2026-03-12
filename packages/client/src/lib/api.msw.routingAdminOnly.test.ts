@@ -1,6 +1,7 @@
 import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
+import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAuthStorageRuntimeForTesting } from '@/lib/authStorage';
 import {
@@ -150,163 +151,163 @@ describe('api with msw admin routing', () => {
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetContext'
+        buildAdminV2ConnectMethodPath('GetContext')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetPostgresInfo'
+        buildAdminV2ConnectMethodPath('GetPostgresInfo')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetTables'
+        buildAdminV2ConnectMethodPath('GetTables')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetColumns'
+        buildAdminV2ConnectMethodPath('GetColumns')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetRows'
+        buildAdminV2ConnectMethodPath('GetRows')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisKeys'
+        buildAdminV2ConnectMethodPath('GetRedisKeys')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisValue'
+        buildAdminV2ConnectMethodPath('GetRedisValue')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/DeleteRedisKey'
+        buildAdminV2ConnectMethodPath('DeleteRedisKey')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetRedisDbSize'
+        buildAdminV2ConnectMethodPath('GetRedisDbSize')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/ListGroups'
+        buildAdminV2ConnectMethodPath('ListGroups')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetGroup'
+        buildAdminV2ConnectMethodPath('GetGroup')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/CreateGroup'
+        buildAdminV2ConnectMethodPath('CreateGroup')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/UpdateGroup'
+        buildAdminV2ConnectMethodPath('UpdateGroup')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/DeleteGroup'
+        buildAdminV2ConnectMethodPath('DeleteGroup')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetGroupMembers'
+        buildAdminV2ConnectMethodPath('GetGroupMembers')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/AddGroupMember'
+        buildAdminV2ConnectMethodPath('AddGroupMember')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/RemoveGroupMember'
+        buildAdminV2ConnectMethodPath('RemoveGroupMember')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/ListOrganizations'
+        buildAdminV2ConnectMethodPath('ListOrganizations')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetOrganization'
+        buildAdminV2ConnectMethodPath('GetOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetOrgUsers'
+        buildAdminV2ConnectMethodPath('GetOrgUsers')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetOrgGroups'
+        buildAdminV2ConnectMethodPath('GetOrgGroups')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/CreateOrganization'
+        buildAdminV2ConnectMethodPath('CreateOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/UpdateOrganization'
+        buildAdminV2ConnectMethodPath('UpdateOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/DeleteOrganization'
+        buildAdminV2ConnectMethodPath('DeleteOrganization')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/ListUsers'
+        buildAdminV2ConnectMethodPath('ListUsers')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/GetUser'
+        buildAdminV2ConnectMethodPath('GetUser')
       )
     ).toBe(true);
     expect(
       wasApiRequestMadeWithV1Prefix(
         'POST',
-        '/connect/tearleads.v2.AdminService/UpdateUser'
+        buildAdminV2ConnectMethodPath('UpdateUser')
       )
     ).toBe(true);
   });

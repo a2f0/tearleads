@@ -8,6 +8,7 @@
  * All other API tests have been consolidated into api.msw.test.ts
  */
 import { resetApiCoreRuntimeForTesting } from '@tearleads/api-client/clientEntry';
+import { buildAuthV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAuthStorageRuntimeForTesting } from '@/lib/authStorage';
 import { setTestEnv } from '../test/env.js';
@@ -63,7 +64,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
       global.fetch.mockImplementation(async (input: RequestInfo | URL) => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(buildAuthV2ConnectMethodPath('RefreshToken'))) {
           return refreshPromise;
         }
         throw new Error(`Unexpected request: ${url}`);
@@ -133,7 +134,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
             return new Response(null, { status: 401 });
           }
 
-          if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+          if (url.endsWith(buildAuthV2ConnectMethodPath('RefreshToken'))) {
             return refreshPromise;
           }
 
@@ -177,7 +178,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
           .mock.calls.filter(([input]) =>
             input
               .toString()
-              .endsWith('/connect/tearleads.v2.AuthService/RefreshToken')
+              .endsWith(buildAuthV2ConnectMethodPath('RefreshToken'))
           )
       ).toHaveLength(1);
     });
@@ -234,7 +235,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
         if (url.endsWith('/v2/ping')) {
           return new Response(null, { status: 401 });
         }
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(buildAuthV2ConnectMethodPath('RefreshToken'))) {
           return new Response(
             JSON.stringify({
               accessToken: 'new-token',
