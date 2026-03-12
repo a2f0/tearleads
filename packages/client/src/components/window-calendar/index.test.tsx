@@ -262,7 +262,7 @@ describe('CalendarWindow', () => {
 
   it('shows birthdays from contacts by default and hides them when toggled off', async () => {
     const user = userEvent.setup();
-    vi.mocked(getCalendarEvents).mockResolvedValueOnce([
+    getCalendarEvents.mockResolvedValueOnce([
       {
         id: 'event-1',
         calendarName: 'Personal',
@@ -273,7 +273,7 @@ describe('CalendarWindow', () => {
         updatedAt: new Date('2026-02-10T09:00:00.000Z')
       }
     ]);
-    vi.mocked(getContactBirthdayEvents).mockResolvedValueOnce([
+    getContactBirthdayEvents.mockResolvedValueOnce([
       {
         id: 'birthday:contact-1:2026',
         calendarName: 'Personal',

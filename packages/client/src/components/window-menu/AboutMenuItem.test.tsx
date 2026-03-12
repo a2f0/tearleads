@@ -133,7 +133,7 @@ describe('AboutMenuItem', () => {
   });
 
   it('displays Unknown when hook returns undefined and no version prop', async () => {
-    vi.mocked(useAppVersionModule.useAppVersion).mockReturnValue(undefined);
+    useAppVersionModule.useAppVersion.mockReturnValue(undefined);
     const user = userEvent.setup();
     renderMenuItem();
 
@@ -144,7 +144,7 @@ describe('AboutMenuItem', () => {
 
   it('closes parent dropdown when dialog is dismissed', async () => {
     const close = vi.fn();
-    vi.mocked(dropdownMenuModule.useDropdownMenuContext).mockReturnValue({
+    dropdownMenuModule.useDropdownMenuContext.mockReturnValue({
       close,
       getContainerElement: () => null
     });

@@ -199,7 +199,7 @@ describe('Files context menu audio playback', () => {
 
     // Reset and play second track - this should revoke the first URL
     mockPlay.mockClear();
-    const revokeCallsBefore = vi.mocked(URL.revokeObjectURL).mock.calls.length;
+    const revokeCallsBefore = URL.revokeObjectURL.mock.calls.length;
 
     const secondRow = screen
       .getByText('song2.mp3')
@@ -216,7 +216,7 @@ describe('Files context menu audio playback', () => {
     await waitFor(() => {
       expect(mockPlay).toHaveBeenCalled();
       // URL.revokeObjectURL should have been called more times than before
-      expect(vi.mocked(URL.revokeObjectURL).mock.calls.length).toBeGreaterThan(
+      expect(URL.revokeObjectURL.mock.calls.length).toBeGreaterThan(
         revokeCallsBefore
       );
     });

@@ -152,7 +152,7 @@ describe('ClientNotesProvider', () => {
   it('ignores already-registered conflicts for vfsApi.register', async () => {
     const conflictError = new Error('Conflict');
     Reflect.set(conflictError, 'status', 409);
-    vi.mocked(api.vfs.register).mockRejectedValueOnce(conflictError);
+    api.vfs.register.mockRejectedValueOnce(conflictError);
 
     render(
       <MemoryRouter>

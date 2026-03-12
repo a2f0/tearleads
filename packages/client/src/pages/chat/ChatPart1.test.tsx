@@ -277,7 +277,7 @@ describe('Chat', () => {
 
   describe('when a model is loaded', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
         modelType: 'chat',
         isLoading: false,
@@ -329,7 +329,7 @@ describe('Chat', () => {
 
   describe('when a vision model is loaded', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,
@@ -391,7 +391,7 @@ describe('Chat', () => {
 
     for (const { modelId, expectedName } of testCases) {
       it(`parses "${modelId}" to "${expectedName}"`, () => {
-        vi.mocked(useLLM).mockReturnValue({
+        useLLM.mockReturnValue({
           loadedModel: modelId,
           modelType: 'chat',
           isLoading: false,
@@ -416,7 +416,7 @@ describe('Chat', () => {
 
   describe('when a paligemma model is loaded', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'google/paligemma-model',
         modelType: 'paligemma',
         isLoading: false,

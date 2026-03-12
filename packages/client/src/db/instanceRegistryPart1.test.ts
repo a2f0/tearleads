@@ -33,9 +33,9 @@ vi.mock('@/lib/testInstance', () => ({
   isTestMode: vi.fn()
 }));
 
-const mockIsTestMode = vi.mocked(isTestMode);
-const mockGetTestInstanceId = vi.mocked(getTestInstanceId);
-const _mockIsTestInstance = vi.mocked(isTestInstance);
+const mockIsTestMode = isTestMode;
+const mockGetTestInstanceId = getTestInstanceId;
+const _mockIsTestInstance = isTestInstance;
 
 // Mock IndexedDB
 type StoreValue =

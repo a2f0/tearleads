@@ -363,9 +363,7 @@ describe('FilesWindowTableView', () => {
 
   it('handles audio play error gracefully', async () => {
     const { retrieveFileData } = await import('@/lib/dataRetrieval');
-    vi.mocked(retrieveFileData).mockRejectedValueOnce(
-      new Error('Audio load failed')
-    );
+    retrieveFileData.mockRejectedValueOnce(new Error('Audio load failed'));
     const consoleSpy = mockConsoleError();
     const audioFile = {
       id: 'audio-2',

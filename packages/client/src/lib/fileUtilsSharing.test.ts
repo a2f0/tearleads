@@ -179,7 +179,7 @@ describe('file-utils sharing', () => {
       webPlatforms
     )('uses downloadFile for %s platform', async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
+      Capacitor.getPlatform.mockReturnValue(platform);
 
       const data = new Uint8Array([1, 2, 3]);
       await saveFile(data, 'test.db');
@@ -194,7 +194,7 @@ describe('file-utils sharing', () => {
       mobilePlatforms
     )('uses Capacitor Share API for %s platform', async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
+      Capacitor.getPlatform.mockReturnValue(platform);
 
       const mockWriteFile = vi
         .fn()
@@ -235,7 +235,7 @@ describe('file-utils sharing', () => {
 
     it('correctly converts data to base64 for mobile platforms', async () => {
       const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue('ios');
+      Capacitor.getPlatform.mockReturnValue('ios');
 
       let capturedBase64: string | undefined;
       const mockWriteFile = vi.fn().mockImplementation(({ data }) => {
@@ -275,7 +275,7 @@ describe('file-utils sharing', () => {
 
     it('handles large data with chunked base64 encoding on mobile', async () => {
       const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue('android');
+      Capacitor.getPlatform.mockReturnValue('android');
 
       let capturedBase64: string | undefined;
       const mockWriteFile = vi.fn().mockImplementation(({ data }) => {

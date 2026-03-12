@@ -35,7 +35,7 @@ describe('calendar-events', () => {
 
     it('maps rows into calendar events', async () => {
       const now = Date.now();
-      vi.mocked(mockAdapter.execute).mockResolvedValueOnce({
+      mockAdapter.execute.mockResolvedValueOnce({
         rows: [
           {
             id: 'event-1',
@@ -80,7 +80,7 @@ describe('calendar-events', () => {
     });
 
     it('inserts and returns created event', async () => {
-      vi.mocked(mockAdapter.execute).mockResolvedValueOnce({ rows: [] });
+      mockAdapter.execute.mockResolvedValueOnce({ rows: [] });
 
       const startAt = new Date('2026-02-09T10:00:00.000Z');
       const endAt = new Date('2026-02-09T11:00:00.000Z');
@@ -111,7 +111,7 @@ describe('calendar-events', () => {
     });
 
     it('maps contact birthdays into recurring calendar events', async () => {
-      vi.mocked(mockAdapter.execute).mockResolvedValueOnce({
+      mockAdapter.execute.mockResolvedValueOnce({
         rows: [
           {
             id: 'contact-1',
@@ -137,7 +137,7 @@ describe('calendar-events', () => {
     });
 
     it('ignores contacts with invalid birthday format', async () => {
-      vi.mocked(mockAdapter.execute).mockResolvedValueOnce({
+      mockAdapter.execute.mockResolvedValueOnce({
         rows: [
           {
             id: 'contact-1',

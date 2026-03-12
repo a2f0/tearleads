@@ -154,7 +154,7 @@ describe('model loading', () => {
 
     const loadModelMock = vi.fn().mockImplementation(() => loadPromise);
 
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: null,
       modelType: null,
       isLoading: false,
@@ -191,7 +191,7 @@ describe('model loading', () => {
     await user.click(downloadButtons[0]!);
 
     await act(async () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: null,
         modelType: null,
         isLoading: true,
@@ -230,7 +230,7 @@ describe('model loading', () => {
   });
 
   it('shows loaded badge when model is loaded', async () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
       modelType: 'chat',
       isLoading: false,
@@ -254,7 +254,7 @@ describe('model loading', () => {
   });
 
   it('shows unload button for loaded model', async () => {
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
       modelType: 'chat',
       isLoading: false,
@@ -281,7 +281,7 @@ describe('model loading', () => {
 
   it('calls unloadModel when unload button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(useLLM).mockReturnValue({
+    useLLM.mockReturnValue({
       loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
       modelType: 'chat',
       isLoading: false,

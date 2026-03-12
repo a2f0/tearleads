@@ -253,7 +253,7 @@ describe('Chat', () => {
 
   describe('ChatHeader component', () => {
     it('renders the model name in the header', () => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model',
         modelType: 'chat',
         isLoading: false,
@@ -277,7 +277,7 @@ describe('Chat', () => {
 
   describe('UserMessage and AssistantMessage components', () => {
     beforeEach(() => {
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: 'org/model',
         modelType: 'chat',
         isLoading: false,
@@ -304,7 +304,7 @@ describe('Chat', () => {
   describe('NoModelLoadedContent styling', () => {
     beforeEach(() => {
       // Reset to no model loaded state
-      vi.mocked(useLLM).mockReturnValue({
+      useLLM.mockReturnValue({
         loadedModel: null,
         modelType: null,
         isLoading: false,

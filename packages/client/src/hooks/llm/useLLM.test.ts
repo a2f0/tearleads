@@ -60,7 +60,7 @@ describe('useLLM', () => {
       }
     });
     const { getLastLoadedModel } = await import('../app');
-    vi.mocked(getLastLoadedModel).mockReturnValue(null);
+    getLastLoadedModel.mockReturnValue(null);
   });
 
   afterEach(async () => {
@@ -314,9 +314,7 @@ describe('useLLM', () => {
 
       expect(result.current.loadedModel).toBeNull();
       expect(result.current.modelType).toBeNull();
-      expect(vi.mocked(clearLastLoadedModel)).toHaveBeenCalledWith(
-        'test-instance-id'
-      );
+      expect(clearLastLoadedModel).toHaveBeenCalledWith('test-instance-id');
     });
 
     it('surfaces worker crashes and rejects pending load', async () => {
@@ -342,7 +340,7 @@ describe('useLLM', () => {
       });
 
       expect(result.current.error).toBe('Worker error: kaboom');
-      expect(vi.mocked(toast.error)).toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalled();
       await expect(loadPromise).rejects.toThrow('Worker error: kaboom');
     });
   });

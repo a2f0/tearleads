@@ -71,8 +71,8 @@ vi.mock('@capacitor/core', () => ({
 import { Capacitor } from '@capacitor/core';
 
 describe('detectPlatform', () => {
-  const mockGetPlatform = vi.mocked(Capacitor.getPlatform);
-  const mockIsNativePlatform = vi.mocked(Capacitor.isNativePlatform);
+  const mockGetPlatform = Capacitor.getPlatform;
+  const mockIsNativePlatform = Capacitor.isNativePlatform;
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -242,8 +242,8 @@ describe('formatDate', () => {
 });
 
 describe('getWebGPUErrorInfo', () => {
-  const mockGetPlatform = vi.mocked(Capacitor.getPlatform);
-  const mockIsNativePlatform = vi.mocked(Capacitor.isNativePlatform);
+  const mockGetPlatform = Capacitor.getPlatform;
+  const mockIsNativePlatform = Capacitor.isNativePlatform;
 
   beforeEach(() => {
     vi.restoreAllMocks();
