@@ -90,8 +90,9 @@ describe('syncProtobuf envelope bytes behavior', () => {
   it('decodes bytes-only envelope fields', () => {
     const textEncoder = new TextEncoder();
     const encryptedPayloadBytes = textEncoder.encode('ciphertext');
-    const expectedEncryptedPayload =
-      Buffer.from(encryptedPayloadBytes).toString('base64');
+    const expectedEncryptedPayload = Buffer.from(
+      encryptedPayloadBytes
+    ).toString('base64');
     const encoded = PUSH_REQUEST_TYPE.encode(
       PUSH_REQUEST_TYPE.create({
         clientId: textEncoder.encode('desktop'),
