@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
-  type EncryptScaffoldVfsNameResult,
-  encryptScaffoldVfsName
+  type EncryptScaffoldVfsNameResult
 } from './encryptScaffoldVfsName.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
+import {
+  type DbQueryClient,
+  defaultEncryptVfsName,
+  encodeBase64,
+  readRequiredUserId
+} from './vfsScaffoldHelpers.js';
 
 export interface SetupWelcomeEmailsDbInput {
   client: DbQueryClient;
@@ -37,21 +41,6 @@ export const SCAFFOLD_INLINE_EMAIL_BODY_PREFIX = 'scaffolding:inline-body:';
 export const SCAFFOLD_WELCOME_EMAIL_BODY_TEXT =
   "You're all set to start exploring Tearleads.";
 
-function defaultEncryptVfsName(input: {
-  client: DbQueryClient;
-  ownerUserId: string;
-  plaintextName: string;
-}): Promise<EncryptScaffoldVfsNameResult> {
-  return encryptScaffoldVfsName({
-    ...input,
-    allowOwnerWrappedSessionKey: false
-  });
-}
-
-function encodeBase64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
 function buildWelcomeEmailRawMime(recipientEmail: string): string {
   return [
     `From: ${WELCOME_FROM}`,
@@ -70,26 +59,6 @@ function encodeScaffoldInlineBodyCiphertext(rawMime: string): string {
   return `${SCAFFOLD_INLINE_EMAIL_BODY_PREFIX}${encodeBase64(rawMime)}`;
 }
 
-function readRequiredUserId(
-  rows: Array<{ id?: unknown; personal_organization_id?: unknown }>,
-  email: string
-): { userId: string; organizationId: string } {
-  const userId = rows[0]?.id;
-  const organizationId = rows[0]?.personal_organization_id;
-  if (
-    typeof userId !== 'string' ||
-    userId.length === 0 ||
-    typeof organizationId !== 'string' ||
-    organizationId.length === 0
-  ) {
-    throw new Error(`Could not resolve user id for ${email}`);
-  }
-  return {
-    userId,
-    organizationId
-  };
-}
-
 async function insertEmailForUser(
   client: DbQueryClient,
   userId: string,
@@ -97,7 +66,6 @@ async function insertEmailForUser(
   userEmail: string,
   inboxFolderId: string,
   emailItemId: string,
-  idFactory: () => string,
   nowIso: string,
   hasOrganizationIdColumn: boolean,
   encryptVfsName: (input: {
@@ -263,7 +231,6 @@ export async function setupWelcomeEmailsDb(
       input.bobEmail,
       bobInboxId,
       bobEmailItemId,
-      idFactory,
       nowIso,
       hasOrganizationIdColumn,
       encryptVfsName
@@ -278,7 +245,6 @@ export async function setupWelcomeEmailsDb(
       input.aliceEmail,
       aliceInboxId,
       aliceEmailItemId,
-      idFactory,
       nowIso,
       hasOrganizationIdColumn,
       encryptVfsName

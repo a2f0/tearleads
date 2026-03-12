@@ -1,6 +1,9 @@
 export { createTestUsersDb } from './createTestUsersDb.js';
+export {
+  type DbQueryClient,
+  type ShareAccessLevel
+} from './vfsScaffoldHelpers.js';
 export type {
-  DbQueryClient,
   SetupBobNotesShareForAliceDbInput,
   SetupBobNotesShareForAliceDbResult
 } from './setupBobNotesShareForAliceDb.js';

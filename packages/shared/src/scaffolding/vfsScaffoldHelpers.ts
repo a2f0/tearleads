@@ -2,7 +2,15 @@ import {
   type EncryptScaffoldVfsNameResult,
   encryptScaffoldVfsName
 } from './encryptScaffoldVfsName.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
+
+export type ShareAccessLevel = 'read' | 'write' | 'admin';
+
+export interface DbQueryClient {
+  query(
+    text: string,
+    params?: readonly unknown[]
+  ): Promise<{ rows: Record<string, unknown>[] }>;
+}
 
 export function defaultEncryptVfsName(input: {
   client: DbQueryClient;

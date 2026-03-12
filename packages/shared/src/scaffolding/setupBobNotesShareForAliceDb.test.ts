@@ -5,9 +5,9 @@ import {
   serializePublicKey
 } from '../crypto/asymmetric.js';
 import {
-  type DbQueryClient,
   setupBobNotesShareForAliceDb
 } from './setupBobNotesShareForAliceDb.js';
+import { type DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;

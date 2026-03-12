@@ -4,16 +4,15 @@ import {
 } from './encryptScaffoldVfsName.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 import {
-  DbQueryClient,
+  type DbQueryClient,
   defaultEncryptVfsName,
   encodeBase64,
   insertVfsRoot,
   readRequiredAclId,
   readRequiredUserId,
+  type ShareAccessLevel,
   upsertVfsRegistryItem
 } from './vfsScaffoldHelpers.js';
-
-type ShareAccessLevel = 'read' | 'write' | 'admin';
 
 export interface SetupBobNotesShareForAliceDbInput {
   client: DbQueryClient;

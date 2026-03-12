@@ -1,17 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  combinePublicKey,
-  generateKeyPair,
-  serializePublicKey
-} from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
-import {
-  SCAFFOLD_INLINE_EMAIL_BODY_PREFIX,
-  SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
-  setupWelcomeEmailsDb,
-  WELCOME_FROM,
-  WELCOME_SUBJECT
+  setupWelcomeEmailsDb
 } from './setupWelcomeEmailsDb.js';
+import { type DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -56,20 +47,6 @@ function createMockClient(): {
   return { calls, client };
 }
 
-function buildExpectedRawMime(recipientEmail: string): string {
-  return [
-    `From: ${WELCOME_FROM}`,
-    `To: ${recipientEmail}`,
-    `Subject: ${WELCOME_SUBJECT}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    SCAFFOLD_WELCOME_EMAIL_BODY_TEXT,
-    ''
-  ].join('\r\n');
-}
-
 describe('setupWelcomeEmailsDb', () => {
   it('inserts welcome emails for both users inside one transaction', async () => {
     const { calls, client } = createMockClient();
@@ -98,15 +75,6 @@ describe('setupWelcomeEmailsDb', () => {
       })(),
       now: () => new Date('2026-03-01T00:00:00.000Z')
     });
-
-    // 1. bobInboxId = idFactory() -> id-1
-    // 2. bobEmailItemId = idFactory() -> id-2
-    // 3. aliceInboxId = idFactory() -> id-3
-    // 4. aliceEmailItemId = idFactory() -> id-4
-    // 5. insertEmailForUser(bob):
-    //    link = idFactory() -> id-5
-    // 6. insertEmailForUser(alice):
-    //    link = idFactory() -> id-6
 
     expect(result).toEqual({
       bob: {

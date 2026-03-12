@@ -1,17 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import type { EncryptScaffoldVfsNameResult } from './encryptScaffoldVfsName.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
+import {
+  type EncryptScaffoldVfsNameResult
+} from './encryptScaffoldVfsName.js';
 import { hasVfsRegistryOrganizationId } from './vfsRegistrySchema.js';
 import {
+  type DbQueryClient,
   defaultEncryptVfsName,
   encodeBase64,
   insertVfsRoot,
   readRequiredAclId,
   readRequiredUserId,
+  type ShareAccessLevel,
   upsertVfsRegistryItem
 } from './vfsScaffoldHelpers.js';
-
-type ShareAccessLevel = 'read' | 'write' | 'admin';
 
 export interface SetupBobPlaylistShareForAliceDbInput {
   client: DbQueryClient;

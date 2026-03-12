@@ -4,11 +4,10 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
 import {
-  SCAFFOLD_SHARED_LOGO_SVG,
   setupBobPhotoAlbumShareForAliceDb
 } from './setupBobPhotoAlbumShareForAliceDb.js';
+import { type DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -168,7 +167,51 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
   });
 
   it('uses scaffold-unwrapped session keys by default without user_keys lookups', async () => {
-    const { calls, client } = createMockClient();
+    const ownerKeyPair = generateKeyPair();
+    const ownerPublicKey = combinePublicKey(
+      serializePublicKey({
+        x25519PublicKey: ownerKeyPair.x25519PublicKey,
+        mlKemPublicKey: ownerKeyPair.mlKemPublicKey
+      })
+    );
+    const calls: Call[] = [];
+    const client: DbQueryClient = {
+      query: vi.fn(async (text: string, params?: readonly unknown[]) => {
+        calls.push({ text, params });
+        if (text.includes('FROM users WHERE email = $1')) {
+          const email = params?.[0];
+          if (email === 'bob@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: '00000000-0000-0000-0000-000000000001',
+                  personal_organization_id: '00000000-0000-0000-0000-000000000002'
+                }
+              ]
+            };
+          }
+          if (email === 'alice@tearleads.com') {
+            return {
+              rows: [
+                {
+                  id: '00000000-0000-0000-0000-000000000003',
+                  personal_organization_id: '00000000-0000-0000-0000-000000000004'
+                }
+              ]
+            };
+          }
+        }
+        if (text.includes('FROM user_keys')) {
+          return {
+            rows: [{ public_encryption_key: ownerPublicKey }]
+          };
+        }
+        if (text.includes('RETURNING id')) {
+          return { rows: [{ id: '00000000-0000-0000-0000-000000000005' }] };
+        }
+        return { rows: [] };
+      })
+    };
 
     await setupBobPhotoAlbumShareForAliceDb({
       client,

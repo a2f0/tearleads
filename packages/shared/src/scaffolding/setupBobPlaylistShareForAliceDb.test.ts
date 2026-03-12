@@ -1,14 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  combinePublicKey,
-  generateKeyPair,
-  serializePublicKey
-} from '../crypto/asymmetric.js';
-import type { DbQueryClient } from './setupBobNotesShareForAliceDb.js';
-import {
   SCAFFOLD_SYNTHETIC_WAV_BASE64,
   setupBobPlaylistShareForAliceDb
 } from './setupBobPlaylistShareForAliceDb.js';
+import { type DbQueryClient } from './vfsScaffoldHelpers.js';
 
 interface Call {
   text: string;
@@ -124,6 +119,9 @@ describe('setupBobPlaylistShareForAliceDb', () => {
       call.text.includes('INSERT INTO vfs_item_state')
     );
     expect(itemStateInsertCall?.params?.[0]).toBe('00000000-0000-0000-0000-000000000011');
+    expect(itemStateInsertCall?.params?.[1]).toBe(
+      SCAFFOLD_SYNTHETIC_WAV_BASE64
+    );
 
     const crdtUpsertCall = calls.find((call) =>
       call.text.includes('INSERT INTO vfs_crdt_ops')
