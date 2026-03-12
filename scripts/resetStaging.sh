@@ -41,7 +41,7 @@ fi
 # ---------------------------------------------------------------------------
 cleanup() {
   if [[ -n "${port_forward_pid:-}" ]]; then
-    kill "$port_forward_pid" >/dev/null 2>&1 || true
+    { kill "$port_forward_pid"; wait "$port_forward_pid"; } >/dev/null 2>&1 || true
   fi
   if [[ -n "${PF_LOG:-}" ]]; then
     rm -f "$PF_LOG"
