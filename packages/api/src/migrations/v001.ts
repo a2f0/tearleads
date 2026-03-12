@@ -259,6 +259,43 @@ export const v001: Migration = {
       CREATE OR REPLACE FUNCTION "vfs_make_event_id"(prefix TEXT)
       RETURNS UUID LANGUAGE SQL AS $$ SELECT gen_random_uuid() $$;
 
+      CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"(
+        current_write_ids JSONB,
+        incoming_write_ids JSONB
+      )
+      RETURNS JSONB
+      LANGUAGE SQL
+      IMMUTABLE
+      AS $$
+        SELECT COALESCE(
+          jsonb_object_agg(entry.key, to_jsonb(entry.max_write_id)),
+          '{}'::jsonb
+        )
+        FROM (
+          SELECT
+            kv.key,
+            MAX(kv.write_id) AS max_write_id
+          FROM (
+            SELECT
+              e.key,
+              CASE
+                WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                ELSE 0::bigint
+              END AS write_id
+            FROM jsonb_each_text(COALESCE(current_write_ids, '{}'::jsonb)) AS e
+            UNION ALL
+            SELECT
+              e.key,
+              CASE
+                WHEN e.value ~ '^[0-9]+$' THEN e.value::bigint
+                ELSE 0::bigint
+              END AS write_id
+            FROM jsonb_each_text(COALESCE(incoming_write_ids, '{}'::jsonb)) AS e
+          ) AS kv
+          GROUP BY kv.key
+        ) AS entry;
+      $$;
+
       CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"(
         p_item_id UUID,
         p_change_type TEXT,
