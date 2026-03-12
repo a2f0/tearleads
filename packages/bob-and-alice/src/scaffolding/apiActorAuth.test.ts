@@ -1,3 +1,7 @@
+import {
+  buildAuthV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { ensureVfsKeysExist, loginApiActor } from './apiActorAuth.js';
 
@@ -42,7 +46,7 @@ describe('loginApiActor', () => {
     expect(typeof actor.fetchJson).toBe('function');
     const firstCall = fetchSpy.mock.calls[0];
     expect(firstCall?.[0]).toBe(
-      'http://localhost:3000/v1/connect/tearleads.v2.AuthService/Login'
+      `http://localhost:3000/v1${buildAuthV2ConnectMethodPath('Login')}`
     );
 
     fetchSpy.mockRestore();
@@ -164,7 +168,7 @@ describe('ensureVfsKeysExist', () => {
 
     await ensureVfsKeysExist({ actor, keyPrefix: 'test' });
     expect(actor.fetchJson).toHaveBeenCalledWith(
-      '/connect/tearleads.v2.VfsService/SetupKeys',
+      buildVfsV2ConnectMethodPath('SetupKeys'),
       expect.any(Object)
     );
   });

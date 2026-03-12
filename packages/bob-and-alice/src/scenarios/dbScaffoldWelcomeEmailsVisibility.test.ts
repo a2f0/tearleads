@@ -1,4 +1,5 @@
 import {
+  buildVfsV2ConnectMethodPath,
   combinePublicKey,
   generateKeyPair,
   parseConnectJsonEnvelopeBody,
@@ -72,14 +73,11 @@ function readEmailDetail(payload: unknown): EmailDetailPayload | null {
 async function fetchEmailIdsFromConnect(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<string[]> {
-  const response = await actor.fetch(
-    '/connect/tearleads.v2.VfsService/GetEmails',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ offset: 0, limit: 50 })
-    }
-  );
+  const response = await actor.fetch(buildVfsV2ConnectMethodPath('GetEmails'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ offset: 0, limit: 50 })
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -95,14 +93,11 @@ async function fetchEmailFromConnect(
   actor: ReturnType<ApiScenarioHarness['actor']>,
   id: string
 ): Promise<EmailDetailPayload> {
-  const response = await actor.fetch(
-    '/connect/tearleads.v2.VfsService/GetEmail',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    }
-  );
+  const response = await actor.fetch(buildVfsV2ConnectMethodPath('GetEmail'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
 
   if (!response.ok) {
     const errorText = await response.text();

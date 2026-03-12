@@ -6,6 +6,7 @@ import type {
   VfsCrdtSyncResponse
 } from '@tearleads/shared';
 import {
+  buildVfsV2ConnectMethodPath,
   combinePublicKey,
   generateKeyPair,
   serializePublicKey
@@ -253,7 +254,7 @@ describe('DB scaffold shared note edit persistence', () => {
     });
     const aliceFirstPayload = aliceFirstOperation.encryptedPayload ?? '';
     const aliceFirstPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -289,7 +290,7 @@ describe('DB scaffold shared note edit persistence', () => {
     });
     const aliceSecondPayload = aliceSecondOperation.encryptedPayload ?? '';
     const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -413,7 +414,7 @@ describe('DB scaffold shared note edit persistence', () => {
     expect(alicePermission.permissionLevel).toBe('view');
 
     const rejectedPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps',
+      buildVfsV2ConnectMethodPath('PushCrdtOps'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
