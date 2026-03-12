@@ -88,11 +88,12 @@ describe('syncProtobuf envelope bytes behavior', () => {
   });
 
   it('decodes bytes-only envelope fields', () => {
-    const encryptedPayloadBytes = new Uint8Array(
-      Buffer.from('ciphertext', 'utf8')
+    const encryptedPayloadBytes = Buffer.from('ciphertext', 'utf8').toString(
+      'base64'
     );
     const expectedEncryptedPayload = Buffer.from(
-      encryptedPayloadBytes
+      encryptedPayloadBytes,
+      'base64'
     ).toString('base64');
     const encoded = PUSH_REQUEST_TYPE.encode(
       PUSH_REQUEST_TYPE.create({
