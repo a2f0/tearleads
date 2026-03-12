@@ -33,15 +33,10 @@ function getMockApiModule() {
 const mockApiModule = getMockApiModule();
 
 vi.mock('@/lib/api', () => getMockApiModule());
-vi.mock('@/lib/jwt', () => ({
-  isJwtExpired: (token: string) => mockIsJwtExpired(token),
-  getJwtExpiration: (token: string) =>
-    mockIsJwtExpired(token)
-      ? Math.floor(Date.now() / 1000) - 60
-      : Math.floor(Date.now() / 1000) + 60,
-  getJwtTimeRemaining: (token: string) =>
-    mockIsJwtExpired(token) ? null : 60_000
-}));
+vi.mock('@/lib/jwt', async () => {
+  const { createJwtModuleMock } = await import('./SSEContextTestSupport');
+  return createJwtModuleMock();
+});
 describe('SSEContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
