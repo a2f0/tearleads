@@ -71,7 +71,12 @@ export function EmailWindow({
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
 
   const { body: emailBody } = useEmailBody(selectedEmailId);
-  const { drafts, loading: draftsLoading, fetchDrafts } = useDrafts();
+  const {
+    drafts,
+    loading: draftsLoading,
+    fetchDrafts,
+    deleteDraft
+  } = useDrafts();
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
   const isDraftsFolder = selectedFolder?.folderType === 'drafts';
 
@@ -80,10 +85,12 @@ export function EmailWindow({
     setActiveTab,
     isComposeTabOpen,
     composeOpenRequest: resolvedComposeRequest,
+    composeDraftId,
     composeLabel,
     closeComposeTab,
     handleCompose,
     openComposeForMode,
+    openDraftForEdit,
     handleComposeForEmail,
     handleEmailSent
   } = useComposeTab({
@@ -95,6 +102,11 @@ export function EmailWindow({
     fetchEmails,
     setSelectedEmailId
   });
+
+  const handleEmailSentWithDraftRefresh = useCallback(() => {
+    handleEmailSent();
+    if (isDraftsFolder) fetchDrafts();
+  }, [handleEmailSent, isDraftsFolder, fetchDrafts]);
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
@@ -201,8 +213,9 @@ export function EmailWindow({
                 lockedFallback={lockedFallback}
                 activeTab={activeTab}
                 onCloseCompose={closeComposeTab}
-                onEmailSent={handleEmailSent}
+                onEmailSent={handleEmailSentWithDraftRefresh}
                 composeOpenRequest={resolvedComposeRequest}
+                composeDraftId={composeDraftId}
                 loading={loading}
                 error={error}
                 selectedEmailId={selectedEmailId}
@@ -216,6 +229,8 @@ export function EmailWindow({
                 onSelectEmail={setSelectedEmailId}
                 viewMode={viewMode}
                 onComposeForEmail={handleComposeForEmail}
+                onEditDraft={openDraftForEdit}
+                onDeleteDraft={deleteDraft}
               />
             </div>
           </div>

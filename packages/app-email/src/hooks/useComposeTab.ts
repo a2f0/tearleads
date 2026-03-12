@@ -37,14 +37,17 @@ export function useComposeTab({
   const [composeOpenRequest, setComposeOpenRequest] =
     useState<ComposeOpenRequest | null>(null);
   const [composeRequestCounter, setComposeRequestCounter] = useState(0);
+  const [composeDraftId, setComposeDraftId] = useState<string | null>(null);
 
   const closeComposeTab = useCallback(() => {
     setIsComposeTabOpen(false);
     setActiveTab('inbox');
+    setComposeDraftId(null);
   }, []);
 
   const handleCompose = useCallback(() => {
     setComposeOpenRequest(null);
+    setComposeDraftId(null);
     setIsComposeTabOpen(true);
     setActiveTab('compose');
   }, []);
@@ -57,11 +60,23 @@ export function useComposeTab({
         ...fields,
         requestId: composeRequestCounter + 1
       });
+      setComposeDraftId(null);
       setSelectedEmailId(null);
       setIsComposeTabOpen(true);
       setActiveTab('compose');
     },
     [composeRequestCounter, setSelectedEmailId]
+  );
+
+  const openDraftForEdit = useCallback(
+    (draftId: string) => {
+      setComposeOpenRequest(null);
+      setComposeDraftId(draftId);
+      setSelectedEmailId(null);
+      setIsComposeTabOpen(true);
+      setActiveTab('compose');
+    },
+    [setSelectedEmailId]
   );
 
   const openComposeForMode = useCallback(
@@ -105,10 +120,12 @@ export function useComposeTab({
     setActiveTab,
     isComposeTabOpen,
     composeOpenRequest,
+    composeDraftId,
     composeLabel,
     closeComposeTab,
     handleCompose,
     openComposeForMode,
+    openDraftForEdit,
     handleComposeForEmail,
     handleEmailSent
   };
