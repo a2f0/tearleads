@@ -1,7 +1,7 @@
 import { randomBytes, scrypt } from 'node:crypto';
 
 const REVENUECAT_APP_USER_PREFIX = 'org:';
-const PERSONAL_ORGANIZATION_ID_PREFIX = 'personal-org-';
+const PERSONAL_ORGANIZATION_ID_PREFIX = '';
 const SALT_LENGTH = 16;
 const KEY_LENGTH = 64;
 

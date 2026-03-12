@@ -84,20 +84,6 @@ export async function seedHarnessAccount(
     : null;
 
   await client.query(
-    `INSERT INTO users (
-       id,
-       email,
-       email_confirmed,
-       admin,
-       personal_organization_id,
-       created_at,
-       updated_at
-     )
-     VALUES ($1, $2, $3, $4, $5, $6, $6)`,
-    [userId, input.email, emailConfirmed, admin, personalOrganizationId, now]
-  );
-
-  await client.query(
     `INSERT INTO organizations (
        id,
        name,
@@ -113,6 +99,20 @@ export async function seedHarnessAccount(
       `Personal organization for ${input.email}`,
       now
     ]
+  );
+
+  await client.query(
+    `INSERT INTO users (
+       id,
+       email,
+       email_confirmed,
+       admin,
+       personal_organization_id,
+       created_at,
+       updated_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+    [userId, input.email, emailConfirmed, admin, personalOrganizationId, now]
   );
 
   await client.query(
