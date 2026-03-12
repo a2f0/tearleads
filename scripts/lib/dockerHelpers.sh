@@ -101,9 +101,9 @@ docker_push_with_retry() {
     fi
 
     if [[ -n "$timeout_bin" && "$push_status" -eq 124 ]]; then
-      echo "Warning: docker push timed out after ${push_timeout}s (attempt ${attempt}/${max_retries})."
+      echo "Warning: docker push timed out after ${push_timeout}s (attempt ${attempt}/${max_retries})." >&2
     else
-      echo "Warning: docker push failed with exit code ${push_status} (attempt ${attempt}/${max_retries})."
+      echo "Warning: docker push failed with exit code ${push_status} (attempt ${attempt}/${max_retries})." >&2
     fi
 
     if [[ "$attempt" -lt "$max_retries" ]]; then
@@ -113,7 +113,7 @@ docker_push_with_retry() {
     ((attempt++))
   done
 
-  echo "Error: docker push failed after ${max_retries} attempts for $image_tag"
+  echo "Error: docker push failed after ${max_retries} attempts for $image_tag" >&2
   return 1
 }
 
