@@ -1,3 +1,7 @@
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   type JsonApiActor,
@@ -26,13 +30,13 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
       const bodyText = typeof init?.body === 'string' ? init.body : '';
       calls.push({ path, method, bodyText });
 
-      if (path === '/connect/tearleads.v2.VfsService/Register') {
+      if (path === buildVfsV2ConnectMethodPath('Register')) {
         return {
           createdAt: '2026-03-01T00:00:00.000Z'
         };
       }
 
-      if (path === '/connect/tearleads.v2.VfsService/PushCrdtOps') {
+      if (path === buildVfsV2ConnectMethodPath('PushCrdtOps')) {
         const payload = JSON.parse(bodyText);
         if (!isRecord(payload) || !Array.isArray(payload['operations'])) {
           throw new Error('Unexpected crdt payload in test');
@@ -51,7 +55,7 @@ function createMockBobActor(calls: RequestCall[]): JsonApiActor {
         };
       }
 
-      if (path === '/connect/tearleads.v2.VfsSharesService/CreateShare') {
+      if (path === buildVfsSharesV2ConnectMethodPath('CreateShare')) {
         return {
           share: {
             id: 'share:test-share-id',
@@ -120,11 +124,11 @@ describe('setupBobNotesShareForAlice', () => {
     ]);
 
     expect(calls).toHaveLength(4);
-    expect(calls[0]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
-    expect(calls[1]?.path).toBe('/connect/tearleads.v2.VfsService/Register');
-    expect(calls[2]?.path).toBe('/connect/tearleads.v2.VfsService/PushCrdtOps');
+    expect(calls[0]?.path).toBe(buildVfsV2ConnectMethodPath('Register'));
+    expect(calls[1]?.path).toBe(buildVfsV2ConnectMethodPath('Register'));
+    expect(calls[2]?.path).toBe(buildVfsV2ConnectMethodPath('PushCrdtOps'));
     expect(calls[3]?.path).toBe(
-      '/connect/tearleads.v2.VfsSharesService/CreateShare'
+      buildVfsSharesV2ConnectMethodPath('CreateShare')
     );
 
     const firstRegisterBody = JSON.parse(calls[0]?.bodyText ?? '');
