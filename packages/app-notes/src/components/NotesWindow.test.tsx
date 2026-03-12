@@ -1,3 +1,4 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import type { Database } from '@tearleads/db/sqlite';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';

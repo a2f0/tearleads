@@ -1,3 +1,4 @@
+// one-component-per-file: allow - test fixture with inline mock components
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import type {
