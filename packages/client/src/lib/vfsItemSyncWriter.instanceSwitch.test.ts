@@ -147,7 +147,7 @@ describe('vfsItemSyncWriter instance switching', () => {
     expect(flushAll).not.toHaveBeenCalled();
   });
 
-  it('does not flush a queued write after the runtime goes stale mid-operation', async () => {
+  it('still fires flush when runtime goes stale mid-operation (flush is fire-and-forget)', async () => {
     isLoggedInMock.mockReturnValue(true);
     getFeatureFlagValueMock.mockReturnValue(true);
     registerMock.mockResolvedValue(undefined);
@@ -182,17 +182,15 @@ describe('vfsItemSyncWriter instance switching', () => {
         instanceEpoch: 2
       });
 
-    await expect(
-      queueItemUpsertAndFlush({
-        itemId: 'item-1',
-        objectType: 'contact',
-        encryptedSessionKey: 'wrapped',
-        payload: { id: 'item-1' }
-      })
-    ).rejects.toThrow('VFS sync runtime is stale during flush');
+    await queueItemUpsertAndFlush({
+      itemId: 'item-1',
+      objectType: 'contact',
+      encryptedSessionKey: 'wrapped',
+      payload: { id: 'item-1' }
+    });
 
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(queueEncryptedCrdtOpAndPersist).toHaveBeenCalledTimes(1);
-    expect(flushAll).not.toHaveBeenCalled();
+    expect(flushAll).toHaveBeenCalledTimes(1);
   });
 });

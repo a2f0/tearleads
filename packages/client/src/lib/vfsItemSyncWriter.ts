@@ -351,8 +351,10 @@ export async function queueItemUpsertAndFlush(
         opPayload: input.payload
       });
     }
-    assertRuntimeMatchesActiveInstance(runtime, 'flush');
-    await runtime.orchestrator.flushAll();
+    void runtime.orchestrator.flushAll().catch((err) => {
+      lastSyncError = err instanceof Error ? err : new Error(String(err));
+      notifySyncActivityListeners();
+    });
   });
 }
 
@@ -382,7 +384,9 @@ export async function queueItemDeleteAndFlush(
       itemId: input.itemId,
       opType: 'item_delete'
     });
-    assertRuntimeMatchesActiveInstance(runtime, 'flush');
-    await runtime.orchestrator.flushAll();
+    void runtime.orchestrator.flushAll().catch((err) => {
+      lastSyncError = err instanceof Error ? err : new Error(String(err));
+      notifySyncActivityListeners();
+    });
   });
 }
