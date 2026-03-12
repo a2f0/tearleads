@@ -1,3 +1,8 @@
+import {
+  buildAiV2ConnectMethodPath,
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
@@ -45,7 +50,7 @@ describe('API VFS lifecycle', () => {
     const keysBody = await alice.fetchJson<{
       publicEncryptionKey: string;
       argon2Salt: string;
-    }>('/connect/tearleads.v2.VfsService/GetMyKeys', {
+    }>(buildVfsV2ConnectMethodPath('GetMyKeys'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -57,7 +62,7 @@ describe('API VFS lifecycle', () => {
     const registerBody = await alice.fetchJson<{
       id: string;
       createdAt: string;
-    }>('/connect/tearleads.v2.VfsService/Register', {
+    }>(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -73,7 +78,7 @@ describe('API VFS lifecycle', () => {
     const sharesEmpty = await alice.fetchJson<{
       shares?: unknown[];
       orgShares?: unknown[];
-    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+    }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId: 'note-1' })
@@ -89,7 +94,7 @@ describe('API VFS lifecycle', () => {
         targetId: string;
         permissionLevel: string;
       };
-    }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+    }>(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -114,7 +119,7 @@ describe('API VFS lifecycle', () => {
     // Verify shares list now has one entry
     const sharesAfter = await alice.fetchJson<{
       shares: Array<{ id: string; targetId: string }>;
-    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+    }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId: 'note-1' })
@@ -126,7 +131,7 @@ describe('API VFS lifecycle', () => {
     const shareUuid = shareBody.id.replace('share:', '');
     const updateResponse = await alice.fetchJson<{
       share: { id: string; permissionLevel: string };
-    }>('/connect/tearleads.v2.VfsSharesService/UpdateShare', {
+    }>(buildVfsSharesV2ConnectMethodPath('UpdateShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -141,7 +146,7 @@ describe('API VFS lifecycle', () => {
       itemId: string;
       newEpoch: number;
       wrapsApplied: number;
-    }>('/connect/tearleads.v2.VfsService/RekeyItem', {
+    }>(buildVfsV2ConnectMethodPath('RekeyItem'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -164,7 +169,7 @@ describe('API VFS lifecycle', () => {
 
     // Alice deletes the share
     const deleteShareResponse = await alice.fetchJson(
-      '/connect/tearleads.v2.VfsSharesService/DeleteShare',
+      buildVfsSharesV2ConnectMethodPath('DeleteShare'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,7 +183,7 @@ describe('API VFS lifecycle', () => {
     // Verify shares list is empty again
     const sharesFinal = await alice.fetchJson<{
       shares?: unknown[];
-    }>('/connect/tearleads.v2.VfsSharesService/GetItemShares', {
+    }>(buildVfsSharesV2ConnectMethodPath('GetItemShares'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId: 'note-1' })
@@ -213,7 +218,7 @@ describe('API VFS lifecycle', () => {
       actor: alice,
       keyPrefix: 'alice'
     });
-    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -231,7 +236,7 @@ describe('API VFS lifecycle', () => {
         targetOrgId: string;
         permissionLevel: string;
       };
-    }>('/connect/tearleads.v2.VfsSharesService/CreateOrgShare', {
+    }>(buildVfsSharesV2ConnectMethodPath('CreateOrgShare'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -251,7 +256,7 @@ describe('API VFS lifecycle', () => {
     const orgShareUuid = orgShareParts[orgShareParts.length - 1];
     expect(orgShareUuid).toBeTruthy();
     const deleteResponse = await alice.fetchJson(
-      '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare',
+      buildVfsSharesV2ConnectMethodPath('DeleteOrgShare'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,7 +273,7 @@ describe('API VFS lifecycle', () => {
     // Record usage
     const usageBody = await alice.fetchJson<{
       usage: { modelId: string; totalTokens: number };
-    }>('/connect/tearleads.v2.AiService/RecordUsage', {
+    }>(buildAiV2ConnectMethodPath('RecordUsage'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -284,7 +289,7 @@ describe('API VFS lifecycle', () => {
     // Query usage summary
     const summaryBody = await alice.fetchJson<{
       summary: { totalTokens: number; requestCount: number };
-    }>('/connect/tearleads.v2.AiService/GetUsageSummary', {
+    }>(buildAiV2ConnectMethodPath('GetUsageSummary'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -296,7 +301,7 @@ describe('API VFS lifecycle', () => {
     const listBody = await alice.fetchJson<{
       usage: Array<{ modelId: string }>;
       hasMore?: boolean;
-    }>('/connect/tearleads.v2.AiService/GetUsage', {
+    }>(buildAiV2ConnectMethodPath('GetUsage'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -318,7 +323,7 @@ describe('API VFS lifecycle', () => {
     harness = await ApiScenarioHarness.create([{ alias: 'alice' }], getApiDeps);
     const alice = harness.actor('alice');
 
-    await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+    await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -334,7 +339,7 @@ describe('API VFS lifecycle', () => {
       status: string;
       stagedAt: string;
       expiresAt: string;
-    }>('/connect/tearleads.v2.VfsService/StageBlob', {
+    }>(buildVfsV2ConnectMethodPath('StageBlob'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -352,7 +357,7 @@ describe('API VFS lifecycle', () => {
       stagingId: string;
       uploadId: string;
       chunkIndex: number;
-    }>('/connect/tearleads.v2.VfsService/UploadBlobChunk', {
+    }>(buildVfsV2ConnectMethodPath('UploadBlobChunk'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -379,7 +384,7 @@ describe('API VFS lifecycle', () => {
       relationKind: string;
       refId: string;
       attachedAt: string;
-    }>('/connect/tearleads.v2.VfsService/AttachBlob', {
+    }>(buildVfsV2ConnectMethodPath('AttachBlob'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -394,7 +399,7 @@ describe('API VFS lifecycle', () => {
     expect(attachResponse.relationKind).toBe('file');
 
     const abandonAfterAttach = await alice.fetch(
-      '/connect/tearleads.v2.VfsService/AbandonBlob',
+      buildVfsV2ConnectMethodPath('AbandonBlob'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -407,7 +412,7 @@ describe('API VFS lifecycle', () => {
     });
 
     const deleteAttachedBlob = await alice.fetch(
-      '/connect/tearleads.v2.VfsService/DeleteBlob',
+      buildVfsV2ConnectMethodPath('DeleteBlob'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -419,7 +424,7 @@ describe('API VFS lifecycle', () => {
       message: 'Blob is attached and cannot be deleted'
     });
 
-    await alice.fetchJson('/connect/tearleads.v2.VfsService/StageBlob', {
+    await alice.fetchJson(buildVfsV2ConnectMethodPath('StageBlob'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -433,7 +438,7 @@ describe('API VFS lifecycle', () => {
       abandoned: boolean;
       stagingId: string;
       status: string;
-    }>('/connect/tearleads.v2.VfsService/AbandonBlob', {
+    }>(buildVfsV2ConnectMethodPath('AbandonBlob'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stagingId: stageTwoId })
@@ -443,7 +448,7 @@ describe('API VFS lifecycle', () => {
     expect(abandonResponse.status).toBe('abandoned');
 
     const attachAfterAbandon = await alice.fetch(
-      '/connect/tearleads.v2.VfsService/AttachBlob',
+      buildVfsV2ConnectMethodPath('AttachBlob'),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
