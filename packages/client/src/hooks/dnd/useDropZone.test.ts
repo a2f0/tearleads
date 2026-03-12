@@ -1,15 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import * as utils from '@/lib/utils';
 import { useDropZone } from './useDropZone';
 
 // Mock detectPlatform to return 'web' by default
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/lib/utils')>();
-  return {
-    ...original,
-    detectPlatform: vi.fn(() => 'web')
-  };
-});
+vi.spyOn(utils, 'detectPlatform').mockImplementation(() => 'web');
 
 function createMockDragEvent(
   files: File[] = [],

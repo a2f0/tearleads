@@ -6,14 +6,9 @@ const mockOpenWindow = vi.fn();
 const mockUseWindowManagerActions = vi.fn();
 const mockUseIsMobile = vi.fn();
 
-vi.mock('@/contexts/WindowManagerContext', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@/contexts/WindowManagerContext')>();
-  return {
-    ...actual,
-    useWindowManagerActions: () => mockUseWindowManagerActions()
-  };
-});
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManagerActions: () => mockUseWindowManagerActions()
+}));
 
 vi.mock('@/hooks/device', () => ({
   useIsMobile: () => mockUseIsMobile()

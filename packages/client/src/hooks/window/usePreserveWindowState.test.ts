@@ -6,18 +6,12 @@ const mockGetPreserveWindowState = vi.fn();
 const mockSetPreserveWindowState = vi.fn();
 const mockSubscribePreserveWindowState = vi.fn((_: () => void) => () => {});
 
-vi.mock('@tearleads/window-manager', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tearleads/window-manager')>();
-
-  return {
-    ...actual,
-    getPreserveWindowState: () => mockGetPreserveWindowState(),
-    setPreserveWindowState: (next: boolean) => mockSetPreserveWindowState(next),
-    subscribePreserveWindowState: (callback: () => void) =>
-      mockSubscribePreserveWindowState(callback)
-  };
-});
+vi.mock('@tearleads/window-manager', () => ({
+  getPreserveWindowState: () => mockGetPreserveWindowState(),
+  setPreserveWindowState: (next: boolean) => mockSetPreserveWindowState(next),
+  subscribePreserveWindowState: (callback: () => void) =>
+    mockSubscribePreserveWindowState(callback)
+}));
 
 describe('usePreserveWindowState', () => {
   beforeEach(() => {
