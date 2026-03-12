@@ -6,7 +6,7 @@ import type {
   VfsCrdtSyncPushStatus
 } from './syncClientUtilsTypes.js';
 
-export function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
+function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
   return (
     value === 'applied' ||
     value === 'alreadyApplied' ||

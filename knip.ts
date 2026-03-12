@@ -82,7 +82,12 @@ const config: KnipConfig = {
       entry: ['src/gen/**/*.ts']
     },
     'packages/vfs-sync': {
-      entry: ['src/**/*.test.ts']
+      entry: [
+        'src/**/*.test.ts',
+        // Keep bloom filter protocol module in the knip program to avoid TS
+        // reference lookup crashes when its transitive import graph is test-only.
+        'src/vfs/protocol/syncBloomFilter.ts'
+      ]
     },
     'packages/website': {
       entry: [

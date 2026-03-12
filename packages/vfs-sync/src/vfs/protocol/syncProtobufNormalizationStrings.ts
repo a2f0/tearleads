@@ -22,10 +22,10 @@ export function normalizeRequiredString(
   return value;
 }
 
-export function normalizeOptionalString(value: unknown): string | undefined {
+function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-export function normalizeOptionalNullableString(value: unknown): string | null {
+function normalizeOptionalNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }

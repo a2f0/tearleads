@@ -106,7 +106,7 @@ export function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
   };
 }
 
-export function toCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor {
+function toCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor {
   const occurredAtMs = Date.parse(item.occurredAt);
   if (!Number.isFinite(occurredAtMs)) {
     throw new Error('transport returned item with invalid occurredAt');

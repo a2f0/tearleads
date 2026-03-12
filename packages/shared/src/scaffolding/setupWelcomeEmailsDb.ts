@@ -35,8 +35,8 @@ export interface SetupWelcomeEmailsDbResult {
   alice: UserEmailResult;
 }
 
-export const WELCOME_SUBJECT = 'Welcome to Tearleads';
-export const WELCOME_FROM = 'system@tearleads.com';
+const WELCOME_SUBJECT = 'Welcome to Tearleads';
+const WELCOME_FROM = 'system@tearleads.com';
 export const SCAFFOLD_INLINE_EMAIL_BODY_PREFIX = 'scaffolding:inline-body:';
 export const SCAFFOLD_WELCOME_EMAIL_BODY_TEXT =
   "You're all set to start exploring Tearleads.";
