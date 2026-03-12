@@ -1,5 +1,6 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
+import { buildMlsV2ConnectMethodPath } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOverride';
@@ -204,28 +205,19 @@ describe('api with msw (MLS binary routes)', () => {
     await routes.deleteKeyPackage(uploadedKeyPackageId);
 
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/AddGroupMember'
-      )
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('AddGroupMember'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/RemoveGroupMember'
+        buildMlsV2ConnectMethodPath('RemoveGroupMember')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/SendGroupMessage'
-      )
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('SendGroupMessage'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/UploadGroupState'
-      )
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('UploadGroupState'))
     ).toBe(true);
   });
 });

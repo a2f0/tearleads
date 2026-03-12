@@ -14,6 +14,7 @@ import {
   resetAuthStorageRuntimeForTesting
 } from './authStorage';
 import {
+  AUTH_V2_LOGIN_CONNECT_PATH,
   AUTH_V2_REFRESH_CONNECT_PATH,
   AUTH_V2_REGISTER_CONNECT_PATH,
   resolveConnectUrlForApiBase
@@ -389,7 +390,10 @@ describe('URL resolution with path-suffixed API base', () => {
   it('resolves /connect/ register endpoint with /v1 base prefix intact', async () => {
     server.use(
       http.post(
-        'http://localhost/v1/connect/tearleads.v2.AuthService/Register',
+        resolveConnectUrlForApiBase(
+          'http://localhost/v1',
+          AUTH_V2_REGISTER_CONNECT_PATH
+        ),
         () =>
           HttpResponse.json(
             { accessToken: 'tok', refreshToken: 'ref' },
@@ -404,14 +408,17 @@ describe('URL resolution with path-suffixed API base', () => {
       api.auth.register('test@example.com', 'password123')
     ).resolves.toBeDefined();
     expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.AuthService/Register')
+      wasApiRequestMade('POST', `/v1${AUTH_V2_REGISTER_CONNECT_PATH}`)
     ).toBe(true);
   });
 
   it('resolves /connect/ login endpoint with /v1 base prefix intact', async () => {
     server.use(
       http.post(
-        'http://localhost/v1/connect/tearleads.v2.AuthService/Login',
+        resolveConnectUrlForApiBase(
+          'http://localhost/v1',
+          AUTH_V2_LOGIN_CONNECT_PATH
+        ),
         () =>
           HttpResponse.json(
             { accessToken: 'tok', refreshToken: 'ref' },
@@ -425,16 +432,19 @@ describe('URL resolution with path-suffixed API base', () => {
     await expect(
       api.auth.login('test@example.com', 'password123')
     ).resolves.toBeDefined();
-    expect(
-      wasApiRequestMade('POST', '/v1/connect/tearleads.v2.AuthService/Login')
-    ).toBe(true);
+    expect(wasApiRequestMade('POST', `/v1${AUTH_V2_LOGIN_CONNECT_PATH}`)).toBe(
+      true
+    );
   });
 
   it('resolves /connect/ refresh endpoint with /v1 base prefix intact', async () => {
     (await import('./authStorage')).setStoredRefreshToken('refresh-token');
     server.use(
       http.post(
-        'http://localhost/v1/connect/tearleads.v2.AuthService/RefreshToken',
+        resolveConnectUrlForApiBase(
+          'http://localhost/v1',
+          AUTH_V2_REFRESH_CONNECT_PATH
+        ),
         () =>
           HttpResponse.json(
             { accessToken: 'new-tok', refreshToken: 'new-ref' },
@@ -447,10 +457,7 @@ describe('URL resolution with path-suffixed API base', () => {
 
     await expect(tryRefreshToken()).resolves.toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/v1/connect/tearleads.v2.AuthService/RefreshToken'
-      )
+      wasApiRequestMade('POST', `/v1${AUTH_V2_REFRESH_CONNECT_PATH}`)
     ).toBe(true);
   });
 

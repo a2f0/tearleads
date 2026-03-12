@@ -6,8 +6,10 @@ import {
   buildAdminV2ConnectMethodPath,
   buildAiV2ConnectMethodPath,
   buildAuthV2ConnectMethodPath,
+  buildMlsV2ConnectMethodPath,
   buildVfsSharesV2ConnectMethodPath,
   buildVfsV2ConnectMethodPath,
+  MLS_V2_CONNECT_BASE_PATH,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
   VFS_V2_CONNECT_BASE_PATH,
   VFS_V2_GET_EMAIL_CONNECT_PATH,
@@ -22,6 +24,7 @@ describe('vfsConnectPaths', () => {
     );
     expect(AI_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.AiService');
     expect(AUTH_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.AuthService');
+    expect(MLS_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.MlsService');
     expect(VFS_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.VfsService');
     expect(VFS_SHARES_V2_CONNECT_BASE_PATH).toBe(
       '/connect/tearleads.v2.VfsSharesService'
@@ -37,6 +40,9 @@ describe('vfsConnectPaths', () => {
     );
     expect(buildAuthV2ConnectMethodPath('Login')).toBe(
       '/connect/tearleads.v2.AuthService/Login'
+    );
+    expect(buildMlsV2ConnectMethodPath('ListGroups')).toBe(
+      '/connect/tearleads.v2.MlsService/ListGroups'
     );
     expect(buildVfsV2ConnectMethodPath('GetSync')).toBe(
       '/connect/tearleads.v2.VfsService/GetSync'

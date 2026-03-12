@@ -1,6 +1,9 @@
 import { create } from '@bufbuild/protobuf';
 import { setStoredAuthToken } from '@tearleads/api-client/authStorage';
-import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
+import {
+  buildAdminV2ConnectMethodPath,
+  buildAiV2ConnectMethodPath
+} from '@tearleads/shared';
 import {
   AdminDeleteRedisKeyResponseSchema,
   AdminGetContextResponseSchema,
@@ -443,9 +446,7 @@ describe('admin api client', () => {
       )
     ).toBe(true);
     expect(
-      urls.some((url) =>
-        url.includes('/connect/tearleads.v2.AiService/GetUsage')
-      )
+      urls.some((url) => url.includes(buildAiV2ConnectMethodPath('GetUsage')))
     ).toBe(true);
     expect(
       urls.some((url) => url.includes('/connect/tearleads.v1.AdminService/'))

@@ -5,7 +5,11 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
-import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
+import {
+  buildAdminV2ConnectMethodPath,
+  buildAuthV2ConnectMethodPath,
+  buildVfsSharesV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
@@ -87,7 +91,7 @@ describe('api with msw', () => {
           return HttpResponse.json(null, { status: 500 });
         }),
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () =>
             HttpResponse.json({
               accessToken: 'new-token',
@@ -147,7 +151,7 @@ describe('api with msw', () => {
           HttpResponse.json(null, { status: 401 })
         ),
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/RefreshToken',
+          `http://localhost${buildAuthV2ConnectMethodPath('RefreshToken')}`,
           () => {
             refreshCalled = true;
             // Refresh succeeds but simulates another tab clearing auth
@@ -185,7 +189,7 @@ describe('api with msw', () => {
       try {
         server.use(
           http.post(
-            'http://localhost/connect/tearleads.v2.VfsSharesService/DeleteShare',
+            `http://localhost${buildVfsSharesV2ConnectMethodPath('DeleteShare')}`,
             () => new HttpResponse(null, { status: 204 })
           )
         );
@@ -196,7 +200,7 @@ describe('api with msw', () => {
         expect(
           wasApiRequestMade(
             'POST',
-            '/connect/tearleads.v2.VfsSharesService/DeleteShare'
+            buildVfsSharesV2ConnectMethodPath('DeleteShare')
           )
         ).toBe(true);
       } finally {
@@ -207,7 +211,7 @@ describe('api with msw', () => {
     it('handles 205 reset-content responses', async () => {
       server.use(
         http.post(
-          'http://localhost/connect/tearleads.v2.AuthService/Logout',
+          `http://localhost${buildAuthV2ConnectMethodPath('Logout')}`,
           () => new HttpResponse(null, { status: 205 })
         )
       );
@@ -216,7 +220,7 @@ describe('api with msw', () => {
 
       await expect(api.auth.logout()).resolves.toBeUndefined();
       expect(
-        wasApiRequestMade('POST', '/connect/tearleads.v2.AuthService/Logout')
+        wasApiRequestMade('POST', buildAuthV2ConnectMethodPath('Logout'))
       ).toBe(true);
     });
 

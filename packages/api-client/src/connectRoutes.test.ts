@@ -1,4 +1,10 @@
-import { buildAdminV2ConnectMethodPath } from '@tearleads/shared';
+import {
+  buildAdminV2ConnectMethodPath,
+  buildAiV2ConnectMethodPath,
+  buildAuthV2ConnectMethodPath,
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_V2_CONNECT_BASE_PATH,
@@ -28,14 +34,14 @@ describe('connectRoutes', () => {
         'http://localhost/v1/',
         AUTH_V2_REFRESH_CONNECT_PATH
       )
-    ).toBe('/v1/connect/tearleads.v2.AuthService/RefreshToken');
+    ).toBe(`/v1${buildAuthV2ConnectMethodPath('RefreshToken')}`);
 
     expect(
       resolveConnectUrlForApiBase(
         'http://localhost/v1/',
         AUTH_V2_LOGIN_CONNECT_PATH
       )
-    ).toBe('http://localhost/v1/connect/tearleads.v2.AuthService/Login');
+    ).toBe(`http://localhost/v1${buildAuthV2ConnectMethodPath('Login')}`);
   });
 
   it('builds admin and ai method paths from canonical base paths', () => {
@@ -44,16 +50,21 @@ describe('connectRoutes', () => {
     ).toBe(buildAdminV2ConnectMethodPath('GetRedisDbSize'));
     expect(
       buildConnectMethodPath(AI_V2_CONNECT_BASE_PATH, 'GetUsageSummary')
-    ).toBe('/connect/tearleads.v2.AiService/GetUsageSummary');
+    ).toBe(buildAiV2ConnectMethodPath('GetUsageSummary'));
   });
 
   it('builds vfs service paths from generated type names', () => {
-    expect(VFS_V2_CONNECT_BASE_PATH).toBe('/connect/tearleads.v2.VfsService');
-    expect(VFS_SHARES_V2_CONNECT_BASE_PATH).toBe(
-      '/connect/tearleads.v2.VfsSharesService'
+    expect(
+      buildConnectMethodPath(VFS_V2_CONNECT_BASE_PATH, 'PushCrdtOps')
+    ).toBe(buildVfsV2ConnectMethodPath('PushCrdtOps'));
+    expect(buildConnectMethodPath(VFS_V2_CONNECT_BASE_PATH, 'GetSync')).toBe(
+      buildVfsV2ConnectMethodPath('GetSync')
     );
+    expect(
+      buildConnectMethodPath(VFS_SHARES_V2_CONNECT_BASE_PATH, 'CreateShare')
+    ).toBe(buildVfsSharesV2ConnectMethodPath('CreateShare'));
     expect(VFS_V2_PUSH_CRDT_OPS_CONNECT_PATH).toBe(
-      '/connect/tearleads.v2.VfsService/PushCrdtOps'
+      buildVfsV2ConnectMethodPath('PushCrdtOps')
     );
   });
 });

@@ -1,3 +1,7 @@
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requestMock = vi.fn();
@@ -33,26 +37,22 @@ describe('vfsRoutes', () => {
     const [getCrdtCursorPath, getCrdtCursorParams] =
       requestMock.mock.calls[3] ?? [];
 
-    expect(getSyncDefaultPath).toBe('/connect/tearleads.v2.VfsService/GetSync');
+    expect(getSyncDefaultPath).toBe(buildVfsV2ConnectMethodPath('GetSync'));
     expect(getSyncDefaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 500 })
     );
 
-    expect(getSyncCursorPath).toBe('/connect/tearleads.v2.VfsService/GetSync');
+    expect(getSyncCursorPath).toBe(buildVfsV2ConnectMethodPath('GetSync'));
     expect(getSyncCursorParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 25, cursor: 'cursor-1' })
     );
 
-    expect(getCrdtDefaultPath).toBe(
-      '/connect/tearleads.v2.VfsService/GetCrdtSync'
-    );
+    expect(getCrdtDefaultPath).toBe(buildVfsV2ConnectMethodPath('GetCrdtSync'));
     expect(getCrdtDefaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 500 })
     );
 
-    expect(getCrdtCursorPath).toBe(
-      '/connect/tearleads.v2.VfsService/GetCrdtSync'
-    );
+    expect(getCrdtCursorPath).toBe(buildVfsV2ConnectMethodPath('GetCrdtSync'));
     expect(getCrdtCursorParams?.fetchOptions?.body).toBe(
       JSON.stringify({ limit: 15, cursor: 'cursor-2' })
     );
@@ -215,14 +215,14 @@ describe('vfsRoutes', () => {
     const [typedPath, typedParams] = requestMock.mock.calls[1] ?? [];
 
     expect(defaultPath).toBe(
-      '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
+      buildVfsSharesV2ConnectMethodPath('SearchShareTargets')
     );
     expect(defaultParams?.fetchOptions?.body).toBe(
       JSON.stringify({ q: 'alice' })
     );
 
     expect(typedPath).toBe(
-      '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
+      buildVfsSharesV2ConnectMethodPath('SearchShareTargets')
     );
     expect(typedParams?.fetchOptions?.body).toBe(
       JSON.stringify({ q: 'bob', type: 'user' })
@@ -253,7 +253,7 @@ describe('vfsRoutes', () => {
     const [fullPath, fullParams] = requestMock.mock.calls[1] ?? [];
 
     expect(baselinePath).toBe(
-      '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
+      buildVfsSharesV2ConnectMethodPath('GetSharePolicyPreview')
     );
     expect(baselineParams?.fetchOptions?.body).toBe(
       JSON.stringify({
@@ -264,7 +264,7 @@ describe('vfsRoutes', () => {
     );
 
     expect(fullPath).toBe(
-      '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
+      buildVfsSharesV2ConnectMethodPath('GetSharePolicyPreview')
     );
     expect(fullParams?.fetchOptions?.body).toBe(
       JSON.stringify({
@@ -296,7 +296,7 @@ describe('vfsRoutes', () => {
     });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v2.VfsService/GetMyKeys');
+    expect(path).toBe(buildVfsV2ConnectMethodPath('GetMyKeys'));
     expect(params?.fetchOptions?.body).toBe(JSON.stringify({}));
   });
 
@@ -313,7 +313,7 @@ describe('vfsRoutes', () => {
     ).resolves.toEqual({ created: true });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v2.VfsService/SetupKeys');
+    expect(path).toBe(buildVfsV2ConnectMethodPath('SetupKeys'));
     expect(params?.fetchOptions?.body).toBe(
       JSON.stringify({
         publicEncryptionKey: 'enc',
@@ -360,7 +360,7 @@ describe('vfsRoutes', () => {
 
     const [registerPath, registerParams] = requestMock.mock.calls[0] ?? [];
     const [rekeyPath, rekeyParams] = requestMock.mock.calls[1] ?? [];
-    expect(registerPath).toBe('/connect/tearleads.v2.VfsService/Register');
+    expect(registerPath).toBe(buildVfsV2ConnectMethodPath('Register'));
     expect(registerParams?.fetchOptions?.body).toBe(
       JSON.stringify({
         id: 'item-1',
@@ -368,7 +368,7 @@ describe('vfsRoutes', () => {
         encryptedSessionKey: 'enc'
       })
     );
-    expect(rekeyPath).toBe('/connect/tearleads.v2.VfsService/RekeyItem');
+    expect(rekeyPath).toBe(buildVfsV2ConnectMethodPath('RekeyItem'));
     expect(rekeyParams?.fetchOptions?.body).toBe(
       JSON.stringify({
         itemId: 'item-1',
@@ -403,11 +403,11 @@ describe('vfsRoutes', () => {
 
     const [arrayPath, arrayParams] = requestMock.mock.calls[0] ?? [];
     const [encodedPath, encodedParams] = requestMock.mock.calls[1] ?? [];
-    expect(arrayPath).toBe('/connect/tearleads.v2.VfsService/GetBlob');
+    expect(arrayPath).toBe(buildVfsV2ConnectMethodPath('GetBlob'));
     expect(arrayParams?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-array' })
     );
-    expect(encodedPath).toBe('/connect/tearleads.v2.VfsService/GetBlob');
+    expect(encodedPath).toBe(buildVfsV2ConnectMethodPath('GetBlob'));
     expect(encodedParams?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-encoded' })
     );
@@ -443,7 +443,7 @@ describe('vfsRoutes', () => {
     });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
-    expect(path).toBe('/connect/tearleads.v2.VfsService/DeleteBlob');
+    expect(path).toBe(buildVfsV2ConnectMethodPath('DeleteBlob'));
     expect(params?.fetchOptions?.body).toBe(
       JSON.stringify({ blobId: 'blob-1' })
     );
