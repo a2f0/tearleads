@@ -26,6 +26,7 @@ import {
   setupDefaultMocks,
   TEST_AUDIO_TRACK
 } from './Audio.testSetup';
+
 vi.spyOn(utils, 'detectPlatform').mockImplementation(() => 'web');
 
 // Mock useVirtualizer to simplify testing
