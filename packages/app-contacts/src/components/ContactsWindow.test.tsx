@@ -9,6 +9,7 @@ import { ContactsWindow } from './ContactsWindow';
 import * as contactDetailHooks from './contact-detail';
 
 vi.mock('@tearleads/ui', () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
   DropdownMenu: ({
     trigger,
     children
