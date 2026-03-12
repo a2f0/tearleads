@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Dropzone } from './dropzone';
@@ -227,7 +227,7 @@ describe('Dropzone Native iOS', () => {
     const button = screen.getByTestId('dropzone-choose-files');
     expect(button).not.toBeDisabled();
     user.click(button);
-    await vi.waitFor(() => expect(button).toBeDisabled());
+    await waitFor(() => expect(button).toBeDisabled());
     await act(async () => {
       resolvePickFiles([]);
     });
@@ -257,11 +257,11 @@ describe('Dropzone Native iOS', () => {
       multiple: true,
       source: 'photos'
     });
-    await vi.waitFor(() => expect(button).toBeDisabled());
+    await waitFor(() => expect(button).toBeDisabled());
     await act(async () => {
       resolvePickFiles([testFile]);
     });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
       expect(button).not.toBeDisabled();
     });

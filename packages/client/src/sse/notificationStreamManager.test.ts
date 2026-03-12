@@ -16,6 +16,24 @@ async function flushMicrotasks(): Promise<void> {
   }
 }
 
+async function waitForAssertion(assertion: () => void): Promise<void> {
+  const timeoutMs = 2_000;
+  const intervalMs = 10;
+  const deadline = Date.now() + timeoutMs;
+
+  while (true) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+}
+
 describe('notificationStreamManager', () => {
   it('emits connected state and forwards message payloads', async () => {
     const openNotificationEventStream = vi.fn().mockImplementation(() => ({
@@ -49,7 +67,7 @@ describe('notificationStreamManager', () => {
       token: 'token'
     });
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(manager.getSnapshot().lastMessage).not.toBeNull();
     });
 
@@ -99,7 +117,7 @@ describe('notificationStreamManager', () => {
       token: 'token'
     });
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(manager.getSnapshot().lastMessage).not.toBeNull();
     });
 
@@ -138,7 +156,7 @@ describe('notificationStreamManager', () => {
       token: 'token'
     });
 
-    await vi.waitFor(() => {
+    await waitForAssertion(() => {
       expect(manager.getSnapshot().lastMessage).not.toBeNull();
     });
 

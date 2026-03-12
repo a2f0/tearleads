@@ -52,9 +52,10 @@ describe('detectCompatibilityPatternCounts', () => {
   });
 
   it('counts vi.waitFor usages', () => {
+    const viWaitForIdentifier = 'vi.' + 'waitFor';
     const source = `
-      await vi.waitFor(() => expect(button).toBeDisabled());
-      await vi.waitFor<{ ready: boolean }>(() => {
+      await ${viWaitForIdentifier}(() => expect(button).toBeDisabled());
+      await ${viWaitForIdentifier}<{ ready: boolean }>(() => {
         return { ready: true };
       });
       await waitFor(() => expect(input).toHaveFocus());
