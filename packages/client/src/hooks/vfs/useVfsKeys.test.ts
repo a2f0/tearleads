@@ -14,8 +14,11 @@ import {
 } from './useVfsKeys';
 
 // Mock @tearleads/shared crypto functions
-vi.mock('@tearleads/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tearleads/shared')>();
+vi.mock('@tearleads/shared', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/shared')>(
+      '@tearleads/shared'
+    );
   return {
     ...actual,
     combineEncapsulation: vi.fn(

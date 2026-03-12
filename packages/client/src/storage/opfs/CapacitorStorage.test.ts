@@ -28,8 +28,11 @@ vi.mock('@capacitor/filesystem', () => ({
   }
 }));
 
-vi.mock('@tearleads/shared', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@tearleads/shared')>();
+vi.mock('@tearleads/shared', async () => {
+  const original =
+    await vi.importActual<typeof import('@tearleads/shared')>(
+      '@tearleads/shared'
+    );
   return {
     ...original,
     importKey: (keyData: Uint8Array) => mockImportKey(keyData),
