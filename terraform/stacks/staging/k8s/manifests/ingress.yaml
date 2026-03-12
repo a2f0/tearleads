@@ -5,7 +5,6 @@ metadata:
   namespace: tearleads
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.DOMAIN_PLACEHOLDER,https://DOMAIN_PLACEHOLDER"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
@@ -14,13 +13,6 @@ metadata:
     nginx.ingress.kubernetes.io/cors-max-age: "86400"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - DOMAIN_PLACEHOLDER
-        - app.DOMAIN_PLACEHOLDER
-        - api.DOMAIN_PLACEHOLDER
-        - download.DOMAIN_PLACEHOLDER
-      secretName: tearleads-tls
   rules:
     # Website at root domain: example.com
     - host: DOMAIN_PLACEHOLDER
@@ -88,13 +80,8 @@ metadata:
   namespace: tearleads
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "500m"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - pkgs.DOMAIN_PLACEHOLDER
-      secretName: garage-s3-tls
   rules:
     - host: pkgs.DOMAIN_PLACEHOLDER
       http:

@@ -5,12 +5,6 @@ variable "kubeconfig_path" {
   default     = "~/.kube/config-staging-k8s"
 }
 
-
-variable "letsencrypt_email" {
-  description = "The email address to use for Let's Encrypt registration"
-  type        = string
-}
-
 variable "loki_url" {
   description = "Grafana Cloud Loki base URL or full push URL"
   type        = string
