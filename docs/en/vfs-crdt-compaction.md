@@ -76,7 +76,7 @@ This provides planning/execution plus in-cluster scheduling.
 
 - `POST /v1/connect/tearleads.v2.VfsService/GetCrdtSync` now returns `409` (Connect code `already_exists`) when the requested cursor is older than retained accessible CRDT history.
 - Client transport normalizes this stale-cursor signal to `code=crdt_rematerialization_required` for deterministic guardrail handling.
-- Response includes:
+- When present in the API error payload, client transport surfaces:
   - `requestedCursor`
   - `oldestAvailableCursor`
 - Clients should re-materialize from canonical sync state and then resume CRDT tail sync from the latest canonical baseline.

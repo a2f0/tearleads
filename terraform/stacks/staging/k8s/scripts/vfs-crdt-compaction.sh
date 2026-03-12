@@ -135,11 +135,20 @@ run_once() {
 }
 
 latest_job_name() {
-  kubectl -n "$NAMESPACE" get jobs \
-    -l "cronjob-name=$CRONJOB_NAME" \
-    --sort-by=.metadata.creationTimestamp \
-    -o custom-columns=NAME:.metadata.name \
-    --no-headers | tail -n 1
+  kubectl -n "$NAMESPACE" get jobs -o json |
+    jq -r --arg cronjob "$CRONJOB_NAME" '
+      .items
+      | map(
+          select(
+            any(
+              .metadata.ownerReferences[]?;
+              .kind == "CronJob" and .name == $cronjob
+            )
+          )
+        )
+      | sort_by(.metadata.creationTimestamp)
+      | if length > 0 then .[-1].metadata.name else "" end
+    '
 }
 
 latest_pod_name_for_job() {
