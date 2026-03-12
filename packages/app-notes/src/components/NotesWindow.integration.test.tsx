@@ -47,7 +47,9 @@ vi.mock('@tearleads/ui', () => ({
   AboutMenuItem: () => <div>About</div>,
   Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>
+  TooltipContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  )
 }));
 
 vi.mock('@uiw/react-md-editor', () => ({
