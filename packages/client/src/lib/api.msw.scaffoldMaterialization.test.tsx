@@ -402,7 +402,9 @@ describe('DB scaffolding plaintext render integration', () => {
       const emailRender = await renderWithDatabase(createElement(EmailPage));
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { name: 'Email' })
+        ).toBeInTheDocument();
         expect(screen.getByText('Inbox')).toBeInTheDocument();
         expect(screen.getByText('Welcome to Tearleads')).toBeInTheDocument();
         expect(
