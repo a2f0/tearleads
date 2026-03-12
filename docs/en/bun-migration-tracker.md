@@ -14,23 +14,23 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, app-backups, app-audio, app-keychain, app-admin, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
-## Compatibility Snapshot (2026-03-10)
+## Compatibility Snapshot (2026-03-12)
 
 - Packages with tests: 48
 - Bun-primary `test` scripts: 43
 - Transitional bun auto-fallback scripts: 0
 - Vitest-primary `test` scripts: 4
-- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 10
+- High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 2
 
-## Remaining Vitest-Primary Decisions (2026-03-10)
+## Remaining Vitest-Primary Decisions (2026-03-12)
 
 These decisions are based on the current compatibility inventory plus recent Bun-primary validation slices merged on current `main`.
 
 | Package | Decision | Evidence | Revisit trigger |
 | --- | --- | --- | --- |
-| `@tearleads/client` | Keep `vitest-primary` | Highest remaining inventory footprint (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.resetModules`, `vi.mocked`, `vi.stubEnv`) plus heavy jsdom usage across 600+ tests. | Revisit after shared adapter/codemod work materially reduces the mock surface. |
+| `@tearleads/client` | Keep `vitest-primary` | Highest remaining inventory footprint (`vi.hoisted`, `vi.importActual`, `import.meta.glob`) plus heavy jsdom usage across ~600 tests. | Revisit after shared adapter/codemod work materially reduces the remaining mock surface. |
 | `@tearleads/api` | Keep `vitest-primary` | Large env/module-mocking surface (`vi.hoisted`, `vi.importActual`, `vi.stubEnv`, `vi.resetModules`) across 150+ tests. | Revisit after shared server-side mock/env adapters land. |
-| `@tearleads/api-client` | Keep `vitest-primary` | High `vi.importActual`, `vi.resetModules`, `vi.mocked`, and `vi.stubEnv` counts combined with jsdom config. | Revisit after import/reset cleanup and a focused Bun pilot for read-only clients. |
+| `@tearleads/api-client` | Keep `vitest-primary` | Compatibility blockers are largely remediated, but the package remains jsdom-heavy with Connect/MSW route matrix sensitivity. | Revisit after stabilization work on Connect/MSW-heavy suites and a focused Bun pilot for read-only clients. |
 | `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only `vi.mocked`/matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
 
 ## Merged Slices
@@ -122,6 +122,43 @@ These decisions are based on the current compatibility inventory plus recent Bun
 | [#3085](https://github.com/a2f0/tearleads/pull/3085) | App-keychain Bun compatibility remediation and Bun-primary promotion |
 | [#3094](https://github.com/a2f0/tearleads/pull/3094) | Refresh Bun migration tracker and compatibility inventory after app-keychain promotion |
 | [#3096](https://github.com/a2f0/tearleads/pull/3096) | App-admin Bun compatibility remediation and Bun-primary promotion |
+| [#3102](https://github.com/a2f0/tearleads/pull/3102) | Refresh Bun migration tracker and compatibility inventory after PR #3096 |
+| [#3104](https://github.com/a2f0/tearleads/pull/3104) | App-analytics Bun compatibility remediation for `vi.mock(importOriginal)` |
+| [#3106](https://github.com/a2f0/tearleads/pull/3106) | App-notifications Bun compatibility remediation for `vi.mock(importOriginal)` |
+| [#3110](https://github.com/a2f0/tearleads/pull/3110) | API Bun compatibility remediation for `vi.mock(importOriginal)` |
+| [#3112](https://github.com/a2f0/tearleads/pull/3112) | API-client authStorage mock remediation for `vi.importActual` usage |
+| [#3116](https://github.com/a2f0/tearleads/pull/3116) | API-client route test mock remediation for `vi.importActual`/`importOriginal` |
+| [#3117](https://github.com/a2f0/tearleads/pull/3117) | API admin-direct test mock remediation for `vi.importActual` |
+| [#3118](https://github.com/a2f0/tearleads/pull/3118) | API vfs-shares test mock remediation for `vi.importActual` |
+| [#3119](https://github.com/a2f0/tearleads/pull/3119) | API vfs-shares test mock remediation for `vi.hoisted` |
+| [#3120](https://github.com/a2f0/tearleads/pull/3120) | API admin test mock remediation for `vi.hoisted` |
+| [#3121](https://github.com/a2f0/tearleads/pull/3121) | API vfs-direct blob test mock remediation for `vi.hoisted` |
+| [#3122](https://github.com/a2f0/tearleads/pull/3122) | API mls test mock remediation for `vi.hoisted` |
+| [#3123](https://github.com/a2f0/tearleads/pull/3123) | API vfs core test mock remediation for `vi.hoisted` |
+| [#3124](https://github.com/a2f0/tearleads/pull/3124) | API remaining `vi.hoisted` test mock remediation |
+| [#3125](https://github.com/a2f0/tearleads/pull/3125) | API-client test mock remediation for `vi.hoisted` |
+| [#3126](https://github.com/a2f0/tearleads/pull/3126) | Small-package `vi.hoisted` remediation for app-mls-chat/app-backups/app-keychain |
+| [#3127](https://github.com/a2f0/tearleads/pull/3127) | Client OPFS `vi.hoisted` remediation |
+| [#3128](https://github.com/a2f0/tearleads/pull/3128) | Client pages/chat/video `vi.hoisted` remediation |
+| [#3208](https://github.com/a2f0/tearleads/pull/3208) | API-client `vi.mocked` remediation |
+| [#3216](https://github.com/a2f0/tearleads/pull/3216) | API `vi.mocked` remediation |
+| [#3218](https://github.com/a2f0/tearleads/pull/3218) | CLI `vi.mocked` remediation |
+| [#3219](https://github.com/a2f0/tearleads/pull/3219) | App-keychain `vi.mocked` remediation |
+| [#3220](https://github.com/a2f0/tearleads/pull/3220) | VFS-explorer `vi.mocked` remediation |
+| [#3221](https://github.com/a2f0/tearleads/pull/3221) | App-backups `vi.mocked` remediation |
+| [#3226](https://github.com/a2f0/tearleads/pull/3226) | App-admin `vi.mocked` remediation |
+| [#3233](https://github.com/a2f0/tearleads/pull/3233) | App-email + app-analytics + app-notes `vi.mocked` remediation |
+| [#3234](https://github.com/a2f0/tearleads/pull/3234) | Client VFS hooks `vi.mocked` remediation (part 1) |
+| [#3237](https://github.com/a2f0/tearleads/pull/3237) | Client VFS hooks `vi.mocked` remediation (part 2) |
+| [#3241](https://github.com/a2f0/tearleads/pull/3241) | Client hooks/tool `vi.mocked` remediation bundle |
+| [#3245](https://github.com/a2f0/tearleads/pull/3245) | Client `vi.mocked` remediation mega bundle (part 4) |
+| [#3248](https://github.com/a2f0/tearleads/pull/3248) | Client `vi.mocked` remediation final bundle |
+| [#3252](https://github.com/a2f0/tearleads/pull/3252) | Global `vi.waitFor` cleanup |
+| [#3254](https://github.com/a2f0/tearleads/pull/3254) | Client audio/video utils `importOriginal` reduction bundle |
+| [#3256](https://github.com/a2f0/tearleads/pull/3256) | Client `importOriginal` remediation bundle 2 (sse/hooks) |
+| [#3257](https://github.com/a2f0/tearleads/pull/3257) | Client window-manager `importOriginal` remediation bundle |
+| [#3258](https://github.com/a2f0/tearleads/pull/3258) | Client audio/video/tableRows `importOriginal` remediation bundle |
+| [#3260](https://github.com/a2f0/tearleads/pull/3260) | Client remaining `vi.mock(importOriginal)` remediation bundle |
 
 ## Node Pilot Package Status
 
@@ -141,5 +178,5 @@ These decisions are based on the current compatibility inventory plus recent Bun
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) and the recorded package decisions above to drive shared adapters/codemods for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`, `vi.mocked`, `vi.stubGlobal`, native SQLite bindings).
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) and the recorded package decisions above to drive shared adapters/codemods for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `import.meta.glob`, `vi.stubGlobal`, native SQLite bindings).
 3. Re-open Bun-primary promotion only when a remaining Vitest-primary package crosses its documented revisit trigger rather than forcing another broad pilot.
