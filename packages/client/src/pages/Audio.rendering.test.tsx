@@ -4,6 +4,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as utils from '@/lib/utils';
 import { mockConsoleError } from '@/test/consoleMocks';
 import { AudioPage } from './Audio';
 import {
@@ -20,6 +21,10 @@ import {
   setupDefaultMocks,
   TEST_ENCRYPTION_KEY
 } from './Audio.testSetup';
+
+const mockDetectPlatform = vi
+  .spyOn(utils, 'detectPlatform')
+  .mockImplementation(() => 'web');
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -155,15 +160,6 @@ vi.mock('@/hooks/vfs/useFileUpload', () => ({
   })
 }));
 
-// Mock detectPlatform to return 'web' by default (supports drag and drop)
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils')>();
-  return {
-    ...actual,
-    detectPlatform: vi.fn(() => 'web')
-  };
-});
-
 function renderAudioRaw() {
   return render(
     <MemoryRouter>
@@ -189,6 +185,7 @@ describe('AudioPage - rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
+    mockDetectPlatform.mockReturnValue('web');
   });
 
   describe('page rendering', () => {

@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as utils from '@/lib/utils';
 import { VideoPage } from './Video';
 import {
   createMockQueryChain,
@@ -42,6 +43,10 @@ function getMocks() {
 }
 
 const mocks = getMocks();
+
+vi.spyOn(utils, 'detectPlatform').mockImplementation(() =>
+  getMocks().mockDetectPlatform()
+);
 
 vi.mock('@/components/window-video/VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__all__',
@@ -156,15 +161,6 @@ vi.mock('@/hooks/vfs/useFileUpload', () => ({
     uploadFile: getMocks().mockUploadFile
   })
 }));
-
-// Mock detectPlatform to return 'web' by default (supports drag and drop)
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils')>();
-  return {
-    ...actual,
-    detectPlatform: () => getMocks().mockDetectPlatform()
-  };
-});
 
 function renderVideoRaw(props?: {
   onOpenVideo?: (
