@@ -1,5 +1,10 @@
 import { type SeededUser, seedTestUser } from '@tearleads/api-test-utils';
 import { wasApiRequestMade } from '@tearleads/msw/node';
+import {
+  buildMlsV2ConnectMethodPath,
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetApiCoreRuntimeForTesting } from './apiCore';
 import {
@@ -170,63 +175,63 @@ describe('api with msw', () => {
       objectType: ['contact', 'walletItem']
     });
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/SetupKeys')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('SetupKeys'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('GetMyKeys'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/Register')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('Register'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/GetItemShares'
+        buildVfsSharesV2ConnectMethodPath('GetItemShares')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/CreateShare'
+        buildVfsSharesV2ConnectMethodPath('CreateShare')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/UpdateShare'
+        buildVfsSharesV2ConnectMethodPath('UpdateShare')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/DeleteShare'
+        buildVfsSharesV2ConnectMethodPath('DeleteShare')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/CreateOrgShare'
+        buildVfsSharesV2ConnectMethodPath('CreateOrgShare')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/DeleteOrgShare'
+        buildVfsSharesV2ConnectMethodPath('DeleteOrgShare')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/RekeyItem')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('RekeyItem'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/SearchShareTargets'
+        buildVfsSharesV2ConnectMethodPath('SearchShareTargets')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.VfsSharesService/GetSharePolicyPreview'
+        buildVfsSharesV2ConnectMethodPath('GetSharePolicyPreview')
       )
     ).toBe(true);
   });
@@ -245,10 +250,10 @@ describe('api with msw', () => {
     expect(result.sessionKey).toEqual(sessionKey);
     expect(result.registerResponse.id).toBe('item-onboard-1');
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/GetMyKeys')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('GetMyKeys'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.VfsService/Register')
+      wasApiRequestMade('POST', buildVfsV2ConnectMethodPath('Register'))
     ).toBe(true);
   });
   it('routes ai usage requests through msw', async () => {
@@ -397,97 +402,73 @@ describe('api with msw', () => {
     await api.mls.leaveGroup(groupId);
     await api.mls.deleteKeyPackage(uploadedKeyPackageId ?? '');
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/ListGroups')
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('ListGroups'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/GetGroup')
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('GetGroup'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/CreateGroup')
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('CreateGroup'))
     ).toBe(true);
     expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/UpdateGroup')
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('UpdateGroup'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('GetGroupMembers'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('AddGroupMember'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('GetGroupMessages'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('SendGroupMessage'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('GetGroupState'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('UploadGroupState'))
+    ).toBe(true);
+    expect(
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('GetMyKeyPackages'))
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/GetGroupMembers'
+        buildMlsV2ConnectMethodPath('GetUserKeyPackages')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/AddGroupMember'
+        buildMlsV2ConnectMethodPath('UploadKeyPackages')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/GetGroupMessages'
+        buildMlsV2ConnectMethodPath('GetWelcomeMessages')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/SendGroupMessage'
+        buildMlsV2ConnectMethodPath('AcknowledgeWelcome')
       )
     ).toBe(true);
     expect(
       wasApiRequestMade(
         'POST',
-        '/connect/tearleads.v2.MlsService/GetGroupState'
+        buildMlsV2ConnectMethodPath('RemoveGroupMember')
       )
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/UploadGroupState'
-      )
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('DeleteGroup'))
     ).toBe(true);
     expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/GetMyKeyPackages'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/GetUserKeyPackages'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/UploadKeyPackages'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/GetWelcomeMessages'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/AcknowledgeWelcome'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/RemoveGroupMember'
-      )
-    ).toBe(true);
-    expect(
-      wasApiRequestMade('POST', '/connect/tearleads.v2.MlsService/DeleteGroup')
-    ).toBe(true);
-    expect(
-      wasApiRequestMade(
-        'POST',
-        '/connect/tearleads.v2.MlsService/DeleteKeyPackage'
-      )
+      wasApiRequestMade('POST', buildMlsV2ConnectMethodPath('DeleteKeyPackage'))
     ).toBe(true);
   });
 });

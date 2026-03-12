@@ -1,4 +1,7 @@
-import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
+import {
+  buildAuthV2ConnectMethodPath,
+  VFS_V2_CONNECT_BASE_PATH
+} from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setTestEnv } from './test/env.js';
 import type { VfsBlobNetworkFlusherPersistedState } from './vfsBlobNetworkFlusher';
@@ -30,7 +33,7 @@ describe('vfsBlobNetworkFlusher', () => {
     fetchMock.mockImplementation(
       async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString();
-        if (url.endsWith('/connect/tearleads.v2.AuthService/RefreshToken')) {
+        if (url.endsWith(buildAuthV2ConnectMethodPath('RefreshToken'))) {
           return new Response(
             JSON.stringify({
               accessToken: 'fresh-access-token',
