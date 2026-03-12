@@ -26,7 +26,21 @@ export const enPart3 = {
     file: 'File',
     close: 'Close',
     view: 'View',
-    help: 'Help'
+    help: 'Help',
+    // Tabs
+    accountTab: 'Account',
+    queueTab: 'Queue',
+    // Queue tab
+    noPendingOperations: 'No pending operations',
+    allSynced: 'All data is synced',
+    inboundStatus: 'Inbound Status',
+    cursor: 'Cursor',
+    noCursor: 'None',
+    pendingOps: 'Pending',
+    nextWriteId: 'Next Write ID',
+    crdtOperations: 'CRDT Operations',
+    blobOperations: 'Blob Operations',
+    encrypted: 'Encrypted'
   },
 
   debug: {

@@ -3,10 +3,12 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sync } from '../../pages/sync';
+import { SyncQueueTab } from '../sync-queue';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
+import { type SyncWindowTab, SyncWindowTabBar } from './SyncWindowTabBar';
 
 interface SyncWindowProps {
   id: string;
@@ -30,6 +32,7 @@ export function SyncWindow({
   initialDimensions
 }: SyncWindowProps) {
   const { t } = useTranslation('sync');
+  const [activeTab, setActiveTab] = useState<SyncWindowTab>('account');
   // Populate when sync window needs control-bar actions.
   const controlItems: ReactNode[] = [];
   const hasControlItems = controlItems.length > 0;
@@ -58,8 +61,13 @@ export function SyncWindow({
         {hasControlItems ? (
           <WindowControlBar>{controlItems}</WindowControlBar>
         ) : null}
+        <SyncWindowTabBar activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="min-h-0 flex-1 overflow-auto p-3">
-          <Sync showBackLink={false} />
+          {activeTab === 'account' ? (
+            <Sync showBackLink={false} />
+          ) : (
+            <SyncQueueTab />
+          )}
         </div>
       </div>
     </FloatingWindow>
