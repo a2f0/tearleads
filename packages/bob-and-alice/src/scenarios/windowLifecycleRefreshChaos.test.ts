@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  buildVfsSharesV2ConnectMethodPath,
+  buildVfsV2ConnectMethodPath
+} from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import {
@@ -120,7 +124,7 @@ describe('window lifecycle refresh chaos', () => {
     async function registerItem(): Promise<string> {
       const itemId = `chaos-folder-${String(itemCounter)}-${randomUUID()}`;
       itemCounter += 1;
-      await alice.fetchJson('/connect/tearleads.v2.VfsService/Register', {
+      await alice.fetchJson(buildVfsV2ConnectMethodPath('Register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,7 +143,7 @@ describe('window lifecycle refresh chaos', () => {
     ): Promise<void> {
       const response = await alice.fetchJson<{
         share: { id: string; itemId: string };
-      }>('/connect/tearleads.v2.VfsSharesService/CreateShare', {
+      }>(buildVfsSharesV2ConnectMethodPath('CreateShare'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +175,7 @@ describe('window lifecycle refresh chaos', () => {
         current.permissionLevel === 'view' ? 'edit' : 'view';
       const shareUuid = extractShareUuid(current.shareId);
       await alice.fetchJson<{ share: { id: string; permissionLevel: string } }>(
-        '/connect/tearleads.v2.VfsSharesService/UpdateShare',
+        buildVfsSharesV2ConnectMethodPath('UpdateShare'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -193,14 +197,11 @@ describe('window lifecycle refresh chaos', () => {
         throw new Error(`cannot revoke missing share for item ${itemId}`);
       }
       const shareUuid = extractShareUuid(current.shareId);
-      await alice.fetchJson(
-        '/connect/tearleads.v2.VfsSharesService/DeleteShare',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shareId: shareUuid })
-        }
-      );
+      await alice.fetchJson(buildVfsSharesV2ConnectMethodPath('DeleteShare'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareId: shareUuid })
+      });
       activeShares.delete(itemId);
     }
 
