@@ -112,7 +112,8 @@ function configurePassthroughRoutes(ctx: TestContext): void {
           {
             pathnamePattern: API_V2_ADMIN_ROUTE_PATTERN,
             targetPort: apiV2Harness.port,
-            pathPrefix: ''
+            pathPrefix: '',
+            stripPathPrefix: '/v1'
           }
         ];
 

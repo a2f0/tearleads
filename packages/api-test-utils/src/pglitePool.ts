@@ -51,6 +51,22 @@ function mapResult(raw: PgliteResult): QueryResult {
   };
 }
 
+/**
+ * PGlite's bytea serializer expects Buffer, not Uint8Array.
+ * The real `pg` driver accepts both, so service code legitimately passes
+ * Uint8Array for BYTEA columns.  Coerce to Buffer here.
+ */
+function coerceByteaParams(values: unknown[] | undefined): unknown[] | undefined {
+  if (!values) return values;
+  return values.map(function coerce(v: unknown): unknown {
+    if (v instanceof Uint8Array && !(v instanceof Buffer)) {
+      return Buffer.from(v.buffer, v.byteOffset, v.byteLength);
+    }
+    if (Array.isArray(v)) return v.map(coerce);
+    return v;
+  });
+}
+
 class PglitePoolClient extends EventEmitter {
   constructor(private readonly pglite: PGlite) {
     super();
@@ -63,7 +79,7 @@ class PglitePoolClient extends EventEmitter {
     }
     const result = (await this.pglite.query(
       text,
-      values
+      coerceByteaParams(values)
     )) as unknown as PgliteResult;
     return mapResult(result);
   }
@@ -85,7 +101,7 @@ export class PglitePool extends EventEmitter {
     }
     const result = (await this.pglite.query(
       text,
-      values
+      coerceByteaParams(values)
     )) as unknown as PgliteResult;
     return mapResult(result);
   }

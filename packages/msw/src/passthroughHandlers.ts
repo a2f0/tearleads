@@ -4,6 +4,8 @@ export interface ExpressPassthroughRouteOverride {
   pathnamePattern: RegExp;
   targetPort: number;
   pathPrefix?: string;
+  /** Strip this prefix from the pathname before forwarding */
+  stripPathPrefix?: string;
 }
 
 function escapeRegex(str: string): string {
@@ -25,8 +27,13 @@ export function createExpressPassthroughHandlers(
       const resolvedTargetPort = routeOverride?.targetPort ?? targetPort;
       const resolvedPathPrefix = routeOverride?.pathPrefix ?? pathPrefix;
 
-      // Prepend pathPrefix (e.g. '/v1') unless the path already starts with it
+      // Strip prefix (e.g. '/v1') when the override target doesn't use it
       let pathname = original.pathname;
+      const strip = routeOverride?.stripPathPrefix;
+      if (strip && pathname.startsWith(strip)) {
+        pathname = pathname.slice(strip.length) || '/';
+      }
+      // Prepend pathPrefix (e.g. '/v1') unless the path already starts with it
       if (resolvedPathPrefix && !pathname.startsWith(resolvedPathPrefix)) {
         pathname = resolvedPathPrefix + pathname;
       }
