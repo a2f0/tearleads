@@ -243,12 +243,8 @@ export function reconstructVfsKeyPair(
     }
     ed25519PublicKeyBase64 = btoa(binary);
   } else {
-    ed25519PublicKeyBase64 = btoa(
-      String.fromCharCode(...new Uint8Array(32))
-    );
-    ed25519PrivateKeyBase64 = btoa(
-      String.fromCharCode(...new Uint8Array(32))
-    );
+    ed25519PublicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(32)));
+    ed25519PrivateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(32)));
   }
 
   return deserializeKeyPair({

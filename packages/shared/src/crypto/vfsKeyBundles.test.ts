@@ -104,7 +104,11 @@ describe('vfs key bundles', () => {
     const rawKey = await generateRandomKey();
     const cryptoKey = await importKey(rawKey);
     const aad = new TextEncoder().encode('tearleads-vfs-keys:v1');
-    const encrypted = await encrypt(new TextEncoder().encode(v1Bundle), cryptoKey, aad);
+    const encrypted = await encrypt(
+      new TextEncoder().encode(v1Bundle),
+      cryptoKey,
+      aad
+    );
 
     // Convert to base64
     let binary = '';

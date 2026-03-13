@@ -26,14 +26,17 @@ describe('vfs key onboarding', () => {
     expect(decrypted.x25519PrivateKey).toEqual(bundle.keyPair.x25519PrivateKey);
     expect(decrypted.mlKemPrivateKey).toEqual(bundle.keyPair.mlKemPrivateKey);
     expect(decrypted.ed25519PublicKey).toEqual(bundle.keyPair.ed25519PublicKey);
-    expect(decrypted.ed25519PrivateKey).toEqual(bundle.keyPair.ed25519PrivateKey);
+    expect(decrypted.ed25519PrivateKey).toEqual(
+      bundle.keyPair.ed25519PrivateKey
+    );
 
     // publicSigningKey should be non-empty base64
-    expect(bundle.setupPayload.publicSigningKey).toBeTruthy();
-    expect(bundle.setupPayload.publicSigningKey!.length).toBeGreaterThan(0);
+    const signingKey = bundle.setupPayload.publicSigningKey;
+    expect(signingKey).toBeTruthy();
+    expect(signingKey?.length).toBeGreaterThan(0);
     // Verify it's valid base64 by decoding
     const signingKeyBytes = Uint8Array.from(
-      atob(bundle.setupPayload.publicSigningKey!),
+      atob(signingKey ?? ''),
       (c) => c.charCodeAt(0)
     );
     expect(signingKeyBytes.length).toBe(32);
