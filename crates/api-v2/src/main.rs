@@ -69,10 +69,12 @@ fn build_app(origins: &str) -> std::io::Result<axum::Router> {
             return Err(Error::other(message));
         }
 
-        let postgres_gateway = postgres_gateway
-            .expect("postgres gateway presence already validated before app construction");
-        let redis_gateway = redis_gateway
-            .expect("redis gateway presence already validated before app construction");
+        let (Some(postgres_gateway), Some(redis_gateway)) = (postgres_gateway, redis_gateway)
+        else {
+            return Err(Error::other(
+                "api-v2 runtime dependencies changed during startup validation",
+            ));
+        };
         tracing::info!(
             "postgres + redis gateways initialized from environment for admin repository wiring"
         );
