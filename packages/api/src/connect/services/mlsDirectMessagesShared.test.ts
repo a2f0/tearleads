@@ -86,12 +86,20 @@ describe('mlsDirectMessagesShared', () => {
     expect(serializeEnvelopeFieldMock).toHaveBeenCalledWith(
       new Uint8Array([9, 8, 7])
     );
+
+    // vfs_item_state: encrypted_payload is no longer passed (NULL in SQL)
+    expect(queryMock.mock.calls[1]?.[1]).toEqual([
+      'message-1',
+      2,
+      '2026-03-03T03:20:00.000Z'
+    ]);
+
+    // vfs_crdt_ops: encrypted_payload TEXT removed, only bytes remain
     expect(queryMock.mock.calls[3]?.[1]).toEqual([
       'message-1',
       'user-1',
       'mls_message:group-1:4:message-1:text%2Fplain',
       '2026-03-03T03:20:00.000Z',
-      'ciphertext-value',
       new Uint8Array([1, 2, 3]),
       2,
       'mls_message'

@@ -138,10 +138,7 @@ detect_host_docker_platform() {
 }
 # Parse options
 BUILD_API=true
-BUILD_API_V2=false
-if [[ "$ENV" == "staging" ]]; then
-  BUILD_API_V2=true
-fi
+BUILD_API_V2=true
 BUILD_CLIENT=true
 BUILD_SMTP=false
 if [[ "$ENV" == "staging" ]]; then
@@ -478,6 +475,9 @@ if [[ "$PUSH" == "true" ]]; then
   echo "Images pushed to ECR:"
   if [[ "$BUILD_API" == "true" ]]; then
     echo "  - ${ECR_REGISTRY}/${API_REPO}:${TAG}"
+  fi
+  if [[ "$BUILD_API_V2" == "true" ]]; then
+    echo "  - ${ECR_REGISTRY}/${API_V2_REPO}:${TAG}"
   fi
   if [[ "$BUILD_CLIENT" == "true" ]]; then
     echo "  - ${ECR_REGISTRY}/${CLIENT_REPO}:${TAG}"

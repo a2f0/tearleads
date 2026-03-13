@@ -17,7 +17,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: api-v2
-          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/api-v2:latest
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-prod/api-v2:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5002

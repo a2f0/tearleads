@@ -110,7 +110,6 @@ export async function persistMlsMessageToVfs(
   input: VfsMirrorInput
 ): Promise<void> {
   const ciphertext = serializeEnvelopeField(input.ciphertext);
-  const itemStateCiphertext = Buffer.from(input.ciphertext).toString('base64');
   const sourceTable = input.sourceTable ?? 'mls_message';
 
   await client.query(
@@ -143,19 +142,19 @@ export async function persistMlsMessageToVfs(
       deleted_at
     ) VALUES (
       $1::uuid,
-      $2::text,
-      $3::integer,
-      $4::timestamptz,
+      NULL,
+      $2::integer,
+      $3::timestamptz,
       NULL
     )
     ON CONFLICT (item_id) DO UPDATE
     SET
-      encrypted_payload = EXCLUDED.encrypted_payload,
+      encrypted_payload = NULL,
       key_epoch = EXCLUDED.key_epoch,
       updated_at = EXCLUDED.updated_at,
       deleted_at = NULL
     `,
-    [input.messageId, itemStateCiphertext, input.epoch, input.occurredAtIso]
+    [input.messageId, input.epoch, input.occurredAtIso]
   );
 
   await client.query(
@@ -215,12 +214,12 @@ export async function persistMlsMessageToVfs(
       $1::uuid,
       'item_upsert',
       $2::uuid,
-      $8::text,
+      $7::text,
       $3::text,
       $4::timestamptz,
-      $5::text,
-      $6::bytea,
-      $7::integer
+      NULL,
+      $5::bytea,
+      $6::integer
     )
     `,
     [
@@ -228,7 +227,6 @@ export async function persistMlsMessageToVfs(
       input.senderUserId,
       `${sourceTable}:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
       input.occurredAtIso,
-      ciphertext.text,
       ciphertext.bytes,
       input.epoch,
       sourceTable
