@@ -1,4 +1,4 @@
-import type { MlsBinaryMessage } from './mlsBinaryTypes.js';
+import type { MlsBinaryMessage } from '@tearleads/shared';
 import { toIsoString } from './mlsDirectCommon.js';
 import {
   persistMlsMessageToVfs,

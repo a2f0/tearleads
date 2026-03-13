@@ -8,8 +8,8 @@ import type {
   MlsBinaryMessagesResponse,
   SendMlsMessageBinaryRequest,
   SendMlsMessageBinaryResponse
-} from './mlsBinaryTypes.js';
-import { toTransportMessage } from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
+import { toTransportMessage } from '@tearleads/shared';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded } from './mlsDirectCommon.js';
 import {

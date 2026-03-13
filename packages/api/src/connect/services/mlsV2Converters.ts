@@ -16,7 +16,7 @@ import type {
   MlsBinaryMessage,
   MlsBinaryMessageType,
   MlsBinaryWelcomeMessage
-} from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
 
 // ---------------------------------------------------------------------------
 // Enum converters

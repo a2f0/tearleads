@@ -7,7 +7,7 @@ import type {
   MlsBinaryKeyPackagesResponse,
   UploadMlsKeyPackagesBinaryRequest,
   UploadMlsKeyPackagesBinaryResponse
-} from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { toSafeCipherSuite } from './mlsDirectShared.js';
 

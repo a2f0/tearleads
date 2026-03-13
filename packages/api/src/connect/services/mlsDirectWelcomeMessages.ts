@@ -5,7 +5,7 @@ import { toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryWelcomeMessage,
   MlsBinaryWelcomeMessagesResponse
-} from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 
 type AckWelcomeTypedRequest = { id: string } & AckMlsWelcomeRequest;

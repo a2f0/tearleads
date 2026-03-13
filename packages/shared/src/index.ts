@@ -36,6 +36,7 @@ export * from './dropdownMenuKeyboard.js';
 export * from './hostRuntime.js';
 // Media drag-and-drop helpers
 export * from './mediaDragData.js';
+export * from './mlsBinaryTypes.js';
 export * from './mlsTypes.js';
 // OpenRouter model options
 export * from './openrouter.js';

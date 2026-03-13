@@ -10,8 +10,8 @@ import type {
   MlsBinaryGroupMembersResponse,
   MlsBinaryMessage,
   RemoveMlsMemberBinaryRequest
-} from './mlsBinaryTypes.js';
-import { toTransportMessage } from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
+import { toTransportMessage } from '@tearleads/shared';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { insertCommitMessage } from './mlsDirectCommitMessages.js';
 import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';

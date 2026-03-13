@@ -5,7 +5,7 @@ import type {
   MlsGroupRole,
   MlsMessage,
   MlsMessageType
-} from '@tearleads/shared';
+} from './mlsTypes.js';
 
 export type MlsBinaryGroup = MlsGroup;
 export type MlsBinaryGroupMember = MlsGroupMember;

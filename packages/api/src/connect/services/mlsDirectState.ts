@@ -7,7 +7,7 @@ import type {
   MlsBinaryGroupStateResponse,
   UploadMlsStateBinaryRequest,
   UploadMlsStateBinaryResponse
-} from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded, toIsoString } from './mlsDirectCommon.js';
 import { acquireTransactionClient } from './mlsDirectMessagesShared.js';

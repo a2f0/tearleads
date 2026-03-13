@@ -2094,6 +2094,8 @@ name = "tearleads-api-client-rs"
 version = "0.1.0"
 dependencies = [
  "tearleads-api-v2-contracts",
+ "tokio",
+ "tonic 0.13.1",
 ]
 
 [[package]]

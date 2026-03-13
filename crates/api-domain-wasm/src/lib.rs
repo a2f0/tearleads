@@ -1,9 +1,10 @@
 //! WASM bindings for `tearleads-api-domain-core`.
 
+use tearleads_api_domain_core::canonical_sql_identifier_field;
 #[cfg(target_arch = "wasm32")]
 use tearleads_api_domain_core::normalize_required_redis_key;
 #[cfg(any(test, target_arch = "wasm32"))]
-use tearleads_api_domain_core::{canonical_sql_identifier_field, normalize_sql_identifier};
+use tearleads_api_domain_core::normalize_sql_identifier;
 use tearleads_api_domain_core::{
     normalize_admin_rows_limit, normalize_optional_organization_id, normalize_redis_scan_cursor,
     normalize_redis_scan_limit,
@@ -17,6 +18,12 @@ fn normalize_sql_identifier_inner(field: &str, value: &str) -> Result<String, St
         .ok_or_else(|| String::from("field: unsupported identifier field"))?;
 
     normalize_sql_identifier(canonical_field, value).map_err(|error| error.to_string())
+}
+
+/// Resolves a dynamic field name to a canonical SQL identifier field.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = canonicalSqlIdentifierField))]
+pub fn canonical_sql_identifier_field_binding(field: &str) -> Option<String> {
+    canonical_sql_identifier_field(field).map(str::to_string)
 }
 
 /// Normalizes a Redis SCAN cursor value for API domain consumption.
@@ -120,10 +127,10 @@ pub fn normalize_admin_rows_limit_binding(limit: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        normalize_admin_rows_limit_binding, normalize_optional_organization_id_binding,
-        normalize_redis_scan_cursor_binding, normalize_redis_scan_limit_binding,
-        normalize_required_resource_id_inner, normalize_sort_direction_inner,
-        normalize_sql_identifier_inner,
+        canonical_sql_identifier_field_binding, normalize_admin_rows_limit_binding,
+        normalize_optional_organization_id_binding, normalize_redis_scan_cursor_binding,
+        normalize_redis_scan_limit_binding, normalize_required_resource_id_inner,
+        normalize_sort_direction_inner, normalize_sql_identifier_inner,
     };
     use tearleads_api_domain_core::{DomainValidationError, normalize_required_redis_key};
 
@@ -147,6 +154,19 @@ mod tests {
             normalize_sql_identifier_inner("table", "  users_2026  "),
             Ok(String::from("users_2026"))
         );
+    }
+
+    #[test]
+    fn canonical_sql_identifier_field_binding_resolves_supported_fields() {
+        assert_eq!(
+            canonical_sql_identifier_field_binding("schema"),
+            Some(String::from("schema"))
+        );
+        assert_eq!(
+            canonical_sql_identifier_field_binding("table"),
+            Some(String::from("table"))
+        );
+        assert_eq!(canonical_sql_identifier_field_binding("unknown"), None);
     }
 
     #[test]
