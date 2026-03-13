@@ -28,6 +28,7 @@ export * from './admin.js';
 export * from './aiConversations.js';
 export * from './audioPlayback.js';
 export * from './auth.js';
+export * from './base64.js';
 // Chat validation helpers
 export * from './chat.js';
 export * from './connectJson.js';

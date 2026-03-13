@@ -1,18 +1,10 @@
+import { base64ToBytes, bytesToBase64 } from './base64.js';
 import { isRecord } from './typeGuards.js';
 
 const UINT8_ARRAY_SENTINEL = '__tearleadsUint8Array';
 
 interface Uint8ArrayJsonShape {
-  __tearleadsUint8Array: number[];
-}
-
-function isByteValue(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isInteger(value) &&
-    value >= 0 &&
-    value <= 255
-  );
+  __tearleadsUint8Array: string;
 }
 
 function isUint8ArrayJsonShape(value: unknown): value is Uint8ArrayJsonShape {
@@ -26,13 +18,13 @@ function isUint8ArrayJsonShape(value: unknown): value is Uint8ArrayJsonShape {
   }
 
   const data = value[UINT8_ARRAY_SENTINEL];
-  return Array.isArray(data) && data.every(isByteValue);
+  return typeof data === 'string';
 }
 
 function replaceUint8Arrays(_key: string, value: unknown): unknown {
   if (value instanceof Uint8Array) {
     return {
-      [UINT8_ARRAY_SENTINEL]: Array.from(value)
+      [UINT8_ARRAY_SENTINEL]: bytesToBase64(value)
     };
   }
 
@@ -44,7 +36,7 @@ function reviveUint8Arrays(_key: string, value: unknown): unknown {
     return value;
   }
 
-  return Uint8Array.from(value[UINT8_ARRAY_SENTINEL]);
+  return base64ToBytes(value[UINT8_ARRAY_SENTINEL]) ?? value;
 }
 
 export function stringifyJsonWithByteArrays(value: unknown): string {
