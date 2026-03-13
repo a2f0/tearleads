@@ -50,7 +50,7 @@ describe('openChatCompletions', () => {
         })
       },
       {
-        headers: { Authorization: 'Bearer test-token' },
+        headers: { authorization: 'Bearer test-token' },
         signal: abortController.signal
       }
     );

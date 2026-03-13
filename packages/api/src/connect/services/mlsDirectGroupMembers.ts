@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { broadcast } from '../../lib/broadcast.js';
-import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import type {
   AddMlsMemberBinaryRequest,
   AddMlsMemberBinaryResponse,
@@ -10,8 +7,11 @@ import type {
   MlsBinaryGroupMembersResponse,
   MlsBinaryMessage,
   RemoveMlsMemberBinaryRequest
-} from './mlsBinaryTypes.js';
-import { toTransportMessage } from './mlsBinaryTypes.js';
+} from '@tearleads/shared';
+import { toTransportMessage } from '@tearleads/shared';
+import { broadcast } from '../../lib/broadcast.js';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { insertCommitMessage } from './mlsDirectCommitMessages.js';
 import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';

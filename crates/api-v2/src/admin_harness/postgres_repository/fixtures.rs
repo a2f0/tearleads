@@ -1,6 +1,7 @@
 use tearleads_data_access_traits::{
     AdminGroupDetail, AdminGroupMember, AdminGroupSummary, AdminOrganizationSummary,
     AdminScopeOrganization, AdminUserAccountingSummary, AdminUserSummary,
+    OrganizationBillingAccount,
 };
 
 pub(super) fn scope_organizations() -> Vec<AdminScopeOrganization> {
@@ -139,6 +140,35 @@ pub(super) fn user_summaries() -> Vec<AdminUserSummary> {
             disabled_by: None,
             marked_for_deletion_at: None,
             marked_for_deletion_by: None,
+        },
+    ]
+}
+
+pub(super) fn organization_billing_accounts() -> Vec<OrganizationBillingAccount> {
+    vec![
+        OrganizationBillingAccount {
+            organization_id: String::from("org-1"),
+            revenuecat_app_user_id: String::from("org:org-1"),
+            entitlement_status: String::from("active"),
+            active_product_id: Some(String::from("pro_monthly")),
+            period_ends_at: Some(String::from("2026-04-01T12:00:00Z")),
+            will_renew: Some(true),
+            last_webhook_event_id: Some(String::from("evt_fixture_1")),
+            last_webhook_at: Some(String::from("2026-03-01T12:00:00Z")),
+            created_at: String::from("2026-01-01T00:00:00Z"),
+            updated_at: String::from("2026-03-01T12:00:00Z"),
+        },
+        OrganizationBillingAccount {
+            organization_id: String::from("org-2"),
+            revenuecat_app_user_id: String::from("org:org-2"),
+            entitlement_status: String::from("inactive"),
+            active_product_id: None,
+            period_ends_at: None,
+            will_renew: None,
+            last_webhook_event_id: None,
+            last_webhook_at: None,
+            created_at: String::from("2026-01-02T00:00:00Z"),
+            updated_at: String::from("2026-01-02T00:00:00Z"),
         },
     ]
 }

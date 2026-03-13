@@ -1,12 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const serializeEnvelopeFieldMock = vi.fn();
-
-vi.mock('./vfsDirectCrdtEnvelopeStorage.js', () => ({
-  serializeEnvelopeField: (...args: unknown[]) =>
-    serializeEnvelopeFieldMock(...args)
-}));
-
 import {
   acquireTransactionClient,
   decodeContentTypeFromSourceId,
@@ -59,10 +52,6 @@ describe('mlsDirectMessagesShared', () => {
 
   it('persists mirrored MLS messages across VFS tables', async () => {
     const queryMock = vi.fn().mockResolvedValue({ rows: [], rowCount: 1 });
-    serializeEnvelopeFieldMock.mockReturnValue({
-      text: 'ciphertext-value',
-      bytes: new Uint8Array([1, 2, 3])
-    });
 
     await persistMlsMessageToVfs(
       {
@@ -83,9 +72,6 @@ describe('mlsDirectMessagesShared', () => {
     );
 
     expect(queryMock).toHaveBeenCalledTimes(4);
-    expect(serializeEnvelopeFieldMock).toHaveBeenCalledWith(
-      new Uint8Array([9, 8, 7])
-    );
 
     // vfs_item_state: encrypted_payload is no longer passed (NULL in SQL)
     expect(queryMock.mock.calls[1]?.[1]).toEqual([
@@ -100,7 +86,7 @@ describe('mlsDirectMessagesShared', () => {
       'user-1',
       'mls_message:group-1:4:message-1:text%2Fplain',
       '2026-03-03T03:20:00.000Z',
-      new Uint8Array([1, 2, 3]),
+      new Uint8Array([9, 8, 7]),
       2,
       'mls_message'
     ]);

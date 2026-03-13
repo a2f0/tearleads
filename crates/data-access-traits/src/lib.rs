@@ -1,11 +1,24 @@
 //! Shared data-access traits for API v2 services.
 
+mod ai_usage;
+mod auth;
+mod billing;
 mod error;
 mod postgres;
 mod redis;
 
 use std::{future::Future, pin::Pin};
 
+pub use ai_usage::{
+    AiRecordUsageInput, AiUsagePage, AiUsageQuery, AiUsageRecord, AiUsageSummary,
+    AiUsageSummaryByModel, PostgresAiUsageRepository,
+};
+pub use auth::{
+    AuthCreateSessionInput, AuthLoginUser, AuthOrganization, AuthRefreshToken, AuthRegisterInput,
+    AuthRegisteredUser, AuthRotateTokensInput, AuthSession, AuthUserOrganizations,
+    AuthVfsKeySetupInput, PostgresAuthRepository, RedisAuthSessionRepository,
+};
+pub use billing::{OrganizationBillingAccount, PostgresBillingRepository};
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupMember,

@@ -74,7 +74,7 @@ describe('openNotificationEventStream', () => {
     const options = firstCall[1];
     expect(request).toMatchObject({ channels: ['broadcast'] });
     expect(options).toEqual({
-      headers: { Authorization: 'Bearer test-token' },
+      headers: { authorization: 'Bearer test-token' },
       signal: abortController.signal
     });
     expect(events).toEqual(['{"event":"connected"}']);

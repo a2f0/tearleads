@@ -6,11 +6,15 @@ publish = false
 
 [dependencies]
 axum = "0.8.6"
+base64 = "0.22.1"
 chrono = "0.4"
 deadpool-postgres = "0.14"
+jsonwebtoken = "9.3.1"
 prost-types = "0.13.5"
+regex = "1.11.3"
 reqwest = { version = "0.12.22", default-features = false, features = ["http2", "rustls-tls-native-roots"] }
 redis = { version = "0.32.5", default-features = false, features = ["tokio-comp"] }
+scrypt = "0.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 tearleads-api-domain-core = { version = "0.1.0", path = "../api-domain-core" }
@@ -20,12 +24,13 @@ tearleads-data-access-redis = { version = "0.1.0", path = "../data-access-redis"
 tearleads-data-access-traits = { version = "0.1.0", path = "../data-access-traits" }
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "net"] }
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-serde_json-1"] }
-tonic = { version = "0.13.1", default-features = false, features = ["codegen", "prost"] }
+tonic = { version = "0.13.1", default-features = false, features = ["codegen", "prost", "transport"] }
 tonic-web = "0.14.5"
 tower = { version = "0.5.2", features = ["util"] }
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter"] }
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [dev-dependencies]
 http-body-util = "0.1.3"

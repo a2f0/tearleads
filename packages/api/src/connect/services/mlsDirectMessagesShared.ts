@@ -1,5 +1,4 @@
 import type { QueryResultRow } from 'pg';
-import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 
 export type MlsSourceTable = 'mls_message' | 'mls_commit';
 
@@ -109,7 +108,7 @@ export async function persistMlsMessageToVfs(
   client: QueryClient,
   input: VfsMirrorInput
 ): Promise<void> {
-  const ciphertext = serializeEnvelopeField(input.ciphertext);
+  const ciphertextBytes = Uint8Array.from(input.ciphertext);
   const sourceTable = input.sourceTable ?? 'mls_message';
 
   await client.query(
@@ -227,7 +226,7 @@ export async function persistMlsMessageToVfs(
       input.senderUserId,
       `${sourceTable}:${input.groupId}:${input.sequenceNumber}:${input.messageId}:${encodeContentTypeForSourceId(input.contentType)}`,
       input.occurredAtIso,
-      ciphertext.bytes,
+      ciphertextBytes,
       input.epoch,
       sourceTable
     ]

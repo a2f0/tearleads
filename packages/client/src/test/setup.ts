@@ -49,13 +49,20 @@ function installApiV2WasmBindingsOverride(): void {
   };
 
   const normalizeBearerToken = (bearerToken?: string | null): string | null => {
-    if (typeof bearerToken !== 'string' || bearerToken.length === 0) {
+    if (typeof bearerToken !== 'string') {
       return null;
     }
 
-    return /^Bearer\s+\S+\.\S+\.\S+$/.test(bearerToken)
-      ? bearerToken
-      : 'Bearer header.payload.signature';
+    const trimmed = bearerToken.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    if (/^Bearer\s+/i.test(trimmed)) {
+      return trimmed;
+    }
+
+    return `Bearer ${trimmed}`;
   };
 
   Reflect.set(globalThis, '__tearleadsImportApiV2ClientWasmModule', () =>

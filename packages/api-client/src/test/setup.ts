@@ -9,7 +9,8 @@ import {
   resetMockApiServerState,
   server
 } from '@tearleads/msw/node';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
+import { installApiV2WasmBindingsOverride } from './apiV2WasmBindingsTestOverride';
 import { setSharedTestContext } from './testContext';
 
 let testContext: TestContext | null = null;
@@ -54,6 +55,10 @@ beforeAll(async () => {
   setSharedTestContext(testContext);
   configurePassthroughRoutes();
   server.listen({ onUnhandledRequest: 'warn' });
+});
+
+beforeEach(() => {
+  installApiV2WasmBindingsOverride();
 });
 
 afterEach(async () => {
