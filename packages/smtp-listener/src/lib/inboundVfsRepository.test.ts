@@ -85,8 +85,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
     getPostgresPoolMock.mockResolvedValue({ connect: connectMock });
 
-    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } =
-      await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } = await import(
+      './inboundVfsRepository.js'
+    );
     const expectedFolderId = inboxFolderUuid('user-1');
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
@@ -124,8 +125,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
       }))
     });
 
-    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } =
-      await import('./inboundVfsRepository.js');
+    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } = await import(
+      './inboundVfsRepository.js'
+    );
     const expectedFolderId = inboxFolderUuid('user-1');
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
