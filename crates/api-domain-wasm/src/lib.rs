@@ -51,12 +51,8 @@ fn normalize_required_resource_id_inner(field: &str, value: &str) -> Result<Stri
 /// Normalizes a required resource identifier, rejecting blank values.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = normalizeRequiredResourceId)]
-pub fn normalize_required_resource_id_binding(
-    field: &str,
-    value: &str,
-) -> Result<String, JsValue> {
-    normalize_required_resource_id_inner(field, value)
-        .map_err(|error| JsValue::from_str(&error))
+pub fn normalize_required_resource_id_binding(field: &str, value: &str) -> Result<String, JsValue> {
+    normalize_required_resource_id_inner(field, value).map_err(|error| JsValue::from_str(&error))
 }
 
 // -- sort direction ----------------------------------------------------------
