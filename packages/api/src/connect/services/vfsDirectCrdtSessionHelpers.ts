@@ -31,7 +31,9 @@ export function parseOptionalRootId(
 
 export function parseBloomFilter(
   value: unknown
-): { ok: true; value: VfsSyncBloomFilter | null } | { ok: false; error: string } {
+):
+  | { ok: true; value: VfsSyncBloomFilter | null }
+  | { ok: false; error: string } {
   if (value === null || value === undefined) {
     return {
       ok: true,

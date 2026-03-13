@@ -22,12 +22,18 @@ import {
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import {
   type ParsedPushOperation,
   parsePushPayload
 } from './vfsDirectCrdtPushParse.js';
+import {
+  toIsoString,
+  toLastReconciledWriteIds,
+  toProtoVfsCrdtSyncResponse,
+  type VfsCrdtSyncProtoResponse
+} from './vfsDirectCrdtRouteHelpers.js';
 import {
   createRuntimeBloomFilter,
   mergeLastReconciledWriteIds,
@@ -36,12 +42,6 @@ import {
   parseOptionalRootId,
   shouldPruneSessionRow
 } from './vfsDirectCrdtSessionHelpers.js';
-import {
-  toIsoString,
-  toLastReconciledWriteIds,
-  toProtoVfsCrdtSyncResponse,
-  type VfsCrdtSyncProtoResponse
-} from './vfsDirectCrdtRouteHelpers.js';
 import { isRecord } from './vfsDirectJson.js';
 
 interface RunCrdtSessionRequest {
@@ -154,7 +154,8 @@ function parseSessionPayload(
   if (parsedBloomFilter.value && !runtimeBloomFilter) {
     return {
       ok: false,
-      error: 'bloomFilter payload is invalid for the declared capacity/errorRate'
+      error:
+        'bloomFilter payload is invalid for the declared capacity/errorRate'
     };
   }
 

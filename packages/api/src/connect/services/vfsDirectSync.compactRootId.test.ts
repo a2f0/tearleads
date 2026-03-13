@@ -1,5 +1,5 @@
-import { getCrdtSyncDirect } from './vfsDirectSync.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCrdtSyncDirect } from './vfsDirectSync.js';
 
 const getPostgresPoolMock = vi.fn();
 const getVfsCrdtCompactionEpochMock = vi.fn();

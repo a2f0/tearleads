@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { VfsBloomFilter, encodeVfsSyncCursor } from '@tearleads/vfs-sync/vfs';
+import { encodeVfsSyncCursor, VfsBloomFilter } from '@tearleads/vfs-sync/vfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const applyCrdtPushOperationsMock = vi.fn();
