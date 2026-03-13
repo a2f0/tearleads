@@ -7,6 +7,7 @@ use tearleads_data_access_traits::{
     PostgresTableInfo,
 };
 
+mod billing;
 mod fixtures;
 
 #[derive(Debug, Clone, Copy)]

@@ -21,6 +21,9 @@ const CONNECT_UPSTREAM_URL_ENV_KEY: &str = "API_V2_CONNECT_UPSTREAM_URL";
 const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/v1/connect";
 const MAX_PROXY_REQUEST_BODY_BYTES: usize = 10 * 1024 * 1024;
 
+#[cfg(test)]
+mod main_tests;
+
 #[derive(Clone)]
 struct ConnectProxyState {
     http_client: reqwest::Client,
@@ -65,9 +68,14 @@ fn build_app(origins: &str) -> axum::Router {
                 tracing::info!(
                     "postgres + redis gateways initialized from environment for admin repository wiring"
                 );
-                let postgres_repo = PostgresAdminAdapter::new(postgres_gateway);
+                let postgres_repo = PostgresAdminAdapter::new(postgres_gateway.clone());
                 let redis_repo = RedisAdminAdapter::new(redis_gateway);
-                tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo)
+                tearleads_api_v2::app_with_repos(
+                    origins,
+                    postgres_repo,
+                    redis_repo,
+                    postgres_gateway,
+                )
             }
             (postgres_gateway, redis_gateway) => {
                 let mut failed_components = Vec::new();
@@ -126,7 +134,12 @@ fn initialize_tracing() {
 }
 
 fn should_proxy_connect_request(path: &str) -> bool {
-    path.starts_with("/connect/") && !path.starts_with("/connect/tearleads.v2.AdminService/")
+    path.starts_with("/connect/") && !is_native_connect_path(path)
+}
+
+fn is_native_connect_path(path: &str) -> bool {
+    path.starts_with("/connect/tearleads.v2.AdminService/")
+        || path.starts_with("/connect/tearleads.v2.BillingService/")
 }
 
 fn build_upstream_connect_url(base_url: &str, path: &str, query: Option<&str>) -> String {

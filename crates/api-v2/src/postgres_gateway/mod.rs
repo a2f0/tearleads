@@ -1,3 +1,4 @@
+mod billing;
 mod error;
 pub(crate) mod groups;
 mod introspection;

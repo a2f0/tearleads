@@ -8,7 +8,7 @@ use authorizer::AuthorizationHeaderAdminAuthorizer;
 pub(crate) use postgres_repository::StaticPostgresRepository;
 pub use redis_repository::StaticRedisRepository;
 
-use crate::AdminServiceHandler;
+use crate::{AdminServiceHandler, AuthorizationHeaderBillingAuthorizer, BillingServiceHandler};
 
 pub(crate) fn create_admin_handler() -> AdminServiceHandler<
     StaticPostgresRepository,
@@ -19,6 +19,14 @@ pub(crate) fn create_admin_handler() -> AdminServiceHandler<
         StaticPostgresRepository,
         StaticRedisRepository,
         AuthorizationHeaderAdminAuthorizer,
+    )
+}
+
+pub(crate) fn create_billing_handler()
+-> BillingServiceHandler<StaticPostgresRepository, AuthorizationHeaderBillingAuthorizer> {
+    BillingServiceHandler::with_authorizer(
+        StaticPostgresRepository,
+        AuthorizationHeaderBillingAuthorizer,
     )
 }
 

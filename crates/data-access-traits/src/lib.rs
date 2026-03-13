@@ -1,11 +1,13 @@
 //! Shared data-access traits for API v2 services.
 
+mod billing;
 mod error;
 mod postgres;
 mod redis;
 
 use std::{future::Future, pin::Pin};
 
+pub use billing::{OrganizationBillingAccount, PostgresBillingRepository};
 pub use error::{DataAccessError, DataAccessErrorKind};
 pub use postgres::{
     AdminCreateGroupInput, AdminCreateOrganizationInput, AdminGroupDetail, AdminGroupMember,
