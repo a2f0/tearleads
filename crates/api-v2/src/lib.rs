@@ -6,6 +6,7 @@ mod admin_service;
 mod admin_service_common;
 mod billing_auth;
 mod billing_service;
+mod chat_service;
 mod ping;
 /// Concrete Postgres gateway backed by `tokio-postgres` and `deadpool`.
 mod postgres_gateway;
@@ -13,6 +14,7 @@ mod postgres_gateway;
 use axum::{Router, routing::get};
 use tearleads_api_v2_contracts::tearleads::v2::{
     admin_service_server::AdminServiceServer, billing_service_server::BillingServiceServer,
+    chat_service_server::ChatServiceServer,
 };
 use tearleads_data_access_traits::{
     PostgresAdminRepository, PostgresBillingRepository, RedisAdminRepository,
@@ -30,6 +32,10 @@ pub use billing_auth::{
     BillingAuthErrorKind, BillingRequestAuthorizer, JwtSessionBillingAuthorizer,
 };
 pub use billing_service::BillingServiceHandler;
+pub use chat_service::{
+    ChatCompletionGateway, ChatServiceHandler, OpenRouterChatCompletionResult,
+    ReqwestOpenRouterGateway,
+};
 pub use ping::PingResponse;
 use ping::ping;
 pub use postgres_gateway::TokioPostgresGateway;
@@ -96,10 +102,17 @@ where
                 .map_request(|request: axum::http::Request<axum::body::Body>| {
                     request.map(tonic::body::Body::new)
                 });
+            let chat_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(ChatServiceServer::new(ChatServiceHandler::new()))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
 
             Router::new()
                 .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
                 .route_service("/tearleads.v2.BillingService/{*rest}", billing_service)
+                .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
         }
     };
 
@@ -135,10 +148,17 @@ pub fn app_with_origins(origins: &str) -> Router {
             .map_request(|request: axum::http::Request<axum::body::Body>| {
                 request.map(tonic::body::Body::new)
             });
+        let chat_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(ChatServiceServer::new(ChatServiceHandler::new()))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
 
         Router::new()
             .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
             .route_service("/tearleads.v2.BillingService/{*rest}", billing_service)
+            .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
     };
 
     Router::new()
@@ -188,6 +208,17 @@ mod tests {
     }
 
     fn billing_request(path: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/grpc-web+proto")
+            .header("x-grpc-web", "1")
+            .header("authorization", "Bearer header.payload.signature")
+            .body(Body::empty())
+            .expect("request should build")
+    }
+
+    fn chat_request(path: &str) -> Request<Body> {
         Request::builder()
             .method("POST")
             .uri(path)
@@ -249,6 +280,28 @@ mod tests {
         let response = app_with_origins("")
             .oneshot(billing_request(
                 "/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling",
+            ))
+            .await
+            .expect("router should return a response");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn chat_connect_route_is_mounted_by_default() {
+        let response = app_with_origins("")
+            .oneshot(chat_request(
+                "/connect/tearleads.v2.ChatService/PostCompletions",
+            ))
+            .await
+            .expect("router should return a response");
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn v1_chat_connect_alias_is_not_mounted() {
+        let response = app_with_origins("")
+            .oneshot(chat_request(
+                "/v1/connect/tearleads.v2.ChatService/PostCompletions",
             ))
             .await
             .expect("router should return a response");

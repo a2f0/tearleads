@@ -140,6 +140,7 @@ fn should_proxy_connect_request(path: &str) -> bool {
 fn is_native_connect_path(path: &str) -> bool {
     path.starts_with("/connect/tearleads.v2.AdminService/")
         || path.starts_with("/connect/tearleads.v2.BillingService/")
+        || path.starts_with("/connect/tearleads.v2.ChatService/")
 }
 
 fn build_upstream_connect_url(base_url: &str, path: &str, query: Option<&str>) -> String {
