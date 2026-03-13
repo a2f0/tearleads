@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow ed25519 key field names in crypto modules"
+paths = [
+  '''packages/shared/src/crypto/vfsKeyBundles\.ts''',
+  '''packages/shared/src/crypto/vfsKeyBundles\.test\.ts''',
+  '''packages/shared/src/crypto/asymmetric\.ts''',
+  '''packages/shared/src/crypto/asymmetric\.test\.ts''',
+  '''packages/api-client/src/vfsCrypto/keyOnboarding\.ts''',
+  '''packages/api-client/src/vfsCrypto/keyOnboarding\.test\.ts''',
+  '''packages/client/src/hooks/vfs/useVfsKeys\.ts''',
+  '''packages/client/src/hooks/vfs/useVfsKeys\.test\.ts''',
+  '''packages/shared/src/seedAccount\.ts''',
+]
