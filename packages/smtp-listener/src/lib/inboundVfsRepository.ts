@@ -37,8 +37,8 @@ export function inboxFolderUuid(userId: string): string {
     }
     bytes[b] = (h >>> 0) & 0xff;
   }
-  bytes[6] = (bytes[6] & 0x0f) | 0x50;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
   const hex = Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(
     ''
   );
