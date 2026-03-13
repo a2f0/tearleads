@@ -243,7 +243,7 @@ export async function runCrdtSessionDirect(
       serverLastReconciledWriteIds
     );
     const pageRows = pullRows.rows.slice(0, parsedPayload.value.limit);
-    const prunedItems = rawPullResponse.items.filter((item, index) => {
+    const prunedItems = rawPullResponse.items.filter((_item, index) => {
       const row = pageRows[index];
       if (!row) {
         return true;
@@ -257,7 +257,7 @@ export async function runCrdtSessionDirect(
     const pullResponse = {
       ...rawPullResponse,
       items: prunedItems,
-      bloomFilter: parsedPayload.value.bloomFilter ?? undefined
+      bloomFilter: parsedPayload.value.bloomFilter
     };
 
     const nextCursor = pullResponse.nextCursor

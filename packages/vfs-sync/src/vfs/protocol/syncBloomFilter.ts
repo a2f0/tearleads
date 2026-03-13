@@ -9,7 +9,8 @@
 function fnv1a(data: Uint8Array, seed = 0x811c9dc5): number {
   let hash = seed;
   for (let i = 0; i < data.length; i++) {
-    hash ^= data[i];
+    const byte = data[i];
+    hash ^= byte ?? 0;
     hash = Math.imul(hash, 0x01000193);
   }
   return hash >>> 0;
@@ -95,12 +96,14 @@ export class VfsBloomFilter {
   private setBit(index: number): void {
     const byteIndex = Math.floor(index / 8);
     const bitIndex = index % 8;
-    this.bitArray[byteIndex] |= 1 << bitIndex;
+    const current = this.bitArray[byteIndex] ?? 0;
+    this.bitArray[byteIndex] = current | (1 << bitIndex);
   }
 
   private getBit(index: number): boolean {
     const byteIndex = Math.floor(index / 8);
     const bitIndex = index % 8;
-    return (this.bitArray[byteIndex] & (1 << bitIndex)) !== 0;
+    const current = this.bitArray[byteIndex] ?? 0;
+    return (current & (1 << bitIndex)) !== 0;
   }
 }
