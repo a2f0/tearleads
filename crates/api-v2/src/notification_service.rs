@@ -48,3 +48,30 @@ impl NotificationService for NotificationServiceHandler {
         client.subscribe(request).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tearleads_api_v2_contracts::tearleads::v2::notification_service_server::NotificationService;
+    use tonic::{Code, Request};
+
+    use super::NotificationServiceHandler;
+    use crate::upstream_connect::UpstreamConnectClientFactory;
+
+    #[tokio::test]
+    async fn subscribe_fails_fast_with_invalid_upstream_config() {
+        let handler = NotificationServiceHandler::with_upstream(
+            UpstreamConnectClientFactory::from_url("not-a-valid-upstream-url".to_string()),
+        );
+        let status = handler
+            .subscribe(Request::new(Default::default()))
+            .await
+            .expect_err("invalid upstream config should fail");
+        assert!(matches!(status.code(), Code::Internal | Code::Unknown));
+    }
+
+    #[test]
+    fn constructors_and_default_are_usable() {
+        let _ = NotificationServiceHandler::new();
+        let _ = NotificationServiceHandler::default();
+    }
+}

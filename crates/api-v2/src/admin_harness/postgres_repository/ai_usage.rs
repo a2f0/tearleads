@@ -88,19 +88,6 @@ impl PostgresAiUsageRepository for StaticPostgresRepository {
 fn sample_usage_rows(user_id: &str) -> Vec<AiUsageRecord> {
     vec![
         AiUsageRecord {
-            id: String::from("usage-1"),
-            conversation_id: Some(String::from("conversation-1")),
-            message_id: Some(String::from("message-1")),
-            user_id: user_id.to_string(),
-            organization_id: Some(String::from("org-1")),
-            model_id: String::from("mistralai/mistral-7b-instruct"),
-            prompt_tokens: 20,
-            completion_tokens: 5,
-            total_tokens: 25,
-            openrouter_request_id: Some(String::from("req-1")),
-            created_at: String::from("2026-03-10T12:00:00Z"),
-        },
-        AiUsageRecord {
             id: String::from("usage-2"),
             conversation_id: Some(String::from("conversation-2")),
             message_id: Some(String::from("message-2")),
@@ -112,6 +99,32 @@ fn sample_usage_rows(user_id: &str) -> Vec<AiUsageRecord> {
             total_tokens: 16,
             openrouter_request_id: Some(String::from("req-2")),
             created_at: String::from("2026-03-09T12:00:00Z"),
+        },
+        AiUsageRecord {
+            id: String::from("usage-3"),
+            conversation_id: Some(String::from("conversation-3")),
+            message_id: Some(String::from("message-3")),
+            user_id: user_id.to_string(),
+            organization_id: Some(String::from("org-1")),
+            model_id: String::from("mistralai/mistral-7b-instruct"),
+            prompt_tokens: 3,
+            completion_tokens: 2,
+            total_tokens: 5,
+            openrouter_request_id: Some(String::from("req-3")),
+            created_at: String::from("2026-03-08T12:00:00Z"),
+        },
+        AiUsageRecord {
+            id: String::from("usage-1"),
+            conversation_id: Some(String::from("conversation-1")),
+            message_id: Some(String::from("message-1")),
+            user_id: user_id.to_string(),
+            organization_id: Some(String::from("org-1")),
+            model_id: String::from("mistralai/mistral-7b-instruct"),
+            prompt_tokens: 20,
+            completion_tokens: 5,
+            total_tokens: 25,
+            openrouter_request_id: Some(String::from("req-1")),
+            created_at: String::from("2026-03-10T12:00:00Z"),
         },
     ]
 }

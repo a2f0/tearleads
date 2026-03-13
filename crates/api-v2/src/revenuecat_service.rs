@@ -47,3 +47,30 @@ impl RevenuecatService for RevenuecatServiceHandler {
         client.handle_webhook(request).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tearleads_api_v2_contracts::tearleads::v2::revenuecat_service_server::RevenuecatService;
+    use tonic::{Code, Request};
+
+    use super::RevenuecatServiceHandler;
+    use crate::upstream_connect::UpstreamConnectClientFactory;
+
+    #[tokio::test]
+    async fn handle_webhook_fails_fast_with_invalid_upstream_config() {
+        let handler = RevenuecatServiceHandler::with_upstream(
+            UpstreamConnectClientFactory::from_url("not-a-valid-upstream-url".to_string()),
+        );
+        let status = handler
+            .handle_webhook(Request::new(Default::default()))
+            .await
+            .expect_err("invalid upstream config should fail");
+        assert!(matches!(status.code(), Code::Internal | Code::Unknown));
+    }
+
+    #[test]
+    fn constructors_and_default_are_usable() {
+        let _ = RevenuecatServiceHandler::new();
+        let _ = RevenuecatServiceHandler::default();
+    }
+}

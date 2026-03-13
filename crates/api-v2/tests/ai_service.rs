@@ -190,6 +190,52 @@ async fn record_usage_rejects_invalid_token_counts() {
 }
 
 #[tokio::test]
+async fn record_usage_rejects_missing_model_id() {
+    let repository = FakeAiUsageRepository::default();
+    let record_calls = Arc::clone(&repository.record_calls);
+    let handler = AiServiceHandler::with_authorizer(repository, FakeAuthorizer::allow("user-1"));
+
+    let status = handler
+        .record_usage(Request::new(AiServiceRecordUsageRequest {
+            conversation_id: String::new(),
+            message_id: String::new(),
+            model_id: String::from("   "),
+            prompt_tokens: 5,
+            completion_tokens: 2,
+            total_tokens: 7,
+            openrouter_request_id: String::new(),
+        }))
+        .await
+        .expect_err("missing model id must fail");
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert!(lock_or_recover(&record_calls).is_empty());
+}
+
+#[tokio::test]
+async fn record_usage_rejects_negative_token_counts() {
+    let repository = FakeAiUsageRepository::default();
+    let record_calls = Arc::clone(&repository.record_calls);
+    let handler = AiServiceHandler::with_authorizer(repository, FakeAuthorizer::allow("user-1"));
+
+    let status = handler
+        .record_usage(Request::new(AiServiceRecordUsageRequest {
+            conversation_id: String::new(),
+            message_id: String::new(),
+            model_id: String::from("mistralai/mistral-7b-instruct"),
+            prompt_tokens: -1,
+            completion_tokens: 2,
+            total_tokens: 1,
+            openrouter_request_id: String::new(),
+        }))
+        .await
+        .expect_err("negative token counts must fail");
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert!(lock_or_recover(&record_calls).is_empty());
+}
+
+#[tokio::test]
 async fn record_usage_maps_repository_result() {
     let repository = FakeAiUsageRepository::default();
     let record_calls = Arc::clone(&repository.record_calls);

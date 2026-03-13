@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use tearleads_api_v2::{
     BillingAccessContext, BillingAuthError, BillingAuthErrorKind, BillingRequestAuthorizer,
-    BillingServiceHandler,
+    BillingServiceHandler, JwtSessionBillingAuthorizer,
 };
 use tearleads_api_v2_contracts::tearleads::v2::{
     GetOrganizationBillingRequest, billing_service_server::BillingService,
@@ -239,6 +239,44 @@ async fn maps_data_access_failures_to_internal_status() {
         .expect_err("repository failures must map to internal");
 
     assert_eq!(status.code(), Code::Internal);
+}
+
+#[tokio::test]
+async fn invalid_billing_timestamp_maps_to_internal_status() {
+    let handler = BillingServiceHandler::with_authorizer(
+        FakeBillingRepository {
+            membership_result: Ok(true),
+            account_result: Ok(Some(OrganizationBillingAccount {
+                organization_id: String::from("org-1"),
+                revenuecat_app_user_id: String::from("org:org-1"),
+                entitlement_status: String::from("active"),
+                active_product_id: None,
+                period_ends_at: Some(String::from("not-a-timestamp")),
+                will_renew: Some(true),
+                last_webhook_event_id: None,
+                last_webhook_at: None,
+                created_at: String::from("2026-01-01T00:00:00Z"),
+                updated_at: String::from("2026-01-01T00:00:00Z"),
+            })),
+            ..Default::default()
+        },
+        FakeAuthorizer::allow("user-1"),
+    );
+
+    let status = handler
+        .get_organization_billing(Request::new(GetOrganizationBillingRequest {
+            organization_id: String::from("org-1"),
+        }))
+        .await
+        .expect_err("invalid timestamp should fail");
+
+    assert_eq!(status.code(), Code::Internal);
+}
+
+#[test]
+fn runtime_constructor_is_available() {
+    let _ = BillingServiceHandler::new(FakeBillingRepository::default());
+    let _ = JwtSessionBillingAuthorizer::from_env();
 }
 
 fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

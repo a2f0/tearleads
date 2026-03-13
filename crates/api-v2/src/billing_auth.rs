@@ -85,18 +85,7 @@ pub struct JwtSessionBillingAuthorizer {
 }
 
 impl JwtSessionBillingAuthorizer {
-    /// Creates runtime authorizer using `JWT_SECRET` and `REDIS_URL`.
-    pub fn from_env() -> Self {
-        let jwt_secret = env::var("JWT_SECRET")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-
-        let redis_url = env::var("REDIS_URL")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-
+    fn with_runtime_config(jwt_secret: Option<String>, redis_url: Option<String>) -> Self {
         let (redis_client, config_error) = match redis_url {
             Some(url) => match redis::Client::open(url) {
                 Ok(client) => (Some(client), None),
@@ -117,22 +106,27 @@ impl JwtSessionBillingAuthorizer {
         }
     }
 
+    /// Creates runtime authorizer using `JWT_SECRET` and `REDIS_URL`.
+    pub fn from_env() -> Self {
+        let jwt_secret = normalize_env_value(env::var("JWT_SECRET"));
+        let redis_url = normalize_env_value(env::var("REDIS_URL"));
+        Self::with_runtime_config(jwt_secret, redis_url)
+    }
+
     fn parse_bearer_token(metadata: &MetadataMap) -> Result<String, BillingAuthError> {
-        let authorization = metadata
-            .get("authorization")
-            .ok_or_else(|| {
-                BillingAuthError::new(
-                    BillingAuthErrorKind::Unauthenticated,
-                    "missing authorization",
-                )
-            })?
-            .to_str()
-            .map_err(|_| {
-                BillingAuthError::new(
-                    BillingAuthErrorKind::Unauthenticated,
-                    "invalid authorization header",
-                )
-            })?;
+        let authorization = metadata.get("authorization").ok_or_else(|| {
+            BillingAuthError::new(
+                BillingAuthErrorKind::Unauthenticated,
+                "missing authorization",
+            )
+        })?;
+        let authorization = authorization.to_str().unwrap_or_default();
+        if authorization.is_empty() {
+            return Err(BillingAuthError::new(
+                BillingAuthErrorKind::Unauthenticated,
+                "invalid authorization header",
+            ));
+        }
 
         let token = authorization
             .trim()
@@ -236,6 +230,13 @@ impl JwtSessionBillingAuthorizer {
     }
 }
 
+fn normalize_env_value(value: Result<String, env::VarError>) -> Option<String> {
+    value
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 impl BillingRequestAuthorizer for JwtSessionBillingAuthorizer {
     fn authorize_billing_request(
         &self,
@@ -278,21 +279,19 @@ impl BillingRequestAuthorizer for AuthorizationHeaderBillingAuthorizer {
 }
 
 fn parse_harness_bearer_token(metadata: &MetadataMap) -> Result<String, BillingAuthError> {
-    let authorization = metadata
-        .get("authorization")
-        .ok_or_else(|| {
-            BillingAuthError::new(
-                BillingAuthErrorKind::Unauthenticated,
-                "missing authorization",
-            )
-        })?
-        .to_str()
-        .map_err(|_| {
-            BillingAuthError::new(
-                BillingAuthErrorKind::Unauthenticated,
-                "invalid authorization header",
-            )
-        })?;
+    let authorization = metadata.get("authorization").ok_or_else(|| {
+        BillingAuthError::new(
+            BillingAuthErrorKind::Unauthenticated,
+            "missing authorization",
+        )
+    })?;
+    let authorization = authorization.to_str().unwrap_or_default();
+    if authorization.is_empty() {
+        return Err(BillingAuthError::new(
+            BillingAuthErrorKind::Unauthenticated,
+            "invalid authorization header",
+        ));
+    }
 
     authorization
         .trim()
@@ -315,3 +314,6 @@ pub fn map_billing_auth_error(error: BillingAuthError) -> Status {
         BillingAuthErrorKind::Internal => Status::internal("billing authorization failed"),
     }
 }
+
+#[cfg(test)]
+mod tests;

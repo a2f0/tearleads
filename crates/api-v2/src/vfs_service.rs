@@ -198,3 +198,94 @@ impl VfsService for VfsServiceHandler {
         forward_unary!(self, request, send_email)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tearleads_api_v2_contracts::tearleads::v2::vfs_service_server::VfsService;
+    use tonic::{Code, Request};
+
+    use super::VfsServiceHandler;
+    use crate::upstream_connect::UpstreamConnectClientFactory;
+
+    fn invalid_handler() -> VfsServiceHandler {
+        VfsServiceHandler::with_upstream(UpstreamConnectClientFactory::from_url(
+            "not-a-valid-upstream-url".to_string(),
+        ))
+    }
+
+    async fn assert_internal<T: std::fmt::Debug>(
+        result: Result<tonic::Response<T>, tonic::Status>,
+    ) {
+        let status = result.expect_err("invalid upstream config should fail");
+        assert!(matches!(status.code(), Code::Internal | Code::Unknown));
+    }
+
+    #[tokio::test]
+    async fn delegated_methods_fail_fast_with_invalid_upstream_config() {
+        let handler = invalid_handler();
+
+        assert_internal(handler.get_my_keys(Request::new(Default::default())).await).await;
+        assert_internal(handler.setup_keys(Request::new(Default::default())).await).await;
+        assert_internal(handler.register(Request::new(Default::default())).await).await;
+        assert_internal(handler.get_blob(Request::new(Default::default())).await).await;
+        assert_internal(handler.delete_blob(Request::new(Default::default())).await).await;
+        assert_internal(handler.stage_blob(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .upload_blob_chunk(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(handler.attach_blob(Request::new(Default::default())).await).await;
+        assert_internal(handler.abandon_blob(Request::new(Default::default())).await).await;
+        assert_internal(handler.commit_blob(Request::new(Default::default())).await).await;
+        assert_internal(handler.rekey_item(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .push_crdt_ops(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .reconcile_crdt(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .reconcile_sync(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .run_crdt_session(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(handler.get_sync(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .get_crdt_sync(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_crdt_snapshot(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(handler.get_emails(Request::new(Default::default())).await).await;
+        assert_internal(handler.get_email(Request::new(Default::default())).await).await;
+        assert_internal(handler.delete_email(Request::new(Default::default())).await).await;
+        assert_internal(handler.send_email(Request::new(Default::default())).await).await;
+    }
+
+    #[test]
+    fn constructors_and_default_are_usable() {
+        let _ = VfsServiceHandler::new();
+        let _ = VfsServiceHandler::default();
+    }
+}

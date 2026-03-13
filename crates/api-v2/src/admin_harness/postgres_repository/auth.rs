@@ -51,7 +51,12 @@ impl PostgresAuthRepository for StaticPostgresRepository {
     ) -> BoxFuture<'_, Result<AuthUserOrganizations, DataAccessError>> {
         let user_id = user_id.to_string();
         Box::pin(async move {
-            let users = fixtures::user_summaries();
+            let mut users = fixtures::user_summaries();
+            if let Some(mut edge_user) = users.first().cloned() {
+                edge_user.id = String::from("user-empty-orgs");
+                edge_user.organization_ids = Vec::new();
+                users.push(edge_user);
+            }
             let organizations = fixtures::organization_summaries();
             let Some(user) = users.into_iter().find(|candidate| candidate.id == user_id) else {
                 return Err(DataAccessError::new(

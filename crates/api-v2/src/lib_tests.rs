@@ -36,6 +36,19 @@ async fn assert_not_mounted(path: &str) {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+async fn assert_mounted_with_repos(path: &str) {
+    let response = app_with_repos(
+        "",
+        StaticPostgresRepository,
+        admin_harness_static_redis(),
+        StaticPostgresRepository,
+    )
+    .oneshot(connect_request(path))
+    .await
+    .expect("router should return a response");
+    assert_ne!(response.status(), StatusCode::NOT_FOUND);
+}
+
 #[tokio::test]
 async fn app_with_repos_mounts_connect_routes() {
     let pg = StaticPostgresRepository;
@@ -47,6 +60,19 @@ async fn app_with_repos_mounts_connect_routes() {
         .await
         .expect("router should return a response");
     assert_ne!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn app_with_repos_mounts_all_service_routes() {
+    assert_mounted_with_repos("/connect/tearleads.v2.BillingService/GetOrganizationBilling").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.ChatService/PostCompletions").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.AiService/GetUsage").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.AuthService/Login").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.MlsService/GetGroup").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.NotificationService/Subscribe").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.RevenuecatService/HandleWebhook").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.VfsService/GetSync").await;
+    assert_mounted_with_repos("/connect/tearleads.v2.VfsSharesService/GetItemShares").await;
 }
 
 #[tokio::test]

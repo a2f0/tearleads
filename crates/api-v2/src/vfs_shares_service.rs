@@ -101,3 +101,70 @@ impl VfsSharesService for VfsSharesServiceHandler {
         forward_unary!(self, request, get_share_policy_preview)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tearleads_api_v2_contracts::tearleads::v2::vfs_shares_service_server::VfsSharesService;
+    use tonic::{Code, Request};
+
+    use super::VfsSharesServiceHandler;
+    use crate::upstream_connect::UpstreamConnectClientFactory;
+
+    fn invalid_handler() -> VfsSharesServiceHandler {
+        VfsSharesServiceHandler::with_upstream(UpstreamConnectClientFactory::from_url(
+            "not-a-valid-upstream-url".to_string(),
+        ))
+    }
+
+    async fn assert_internal<T: std::fmt::Debug>(
+        result: Result<tonic::Response<T>, tonic::Status>,
+    ) {
+        let status = result.expect_err("invalid upstream config should fail");
+        assert!(matches!(status.code(), Code::Internal | Code::Unknown));
+    }
+
+    #[tokio::test]
+    async fn delegated_methods_fail_fast_with_invalid_upstream_config() {
+        let handler = invalid_handler();
+
+        assert_internal(
+            handler
+                .get_item_shares(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(handler.create_share(Request::new(Default::default())).await).await;
+        assert_internal(handler.update_share(Request::new(Default::default())).await).await;
+        assert_internal(handler.delete_share(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .create_org_share(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .delete_org_share(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .search_share_targets(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_share_policy_preview(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+    }
+
+    #[test]
+    fn constructors_and_default_are_usable() {
+        let _ = VfsSharesServiceHandler::new();
+        let _ = VfsSharesServiceHandler::default();
+    }
+}

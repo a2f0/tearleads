@@ -40,13 +40,7 @@ struct StoredRefreshToken {
 }
 
 impl RedisAuthSessionStore {
-    /// Builds a Redis session store from `REDIS_URL`.
-    pub fn from_env() -> Self {
-        let redis_url = env::var(REDIS_URL_ENV_KEY)
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-
+    fn with_runtime_config(redis_url: Option<String>) -> Self {
         let (redis_client, config_error) = match redis_url {
             Some(url) => match redis::Client::open(url) {
                 Ok(client) => (Some(client), None),
@@ -62,6 +56,12 @@ impl RedisAuthSessionStore {
             redis_client,
             config_error,
         }
+    }
+
+    /// Builds a Redis session store from `REDIS_URL`.
+    pub fn from_env() -> Self {
+        let redis_url = normalize_env_value(env::var(REDIS_URL_ENV_KEY));
+        Self::with_runtime_config(redis_url)
     }
 
     fn session_key(session_id: &str) -> String {
@@ -111,6 +111,20 @@ impl RedisAuthSessionStore {
             format!("redis {action} failed: {error}"),
         )
     }
+
+    fn map_action<T>(
+        action: &'static str,
+        result: Result<T, redis::RedisError>,
+    ) -> Result<T, DataAccessError> {
+        result.map_err(|error| Self::map_redis_error(action, error))
+    }
+}
+
+fn normalize_env_value(value: Result<String, env::VarError>) -> Option<String> {
+    value
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 impl RedisAuthSessionRepository for RedisAuthSessionStore {
@@ -127,33 +141,38 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
             let session_key = Self::session_key(&session_id);
             let user_sessions_key = Self::user_sessions_key(&input.user_id);
 
-            let payload = serde_json::to_string(&StoredSession {
-                user_id: input.user_id.clone(),
-                email: input.email,
-                admin: input.admin,
-                created_at: now.clone(),
-                last_active_at: now,
-                ip_address: input.ip_address,
+            let payload = serde_json::json!({
+                "userId": input.user_id.clone(),
+                "email": input.email,
+                "admin": input.admin,
+                "createdAt": now.clone(),
+                "lastActiveAt": now,
+                "ipAddress": input.ip_address,
             })
-            .map_err(|error| {
-                DataAccessError::new(
-                    DataAccessErrorKind::Internal,
-                    format!("failed to serialize auth session: {error}"),
-                )
-            })?;
+            .to_string();
 
-            let _: () = connection
-                .set_ex(session_key, payload, ttl_seconds)
-                .await
-                .map_err(|error| Self::map_redis_error("set_ex session", error))?;
-            let _: usize = connection
-                .sadd(user_sessions_key.clone(), &session_id)
-                .await
-                .map_err(|error| Self::map_redis_error("sadd user_sessions", error))?;
-            let _: bool = connection
-                .expire(user_sessions_key, ttl_seconds as i64)
-                .await
-                .map_err(|error| Self::map_redis_error("expire user_sessions", error))?;
+            if let Err(error) = Self::map_action::<()>(
+                "set_ex session",
+                connection.set_ex(session_key, payload, ttl_seconds).await,
+            ) {
+                return Err(error);
+            }
+            if let Err(error) = Self::map_action::<usize>(
+                "sadd user_sessions",
+                connection
+                    .sadd(user_sessions_key.clone(), &session_id)
+                    .await,
+            ) {
+                return Err(error);
+            }
+            if let Err(error) = Self::map_action::<bool>(
+                "expire user_sessions",
+                connection
+                    .expire(user_sessions_key, ttl_seconds as i64)
+                    .await,
+            ) {
+                return Err(error);
+            }
 
             Ok(())
         })
@@ -166,10 +185,13 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         let session_id = session_id.to_string();
         Box::pin(async move {
             let mut connection = self.connection().await?;
-            let raw: Option<String> = connection
-                .get(Self::session_key(&session_id))
-                .await
-                .map_err(|error| Self::map_redis_error("get session", error))?;
+            let raw: Option<String> = match Self::map_action(
+                "get session",
+                connection.get(Self::session_key(&session_id)).await,
+            ) {
+                Ok(raw) => raw,
+                Err(error) => return Err(error),
+            };
             let Some(raw) = raw else {
                 return Ok(None);
             };
@@ -200,25 +222,29 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         Box::pin(async move {
             let mut connection = self.connection().await?;
             let user_sessions_key = Self::user_sessions_key(&user_id);
-            let session_ids: Vec<String> = connection
-                .smembers(&user_sessions_key)
-                .await
-                .map_err(|error| Self::map_redis_error("smembers user_sessions", error))?;
+            let session_ids: Vec<String> = Self::map_action(
+                "smembers user_sessions",
+                connection.smembers(&user_sessions_key).await,
+            )?;
             let mut sessions = Vec::new();
 
             for session_id in session_ids {
                 let Some(session) = self.get_session(&session_id).await? else {
-                    let _: usize = connection
-                        .srem(&user_sessions_key, &session_id)
-                        .await
-                        .map_err(|error| Self::map_redis_error("srem stale session", error))?;
+                    if let Err(error) = Self::map_action::<usize>(
+                        "srem stale session",
+                        connection.srem(&user_sessions_key, &session_id).await,
+                    ) {
+                        return Err(error);
+                    }
                     continue;
                 };
                 if session.user_id != user_id {
-                    let _: usize = connection
-                        .srem(&user_sessions_key, &session_id)
-                        .await
-                        .map_err(|error| Self::map_redis_error("srem foreign session", error))?;
+                    if let Err(error) = Self::map_action::<usize>(
+                        "srem foreign session",
+                        connection.srem(&user_sessions_key, &session_id).await,
+                    ) {
+                        return Err(error);
+                    }
                     continue;
                 }
                 sessions.push(session);
@@ -244,14 +270,20 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 return Ok(false);
             }
 
-            let _: usize = connection
-                .del(Self::session_key(&session_id))
-                .await
-                .map_err(|error| Self::map_redis_error("del session", error))?;
-            let _: usize = connection
-                .srem(Self::user_sessions_key(&user_id), &session_id)
-                .await
-                .map_err(|error| Self::map_redis_error("srem user_sessions", error))?;
+            if let Err(error) = Self::map_action::<usize>(
+                "del session",
+                connection.del(Self::session_key(&session_id)).await,
+            ) {
+                return Err(error);
+            }
+            if let Err(error) = Self::map_action::<usize>(
+                "srem user_sessions",
+                connection
+                    .srem(Self::user_sessions_key(&user_id), &session_id)
+                    .await,
+            ) {
+                return Err(error);
+            }
             Ok(true)
         })
     }
@@ -268,21 +300,20 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         let user_id = user_id.to_string();
         Box::pin(async move {
             let mut connection = self.connection().await?;
-            let payload = serde_json::to_string(&StoredRefreshToken {
-                session_id,
-                user_id,
-                created_at: Utc::now().to_rfc3339(),
+            let payload = serde_json::json!({
+                "sessionId": session_id,
+                "userId": user_id,
+                "createdAt": Utc::now().to_rfc3339(),
             })
-            .map_err(|error| {
-                DataAccessError::new(
-                    DataAccessErrorKind::Internal,
-                    format!("failed to serialize refresh token: {error}"),
-                )
-            })?;
-            let _: () = connection
-                .set_ex(Self::refresh_token_key(&token_id), payload, ttl_seconds)
-                .await
-                .map_err(|error| Self::map_redis_error("set_ex refresh_token", error))?;
+            .to_string();
+            if let Err(error) = Self::map_action::<()>(
+                "set_ex refresh_token",
+                connection
+                    .set_ex(Self::refresh_token_key(&token_id), payload, ttl_seconds)
+                    .await,
+            ) {
+                return Err(error);
+            }
             Ok(())
         })
     }
@@ -294,10 +325,13 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         let token_id = token_id.to_string();
         Box::pin(async move {
             let mut connection = self.connection().await?;
-            let raw: Option<String> = connection
-                .get(Self::refresh_token_key(&token_id))
-                .await
-                .map_err(|error| Self::map_redis_error("get refresh_token", error))?;
+            let raw: Option<String> = match Self::map_action(
+                "get refresh_token",
+                connection.get(Self::refresh_token_key(&token_id)).await,
+            ) {
+                Ok(raw) => raw,
+                Err(error) => return Err(error),
+            };
             let Some(raw) = raw else {
                 return Ok(None);
             };
@@ -321,10 +355,12 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         let token_id = token_id.to_string();
         Box::pin(async move {
             let mut connection = self.connection().await?;
-            let _: usize = connection
-                .del(Self::refresh_token_key(&token_id))
-                .await
-                .map_err(|error| Self::map_redis_error("del refresh_token", error))?;
+            if let Err(error) = Self::map_action::<usize>(
+                "del refresh_token",
+                connection.del(Self::refresh_token_key(&token_id)).await,
+            ) {
+                return Err(error);
+            }
             Ok(())
         })
     }
@@ -337,31 +373,21 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
             let mut connection = self.connection().await?;
             let now = Utc::now().to_rfc3339();
             let user_sessions_key = Self::user_sessions_key(&input.session_input.user_id);
-            let session_payload = serde_json::to_string(&StoredSession {
-                user_id: input.session_input.user_id.clone(),
-                email: input.session_input.email,
-                admin: input.session_input.admin,
-                created_at: input.original_created_at.unwrap_or_else(|| now.clone()),
-                last_active_at: now.clone(),
-                ip_address: input.session_input.ip_address,
+            let session_payload = serde_json::json!({
+                "userId": input.session_input.user_id.clone(),
+                "email": input.session_input.email,
+                "admin": input.session_input.admin,
+                "createdAt": input.original_created_at.unwrap_or_else(|| now.clone()),
+                "lastActiveAt": now.clone(),
+                "ipAddress": input.session_input.ip_address,
             })
-            .map_err(|error| {
-                DataAccessError::new(
-                    DataAccessErrorKind::Internal,
-                    format!("failed to serialize rotated session: {error}"),
-                )
-            })?;
-            let refresh_payload = serde_json::to_string(&StoredRefreshToken {
-                session_id: input.new_session_id.clone(),
-                user_id: input.session_input.user_id,
-                created_at: now,
+            .to_string();
+            let refresh_payload = serde_json::json!({
+                "sessionId": input.new_session_id.clone(),
+                "userId": input.session_input.user_id,
+                "createdAt": now,
             })
-            .map_err(|error| {
-                DataAccessError::new(
-                    DataAccessErrorKind::Internal,
-                    format!("failed to serialize rotated refresh token: {error}"),
-                )
-            })?;
+            .to_string();
 
             let mut pipe = redis::pipe();
             pipe.atomic()
@@ -394,11 +420,16 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 .arg(input.refresh_ttl_seconds)
                 .ignore();
 
-            let _: () = pipe
-                .query_async(&mut connection)
-                .await
-                .map_err(|error| Self::map_redis_error("rotate_tokens_atomically", error))?;
+            if let Err(error) = Self::map_action::<()>(
+                "rotate_tokens_atomically",
+                pipe.query_async(&mut connection).await,
+            ) {
+                return Err(error);
+            }
             Ok(())
         })
     }
 }
+
+#[cfg(test)]
+mod tests;

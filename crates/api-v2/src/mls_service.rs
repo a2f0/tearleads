@@ -170,3 +170,120 @@ impl MlsService for MlsServiceHandler {
         forward_unary!(self, request, acknowledge_welcome)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tearleads_api_v2_contracts::tearleads::v2::mls_service_server::MlsService;
+    use tonic::{Code, Request};
+
+    use super::MlsServiceHandler;
+    use crate::upstream_connect::UpstreamConnectClientFactory;
+
+    fn invalid_handler() -> MlsServiceHandler {
+        MlsServiceHandler::with_upstream(UpstreamConnectClientFactory::from_url(
+            "not-a-valid-upstream-url".to_string(),
+        ))
+    }
+
+    async fn assert_internal<T: std::fmt::Debug>(
+        result: Result<tonic::Response<T>, tonic::Status>,
+    ) {
+        let status = result.expect_err("invalid upstream config should fail");
+        assert!(matches!(status.code(), Code::Internal | Code::Unknown));
+    }
+
+    #[tokio::test]
+    async fn delegated_methods_fail_fast_with_invalid_upstream_config() {
+        let handler = invalid_handler();
+
+        assert_internal(
+            handler
+                .upload_key_packages(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_my_key_packages(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_user_key_packages(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .delete_key_package(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(handler.create_group(Request::new(Default::default())).await).await;
+        assert_internal(handler.list_groups(Request::new(Default::default())).await).await;
+        assert_internal(handler.get_group(Request::new(Default::default())).await).await;
+        assert_internal(handler.update_group(Request::new(Default::default())).await).await;
+        assert_internal(handler.delete_group(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .add_group_member(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_group_members(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .remove_group_member(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .send_group_message(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_group_messages(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_group_state(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .upload_group_state(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_welcome_messages(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .acknowledge_welcome(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+    }
+
+    #[test]
+    fn constructors_and_default_are_usable() {
+        let _ = MlsServiceHandler::new();
+        let _ = MlsServiceHandler::default();
+    }
+}

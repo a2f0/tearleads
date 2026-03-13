@@ -36,10 +36,7 @@ impl AuthServiceConfig {
     /// Reads auth configuration from process environment variables.
     pub fn from_env() -> Self {
         Self::with_values(
-            env::var("JWT_SECRET")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty()),
+            normalize_env_value(env::var("JWT_SECRET")),
             parse_positive_ttl_env("ACCESS_TOKEN_TTL_SECONDS", DEFAULT_ACCESS_TOKEN_TTL_SECONDS),
             parse_positive_ttl_env(
                 "REFRESH_TOKEN_TTL_SECONDS",
@@ -48,5 +45,44 @@ impl AuthServiceConfig {
             parse_allowed_email_domains(),
             refresh_cookie_secure_from_env(),
         )
+    }
+}
+
+fn normalize_env_value(value: Result<String, env::VarError>) -> Option<String> {
+    value
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AuthServiceConfig, normalize_env_value};
+
+    #[test]
+    fn normalize_env_value_trims_and_filters_empty_values() {
+        assert_eq!(
+            normalize_env_value(Ok("  secret  ".to_string())),
+            Some("secret".to_string())
+        );
+        assert_eq!(normalize_env_value(Ok("   ".to_string())), None);
+        assert_eq!(
+            normalize_env_value(Err(std::env::VarError::NotPresent)),
+            None
+        );
+    }
+
+    #[test]
+    fn from_env_and_with_values_are_constructible() {
+        let _ = AuthServiceConfig::from_env();
+
+        let explicit = AuthServiceConfig::with_values(
+            Some("secret".to_string()),
+            10,
+            20,
+            vec!["example.com".to_string()],
+            true,
+        );
+        assert!(explicit.jwt_secret.is_some());
     }
 }

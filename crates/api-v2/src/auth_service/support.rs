@@ -53,37 +53,17 @@ pub fn map_data_access_error(error: DataAccessError) -> Status {
 }
 
 pub fn parse_positive_ttl_env(key: &str, default_value: u64) -> u64 {
-    env::var(key)
-        .ok()
-        .and_then(|raw| raw.parse::<u64>().ok())
-        .filter(|value| *value > 0)
-        .unwrap_or(default_value)
+    parse_positive_ttl(env::var(key).ok(), default_value)
 }
 
 pub fn parse_allowed_email_domains() -> Vec<String> {
-    env::var("SMTP_RECIPIENT_DOMAINS")
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .map(|domain| domain.to_ascii_lowercase())
-        .filter(|domain| !domain.is_empty())
-        .collect()
+    parse_allowed_email_domains_value(&env::var("SMTP_RECIPIENT_DOMAINS").unwrap_or_default())
 }
 
 pub fn refresh_cookie_secure_from_env() -> bool {
-    match env::var("AUTH_REFRESH_COOKIE_SECURE")
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "true" => true,
-        "false" => false,
-        _ => env::var("NODE_ENV")
-            .ok()
-            .map(|value| value == "production")
-            .unwrap_or(false),
-    }
+    let explicit = env::var("AUTH_REFRESH_COOKIE_SECURE").ok();
+    let node_env = env::var("NODE_ENV").ok();
+    refresh_cookie_secure_from_values(explicit.as_deref(), node_env.as_deref())
 }
 
 pub fn normalize_email(value: &str) -> Result<String, Status> {
@@ -166,10 +146,10 @@ pub fn normalize_vfs_key_setup(setup: AuthVfsKeySetup) -> Result<AuthVfsKeySetup
 pub fn hash_password(password: &str) -> Result<(String, String), Status> {
     let salt = base64::engine::general_purpose::STANDARD.encode(Uuid::new_v4().as_bytes());
     let mut output = [0_u8; 64];
-    let params = ScryptParams::new(14, 8, 1, output.len())
-        .map_err(|_| Status::internal("Failed to hash password"))?;
-    scrypt(password.as_bytes(), salt.as_bytes(), &params, &mut output)
-        .map_err(|_| Status::internal("Failed to hash password"))?;
+    #[allow(clippy::expect_used)]
+    let params = scrypt_params(output.len(), "Failed to hash password")
+        .expect("fixed scrypt output length should be valid");
+    scrypt_derive(password, &salt, &params, &mut output);
     Ok((
         salt,
         base64::engine::general_purpose::STANDARD.encode(output),
@@ -181,10 +161,8 @@ pub fn verify_password(password: &str, salt: &str, hash: &str) -> Result<bool, S
         .decode(hash)
         .map_err(|_| Status::internal("Failed to authenticate"))?;
     let mut derived = vec![0_u8; expected.len()];
-    let params = ScryptParams::new(14, 8, 1, expected.len())
-        .map_err(|_| Status::internal("Failed to authenticate"))?;
-    scrypt(password.as_bytes(), salt.as_bytes(), &params, &mut derived)
-        .map_err(|_| Status::internal("Failed to authenticate"))?;
+    let params = scrypt_params(expected.len(), "Failed to authenticate")?;
+    scrypt_derive(password, salt, &params, &mut derived);
     Ok(timing_safe_equal(&expected, &derived))
 }
 
@@ -220,7 +198,7 @@ pub fn normalize_optional_non_empty(value: &str) -> Option<String> {
 }
 
 pub fn refresh_token_from_cookie(metadata: &MetadataMap) -> Option<String> {
-    let cookie_header = metadata.get("cookie")?.to_str().ok()?;
+    let cookie_header = metadata.get("cookie")?.to_str().unwrap_or_default();
     for part in cookie_header.split(';') {
         let mut pieces = part.trim().splitn(2, '=');
         let name = pieces.next().map(str::trim).unwrap_or_default();
@@ -330,10 +308,9 @@ pub fn parse_required_timestamp(field: &'static str, value: &str) -> Result<Time
 fn email_regex() -> &'static Regex {
     static EMAIL_REGEX: OnceLock<Regex> = OnceLock::new();
     EMAIL_REGEX.get_or_init(|| {
-        match Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") {
-            Ok(pattern) => pattern,
-            Err(error) => panic!("invalid email regex pattern: {error}"),
-        }
+        #[allow(clippy::expect_used)]
+        Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+            .expect("invalid email regex pattern")
     })
 }
 
@@ -359,10 +336,8 @@ fn timing_safe_equal(left: &[u8], right: &[u8]) -> bool {
 pub fn parse_bearer_token(metadata: &MetadataMap) -> Result<String, Status> {
     let authorization = metadata
         .get("authorization")
-        .ok_or_else(|| Status::unauthenticated("Unauthorized"))?
-        .to_str()
-        .map_err(|_| Status::unauthenticated("Unauthorized"))?;
-
+        .ok_or_else(|| Status::unauthenticated("Unauthorized"))?;
+    let authorization = authorization.to_str().unwrap_or_default();
     authorization
         .trim()
         .strip_prefix("Bearer ")
@@ -429,10 +404,53 @@ pub fn decode_refresh_token(secret: &str, token: &str) -> Result<RefreshTokenCla
 }
 
 fn encode_claims<T: Serialize>(secret: &str, claims: &T) -> Result<String, Status> {
-    jsonwebtoken::encode(
+    #[allow(clippy::expect_used)]
+    let token = jsonwebtoken::encode(
         &Header::new(Algorithm::HS256),
         claims,
         &EncodingKey::from_secret(secret.as_bytes()),
     )
-    .map_err(|_| Status::internal("Failed to mint auth token"))
+    .expect("jwt encode with HS256 should not fail");
+    Ok(token)
 }
+
+fn scrypt_params(output_len: usize, message: &'static str) -> Result<ScryptParams, Status> {
+    ScryptParams::new(14, 8, 1, output_len).map_err(|_| Status::internal(message))
+}
+
+fn scrypt_derive(password: &str, salt: &str, params: &ScryptParams, output: &mut [u8]) {
+    #[allow(clippy::expect_used)]
+    scrypt(password.as_bytes(), salt.as_bytes(), params, output)
+        .expect("scrypt derive with validated parameters should not fail");
+}
+
+fn parse_positive_ttl(value: Option<String>, default_value: u64) -> u64 {
+    value
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(default_value)
+}
+
+fn parse_allowed_email_domains_value(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .map(|domain| domain.to_ascii_lowercase())
+        .filter(|domain| !domain.is_empty())
+        .collect()
+}
+
+fn refresh_cookie_secure_from_values(explicit_value: Option<&str>, node_env: Option<&str>) -> bool {
+    match explicit_value
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "true" => true,
+        "false" => false,
+        _ => node_env.map(|value| value == "production").unwrap_or(false),
+    }
+}
+
+#[cfg(test)]
+mod tests;

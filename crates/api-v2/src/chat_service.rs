@@ -52,10 +52,7 @@ pub struct ReqwestOpenRouterGateway {
 impl ReqwestOpenRouterGateway {
     /// Constructs gateway config from process environment.
     pub fn from_env() -> Self {
-        let api_key = env::var("OPENROUTER_API_KEY")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
+        let api_key = normalize_env_value(env::var("OPENROUTER_API_KEY"));
 
         Self {
             http_client: reqwest::Client::new(),
@@ -80,19 +77,11 @@ impl ChatCompletionGateway for ReqwestOpenRouterGateway {
                 );
             };
 
-            let request_body = match serde_json::to_vec(&json!({
+            let request_body = json!({
                 "model": model_id,
                 "messages": messages,
-            })) {
-                Ok(value) => value,
-                Err(error) => {
-                    tracing::error!("failed to serialize openrouter request payload: {error}");
-                    return OpenRouterChatCompletionResult::new(
-                        500,
-                        json!({ "error": "Failed to build OpenRouter request payload" }),
-                    );
-                }
-            };
+            })
+            .to_string();
 
             let response = match self
                 .http_client
@@ -393,7 +382,14 @@ fn error_message_from_payload(payload: &Value, fallback: String) -> String {
 }
 
 fn to_json_response_payload(payload: &Value) -> String {
-    serde_json::to_string(payload).unwrap_or_else(|_| String::from("{}"))
+    payload.to_string()
+}
+
+fn normalize_env_value(value: Result<String, env::VarError>) -> Option<String> {
+    value
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn connect_code_from_http_status(status: u16) -> Code {
@@ -412,3 +408,6 @@ fn connect_code_from_http_status(status: u16) -> Code {
         _ => Code::Unknown,
     }
 }
+
+#[cfg(test)]
+mod tests;
