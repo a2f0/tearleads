@@ -35,9 +35,8 @@ describe('vfs key onboarding', () => {
     expect(signingKey).toBeTruthy();
     expect(signingKey?.length).toBeGreaterThan(0);
     // Verify it's valid base64 by decoding
-    const signingKeyBytes = Uint8Array.from(
-      atob(signingKey ?? ''),
-      (c) => c.charCodeAt(0)
+    const signingKeyBytes = Uint8Array.from(atob(signingKey ?? ''), (c) =>
+      c.charCodeAt(0)
     );
     expect(signingKeyBytes.length).toBe(32);
   });
