@@ -19,35 +19,21 @@ const readStoredAuthMock = vi.fn(() => ({
 }));
 const getFeatureFlagValueMock = vi.fn(() => true);
 const registerMock = vi.fn();
-const {
-  getDatabaseMock,
-  mockGetInstanceChangeSnapshot,
-  selectLimitMock,
-  updateWhereMock
-} = vi.hoisted(() => {
-  const selectLimitMock = vi.fn();
-  const selectWhereMock = vi.fn(() => ({ limit: selectLimitMock }));
-  const selectFromMock = vi.fn(() => ({ where: selectWhereMock }));
-  const selectMock = vi.fn(() => ({ from: selectFromMock }));
-  const updateWhereMock = vi.fn();
-  const updateSetMock = vi.fn(() => ({ where: updateWhereMock }));
-  const updateMock = vi.fn(() => ({ set: updateSetMock }));
-  const getDatabaseMock = vi.fn(() => ({
-    select: selectMock,
-    update: updateMock
-  }));
-  const mockGetInstanceChangeSnapshot = vi.fn(() => ({
-    currentInstanceId: 'instance-1',
-    instanceEpoch: 1
-  }));
-
-  return {
-    getDatabaseMock,
-    mockGetInstanceChangeSnapshot,
-    selectLimitMock,
-    updateWhereMock
-  };
-});
+const selectLimitMock = vi.fn();
+const selectWhereMock = vi.fn(() => ({ limit: selectLimitMock }));
+const selectFromMock = vi.fn(() => ({ where: selectWhereMock }));
+const selectMock = vi.fn(() => ({ from: selectFromMock }));
+const updateWhereMock = vi.fn();
+const updateSetMock = vi.fn(() => ({ where: updateWhereMock }));
+const updateMock = vi.fn(() => ({ set: updateSetMock }));
+const getDatabaseMock = vi.fn(() => ({
+  select: selectMock,
+  update: updateMock
+}));
+const mockGetInstanceChangeSnapshot = vi.fn(() => ({
+  currentInstanceId: 'instance-1',
+  instanceEpoch: 1
+}));
 
 vi.mock('@/lib/authStorage', () => ({
   isLoggedIn: () => isLoggedInMock(),

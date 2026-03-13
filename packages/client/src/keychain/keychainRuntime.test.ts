@@ -1,33 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  getInstancesMock,
-  getInstanceMock,
-  deleteInstanceFromRegistryMock,
-  getKeyStatusForInstanceMock,
-  deleteSessionKeysForInstanceMock,
-  getKeyManagerForInstanceMock,
-  resetMock
-} = vi.hoisted(() => ({
-  getInstancesMock: vi.fn(),
-  getInstanceMock: vi.fn(),
-  deleteInstanceFromRegistryMock: vi.fn(),
-  getKeyStatusForInstanceMock: vi.fn(),
-  deleteSessionKeysForInstanceMock: vi.fn(),
-  getKeyManagerForInstanceMock: vi.fn(),
-  resetMock: vi.fn()
-}));
+const getInstancesMock = vi.fn();
+const getInstanceMock = vi.fn();
+const deleteInstanceFromRegistryMock = vi.fn();
+const getKeyStatusForInstanceMock = vi.fn();
+const deleteSessionKeysForInstanceMock = vi.fn();
+const getKeyManagerForInstanceMock = vi.fn();
+const resetMock = vi.fn();
 
 vi.mock('@/db/instanceRegistry', () => ({
-  getInstances: getInstancesMock,
-  getInstance: getInstanceMock,
-  deleteInstanceFromRegistry: deleteInstanceFromRegistryMock
+  getInstances: (...args: unknown[]) => getInstancesMock(...args),
+  getInstance: (...args: unknown[]) => getInstanceMock(...args),
+  deleteInstanceFromRegistry: (...args: unknown[]) =>
+    deleteInstanceFromRegistryMock(...args)
 }));
 
 vi.mock('@/db/crypto', () => ({
-  getKeyStatusForInstance: getKeyStatusForInstanceMock,
-  deleteSessionKeysForInstance: deleteSessionKeysForInstanceMock,
-  getKeyManagerForInstance: getKeyManagerForInstanceMock
+  getKeyStatusForInstance: (...args: unknown[]) =>
+    getKeyStatusForInstanceMock(...args),
+  deleteSessionKeysForInstance: (...args: unknown[]) =>
+    deleteSessionKeysForInstanceMock(...args),
+  getKeyManagerForInstance: (...args: unknown[]) =>
+    getKeyManagerForInstanceMock(...args)
 }));
 
 import { clientKeychainDependencies } from './keychainRuntime';

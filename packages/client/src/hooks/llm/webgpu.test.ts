@@ -1,27 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkWebGPUSupport, loadLocalModel } from './webgpu';
 
-const {
-  mockEmitChange,
-  mockSendRequest,
-  mockSetLoadCallbacks,
-  mockSetLoadingModelId,
-  mockStore,
-  mockGetWebGPUErrorInfo
-} = vi.hoisted(() => ({
-  mockEmitChange: vi.fn(),
-  mockSendRequest: vi.fn(),
-  mockSetLoadCallbacks: vi.fn(),
-  mockSetLoadingModelId: vi.fn(),
-  mockStore: {
-    isLoading: false,
-    error: null as string | null,
-    loadProgress: null as { text: string; progress: number } | null
-  },
-  mockGetWebGPUErrorInfo: vi.fn(() => ({
-    message: 'WebGPU unavailable.',
-    requirement: 'Use a WebGPU-capable browser.'
-  }))
+const mockEmitChange = vi.fn();
+const mockSendRequest = vi.fn();
+const mockSetLoadCallbacks = vi.fn();
+const mockSetLoadingModelId = vi.fn();
+const mockStore = {
+  isLoading: false,
+  error: null as string | null,
+  loadProgress: null as { text: string; progress: number } | null
+};
+const mockGetWebGPUErrorInfo = vi.fn(() => ({
+  message: 'WebGPU unavailable.',
+  requirement: 'Use a WebGPU-capable browser.'
 }));
 
 vi.mock('@/lib/utils', () => ({
@@ -33,7 +24,9 @@ vi.mock('./store', () => ({
   sendRequest: (...args: unknown[]) => mockSendRequest(...args),
   setLoadCallbacks: (...args: unknown[]) => mockSetLoadCallbacks(...args),
   setLoadingModelId: (...args: unknown[]) => mockSetLoadingModelId(...args),
-  store: mockStore
+  get store() {
+    return mockStore;
+  }
 }));
 
 describe('checkWebGPUSupport', () => {

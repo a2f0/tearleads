@@ -4,33 +4,30 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
 
-// Create hoisted mocks inline - cannot use imports in vi.mock() factories
-const hoistedMocks = vi.hoisted(() => {
-  let capturedProps: {
-    onItemOpen?: (item: VfsOpenItem) => void;
-    onUpload?: (folderId: string) => void;
-  } | null = null;
+let capturedProps: {
+  onItemOpen?: (item: VfsOpenItem) => void;
+  onUpload?: (folderId: string) => void;
+} | null = null;
 
-  return {
-    mockOpenWindow: vi.fn(),
-    mockRequestWindowOpen: vi.fn(),
-    mockResolveFileOpenTarget: vi.fn(),
-    mockResolvePlaylistType: vi.fn(),
-    mockHandleUpload: vi.fn(),
-    mockHandleFileInputChange: vi.fn(),
-    mockFileInputRef: { current: null },
-    mockUseDatabaseContext: vi.fn(),
-    getLatestProps: () => capturedProps,
-    setLatestProps: (
-      props: {
-        onItemOpen?: (item: VfsOpenItem) => void;
-        onUpload?: (folderId: string) => void;
-      } | null
-    ) => {
-      capturedProps = props;
-    }
-  };
-});
+const hoistedMocks = {
+  mockOpenWindow: vi.fn(),
+  mockRequestWindowOpen: vi.fn(),
+  mockResolveFileOpenTarget: vi.fn(),
+  mockResolvePlaylistType: vi.fn(),
+  mockHandleUpload: vi.fn(),
+  mockHandleFileInputChange: vi.fn(),
+  mockFileInputRef: { current: null },
+  mockUseDatabaseContext: vi.fn(),
+  getLatestProps: () => capturedProps,
+  setLatestProps: (
+    props: {
+      onItemOpen?: (item: VfsOpenItem) => void;
+      onUpload?: (folderId: string) => void;
+    } | null
+  ) => {
+    capturedProps = props;
+  }
+};
 
 // Mock database context
 vi.mock('@/db/hooks', () => ({

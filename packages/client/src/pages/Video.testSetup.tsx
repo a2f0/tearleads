@@ -3,8 +3,7 @@
  * This file exports mock functions and test data used across split test files.
  *
  * IMPORTANT: vi.mock() calls MUST stay inline in each test file.
- * Each test file should use vi.hoisted() to create its own mock references
- * that can be used in vi.mock() calls.
+ * Each test file defines its mock references at module scope.
  */
 import { vi } from 'vitest';
 
@@ -71,7 +70,7 @@ function createMockUpdateChain() {
 
 /**
  * Creates all mock functions needed for Video tests.
- * Each test file should call this in vi.hoisted() to get properly scoped mocks.
+ * Each test file should call this at module scope to get properly scoped mocks.
  */
 function createVideoMocks() {
   return {

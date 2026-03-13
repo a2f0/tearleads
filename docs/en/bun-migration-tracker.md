@@ -14,24 +14,24 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, app-backups, app-audio, app-keychain, app-admin, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
 
-## Compatibility Snapshot (2026-03-12)
+## Compatibility Snapshot (2026-03-13)
 
 - Packages with tests: 48
-- Bun-primary `test` scripts: 43
+- Bun-primary `test` scripts: 45
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary `test` scripts: 4
+- Vitest-primary `test` scripts: 2
 - High-risk compatibility API/pattern packages (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 2
+- `vi.hoisted` usage: 0 (remediated across all packages)
 
-## Remaining Vitest-Primary Decisions (2026-03-12)
+## Remaining Vitest-Primary Decisions (2026-03-13)
 
 These decisions are based on the current compatibility inventory plus recent Bun-primary validation slices merged on current `main`.
 
 | Package | Decision | Evidence | Revisit trigger |
 | --- | --- | --- | --- |
-| `@tearleads/client` | Keep `vitest-primary` | Highest remaining inventory footprint (`vi.hoisted`, `vi.importActual`, `import.meta.glob`) plus heavy jsdom usage across ~600 tests. | Revisit after shared adapter/codemod work materially reduces the remaining mock surface. |
-| `@tearleads/api` | Keep `vitest-primary` | Large env/module-mocking surface (`vi.hoisted`, `vi.importActual`, `vi.stubEnv`, `vi.resetModules`) across 150+ tests. | Revisit after shared server-side mock/env adapters land. |
+| `@tearleads/client` | Keep `vitest-primary` (coverage) | `vi.hoisted` fully remediated; remaining footprint is `vi.importActual` (155), `import.meta.glob` (1), `vi.resetModules` (1) plus heavy jsdom usage across ~600 tests. Risk score dropped 17→12. | Revisit after shared adapter/codemod work materially reduces the remaining `vi.importActual` surface. |
 | `@tearleads/api-client` | Keep `vitest-primary` | Compatibility blockers are largely remediated, but the package remains jsdom-heavy with Connect/MSW route matrix sensitivity. | Revisit after stabilization work on Connect/MSW-heavy suites and a focused Bun pilot for read-only clients. |
-| `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only `vi.mocked`/matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
+| `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
 
 ## Merged Slices
 
@@ -159,6 +159,7 @@ These decisions are based on the current compatibility inventory plus recent Bun
 | [#3257](https://github.com/a2f0/tearleads/pull/3257) | Client window-manager `importOriginal` remediation bundle |
 | [#3258](https://github.com/a2f0/tearleads/pull/3258) | Client audio/video/tableRows `importOriginal` remediation bundle |
 | [#3260](https://github.com/a2f0/tearleads/pull/3260) | Client remaining `vi.mock(importOriginal)` remediation bundle |
+| [#3305](https://github.com/a2f0/tearleads/pull/3305) | Client `vi.hoisted` final remediation bundle |
 
 ## Node Pilot Package Status
 
@@ -178,5 +179,5 @@ These decisions are based on the current compatibility inventory plus recent Bun
 ## Next Milestones
 
 1. Finish remaining pnpm-coupled cleanup and deprecate transitional-only paths once parity is proven.
-2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) and the recorded package decisions above to drive shared adapters/codemods for the remaining high-risk suites (`vi.hoisted`, `vi.importActual`, `import.meta.glob`, `vi.stubGlobal`, native SQLite bindings).
+2. Use [bun-compatibility-inventory.md](./bun-compatibility-inventory.md) and the recorded package decisions above to drive shared adapters/codemods for the remaining high-risk suites (`vi.importActual`, `import.meta.glob`, `vi.stubGlobal`, native SQLite bindings).
 3. Re-open Bun-primary promotion only when a remaining Vitest-primary package crosses its documented revisit trigger rather than forcing another broad pilot.

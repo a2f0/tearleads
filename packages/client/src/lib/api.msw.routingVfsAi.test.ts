@@ -16,9 +16,7 @@ vi.mock('@/db/analytics', () => ({
   logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
 }));
 
-const { authState } = vi.hoisted(() => ({
-  authState: { token: '' }
-}));
+const authState = { token: '' };
 
 vi.mock('@tearleads/api-client/authStorage', async () => {
   const actual = await vi.importActual<

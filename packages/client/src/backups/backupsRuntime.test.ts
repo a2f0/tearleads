@@ -1,81 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  getCurrentInstanceIdMock,
-  getDatabaseAdapterMock,
-  createBackupMock,
-  estimateBackupSizeMock,
-  restoreBackupMock,
-  getActiveInstanceMock,
-  getActiveInstanceIdMock,
-  emitInstanceChangeMock,
-  saveFileMock,
-  isBackupStorageSupportedMock,
-  saveBackupToStorageMock,
-  isFileStorageInitializedMock,
-  getFileStorageForInstanceMock,
-  getKeyManagerMock,
-  initializeFileStorageMock
-} = vi.hoisted(() => ({
-  getCurrentInstanceIdMock: vi.fn(),
-  getDatabaseAdapterMock: vi.fn(),
-  createBackupMock: vi.fn(),
-  estimateBackupSizeMock: vi.fn(),
-  restoreBackupMock: vi.fn(),
-  getActiveInstanceMock: vi.fn(),
-  getActiveInstanceIdMock: vi.fn(),
-  emitInstanceChangeMock: vi.fn(),
-  saveFileMock: vi.fn(),
-  isBackupStorageSupportedMock: vi.fn(),
-  saveBackupToStorageMock: vi.fn(),
-  isFileStorageInitializedMock: vi.fn(),
-  getFileStorageForInstanceMock: vi.fn(),
-  getKeyManagerMock: vi.fn(),
-  initializeFileStorageMock: vi.fn()
-}));
+const getCurrentInstanceIdMock = vi.fn();
+const getDatabaseAdapterMock = vi.fn();
+const createBackupMock = vi.fn();
+const estimateBackupSizeMock = vi.fn();
+const restoreBackupMock = vi.fn();
+const getActiveInstanceMock = vi.fn();
+const getActiveInstanceIdMock = vi.fn();
+const emitInstanceChangeMock = vi.fn();
+const saveFileMock = vi.fn();
+const isBackupStorageSupportedMock = vi.fn();
+const saveBackupToStorageMock = vi.fn();
+const isFileStorageInitializedMock = vi.fn();
+const getFileStorageForInstanceMock = vi.fn();
+const getKeyManagerMock = vi.fn();
+const initializeFileStorageMock = vi.fn();
 
 vi.mock('@/db', () => ({
-  getCurrentInstanceId: getCurrentInstanceIdMock,
-  getDatabaseAdapter: getDatabaseAdapterMock
+  getCurrentInstanceId: (...args: unknown[]) =>
+    getCurrentInstanceIdMock(...args),
+  getDatabaseAdapter: (...args: unknown[]) => getDatabaseAdapterMock(...args)
 }));
 
 vi.mock('@/db/backup', () => ({
-  createBackup: createBackupMock,
-  estimateBackupSize: estimateBackupSizeMock,
+  createBackup: (...args: unknown[]) => createBackupMock(...args),
+  estimateBackupSize: (...args: unknown[]) => estimateBackupSizeMock(...args),
   getBackupInfo: vi.fn(),
-  restoreBackup: restoreBackupMock
+  restoreBackup: (...args: unknown[]) => restoreBackupMock(...args)
 }));
 
 vi.mock('@/db/crypto', () => ({
-  getKeyManager: getKeyManagerMock
+  getKeyManager: (...args: unknown[]) => getKeyManagerMock(...args)
 }));
 
 vi.mock('@/db/instanceRegistry', () => ({
-  getActiveInstance: getActiveInstanceMock,
-  getActiveInstanceId: getActiveInstanceIdMock
+  getActiveInstance: (...args: unknown[]) => getActiveInstanceMock(...args),
+  getActiveInstanceId: (...args: unknown[]) => getActiveInstanceIdMock(...args)
 }));
 
 vi.mock('@/hooks/app', () => ({
-  emitInstanceChange: emitInstanceChangeMock
+  emitInstanceChange: (...args: unknown[]) => emitInstanceChangeMock(...args)
 }));
 
 vi.mock('@/lib/fileUtils', () => ({
-  saveFile: saveFileMock
+  saveFile: (...args: unknown[]) => saveFileMock(...args)
 }));
 
 vi.mock('@/storage/backupStorage', () => ({
   deleteBackupFromStorage: vi.fn(),
   getBackupStorageUsed: vi.fn(),
-  isBackupStorageSupported: isBackupStorageSupportedMock,
+  isBackupStorageSupported: (...args: unknown[]) =>
+    isBackupStorageSupportedMock(...args),
   listStoredBackups: vi.fn(),
   readBackupFromStorage: vi.fn(),
-  saveBackupToStorage: saveBackupToStorageMock
+  saveBackupToStorage: (...args: unknown[]) => saveBackupToStorageMock(...args)
 }));
 
 vi.mock('@/storage/opfs', () => ({
-  getFileStorageForInstance: getFileStorageForInstanceMock,
-  initializeFileStorage: initializeFileStorageMock,
-  isFileStorageInitialized: isFileStorageInitializedMock
+  getFileStorageForInstance: (...args: unknown[]) =>
+    getFileStorageForInstanceMock(...args),
+  initializeFileStorage: (...args: unknown[]) =>
+    initializeFileStorageMock(...args),
+  isFileStorageInitialized: (...args: unknown[]) =>
+    isFileStorageInitializedMock(...args)
 }));
 
 import { clientBackupsRuntime } from './backupsRuntime';
