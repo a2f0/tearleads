@@ -61,14 +61,11 @@ const BYTEA_OID = 17;
 
 function serializeBytea(value: unknown): string {
   if (ArrayBuffer.isView(value)) {
-    return '\\x' + Buffer.from(
-      value.buffer,
-      value.byteOffset,
-      value.byteLength
-    ).toString('hex');
+    const buf = Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+    return `\\x${buf.toString('hex')}`;
   }
   if (typeof value === 'string') {
-    return '\\x' + Buffer.from(value, 'utf8').toString('hex');
+    return `\\x${Buffer.from(value, 'utf8').toString('hex')}`;
   }
   throw new Error('Invalid input for bytea type');
 }
