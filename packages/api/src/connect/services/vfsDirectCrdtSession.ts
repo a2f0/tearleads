@@ -10,6 +10,7 @@ import {
   encodeVfsSyncCursor,
   mapVfsCrdtSyncRows,
   parseVfsCrdtLastReconciledWriteIds,
+  type VfsBloomFilter,
   type VfsCrdtSyncDbRow,
   type VfsSyncCursor
 } from '@tearleads/vfs-sync/vfs';
@@ -22,10 +23,19 @@ import {
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
+import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
 import {
   type ParsedPushOperation,
   parsePushPayload
 } from './vfsDirectCrdtPushParse.js';
+import {
+  createRuntimeBloomFilter,
+  mergeLastReconciledWriteIds,
+  parseBloomFilter,
+  parseLimit,
+  parseOptionalRootId,
+  shouldPruneSessionRow
+} from './vfsDirectCrdtSessionHelpers.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
@@ -35,12 +45,15 @@ import {
 import { isRecord } from './vfsDirectJson.js';
 
 interface RunCrdtSessionRequest {
-  organizationId: string;
-  clientId: string;
+  organizationId?: string;
+  organizationIdBytes?: unknown;
+  clientId?: string;
+  clientIdBytes?: unknown;
   operations: unknown[];
   cursor: string;
   limit: number;
   rootId?: string | null;
+  rootIdBytes?: unknown;
   lastReconciledWriteIds?: Record<string, number>;
   bloomFilter?: {
     data: string;
@@ -64,6 +77,7 @@ interface ParsedSessionPayload {
   rootId: string | null;
   lastReconciledWriteIds: Record<string, number>;
   bloomFilter: VfsSyncBloomFilter | null;
+  runtimeBloomFilter: VfsBloomFilter | null;
   version: number;
 }
 
@@ -71,56 +85,6 @@ export interface RunCrdtSessionDirectResponse {
   push: VfsCrdtSyncSessionResponse['push'];
   pull: VfsCrdtSyncProtoResponse;
   reconcile: VfsCrdtSyncSessionResponse['reconcile'];
-}
-
-function parseLimit(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (Number.isInteger(value) && value >= 1 && value <= 500) {
-      return value;
-    }
-    return null;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 500) {
-      return parsed;
-    }
-  }
-
-  return null;
-}
-
-function parseOptionalRootId(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function mergeLastReconciledWriteIds(
-  ...sources: Record<string, number>[]
-): Record<string, number> {
-  const merged = new Map<string, number>();
-
-  for (const source of sources) {
-    for (const [replicaId, writeId] of Object.entries(source)) {
-      const existing = merged.get(replicaId) ?? 0;
-      if (writeId > existing) {
-        merged.set(replicaId, writeId);
-      }
-    }
-  }
-
-  const sortedEntries = Array.from(merged.entries()).sort((left, right) =>
-    left[0].localeCompare(right[0])
-  );
-  return Object.fromEntries(sortedEntries);
 }
 
 function toScopedCrdtClientId(clientId: string): string {
@@ -142,6 +106,7 @@ function parseSessionPayload(
     : [];
   const parsedPushPayload = parsePushPayload({
     clientId: body['clientId'],
+    clientIdBytes: body['clientIdBytes'],
     operations
   });
   if (!parsedPushPayload.ok) {
@@ -181,6 +146,17 @@ function parseSessionPayload(
       error: parsedLastWriteIds.error
     };
   }
+  const parsedBloomFilter = parseBloomFilter(body['bloomFilter']);
+  if (!parsedBloomFilter.ok) {
+    return parsedBloomFilter;
+  }
+  const runtimeBloomFilter = createRuntimeBloomFilter(parsedBloomFilter.value);
+  if (parsedBloomFilter.value && !runtimeBloomFilter) {
+    return {
+      ok: false,
+      error: 'bloomFilter payload is invalid for the declared capacity/errorRate'
+    };
+  }
 
   return {
     ok: true,
@@ -189,9 +165,10 @@ function parseSessionPayload(
       parsedOperations: parsedPushPayload.value.operations,
       cursor: decodedCursor,
       limit,
-      rootId: parseOptionalRootId(body['rootId']),
+      rootId: parseOptionalRootId(body['rootId'], body['rootIdBytes']),
       lastReconciledWriteIds: parsedLastWriteIds.value,
-      bloomFilter: (body['bloomFilter'] as VfsSyncBloomFilter) ?? null,
+      bloomFilter: parsedBloomFilter.value,
+      runtimeBloomFilter,
       version: typeof body['version'] === 'number' ? body['version'] : 1
     }
   };
@@ -209,26 +186,21 @@ export async function runCrdtSessionDirect(
   request: RunCrdtSessionRequest,
   context: { requestHeader: Headers }
 ): Promise<RunCrdtSessionDirectResponse> {
-  const parsedPayload = parseSessionPayload({
-    clientId: request.clientId,
-    operations: request.operations,
-    cursor: request.cursor,
-    limit: request.limit,
-    rootId: request.rootId,
-    lastReconciledWriteIds: request.lastReconciledWriteIds,
-    bloomFilter: request.bloomFilter,
-    version: request.version
-  });
+  const parsedPayload = parseSessionPayload(request);
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
+  const declaredOrganizationId = parseIdentifierWithCompactFallback(
+    request.organizationId,
+    request.organizationIdBytes
+  );
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('RunCrdtSession'),
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
-      declaredOrganizationId: request.organizationId
+      declaredOrganizationId
     }
   );
 
@@ -262,12 +234,31 @@ export async function runCrdtSessionDirect(
       client,
       claims.sub
     );
+    const serverLastReconciledWriteIds =
+      toLastReconciledWriteIds(replicaWriteIdsRows);
 
-    const pullResponse = mapVfsCrdtSyncRows(
+    const rawPullResponse = mapVfsCrdtSyncRows(
       pullRows.rows,
       parsedPayload.value.limit,
-      toLastReconciledWriteIds(replicaWriteIdsRows)
+      serverLastReconciledWriteIds
     );
+    const pageRows = pullRows.rows.slice(0, parsedPayload.value.limit);
+    const prunedItems = rawPullResponse.items.filter((item, index) => {
+      const row = pageRows[index];
+      if (!row) {
+        return true;
+      }
+
+      return !shouldPruneSessionRow(row, {
+        runtimeBloomFilter: parsedPayload.value.runtimeBloomFilter,
+        lastReconciledWriteIds: parsedPayload.value.lastReconciledWriteIds
+      });
+    });
+    const pullResponse = {
+      ...rawPullResponse,
+      items: prunedItems,
+      bloomFilter: parsedPayload.value.bloomFilter ?? undefined
+    };
 
     const nextCursor = pullResponse.nextCursor
       ? decodeVfsSyncCursor(pullResponse.nextCursor)

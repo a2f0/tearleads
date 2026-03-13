@@ -9,11 +9,14 @@ import { invalidateReplicaWriteIdRowsForUser } from '../../lib/vfsCrdtReplicaWri
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
+import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
 import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 
 interface PushCrdtOpsRequest {
-  organizationId: string;
-  clientId: string;
+  organizationId?: string;
+  organizationIdBytes?: unknown;
+  clientId?: string;
+  clientIdBytes?: unknown;
   operations: unknown[];
 }
 
@@ -29,20 +32,21 @@ export async function pushCrdtOpsDirect(
   request: PushCrdtOpsRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtPushResponse> {
-  const parsedPayload = parsePushPayload({
-    clientId: request.clientId,
-    operations: request.operations
-  });
+  const parsedPayload = parsePushPayload(request);
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
+  const declaredOrganizationId = parseIdentifierWithCompactFallback(
+    request.organizationId,
+    request.organizationIdBytes
+  );
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('PushCrdtOps'),
     context.requestHeader,
     {
       requireDeclaredOrganization: true,
-      declaredOrganizationId: request.organizationId
+      declaredOrganizationId
     }
   );
 

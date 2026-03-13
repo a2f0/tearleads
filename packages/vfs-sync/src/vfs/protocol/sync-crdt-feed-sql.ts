@@ -3,6 +3,8 @@ export const VFS_CRDT_SYNC_SQL = `
         SELECT
           ops.id AS op_id,
           ops.item_id,
+          ops.replica_id,
+          ops.write_id,
           ops.op_type,
           ops.principal_type,
           ops.principal_id,
@@ -40,6 +42,8 @@ export const VFS_CRDT_SYNC_SQL = `
       SELECT
         op_id,
         item_id,
+        replica_id,
+        write_id,
         op_type,
         principal_type,
         principal_id,

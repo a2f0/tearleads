@@ -27,6 +27,10 @@ function buildValidLinkAddOperation(): Record<string, unknown> {
   };
 }
 
+function toBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 describe('vfsDirectCrdtPushParse', () => {
   describe('parsePushPayload', () => {
     it('rejects non-record payloads', () => {
@@ -202,6 +206,47 @@ describe('vfsDirectCrdtPushParse', () => {
         opId: 'invalid-0'
       });
       expect(result.value.operations[1]?.status).toBe('parsed');
+    });
+
+    it('parses compact request identifiers, enums, and timestamps', () => {
+      const result = parsePushPayload({
+        clientIdBytes: toBase64('client-1'),
+        operations: [
+          {
+            opIdBytes: toBase64('op-compact-1'),
+            opTypeEnum: 'VFS_CRDT_OP_TYPE_ACL_ADD',
+            itemIdBytes: toBase64('item-compact-1'),
+            replicaIdBytes: toBase64('client-1'),
+            writeIdU64: '3',
+            occurredAtMs: '1760572800000',
+            principalTypeEnum: 1,
+            principalIdBytes: toBase64('user-compact-1'),
+            accessLevelEnum: 1
+          }
+        ]
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error('Expected parsePushPayload to succeed');
+      }
+
+      expect(result.value.clientId).toBe('client-1');
+      expect(result.value.operations[0]).toEqual({
+        status: 'parsed',
+        opId: 'op-compact-1',
+        operation: {
+          opId: 'op-compact-1',
+          opType: 'acl_add',
+          itemId: 'item-compact-1',
+          replicaId: 'client-1',
+          writeId: 3,
+          occurredAt: '2025-10-16T00:00:00.000Z',
+          principalType: 'user',
+          principalId: 'user-compact-1',
+          accessLevel: 'read'
+        }
+      });
     });
   });
 });
