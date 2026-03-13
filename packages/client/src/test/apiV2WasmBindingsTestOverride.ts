@@ -13,6 +13,23 @@ const normalizeConnectBaseUrl = (apiBaseUrl: string): string => {
   return `${normalizedBaseUrl}/connect`;
 };
 
+const normalizeBearerToken = (bearerToken?: string | null): string | null => {
+  if (typeof bearerToken !== 'string') {
+    return null;
+  }
+
+  const trimmed = bearerToken.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (/^Bearer\s+/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `Bearer ${trimmed}`;
+};
+
 const mockedApiV2ClientWasmModule = {
   normalizeConnectBaseUrl,
   resolveRpcPath: (serviceName: string, methodName: string) =>
@@ -29,11 +46,15 @@ const mockedApiV2ClientWasmModule = {
     organizationId?: string | null
   ) => {
     const headers: Record<string, string> = {};
-    if (typeof bearerToken === 'string' && bearerToken.length > 0) {
-      headers['authorization'] = bearerToken;
+    const normalizedBearerToken = normalizeBearerToken(bearerToken);
+    if (normalizedBearerToken !== null) {
+      headers['authorization'] = normalizedBearerToken;
     }
-    if (typeof organizationId === 'string' && organizationId.length > 0) {
-      headers['x-organization-id'] = organizationId;
+    if (
+      typeof organizationId === 'string' &&
+      organizationId.trim().length > 0
+    ) {
+      headers['x-tearleads-organization-id'] = organizationId.trim();
     }
     return { headers };
   }

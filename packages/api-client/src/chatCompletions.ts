@@ -1,7 +1,11 @@
 import { type CallOptions, createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { ChatService } from '@tearleads/shared/gen/tearleads/v2/chat_pb';
-import { normalizeBearerToken, toConnectBaseUrl } from './connectUtils';
+import {
+  buildApiV2RequestHeaders,
+  normalizeApiV2ConnectBaseUrl
+} from './apiV2ClientWasm';
+import { normalizeBearerToken } from './connectUtils';
 
 type ChatCompletionsCallOptions = Pick<CallOptions, 'headers' | 'signal'>;
 
@@ -39,18 +43,14 @@ function createChatCompletionsClient(
 
 function toCallOptions(
   signal: AbortSignal | undefined,
-  token: string | null
+  headers: Record<string, string>
 ): ChatCompletionsCallOptions {
-  if (!signal && !token) {
+  if (!signal && Object.keys(headers).length === 0) {
     return {};
   }
 
-  const headers: HeadersInit | undefined = token
-    ? { Authorization: `Bearer ${token}` }
-    : undefined;
-
   return {
-    ...(headers ? { headers } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
     ...(signal ? { signal } : {})
   };
 }
@@ -76,16 +76,20 @@ function parseResponseJson(responseJson: string): unknown {
 export async function openChatCompletions(
   options: OpenChatCompletionsOptions
 ): Promise<unknown> {
-  const connectBaseUrl = toConnectBaseUrl(options.apiBaseUrl);
+  const [connectBaseUrl, headers] = await Promise.all([
+    normalizeApiV2ConnectBaseUrl(options.apiBaseUrl),
+    buildApiV2RequestHeaders({
+      bearerToken: normalizeBearerToken(options.token)
+    })
+  ]);
   const createClient = options.createClient ?? createChatCompletionsClient;
-  const token = normalizeBearerToken(options.token);
   const client = createClient(connectBaseUrl);
 
   const response = await client.postCompletions(
     {
       json: toRequestJson(options.body)
     },
-    toCallOptions(options.signal, token)
+    toCallOptions(options.signal, headers)
   );
 
   return parseResponseJson(response.json);
