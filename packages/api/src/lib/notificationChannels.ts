@@ -22,9 +22,9 @@ async function getAuthorizedGroupIdsForUser(
        INNER JOIN mls_groups g ON g.id = m.group_id
        INNER JOIN user_organizations uo
                ON uo.organization_id = g.organization_id
-              AND uo.user_id = $2
-      WHERE m.group_id = ANY($1::text[])
-        AND m.user_id = $2
+              AND uo.user_id = $2::uuid
+      WHERE m.group_id = ANY($1::uuid[])
+        AND m.user_id = $2::uuid
         AND m.removed_at IS NULL`,
     [groupIds, userId]
   );
@@ -50,22 +50,22 @@ async function filterAuthorizedVfsContainerIds(
   const result = await pool.query<{ item_id: string }>(
     `
     WITH principals AS (
-      SELECT 'user'::text AS principal_type, $1::text AS principal_id
+      SELECT 'user'::text AS principal_type, $1::uuid AS principal_id
       UNION ALL
       SELECT 'group'::text AS principal_type, ug.group_id AS principal_id
       FROM user_groups ug
-      WHERE ug.user_id = $1
+      WHERE ug.user_id = $1::uuid
       UNION ALL
       SELECT 'organization'::text AS principal_type, uo.organization_id AS principal_id
       FROM user_organizations uo
-      WHERE uo.user_id = $1
+      WHERE uo.user_id = $1::uuid
     )
     SELECT DISTINCT entry.item_id
     FROM vfs_acl_entries entry
     INNER JOIN principals principal
       ON principal.principal_type = entry.principal_type
      AND principal.principal_id = entry.principal_id
-    WHERE entry.item_id = ANY($2::text[])
+    WHERE entry.item_id = ANY($2::uuid[])
       AND entry.revoked_at IS NULL
       AND (entry.expires_at IS NULL OR entry.expires_at > NOW())
     `,
