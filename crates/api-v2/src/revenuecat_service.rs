@@ -50,6 +50,8 @@ impl RevenuecatService for RevenuecatServiceHandler {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tearleads_api_v2_contracts::tearleads::v2::revenuecat_service_server::RevenuecatService;
     use tonic::{Code, Request};
 

@@ -104,6 +104,8 @@ impl VfsSharesService for VfsSharesServiceHandler {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tearleads_api_v2_contracts::tearleads::v2::vfs_shares_service_server::VfsSharesService;
     use tonic::{Code, Request};
 

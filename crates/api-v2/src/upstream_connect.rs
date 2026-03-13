@@ -58,6 +58,8 @@ impl UpstreamConnectClientFactory {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tonic::Code;
 
     use super::UpstreamConnectClientFactory;

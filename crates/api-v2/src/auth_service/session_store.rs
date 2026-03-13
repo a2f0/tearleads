@@ -151,28 +151,22 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
             })
             .to_string();
 
-            if let Err(error) = Self::map_action::<()>(
+            let _: () = Self::map_action::<()>(
                 "set_ex session",
                 connection.set_ex(session_key, payload, ttl_seconds).await,
-            ) {
-                return Err(error);
-            }
-            if let Err(error) = Self::map_action::<usize>(
+            )?;
+            let _: usize = Self::map_action::<usize>(
                 "sadd user_sessions",
                 connection
                     .sadd(user_sessions_key.clone(), &session_id)
                     .await,
-            ) {
-                return Err(error);
-            }
-            if let Err(error) = Self::map_action::<bool>(
+            )?;
+            let _: bool = Self::map_action::<bool>(
                 "expire user_sessions",
                 connection
                     .expire(user_sessions_key, ttl_seconds as i64)
                     .await,
-            ) {
-                return Err(error);
-            }
+            )?;
 
             Ok(())
         })
@@ -230,21 +224,17 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
 
             for session_id in session_ids {
                 let Some(session) = self.get_session(&session_id).await? else {
-                    if let Err(error) = Self::map_action::<usize>(
+                    let _: usize = Self::map_action::<usize>(
                         "srem stale session",
                         connection.srem(&user_sessions_key, &session_id).await,
-                    ) {
-                        return Err(error);
-                    }
+                    )?;
                     continue;
                 };
                 if session.user_id != user_id {
-                    if let Err(error) = Self::map_action::<usize>(
+                    let _: usize = Self::map_action::<usize>(
                         "srem foreign session",
                         connection.srem(&user_sessions_key, &session_id).await,
-                    ) {
-                        return Err(error);
-                    }
+                    )?;
                     continue;
                 }
                 sessions.push(session);
@@ -270,20 +260,16 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 return Ok(false);
             }
 
-            if let Err(error) = Self::map_action::<usize>(
+            let _: usize = Self::map_action::<usize>(
                 "del session",
                 connection.del(Self::session_key(&session_id)).await,
-            ) {
-                return Err(error);
-            }
-            if let Err(error) = Self::map_action::<usize>(
+            )?;
+            let _: usize = Self::map_action::<usize>(
                 "srem user_sessions",
                 connection
                     .srem(Self::user_sessions_key(&user_id), &session_id)
                     .await,
-            ) {
-                return Err(error);
-            }
+            )?;
             Ok(true)
         })
     }
@@ -306,14 +292,12 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 "createdAt": Utc::now().to_rfc3339(),
             })
             .to_string();
-            if let Err(error) = Self::map_action::<()>(
+            let _: () = Self::map_action::<()>(
                 "set_ex refresh_token",
                 connection
                     .set_ex(Self::refresh_token_key(&token_id), payload, ttl_seconds)
                     .await,
-            ) {
-                return Err(error);
-            }
+            )?;
             Ok(())
         })
     }
@@ -355,12 +339,10 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
         let token_id = token_id.to_string();
         Box::pin(async move {
             let mut connection = self.connection().await?;
-            if let Err(error) = Self::map_action::<usize>(
+            let _: usize = Self::map_action::<usize>(
                 "del refresh_token",
                 connection.del(Self::refresh_token_key(&token_id)).await,
-            ) {
-                return Err(error);
-            }
+            )?;
             Ok(())
         })
     }
@@ -420,12 +402,10 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 .arg(input.refresh_ttl_seconds)
                 .ignore();
 
-            if let Err(error) = Self::map_action::<()>(
+            let _: () = Self::map_action::<()>(
                 "rotate_tokens_atomically",
                 pipe.query_async(&mut connection).await,
-            ) {
-                return Err(error);
-            }
+            )?;
             Ok(())
         })
     }

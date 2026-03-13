@@ -51,6 +51,8 @@ impl NotificationService for NotificationServiceHandler {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tearleads_api_v2_contracts::tearleads::v2::notification_service_server::NotificationService;
     use tonic::{Code, Request};
 

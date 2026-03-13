@@ -173,6 +173,8 @@ impl MlsService for MlsServiceHandler {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
     use tearleads_api_v2_contracts::tearleads::v2::mls_service_server::MlsService;
     use tonic::{Code, Request};
 
