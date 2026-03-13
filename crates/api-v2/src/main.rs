@@ -29,9 +29,7 @@ fn build_app(origins: &str) -> axum::Router {
     use tearleads_data_access_postgres::PostgresAdminAdapter;
 
     if is_enabled_env_var(ADMIN_HARNESS_ENV_KEY) {
-        tracing::info!(
-            "{ADMIN_HARNESS_ENV_KEY} enabled — using static admin harness repositories"
-        );
+        tracing::info!("{ADMIN_HARNESS_ENV_KEY} enabled — using static admin harness repositories");
         return tearleads_api_v2::app_with_origins(origins);
     }
 
