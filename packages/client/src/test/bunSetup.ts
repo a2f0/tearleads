@@ -46,10 +46,7 @@ function preloadComplianceMarkdownModulesForBun(): void {
     return;
   }
 
-  if (
-    typeof Reflect.get(globalThis, COMPLIANCE_MARKDOWN_MODULES_GLOBAL) ===
-    'object'
-  ) {
+  if (Reflect.get(globalThis, COMPLIANCE_MARKDOWN_MODULES_GLOBAL) != null) {
     return;
   }
 

@@ -7,18 +7,7 @@ import {
 } from './connectRoutes';
 import { setTestEnv } from './test/env.js';
 
-vi.mock('./pingWasmImport', () => ({
-  importPingWasmModule: () =>
-    Promise.resolve({
-      v2_ping_path: () => '/v2/ping',
-      parse_v2_ping_value: (payload: unknown) => {
-        if (typeof payload !== 'object' || payload === null) {
-          throw new Error('Invalid v2 ping response payload');
-        }
-        return payload;
-      }
-    })
-}));
+vi.mock('./pingWasmImport');
 
 describe('api request context headers', () => {
   const originalFetch = global.fetch;

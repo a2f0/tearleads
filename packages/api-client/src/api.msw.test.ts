@@ -22,18 +22,7 @@ import {
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
-vi.mock('./pingWasmImport', () => ({
-  importPingWasmModule: () =>
-    Promise.resolve({
-      v2_ping_path: () => '/v2/ping',
-      parse_v2_ping_value: (payload: unknown) => {
-        if (typeof payload !== 'object' || payload === null) {
-          throw new Error('Invalid v2 ping response payload');
-        }
-        return payload;
-      }
-    })
-}));
+vi.mock('./pingWasmImport');
 
 const loadAuthStorage = async () => {
   const module = await import('./authStorage');
