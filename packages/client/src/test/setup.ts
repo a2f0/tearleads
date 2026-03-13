@@ -15,15 +15,11 @@ import type {
   TestContext
 } from '@tearleads/api-test-utils';
 
-const mswMod = isBun
-  ? undefined
-  : await import('@tearleads/msw/node');
+const mswMod = isBun ? undefined : await import('@tearleads/msw/node');
 const apiTestUtilsMod = isBun
   ? undefined
   : await import('@tearleads/api-test-utils');
-const testContextMod = isBun
-  ? undefined
-  : await import('./testContext.js');
+const testContextMod = isBun ? undefined : await import('./testContext.js');
 
 let testContext: TestContext | null = null;
 let apiV2Harness: ApiV2ServiceHarness | null = null;
@@ -97,7 +93,7 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   if (testContext) {
     return testContext;
   }
-  const { createTestContext, startApiV2ServiceHarness } = apiTestUtilsMod!;
+  const { createTestContext, startApiV2ServiceHarness } = apiTestUtilsMod ?? {};
   const [createdTestContext, harness] = await Promise.all([
     createTestContext(async () => {
       const api = await import('@tearleads/api');
@@ -107,7 +103,7 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   ]);
   testContext = createdTestContext;
   apiV2Harness = harness;
-  testContextMod!.setSharedTestContext(testContext);
+  testContextMod?.setSharedTestContext(testContext);
   return testContext;
 }
 
@@ -124,7 +120,7 @@ function configurePassthroughRoutes(ctx: TestContext): void {
           }
         ];
 
-  mswMod!.configureForExpressPassthrough(
+  mswMod?.configureForExpressPassthrough(
     'http://localhost',
     ctx.port,
     '/v1',
@@ -380,7 +376,7 @@ vi.mock('pdfjs-dist', () => {
 beforeAll(async () => {
   installApiV2WasmBindingsOverride();
   if (!isBun) {
-    mswMod!.server.listen({ onUnhandledRequest: 'warn' });
+    mswMod?.server.listen({ onUnhandledRequest: 'warn' });
   }
 });
 
@@ -398,23 +394,24 @@ afterEach(async () => {
   }
   cleanup();
   if (!isBun) {
-    mswMod!.server.resetHandlers();
+    mswMod?.server.resetHandlers();
     if (testContext) {
       configurePassthroughRoutes(testContext);
-      const usedApi = mswMod!.getRecordedApiRequests().length > 0;
-      const usedSharedContext = testContextMod!.wasSharedTestContextAccessed();
+      const usedApi = (mswMod?.getRecordedApiRequests().length ?? 0) > 0;
+      const usedSharedContext =
+        testContextMod?.wasSharedTestContextAccessed() ?? false;
       if (usedApi || usedSharedContext) {
         await testContext.resetState();
       }
     }
-    mswMod!.resetMockApiServerState();
-    testContextMod!.resetSharedTestContextAccessed();
+    mswMod?.resetMockApiServerState();
+    testContextMod?.resetSharedTestContextAccessed();
   }
 });
 
 afterAll(async () => {
   if (!isBun) {
-    mswMod!.server.close();
+    mswMod?.server.close();
     await apiV2Harness?.stop();
     apiV2Harness = null;
     await testContext?.teardown();
