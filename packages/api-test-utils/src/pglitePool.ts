@@ -51,6 +51,25 @@ function mapResult(raw: PgliteResult): QueryResult {
   };
 }
 
+/**
+ * PGlite bytea OID.  PGlite's built-in bytea serializer only accepts
+ * Uint8Array.  The real `pg` driver also accepts strings (which PostgreSQL
+ * casts to bytea via text-input rules) and Buffer.  Register a custom
+ * serializer at construction time so all query paths benefit.
+ */
+const BYTEA_OID = 17;
+
+function serializeBytea(value: unknown): string {
+  if (ArrayBuffer.isView(value)) {
+    const buf = Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+    return `\\x${buf.toString('hex')}`;
+  }
+  if (typeof value === 'string') {
+    return `\\x${Buffer.from(value, 'utf8').toString('hex')}`;
+  }
+  throw new Error('Invalid input for bytea type');
+}
+
 class PglitePoolClient extends EventEmitter {
   constructor(private readonly pglite: PGlite) {
     super();
@@ -105,7 +124,9 @@ export async function createPglitePool(): Promise<{
   /** Execute raw multi-statement SQL (bypasses prepared statement limitation) */
   exec: (sql: string) => Promise<void>;
 }> {
-  const pglite = new PGlite();
+  const pglite = new PGlite({
+    serializers: { [BYTEA_OID]: serializeBytea }
+  });
   const pool = new PglitePool(pglite) as unknown as PgPool;
   const exec = async (sql: string): Promise<void> => {
     await pglite.exec(sql);

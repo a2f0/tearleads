@@ -104,9 +104,9 @@ describe('api with msw vfs/ai query metadata', () => {
          openrouter_request_id,
          created_at
        ) VALUES
-         ('usage-1', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 12, 8, 20, 'req-1', '2024-01-10T00:00:00.000Z'),
-         ('usage-2', NULL, NULL, $1, $2, 'openai/gpt-4o', 6, 4, 10, 'req-2', '2024-01-05T00:00:00.000Z'),
-         ('usage-3', NULL, NULL, $1, $2, 'openai/gpt-4.1', 7, 5, 12, 'req-3', '2024-02-10T00:00:00.000Z')`,
+         ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', NULL, NULL, $1, $2, 'openai/gpt-4o-mini', 12, 8, 20, 'req-1', '2024-01-10T00:00:00.000Z'),
+         ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', NULL, NULL, $1, $2, 'openai/gpt-4o', 6, 4, 10, 'req-2', '2024-01-05T00:00:00.000Z'),
+         ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', NULL, NULL, $1, $2, 'openai/gpt-4.1', 7, 5, 12, 'req-3', '2024-02-10T00:00:00.000Z')`,
       [seededState.userId, seededState.organizationId]
     );
 
