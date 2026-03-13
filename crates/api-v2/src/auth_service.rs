@@ -41,8 +41,10 @@ fn is_duplicate_email_registration_error(error: &DataAccessError) -> bool {
     }
 
     let normalized = error.message().trim().to_ascii_lowercase();
-    normalized.contains("email already registered")
-        || (normalized.contains("duplicate") && normalized.contains("email"))
+    let has_registered_phrase = normalized.contains("email already registered");
+    let has_duplicate_email_context =
+        normalized.contains("duplicate") && normalized.contains("email");
+    has_registered_phrase || has_duplicate_email_context
 }
 
 /// Trait-backed implementation of `tearleads.v2.AuthService`.
