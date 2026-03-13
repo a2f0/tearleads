@@ -124,20 +124,20 @@ fn filter_usage_rows(
 ) -> Vec<AiUsageRecord> {
     rows.into_iter()
         .filter(|row| {
-            if let Some(start) = start_date.as_deref() {
-                if row.created_at.as_str() < start {
-                    return false;
-                }
+            if let Some(start) = start_date.as_deref()
+                && row.created_at.as_str() < start
+            {
+                return false;
             }
-            if let Some(end) = end_date.as_deref() {
-                if row.created_at.as_str() >= end {
-                    return false;
-                }
+            if let Some(end) = end_date.as_deref()
+                && row.created_at.as_str() >= end
+            {
+                return false;
             }
-            if let Some(cursor) = cursor.as_deref() {
-                if row.created_at.as_str() >= cursor {
-                    return false;
-                }
+            if let Some(cursor) = cursor.as_deref()
+                && row.created_at.as_str() >= cursor
+            {
+                return false;
             }
             true
         })

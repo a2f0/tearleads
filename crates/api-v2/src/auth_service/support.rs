@@ -329,8 +329,12 @@ pub fn parse_required_timestamp(field: &'static str, value: &str) -> Result<Time
 
 fn email_regex() -> &'static Regex {
     static EMAIL_REGEX: OnceLock<Regex> = OnceLock::new();
-    EMAIL_REGEX
-        .get_or_init(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap())
+    EMAIL_REGEX.get_or_init(|| {
+        match Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") {
+            Ok(pattern) => pattern,
+            Err(error) => panic!("invalid email regex pattern: {error}"),
+        }
+    })
 }
 
 fn password_meets_complexity(password: &str) -> bool {

@@ -1,4 +1,5 @@
 //! Integration tests for the v2 billing service handler core.
+#![allow(clippy::expect_used)]
 
 use std::sync::{Arc, Mutex, MutexGuard};
 

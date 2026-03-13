@@ -31,6 +31,12 @@ impl RevenuecatServiceHandler {
     }
 }
 
+impl Default for RevenuecatServiceHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tonic::async_trait]
 impl RevenuecatService for RevenuecatServiceHandler {
     async fn handle_webhook(

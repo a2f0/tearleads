@@ -29,6 +29,12 @@ impl MlsServiceHandler {
     }
 }
 
+impl Default for MlsServiceHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 macro_rules! forward_unary {
     ($self:ident, $request:ident, $method:ident) => {{
         let mut client = $self.client()?;

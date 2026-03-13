@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
-tearleads-api-client-rs = { version = "0.1.0", path = "../api-client-rs" }
+tearleads-api-client-rs = { version = "0.1.0", path = "../api-client-rs", default-features = false }
 wasm-bindgen = "0.2.105"
 
 [package.metadata.cargo-machete]

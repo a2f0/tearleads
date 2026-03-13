@@ -1,4 +1,5 @@
 //! Integration tests for the v2 chat service handler core.
+#![allow(clippy::expect_used)]
 
 use std::{
     future::Future,
@@ -15,6 +16,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     ChatServicePostCompletionsRequest, chat_service_server::ChatService,
 };
 use tonic::{Code, Request};
+
+type GatewayCalls = Arc<Mutex<Vec<(String, Vec<Value>)>>>;
 
 #[derive(Debug, Clone)]
 struct FakeAuthorizer {
@@ -49,7 +52,7 @@ impl BillingRequestAuthorizer for FakeAuthorizer {
 #[derive(Debug, Clone)]
 struct FakeGateway {
     result: OpenRouterChatCompletionResult,
-    calls: Arc<Mutex<Vec<(String, Vec<Value>)>>>,
+    calls: GatewayCalls,
 }
 
 impl ChatCompletionGateway for FakeGateway {

@@ -30,6 +30,12 @@ impl NotificationServiceHandler {
     }
 }
 
+impl Default for NotificationServiceHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tonic::async_trait]
 impl NotificationService for NotificationServiceHandler {
     type SubscribeStream = Streaming<SubscribeResponse>;

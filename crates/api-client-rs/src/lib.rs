@@ -1,7 +1,9 @@
 //! Typed Rust client foundations for API v2.
 
+#[cfg(feature = "transport")]
 mod execution;
 
+#[cfg(feature = "transport")]
 pub use execution::{AdminRpcClient, ApiClientRpcError};
 /// Re-export generated v2 contract modules.
 pub use tearleads_api_v2_contracts::tearleads::v2;

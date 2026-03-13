@@ -1,4 +1,5 @@
 //! Integration tests for the v2 AI usage service handler core.
+#![allow(clippy::expect_used)]
 
 use std::{
     collections::BTreeMap,

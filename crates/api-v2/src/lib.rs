@@ -1,4 +1,5 @@
 //! API v2 router and handlers.
+#![allow(clippy::result_large_err)]
 
 mod admin_auth;
 mod admin_harness;

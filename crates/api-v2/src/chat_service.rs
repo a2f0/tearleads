@@ -157,6 +157,12 @@ impl ChatServiceHandler<ReqwestOpenRouterGateway, JwtSessionBillingAuthorizer> {
     }
 }
 
+impl Default for ChatServiceHandler<ReqwestOpenRouterGateway, JwtSessionBillingAuthorizer> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tonic::async_trait]
 impl<G, A> ChatService for ChatServiceHandler<G, A>
 where
