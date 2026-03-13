@@ -128,6 +128,85 @@ phase_external_client() {
   fail "$url unreachable after $CURL_RETRIES attempts"
 }
 
+phase_in_cluster_api_v2() {
+  echo ""
+  echo "Phase 4: In-cluster API v2 health check"
+
+  local api_v2_pod
+  api_v2_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api-v2 --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "$api_v2_pod" ]]; then
+    fail "no running API v2 pod found (label app=api-v2)"
+    return 1
+  fi
+
+  local local_port
+  local_port="$((35000 + RANDOM % 1000))"
+  local port_forward_log
+  port_forward_log="$(mktemp)"
+  kubectl -n "$NAMESPACE" port-forward "pod/$api_v2_pod" "${local_port}:5002" >"$port_forward_log" 2>&1 &
+  local port_forward_pid="$!"
+  sleep 2
+
+  local response=""
+  local ok=true
+  local deployment_env_names=""
+  deployment_env_names="$(kubectl -n "$NAMESPACE" get deployment api-v2 -o jsonpath='{range .spec.template.spec.containers[?(@.name=="api-v2")].env[*]}{.name}{"\n"}{end}' 2>/dev/null || true)"
+
+  if grep -qx 'API_V2_ENABLE_ADMIN_HARNESS' <<<"$deployment_env_names"; then
+    fail "api-v2 deployment enables API_V2_ENABLE_ADMIN_HARNESS" || ok=false
+  else
+    pass "api-v2 deployment does not enable API_V2_ENABLE_ADMIN_HARNESS"
+  fi
+
+  if response="$(curl -sf --max-time "$CURL_TIMEOUT" "http://127.0.0.1:${local_port}/v2/ping" 2>/dev/null)"; then
+    pass "API v2 pod $api_v2_pod responded to /v2/ping ($response)"
+  else
+    fail "API v2 pod $api_v2_pod did not respond to /v2/ping" || ok=false
+  fi
+
+  local admin_route_status=""
+  admin_route_status="$(curl -s -o /dev/null -w '%{http_code}' \
+    --max-time "$CURL_TIMEOUT" \
+    -X POST \
+    -H 'content-type: application/grpc-web+proto' \
+    -H 'x-grpc-web: 1' \
+    --data-binary '' \
+    "http://127.0.0.1:${local_port}/connect/tearleads.v2.AdminService/GetTables" 2>/dev/null || true)"
+
+  if [[ -n "$admin_route_status" && "$admin_route_status" == "200" ]]; then
+    pass "API v2 pod $api_v2_pod serves AdminService connect route (HTTP $admin_route_status)"
+  else
+    fail "API v2 pod $api_v2_pod missing AdminService connect route (HTTP $admin_route_status)" || ok=false
+  fi
+
+  kill "$port_forward_pid" >/dev/null 2>&1 || true
+  wait "$port_forward_pid" >/dev/null 2>&1 || true
+  rm -f "$port_forward_log"
+
+  $ok
+}
+
+phase_external_api_v2() {
+  echo ""
+  echo "Phase 5: External API v2 health check"
+
+  local url="https://api.$PROD_DOMAIN/v2/ping"
+  local attempt=1
+
+  while (( attempt <= CURL_RETRIES )); do
+    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
+      pass "$url reachable (attempt $attempt)"
+      return 0
+    fi
+    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
+    sleep "$CURL_RETRY_DELAY"
+    ((attempt++))
+  done
+
+  fail "$url unreachable after $CURL_RETRIES attempts"
+}
+
 require_kubeconfig_and_kubectl
 resolve_prod_domain
 
@@ -140,9 +219,11 @@ echo "  Kubeconfig: $KUBECONFIG"
 
 failures=0
 
-phase_in_cluster_api || failures=$((failures + 1))
-phase_external_api   || failures=$((failures + 1))
-phase_external_client || failures=$((failures + 1))
+phase_in_cluster_api    || failures=$((failures + 1))
+phase_external_api      || failures=$((failures + 1))
+phase_external_client   || failures=$((failures + 1))
+phase_in_cluster_api_v2 || failures=$((failures + 1))
+phase_external_api_v2   || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then
