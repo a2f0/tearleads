@@ -12,7 +12,7 @@ describe('WeightForm', () => {
   });
 
   it('renders all form fields', () => {
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     expect(screen.getByLabelText('Weight')).toBeInTheDocument();
     expect(screen.getByLabelText('Unit')).toBeInTheDocument();
@@ -24,7 +24,7 @@ describe('WeightForm', () => {
   });
 
   it('has accessible form label', () => {
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     expect(
       screen.getByRole('form', { name: 'Add weight reading form' })
@@ -33,7 +33,7 @@ describe('WeightForm', () => {
 
   it('shows validation error when weight is empty', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));
 
@@ -43,7 +43,7 @@ describe('WeightForm', () => {
 
   it('shows validation error for invalid weight', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     const weightInput = screen.getByLabelText('Weight');
     await user.type(weightInput, '0');
@@ -57,7 +57,7 @@ describe('WeightForm', () => {
 
   it('shows validation error when date is cleared', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     const dateInput = screen.getByLabelText('Date & Time');
     await user.clear(dateInput);
@@ -70,7 +70,7 @@ describe('WeightForm', () => {
 
   it('submits form with valid data', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Weight'), '185.5');
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));
@@ -87,7 +87,7 @@ describe('WeightForm', () => {
 
   it('allows selecting kg unit', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Weight'), '84');
     await user.selectOptions(screen.getByLabelText('Unit'), 'kg');
@@ -103,7 +103,7 @@ describe('WeightForm', () => {
 
   it('includes note when provided', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Weight'), '185');
     await user.type(screen.getByLabelText('Note'), 'Morning weight');
@@ -119,7 +119,7 @@ describe('WeightForm', () => {
 
   it('clears form after successful submit', async () => {
     const user = userEvent.setup();
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     const weightInput = screen.getByLabelText('Weight');
     const noteInput = screen.getByLabelText('Note');
@@ -144,7 +144,7 @@ describe('WeightForm', () => {
         })
     );
 
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Weight'), '185');
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));
@@ -164,7 +164,7 @@ describe('WeightForm', () => {
     const user = userEvent.setup();
     mockOnSubmit.mockRejectedValue(new Error('Database error'));
 
-    render(<WeightForm onSubmit={mockOnSubmit} />);
+    render(<WeightForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Weight'), '185');
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));

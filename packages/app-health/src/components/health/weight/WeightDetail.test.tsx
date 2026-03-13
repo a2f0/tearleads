@@ -16,7 +16,10 @@ vi.mock('../../../runtime', () => ({
   useHealthRuntime: () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
-    )
+    ),
+    registerReadingInVfs: vi.fn().mockResolvedValue(undefined),
+    linkReadingToContact: vi.fn().mockResolvedValue(undefined),
+    availableContacts: []
   })
 }));
 
@@ -30,7 +33,8 @@ const mockReadings = [
     recordedAt: '2024-01-15T10:00:00.000Z',
     value: 185.5,
     unit: 'lb' as const,
-    note: 'Morning weight'
+    note: 'Morning weight',
+    contactId: null
   }
 ];
 
@@ -41,7 +45,8 @@ describe('WeightDetail', () => {
       id: 'weight_2',
       recordedAt: '2024-01-16T10:00:00.000Z',
       value: 184,
-      unit: 'lb' as const
+      unit: 'lb' as const,
+      contactId: null
     });
   });
 

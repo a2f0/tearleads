@@ -16,7 +16,10 @@ vi.mock('../../../runtime', () => ({
   useHealthRuntime: () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
-    )
+    ),
+    registerReadingInVfs: vi.fn().mockResolvedValue(undefined),
+    linkReadingToContact: vi.fn().mockResolvedValue(undefined),
+    availableContacts: []
   })
 }));
 
@@ -31,7 +34,8 @@ const mockReadings = [
     systolic: 120,
     diastolic: 80,
     pulse: 72,
-    note: 'Morning reading'
+    note: 'Morning reading',
+    contactId: null
   }
 ];
 
@@ -42,7 +46,8 @@ describe('BloodPressureDetail', () => {
       id: 'bp_2',
       recordedAt: '2024-01-16T10:00:00.000Z',
       systolic: 118,
-      diastolic: 78
+      diastolic: 78,
+      contactId: null
     });
   });
 

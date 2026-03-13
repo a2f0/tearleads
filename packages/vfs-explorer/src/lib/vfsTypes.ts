@@ -17,6 +17,7 @@ export type VfsObjectType =
   | 'email'
   | 'mlsMessage'
   | 'conversation'
+  | 'healthReading'
   // Collections
   | 'folder'
   | 'emailFolder'

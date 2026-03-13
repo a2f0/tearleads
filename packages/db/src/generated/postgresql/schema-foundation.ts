@@ -382,10 +382,12 @@ export const healthWeightReadings = pgTable(
       .notNull()
       .default('lb'),
     note: text('note'),
+    contactId: text('contact_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [
-    index('health_weight_readings_recorded_at_idx').on(table.recordedAt)
+    index('health_weight_readings_recorded_at_idx').on(table.recordedAt),
+    index('health_weight_readings_contact_idx').on(table.contactId)
   ]
 );
 
@@ -401,10 +403,12 @@ export const healthBloodPressureReadings = pgTable(
     diastolic: integer('diastolic').notNull(),
     pulse: integer('pulse'),
     note: text('note'),
+    contactId: text('contact_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [
-    index('health_blood_pressure_recorded_at_idx').on(table.recordedAt)
+    index('health_blood_pressure_recorded_at_idx').on(table.recordedAt),
+    index('health_blood_pressure_contact_idx').on(table.contactId)
   ]
 );
 
@@ -428,11 +432,13 @@ export const healthWorkoutEntries = pgTable(
       .notNull()
       .default('lb'),
     note: text('note'),
+    contactId: text('contact_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [
     index('health_workout_entries_performed_at_idx').on(table.performedAt),
-    index('health_workout_entries_exercise_idx').on(table.exerciseId)
+    index('health_workout_entries_exercise_idx').on(table.exerciseId),
+    index('health_workout_entries_contact_idx').on(table.contactId)
   ]
 );
 

@@ -389,3 +389,24 @@ export async function queueItemDeleteAndFlush(
     void runtime.orchestrator.flushAll().catch(handleFlushError);
   });
 }
+
+export async function queueLinkReassignAndFlush(input: {
+  childId: string;
+  parentId: string;
+}): Promise<void> {
+  if (!shouldSyncToServer()) {
+    return;
+  }
+
+  await withSyncTracking(async () => {
+    const runtime = getSyncRuntimeOrThrow();
+    assertRuntimeMatchesActiveInstance(runtime, 'preflight');
+    await runtime.orchestrator.queueCrdtLocalOperationAndPersist({
+      itemId: input.childId,
+      opType: 'link_reassign',
+      parentId: input.parentId,
+      childId: input.childId
+    });
+    void runtime.orchestrator.flushAll().catch(handleFlushError);
+  });
+}

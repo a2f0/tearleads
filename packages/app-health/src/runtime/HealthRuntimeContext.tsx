@@ -13,11 +13,22 @@ export interface InlineUnlockProps {
 
 export type HealthDatabaseState = HostRuntimeDatabaseState;
 
+export interface AvailableContact {
+  id: string;
+  name: string;
+}
+
 export interface HealthRuntimeContextValue {
   databaseState: HealthDatabaseState;
   isUnlocked: boolean;
   createTracker: () => HealthTracker;
   InlineUnlock: ComponentType<InlineUnlockProps>;
+  registerReadingInVfs: (readingId: string, createdAt: string) => Promise<void>;
+  linkReadingToContact: (
+    readingId: string,
+    contactId: string
+  ) => Promise<void>;
+  availableContacts: AvailableContact[];
 }
 
 const HealthRuntimeContext = createContext<HealthRuntimeContextValue | null>(
@@ -28,22 +39,46 @@ export interface HealthRuntimeProviderProps extends HostRuntimeBaseProps {
   children: ReactNode;
   createTracker: () => HealthTracker;
   InlineUnlock?: ComponentType<InlineUnlockProps>;
+  registerReadingInVfs?: (
+    readingId: string,
+    createdAt: string
+  ) => Promise<void>;
+  linkReadingToContact?: (
+    readingId: string,
+    contactId: string
+  ) => Promise<void>;
+  availableContacts?: AvailableContact[];
 }
+
+const noop = async () => {};
 
 export function HealthRuntimeProvider({
   children,
   databaseState,
   createTracker,
-  InlineUnlock = DefaultInlineUnlock
+  InlineUnlock = DefaultInlineUnlock,
+  registerReadingInVfs = noop,
+  linkReadingToContact = noop,
+  availableContacts = []
 }: HealthRuntimeProviderProps) {
   const value = useMemo(
     () => ({
       databaseState,
       isUnlocked: databaseState.isUnlocked,
       createTracker,
-      InlineUnlock
+      InlineUnlock,
+      registerReadingInVfs,
+      linkReadingToContact,
+      availableContacts
     }),
-    [databaseState, createTracker, InlineUnlock]
+    [
+      databaseState,
+      createTracker,
+      InlineUnlock,
+      registerReadingInVfs,
+      linkReadingToContact,
+      availableContacts
+    ]
   );
 
   return (

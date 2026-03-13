@@ -51,7 +51,8 @@ describe('createHealthTracker weight readings', () => {
         recordedAt: '2026-02-13T09:15:00.000Z',
         value: 187.4,
         unit: 'lb',
-        note: 'morning check'
+        note: 'morning check',
+        contactId: null
       });
 
       const persisted = await db

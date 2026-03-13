@@ -32,6 +32,10 @@ export const healthWeightReadingsTable: TableDefinition = {
       type: 'text',
       sqlName: 'note'
     },
+    contactId: {
+      type: 'text',
+      sqlName: 'contact_id'
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
@@ -39,7 +43,8 @@ export const healthWeightReadingsTable: TableDefinition = {
     }
   },
   indexes: [
-    { name: 'health_weight_readings_recorded_at_idx', columns: ['recordedAt'] }
+    { name: 'health_weight_readings_recorded_at_idx', columns: ['recordedAt'] },
+    { name: 'health_weight_readings_contact_idx', columns: ['contactId'] }
   ]
 };
 
@@ -80,6 +85,10 @@ export const healthBloodPressureReadingsTable: TableDefinition = {
       type: 'text',
       sqlName: 'note'
     },
+    contactId: {
+      type: 'text',
+      sqlName: 'contact_id'
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
@@ -90,7 +99,8 @@ export const healthBloodPressureReadingsTable: TableDefinition = {
     {
       name: 'health_blood_pressure_recorded_at_idx',
       columns: ['recordedAt']
-    }
+    },
+    { name: 'health_blood_pressure_contact_idx', columns: ['contactId'] }
   ]
 };
 
@@ -145,6 +155,10 @@ export const healthWorkoutEntriesTable: TableDefinition = {
       type: 'text',
       sqlName: 'note'
     },
+    contactId: {
+      type: 'text',
+      sqlName: 'contact_id'
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
@@ -156,7 +170,8 @@ export const healthWorkoutEntriesTable: TableDefinition = {
       name: 'health_workout_entries_performed_at_idx',
       columns: ['performedAt']
     },
-    { name: 'health_workout_entries_exercise_idx', columns: ['exerciseId'] }
+    { name: 'health_workout_entries_exercise_idx', columns: ['exerciseId'] },
+    { name: 'health_workout_entries_contact_idx', columns: ['contactId'] }
   ]
 };
 

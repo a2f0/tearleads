@@ -24,6 +24,7 @@ export const VFS_OBJECT_TYPES = [
   'email',
   'mlsMessage',
   'conversation',
+  'healthReading',
   // Collections
   'folder',
   'emailFolder',

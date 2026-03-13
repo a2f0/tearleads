@@ -9,20 +9,23 @@ const mockReadings = [
     recordedAt: '2024-01-15T10:00:00.000Z',
     value: 185.5,
     unit: 'lb' as const,
-    note: 'Morning weight'
+    note: 'Morning weight',
+    contactId: null
   },
   {
     id: 'weight_2',
     recordedAt: '2024-01-14T08:00:00.000Z',
     value: 186.0,
-    unit: 'lb' as const
+    unit: 'lb' as const,
+    contactId: null
   },
   {
     id: 'weight_3',
     recordedAt: '2024-01-13T09:30:00.000Z',
     value: 84.5,
     unit: 'kg' as const,
-    note: 'After workout'
+    note: 'After workout',
+    contactId: null
   }
 ];
 

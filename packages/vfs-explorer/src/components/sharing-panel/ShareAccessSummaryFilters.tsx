@@ -40,7 +40,8 @@ const OBJECT_TYPE_LABELS: Record<VfsObjectType, string> = {
   playlist: 'Playlist',
   album: 'Album',
   contactGroup: 'Contact Group',
-  tag: 'Tag'
+  tag: 'Tag',
+  healthReading: 'Health Reading'
 };
 
 export function ShareAccessSummaryFilters({

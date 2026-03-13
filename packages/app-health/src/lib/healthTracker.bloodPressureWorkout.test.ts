@@ -45,7 +45,8 @@ describe('createHealthTracker blood pressure and workouts', () => {
         systolic: 122,
         diastolic: 79,
         pulse: 61,
-        note: 'seated'
+        note: 'seated',
+        contactId: null
       });
 
       const noOptional = await tracker.addBloodPressureReading({
@@ -57,7 +58,8 @@ describe('createHealthTracker blood pressure and workouts', () => {
         id: 'blood_pressure_0002',
         recordedAt: '2026-02-12T07:00:00.000Z',
         systolic: 118,
-        diastolic: 76
+        diastolic: 76,
+        contactId: null
       });
 
       const persisted = await db
@@ -123,7 +125,8 @@ describe('createHealthTracker blood pressure and workouts', () => {
         reps: 5,
         weight: 225,
         weightUnit: 'lb',
-        note: 'top set'
+        note: 'top set',
+        contactId: null
       });
 
       const metricDropDownSelection = await tracker.addWorkoutEntry({

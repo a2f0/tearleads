@@ -16,7 +16,10 @@ vi.mock('../../../runtime', () => ({
   useHealthRuntime: () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
-    )
+    ),
+    registerReadingInVfs: vi.fn().mockResolvedValue(undefined),
+    linkReadingToContact: vi.fn().mockResolvedValue(undefined),
+    availableContacts: []
   })
 }));
 
@@ -40,7 +43,8 @@ const mockEntries = [
     reps: 5,
     weight: 225,
     weightUnit: 'lb' as const,
-    note: 'PR attempt'
+    note: 'PR attempt',
+    contactId: null
   }
 ];
 
@@ -54,7 +58,8 @@ describe('WorkoutDetail', () => {
       exerciseName: 'Bench Press',
       reps: 8,
       weight: 185,
-      weightUnit: 'lb' as const
+      weightUnit: 'lb' as const,
+      contactId: null
     });
   });
 

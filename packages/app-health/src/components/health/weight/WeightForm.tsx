@@ -4,11 +4,14 @@ import type {
   CreateWeightReadingInput,
   WeightUnit
 } from '../../../lib/healthTrackerTypes.js';
+import type { AvailableContact } from '../../../runtime/HealthRuntimeContext';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { ContactPickerSelect } from '../ContactPickerSelect';
 
 interface WeightFormProps {
   onSubmit: (input: CreateWeightReadingInput) => Promise<void>;
+  availableContacts: AvailableContact[];
 }
 
 interface FormErrors {
@@ -23,11 +26,12 @@ function getLocalDateTimeString(): string {
   return localTime.toISOString().slice(0, 16);
 }
 
-export function WeightForm({ onSubmit }: WeightFormProps) {
+export function WeightForm({ onSubmit, availableContacts }: WeightFormProps) {
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<WeightUnit>('lb');
   const [recordedAt, setRecordedAt] = useState(getLocalDateTimeString);
   const [note, setNote] = useState('');
+  const [contactId, setContactId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -65,6 +69,7 @@ export function WeightForm({ onSubmit }: WeightFormProps) {
           value: parsedValue,
           unit,
           recordedAt: new Date(recordedAt),
+          contactId,
           ...(trimmedNote.length > 0 && { note: trimmedNote })
         };
 
@@ -80,7 +85,7 @@ export function WeightForm({ onSubmit }: WeightFormProps) {
         setIsSubmitting(false);
       }
     },
-    [value, unit, recordedAt, note, onSubmit]
+    [value, unit, recordedAt, note, contactId, onSubmit]
   );
 
   return (
@@ -89,7 +94,7 @@ export function WeightForm({ onSubmit }: WeightFormProps) {
       onSubmit={handleSubmit}
       aria-label="Add weight reading form"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
         <div className="space-y-1">
           <label
             htmlFor="weight-value"
@@ -167,6 +172,13 @@ export function WeightForm({ onSubmit }: WeightFormProps) {
             disabled={isSubmitting}
           />
         </div>
+
+        <ContactPickerSelect
+          contacts={availableContacts}
+          value={contactId}
+          onChange={setContactId}
+          disabled={isSubmitting}
+        />
       </div>
 
       <div className="flex items-center justify-between">

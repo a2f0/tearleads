@@ -12,7 +12,7 @@ describe('BloodPressureForm', () => {
   });
 
   it('renders all form fields', () => {
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     expect(screen.getByLabelText('Systolic')).toBeInTheDocument();
     expect(screen.getByLabelText('Diastolic')).toBeInTheDocument();
@@ -25,7 +25,7 @@ describe('BloodPressureForm', () => {
   });
 
   it('has accessible form label', () => {
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     expect(
       screen.getByRole('form', { name: 'Add blood pressure reading form' })
@@ -34,7 +34,7 @@ describe('BloodPressureForm', () => {
 
   it('shows validation error when systolic is empty', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Diastolic'), '80');
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));
@@ -45,7 +45,7 @@ describe('BloodPressureForm', () => {
 
   it('shows validation error when diastolic is empty', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.click(screen.getByRole('button', { name: 'Add Reading' }));
@@ -56,7 +56,7 @@ describe('BloodPressureForm', () => {
 
   it('validates systolic must be greater than diastolic', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '80');
     await user.type(screen.getByLabelText('Diastolic'), '120');
@@ -70,7 +70,7 @@ describe('BloodPressureForm', () => {
 
   it('validates systolic equals diastolic', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '100');
     await user.type(screen.getByLabelText('Diastolic'), '100');
@@ -84,7 +84,7 @@ describe('BloodPressureForm', () => {
 
   it('shows validation error when date is cleared', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     const dateInput = screen.getByLabelText('Date & Time');
     await user.clear(dateInput);
@@ -98,7 +98,7 @@ describe('BloodPressureForm', () => {
 
   it('submits form with valid data', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.type(screen.getByLabelText('Diastolic'), '80');
@@ -117,7 +117,7 @@ describe('BloodPressureForm', () => {
 
   it('includes pulse when provided', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.type(screen.getByLabelText('Diastolic'), '80');
@@ -134,7 +134,7 @@ describe('BloodPressureForm', () => {
 
   it('includes note when provided', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.type(screen.getByLabelText('Diastolic'), '80');
@@ -151,7 +151,7 @@ describe('BloodPressureForm', () => {
 
   it('clears form after successful submit', async () => {
     const user = userEvent.setup();
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     const systolicInput = screen.getByLabelText('Systolic');
     const diastolicInput = screen.getByLabelText('Diastolic');
@@ -182,7 +182,7 @@ describe('BloodPressureForm', () => {
         })
     );
 
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.type(screen.getByLabelText('Diastolic'), '80');
@@ -203,7 +203,7 @@ describe('BloodPressureForm', () => {
     const user = userEvent.setup();
     mockOnSubmit.mockRejectedValue(new Error('Database error'));
 
-    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+    render(<BloodPressureForm onSubmit={mockOnSubmit} availableContacts={[]} />);
 
     await user.type(screen.getByLabelText('Systolic'), '120');
     await user.type(screen.getByLabelText('Diastolic'), '80');

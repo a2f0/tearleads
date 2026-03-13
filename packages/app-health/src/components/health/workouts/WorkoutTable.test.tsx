@@ -12,7 +12,8 @@ const mockEntries = [
     reps: 5,
     weight: 225,
     weightUnit: 'lb' as const,
-    note: 'PR attempt'
+    note: 'PR attempt',
+    contactId: null
   },
   {
     id: 'workout_2',
@@ -21,7 +22,8 @@ const mockEntries = [
     exerciseName: 'Bench Press',
     reps: 8,
     weight: 185,
-    weightUnit: 'lb' as const
+    weightUnit: 'lb' as const,
+    contactId: null
   },
   {
     id: 'workout_3',
@@ -31,7 +33,8 @@ const mockEntries = [
     reps: 10,
     weight: 0,
     weightUnit: 'lb' as const,
-    note: 'Bodyweight'
+    note: 'Bodyweight',
+    contactId: null
   }
 ];
 
@@ -179,7 +182,8 @@ describe('WorkoutTable', () => {
         exerciseName: 'Back Squat',
         reps: 5,
         weight: 225,
-        weightUnit: 'lb' as const
+        weightUnit: 'lb' as const,
+        contactId: null
       },
       {
         id: 'workout_b',
@@ -188,7 +192,8 @@ describe('WorkoutTable', () => {
         exerciseName: 'Bench Press',
         reps: 5,
         weight: 185,
-        weightUnit: 'lb' as const
+        weightUnit: 'lb' as const,
+        contactId: null
       }
     ];
 
@@ -230,7 +235,8 @@ describe('WorkoutTable', () => {
         exerciseName: 'Back Squat',
         reps: 5,
         weight: 225,
-        weightUnit: 'lb' as const
+        weightUnit: 'lb' as const,
+        contactId: null
       },
       {
         id: 'workout_b',
@@ -239,7 +245,8 @@ describe('WorkoutTable', () => {
         exerciseName: 'Bench Press',
         reps: 5,
         weight: 185,
-        weightUnit: 'lb' as const
+        weightUnit: 'lb' as const,
+        contactId: null
       }
     ];
 

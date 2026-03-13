@@ -2,6 +2,7 @@ import {
   Binary,
   FileIcon,
   Folder,
+  HeartPulse,
   ImageIcon,
   Images,
   ListMusic,
@@ -28,6 +29,7 @@ export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   email: Mail,
   mlsMessage: MessageSquare,
   conversation: MessageSquare,
+  healthReading: HeartPulse,
   // Collections
   folder: Folder,
   emailFolder: Mail,
@@ -49,6 +51,7 @@ export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   email: 'text-sky-600 dark:text-sky-400',
   mlsMessage: 'text-indigo-600 dark:text-indigo-400',
   conversation: 'text-indigo-600 dark:text-indigo-400',
+  healthReading: 'text-rose-600 dark:text-rose-400',
   // Collections
   folder: 'text-yellow-600 dark:text-yellow-500',
   emailFolder: 'text-sky-600 dark:text-sky-400',
