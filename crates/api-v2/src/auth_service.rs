@@ -13,8 +13,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AuthServiceRegisterResponse, AuthUser, AuthUserOrganization, auth_service_server::AuthService,
 };
 use tearleads_data_access_traits::{
-    AuthCreateSessionInput, AuthRegisterInput, AuthRotateTokensInput, DataAccessErrorKind,
-    PostgresAuthRepository, RedisAuthSessionRepository,
+    AuthCreateSessionInput, AuthRegisterInput, AuthRotateTokensInput, DataAccessError,
+    DataAccessErrorKind, PostgresAuthRepository, RedisAuthSessionRepository,
 };
 use tonic::{Request, Response, Status, metadata::MetadataMap};
 use uuid::Uuid;
@@ -33,6 +33,16 @@ pub use session_store::RedisAuthSessionStore;
 struct AuthAccessContext {
     user_id: String,
     session_id: String,
+}
+
+fn is_duplicate_email_registration_error(error: &DataAccessError) -> bool {
+    if error.kind() != DataAccessErrorKind::InvalidInput {
+        return false;
+    }
+
+    let normalized = error.message().trim().to_ascii_lowercase();
+    normalized.contains("email already registered")
+        || (normalized.contains("duplicate") && normalized.contains("email"))
 }
 
 /// Trait-backed implementation of `tearleads.v2.AuthService`.
@@ -178,9 +188,7 @@ where
             })
             .await
             .map_err(|error| {
-                if error.kind() == DataAccessErrorKind::InvalidInput
-                    && error.message() == "email already registered"
-                {
+                if is_duplicate_email_registration_error(&error) {
                     Status::already_exists("Email already registered")
                 } else {
                     map_data_access_error(error)

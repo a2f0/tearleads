@@ -76,6 +76,12 @@ struct JwtClaims {
     jti: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredBillingSession {
+    user_id: String,
+}
+
 /// Runtime billing authorizer that verifies JWT + session coherence.
 #[derive(Debug, Clone)]
 pub struct JwtSessionBillingAuthorizer {
@@ -208,18 +214,11 @@ impl JwtSessionBillingAuthorizer {
             ));
         };
 
-        let parsed: serde_json::Value = serde_json::from_str(&raw_session).map_err(|_| {
+        let parsed: StoredBillingSession = serde_json::from_str(&raw_session).map_err(|_| {
             BillingAuthError::new(BillingAuthErrorKind::Unauthenticated, "Unauthorized")
         })?;
 
-        let Some(user_id) = parsed.get("userId").and_then(serde_json::Value::as_str) else {
-            return Err(BillingAuthError::new(
-                BillingAuthErrorKind::Unauthenticated,
-                "Unauthorized",
-            ));
-        };
-
-        if user_id != expected_user_id {
+        if parsed.user_id != expected_user_id {
             return Err(BillingAuthError::new(
                 BillingAuthErrorKind::Unauthenticated,
                 "Unauthorized",
