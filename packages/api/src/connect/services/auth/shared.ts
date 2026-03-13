@@ -20,7 +20,7 @@ import type { ConnectAuthContext } from '../../context.js';
 export const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 export const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
 const REFRESH_COOKIE_NAME = 'tearleads_refresh_token';
-const REFRESH_COOKIE_PATH = `/v1/connect/${AuthService.typeName}`;
+const REFRESH_COOKIE_PATH = `/connect/${AuthService.typeName}`;
 // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
 export const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
 export { PASSWORD_COMPLEXITY_ERROR, passwordMeetsComplexity };
