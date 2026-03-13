@@ -122,6 +122,18 @@ jobs:
         if: matrix.lint-type == 'rust'
         uses: taiki-e/install-action@cargo-machete
 
+      - name: Install Redis server binary
+        if: matrix.lint-type == 'rust'
+        run: |
+          if command -v redis-server >/dev/null 2>&1 || command -v valkey-server >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          sudo apt-get update
+          if ! sudo apt-get install -y redis-server; then
+            sudo apt-get install -y valkey-server
+          fi
+
       - name: Setup Ruby
         if: matrix.lint-type == 'rubocop'
         uses: ruby/setup-ruby@v1
