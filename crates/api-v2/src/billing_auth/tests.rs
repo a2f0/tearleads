@@ -33,11 +33,9 @@ struct RedisServer {
 impl RedisServer {
     fn start() -> Self {
         let port = reserve_free_port();
-        let server_binary = if std::path::Path::new("/opt/homebrew/bin/redis-server").exists() {
-            "/opt/homebrew/bin/redis-server"
-        } else {
-            "redis-server"
-        };
+        let server_binary = resolve_redis_server_binary().expect(
+            "redis-compatible server binary not found (expected redis-server or valkey-server)",
+        );
 
         let child = Command::new(server_binary)
             .arg("--port")
@@ -53,7 +51,9 @@ impl RedisServer {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("redis-server should start");
+            .unwrap_or_else(|error| {
+                panic!("redis-compatible server should start ({server_binary}): {error}")
+            });
 
         wait_for_port(port);
         Self {
@@ -68,6 +68,24 @@ impl Drop for RedisServer {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+fn resolve_redis_server_binary() -> Option<&'static str> {
+    const CANDIDATES: [&str; 3] = [
+        "/opt/homebrew/bin/redis-server",
+        "redis-server",
+        "valkey-server",
+    ];
+
+    CANDIDATES.into_iter().find(|candidate| {
+        Command::new(candidate)
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    })
 }
 
 fn reserve_free_port() -> u16 {
