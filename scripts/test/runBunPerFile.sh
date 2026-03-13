@@ -103,40 +103,27 @@ while IFS= read -r test_file; do
 
   echo "runBunPerFile: $test_file"
 
+  set -- bun test
+  if [ -n "$preload" ]; then
+    set -- "$@" --preload "$preload"
+  fi
+  set -- "$@" "$test_file"
+
   if [ -n "$per_file_timeout" ]; then
-    if [ -n "$preload" ]; then
-      if timeout "$per_file_timeout" bun test --preload "$preload" "$test_file"; then
-        passed=$((passed + 1))
-      else
-        ec=$?
-        if [ "$ec" -eq 124 ]; then
-          echo "runBunPerFile: SKIP (timeout) $test_file" >&2
-          skipped=$((skipped + 1))
-        else
-          echo "runBunPerFile: FAIL $test_file" >&2
-          failed=$((failed + 1))
-        fi
-      fi
+    if timeout "$per_file_timeout" "$@"; then
+      passed=$((passed + 1))
     else
-      if timeout "$per_file_timeout" bun test "$test_file"; then
-        passed=$((passed + 1))
+      ec=$?
+      if [ "$ec" -eq 124 ]; then
+        echo "runBunPerFile: SKIP (timeout) $test_file" >&2
+        skipped=$((skipped + 1))
       else
-        ec=$?
-        if [ "$ec" -eq 124 ]; then
-          echo "runBunPerFile: SKIP (timeout) $test_file" >&2
-          skipped=$((skipped + 1))
-        else
-          echo "runBunPerFile: FAIL $test_file" >&2
-          failed=$((failed + 1))
-        fi
+        echo "runBunPerFile: FAIL $test_file" >&2
+        failed=$((failed + 1))
       fi
     fi
   else
-    if [ -n "$preload" ]; then
-      bun test --preload "$preload" "$test_file"
-    else
-      bun test "$test_file"
-    fi
+    "$@"
     passed=$((passed + 1))
   fi
 done < "$temp_file"

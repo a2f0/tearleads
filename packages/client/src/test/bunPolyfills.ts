@@ -9,6 +9,17 @@ import { afterEach, beforeEach, vi } from 'vitest';
 export function installBunPolyfills(): void {
   const stubbedEnvValues = new Map<string, string | undefined>();
 
+  const unstubAllEnvs = (): void => {
+    for (const [key, value] of stubbedEnvValues) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    stubbedEnvValues.clear();
+  };
+
   if (typeof Reflect.get(vi, 'importActual') !== 'function') {
     // Bun 1.3 doesn't support vi.importActual — its mock layer intercepts
     // all import()/require() calls, so there's no way to load the real
@@ -33,16 +44,7 @@ export function installBunPolyfills(): void {
     });
   }
   if (typeof Reflect.get(vi, 'unstubAllEnvs') !== 'function') {
-    Reflect.set(vi, 'unstubAllEnvs', () => {
-      for (const [key, value] of stubbedEnvValues) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
-      }
-      stubbedEnvValues.clear();
-    });
+    Reflect.set(vi, 'unstubAllEnvs', unstubAllEnvs);
   }
 
   // Console capture (failOnConsole equivalent)
@@ -65,6 +67,7 @@ export function installBunPolyfills(): void {
   afterEach(() => {
     console.error = originalConsoleError;
     console.warn = originalConsoleWarn;
+    unstubAllEnvs();
 
     if (consoleMessages.length > 0) {
       throw new Error(

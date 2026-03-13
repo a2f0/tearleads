@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import { en } from './translations/en';
 
 if (!i18n.isInitialized) {
-  const initialization = i18n.use(initReactI18next).init({
+  await i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
     resources: {
@@ -33,9 +33,5 @@ if (!i18n.isInitialized) {
       useSuspense: false
     },
     showSupportNotice: false
-  });
-
-  initialization.catch((error: unknown) => {
-    console.error('Failed to initialize client test i18n', error);
   });
 }
