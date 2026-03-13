@@ -27,6 +27,7 @@ import {
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
+import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
@@ -40,9 +41,10 @@ import {
 import { materializeScaffoldEncryptedNames } from './vfsDirectScaffoldDecrypt.js';
 
 type GetSyncRequest = {
-  cursor: string;
-  limit: number;
-  rootId: string;
+  cursor?: string;
+  limit?: number;
+  rootId?: string;
+  rootIdBytes?: unknown;
   bloomFilter?: {
     data: string;
     capacity: number;
@@ -139,10 +141,15 @@ function normalizeSyncQueryRequest(request: GetSyncRequest): {
   limit: string | undefined;
   rootId: string | undefined;
 } {
-  const normalizedCursor = request.cursor.trim();
-  const normalizedRootId = request.rootId.trim();
+  const normalizedCursor =
+    typeof request.cursor === 'string' ? request.cursor.trim() : '';
+  const normalizedRootId =
+    parseIdentifierWithCompactFallback(request.rootId, request.rootIdBytes) ??
+    '';
   const normalizedLimit =
-    Number.isFinite(request.limit) && request.limit > 0
+    typeof request.limit === 'number' &&
+    Number.isFinite(request.limit) &&
+    request.limit > 0
       ? String(Math.floor(request.limit))
       : undefined;
 

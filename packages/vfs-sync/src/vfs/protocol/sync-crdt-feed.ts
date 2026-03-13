@@ -52,6 +52,8 @@ export interface VfsCrdtSyncDbQuery {
 export interface VfsCrdtSyncDbRow {
   op_id: string;
   item_id: string;
+  replica_id?: string | null;
+  write_id?: number | string | null;
   op_type: string;
   principal_type: string | null;
   principal_id: string | null;

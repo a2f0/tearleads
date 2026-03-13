@@ -5,6 +5,12 @@ import type {
   VfsCrdtPushOperation
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
+import {
+  parseEnumWithCompactFallback,
+  parseIdentifierWithCompactFallback,
+  parseOccurredAtWithCompactFallback,
+  parsePositiveSafeIntegerWithCompactFallback
+} from './vfsDirectCrdtCompactDecoding.js';
 
 const MAX_CLIENT_ID_LENGTH = 128;
 const MAX_PUSH_OPERATIONS = 500;
@@ -23,6 +29,42 @@ const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'organization'
 ];
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
+const OP_TYPE_ENUM_NAME_MAP: Record<string, VfsCrdtOpType> = {
+  VFS_CRDT_OP_TYPE_ACL_ADD: 'acl_add',
+  VFS_CRDT_OP_TYPE_ACL_REMOVE: 'acl_remove',
+  VFS_CRDT_OP_TYPE_LINK_ADD: 'link_add',
+  VFS_CRDT_OP_TYPE_LINK_REMOVE: 'link_remove',
+  VFS_CRDT_OP_TYPE_ITEM_UPSERT: 'item_upsert',
+  VFS_CRDT_OP_TYPE_ITEM_DELETE: 'item_delete'
+};
+const OP_TYPE_ENUM_NUMERIC_MAP: Record<number, VfsCrdtOpType> = {
+  1: 'acl_add',
+  2: 'acl_remove',
+  3: 'link_add',
+  4: 'link_remove',
+  5: 'item_upsert',
+  6: 'item_delete'
+};
+const PRINCIPAL_TYPE_ENUM_NAME_MAP: Record<string, VfsAclPrincipalType> = {
+  VFS_ACL_PRINCIPAL_TYPE_USER: 'user',
+  VFS_ACL_PRINCIPAL_TYPE_GROUP: 'group',
+  VFS_ACL_PRINCIPAL_TYPE_ORGANIZATION: 'organization'
+};
+const PRINCIPAL_TYPE_ENUM_NUMERIC_MAP: Record<number, VfsAclPrincipalType> = {
+  1: 'user',
+  2: 'group',
+  3: 'organization'
+};
+const ACCESS_LEVEL_ENUM_NAME_MAP: Record<string, VfsAclAccessLevel> = {
+  VFS_ACL_ACCESS_LEVEL_READ: 'read',
+  VFS_ACL_ACCESS_LEVEL_WRITE: 'write',
+  VFS_ACL_ACCESS_LEVEL_ADMIN: 'admin'
+};
+const ACCESS_LEVEL_ENUM_NUMERIC_MAP: Record<number, VfsAclAccessLevel> = {
+  1: 'read',
+  2: 'write',
+  3: 'admin'
+};
 
 export interface ParsedPushOperation {
   status: 'parsed' | 'invalid';
@@ -69,38 +111,8 @@ function isValidAccessLevel(value: unknown): value is VfsAclAccessLevel {
   );
 }
 
-function normalizeWriteId(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
-  }
-
-  if (
-    !Number.isInteger(value) ||
-    value < 1 ||
-    value > Number.MAX_SAFE_INTEGER
-  ) {
-    return null;
-  }
-
-  return value;
-}
-
-function normalizeOccurredAt(value: unknown): string | null {
-  const normalized = normalizeRequiredString(value);
-  if (!normalized) {
-    return null;
-  }
-
-  const parsedMs = Date.parse(normalized);
-  if (!Number.isFinite(parsedMs)) {
-    return null;
-  }
-
-  return new Date(parsedMs).toISOString();
-}
-
-function parseClientId(value: unknown): string | null {
-  const normalized = normalizeRequiredString(value);
+function parseClientId(value: unknown, bytesValue: unknown): string | null {
+  const normalized = parseIdentifierWithCompactFallback(value, bytesValue);
   if (!normalized) {
     return null;
   }
@@ -124,15 +136,34 @@ function parsePushOperation(
     };
   }
 
-  const opId = normalizeRequiredString(value['opId']) ?? `invalid-${index}`;
-  const opType = value['opType'];
-  const itemId = normalizeRequiredString(value['itemId']);
-  const replicaId = parseClientId(value['replicaId']);
-  const writeId = normalizeWriteId(value['writeId']);
-  const occurredAt = normalizeOccurredAt(value['occurredAt']);
+  const opId =
+    parseIdentifierWithCompactFallback(value['opId'], value['opIdBytes']) ??
+    `invalid-${index}`;
+  const opType = parseEnumWithCompactFallback<VfsCrdtOpType>(
+    value['opType'],
+    value['opTypeEnum'],
+    {
+      isLegacyValue: isValidOpType,
+      numericMap: OP_TYPE_ENUM_NUMERIC_MAP,
+      nameMap: OP_TYPE_ENUM_NAME_MAP
+    }
+  );
+  const itemId = parseIdentifierWithCompactFallback(
+    value['itemId'],
+    value['itemIdBytes']
+  );
+  const replicaId = parseClientId(value['replicaId'], value['replicaIdBytes']);
+  const writeId = parsePositiveSafeIntegerWithCompactFallback(
+    value['writeId'],
+    value['writeIdU64']
+  );
+  const occurredAt = parseOccurredAtWithCompactFallback(
+    value['occurredAt'],
+    value['occurredAtMs']
+  );
 
   if (
-    !isValidOpType(opType) ||
+    !opType ||
     !itemId ||
     !replicaId ||
     !writeId ||
@@ -195,7 +226,10 @@ function parsePushOperation(
     const includesPlaintextAclFields =
       Object.hasOwn(value, 'principalType') ||
       Object.hasOwn(value, 'principalId') ||
-      Object.hasOwn(value, 'accessLevel');
+      Object.hasOwn(value, 'accessLevel') ||
+      Object.hasOwn(value, 'principalTypeEnum') ||
+      Object.hasOwn(value, 'principalIdBytes') ||
+      Object.hasOwn(value, 'accessLevelEnum');
     if (hasEncryptedPayload && includesPlaintextAclFields) {
       return {
         status: 'invalid',
@@ -203,11 +237,23 @@ function parsePushOperation(
       };
     }
 
-    const principalType = value['principalType'];
-    const principalId = normalizeRequiredString(value['principalId']);
+    const principalType = parseEnumWithCompactFallback<VfsAclPrincipalType>(
+      value['principalType'],
+      value['principalTypeEnum'],
+      {
+        isLegacyValue: isValidPrincipalType,
+        numericMap: PRINCIPAL_TYPE_ENUM_NUMERIC_MAP,
+        nameMap: PRINCIPAL_TYPE_ENUM_NAME_MAP,
+        allowUnspecified: true
+      }
+    );
+    const principalId = parseIdentifierWithCompactFallback(
+      value['principalId'],
+      value['principalIdBytes']
+    );
 
     if (!hasEncryptedPayload) {
-      if (!isValidPrincipalType(principalType) || !principalId) {
+      if (!principalType || !principalId) {
         return {
           status: 'invalid',
           opId
@@ -215,7 +261,7 @@ function parsePushOperation(
       }
     }
 
-    if (isValidPrincipalType(principalType)) {
+    if (principalType) {
       operation.principalType = principalType;
     }
     if (principalId) {
@@ -223,15 +269,24 @@ function parsePushOperation(
     }
 
     if (opType === 'acl_add') {
-      const accessLevel = value['accessLevel'];
-      if (!hasEncryptedPayload && !isValidAccessLevel(accessLevel)) {
+      const accessLevel = parseEnumWithCompactFallback<VfsAclAccessLevel>(
+        value['accessLevel'],
+        value['accessLevelEnum'],
+        {
+          isLegacyValue: isValidAccessLevel,
+          numericMap: ACCESS_LEVEL_ENUM_NUMERIC_MAP,
+          nameMap: ACCESS_LEVEL_ENUM_NAME_MAP,
+          allowUnspecified: true
+        }
+      );
+      if (!hasEncryptedPayload && !accessLevel) {
         return {
           status: 'invalid',
           opId
         };
       }
 
-      if (isValidAccessLevel(accessLevel)) {
+      if (accessLevel) {
         operation.accessLevel = accessLevel;
       }
     }
@@ -239,7 +294,10 @@ function parsePushOperation(
 
   if (opType === 'link_add' || opType === 'link_remove') {
     const includesPlaintextLinkFields =
-      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+      Object.hasOwn(value, 'parentId') ||
+      Object.hasOwn(value, 'childId') ||
+      Object.hasOwn(value, 'parentIdBytes') ||
+      Object.hasOwn(value, 'childIdBytes');
     if (hasEncryptedPayload && includesPlaintextLinkFields) {
       return {
         status: 'invalid',
@@ -247,8 +305,14 @@ function parsePushOperation(
       };
     }
 
-    const parentId = normalizeRequiredString(value['parentId']);
-    const rawChildId = normalizeRequiredString(value['childId']);
+    const parentId = parseIdentifierWithCompactFallback(
+      value['parentId'],
+      value['parentIdBytes']
+    );
+    const rawChildId = parseIdentifierWithCompactFallback(
+      value['childId'],
+      value['childIdBytes']
+    );
     const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
     const childId = shouldRequirePlaintextLinkFields
       ? (rawChildId ?? itemId)
@@ -288,9 +352,15 @@ function parsePushOperation(
     const includesAclFields =
       Object.hasOwn(value, 'principalType') ||
       Object.hasOwn(value, 'principalId') ||
-      Object.hasOwn(value, 'accessLevel');
+      Object.hasOwn(value, 'accessLevel') ||
+      Object.hasOwn(value, 'principalTypeEnum') ||
+      Object.hasOwn(value, 'principalIdBytes') ||
+      Object.hasOwn(value, 'accessLevelEnum');
     const includesLinkFields =
-      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+      Object.hasOwn(value, 'parentId') ||
+      Object.hasOwn(value, 'childId') ||
+      Object.hasOwn(value, 'parentIdBytes') ||
+      Object.hasOwn(value, 'childIdBytes');
 
     if (includesAclFields || includesLinkFields) {
       return {
@@ -329,7 +399,7 @@ export function parsePushPayload(body: unknown): ParsePushPayloadResult {
     };
   }
 
-  const clientId = parseClientId(body['clientId']);
+  const clientId = parseClientId(body['clientId'], body['clientIdBytes']);
   if (!clientId) {
     return {
       ok: false,

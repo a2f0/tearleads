@@ -128,6 +128,10 @@ export {
   reconcileVfsSyncCursor
 } from './protocol/sync-reconcile.js';
 export {
+  VfsBloomFilter,
+  type VfsBloomFilterOptions
+} from './protocol/syncBloomFilter.js';
+export {
   decodeVfsCrdtPushRequestProtobuf,
   decodeVfsCrdtPushResponseProtobuf,
   decodeVfsCrdtReconcileRequestProtobuf,
