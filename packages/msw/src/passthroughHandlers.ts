@@ -35,8 +35,7 @@ export function createExpressPassthroughHandlers(
       target.pathname = normalizedPathname;
       target.search = original.search;
 
-      const includeBody =
-        request.method !== 'GET' && request.method !== 'HEAD';
+      const includeBody = request.method !== 'GET' && request.method !== 'HEAD';
       const proxiedRequestInit: RequestInit = {
         method: request.method,
         headers: request.headers

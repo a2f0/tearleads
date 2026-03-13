@@ -48,7 +48,9 @@ const SEND_MESSAGE_REQUEST: {
   contentType: string;
 } = {
   groupId: 'group-1',
-  ciphertext: Uint8Array.from([99, 105, 112, 104, 101, 114, 116, 101, 120, 116, 45, 49]),
+  ciphertext: Uint8Array.from([
+    99, 105, 112, 104, 101, 114, 116, 101, 120, 116, 45, 49
+  ]),
   epoch: 2,
   messageType: 'application',
   contentType: 'text/plain'

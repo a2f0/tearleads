@@ -199,7 +199,9 @@ describe('api with msw (MLS binary routes)', () => {
       ]
     );
     const welcomes = await routes.getWelcomeMessages();
-    const welcome = welcomes.welcomes.find((item) => item.id === WELCOME_ACK_ID);
+    const welcome = welcomes.welcomes.find(
+      (item) => item.id === WELCOME_ACK_ID
+    );
     expect(welcome?.welcome).toBeInstanceOf(Uint8Array);
     expect(Array.from(welcome?.welcome ?? [])).toEqual(
       Array.from(utf8Bytes('welcome-data'))

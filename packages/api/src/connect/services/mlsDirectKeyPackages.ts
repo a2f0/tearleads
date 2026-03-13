@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryKeyPackage,
   MlsBinaryKeyPackagesResponse,
   UploadMlsKeyPackagesBinaryRequest,
   UploadMlsKeyPackagesBinaryResponse
 } from './mlsBinaryTypes.js';
-import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import { toSafeCipherSuite } from './mlsDirectShared.js';
 
 type UserIdRequest = { userId: string };
@@ -38,7 +38,10 @@ function isValidUploadPayload(
   request: UploadMlsKeyPackagesBinaryRequest
 ): boolean {
   const { keyPackages } = request;
-  if (keyPackages.length === 0 || keyPackages.length > MAX_KEY_PACKAGES_PER_UPLOAD) {
+  if (
+    keyPackages.length === 0 ||
+    keyPackages.length > MAX_KEY_PACKAGES_PER_UPLOAD
+  ) {
     return false;
   }
 
@@ -54,10 +57,7 @@ function isValidUploadPayload(
   return true;
 }
 
-function decodeStoredKeyPackage(
-  value: string,
-  fieldName: string
-): Uint8Array {
+function decodeStoredKeyPackage(value: string, fieldName: string): Uint8Array {
   const decoded = decodeBase64ToBytes(value);
   if (!decoded) {
     throw new ConnectError(`${fieldName} is not valid base64`, Code.Internal);
