@@ -124,6 +124,42 @@ function parseClientId(value: unknown, bytesValue: unknown): string | null {
   return normalized;
 }
 
+function hasCompactEnumField(
+  value: Record<string, unknown>,
+  key: string
+): boolean {
+  if (!Object.hasOwn(value, key)) {
+    return false;
+  }
+
+  const enumValue = value[key];
+  if (enumValue === 0 || enumValue === 0n || enumValue === '0') {
+    return false;
+  }
+  return enumValue !== undefined && enumValue !== null;
+}
+
+function hasCompactBytesField(
+  value: Record<string, unknown>,
+  key: string
+): boolean {
+  if (!Object.hasOwn(value, key)) {
+    return false;
+  }
+
+  const bytesValue = value[key];
+  if (bytesValue instanceof Uint8Array) {
+    return bytesValue.length > 0;
+  }
+  if (Array.isArray(bytesValue)) {
+    return bytesValue.length > 0;
+  }
+  if (typeof bytesValue === 'string') {
+    return bytesValue.length > 0;
+  }
+  return bytesValue !== undefined && bytesValue !== null;
+}
+
 function parsePushOperation(
   value: unknown,
   index: number,
@@ -227,9 +263,9 @@ function parsePushOperation(
       Object.hasOwn(value, 'principalType') ||
       Object.hasOwn(value, 'principalId') ||
       Object.hasOwn(value, 'accessLevel') ||
-      Object.hasOwn(value, 'principalTypeEnum') ||
-      Object.hasOwn(value, 'principalIdBytes') ||
-      Object.hasOwn(value, 'accessLevelEnum');
+      hasCompactEnumField(value, 'principalTypeEnum') ||
+      hasCompactBytesField(value, 'principalIdBytes') ||
+      hasCompactEnumField(value, 'accessLevelEnum');
     if (hasEncryptedPayload && includesPlaintextAclFields) {
       return {
         status: 'invalid',
@@ -296,8 +332,8 @@ function parsePushOperation(
     const includesPlaintextLinkFields =
       Object.hasOwn(value, 'parentId') ||
       Object.hasOwn(value, 'childId') ||
-      Object.hasOwn(value, 'parentIdBytes') ||
-      Object.hasOwn(value, 'childIdBytes');
+      hasCompactBytesField(value, 'parentIdBytes') ||
+      hasCompactBytesField(value, 'childIdBytes');
     if (hasEncryptedPayload && includesPlaintextLinkFields) {
       return {
         status: 'invalid',
@@ -353,14 +389,14 @@ function parsePushOperation(
       Object.hasOwn(value, 'principalType') ||
       Object.hasOwn(value, 'principalId') ||
       Object.hasOwn(value, 'accessLevel') ||
-      Object.hasOwn(value, 'principalTypeEnum') ||
-      Object.hasOwn(value, 'principalIdBytes') ||
-      Object.hasOwn(value, 'accessLevelEnum');
+      hasCompactEnumField(value, 'principalTypeEnum') ||
+      hasCompactBytesField(value, 'principalIdBytes') ||
+      hasCompactEnumField(value, 'accessLevelEnum');
     const includesLinkFields =
       Object.hasOwn(value, 'parentId') ||
       Object.hasOwn(value, 'childId') ||
-      Object.hasOwn(value, 'parentIdBytes') ||
-      Object.hasOwn(value, 'childIdBytes');
+      hasCompactBytesField(value, 'parentIdBytes') ||
+      hasCompactBytesField(value, 'childIdBytes');
 
     if (includesAclFields || includesLinkFields) {
       return {

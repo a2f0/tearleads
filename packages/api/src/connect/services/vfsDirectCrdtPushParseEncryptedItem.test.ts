@@ -46,6 +46,62 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
     });
   });
 
+  it('parses encrypted item_upsert when compact defaults are zero-valued', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          $typeName: 'tearleads.v2.VfsCrdtPushOperation',
+          opId: 'op-upsert-compact-defaults',
+          opType: 'item_upsert',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          opIdBytes: new Uint8Array(0),
+          opTypeEnum: 0,
+          itemIdBytes: new Uint8Array(0),
+          replicaIdBytes: new Uint8Array(0),
+          writeIdU64: 0n,
+          occurredAtMs: 0n,
+          principalTypeEnum: 0,
+          principalIdBytes: new Uint8Array(0),
+          accessLevelEnum: 0,
+          parentIdBytes: new Uint8Array(0),
+          childIdBytes: new Uint8Array(0),
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-upsert-compact-defaults',
+      operation: {
+        opId: 'op-upsert-compact-defaults',
+        opType: 'item_upsert',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
+  });
+
   it('rejects item_upsert without encrypted payload', () => {
     const result = parsePushPayload({
       clientId: 'client-1',

@@ -104,6 +104,53 @@ describe('vfsDirectCrdtPushParse encrypted envelope', () => {
     });
   });
 
+  it('parses encrypted ACL operation with zero-valued compact defaults', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          opId: 'op-compact-acl',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          principalTypeEnum: 0,
+          principalIdBytes: new Uint8Array(0),
+          accessLevelEnum: 0,
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-compact-acl',
+      operation: {
+        opId: 'op-compact-acl',
+        opType: 'acl_add',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
+  });
+
   it('rejects encrypted operation with invalid keyEpoch', () => {
     const result = parsePushPayload({
       clientId: 'client-1',
@@ -170,6 +217,52 @@ describe('vfsDirectCrdtPushParse encrypted envelope', () => {
       opId: 'op-link-1',
       operation: {
         opId: 'op-link-1',
+        opType: 'link_add',
+        itemId: 'item-1',
+        replicaId: 'client-1',
+        writeId: 1,
+        occurredAt: '2026-02-16T00:00:00.000Z',
+        encryptedPayload: 'base64-ciphertext',
+        keyEpoch: 1,
+        encryptionNonce: 'base64-nonce',
+        encryptionAad: 'base64-aad',
+        encryptionSignature: 'base64-sig'
+      }
+    });
+  });
+
+  it('parses encrypted link operation with zero-valued compact defaults', () => {
+    const result = parsePushPayload({
+      clientId: 'client-1',
+      operations: [
+        {
+          opId: 'op-link-compact-defaults',
+          opType: 'link_add',
+          itemId: 'item-1',
+          replicaId: 'client-1',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          parentIdBytes: new Uint8Array(0),
+          childIdBytes: new Uint8Array(0),
+          encryptedPayload: 'base64-ciphertext',
+          keyEpoch: 1,
+          encryptionNonce: 'base64-nonce',
+          encryptionAad: 'base64-aad',
+          encryptionSignature: 'base64-sig'
+        }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected parsePushPayload to succeed');
+    }
+
+    expect(result.value.operations[0]).toEqual({
+      status: 'parsed',
+      opId: 'op-link-compact-defaults',
+      operation: {
+        opId: 'op-link-compact-defaults',
         opType: 'link_add',
         itemId: 'item-1',
         replicaId: 'client-1',
