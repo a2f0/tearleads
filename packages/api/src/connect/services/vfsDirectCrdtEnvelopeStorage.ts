@@ -1,22 +1,5 @@
-import { parseBooleanEnv } from './vfsDirectParseBooleanEnv.js';
-
-const ENVELOPE_BYTEA_WRITES_FLAG = 'VFS_CRDT_ENVELOPE_BYTEA_WRITES';
-const ENVELOPE_DUAL_TEXT_WRITES_FLAG = 'VFS_CRDT_ENVELOPE_DUAL_WRITE_TEXT';
-
-function shouldWriteEnvelopeBytea(): boolean {
-  return parseBooleanEnv(process.env[ENVELOPE_BYTEA_WRITES_FLAG], true);
-}
-
-function shouldDualWriteEnvelopeText(): boolean {
-  return parseBooleanEnv(process.env[ENVELOPE_DUAL_TEXT_WRITES_FLAG], false);
-}
-
 function trimBase64Padding(value: string): string {
   return value.replace(/=+$/u, '');
-}
-
-function encodeBase64(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64');
 }
 
 function decodeBase64ToBuffer(value: string): Uint8Array | null {
@@ -66,15 +49,8 @@ export function serializeEnvelopeField(
       };
     }
 
-    if (!shouldWriteEnvelopeBytea()) {
-      return {
-        text: encodeBase64(value),
-        bytes: null
-      };
-    }
-
     return {
-      text: shouldDualWriteEnvelopeText() ? encodeBase64(value) : null,
+      text: null,
       bytes: Uint8Array.from(value)
     };
   }
@@ -94,13 +70,6 @@ export function serializeEnvelopeField(
     };
   }
 
-  if (!shouldWriteEnvelopeBytea()) {
-    return {
-      text: trimmed,
-      bytes: null
-    };
-  }
-
   const decoded = decodeBase64ToBuffer(trimmed);
   if (!decoded) {
     return {
@@ -110,7 +79,7 @@ export function serializeEnvelopeField(
   }
 
   return {
-    text: shouldDualWriteEnvelopeText() ? trimmed : null,
+    text: null,
     bytes: decoded
   };
 }

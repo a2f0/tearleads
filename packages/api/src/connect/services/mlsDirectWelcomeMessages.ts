@@ -1,7 +1,7 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type { AckMlsWelcomeRequest } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { decodeBase64ToBytes } from './mlsBinaryCodec.js';
+import { toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryWelcomeMessage,
   MlsBinaryWelcomeMessagesResponse
@@ -36,7 +36,7 @@ export async function getWelcomeMessagesDirectTyped(
       id: string;
       group_id: string;
       group_name: string;
-      welcome_data: string;
+      welcome_data: Buffer | Uint8Array | null;
       key_package_ref: string;
       epoch: number;
       created_at: Date | string;
@@ -54,10 +54,10 @@ export async function getWelcomeMessagesDirectTyped(
     );
 
     const welcomes: MlsBinaryWelcomeMessage[] = result.rows.map((row) => {
-      const welcome = decodeBase64ToBytes(row.welcome_data);
-      if (!welcome) {
+      const welcome = toUint8Array(row.welcome_data);
+      if (!welcome || welcome.byteLength === 0) {
         throw new ConnectError(
-          'Stored MLS welcome payload is not valid base64',
+          'Stored MLS welcome payload bytes are invalid',
           Code.Internal
         );
       }

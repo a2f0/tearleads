@@ -422,7 +422,7 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
   if [[ -z "${VITE_API_URL:-}" ]]; then
     require_var TF_VAR_domain
     # shellcheck disable=SC2154  # TF_VAR_domain sourced from .secrets/<env>.env
-    VITE_API_URL="https://api.${TF_VAR_domain}/v1"
+    VITE_API_URL="https://api.${TF_VAR_domain}"
   fi
 
   run_or_queue_build \

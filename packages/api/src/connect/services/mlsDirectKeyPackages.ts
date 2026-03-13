@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
+import { toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryKeyPackage,
   MlsBinaryKeyPackagesResponse,
@@ -15,7 +15,7 @@ type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
 type UploadInsertRow = {
   id: string;
-  key_package_data: string;
+  key_package_data: Buffer | Uint8Array | null;
   key_package_ref: string;
   cipher_suite: number;
   created_at: Date | string;
@@ -57,12 +57,15 @@ function isValidUploadPayload(
   return true;
 }
 
-function decodeStoredKeyPackage(value: string, fieldName: string): Uint8Array {
-  const decoded = decodeBase64ToBytes(value);
-  if (!decoded) {
-    throw new ConnectError(`${fieldName} is not valid base64`, Code.Internal);
+function readStoredKeyPackage(
+  value: Buffer | Uint8Array | null,
+  fieldName: string
+): Uint8Array {
+  const bytes = toUint8Array(value);
+  if (!bytes || bytes.byteLength === 0) {
+    throw new ConnectError(`${fieldName} bytes are invalid`, Code.Internal);
   }
-  return decoded;
+  return bytes;
 }
 
 export async function uploadKeyPackagesDirectTyped(
@@ -84,7 +87,7 @@ export async function uploadKeyPackagesDirectTyped(
     const pool = await getPostgresPool();
     const ids = request.keyPackages.map(() => randomUUID());
     const keyPackageData = request.keyPackages.map((keyPackage) =>
-      encodeBytesToBase64(keyPackage.keyPackageData)
+      Uint8Array.from(keyPackage.keyPackageData)
     );
     const keyPackageRef = request.keyPackages.map(
       (keyPackage) => keyPackage.keyPackageRef
@@ -98,7 +101,7 @@ export async function uploadKeyPackagesDirectTyped(
          SELECT *
            FROM unnest(
              $1::uuid[],
-             $2::text[],
+             $2::bytea[],
              $3::text[],
              $4::integer[]
            ) AS t(id, key_package_data, key_package_ref, cipher_suite)
@@ -127,7 +130,7 @@ export async function uploadKeyPackagesDirectTyped(
     const uploadedPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: claims.sub,
-      keyPackageData: decodeStoredKeyPackage(
+      keyPackageData: readStoredKeyPackage(
         row.key_package_data,
         'key_package_data'
       ),
@@ -160,7 +163,7 @@ export async function getMyKeyPackagesDirectTyped(
     const pool = await getPool('read');
     const result = await pool.query<{
       id: string;
-      key_package_data: string;
+      key_package_data: Buffer | Uint8Array | null;
       key_package_ref: string;
       cipher_suite: number;
       created_at: Date | string;
@@ -176,7 +179,7 @@ export async function getMyKeyPackagesDirectTyped(
     const keyPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: claims.sub,
-      keyPackageData: decodeStoredKeyPackage(
+      keyPackageData: readStoredKeyPackage(
         row.key_package_data,
         'key_package_data'
       ),
@@ -224,7 +227,7 @@ export async function getUserKeyPackagesDirectTyped(
 
     const result = await pool.query<{
       id: string;
-      key_package_data: string;
+      key_package_data: Buffer | Uint8Array | null;
       key_package_ref: string;
       cipher_suite: number;
       created_at: Date | string;
@@ -240,7 +243,7 @@ export async function getUserKeyPackagesDirectTyped(
     const keyPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: request.userId,
-      keyPackageData: decodeStoredKeyPackage(
+      keyPackageData: readStoredKeyPackage(
         row.key_package_data,
         'key_package_data'
       ),

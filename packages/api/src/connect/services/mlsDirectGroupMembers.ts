@@ -159,7 +159,7 @@ export async function addGroupMemberDirectTyped(
           groupId,
           payload.userId,
           payload.keyPackageRef,
-          encodeBytesToBase64(payload.welcome),
+          payload.welcome,
           payload.newEpoch
         ]
       );

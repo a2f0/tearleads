@@ -2,11 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import {
-  decodeBase64ToBytes,
-  encodeBytesToBase64,
-  toUint8Array
-} from './mlsBinaryCodec.js';
+import { encodeBytesToBase64, toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryMessage,
   MlsBinaryMessagesResponse,
@@ -31,22 +27,16 @@ type GroupIdTypedRequest = { groupId: string } & SendMlsMessageBinaryRequest;
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };
 
 function decodeStoredCiphertext(
-  ciphertextBytes: Buffer | Uint8Array | null,
-  ciphertextText: string | null
+  ciphertextBytes: Buffer | Uint8Array | null
 ): Uint8Array {
   const fromBytea = toUint8Array(ciphertextBytes);
   if (fromBytea) {
     return fromBytea;
   }
-
-  if (typeof ciphertextText === 'string') {
-    const decoded = decodeBase64ToBytes(ciphertextText);
-    if (decoded) {
-      return decoded;
-    }
-  }
-
-  throw new ConnectError('Stored MLS ciphertext is invalid', Code.Internal);
+  throw new ConnectError(
+    'Stored MLS ciphertext bytes are invalid',
+    Code.Internal
+  );
 }
 
 export async function sendGroupMessageDirectTyped(
@@ -258,7 +248,6 @@ export async function getGroupMessagesDirectTyped(
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
            ops.encrypted_payload_bytes AS ciphertext_bytes,
-           ops.encrypted_payload AS ciphertext_text,
            NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
            CASE
              WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
@@ -271,10 +260,7 @@ export async function getGroupMessagesDirectTyped(
          LEFT JOIN users u ON u.id = ops.actor_id
          WHERE ops.source_table = 'mls_message'
            AND ops.op_type = 'item_upsert'
-           AND (
-             ops.encrypted_payload_bytes IS NOT NULL
-             OR ops.encrypted_payload IS NOT NULL
-           )
+           AND ops.encrypted_payload_bytes IS NOT NULL
            AND ops.source_id LIKE $2::text
        )
        SELECT
@@ -283,7 +269,6 @@ export async function getGroupMessagesDirectTyped(
          sender_user_id,
          epoch,
          ciphertext_bytes,
-         ciphertext_text,
          encoded_content_type,
          sequence_number,
          created_at,
@@ -306,10 +291,7 @@ export async function getGroupMessagesDirectTyped(
         groupId: row.group_id,
         senderUserId: row.sender_user_id ?? '',
         epoch: row.epoch,
-        ciphertext: decodeStoredCiphertext(
-          row.ciphertext_bytes,
-          row.ciphertext_text
-        ),
+        ciphertext: decodeStoredCiphertext(row.ciphertext_bytes),
         messageType: 'application',
         contentType: decodeContentTypeFromSourceId(row.encoded_content_type),
         sequenceNumber: row.sequence_number,
