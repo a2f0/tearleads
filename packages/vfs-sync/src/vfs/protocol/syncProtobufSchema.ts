@@ -29,7 +29,8 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 LINK_ADD: 3,
                 LINK_REMOVE: 4,
                 ITEM_UPSERT: 5,
-                ITEM_DELETE: 6
+                ITEM_DELETE: 6,
+                LINK_REASSIGN: 7
               }
             },
             PrincipalType: {

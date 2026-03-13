@@ -42,6 +42,7 @@ export const vfsCrdtOpsTable: TableDefinition = {
         'acl_remove',
         'link_add',
         'link_remove',
+        'link_reassign',
         'item_upsert',
         'item_delete'
       ] as const

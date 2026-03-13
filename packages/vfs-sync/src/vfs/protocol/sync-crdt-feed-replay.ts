@@ -181,7 +181,11 @@ export class InMemoryVfsCrdtFeedReplayStore {
 
       if (item.opType === 'acl_add' || item.opType === 'acl_remove') {
         this.applyAclItem(item, index);
-      } else if (item.opType === 'link_add' || item.opType === 'link_remove') {
+      } else if (
+        item.opType === 'link_add' ||
+        item.opType === 'link_remove' ||
+        item.opType === 'link_reassign'
+      ) {
         this.applyLinkItem(item, index);
       }
 
@@ -360,10 +364,22 @@ export class InMemoryVfsCrdtFeedReplayStore {
       );
     }
 
+    if (item.opType === 'link_reassign') {
+      for (const [key, register] of this.linkRegisters) {
+        if (register.childId === childId && register.parentId !== parentId) {
+          this.linkRegisters.set(key, {
+            parentId: register.parentId,
+            childId: register.childId,
+            present: false
+          });
+        }
+      }
+    }
+
     this.linkRegisters.set(toLinkKey(parentId, childId), {
       parentId,
       childId,
-      present: item.opType === 'link_add'
+      present: item.opType !== 'link_remove'
     });
   }
 }

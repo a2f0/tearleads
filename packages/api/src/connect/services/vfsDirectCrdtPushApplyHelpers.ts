@@ -26,7 +26,11 @@ export function compareCursor(
 export function resolveContainerId(
   operation: VfsCrdtPushOperation
 ): string | null {
-  if (operation.opType === 'link_add' || operation.opType === 'link_remove') {
+  if (
+    operation.opType === 'link_add' ||
+    operation.opType === 'link_remove' ||
+    operation.opType === 'link_reassign'
+  ) {
     const parentId = operation.parentId?.trim();
     return parentId && parentId.length > 0 ? parentId : null;
   }

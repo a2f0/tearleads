@@ -101,6 +101,7 @@ export type VfsCrdtOpType =
   | 'acl_remove'
   | 'link_add'
   | 'link_remove'
+  | 'link_reassign'
   | 'item_upsert'
   | 'item_delete';
 
