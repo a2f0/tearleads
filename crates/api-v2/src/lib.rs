@@ -9,15 +9,24 @@ mod auth_service;
 mod billing_auth;
 mod billing_service;
 mod chat_service;
+mod mls_service;
+mod notification_service;
 mod ping;
 /// Concrete Postgres gateway backed by `tokio-postgres` and `deadpool`.
 mod postgres_gateway;
+mod revenuecat_service;
+mod upstream_connect;
+mod vfs_service;
+mod vfs_shares_service;
 
 use axum::{Router, routing::get};
 use tearleads_api_v2_contracts::tearleads::v2::{
     admin_service_server::AdminServiceServer, ai_service_server::AiServiceServer,
     auth_service_server::AuthServiceServer, billing_service_server::BillingServiceServer,
-    chat_service_server::ChatServiceServer,
+    chat_service_server::ChatServiceServer, mls_service_server::MlsServiceServer,
+    notification_service_server::NotificationServiceServer,
+    revenuecat_service_server::RevenuecatServiceServer, vfs_service_server::VfsServiceServer,
+    vfs_shares_service_server::VfsSharesServiceServer,
 };
 use tearleads_data_access_traits::{
     PostgresAdminRepository, PostgresAiUsageRepository, PostgresAuthRepository,
@@ -42,9 +51,14 @@ pub use chat_service::{
     ChatCompletionGateway, ChatServiceHandler, OpenRouterChatCompletionResult,
     ReqwestOpenRouterGateway,
 };
+pub use mls_service::MlsServiceHandler;
+pub use notification_service::NotificationServiceHandler;
 pub use ping::PingResponse;
 use ping::ping;
 pub use postgres_gateway::TokioPostgresGateway;
+pub use revenuecat_service::RevenuecatServiceHandler;
+pub use vfs_service::VfsServiceHandler;
+pub use vfs_shares_service::VfsSharesServiceHandler;
 
 /// Builds the router with the given comma-separated allowed origins and
 /// repository implementations.
@@ -142,6 +156,38 @@ where
                 .map_request(|request: axum::http::Request<axum::body::Body>| {
                     request.map(tonic::body::Body::new)
                 });
+            let mls_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(MlsServiceServer::new(MlsServiceHandler::new()))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
+            let notification_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(NotificationServiceServer::new(
+                    NotificationServiceHandler::new(),
+                ))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
+            let revenuecat_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(RevenuecatServiceServer::new(RevenuecatServiceHandler::new()))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
+            let vfs_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(VfsServiceServer::new(VfsServiceHandler::new()))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
+            let vfs_shares_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(VfsSharesServiceServer::new(VfsSharesServiceHandler::new()))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
 
             Router::new()
                 .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
@@ -149,6 +195,17 @@ where
                 .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
                 .route_service("/tearleads.v2.AiService/{*rest}", ai_service)
                 .route_service("/tearleads.v2.AuthService/{*rest}", auth_service)
+                .route_service("/tearleads.v2.MlsService/{*rest}", mls_service)
+                .route_service(
+                    "/tearleads.v2.NotificationService/{*rest}",
+                    notification_service,
+                )
+                .route_service(
+                    "/tearleads.v2.RevenuecatService/{*rest}",
+                    revenuecat_service,
+                )
+                .route_service("/tearleads.v2.VfsService/{*rest}", vfs_service)
+                .route_service("/tearleads.v2.VfsSharesService/{*rest}", vfs_shares_service)
         }
     };
 
@@ -206,6 +263,38 @@ pub fn app_with_origins(origins: &str) -> Router {
             .map_request(|request: axum::http::Request<axum::body::Body>| {
                 request.map(tonic::body::Body::new)
             });
+        let mls_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(MlsServiceServer::new(MlsServiceHandler::new()))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
+        let notification_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(NotificationServiceServer::new(
+                NotificationServiceHandler::new(),
+            ))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
+        let revenuecat_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(RevenuecatServiceServer::new(RevenuecatServiceHandler::new()))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
+        let vfs_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(VfsServiceServer::new(VfsServiceHandler::new()))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
+        let vfs_shares_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(VfsSharesServiceServer::new(VfsSharesServiceHandler::new()))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
 
         Router::new()
             .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
@@ -213,6 +302,17 @@ pub fn app_with_origins(origins: &str) -> Router {
             .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
             .route_service("/tearleads.v2.AiService/{*rest}", ai_service)
             .route_service("/tearleads.v2.AuthService/{*rest}", auth_service)
+            .route_service("/tearleads.v2.MlsService/{*rest}", mls_service)
+            .route_service(
+                "/tearleads.v2.NotificationService/{*rest}",
+                notification_service,
+            )
+            .route_service(
+                "/tearleads.v2.RevenuecatService/{*rest}",
+                revenuecat_service,
+            )
+            .route_service("/tearleads.v2.VfsService/{*rest}", vfs_service)
+            .route_service("/tearleads.v2.VfsSharesService/{*rest}", vfs_shares_service)
     };
 
     Router::new()
@@ -241,182 +341,4 @@ fn cors_layer(origins: &str) -> CorsLayer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
-mod tests {
-    use axum::body::Body;
-    use axum::http::{Request, StatusCode};
-    use tower::ServiceExt;
-
-    use super::admin_harness::StaticPostgresRepository;
-    use super::{admin_harness_static_redis, app_with_origins, app_with_repos};
-
-    fn admin_tables_request(path: &str) -> Request<Body> {
-        Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build")
-    }
-
-    fn billing_request(path: &str) -> Request<Body> {
-        Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build")
-    }
-
-    fn chat_request(path: &str) -> Request<Body> {
-        Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build")
-    }
-
-    fn ai_request(path: &str) -> Request<Body> {
-        Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build")
-    }
-
-    fn auth_request(path: &str) -> Request<Body> {
-        Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("content-type", "application/grpc-web+proto")
-            .header("x-grpc-web", "1")
-            .header("authorization", "Bearer header.payload.signature")
-            .body(Body::empty())
-            .expect("request should build")
-    }
-
-    #[tokio::test]
-    async fn admin_connect_route_is_mounted_by_default() {
-        let response = app_with_origins("")
-            .oneshot(admin_tables_request(
-                "/connect/tearleads.v2.AdminService/GetTables",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn v1_admin_connect_alias_is_not_mounted() {
-        let response = app_with_origins("")
-            .oneshot(admin_tables_request(
-                "/v1/connect/tearleads.v2.AdminService/GetTables",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn app_with_repos_mounts_connect_routes() {
-        let pg = StaticPostgresRepository;
-        let rd = admin_harness_static_redis();
-        let response = app_with_repos("", pg, rd, StaticPostgresRepository)
-            .oneshot(admin_tables_request(
-                "/connect/tearleads.v2.AdminService/GetTables",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn billing_connect_route_is_mounted_by_default() {
-        let response = app_with_origins("")
-            .oneshot(billing_request(
-                "/connect/tearleads.v2.BillingService/GetOrganizationBilling",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn v1_billing_connect_alias_is_not_mounted() {
-        let response = app_with_origins("")
-            .oneshot(billing_request(
-                "/v1/connect/tearleads.v2.BillingService/GetOrganizationBilling",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn chat_connect_route_is_mounted_by_default() {
-        let response = app_with_origins("")
-            .oneshot(chat_request(
-                "/connect/tearleads.v2.ChatService/PostCompletions",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn v1_chat_connect_alias_is_not_mounted() {
-        let response = app_with_origins("")
-            .oneshot(chat_request(
-                "/v1/connect/tearleads.v2.ChatService/PostCompletions",
-            ))
-            .await
-            .expect("router should return a response");
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn ai_connect_route_is_mounted_by_default() {
-        let response = app_with_origins("")
-            .oneshot(ai_request("/connect/tearleads.v2.AiService/GetUsage"))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn v1_ai_connect_alias_is_not_mounted() {
-        let response = app_with_origins("")
-            .oneshot(ai_request("/v1/connect/tearleads.v2.AiService/GetUsage"))
-            .await
-            .expect("router should return a response");
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn auth_connect_route_is_mounted_by_default() {
-        let response = app_with_origins("")
-            .oneshot(auth_request("/connect/tearleads.v2.AuthService/Login"))
-            .await
-            .expect("router should return a response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn v1_auth_connect_alias_is_not_mounted() {
-        let response = app_with_origins("")
-            .oneshot(auth_request("/v1/connect/tearleads.v2.AuthService/Login"))
-            .await
-            .expect("router should return a response");
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-}
+mod lib_tests;
