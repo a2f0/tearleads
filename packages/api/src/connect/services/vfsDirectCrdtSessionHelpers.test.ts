@@ -26,7 +26,9 @@ function createBloomPayload(opIds: string[]): VfsSyncBloomFilter {
   };
 }
 
-function createRow(overrides: Partial<VfsCrdtSyncDbRow> = {}): VfsCrdtSyncDbRow {
+function createRow(
+  overrides: Partial<VfsCrdtSyncDbRow> = {}
+): VfsCrdtSyncDbRow {
   return {
     op_id: 'op-1',
     item_id: 'item-1',
@@ -68,10 +70,16 @@ describe('vfsDirectCrdtSessionHelpers', () => {
 
   describe('parseOptionalRootId', () => {
     it('parses legacy string and compact bytes', () => {
-      expect(parseOptionalRootId(' root-legacy ', undefined)).toBe('root-legacy');
+      expect(parseOptionalRootId(' root-legacy ', undefined)).toBe(
+        'root-legacy'
+      );
 
-      const compactRootId = Buffer.from('root-compact', 'utf8').toString('base64');
-      expect(parseOptionalRootId(undefined, compactRootId)).toBe('root-compact');
+      const compactRootId = Buffer.from('root-compact', 'utf8').toString(
+        'base64'
+      );
+      expect(parseOptionalRootId(undefined, compactRootId)).toBe(
+        'root-compact'
+      );
     });
 
     it('returns null for invalid payloads', () => {
@@ -174,7 +182,9 @@ describe('vfsDirectCrdtSessionHelpers', () => {
     });
 
     it('returns false when row metadata is missing or invalid', () => {
-      const runtimeBloom = createRuntimeBloomFilter(createBloomPayload(['op-1']));
+      const runtimeBloom = createRuntimeBloomFilter(
+        createBloomPayload(['op-1'])
+      );
       if (!runtimeBloom) {
         throw new Error('expected runtime bloom filter');
       }
@@ -200,7 +210,9 @@ describe('vfsDirectCrdtSessionHelpers', () => {
     });
 
     it('returns false when reconciled write id is behind or op is absent', () => {
-      const runtimeBloom = createRuntimeBloomFilter(createBloomPayload(['op-a']));
+      const runtimeBloom = createRuntimeBloomFilter(
+        createBloomPayload(['op-a'])
+      );
       if (!runtimeBloom) {
         throw new Error('expected runtime bloom filter');
       }
@@ -220,7 +232,9 @@ describe('vfsDirectCrdtSessionHelpers', () => {
     });
 
     it('returns true when op is already reconciled and present in bloom filter', () => {
-      const runtimeBloom = createRuntimeBloomFilter(createBloomPayload(['op-a']));
+      const runtimeBloom = createRuntimeBloomFilter(
+        createBloomPayload(['op-a'])
+      );
       if (!runtimeBloom) {
         throw new Error('expected runtime bloom filter');
       }

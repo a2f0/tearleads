@@ -22,11 +22,17 @@ describe('vfsDirectCrdtCompactDecoding', () => {
     );
 
     expect(
-      parseIdentifierWithCompactFallback(undefined, new TextEncoder().encode('client-3'))
+      parseIdentifierWithCompactFallback(
+        undefined,
+        new TextEncoder().encode('client-3')
+      )
     ).toBe('client-3');
 
     expect(
-      parseIdentifierWithCompactFallback(undefined, [99, 108, 105, 101, 110, 116, 45, 52])
+      parseIdentifierWithCompactFallback(
+        undefined,
+        [99, 108, 105, 101, 110, 116, 45, 52]
+      )
     ).toBe('client-4');
   });
 
@@ -36,9 +42,9 @@ describe('vfsDirectCrdtCompactDecoding', () => {
       0x00, 0x00, 0x00, 0x01
     ]);
 
-    expect(parseIdentifierWithCompactFallback(undefined, toBase64(uuidBytes))).toBe(
-      '00000000-0000-0000-0000-000000000001'
-    );
+    expect(
+      parseIdentifierWithCompactFallback(undefined, toBase64(uuidBytes))
+    ).toBe('00000000-0000-0000-0000-000000000001');
   });
 
   it('returns null for invalid compact identifiers', () => {
@@ -61,7 +67,9 @@ describe('vfsDirectCrdtCompactDecoding', () => {
 
   it('rejects non-positive or invalid integer payloads', () => {
     expect(parsePositiveSafeIntegerWithCompactFallback(0, '9')).toBeNull();
-    expect(parsePositiveSafeIntegerWithCompactFallback(undefined, 'x')).toBeNull();
+    expect(
+      parsePositiveSafeIntegerWithCompactFallback(undefined, 'x')
+    ).toBeNull();
     expect(
       parsePositiveSafeIntegerWithCompactFallback(
         undefined,
@@ -80,9 +88,9 @@ describe('vfsDirectCrdtCompactDecoding', () => {
   });
 
   it('rejects invalid occurredAt payloads', () => {
-    expect(parseOccurredAtWithCompactFallback('not-a-date', 1760572800000)).toBe(
-      null
-    );
+    expect(
+      parseOccurredAtWithCompactFallback('not-a-date', 1760572800000)
+    ).toBe(null);
     expect(parseOccurredAtWithCompactFallback(undefined, -1)).toBeNull();
     expect(parseOccurredAtWithCompactFallback(undefined, 'x')).toBeNull();
   });
