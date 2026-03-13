@@ -1,13 +1,13 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-13T03:23:15.912Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-13T04:21:07.453Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 43
+- Bun-primary test scripts: 44
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary test scripts: 4
+- Vitest-primary test scripts: 3
 - Packages with DOM/jsdom indicators: 31
 - Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 2
 
@@ -18,7 +18,6 @@ Generated: `2026-03-13T03:23:15.912Z` via `node --experimental-strip-types scrip
 | `@tearleads/client` | 20 | vi.hoisted (40), vi.importActual (155), import.meta.glob (1), vi.resetModules (1), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/api-client` | 5 | DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
-| `@tearleads/api` | 3 | test script is vitest-primary |
 | `@tearleads/cli` | 3 | test script is vitest-primary |
 | `@tearleads/app-admin` | 2 | DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-ai` | 2 | DOM setup (4 indicators; see Package Inventory) |
@@ -30,6 +29,7 @@ Generated: `2026-03-13T03:23:15.912Z` via `node --experimental-strip-types scrip
 | `@tearleads/app-camera` | 2 | DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-classic` | 2 | DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/app-contacts` | 2 | DOM setup (4 indicators; see Package Inventory) |
+| `@tearleads/app-email` | 2 | DOM setup (4 indicators; see Package Inventory) |
 
 ## Package Inventory
 
@@ -38,7 +38,6 @@ Generated: `2026-03-13T03:23:15.912Z` via `node --experimental-strip-types scrip
 | `@tearleads/client` | 597 | `vitest-primary` | no | vi.hoisted:40, vi.importActual:155, import.meta.glob:1, vi.resetModules:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/api-client` | 56 | `vitest-primary` | no | none | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-compliance` | 3 | `bun-primary` | yes | import.meta.glob:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
-| `@tearleads/api` | 151 | `vitest-primary` | no | none | none | `needs-remediation` |
 | `@tearleads/cli` | 6 | `vitest-primary` | no | none | none | `needs-remediation` |
 | `@tearleads/app-admin` | 59 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/app-ai` | 2 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
@@ -68,6 +67,7 @@ Generated: `2026-03-13T03:23:15.912Z` via `node --experimental-strip-types scrip
 | `@tearleads/vfs-sync` | 90 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/website` | 11 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
 | `@tearleads/window-manager` | 47 | `bun-primary` | yes | none | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `needs-remediation` |
+| `@tearleads/api` | 151 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/api-test-utils` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-builder` | 3 | `bun-primary` | yes | none | none | `ready` |
 | `@tearleads/app-photos` | 1 | `bun-primary` | yes | none | none | `ready` |

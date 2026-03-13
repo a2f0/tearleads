@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setTestEnv } from '../test/env.js';
+import { setTestEnv, unsetTestEnv } from '../test/env.js';
 
 const mockSend = vi.fn();
 const mockPutObjectCommand = vi.fn(function MockPutObjectCommand(
@@ -70,6 +70,7 @@ describe('vfsBlobStore', () => {
   });
 
   it('throws when bucket configuration is missing', async () => {
+    unsetTestEnv('VFS_BLOB_S3_BUCKET');
     const { persistVfsBlobData } = await import('./vfsBlobStore.js');
 
     await expect(
