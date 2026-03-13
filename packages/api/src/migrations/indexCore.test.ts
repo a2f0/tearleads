@@ -68,10 +68,10 @@ describe('migrations (core through v004)', () => {
           if (sql.includes('MAX(version)')) {
             versionCallCount += 1;
             return Promise.resolve({
-            rows: [{ version: versionCallCount === 1 ? null : 4 }],
-            rowCount: 1
-          });
-        }
+              rows: [{ version: versionCallCount === 1 ? null : 4 }],
+              rowCount: 1
+            });
+          }
 
           return Promise.resolve({ rows: [], rowCount: 0 });
         })
@@ -275,9 +275,7 @@ describe('migrations (core through v004)', () => {
 
       const queries = pool.queries.join('\n');
 
-      expect(queries).toContain(
-        'ALTER COLUMN "key_package_data" TYPE BYTEA'
-      );
+      expect(queries).toContain('ALTER COLUMN "key_package_data" TYPE BYTEA');
       expect(queries).toContain('ALTER COLUMN "welcome_data" TYPE BYTEA');
       expect(queries).toContain('ALTER COLUMN "encrypted_state" TYPE BYTEA');
     });
