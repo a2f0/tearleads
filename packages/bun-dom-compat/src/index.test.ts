@@ -85,9 +85,7 @@ describe('installBrowserGlobalsForBun', () => {
     const target: Record<string, unknown> = {};
     installVitestPolyfills(target);
 
-    const isMockFunction = target['isMockFunction'] as (
-      fn: unknown
-    ) => boolean;
+    const isMockFunction = target['isMockFunction'] as (fn: unknown) => boolean;
     expect(typeof isMockFunction).toBe('function');
 
     const mockFn = vi.fn();
