@@ -29,17 +29,19 @@ function findWrappedKey(
 export function inboxFolderUuid(userId: string): string {
   const input = `email-inbox:${userId}`;
   const bytes = new Uint8Array(16);
-  for (let b = 0; b < 16; b++) {
-    let h = 2166136261 ^ Math.imul(b, 16777619);
-    for (let i = 0; i < input.length; i++) {
-      h ^= input.charCodeAt(i);
-      h = Math.imul(h, 16777619);
+  const view = new DataView(bytes.buffer);
+  const FNV_PRIME = 16777619;
+  const FNV_OFFSET_BASIS = 2166136261;
+  for (let i = 0; i < 4; i++) {
+    let h = FNV_OFFSET_BASIS ^ i;
+    for (let j = 0; j < input.length; j++) {
+      h ^= input.charCodeAt(j);
+      h = Math.imul(h, FNV_PRIME);
     }
-    let byte = (h >>> 0) & 0xff;
-    if (b === 6) byte = (byte & 0x0f) | 0x50;
-    if (b === 8) byte = (byte & 0x3f) | 0x80;
-    bytes[b] = byte;
+    view.setUint32(i * 4, h, false);
   }
+  view.setUint8(6, (view.getUint8(6) & 0x0f) | 0x50);
+  view.setUint8(8, (view.getUint8(8) & 0x3f) | 0x80);
   const hex = Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(
     ''
   );
