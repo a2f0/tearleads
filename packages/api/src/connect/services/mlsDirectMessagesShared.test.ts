@@ -74,7 +74,7 @@ describe('mlsDirectMessagesShared', () => {
         groupId: 'group-1',
         organizationId: 'org-1',
         senderUserId: 'user-1',
-        ciphertext: 'ciphertext-value',
+        ciphertext: new Uint8Array([9, 8, 7]),
         contentType: 'text/plain',
         epoch: 2,
         occurredAtIso: '2026-03-03T03:20:00.000Z',
@@ -83,6 +83,9 @@ describe('mlsDirectMessagesShared', () => {
     );
 
     expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(serializeEnvelopeFieldMock).toHaveBeenCalledWith(
+      new Uint8Array([9, 8, 7])
+    );
     expect(queryMock.mock.calls[3]?.[1]).toEqual([
       'message-1',
       'user-1',

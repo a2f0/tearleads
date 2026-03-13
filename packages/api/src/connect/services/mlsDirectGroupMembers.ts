@@ -1,30 +1,32 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
-  AddMlsMemberRequest,
-  AddMlsMemberResponse,
-  MlsGroupMember,
-  MlsGroupMembersResponse,
-  MlsMessage,
-  RemoveMlsMemberRequest
-} from '@tearleads/shared';
+  AddMlsMemberBinaryRequest,
+  AddMlsMemberBinaryResponse,
+  MlsBinaryGroupMember,
+  MlsBinaryGroupMembersResponse,
+  MlsBinaryMessage,
+  RemoveMlsMemberBinaryRequest
+} from './mlsBinaryTypes.js';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
+import { toTransportMessage } from './mlsBinaryTypes.js';
+import { encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import { insertCommitMessage } from './mlsDirectCommitMessages.js';
 import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';
 import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type AddMemberTypedRequest = { groupId: string } & AddMlsMemberRequest;
+type AddMemberTypedRequest = { groupId: string } & AddMlsMemberBinaryRequest;
 type RemoveMemberTypedRequest = {
   groupId: string;
   userId: string;
-} & RemoveMlsMemberRequest;
+} & RemoveMlsMemberBinaryRequest;
 export async function addGroupMemberDirectTyped(
   request: AddMemberTypedRequest,
   context: { requestHeader: Headers }
-): Promise<AddMlsMemberResponse> {
+): Promise<AddMlsMemberBinaryResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -33,17 +35,17 @@ export async function addGroupMemberDirectTyped(
     `/mls/groups/${encoded(groupId)}/members`,
     context.requestHeader
   );
-  const payload: AddMlsMemberRequest = {
+  const payload: AddMlsMemberBinaryRequest = {
     userId: request.userId.trim(),
-    commit: request.commit.trim(),
-    welcome: request.welcome.trim(),
+    commit: Uint8Array.from(request.commit),
+    welcome: Uint8Array.from(request.welcome),
     keyPackageRef: request.keyPackageRef.trim(),
     newEpoch: request.newEpoch
   };
   if (
     payload.userId.length === 0 ||
-    payload.commit.length === 0 ||
-    payload.welcome.length === 0 ||
+    payload.commit.byteLength === 0 ||
+    payload.welcome.byteLength === 0 ||
     payload.keyPackageRef.length === 0 ||
     !Number.isInteger(payload.newEpoch) ||
     payload.newEpoch < 0
@@ -80,7 +82,7 @@ export async function addGroupMemberDirectTyped(
     let inTransaction = false;
     let welcomeId = '';
     let leafIndex = 0;
-    let commitMessage: MlsMessage | null = null;
+    let commitMessage: MlsBinaryMessage | null = null;
     const now = new Date();
     try {
       await client.query('BEGIN');
@@ -157,7 +159,7 @@ export async function addGroupMemberDirectTyped(
           groupId,
           payload.userId,
           payload.keyPackageRef,
-          payload.welcome,
+          encodeBytesToBase64(payload.welcome),
           payload.newEpoch
         ]
       );
@@ -193,14 +195,14 @@ export async function addGroupMemberDirectTyped(
     }
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: commitMessage,
+      payload: toTransportMessage(commitMessage, encodeBytesToBase64),
       timestamp: commitMessage.createdAt
     });
     const userResult = await pool.query<{ email: string }>(
       `SELECT email FROM users WHERE id = $1`,
       [payload.userId]
     );
-    const member: MlsGroupMember = {
+    const member: MlsBinaryGroupMember = {
       userId: payload.userId,
       email: userResult.rows[0]?.email ?? '',
       leafIndex,
@@ -230,7 +232,7 @@ export async function addGroupMemberDirectTyped(
 export async function getGroupMembersDirectTyped(
   request: GroupIdRequest,
   context: { requestHeader: Headers }
-): Promise<MlsGroupMembersResponse> {
+): Promise<MlsBinaryGroupMembersResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -263,7 +265,7 @@ export async function getGroupMembersDirectTyped(
        ORDER BY m.joined_at ASC`,
       [groupId]
     );
-    const members: MlsGroupMember[] = result.rows.map((row) => ({
+    const members: MlsBinaryGroupMember[] = result.rows.map((row) => ({
       userId: row.user_id,
       email: row.email,
       leafIndex: row.leaf_index,
@@ -296,12 +298,12 @@ export async function removeGroupMemberDirectTyped(
     `/mls/groups/${encoded(groupId)}/members/${encoded(userId)}`,
     context.requestHeader
   );
-  const payload: RemoveMlsMemberRequest = {
-    commit: request.commit.trim(),
+  const payload: RemoveMlsMemberBinaryRequest = {
+    commit: Uint8Array.from(request.commit),
     newEpoch: request.newEpoch
   };
   if (
-    payload.commit.length === 0 ||
+    payload.commit.byteLength === 0 ||
     !Number.isInteger(payload.newEpoch) ||
     payload.newEpoch < 0
   ) {
@@ -327,7 +329,7 @@ export async function removeGroupMemberDirectTyped(
     }
     const client = await pool.connect();
     let inTransaction = false;
-    let commitMessage: MlsMessage | null = null;
+    let commitMessage: MlsBinaryMessage | null = null;
     try {
       await client.query('BEGIN');
       inTransaction = true;
@@ -389,7 +391,7 @@ export async function removeGroupMemberDirectTyped(
     }
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: commitMessage,
+      payload: toTransportMessage(commitMessage, encodeBytesToBase64),
       timestamp: commitMessage.createdAt
     });
     await broadcast(`mls:group:${groupId}`, {

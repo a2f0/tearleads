@@ -39,7 +39,6 @@ import type {
   V2UploadKeyPackagesRequest
 } from './mlsV2Converters.js';
 import {
-  encodeProtoBytes,
   fromProtoCipherSuite,
   fromProtoMessageType,
   toProtoGroup,
@@ -72,7 +71,7 @@ export const mlsConnectServiceV2 = {
     const data = await uploadKeyPackagesDirectTyped(
       {
         keyPackages: request.keyPackages.map((kp) => ({
-          keyPackageData: encodeProtoBytes(kp.keyPackageData),
+          keyPackageData: Uint8Array.from(kp.keyPackageData),
           keyPackageRef: kp.keyPackageRef,
           cipherSuite: fromProtoCipherSuite(kp.cipherSuite)
         }))
@@ -153,8 +152,8 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         userId: request.userId,
-        commit: encodeProtoBytes(request.commit),
-        welcome: encodeProtoBytes(request.welcome),
+        commit: Uint8Array.from(request.commit),
+        welcome: Uint8Array.from(request.welcome),
         keyPackageRef: request.keyPackageRef,
         newEpoch: Number(request.newEpoch)
       },
@@ -176,7 +175,7 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         userId: request.userId,
-        commit: encodeProtoBytes(request.commit),
+        commit: Uint8Array.from(request.commit),
         newEpoch: Number(request.newEpoch)
       },
       context
@@ -190,7 +189,7 @@ export const mlsConnectServiceV2 = {
   ) => {
     const directRequest = {
       groupId: request.groupId,
-      ciphertext: encodeProtoBytes(request.ciphertext),
+      ciphertext: Uint8Array.from(request.ciphertext),
       epoch: Number(request.epoch),
       messageType: fromProtoMessageType(request.messageType),
       ...(request.contentType ? { contentType: request.contentType } : {})
@@ -227,7 +226,7 @@ export const mlsConnectServiceV2 = {
       {
         groupId: request.groupId,
         epoch: Number(request.epoch),
-        encryptedState: encodeProtoBytes(request.encryptedState),
+        encryptedState: Uint8Array.from(request.encryptedState),
         stateHash: request.stateHash
       },
       context

@@ -15,6 +15,10 @@ function trimBase64Padding(value: string): string {
   return value.replace(/=+$/u, '');
 }
 
+function encodeBase64(value: Uint8Array): string {
+  return Buffer.from(value).toString('base64');
+}
+
 function decodeBase64ToBuffer(value: string): Uint8Array | null {
   const normalized = value
     .replace(/\s+/gu, '')
@@ -52,8 +56,29 @@ export interface SerializedEnvelopeField {
 }
 
 export function serializeEnvelopeField(
-  value: string | null | undefined
+  value: string | Uint8Array | null | undefined
 ): SerializedEnvelopeField {
+  if (value instanceof Uint8Array) {
+    if (value.byteLength === 0) {
+      return {
+        text: null,
+        bytes: null
+      };
+    }
+
+    if (!shouldWriteEnvelopeBytea()) {
+      return {
+        text: encodeBase64(value),
+        bytes: null
+      };
+    }
+
+    return {
+      text: shouldDualWriteEnvelopeText() ? encodeBase64(value) : null,
+      bytes: Uint8Array.from(value)
+    };
+  }
+
   if (typeof value !== 'string') {
     return {
       text: null,

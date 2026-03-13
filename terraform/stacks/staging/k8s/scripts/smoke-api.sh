@@ -230,10 +230,13 @@ phase_client_api_url() {
     return 1
   fi
 
-  local expected_api_url="https://api.$STAGING_DOMAIN/v1"
+  local expected_api_url_root="https://api.$STAGING_DOMAIN"
+  local expected_api_url_v1="https://api.$STAGING_DOMAIN/v1"
 
   # Search broadly for any https://api.<something> URL baked into JS assets.
-  # This catches both correct (api.domain/v1) and incorrect values.
+  # Accept either:
+  # - root API URL (preferred as routes migrate away from hardcoded /v1 base)
+  # - legacy /v1 API URL (still valid during staged transition)
   local baked_url
   baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -c client -- \
     grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
@@ -241,10 +244,10 @@ phase_client_api_url() {
 
   if [[ -z "$baked_url" ]]; then
     fail "could not find any API URL in client JS assets"
-  elif [[ "$baked_url" == "$expected_api_url"* ]]; then
-    pass "client JS contains correct API URL: $baked_url"
+  elif [[ "$baked_url" == "$expected_api_url_root"* || "$baked_url" == "$expected_api_url_v1"* ]]; then
+    pass "client JS contains accepted API URL: $baked_url"
   else
-    fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url)"
+    fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url_root or $expected_api_url_v1)"
   fi
 }
 

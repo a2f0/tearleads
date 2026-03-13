@@ -27,6 +27,16 @@ import {
   uploadKeyPackagesDirectTyped
 } from './mlsDirectKeyPackages.js';
 
+const textEncoder = new TextEncoder();
+
+function bytes(value: string): Uint8Array {
+  return textEncoder.encode(value);
+}
+
+function base64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('mlsDirectKeyPackages', () => {
@@ -56,7 +66,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-1',
-          key_package_data: 'data-1',
+          key_package_data: base64('data-1'),
           key_package_ref: 'ref-1',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:00:00.000Z')
@@ -68,12 +78,12 @@ describe('mlsDirectKeyPackages', () => {
       {
         keyPackages: [
           {
-            keyPackageData: 'data-1',
+            keyPackageData: bytes('data-1'),
             keyPackageRef: 'ref-1',
             cipherSuite: 1
           },
           {
-            keyPackageData: 'data-2',
+            keyPackageData: bytes('data-2'),
             keyPackageRef: 'ref-2',
             cipherSuite: 1
           }
@@ -86,7 +96,7 @@ describe('mlsDirectKeyPackages', () => {
       expect.stringContaining('FROM unnest('),
       [
         ['kp-1', 'kp-2'],
-        ['data-1', 'data-2'],
+        [base64('data-1'), base64('data-2')],
         ['ref-1', 'ref-2'],
         [1, 1],
         'user-1'
@@ -98,7 +108,7 @@ describe('mlsDirectKeyPackages', () => {
         {
           id: 'kp-1',
           userId: 'user-1',
-          keyPackageData: 'data-1',
+          keyPackageData: bytes('data-1'),
           keyPackageRef: 'ref-1',
           cipherSuite: 1,
           createdAt: '2026-03-03T03:00:00.000Z',
@@ -128,7 +138,7 @@ describe('mlsDirectKeyPackages', () => {
         {
           keyPackages: [
             {
-              keyPackageData: 'data-1',
+              keyPackageData: bytes('data-1'),
               keyPackageRef: 'ref-1',
               cipherSuite: 1
             }
@@ -144,7 +154,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-1',
-          key_package_data: 'data-1',
+          key_package_data: base64('data-1'),
           key_package_ref: 'ref-1',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:05:00.000Z'),
@@ -152,7 +162,7 @@ describe('mlsDirectKeyPackages', () => {
         },
         {
           id: 'kp-2',
-          key_package_data: 'data-2',
+          key_package_data: base64('data-2'),
           key_package_ref: 'ref-2',
           cipher_suite: 2,
           created_at: new Date('2026-03-03T03:06:00.000Z'),
@@ -171,7 +181,7 @@ describe('mlsDirectKeyPackages', () => {
         {
           id: 'kp-1',
           userId: 'user-1',
-          keyPackageData: 'data-1',
+          keyPackageData: bytes('data-1'),
           keyPackageRef: 'ref-1',
           cipherSuite: 1,
           createdAt: '2026-03-03T03:05:00.000Z',
@@ -180,7 +190,7 @@ describe('mlsDirectKeyPackages', () => {
         {
           id: 'kp-2',
           userId: 'user-1',
-          keyPackageData: 'data-2',
+          keyPackageData: bytes('data-2'),
           keyPackageRef: 'ref-2',
           cipherSuite: 3,
           createdAt: '2026-03-03T03:06:00.000Z',
@@ -208,7 +218,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-3',
-          key_package_data: 'data-3',
+          key_package_data: base64('data-3'),
           key_package_ref: 'ref-3',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:10:00.000Z')
@@ -228,7 +238,7 @@ describe('mlsDirectKeyPackages', () => {
         {
           id: 'kp-3',
           userId: 'user-2',
-          keyPackageData: 'data-3',
+          keyPackageData: bytes('data-3'),
           keyPackageRef: 'ref-3',
           cipherSuite: 1,
           createdAt: '2026-03-03T03:10:00.000Z',
