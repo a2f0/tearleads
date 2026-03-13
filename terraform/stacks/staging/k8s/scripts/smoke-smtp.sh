@@ -59,19 +59,6 @@ postgres_query_or_fail() {
   printf '%s\n' "$output" | tr -d '\r'
 }
 
-ensure_smoke_user_exists() {
-  local api_pod="$1"
-  local postgres_pod="$2"
-  local existing
-  existing="$(postgres_query_or_fail "$postgres_pod" "SELECT id FROM users ORDER BY created_at ASC LIMIT 1")"
-  if [[ -n "$existing" ]]; then
-    return
-  fi
-  echo "  No users found; creating smoke test account..."
-  kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- node apiCli.cjs create-account \
-    --email "smoke@$SMTP_SMOKE_DOMAIN" --password "smoke-test-pass-$(date +%s)" >/dev/null 2>&1
-}
-
 resolve_vfs_recipient_user_id_or_fail() {
   local postgres_pod="$1"
   if [[ -n "$SMTP_SMOKE_USER_ID" ]]; then
@@ -81,61 +68,44 @@ resolve_vfs_recipient_user_id_or_fail() {
   local user_id
   user_id="$(postgres_query_or_fail "$postgres_pod" "SELECT id FROM users ORDER BY created_at ASC LIMIT 1")"
   if [[ -z "$user_id" ]]; then
-    echo "ERROR: no users found for VFS SMTP smoke test; set SMTP_SMOKE_USER_ID explicitly."
+    echo "ERROR: no users found for VFS SMTP smoke test."
+    echo "Create a user first or set SMTP_SMOKE_USER_ID explicitly."
     exit 1
   fi
   printf '%s\n' "$user_id"
 }
 
-phase_api_to_smtp_tcp() {
+# Phase 1: Cross-pod TCP reachability from the postgres pod to the SMTP
+# listener service. Uses bash /dev/tcp to avoid requiring Node.js or netcat,
+# removing the former dependency on the Node.js API pod (#2555).
+phase_tcp_reachability() {
   echo ""
-  echo "Phase 1: API pod TCP reachability to SMTP listener"
+  echo "Phase 1: Cross-pod TCP reachability to SMTP listener"
 
-  local api_pod
-  api_pod="$(get_running_pod_or_fail "app=api")"
+  local postgres_pod
+  postgres_pod="$(get_running_pod_or_fail "app=postgres")"
 
-  local node_output
-  if node_output="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env \
-    SMTP_HOST="$SMTP_HOST" \
-    SMTP_PORT="$SMTP_PORT" \
-    node -e "
-    const net = require('net');
-    const host = process.env.SMTP_HOST || 'smtp-listener';
-    const port = Number(process.env.SMTP_PORT || '25');
-    const socket = net.createConnection({ host, port });
-    const timeout = setTimeout(() => {
-      socket.destroy();
-      console.error(\`timeout connecting to \${host}:\${port}\`);
-      process.exit(1);
-    }, 5000);
-    socket.on('connect', () => {
-      clearTimeout(timeout);
-      socket.end();
-      process.exit(0);
-    });
-    socket.on('error', (err) => {
-      clearTimeout(timeout);
-      console.error(err.message);
-      process.exit(1);
-    });
-  " 2>&1)"; then
-    pass "API pod $api_pod reached $SMTP_HOST:$SMTP_PORT"
+  if kubectl -n "$NAMESPACE" exec "$postgres_pod" -c postgres -- \
+    bash -c "exec 3<>/dev/tcp/$SMTP_HOST/$SMTP_PORT && exec 3<&- && exec 3>&-" 2>/dev/null; then
+    pass "postgres pod $postgres_pod reached $SMTP_HOST:$SMTP_PORT"
     return 0
   fi
 
-  fail "API pod $api_pod could not reach $SMTP_HOST:$SMTP_PORT. Output: ${node_output:-No output}"
+  fail "postgres pod $postgres_pod could not reach $SMTP_HOST:$SMTP_PORT"
 }
 
+# Phase 2: Full SMTP conversation followed by Postgres verification.
+# Runs the SMTP client inside the smtp-listener pod (which has Node.js)
+# connecting to 127.0.0.1:25. This removes the dependency on the Node.js
+# API pod (#2555) while still exercising the SMTP protocol handler and
+# the VFS ingest/storage pipeline end-to-end.
 phase_send_and_verify_storage() {
   echo ""
   echo "Phase 2: Send SMTP message and verify VFS storage"
 
-  local api_pod postgres_pod smtp_pod
-  api_pod="$(get_running_pod_or_fail "app=api")"
+  local smtp_pod postgres_pod
   smtp_pod="$(get_running_pod_or_fail "app=smtp-listener")"
   postgres_pod="$(get_running_pod_or_fail "app=postgres")"
-
-  ensure_smoke_user_exists "$api_pod" "$postgres_pod"
 
   local recipient_local_part
   recipient_local_part="$(resolve_vfs_recipient_user_id_or_fail "$postgres_pod")"
@@ -149,16 +119,13 @@ phase_send_and_verify_storage() {
     before_count=0
   fi
 
-  if ! kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- env \
-    SMTP_HOST="$SMTP_HOST" \
-    SMTP_PORT="$SMTP_PORT" \
+  local smtp_output
+  if ! smtp_output="$(kubectl -n "$NAMESPACE" exec "$smtp_pod" -c smtp-listener -- env \
     SMTP_TO="$smtp_to" \
     SMTP_FROM="$SMTP_FROM_ADDRESS" \
     SMTP_MARKER="$marker" \
     node -e "
       const net = require('net');
-      const host = process.env.SMTP_HOST || 'smtp-listener';
-      const port = Number(process.env.SMTP_PORT || '25');
       const to = process.env.SMTP_TO;
       const from = process.env.SMTP_FROM;
       const marker = process.env.SMTP_MARKER;
@@ -192,7 +159,7 @@ phase_send_and_verify_storage() {
       let buffer = '';
       let timeout = null;
 
-      const socket = net.createConnection({ host, port });
+      const socket = net.createConnection({ host: '127.0.0.1', port: 25 });
 
       const fail = (msg) => {
         if (timeout) clearTimeout(timeout);
@@ -245,8 +212,8 @@ phase_send_and_verify_storage() {
           fail('SMTP connection closed before conversation completed');
         }
       });
-    " >/dev/null 2>&1; then
-    fail "failed to submit SMTP message from API pod $api_pod to $SMTP_HOST:$SMTP_PORT"
+    " 2>&1)"; then
+    fail "failed to submit SMTP message via smtp-listener pod $smtp_pod. Output: ${smtp_output:-none}"
     return 1
   fi
 
@@ -278,8 +245,8 @@ echo "  SMTP target: $SMTP_HOST:$SMTP_PORT"
 
 failures=0
 
-phase_api_to_smtp_tcp       || failures=$((failures + 1))
-phase_send_and_verify_storage || failures=$((failures + 1))
+phase_tcp_reachability         || failures=$((failures + 1))
+phase_send_and_verify_storage  || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then
