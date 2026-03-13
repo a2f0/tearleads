@@ -20,11 +20,16 @@ vi.mock('./postgres.js', () => ({
   getPostgresPool: getPostgresPoolMock
 }));
 
+/** Stable UUIDs for test fixtures. */
+const TEST_USER_ID = '00000000-0000-4000-a000-000000000001';
+const TEST_ORG_ID = '00000000-0000-4000-a000-000000000002';
+
 /**
  * Minimal schema matching the server-side Postgres tables used by
- * inboundVfsRepository. This avoids importing @tearleads/api migrations
- * (which violates the API boundary policy) while still exercising the
- * real SQL queries against an in-memory Postgres via PGlite.
+ * inboundVfsRepository. Uses TEXT columns for IDs (the real v001 schema
+ * uses UUID) because bun test's vi.mock can leak randomUUID mocks across
+ * files. Real UUID type compatibility is validated by the staging smoke
+ * test (smoke-smtp.sh).
  *
  * Sync triggers are intentionally omitted since they reference auxiliary
  * tables (vfs_sync_changes, vfs_crdt_ops) that are not relevant here.
@@ -87,7 +92,7 @@ function buildEnvelope(): InboundMessageEnvelopeRecord {
   return {
     messageId: 'msg-1',
     from: { address: 'sender@test.com' },
-    to: [{ address: 'user-1@test.com' }],
+    to: [{ address: `${TEST_USER_ID}@test.com` }],
     receivedAt: '2026-02-23T00:00:00.000Z',
     encryptedSubject: 'enc-subject',
     encryptedFrom: 'enc-from',
@@ -97,7 +102,7 @@ function buildEnvelope(): InboundMessageEnvelopeRecord {
     encryptedBodySize: 123,
     wrappedRecipientKeys: [
       {
-        userId: 'user-1',
+        userId: TEST_USER_ID,
         wrappedDek: 'wrapped-dek',
         keyAlgorithm: 'x25519-mlkem768-v1'
       }
@@ -108,9 +113,9 @@ function buildEnvelope(): InboundMessageEnvelopeRecord {
 function buildRecipients(): ResolvedInboundRecipient[] {
   return [
     {
-      userId: 'user-1',
-      address: 'user-1@test.com',
-      organizationId: 'user-1'
+      userId: TEST_USER_ID,
+      address: `${TEST_USER_ID}@test.com`,
+      organizationId: TEST_ORG_ID
     }
   ];
 }
@@ -119,6 +124,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
   let pool: PgPool;
   let exec: (sql: string) => Promise<void>;
   let RepoClass: typeof import('./inboundVfsRepository.js').PostgresInboundVfsEmailRepository;
+  let expectedFolderId: string;
 
   beforeAll(async () => {
     const result = await createPglitePool();
@@ -131,6 +137,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
 
     const mod = await import('./inboundVfsRepository.js');
     RepoClass = mod.PostgresInboundVfsEmailRepository;
+    expectedFolderId = mod.inboxFolderUuid(TEST_USER_ID);
   });
 
   afterAll(async () => {
@@ -156,10 +163,10 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     );
     expect(folderResult.rows).toHaveLength(1);
     expect(folderResult.rows[0]).toMatchObject({
-      id: 'email-inbox:user-1',
+      id: expectedFolderId,
       object_type: 'emailFolder',
-      owner_id: 'user-1',
-      organization_id: 'user-1',
+      owner_id: TEST_USER_ID,
+      organization_id: TEST_ORG_ID,
       encrypted_name: 'Inbox'
     });
 
@@ -171,8 +178,8 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     expect(emailResult.rows).toHaveLength(1);
     expect(emailResult.rows[0]).toMatchObject({
       object_type: 'email',
-      owner_id: 'user-1',
-      organization_id: 'user-1',
+      owner_id: TEST_USER_ID,
+      organization_id: TEST_ORG_ID,
       encrypted_session_key: 'wrapped-dek'
     });
 
@@ -194,7 +201,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     );
     expect(linksResult.rows).toHaveLength(1);
     expect(linksResult.rows[0]).toMatchObject({
-      parent_id: 'email-inbox:user-1',
+      parent_id: expectedFolderId,
       child_id: emailItemId
     });
 
@@ -205,7 +212,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     expect(aclResult.rows).toHaveLength(1);
     expect(aclResult.rows[0]).toMatchObject({
       item_id: emailItemId,
-      principal_id: 'user-1',
+      principal_id: TEST_USER_ID,
       access_level: 'read'
     });
   });
@@ -229,7 +236,7 @@ describe('PostgresInboundVfsEmailRepository (PGlite integration)', () => {
     );
     expect(folderResult.rows).toHaveLength(1);
     expect(folderResult.rows[0]).toMatchObject({
-      id: 'email-inbox:user-1',
+      id: expectedFolderId,
       encrypted_name: 'Inbox'
     });
 

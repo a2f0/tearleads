@@ -26,7 +26,7 @@ export class PostgresInboundRecipientKeyLookup
       `SELECT uk.user_id, uk.public_encryption_key, u.personal_organization_id
        FROM user_keys uk
        JOIN users u ON u.id = uk.user_id
-       WHERE uk.user_id = ANY($1::text[])`,
+       WHERE uk.user_id = ANY($1::uuid[])`,
       [dedupedUserIds]
     );
 

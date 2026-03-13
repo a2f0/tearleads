@@ -85,9 +85,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
     getPostgresPoolMock.mockResolvedValue({ connect: connectMock });
 
-    const { PostgresInboundVfsEmailRepository } = await import(
-      './inboundVfsRepository.js'
-    );
+    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } =
+      await import('./inboundVfsRepository.js');
+    const expectedFolderId = inboxFolderUuid('user-1');
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
       envelope: buildEnvelope(),
@@ -106,7 +106,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_registry ('),
-      ['email-inbox:user-1', 'user-1', 'user-1']
+      [expectedFolderId, 'user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(clientQueryMock).not.toHaveBeenCalledWith('ROLLBACK');
@@ -124,9 +124,9 @@ describe('PostgresInboundVfsEmailRepository', () => {
       }))
     });
 
-    const { PostgresInboundVfsEmailRepository } = await import(
-      './inboundVfsRepository.js'
-    );
+    const { PostgresInboundVfsEmailRepository, inboxFolderUuid } =
+      await import('./inboundVfsRepository.js');
+    const expectedFolderId = inboxFolderUuid('user-1');
 
     await new PostgresInboundVfsEmailRepository().persistInboundMessage({
       envelope: buildEnvelope(),
@@ -135,7 +135,7 @@ describe('PostgresInboundVfsEmailRepository', () => {
 
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_registry ('),
-      ['email-inbox:user-1', 'user-1', 'user-1']
+      [expectedFolderId, 'user-1', 'user-1']
     );
     expect(clientQueryMock).toHaveBeenCalledWith('COMMIT');
     expect(releaseMock).toHaveBeenCalledOnce();
