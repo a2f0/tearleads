@@ -35,7 +35,9 @@ fn build_app(origins: &str) -> axum::Router {
             tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo)
         }
         None => {
-            tracing::warn!("postgres pool initialization failed — using static fixture repositories");
+            tracing::warn!(
+                "postgres pool initialization failed — using static fixture repositories"
+            );
             tearleads_api_v2::app_with_origins(origins)
         }
     }
