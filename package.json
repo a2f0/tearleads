@@ -127,7 +127,8 @@
       "tar": "7.5.11",
       "pg": "8.18.0",
       "sql.js": "1.14.0",
-      "fast-xml-parser": ">=5.3.8"
+      "fast-xml-parser": ">=5.3.8",
+      "undici": ">=7.24.0"
     },
     "peerDependencyRules": {
       "allowedVersions": {
