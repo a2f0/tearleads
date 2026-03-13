@@ -163,4 +163,28 @@ describe('createHealthTracker weight readings', () => {
       );
     });
   });
+
+  it('updates contactId on an existing reading', async () => {
+    await withHealthDatabase(async ({ db }) => {
+      const tracker = createHealthTracker(db, {
+        createId: createDeterministicId(),
+        now: () => new Date('2026-02-13T09:31:00.000Z')
+      });
+
+      const reading = await tracker.addWeightReading({
+        recordedAt: '2026-02-13T09:15:00.000Z',
+        value: 185
+      });
+      expect(reading.contactId).toBeNull();
+
+      await tracker.updateContactId(
+        'health_weight_readings',
+        reading.id,
+        'contact-abc'
+      );
+
+      const listed = await tracker.listWeightReadings();
+      expect(requireValue(listed[0]).contactId).toBe('contact-abc');
+    });
+  });
 });

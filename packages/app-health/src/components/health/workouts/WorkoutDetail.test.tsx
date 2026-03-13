@@ -7,6 +7,9 @@ import { WorkoutDetail } from './WorkoutDetail';
 
 const mockAddEntry = vi.fn();
 const mockUseWorkoutData = vi.fn();
+const mockRegisterReadingInVfs = vi.fn().mockResolvedValue(undefined);
+const mockLinkReadingToContact = vi.fn().mockResolvedValue(undefined);
+let mockAvailableContacts: Array<{ id: string; name: string }> = [];
 
 vi.mock('./useWorkoutData', () => ({
   useWorkoutData: () => mockUseWorkoutData()
@@ -17,9 +20,9 @@ vi.mock('../../../runtime', () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
     ),
-    registerReadingInVfs: vi.fn().mockResolvedValue(undefined),
-    linkReadingToContact: vi.fn().mockResolvedValue(undefined),
-    availableContacts: []
+    registerReadingInVfs: mockRegisterReadingInVfs,
+    linkReadingToContact: mockLinkReadingToContact,
+    availableContacts: mockAvailableContacts
   })
 }));
 
@@ -51,6 +54,7 @@ const mockEntries = [
 describe('WorkoutDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAvailableContacts = [];
     mockAddEntry.mockResolvedValue({
       id: 'workout_2',
       performedAt: '2024-01-16T10:00:00.000Z',
@@ -159,6 +163,49 @@ describe('WorkoutDetail', () => {
     await waitFor(() => {
       expect(mockAddEntry).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('registers in VFS and links to contact on submit', async () => {
+    const user = userEvent.setup();
+    mockAvailableContacts = [{ id: 'contact-1', name: 'Alice' }];
+    mockAddEntry.mockResolvedValue({
+      id: 'workout_3',
+      performedAt: '2024-01-17T10:00:00.000Z',
+      exerciseId: 'back-squat',
+      exerciseName: 'Back Squat',
+      reps: 5,
+      weight: 225,
+      weightUnit: 'lb' as const,
+      contactId: 'contact-1'
+    });
+    mockUseWorkoutData.mockReturnValue({
+      entries: [],
+      exercises: mockExercises,
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      addEntry: mockAddEntry
+    });
+
+    render(<WorkoutDetail />, { wrapper });
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
+    await user.type(screen.getByLabelText('Reps'), '5');
+    await user.type(screen.getByLabelText('Weight'), '225');
+    await user.selectOptions(screen.getByLabelText('Contact'), 'contact-1');
+    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+
+    await waitFor(() => {
+      expect(mockRegisterReadingInVfs).toHaveBeenCalledWith(
+        'workout_3',
+        '2024-01-17T10:00:00.000Z'
+      );
+    });
+    expect(mockLinkReadingToContact).toHaveBeenCalledWith(
+      'workout_3',
+      'contact-1'
+    );
   });
 
   it('shows empty state when no entries', () => {

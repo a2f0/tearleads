@@ -7,6 +7,9 @@ import { BloodPressureDetail } from './BloodPressureDetail';
 
 const mockAddReading = vi.fn();
 const mockUseBloodPressureData = vi.fn();
+const mockRegisterReadingInVfs = vi.fn().mockResolvedValue(undefined);
+const mockLinkReadingToContact = vi.fn().mockResolvedValue(undefined);
+let mockAvailableContacts: Array<{ id: string; name: string }> = [];
 
 vi.mock('./useBloodPressureData', () => ({
   useBloodPressureData: () => mockUseBloodPressureData()
@@ -17,9 +20,9 @@ vi.mock('../../../runtime', () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
     ),
-    registerReadingInVfs: vi.fn().mockResolvedValue(undefined),
-    linkReadingToContact: vi.fn().mockResolvedValue(undefined),
-    availableContacts: []
+    registerReadingInVfs: mockRegisterReadingInVfs,
+    linkReadingToContact: mockLinkReadingToContact,
+    availableContacts: mockAvailableContacts
   })
 }));
 
@@ -42,6 +45,7 @@ const mockReadings = [
 describe('BloodPressureDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAvailableContacts = [];
     mockAddReading.mockResolvedValue({
       id: 'bp_2',
       recordedAt: '2024-01-16T10:00:00.000Z',
@@ -141,6 +145,41 @@ describe('BloodPressureDetail', () => {
     await waitFor(() => {
       expect(mockAddReading).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('registers in VFS and links to contact on submit', async () => {
+    const user = userEvent.setup();
+    mockAvailableContacts = [{ id: 'contact-1', name: 'Alice' }];
+    mockAddReading.mockResolvedValue({
+      id: 'bp_3',
+      recordedAt: '2024-01-17T10:00:00.000Z',
+      systolic: 115,
+      diastolic: 75,
+      contactId: 'contact-1'
+    });
+    mockUseBloodPressureData.mockReturnValue({
+      readings: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      addReading: mockAddReading
+    });
+
+    render(<BloodPressureDetail />, { wrapper });
+
+    await user.type(screen.getByLabelText('Systolic'), '115');
+    await user.type(screen.getByLabelText('Diastolic'), '75');
+    await user.selectOptions(screen.getByLabelText('Contact'), 'contact-1');
+    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+
+    await waitFor(() => {
+      expect(mockRegisterReadingInVfs).toHaveBeenCalledWith(
+        'bp_3',
+        '2024-01-17T10:00:00.000Z'
+      );
+    });
+    expect(mockLinkReadingToContact).toHaveBeenCalledWith('bp_3', 'contact-1');
   });
 
   it('shows empty state when no readings', () => {
