@@ -300,20 +300,48 @@ jobs:
           MAESTRO_CLI_NO_ANALYTICS: 1
         run: |
           run_maestro() {
-            MAESTRO_DEVICE="$SIMULATOR_UDID" $HOME/.maestro/bin/maestro --platform ios test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit
+            local target="${1:-.maestro/}"
+            MAESTRO_DEVICE="$SIMULATOR_UDID" $HOME/.maestro/bin/maestro --platform ios test $target \
+              --output maestro-debug/report.xml --debug-output maestro-debug --format junit
           }
 
-          # Run Maestro tests and retry once to absorb transient simulator crashes.
+          # Run Maestro tests and retry failed flows to absorb transient simulator crashes.
           MAESTRO_EXIT=0
           run_maestro || MAESTRO_EXIT=$?
+
           if [ "$MAESTRO_EXIT" -ne 0 ]; then
-            echo "::warning::Maestro failed on first attempt, retrying once"
+            echo "::warning::Maestro failed on first attempt, identifying failed flows"
+
+            # Parse failed flows from JUnit XML
+            FAILED_FLOWS=""
+            if [ -f maestro-debug/report.xml ]; then
+              FAILED_FLOWS=$(grep '<testcase ' maestro-debug/report.xml \
+                | grep -v 'status="SUCCESS"' \
+                | sed 's/.*name="\([^"]*\)".*/\1/' || true)
+            fi
+
+            # Bounce app before retry
             xcrun simctl terminate "$SIMULATOR_UDID" com.tearleads.app || true
             xcrun simctl launch "$SIMULATOR_UDID" com.tearleads.app || true
             sleep 2
             xcrun simctl terminate "$SIMULATOR_UDID" com.tearleads.app || true
+
+            # Save first-run report for debugging
+            cp maestro-debug/report.xml maestro-debug/report-first-run.xml 2>/dev/null || true
+
             MAESTRO_EXIT=0
-            run_maestro || MAESTRO_EXIT=$?
+            if [ -n "$FAILED_FLOWS" ]; then
+              # Build space-separated list of flow paths
+              FLOW_ARGS=""
+              for flow in $FAILED_FLOWS; do
+                FLOW_ARGS="$FLOW_ARGS .maestro/${flow}.yaml"
+              done
+              echo "::warning::Retrying only failed flows: $FLOW_ARGS"
+              run_maestro "$FLOW_ARGS" || MAESTRO_EXIT=$?
+            else
+              echo "::warning::Could not determine failed flows, retrying full suite"
+              run_maestro || MAESTRO_EXIT=$?
+            fi
           fi
 
           # Capture final screenshot
