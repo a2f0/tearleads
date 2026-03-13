@@ -4,9 +4,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
-const { mockUseDatabaseContext } = vi.hoisted(() => ({
-  mockUseDatabaseContext: vi.fn()
-}));
+const mockUseDatabaseContext = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => undefined

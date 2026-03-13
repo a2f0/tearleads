@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConsoleDocumentation } from './ConsoleDocumentation';
 
-const themeState = vi.hoisted(() => ({
+const themeState = {
   resolvedTheme: 'light'
-}));
+};
 
 vi.mock('@tearleads/ui', async () => {
   const actual =

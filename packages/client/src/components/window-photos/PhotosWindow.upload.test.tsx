@@ -4,18 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
 import { createDefaultProps, setupMocks } from './PhotosWindow.testSetup';
 
-// Hoisted mock variables - these are available before vi.mock runs
-const {
-  mockWindowOpenRequest,
-  mockUseDatabaseContext,
-  mockUploadFile,
-  mockAddPhotoToAlbum
-} = vi.hoisted(() => ({
-  mockWindowOpenRequest: vi.fn(),
-  mockUseDatabaseContext: vi.fn(),
-  mockUploadFile: vi.fn(),
-  mockAddPhotoToAlbum: vi.fn()
-}));
+const mockWindowOpenRequest = vi.fn();
+const mockUseDatabaseContext = vi.fn();
+const mockUploadFile = vi.fn();
+const mockAddPhotoToAlbum = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => mockWindowOpenRequest(),

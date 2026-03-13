@@ -1,30 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockCapacitorClearEncryptionSecret,
-  mockCapacitorDeleteDatabase,
-  mockDeleteCapacitorDatabaseFile,
-  mockGetSQLiteConnection,
-  mockIsIgnorableDeleteDbError
-} = vi.hoisted(() => ({
-  mockCapacitorClearEncryptionSecret: vi.fn(),
-  mockCapacitorDeleteDatabase: vi.fn(),
-  mockDeleteCapacitorDatabaseFile: vi.fn(),
-  mockGetSQLiteConnection: vi.fn(),
-  mockIsIgnorableDeleteDbError: vi.fn()
-}));
+const mockCapacitorClearEncryptionSecret = vi.fn();
+const mockCapacitorDeleteDatabase = vi.fn();
+const mockDeleteCapacitorDatabaseFile = vi.fn();
+const mockGetSQLiteConnection = vi.fn();
+const mockIsIgnorableDeleteDbError = vi.fn();
 
 vi.mock('./capacitorAdapterHelpers', () => ({
-  deleteCapacitorDatabaseFile: mockDeleteCapacitorDatabaseFile,
-  getSQLiteConnection: mockGetSQLiteConnection,
-  isIgnorableDeleteDbError: mockIsIgnorableDeleteDbError,
+  deleteCapacitorDatabaseFile: (...args: unknown[]) => mockDeleteCapacitorDatabaseFile(...args),
+  getSQLiteConnection: (...args: unknown[]) => mockGetSQLiteConnection(...args),
+  isIgnorableDeleteDbError: (...args: unknown[]) => mockIsIgnorableDeleteDbError(...args),
   resetSQLiteConnectionCache: vi.fn()
 }));
 
 vi.mock('@capacitor-community/sqlite', () => ({
   CapacitorSQLite: {
-    clearEncryptionSecret: mockCapacitorClearEncryptionSecret,
-    deleteDatabase: mockCapacitorDeleteDatabase
+    clearEncryptionSecret: (...args: unknown[]) => mockCapacitorClearEncryptionSecret(...args),
+    deleteDatabase: (...args: unknown[]) => mockCapacitorDeleteDatabase(...args)
   }
 }));
 

@@ -1,16 +1,7 @@
 import { vi } from 'vitest';
 
-// These mock functions must be declared with vi.hoisted() in each test file
-// This setup file only provides the setupMocks helper and createDefaultProps
-// The factory functions are no longer used - each test file must define mocks inline
-
-// Shared mock functions - these should be created with vi.hoisted() in test files
-// Example:
-// const { mockWindowOpenRequest, mockUseDatabaseContext, ... } = vi.hoisted(() => ({
-//   mockWindowOpenRequest: vi.fn(),
-//   mockUseDatabaseContext: vi.fn(),
-//   ...
-// }));
+// Each test file defines its mock functions at module scope.
+// This setup file only provides the setupMocks helper and createDefaultProps.
 
 // Default props factory - safe to import as it doesn't involve vi.mock
 export function createDefaultProps() {

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LazyWindowRenderer } from './LazyWindowRenderer';
 
-const hoisted = vi.hoisted(() => ({
+const hoisted = {
   windows: [] as Array<{
     id: string;
     type: string;
@@ -11,7 +11,7 @@ const hoisted = vi.hoisted(() => ({
     isMinimized?: boolean;
   }>,
   suspendWindowRenderer: false
-}));
+};
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({

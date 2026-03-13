@@ -77,24 +77,19 @@ vi.mock('@/storage/opfs', () => ({
   createRetrieveLogger: () => () => {}
 }));
 
-// Mock file utilities - use vi.hoisted for mock functions
-const { mockDownloadFile, mockShareFile, getMockCanShare, setMockCanShare } =
-  vi.hoisted(() => {
-    let mockCanShare = false;
-    return {
-      mockDownloadFile: vi.fn(),
-      mockShareFile: vi.fn().mockResolvedValue(true),
-      getMockCanShare: () => mockCanShare,
-      setMockCanShare: (value: boolean) => {
-        mockCanShare = value;
-      }
-    };
-  });
+// Mock file utilities
+let mockCanShare = false;
+const mockDownloadFile = vi.fn();
+const mockShareFile = vi.fn().mockResolvedValue(true);
+const getMockCanShare = () => mockCanShare;
+const setMockCanShare = (value: boolean) => {
+  mockCanShare = value;
+};
 
 vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => getMockCanShare(),
-  downloadFile: mockDownloadFile,
-  shareFile: mockShareFile
+  downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
+  shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
 // Mock LLM hook

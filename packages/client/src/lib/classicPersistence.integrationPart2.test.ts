@@ -8,9 +8,9 @@ import { migrations } from '@/db/migrations';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
 import { mockConsoleWarn } from '@/test/consoleMocks';
 
-const testDbState = vi.hoisted(() => ({
+const testDbState = {
   db: null as TestDatabaseContext['db'] | null
-}));
+};
 
 vi.mock('@/db', () => ({
   getDatabase: () => {

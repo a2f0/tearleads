@@ -41,9 +41,7 @@ let latestAuthContext: ReturnType<typeof useAuth> | null = null;
 let latestDatabaseContext: ReturnType<typeof useDatabaseContext> | null = null;
 let latestNavigate: ReturnType<typeof useNavigate> | null = null;
 let vfsConsoleGuard: VfsConsoleGuard | null = null;
-const { mockApiLogout } = vi.hoisted(() => ({
-  mockApiLogout: vi.fn(async () => undefined)
-}));
+const mockApiLogout = vi.fn(async () => undefined);
 
 vi.mock('@/lib/api', () => ({
   api: {

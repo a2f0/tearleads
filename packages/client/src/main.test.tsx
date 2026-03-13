@@ -3,7 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { LazyWindowRenderer } from './components/window-renderer';
 
-const renderSpy = vi.hoisted(() => vi.fn());
+const renderSpy = vi.fn();
 
 vi.mock('react-dom/client', () => ({
   default: {
