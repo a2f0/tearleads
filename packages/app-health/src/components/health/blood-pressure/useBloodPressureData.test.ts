@@ -30,13 +30,15 @@ const mockReadings = [
     systolic: 120,
     diastolic: 80,
     pulse: 72,
-    note: 'Morning reading'
+    note: 'Morning reading',
+    contactId: null
   },
   {
     id: 'bp_2',
     recordedAt: '2024-01-14T10:00:00.000Z',
     systolic: 125,
-    diastolic: 82
+    diastolic: 82,
+    contactId: null
   }
 ];
 
@@ -93,7 +95,8 @@ describe('useBloodPressureData', () => {
       id: 'bp_3',
       recordedAt: '2024-01-16T10:00:00.000Z',
       systolic: 118,
-      diastolic: 78
+      diastolic: 78,
+      contactId: null
     };
     mockAddBloodPressureReading.mockResolvedValue(newReading);
 

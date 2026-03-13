@@ -39,7 +39,8 @@ const mockEntries = [
     reps: 5,
     weight: 225,
     weightUnit: 'lb' as const,
-    note: 'PR attempt'
+    note: 'PR attempt',
+    contactId: null
   },
   {
     id: 'workout_2',
@@ -48,7 +49,8 @@ const mockEntries = [
     exerciseName: 'Bench Press',
     reps: 8,
     weight: 185,
-    weightUnit: 'lb' as const
+    weightUnit: 'lb' as const,
+    contactId: null
   }
 ];
 
@@ -113,7 +115,8 @@ describe('useWorkoutData', () => {
       exerciseName: 'Deadlift',
       reps: 3,
       weight: 315,
-      weightUnit: 'lb' as const
+      weightUnit: 'lb' as const,
+      contactId: null
     };
     mockAddWorkoutEntry.mockResolvedValue(newEntry);
 

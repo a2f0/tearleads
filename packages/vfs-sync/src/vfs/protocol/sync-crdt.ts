@@ -110,6 +110,10 @@ export class InMemoryVfsCrdtStateStore {
     new Map();
   private readonly aclRegisters: Map<string, VfsCrdtAclRegister> = new Map();
   private readonly linkRegisters: Map<string, VfsCrdtLinkRegister> = new Map();
+  private readonly childReassignInfo: Map<
+    string,
+    { parentId: string; stamp: ParsedStamp }
+  > = new Map();
 
   apply(operation: VfsCrdtOperation): VfsCrdtApplyResult {
     const preparedOperation = prepareOperation(operation);
@@ -163,6 +167,47 @@ export class InMemoryVfsCrdtStateStore {
         opId: preparedOperation.stamp.opId,
         status: 'applied'
       };
+    }
+
+    const existingReassign = this.childReassignInfo.get(
+      preparedOperation.childId
+    );
+    if (
+      existingReassign &&
+      compareParsedStamps(preparedOperation.stamp, existingReassign.stamp) <
+        0 &&
+      preparedOperation.parentId !== existingReassign.parentId
+    ) {
+      return {
+        opId: preparedOperation.stamp.opId,
+        status: 'outdatedOp'
+      };
+    }
+
+    if (preparedOperation.reassign) {
+      if (
+        !existingReassign ||
+        compareParsedStamps(preparedOperation.stamp, existingReassign.stamp) > 0
+      ) {
+        for (const [key, register] of this.linkRegisters) {
+          if (
+            register.childId === preparedOperation.childId &&
+            register.parentId !== preparedOperation.parentId &&
+            compareParsedStamps(register.stamp, preparedOperation.stamp) < 0
+          ) {
+            this.linkRegisters.set(key, {
+              parentId: register.parentId,
+              childId: register.childId,
+              present: false,
+              stamp: preparedOperation.stamp
+            });
+          }
+        }
+        this.childReassignInfo.set(preparedOperation.childId, {
+          parentId: preparedOperation.parentId,
+          stamp: preparedOperation.stamp
+        });
+      }
     }
 
     const currentRegister = this.linkRegisters.get(preparedOperation.key);

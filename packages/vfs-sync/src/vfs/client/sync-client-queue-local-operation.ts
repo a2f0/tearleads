@@ -84,7 +84,11 @@ export function buildQueuedLocalOperation({
     }
   }
 
-  if (input.opType === 'link_add' || input.opType === 'link_remove') {
+  if (
+    input.opType === 'link_add' ||
+    input.opType === 'link_remove' ||
+    input.opType === 'link_reassign'
+  ) {
     const parentId = normalizeRequiredString(input.parentId);
     const childId = normalizeRequiredString(input.childId);
     if (!hasEncryptedPayload && (!parentId || !childId)) {

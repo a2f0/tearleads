@@ -10,7 +10,9 @@ export const OP_TYPE_MAP: Record<string, number> = {
   LINK_ADD: 3,
   LINK_REMOVE: 4,
   ITEM_UPSERT: 5,
-  ITEM_DELETE: 6
+  ITEM_DELETE: 6,
+  link_reassign: 7,
+  LINK_REASSIGN: 7
 };
 
 export const REV_OP_TYPE_MAP: Record<number, string> = {
@@ -19,7 +21,8 @@ export const REV_OP_TYPE_MAP: Record<number, string> = {
   3: 'link_add',
   4: 'link_remove',
   5: 'item_upsert',
-  6: 'item_delete'
+  6: 'item_delete',
+  7: 'link_reassign'
 };
 
 export const PRINCIPAL_TYPE_MAP: Record<string, number> = {

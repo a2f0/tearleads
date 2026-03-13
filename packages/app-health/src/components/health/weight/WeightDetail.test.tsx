@@ -7,6 +7,9 @@ import { WeightDetail } from './WeightDetail';
 
 const mockAddReading = vi.fn();
 const mockUseWeightData = vi.fn();
+const mockRegisterReadingInVfs = vi.fn().mockResolvedValue(undefined);
+const mockLinkReadingToContact = vi.fn().mockResolvedValue(undefined);
+let mockAvailableContacts: Array<{ id: string; name: string }> = [];
 
 vi.mock('./useWeightData', () => ({
   useWeightData: () => mockUseWeightData()
@@ -16,7 +19,10 @@ vi.mock('../../../runtime', () => ({
   useHealthRuntime: () => ({
     InlineUnlock: ({ description }: { description: string }) => (
       <div data-testid="inline-unlock">Unlock to view {description}</div>
-    )
+    ),
+    registerReadingInVfs: mockRegisterReadingInVfs,
+    linkReadingToContact: mockLinkReadingToContact,
+    availableContacts: mockAvailableContacts
   })
 }));
 
@@ -30,18 +36,21 @@ const mockReadings = [
     recordedAt: '2024-01-15T10:00:00.000Z',
     value: 185.5,
     unit: 'lb' as const,
-    note: 'Morning weight'
+    note: 'Morning weight',
+    contactId: null
   }
 ];
 
 describe('WeightDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAvailableContacts = [];
     mockAddReading.mockResolvedValue({
       id: 'weight_2',
       recordedAt: '2024-01-16T10:00:00.000Z',
       value: 184,
-      unit: 'lb' as const
+      unit: 'lb' as const,
+      contactId: null
     });
   });
 
@@ -132,6 +141,43 @@ describe('WeightDetail', () => {
     await waitFor(() => {
       expect(mockAddReading).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('registers in VFS and links to contact on submit', async () => {
+    const user = userEvent.setup();
+    mockAvailableContacts = [{ id: 'contact-1', name: 'Alice' }];
+    mockAddReading.mockResolvedValue({
+      id: 'weight_3',
+      recordedAt: '2024-01-17T10:00:00.000Z',
+      value: 183,
+      unit: 'lb' as const,
+      contactId: 'contact-1'
+    });
+    mockUseWeightData.mockReturnValue({
+      readings: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      addReading: mockAddReading
+    });
+
+    render(<WeightDetail />, { wrapper });
+
+    await user.type(screen.getByLabelText('Weight'), '183');
+    await user.selectOptions(screen.getByLabelText('Contact'), 'contact-1');
+    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+
+    await waitFor(() => {
+      expect(mockRegisterReadingInVfs).toHaveBeenCalledWith(
+        'weight_3',
+        '2024-01-17T10:00:00.000Z'
+      );
+    });
+    expect(mockLinkReadingToContact).toHaveBeenCalledWith(
+      'weight_3',
+      'contact-1'
+    );
   });
 
   it('shows empty state when no readings', () => {

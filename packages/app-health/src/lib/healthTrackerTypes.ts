@@ -10,6 +10,7 @@ export interface WeightReading {
   value: number;
   unit: WeightUnit;
   note?: string;
+  contactId: string | null;
 }
 
 export interface CreateWeightReadingInput {
@@ -17,6 +18,7 @@ export interface CreateWeightReadingInput {
   value: number;
   unit?: WeightUnit;
   note?: string;
+  contactId?: string | null;
 }
 
 export interface BloodPressureReading {
@@ -26,6 +28,7 @@ export interface BloodPressureReading {
   diastolic: number;
   pulse?: number;
   note?: string;
+  contactId: string | null;
 }
 
 export interface CreateBloodPressureReadingInput {
@@ -34,6 +37,7 @@ export interface CreateBloodPressureReadingInput {
   diastolic: number;
   pulse?: number;
   note?: string;
+  contactId?: string | null;
 }
 
 export interface Exercise {
@@ -58,6 +62,7 @@ export interface WorkoutEntry {
   weight: number;
   weightUnit: WeightUnit;
   note?: string;
+  contactId: string | null;
 }
 
 export interface CreateWorkoutEntryInput {
@@ -67,7 +72,13 @@ export interface CreateWorkoutEntryInput {
   weight: number;
   weightUnit?: WeightUnit;
   note?: string;
+  contactId?: string | null;
 }
+
+export type HealthReadingTable =
+  | 'health_weight_readings'
+  | 'health_blood_pressure_readings'
+  | 'health_workout_entries';
 
 export interface HealthTracker {
   listExercises: () => Promise<Exercise[]>;
@@ -83,6 +94,11 @@ export interface HealthTracker {
   ) => Promise<BloodPressureReading>;
   listWorkoutEntries: () => Promise<WorkoutEntry[]>;
   addWorkoutEntry: (input: CreateWorkoutEntryInput) => Promise<WorkoutEntry>;
+  updateContactId: (
+    table: HealthReadingTable,
+    id: string,
+    contactId: string | null
+  ) => Promise<void>;
 }
 
 export interface CreateHealthTrackerOptions {

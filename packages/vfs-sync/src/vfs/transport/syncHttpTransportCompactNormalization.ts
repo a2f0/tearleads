@@ -14,7 +14,8 @@ const OP_TYPE_ENUM_NAME_MAP: Record<string, VfsCrdtOpType> = {
   VFS_CRDT_OP_TYPE_LINK_ADD: 'link_add',
   VFS_CRDT_OP_TYPE_LINK_REMOVE: 'link_remove',
   VFS_CRDT_OP_TYPE_ITEM_UPSERT: 'item_upsert',
-  VFS_CRDT_OP_TYPE_ITEM_DELETE: 'item_delete'
+  VFS_CRDT_OP_TYPE_ITEM_DELETE: 'item_delete',
+  VFS_CRDT_OP_TYPE_LINK_REASSIGN: 'link_reassign'
 };
 
 const OP_TYPE_ENUM_NUMERIC_MAP: Record<number, VfsCrdtOpType> = {
@@ -23,7 +24,8 @@ const OP_TYPE_ENUM_NUMERIC_MAP: Record<number, VfsCrdtOpType> = {
   3: 'link_add',
   4: 'link_remove',
   5: 'item_upsert',
-  6: 'item_delete'
+  6: 'item_delete',
+  7: 'link_reassign'
 };
 
 const PRINCIPAL_TYPE_ENUM_NAME_MAP: Record<string, VfsAclPrincipalType> = {

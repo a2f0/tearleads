@@ -24,6 +24,7 @@ export const VFS_OBJECT_TYPES = [
   'email',
   'mlsMessage',
   'conversation',
+  'healthReading',
   // Collections
   'folder',
   'emailFolder',
@@ -101,6 +102,7 @@ export type VfsCrdtOpType =
   | 'acl_remove'
   | 'link_add'
   | 'link_remove'
+  | 'link_reassign'
   | 'item_upsert'
   | 'item_delete';
 

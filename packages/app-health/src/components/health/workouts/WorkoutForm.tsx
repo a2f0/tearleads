@@ -7,15 +7,18 @@ import type {
   Exercise,
   WeightUnit
 } from '../../../lib/healthTrackerTypes.js';
+import type { AvailableContact } from '../../../runtime/HealthRuntimeContext';
 
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { ContactPickerSelect } from '../ContactPickerSelect';
 import { useExerciseTranslation } from '../exercises/useExerciseTranslation';
 import { selectClassName } from '../selectClassName';
 
 interface WorkoutFormProps {
   exercises: Exercise[];
   onSubmit: (input: CreateWorkoutEntryInput) => Promise<void>;
+  availableContacts: AvailableContact[];
 }
 
 interface FormErrors {
@@ -32,7 +35,11 @@ function getLocalDateTimeString(): string {
   return localTime.toISOString().slice(0, 16);
 }
 
-export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
+export function WorkoutForm({
+  exercises,
+  onSubmit,
+  availableContacts
+}: WorkoutFormProps) {
   const [categoryId, setCategoryId] = useState('');
   const [exerciseId, setExerciseId] = useState('');
   const [reps, setReps] = useState('');
@@ -40,6 +47,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb');
   const [performedAt, setPerformedAt] = useState(getLocalDateTimeString);
   const [note, setNote] = useState('');
+  const [contactId, setContactId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -118,6 +126,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
           weight: parsedWeight,
           weightUnit,
           performedAt: new Date(performedAt),
+          contactId,
           ...(trimmedNote.length > 0 && { note: trimmedNote })
         };
 
@@ -141,6 +150,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
       weightUnit,
       performedAt,
       note,
+      contactId,
       onSubmit
     ]
   );
@@ -151,7 +161,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
       onSubmit={handleSubmit}
       aria-label="Add workout entry form"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-8">
         <div className="space-y-1">
           <label
             htmlFor="workout-category"
@@ -313,6 +323,13 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             disabled={isSubmitting}
           />
         </div>
+
+        <ContactPickerSelect
+          contacts={availableContacts}
+          value={contactId}
+          onChange={setContactId}
+          disabled={isSubmitting}
+        />
       </div>
 
       <div className="flex items-center justify-between">

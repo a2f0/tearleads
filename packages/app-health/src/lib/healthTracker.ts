@@ -12,6 +12,7 @@ import type {
   BloodPressureReading,
   CreateHealthTrackerOptions,
   Exercise,
+  HealthReadingTable,
   HealthTracker,
   WeightReading,
   WorkoutEntry
@@ -39,6 +40,7 @@ export type {
   CreateWeightReadingInput,
   CreateWorkoutEntryInput,
   Exercise,
+  HealthReadingTable,
   HealthTracker,
   WeightReading,
   WeightUnit,
@@ -216,7 +218,8 @@ export const createHealthTracker = (
           recordedAt: healthWeightReadings.recordedAt,
           valueCenti: healthWeightReadings.valueCenti,
           unit: healthWeightReadings.unit,
-          note: healthWeightReadings.note
+          note: healthWeightReadings.note,
+          contactId: healthWeightReadings.contactId
         })
         .from(healthWeightReadings)
         .orderBy(
@@ -229,7 +232,8 @@ export const createHealthTracker = (
           id: row.id,
           recordedAt: toIsoTimestamp(row.recordedAt),
           value: fromCentiWeight(row.valueCenti),
-          unit: normalizeWeightUnit(row.unit, 'unit')
+          unit: normalizeWeightUnit(row.unit, 'unit'),
+          contactId: row.contactId ?? null
         };
 
         if (row.note !== null) {
@@ -243,6 +247,7 @@ export const createHealthTracker = (
       const recordedAt = normalizeTimestamp(input.recordedAt, 'recordedAt');
       const unit = normalizeWeightUnit(input.unit, 'unit');
       const note = normalizeOptionalText(input.note);
+      const contactId = input.contactId ?? null;
       const id = createId('weight');
       const createdAt = now();
 
@@ -252,6 +257,7 @@ export const createHealthTracker = (
         valueCenti: toCentiWeight(input.value, 'value'),
         unit,
         note: note ?? null,
+        contactId,
         createdAt
       });
 
@@ -259,7 +265,8 @@ export const createHealthTracker = (
         id,
         recordedAt: toIsoTimestamp(recordedAt),
         value: normalizePositiveNumber(input.value, 'value'),
-        unit
+        unit,
+        contactId
       };
 
       if (note !== undefined) {
@@ -276,7 +283,8 @@ export const createHealthTracker = (
           systolic: healthBloodPressureReadings.systolic,
           diastolic: healthBloodPressureReadings.diastolic,
           pulse: healthBloodPressureReadings.pulse,
-          note: healthBloodPressureReadings.note
+          note: healthBloodPressureReadings.note,
+          contactId: healthBloodPressureReadings.contactId
         })
         .from(healthBloodPressureReadings)
         .orderBy(
@@ -289,7 +297,8 @@ export const createHealthTracker = (
           id: row.id,
           recordedAt: toIsoTimestamp(row.recordedAt),
           systolic: row.systolic,
-          diastolic: row.diastolic
+          diastolic: row.diastolic,
+          contactId: row.contactId ?? null
         };
 
         if (row.pulse !== null) {
@@ -319,6 +328,8 @@ export const createHealthTracker = (
       const id = createId('blood_pressure');
       const createdAt = now();
 
+      const contactId = input.contactId ?? null;
+
       await db.insert(healthBloodPressureReadings).values({
         id,
         recordedAt,
@@ -326,6 +337,7 @@ export const createHealthTracker = (
         diastolic,
         pulse: pulse ?? null,
         note: note ?? null,
+        contactId,
         createdAt
       });
 
@@ -333,7 +345,8 @@ export const createHealthTracker = (
         id,
         recordedAt: toIsoTimestamp(recordedAt),
         systolic,
-        diastolic
+        diastolic,
+        contactId
       };
 
       if (pulse !== undefined) {
@@ -356,7 +369,8 @@ export const createHealthTracker = (
           reps: healthWorkoutEntries.reps,
           weightCenti: healthWorkoutEntries.weightCenti,
           weightUnit: healthWorkoutEntries.weightUnit,
-          note: healthWorkoutEntries.note
+          note: healthWorkoutEntries.note,
+          contactId: healthWorkoutEntries.contactId
         })
         .from(healthWorkoutEntries)
         .innerJoin(
@@ -376,7 +390,8 @@ export const createHealthTracker = (
           exerciseName: row.exerciseName,
           reps: row.reps,
           weight: fromCentiWeight(row.weightCenti),
-          weightUnit: normalizeWeightUnit(row.weightUnit, 'weightUnit')
+          weightUnit: normalizeWeightUnit(row.weightUnit, 'weightUnit'),
+          contactId: row.contactId ?? null
         };
 
         if (row.note !== null) {
@@ -408,6 +423,8 @@ export const createHealthTracker = (
       const id = createId('workout');
       const createdAt = now();
 
+      const contactId = input.contactId ?? null;
+
       await db.insert(healthWorkoutEntries).values({
         id,
         performedAt,
@@ -416,6 +433,7 @@ export const createHealthTracker = (
         weightCenti: toCentiWeightAllowZero(weight, 'weight'),
         weightUnit,
         note: note ?? null,
+        contactId,
         createdAt
       });
 
@@ -426,7 +444,8 @@ export const createHealthTracker = (
         exerciseName: exercise.name,
         reps,
         weight,
-        weightUnit
+        weightUnit,
+        contactId
       };
 
       if (note !== undefined) {
@@ -434,6 +453,24 @@ export const createHealthTracker = (
       }
 
       return workoutEntry;
+    },
+    updateContactId: async (
+      table: HealthReadingTable,
+      id: string,
+      contactId: string | null
+    ) => {
+      const normalizedId = normalizeRequiredText(id, 'id');
+      const tableMap = {
+        health_weight_readings: healthWeightReadings,
+        health_blood_pressure_readings: healthBloodPressureReadings,
+        health_workout_entries: healthWorkoutEntries
+      } as const;
+
+      const schema = tableMap[table];
+      await db
+        .update(schema)
+        .set({ contactId })
+        .where(eq(schema.id, normalizedId));
     }
   };
 };

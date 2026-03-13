@@ -10,13 +10,15 @@ const mockReadings = [
     systolic: 120,
     diastolic: 80,
     pulse: 72,
-    note: 'Morning reading'
+    note: 'Morning reading',
+    contactId: null
   },
   {
     id: 'bp_2',
     recordedAt: '2024-01-14T08:00:00.000Z',
     systolic: 125,
-    diastolic: 82
+    diastolic: 82,
+    contactId: null
   },
   {
     id: 'bp_3',
@@ -24,7 +26,8 @@ const mockReadings = [
     systolic: 118,
     diastolic: 78,
     pulse: 68,
-    note: 'After workout'
+    note: 'After workout',
+    contactId: null
   }
 ];
 
@@ -136,13 +139,15 @@ describe('BloodPressureTable', () => {
         id: 'bp_a',
         recordedAt: '2024-01-15T10:00:00.000Z',
         systolic: 120,
-        diastolic: 80
+        diastolic: 80,
+        contactId: null
       },
       {
         id: 'bp_b',
         recordedAt: '2024-01-14T10:00:00.000Z',
         systolic: 120,
-        diastolic: 82
+        diastolic: 82,
+        contactId: null
       }
     ];
     const user = userEvent.setup();

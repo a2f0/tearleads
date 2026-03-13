@@ -31,6 +31,11 @@ import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
+import {
+  chunkArray,
+  parseTimestampMs,
+  VFS_ROOT_ID
+} from './vfsRematerializationUtils';
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;
@@ -77,29 +82,6 @@ interface NoteRowState {
   createdAtMs: number;
   updatedAtMs: number;
   deleted: boolean;
-}
-
-const VFS_ROOT_ID = '00000000-0000-0000-0000-000000000000';
-function chunkArray<T>(values: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
-function parseTimestampMs(
-  value: string | null | undefined,
-  fallback: number
-): number {
-  if (!value) {
-    return fallback;
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-  return parsed;
 }
 
 async function forEachSyncItem(
@@ -206,7 +188,11 @@ function applyCrdtItemToDerivedState(
     return;
   }
 
-  if (item.opType === 'link_add' || item.opType === 'link_remove') {
+  if (
+    item.opType === 'link_add' ||
+    item.opType === 'link_remove' ||
+    item.opType === 'link_reassign'
+  ) {
     if (!item.parentId || !item.childId) {
       return;
     }
@@ -219,14 +205,26 @@ function applyCrdtItemToDerivedState(
       return;
     }
 
-    const key = `${item.parentId}::${item.childId}`;
-    if (item.opType === 'link_remove') {
-      linksByKey.delete(key);
-    } else {
-      linksByKey.set(key, {
+    if (item.opType === 'link_reassign') {
+      for (const [existingKey, link] of linksByKey) {
+        if (link.childId === item.childId) {
+          linksByKey.delete(existingKey);
+        }
+      }
+      linksByKey.set(`${item.parentId}::${item.childId}`, {
         parentId: item.parentId,
         childId: item.childId
       });
+    } else {
+      const key = `${item.parentId}::${item.childId}`;
+      if (item.opType === 'link_remove') {
+        linksByKey.delete(key);
+      } else {
+        linksByKey.set(key, {
+          parentId: item.parentId,
+          childId: item.childId
+        });
+      }
     }
     return;
   }

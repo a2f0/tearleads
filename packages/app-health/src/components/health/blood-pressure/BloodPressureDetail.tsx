@@ -13,15 +13,24 @@ interface BloodPressureDetailProps {
 export function BloodPressureDetail({
   refreshToken = 0
 }: BloodPressureDetailProps) {
-  const { InlineUnlock } = useHealthRuntime();
+  const {
+    InlineUnlock,
+    registerReadingInVfs,
+    linkReadingToContact,
+    availableContacts
+  } = useHealthRuntime();
   const { readings, loading, error, hasFetched, isUnlocked, addReading } =
     useBloodPressureData({ refreshToken });
 
   const handleSubmit = useCallback(
     async (input: CreateBloodPressureReadingInput) => {
-      await addReading(input);
+      const reading = await addReading(input);
+      await registerReadingInVfs(reading.id, reading.recordedAt);
+      if (input.contactId) {
+        await linkReadingToContact(reading.id, input.contactId);
+      }
     },
-    [addReading]
+    [addReading, registerReadingInVfs, linkReadingToContact]
   );
 
   if (!isUnlocked) {
@@ -49,7 +58,10 @@ export function BloodPressureDetail({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <BloodPressureForm onSubmit={handleSubmit} />
+      <BloodPressureForm
+        onSubmit={handleSubmit}
+        availableContacts={availableContacts}
+      />
       <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
         <BloodPressureTable readings={readings} />
       </section>

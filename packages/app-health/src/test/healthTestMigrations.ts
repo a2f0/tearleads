@@ -64,5 +64,24 @@ export const healthTestMigrations: Migration[] = [
         ON health_exercises(parent_id)
       `);
     }
+  },
+  {
+    version: 3,
+    up: async (adapter) => {
+      await adapter.execute(`
+        ALTER TABLE health_weight_readings
+        ADD COLUMN contact_id TEXT
+      `);
+
+      await adapter.execute(`
+        ALTER TABLE health_blood_pressure_readings
+        ADD COLUMN contact_id TEXT
+      `);
+
+      await adapter.execute(`
+        ALTER TABLE health_workout_entries
+        ADD COLUMN contact_id TEXT
+      `);
+    }
   }
 ];

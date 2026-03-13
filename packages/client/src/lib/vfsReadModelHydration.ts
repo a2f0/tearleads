@@ -214,19 +214,32 @@ function buildItemStateRows(crdtItems: VfsCrdtSyncItem[]): ItemStateRow[] {
 function buildLinkRows(crdtItems: VfsCrdtSyncItem[]): LinkRow[] {
   const rowsByKey = new Map<string, LinkRow>();
   for (const item of crdtItems) {
-    if (item.opType !== 'link_add' && item.opType !== 'link_remove') {
+    if (
+      item.opType !== 'link_add' &&
+      item.opType !== 'link_remove' &&
+      item.opType !== 'link_reassign'
+    ) {
       continue;
     }
     if (!item.parentId || !item.childId) {
       continue;
     }
 
-    const key = `${item.parentId}::${item.childId}`;
     if (item.opType === 'link_remove') {
+      const key = `${item.parentId}::${item.childId}`;
       rowsByKey.delete(key);
       continue;
     }
 
+    if (item.opType === 'link_reassign') {
+      for (const [existingKey, link] of rowsByKey) {
+        if (link.childId === item.childId) {
+          rowsByKey.delete(existingKey);
+        }
+      }
+    }
+
+    const key = `${item.parentId}::${item.childId}`;
     rowsByKey.set(key, {
       id: `link:${item.parentId}:${item.childId}`,
       parentId: item.parentId,

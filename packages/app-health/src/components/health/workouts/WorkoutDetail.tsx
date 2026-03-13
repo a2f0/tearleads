@@ -11,7 +11,12 @@ interface WorkoutDetailProps {
 }
 
 export function WorkoutDetail({ refreshToken = 0 }: WorkoutDetailProps) {
-  const { InlineUnlock } = useHealthRuntime();
+  const {
+    InlineUnlock,
+    registerReadingInVfs,
+    linkReadingToContact,
+    availableContacts
+  } = useHealthRuntime();
   const {
     entries,
     exercises,
@@ -24,9 +29,13 @@ export function WorkoutDetail({ refreshToken = 0 }: WorkoutDetailProps) {
 
   const handleSubmit = useCallback(
     async (input: CreateWorkoutEntryInput) => {
-      await addEntry(input);
+      const entry = await addEntry(input);
+      await registerReadingInVfs(entry.id, entry.performedAt);
+      if (input.contactId) {
+        await linkReadingToContact(entry.id, input.contactId);
+      }
     },
-    [addEntry]
+    [addEntry, registerReadingInVfs, linkReadingToContact]
   );
 
   if (!isUnlocked) {
@@ -52,7 +61,11 @@ export function WorkoutDetail({ refreshToken = 0 }: WorkoutDetailProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <WorkoutForm exercises={exercises} onSubmit={handleSubmit} />
+      <WorkoutForm
+        exercises={exercises}
+        onSubmit={handleSubmit}
+        availableContacts={availableContacts}
+      />
       <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
         <WorkoutTable entries={entries} />
       </section>

@@ -29,13 +29,15 @@ const mockWeightReadings = [
     recordedAt: '2024-01-15T10:00:00.000Z',
     value: 185.5,
     unit: 'lb' as const,
-    note: 'Morning weight'
+    note: 'Morning weight',
+    contactId: null
   },
   {
     id: 'weight_2',
     recordedAt: '2024-01-14T10:00:00.000Z',
     value: 186.0,
-    unit: 'lb' as const
+    unit: 'lb' as const,
+    contactId: null
   }
 ];
 
@@ -92,7 +94,8 @@ describe('useWeightData', () => {
       id: 'weight_3',
       recordedAt: '2024-01-16T10:00:00.000Z',
       value: 184.0,
-      unit: 'lb' as const
+      unit: 'lb' as const,
+      contactId: null
     };
     mockAddWeightReading.mockResolvedValue(newReading);
 

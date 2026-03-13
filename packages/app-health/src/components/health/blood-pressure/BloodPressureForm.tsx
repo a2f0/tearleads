@@ -3,11 +3,14 @@
 import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { CreateBloodPressureReadingInput } from '../../../lib/healthTrackerTypes.js';
+import type { AvailableContact } from '../../../runtime/HealthRuntimeContext';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { ContactPickerSelect } from '../ContactPickerSelect';
 
 interface BloodPressureFormProps {
   onSubmit: (input: CreateBloodPressureReadingInput) => Promise<void>;
+  availableContacts: AvailableContact[];
 }
 
 interface FormErrors {
@@ -24,12 +27,16 @@ function getLocalDateTimeString(): string {
   return localTime.toISOString().slice(0, 16);
 }
 
-export function BloodPressureForm({ onSubmit }: BloodPressureFormProps) {
+export function BloodPressureForm({
+  onSubmit,
+  availableContacts
+}: BloodPressureFormProps) {
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
   const [recordedAt, setRecordedAt] = useState(getLocalDateTimeString);
   const [note, setNote] = useState('');
+  const [contactId, setContactId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -92,6 +99,7 @@ export function BloodPressureForm({ onSubmit }: BloodPressureFormProps) {
           systolic: parsedSystolic,
           diastolic: parsedDiastolic,
           recordedAt: new Date(recordedAt),
+          contactId,
           ...(parsedPulse !== undefined && { pulse: parsedPulse }),
           ...(trimmedNote.length > 0 && { note: trimmedNote })
         };
@@ -110,7 +118,7 @@ export function BloodPressureForm({ onSubmit }: BloodPressureFormProps) {
         setIsSubmitting(false);
       }
     },
-    [systolic, diastolic, pulse, recordedAt, note, onSubmit]
+    [systolic, diastolic, pulse, recordedAt, note, contactId, onSubmit]
   );
 
   return (
@@ -119,7 +127,7 @@ export function BloodPressureForm({ onSubmit }: BloodPressureFormProps) {
       onSubmit={handleSubmit}
       aria-label="Add blood pressure reading form"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <div className="space-y-1">
           <label
             htmlFor="bp-systolic"
@@ -224,6 +232,13 @@ export function BloodPressureForm({ onSubmit }: BloodPressureFormProps) {
             disabled={isSubmitting}
           />
         </div>
+
+        <ContactPickerSelect
+          contacts={availableContacts}
+          value={contactId}
+          onChange={setContactId}
+          disabled={isSubmitting}
+        />
       </div>
 
       <div className="flex items-center justify-between">

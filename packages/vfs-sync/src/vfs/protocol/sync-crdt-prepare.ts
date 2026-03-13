@@ -25,6 +25,7 @@ type PreparedOperation =
       parentId: string;
       childId: string;
       present: boolean;
+      reassign: boolean;
       stamp: ParsedStamp;
     };
 
@@ -232,7 +233,11 @@ export function prepareOperation(
     };
   }
 
-  if (operation.opType === 'link_add' || operation.opType === 'link_remove') {
+  if (
+    operation.opType === 'link_add' ||
+    operation.opType === 'link_remove' ||
+    operation.opType === 'link_reassign'
+  ) {
     const parentId = normalizeNonEmptyString(operation.parentId);
     const childId = normalizeNonEmptyString(operation.childId) ?? itemId;
     if (!parentId || !childId) {
@@ -258,7 +263,8 @@ export function prepareOperation(
       key: toLinkKey(parentId, childId),
       parentId,
       childId,
-      present: operation.opType === 'link_add',
+      present: operation.opType !== 'link_remove',
+      reassign: operation.opType === 'link_reassign',
       stamp
     };
   }

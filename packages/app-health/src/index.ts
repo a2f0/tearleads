@@ -13,6 +13,7 @@ export type {
   CreateWeightReadingInput,
   CreateWorkoutEntryInput,
   Exercise,
+  HealthReadingTable,
   HealthTracker,
   WeightReading,
   WeightUnit,
@@ -25,6 +26,7 @@ export {
   type HealthDrilldownRoute
 } from './pages/Health';
 export {
+  type AvailableContact,
   type HealthDatabaseState,
   type HealthRuntimeContextValue,
   HealthRuntimeProvider,

@@ -11,15 +11,24 @@ interface WeightDetailProps {
 }
 
 export function WeightDetail({ refreshToken = 0 }: WeightDetailProps) {
-  const { InlineUnlock } = useHealthRuntime();
+  const {
+    InlineUnlock,
+    registerReadingInVfs,
+    linkReadingToContact,
+    availableContacts
+  } = useHealthRuntime();
   const { readings, loading, error, hasFetched, isUnlocked, addReading } =
     useWeightData({ refreshToken });
 
   const handleSubmit = useCallback(
     async (input: CreateWeightReadingInput) => {
-      await addReading(input);
+      const reading = await addReading(input);
+      await registerReadingInVfs(reading.id, reading.recordedAt);
+      if (input.contactId) {
+        await linkReadingToContact(reading.id, input.contactId);
+      }
     },
-    [addReading]
+    [addReading, registerReadingInVfs, linkReadingToContact]
   );
 
   if (!isUnlocked) {
@@ -45,7 +54,10 @@ export function WeightDetail({ refreshToken = 0 }: WeightDetailProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <WeightForm onSubmit={handleSubmit} />
+      <WeightForm
+        onSubmit={handleSubmit}
+        availableContacts={availableContacts}
+      />
       <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
         <WeightTable readings={readings} />
       </section>
