@@ -1,10 +1,12 @@
 //! WASM bindings for `tearleads-api-domain-core`.
 
 #[cfg(any(test, target_arch = "wasm32"))]
-use tearleads_api_domain_core::{canonical_sql_identifier_field, normalize_sql_identifier};
+use tearleads_api_domain_core::{
+    canonical_sql_identifier_field, normalize_required_redis_key, normalize_sql_identifier,
+};
 use tearleads_api_domain_core::{
     normalize_admin_rows_limit, normalize_optional_organization_id, normalize_redis_scan_cursor,
-    normalize_redis_scan_limit, normalize_required_redis_key,
+    normalize_redis_scan_limit,
 };
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
@@ -40,6 +42,7 @@ pub fn normalize_sql_identifier_binding(field: &str, value: &str) -> Result<Stri
 
 // Inlined because `normalize_required_resource_id` takes `field: &'static str`
 // which is incompatible with wasm_bindgen's borrowed `&str` parameters.
+#[cfg(any(test, target_arch = "wasm32"))]
 fn normalize_required_resource_id_inner(field: &str, value: &str) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -58,6 +61,7 @@ pub fn normalize_required_resource_id_binding(field: &str, value: &str) -> Resul
 // -- sort direction ----------------------------------------------------------
 
 // Inlined because `normalize_sort_direction` takes `field: &'static str`.
+#[cfg(any(test, target_arch = "wasm32"))]
 fn normalize_sort_direction_inner(
     field: &str,
     value: Option<String>,
@@ -98,6 +102,7 @@ pub fn normalize_optional_organization_id_binding(value: Option<String>) -> Opti
 
 // -- required redis key ------------------------------------------------------
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn normalize_required_redis_key_inner(key: &str) -> Result<String, String> {
     normalize_required_redis_key(key).map_err(|error| error.to_string())
 }
