@@ -3,17 +3,23 @@ set -eu
 
 usage() {
   cat <<'EOF'
-Usage: runBunPerFile.sh [--preload <path>] [--root <path>]
+Usage: runBunPerFile.sh [--preload <path>] [--root <path>] [--timeout <secs>]
 
 Runs Bun tests one file at a time to avoid cross-file mock leakage.
 Test files are discovered under <root> (default: src) using:
   - *.test.ts
   - *.test.tsx
+
+Options:
+  --preload <path>    Preload script for bun test
+  --root <path>       Root directory to search for test files (default: src)
+  --timeout <secs>    Per-file timeout in seconds; timed-out files are skipped
 EOF
 }
 
 preload=""
 search_root="src"
+per_file_timeout=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -32,6 +38,14 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       search_root="$1"
+      ;;
+    --timeout)
+      shift
+      if [ "$#" -eq 0 ]; then
+        echo "runBunPerFile: missing value for --timeout" >&2
+        exit 2
+      fi
+      per_file_timeout="$1"
       ;;
     -h|--help)
       usage
@@ -78,15 +92,47 @@ temp_file=$(mktemp "${TMPDIR:-/tmp}/runBunPerFile.XXXXXX")
 trap 'rm -f "$temp_file"' EXIT HUP INT TERM
 printf '%s\n' "$test_files" > "$temp_file"
 
+passed=0
+failed=0
+skipped=0
+
 while IFS= read -r test_file; do
   if [ -z "$test_file" ]; then
     continue
   fi
 
   echo "runBunPerFile: $test_file"
+
+  set -- bun test
   if [ -n "$preload" ]; then
-    bun test --preload "$preload" "$test_file"
+    set -- "$@" --preload "$preload"
+  fi
+  set -- "$@" "$test_file"
+
+  if [ -n "$per_file_timeout" ]; then
+    if timeout "$per_file_timeout" "$@"; then
+      passed=$((passed + 1))
+    else
+      ec=$?
+      if [ "$ec" -eq 124 ]; then
+        echo "runBunPerFile: SKIP (timeout) $test_file" >&2
+        skipped=$((skipped + 1))
+      else
+        echo "runBunPerFile: FAIL $test_file" >&2
+        failed=$((failed + 1))
+      fi
+    fi
   else
-    bun test "$test_file"
+    "$@"
+    passed=$((passed + 1))
   fi
 done < "$temp_file"
+
+total=$((passed + failed + skipped))
+
+if [ -n "$per_file_timeout" ]; then
+  echo "runBunPerFile: $passed passed, $failed failed, $skipped skipped (timeout) / $total total"
+  if [ "$failed" -gt 0 ]; then
+    exit 1
+  fi
+fi

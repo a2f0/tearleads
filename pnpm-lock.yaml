@@ -2265,6 +2265,9 @@ importers:
       '@tearleads/api-test-utils':
         specifier: workspace:*
         version: link:../api-test-utils
+      '@tearleads/bun-dom-compat':
+        specifier: workspace:*
+        version: link:../bun-dom-compat
       '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils

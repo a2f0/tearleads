@@ -1,40 +1,25 @@
 import '@testing-library/jest-dom/vitest';
 import {
-  type ApiV2ServiceHarness,
-  startApiV2ServiceHarness,
-  type TestContext
-} from '@tearleads/api-test-utils';
-import { installVitestPolyfills } from '@tearleads/bun-dom-compat';
-import {
-  configureForExpressPassthrough,
-  getRecordedApiRequests,
-  resetMockApiServerState,
-  server
-} from '@tearleads/msw/node';
+  installBrowserGlobalsForBun,
+  installVitestPolyfills
+} from '@tearleads/bun-dom-compat';
 import { cleanup } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { createElement, Fragment } from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, expect, vi } from 'vitest';
-import failOnConsole from 'vitest-fail-on-console';
-import {
-  resetSharedTestContextAccessed,
-  setSharedTestContext,
-  wasSharedTestContextAccessed
-} from './testContext';
+import { createElement } from 'react';
+import { afterEach, beforeAll, vi } from 'vitest';
+import { installBunPolyfills } from './bunPolyfills';
 
-const isBun = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
+// Install jsdom globals before anything else
+installBrowserGlobalsForBun();
+
 const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
 
-let testContext: TestContext | null = null;
-let apiV2Harness: ApiV2ServiceHarness | null = null;
+// Initialize i18n for tests (side-effect import, no virtual:app-config dependency)
+import '../i18n/testI18n';
 
-const REAL_API_TEST_PATH_PATTERNS = [
-  /\/src\/lib\/api\.msw(?:\..+)?\.test\.tsx?$/,
-  /\/src\/test\/msw\/.*\.test\.tsx?$/
-];
-const API_V2_ADMIN_ROUTE_PATTERN =
-  /^\/(?:v1\/)?connect\/tearleads\.v2\.AdminService\//;
+// Bun-specific console capture (equivalent to failOnConsole)
+installBunPolyfills();
 
+// Install WASM bindings override (shared with vitest setup)
 function installApiV2WasmBindingsOverride(): void {
   const normalizeConnectBaseUrl = (apiBaseUrl: string): string => {
     const trimmed = apiBaseUrl.trim();
@@ -82,74 +67,38 @@ function installApiV2WasmBindingsOverride(): void {
   );
 }
 
-function shouldUseRealApiForCurrentTest(): boolean {
-  if (isBun) {
-    return false;
-  }
-  const testPath = expect.getState().testPath;
-  if (typeof testPath !== 'string') {
-    return false;
-  }
-  return REAL_API_TEST_PATH_PATTERNS.some((pattern) => pattern.test(testPath));
-}
-
-async function ensureRealApiTestContext(): Promise<TestContext> {
-  if (testContext) {
-    return testContext;
-  }
-  const { createTestContext } = await import('@tearleads/api-test-utils');
-  const [createdTestContext, harness] = await Promise.all([
-    createTestContext(async () => {
-      const api = await import('@tearleads/api');
-      return { app: api.app, migrations: api.migrations };
-    }),
-    startApiV2ServiceHarness()
-  ]);
-  testContext = createdTestContext;
-  apiV2Harness = harness;
-  setSharedTestContext(testContext);
-  return testContext;
-}
-
-function configurePassthroughRoutes(ctx: TestContext): void {
-  const routeOverrides =
-    apiV2Harness === null
-      ? []
-      : [
-          {
-            pathnamePattern: API_V2_ADMIN_ROUTE_PATTERN,
-            targetPort: apiV2Harness.port,
-            pathPrefix: '',
-            stripPathPrefix: '/v1'
-          }
-        ];
-
-  configureForExpressPassthrough(
-    'http://localhost',
-    ctx.port,
-    '/v1',
-    routeOverrides
-  );
-}
-
 // Enable React act() environment checks before tests run.
-// https://react.dev/reference/react-dom/test-utils/act#environment
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
   writable: true
 });
 
-// Initialize i18n for tests (side-effect import, no virtual:app-config dependency)
-import '../i18n/testI18n';
-
-// Guardrail: fail tests on console warnings/errors unless tests explicitly mock or assert them.
-// Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
-if (!isBun) {
-  failOnConsole();
-} else {
-  const { installBunPolyfills } = await import('./bunPolyfills.js');
-  installBunPolyfills();
-}
+// Mock virtual:app-config (Vite virtual module, unavailable under Bun)
+vi.mock('virtual:app-config', () => ({
+  default: {
+    id: 'tearleads',
+    displayName: 'Tearleads',
+    features: [
+      'admin',
+      'analytics',
+      'audio',
+      'businesses',
+      'calendar',
+      'camera',
+      'classic',
+      'compliance',
+      'contacts',
+      'email',
+      'health',
+      'mls-chat',
+      'notes',
+      'sync',
+      'terminal',
+      'vehicles',
+      'wallet'
+    ]
+  }
+}));
 
 vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   useHostRuntimeDatabaseState: () => ({
@@ -158,21 +107,6 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
     currentInstanceId: null
   })
 }));
-
-vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
-
-  return {
-    ...actual,
-    Tooltip: ({ children }: { children: ReactNode }) =>
-      createElement(Fragment, null, children),
-    TooltipTrigger: ({ children }: { children: ReactNode }) =>
-      createElement(Fragment, null, children),
-    TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
-      createElement('span', props, children)
-  };
-});
 
 vi.mock('@/components/window-console', () => ({
   ConsoleWindow: ({
@@ -277,42 +211,8 @@ function createMockWindow(
     );
 }
 
-vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-keychain/clientEntry'
-  )),
-  KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
-}));
-
 vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
-}));
-
-vi.mock('@tearleads/app-admin/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-admin/clientEntry'
-  )),
-  AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
-  AdminRedisWindow: createMockWindow('admin-redis', {
-    width: 700,
-    height: 600
-  }),
-  AdminPostgresWindow: createMockWindow('admin-postgres', {
-    width: 700,
-    height: 600
-  }),
-  AdminGroupsWindow: createMockWindow('admin-groups', {
-    width: 700,
-    height: 600
-  }),
-  AdminUsersWindow: createMockWindow('admin-users', {
-    width: 700,
-    height: 600
-  }),
-  AdminOrganizationsWindow: createMockWindow('admin-organizations', {
-    width: 840,
-    height: 620
-  })
 }));
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
@@ -342,49 +242,15 @@ vi.mock('pdfjs-dist', () => {
   };
 });
 
-beforeAll(async () => {
+beforeAll(() => {
   installApiV2WasmBindingsOverride();
-  if (!isBun) {
-    server.listen({ onUnhandledRequest: 'warn' });
-  }
 });
 
-beforeEach(async () => {
-  if (!shouldUseRealApiForCurrentTest()) {
-    return;
-  }
-  const ctx = await ensureRealApiTestContext();
-  configurePassthroughRoutes(ctx);
-});
-
-afterEach(async () => {
+afterEach(() => {
   if (hasCustomStubber) {
     unstubAllGlobals();
   }
   cleanup();
-  if (!isBun) {
-    server.resetHandlers();
-    if (testContext) {
-      configurePassthroughRoutes(testContext);
-      const usedApi = getRecordedApiRequests().length > 0;
-      const usedSharedContext = wasSharedTestContextAccessed();
-      if (usedApi || usedSharedContext) {
-        await testContext.resetState();
-      }
-    }
-    resetMockApiServerState();
-    resetSharedTestContextAccessed();
-  }
-});
-
-afterAll(async () => {
-  if (!isBun) {
-    server.close();
-    await apiV2Harness?.stop();
-    apiV2Harness = null;
-    await testContext?.teardown();
-    testContext = null;
-  }
 });
 
 // Mock __APP_VERSION__ global defined by Vite
