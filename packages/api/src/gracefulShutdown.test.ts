@@ -52,9 +52,7 @@ if (!isBun) {
       });
 
       consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterEach(() => {
