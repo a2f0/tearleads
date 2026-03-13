@@ -8,6 +8,7 @@ use tearleads_data_access_traits::{
 };
 
 mod ai_usage;
+mod auth;
 mod billing;
 mod fixtures;
 

@@ -41,6 +41,16 @@ fn ai_paths_are_native() {
 }
 
 #[test]
+fn auth_paths_are_native() {
+    assert!(is_native_connect_path(
+        "/connect/tearleads.v2.AuthService/Login"
+    ));
+    assert!(!should_proxy_connect_request(
+        "/connect/tearleads.v2.AuthService/Login"
+    ));
+}
+
+#[test]
 fn other_connect_paths_are_proxied() {
     assert!(should_proxy_connect_request(
         "/connect/tearleads.v2.NotificationService/Subscribe"
