@@ -32,6 +32,12 @@ describe('VFS Asymmetric Crypto', () => {
       expect(keyPair.mlKemPublicKey.length).toBe(1184); // ML-KEM-768 public key
       expect(keyPair.mlKemPrivateKey).toBeInstanceOf(Uint8Array);
       expect(keyPair.mlKemPrivateKey.length).toBe(2400); // ML-KEM-768 private key
+
+      // Ed25519 signing keys should be 32 bytes
+      expect(keyPair.ed25519PublicKey).toBeInstanceOf(Uint8Array);
+      expect(keyPair.ed25519PublicKey.length).toBe(32);
+      expect(keyPair.ed25519PrivateKey).toBeInstanceOf(Uint8Array);
+      expect(keyPair.ed25519PrivateKey.length).toBe(32);
     });
 
     it('should generate unique keypairs', () => {
@@ -41,6 +47,7 @@ describe('VFS Asymmetric Crypto', () => {
       // Keys should be different
       expect(keyPair1.x25519PublicKey).not.toEqual(keyPair2.x25519PublicKey);
       expect(keyPair1.mlKemPublicKey).not.toEqual(keyPair2.mlKemPublicKey);
+      expect(keyPair1.ed25519PublicKey).not.toEqual(keyPair2.ed25519PublicKey);
     });
   });
 
@@ -148,12 +155,16 @@ describe('VFS Asymmetric Crypto', () => {
       expect(typeof serialized.x25519PrivateKey).toBe('string');
       expect(typeof serialized.mlKemPublicKey).toBe('string');
       expect(typeof serialized.mlKemPrivateKey).toBe('string');
+      expect(typeof serialized.ed25519PublicKey).toBe('string');
+      expect(typeof serialized.ed25519PrivateKey).toBe('string');
 
       const deserialized = deserializeKeyPair(serialized);
       expect(deserialized.x25519PublicKey).toEqual(keyPair.x25519PublicKey);
       expect(deserialized.x25519PrivateKey).toEqual(keyPair.x25519PrivateKey);
       expect(deserialized.mlKemPublicKey).toEqual(keyPair.mlKemPublicKey);
       expect(deserialized.mlKemPrivateKey).toEqual(keyPair.mlKemPrivateKey);
+      expect(deserialized.ed25519PublicKey).toEqual(keyPair.ed25519PublicKey);
+      expect(deserialized.ed25519PrivateKey).toEqual(keyPair.ed25519PrivateKey);
     });
 
     it('should serialize and deserialize public key', () => {
@@ -282,7 +293,9 @@ describe('VFS Asymmetric Crypto', () => {
         x25519PublicKey: serializedFolderKeyPair.x25519PublicKey,
         x25519PrivateKey: unwrappedFolderPrivate.x25519PrivateKey,
         mlKemPublicKey: serializedFolderKeyPair.mlKemPublicKey,
-        mlKemPrivateKey: unwrappedFolderPrivate.mlKemPrivateKey
+        mlKemPrivateKey: unwrappedFolderPrivate.mlKemPrivateKey,
+        ed25519PublicKey: serializedFolderKeyPair.ed25519PublicKey,
+        ed25519PrivateKey: serializedFolderKeyPair.ed25519PrivateKey
       });
 
       // User B can now unwrap the item's key using the folder's keypair

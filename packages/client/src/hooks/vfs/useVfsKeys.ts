@@ -18,6 +18,7 @@ import {
   encryptVfsPrivateKeysWithPasswordMaterial,
   generateKeyPair,
   importVfsPrivateKeyPasswordMaterial,
+  reconstructVfsKeyPair,
   type SerializedKeyPair,
   serializeKeyPair,
   splitPublicKey,
@@ -58,6 +59,7 @@ export function clearVfsKeysCache(): void {
     // sensitive key material in memory, reducing exposure window.
     cachedKeyPair.x25519PrivateKey.fill(0);
     cachedKeyPair.mlKemPrivateKey.fill(0);
+    cachedKeyPair.ed25519PrivateKey.fill(0);
     cachedKeyPair = null;
   }
 }
@@ -154,7 +156,7 @@ export async function createVfsKeySetupPayloadForOnboarding(
 
   return {
     publicEncryptionKey: buildVfsPublicEncryptionKey(keyPair),
-    // publicSigningKey omitted - not yet implemented
+    publicSigningKey: serialized.ed25519PublicKey,
     encryptedPrivateKeys: encryptedBlob,
     argon2Salt
   };
@@ -169,6 +171,7 @@ async function decryptPrivateKeys(
 ): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
+  ed25519PrivateKey: string | null;
 }> {
   const recoveryMaterial = await requireRecoveryPasswordMaterial();
 
@@ -202,7 +205,7 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
   // Store on server
   await api.vfs.setupKeys({
     publicEncryptionKey,
-    // publicSigningKey omitted - not yet implemented
+    publicSigningKey: serialized.ed25519PublicKey,
     encryptedPrivateKeys: encryptedBlob,
     argon2Salt
   });
@@ -233,12 +236,11 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
           response.encryptedPrivateKeys,
           response.argon2Salt
         );
-        const keyPair: VfsKeyPair = {
-          x25519PublicKey,
-          x25519PrivateKey: fromBase64(decrypted.x25519PrivateKey),
-          mlKemPublicKey,
-          mlKemPrivateKey: fromBase64(decrypted.mlKemPrivateKey)
-        };
+        const keyPair = reconstructVfsKeyPair(publicKey, {
+          x25519PrivateKey: decrypted.x25519PrivateKey,
+          mlKemPrivateKey: decrypted.mlKemPrivateKey,
+          ed25519PrivateKey: decrypted.ed25519PrivateKey
+        });
         cachedKeyPair = keyPair;
         return { keyPair, hasPrivateKeys: true };
       } catch (error) {
@@ -257,7 +259,9 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
         x25519PublicKey,
         x25519PrivateKey: new Uint8Array(32),
         mlKemPublicKey,
-        mlKemPrivateKey: new Uint8Array(2400)
+        mlKemPrivateKey: new Uint8Array(2400),
+        ed25519PublicKey: new Uint8Array(32),
+        ed25519PrivateKey: new Uint8Array(32)
       }
     };
   } catch (error) {

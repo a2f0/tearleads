@@ -1,3 +1,4 @@
+import { ed25519 } from '@noble/curves/ed25519.js';
 import {
   combinePublicKey,
   deserializeKeyPair,
@@ -15,12 +16,19 @@ import {
 } from './webCrypto.js';
 
 const PRIVATE_KEYS_AAD = new TextEncoder().encode('tearleads-vfs-keys:v1');
-const PRIVATE_KEYS_VERSION = 'v1';
+const PRIVATE_KEYS_VERSION = 'v2';
 
-interface SerializedPrivateKeyBundleV1 {
-  version: 'v1';
+interface SerializedPrivateKeyBundleV2 {
+  version: 'v2';
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
+  ed25519PrivateKey: string;
+}
+
+interface ParsedPrivateKeyBundle {
+  x25519PrivateKey: string;
+  mlKemPrivateKey: string;
+  ed25519PrivateKey: string | null;
 }
 
 export interface VfsEncryptedPrivateKeyBundle {
@@ -43,33 +51,38 @@ function fromBase64(base64: string): Uint8Array {
 
 function serializePrivateKeyBundle(
   serialized: SerializedKeyPair
-): SerializedPrivateKeyBundleV1 {
+): SerializedPrivateKeyBundleV2 {
   return {
     version: PRIVATE_KEYS_VERSION,
     x25519PrivateKey: serialized.x25519PrivateKey,
-    mlKemPrivateKey: serialized.mlKemPrivateKey
+    mlKemPrivateKey: serialized.mlKemPrivateKey,
+    ed25519PrivateKey: serialized.ed25519PrivateKey
   };
 }
 
-function parsePrivateKeyBundle(
-  value: unknown
-): SerializedPrivateKeyBundleV1 | null {
+function parsePrivateKeyBundle(value: unknown): ParsedPrivateKeyBundle | null {
   if (typeof value !== 'object' || value === null) {
     return null;
   }
   const record = value as Record<string, unknown>;
+  const version = record['version'];
   if (
-    record['version'] !== PRIVATE_KEYS_VERSION ||
+    (version !== 'v1' && version !== 'v2') ||
     typeof record['x25519PrivateKey'] !== 'string' ||
     typeof record['mlKemPrivateKey'] !== 'string'
   ) {
     return null;
   }
 
+  const ed25519PrivateKey =
+    version === 'v2' && typeof record['ed25519PrivateKey'] === 'string'
+      ? record['ed25519PrivateKey']
+      : null;
+
   return {
-    version: PRIVATE_KEYS_VERSION,
     x25519PrivateKey: record['x25519PrivateKey'],
-    mlKemPrivateKey: record['mlKemPrivateKey']
+    mlKemPrivateKey: record['mlKemPrivateKey'],
+    ed25519PrivateKey
   };
 }
 
@@ -138,6 +151,7 @@ export async function decryptVfsPrivateKeysWithPassword(
 ): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
+  ed25519PrivateKey: string | null;
 }> {
   const passwordMaterial = await importVfsPrivateKeyPasswordMaterial(password);
   return decryptVfsPrivateKeysWithPasswordMaterial(
@@ -154,6 +168,7 @@ export async function decryptVfsPrivateKeysWithPasswordMaterial(
 ): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
+  ed25519PrivateKey: string | null;
 }> {
   const salt = fromBase64(argon2SaltBase64);
   const encryptedBlob = fromBase64(encryptedPrivateKeysBase64);
@@ -167,7 +182,8 @@ export async function decryptVfsPrivateKeysWithPasswordMaterial(
   }
   return {
     x25519PrivateKey: parsed.x25519PrivateKey,
-    mlKemPrivateKey: parsed.mlKemPrivateKey
+    mlKemPrivateKey: parsed.mlKemPrivateKey,
+    ed25519PrivateKey: parsed.ed25519PrivateKey
   };
 }
 
@@ -177,6 +193,7 @@ export async function decryptVfsPrivateKeysWithRawKey(
 ): Promise<{
   x25519PrivateKey: string;
   mlKemPrivateKey: string;
+  ed25519PrivateKey: string | null;
 }> {
   const encryptedBlob = fromBase64(encryptedPrivateKeysBase64);
   const key = await importKey(keyBytes);
@@ -189,7 +206,8 @@ export async function decryptVfsPrivateKeysWithRawKey(
   }
   return {
     x25519PrivateKey: parsed.x25519PrivateKey,
-    mlKemPrivateKey: parsed.mlKemPrivateKey
+    mlKemPrivateKey: parsed.mlKemPrivateKey,
+    ed25519PrivateKey: parsed.ed25519PrivateKey
   };
 }
 
@@ -203,12 +221,42 @@ export function buildVfsPublicEncryptionKey(keyPair: VfsKeyPair): string {
 
 export function reconstructVfsKeyPair(
   publicEncryptionKey: { x25519PublicKey: string; mlKemPublicKey: string },
-  privateKeys: { x25519PrivateKey: string; mlKemPrivateKey: string }
+  privateKeys: {
+    x25519PrivateKey: string;
+    mlKemPrivateKey: string;
+    ed25519PrivateKey?: string | null;
+  }
 ): VfsKeyPair {
+  let ed25519PublicKeyBase64: string;
+  let ed25519PrivateKeyBase64: string;
+
+  if (privateKeys.ed25519PrivateKey) {
+    ed25519PrivateKeyBase64 = privateKeys.ed25519PrivateKey;
+    const privBytes = Uint8Array.from(atob(ed25519PrivateKeyBase64), (c) =>
+      c.charCodeAt(0)
+    );
+    const pubBytes = ed25519.getPublicKey(privBytes);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < pubBytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...pubBytes.subarray(i, i + chunkSize));
+    }
+    ed25519PublicKeyBase64 = btoa(binary);
+  } else {
+    ed25519PublicKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(32))
+    );
+    ed25519PrivateKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(32))
+    );
+  }
+
   return deserializeKeyPair({
     x25519PublicKey: publicEncryptionKey.x25519PublicKey,
     mlKemPublicKey: publicEncryptionKey.mlKemPublicKey,
     x25519PrivateKey: privateKeys.x25519PrivateKey,
-    mlKemPrivateKey: privateKeys.mlKemPrivateKey
+    mlKemPrivateKey: privateKeys.mlKemPrivateKey,
+    ed25519PublicKey: ed25519PublicKeyBase64,
+    ed25519PrivateKey: ed25519PrivateKeyBase64
   });
 }

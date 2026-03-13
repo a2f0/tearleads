@@ -57,7 +57,7 @@ export async function buildVfsKeySetupFromPassword(
 
   return {
     publicEncryptionKey: buildVfsPublicEncryptionKey(keyPair),
-    publicSigningKey: '',
+    publicSigningKey: serializedKeyPair.ed25519PublicKey,
     encryptedPrivateKeys: encryptedPrivateKeys.encryptedPrivateKeys,
     argon2Salt: encryptedPrivateKeys.argon2Salt
   };

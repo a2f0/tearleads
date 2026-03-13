@@ -11,11 +11,13 @@ vi.mock('./keyOnboarding', () => ({
       x25519PublicKey: new Uint8Array(32),
       x25519PrivateKey: new Uint8Array(32),
       mlKemPublicKey: new Uint8Array(1184),
-      mlKemPrivateKey: new Uint8Array(2400)
+      mlKemPrivateKey: new Uint8Array(2400),
+      ed25519PublicKey: new Uint8Array(32),
+      ed25519PrivateKey: new Uint8Array(32)
     },
     setupPayload: {
       publicEncryptionKey: 'x25519.mlkem',
-      publicSigningKey: '',
+      publicSigningKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       encryptedPrivateKeys: 'encrypted-keys',
       argon2Salt: 'salt'
     }
@@ -24,7 +26,9 @@ vi.mock('./keyOnboarding', () => ({
     x25519PublicKey: new Uint8Array(32),
     x25519PrivateKey: new Uint8Array(32),
     mlKemPublicKey: new Uint8Array(1184),
-    mlKemPrivateKey: new Uint8Array(2400)
+    mlKemPrivateKey: new Uint8Array(2400),
+    ed25519PublicKey: new Uint8Array(32),
+    ed25519PrivateKey: new Uint8Array(32)
   }))
 }));
 
