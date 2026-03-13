@@ -174,7 +174,8 @@ export class InMemoryVfsCrdtStateStore {
     );
     if (
       existingReassign &&
-      compareParsedStamps(preparedOperation.stamp, existingReassign.stamp) < 0 &&
+      compareParsedStamps(preparedOperation.stamp, existingReassign.stamp) <
+        0 &&
       preparedOperation.parentId !== existingReassign.parentId
     ) {
       return {

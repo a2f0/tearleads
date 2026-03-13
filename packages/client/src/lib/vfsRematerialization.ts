@@ -32,9 +32,9 @@ import {
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
 import {
-  VFS_ROOT_ID,
   chunkArray,
-  parseTimestampMs
+  parseTimestampMs,
+  VFS_ROOT_ID
 } from './vfsRematerializationUtils';
 
 const SYNC_PAGE_LIMIT = 500;

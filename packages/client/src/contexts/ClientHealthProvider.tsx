@@ -1,12 +1,12 @@
+import type { AvailableContact } from '@tearleads/app-health/clientEntry';
 import {
   createHealthTracker,
   HealthRuntimeProvider
 } from '@tearleads/app-health/clientEntry';
-import type { AvailableContact } from '@tearleads/app-health/clientEntry';
 import { contacts, vfsRegistry } from '@tearleads/db/sqlite';
+import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { eq } from 'drizzle-orm';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';

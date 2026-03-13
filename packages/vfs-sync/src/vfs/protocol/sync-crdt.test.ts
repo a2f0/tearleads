@@ -396,5 +396,4 @@ describe('InMemoryVfsCrdtStateStore', () => {
       lastReconciledWriteIds: {}
     });
   });
-
 });

@@ -98,11 +98,7 @@ describe('ContactPickerSelect', () => {
 
   it('is disabled when contacts list is empty', () => {
     render(
-      <ContactPickerSelect
-        contacts={[]}
-        value={null}
-        onChange={vi.fn()}
-      />
+      <ContactPickerSelect contacts={[]} value={null} onChange={vi.fn()} />
     );
 
     expect(screen.getByLabelText('Contact')).toBeDisabled();

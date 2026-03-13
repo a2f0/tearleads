@@ -24,10 +24,7 @@ export interface HealthRuntimeContextValue {
   createTracker: () => HealthTracker;
   InlineUnlock: ComponentType<InlineUnlockProps>;
   registerReadingInVfs: (readingId: string, createdAt: string) => Promise<void>;
-  linkReadingToContact: (
-    readingId: string,
-    contactId: string
-  ) => Promise<void>;
+  linkReadingToContact: (readingId: string, contactId: string) => Promise<void>;
   availableContacts: AvailableContact[];
 }
 
