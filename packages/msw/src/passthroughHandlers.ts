@@ -1,9 +1,5 @@
 import { bypass, HttpResponse, http } from 'msw';
 
-type RequestInitWithDuplex = RequestInit & {
-  duplex?: 'half';
-};
-
 export interface ExpressPassthroughRouteOverride {
   pathnamePattern: RegExp;
   targetPort: number;
@@ -39,12 +35,14 @@ export function createExpressPassthroughHandlers(
       target.pathname = normalizedPathname;
       target.search = original.search;
 
-      const proxiedRequestInit: RequestInitWithDuplex = {
+      const includeBody = request.method !== 'GET' && request.method !== 'HEAD';
+      const proxiedRequestInit: RequestInit = {
         method: request.method,
-        headers: request.headers,
-        body: request.body,
-        duplex: 'half'
+        headers: request.headers
       };
+      if (includeBody) {
+        proxiedRequestInit.body = await request.arrayBuffer();
+      }
       const response = await fetch(
         bypass(new Request(target, proxiedRequestInit))
       );

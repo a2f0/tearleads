@@ -8,7 +8,7 @@ export interface VfsMirrorInput {
   groupId: string;
   organizationId: string;
   senderUserId: string;
-  ciphertext: string;
+  ciphertext: Uint8Array;
   contentType: string;
   epoch: number;
   occurredAtIso: string;
@@ -43,7 +43,8 @@ export interface GroupMessageRow {
   group_id: string;
   sender_user_id: string | null;
   epoch: number;
-  ciphertext: string;
+  ciphertext_bytes: Buffer | Uint8Array | null;
+  ciphertext_text: string | null;
   encoded_content_type: string | null;
   sequence_number: number;
   created_at: Date | string;
@@ -154,7 +155,7 @@ export async function persistMlsMessageToVfs(
       updated_at = EXCLUDED.updated_at,
       deleted_at = NULL
     `,
-    [input.messageId, input.ciphertext, input.epoch, input.occurredAtIso]
+    [input.messageId, ciphertext.text, input.epoch, input.occurredAtIso]
   );
 
   await client.query(

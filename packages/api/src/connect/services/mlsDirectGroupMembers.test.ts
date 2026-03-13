@@ -37,11 +37,17 @@ import {
   removeGroupMemberDirectTyped
 } from './mlsDirectGroupMembers.js';
 
+const textEncoder = new TextEncoder();
+
+function bytes(value: string): Uint8Array {
+  return textEncoder.encode(value);
+}
+
 const ADD_MEMBER_REQUEST = {
   groupId: 'group-1',
   userId: 'member-user',
-  commit: 'commit-data',
-  welcome: 'welcome-data',
+  commit: bytes('commit-data'),
+  welcome: bytes('welcome-data'),
   keyPackageRef: 'kp-ref',
   newEpoch: 2
 };
@@ -49,7 +55,7 @@ const ADD_MEMBER_REQUEST = {
 const REMOVE_MEMBER_REQUEST = {
   groupId: 'group-1',
   userId: 'member-user',
-  commit: 'remove-commit',
+  commit: bytes('remove-commit'),
   newEpoch: 3
 };
 
@@ -154,7 +160,7 @@ describe('mlsDirectGroupMembers', () => {
   it('rejects addGroupMember when payload is invalid', async () => {
     await expect(
       addGroupMemberDirectTyped(
-        { ...ADD_MEMBER_REQUEST, commit: '' },
+        { ...ADD_MEMBER_REQUEST, commit: new Uint8Array() },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
@@ -316,7 +322,7 @@ describe('mlsDirectGroupMembers', () => {
   it('rejects removeGroupMember for invalid payloads', async () => {
     await expect(
       removeGroupMemberDirectTyped(
-        { ...REMOVE_MEMBER_REQUEST, commit: '' },
+        { ...REMOVE_MEMBER_REQUEST, commit: new Uint8Array() },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });

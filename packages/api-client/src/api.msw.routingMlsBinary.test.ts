@@ -39,6 +39,10 @@ const toBase64 = (value: string): string =>
 const utf8Bytes = (value: string): Uint8Array =>
   new TextEncoder().encode(value);
 
+const KEY_PACKAGE_ADD_ID = '11111111-1111-4111-8111-111111111111';
+const KEY_PACKAGE_EXTRA_ID = '22222222-2222-4222-8222-222222222222';
+const WELCOME_ACK_ID = '33333333-3333-4333-8333-333333333333';
+
 async function sha256Base64(data: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', data);
   let binary = '';
@@ -99,9 +103,15 @@ describe('api with msw (MLS binary routes)', () => {
 
     await ctx.pool.query(
       `INSERT INTO mls_key_packages (id, user_id, key_package_data, key_package_ref, cipher_suite, created_at)
-       VALUES ('kp-add', $1, $2, 'kp-ref-add', 3, NOW()),
-              ('kp-extra', $1, $3, 'kp-ref-extra', 3, NOW())`,
-      [secondUser.userId, toBase64('kp-data-add'), toBase64('kp-data-extra')]
+       VALUES ($1, $2, $3, 'kp-ref-add', 3, NOW()),
+              ($4, $2, $5, 'kp-ref-extra', 3, NOW())`,
+      [
+        KEY_PACKAGE_ADD_ID,
+        secondUser.userId,
+        toBase64('kp-data-add'),
+        KEY_PACKAGE_EXTRA_ID,
+        toBase64('kp-data-extra')
+      ]
     );
 
     const { createMlsV2Routes } = await import('./mlsRoutesEntry');
@@ -177,12 +187,11 @@ describe('api with msw (MLS binary routes)', () => {
       Uint8Array
     );
 
-    const welcomeId = 'welcome-binary-ack';
     await ctx.pool.query(
       `INSERT INTO mls_welcome_messages (id, group_id, recipient_user_id, key_package_ref, welcome_data, epoch, created_at)
        VALUES ($1, $2, $3, 'kp-ref-ack', $4, $5, NOW())`,
       [
-        welcomeId,
+        WELCOME_ACK_ID,
         groupId,
         seededUser.userId,
         toBase64('welcome-data'),
@@ -190,12 +199,14 @@ describe('api with msw (MLS binary routes)', () => {
       ]
     );
     const welcomes = await routes.getWelcomeMessages();
-    const welcome = welcomes.welcomes.find((item) => item.id === welcomeId);
+    const welcome = welcomes.welcomes.find(
+      (item) => item.id === WELCOME_ACK_ID
+    );
     expect(welcome?.welcome).toBeInstanceOf(Uint8Array);
     expect(Array.from(welcome?.welcome ?? [])).toEqual(
       Array.from(utf8Bytes('welcome-data'))
     );
-    await routes.acknowledgeWelcome(welcomeId, { groupId });
+    await routes.acknowledgeWelcome(WELCOME_ACK_ID, { groupId });
 
     await routes.removeGroupMember(groupId, secondUser.userId, {
       commit: utf8Bytes('remove-commit'),

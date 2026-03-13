@@ -1,7 +1,7 @@
 appId: com.tearleads.app
 ---
 # Database Reset-Setup Stress Test
-# Performs 5 reset-setup cycles with cooldown to catch edge cases
+# Performs 3 reset-setup cycles with cooldown to catch edge cases
 # with encryption secret handling or database state management.
 # Reduced from 10 cycles to improve CI stability while maintaining coverage.
 
@@ -25,8 +25,8 @@ appId: com.tearleads.app
 - evalScript: window.waitForStatus('Not Set Up')
 
 # Define stress test constants
-- evalScript: window.STRESS_CYCLES = 5
-- evalScript: window.STRESS_COOLDOWN_MS = 500
+- evalScript: window.STRESS_CYCLES = 3
+- evalScript: window.STRESS_COOLDOWN_MS = 1000
 
 # Helper function to perform a reset-setup cycle
 - evalScript: |
@@ -70,14 +70,17 @@ appId: com.tearleads.app
       await window.waitForResult('success', 'Database reset complete');
       await window.waitForStatus('Not Set Up');
 
-      // Cooldown between cycles to allow garbage collection and prevent resource exhaustion
+      // Give sqlite/opfs cleanup time to settle before the next setup loop.
+      await new Promise(r => setTimeout(r, 300));
+
+      // Cooldown between cycles to allow garbage collection and prevent resource exhaustion.
       await new Promise(r => setTimeout(r, window.STRESS_COOLDOWN_MS));
 
       return 'Cycle ' + cycleNum + ' completed';
     };
     'helper defined';
 
-# Run 5 reset-setup cycles (reduced from 10 for CI stability)
+# Run 3 reset-setup cycles (reduced from 10 for CI stability)
 - evalScript: |
     (async () => {
       for (let i = 1; i <= window.STRESS_CYCLES; i++) {

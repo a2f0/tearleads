@@ -1,10 +1,11 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  AckMlsWelcomeRequest,
-  MlsWelcomeMessage,
-  MlsWelcomeMessagesResponse
-} from '@tearleads/shared';
+import type { AckMlsWelcomeRequest } from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { decodeBase64ToBytes } from './mlsBinaryCodec.js';
+import type {
+  MlsBinaryWelcomeMessage,
+  MlsBinaryWelcomeMessagesResponse
+} from './mlsBinaryTypes.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 
 type AckWelcomeTypedRequest = { id: string } & AckMlsWelcomeRequest;
@@ -23,7 +24,7 @@ function toIsoString(value: Date | string): string {
 export async function getWelcomeMessagesDirectTyped(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<MlsWelcomeMessagesResponse> {
+): Promise<MlsBinaryWelcomeMessagesResponse> {
   const claims = await requireMlsClaims(
     '/mls/welcome-messages',
     context.requestHeader
@@ -52,15 +53,25 @@ export async function getWelcomeMessagesDirectTyped(
       [claims.sub]
     );
 
-    const welcomes: MlsWelcomeMessage[] = result.rows.map((row) => ({
-      id: row.id,
-      groupId: row.group_id,
-      groupName: row.group_name,
-      welcome: row.welcome_data,
-      keyPackageRef: row.key_package_ref,
-      epoch: row.epoch,
-      createdAt: toIsoString(row.created_at)
-    }));
+    const welcomes: MlsBinaryWelcomeMessage[] = result.rows.map((row) => {
+      const welcome = decodeBase64ToBytes(row.welcome_data);
+      if (!welcome) {
+        throw new ConnectError(
+          'Stored MLS welcome payload is not valid base64',
+          Code.Internal
+        );
+      }
+
+      return {
+        id: row.id,
+        groupId: row.group_id,
+        groupName: row.group_name,
+        welcome,
+        keyPackageRef: row.key_package_ref,
+        epoch: row.epoch,
+        createdAt: toIsoString(row.created_at)
+      };
+    });
 
     return { welcomes };
   } catch (error) {

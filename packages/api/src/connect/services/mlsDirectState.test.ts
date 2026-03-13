@@ -26,12 +26,13 @@ import {
   uploadGroupStateDirectTyped
 } from './mlsDirectState.js';
 
+const textEncoder = new TextEncoder();
 const STATE_BYTES_BASE64 = 'c3RhdGUtYnl0ZXM=';
 const STATE_BYTES_HASH = 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=';
 const UPLOAD_STATE_REQUEST = {
   groupId: 'group-1',
   epoch: 2,
-  encryptedState: STATE_BYTES_BASE64,
+  encryptedState: textEncoder.encode('state-bytes'),
   stateHash: STATE_BYTES_HASH
 };
 
@@ -89,7 +90,7 @@ describe('mlsDirectState', () => {
         id: 'state-1',
         groupId: 'group-1',
         epoch: 2,
-        encryptedState: STATE_BYTES_BASE64,
+        encryptedState: textEncoder.encode('state-bytes'),
         stateHash: STATE_BYTES_HASH,
         createdAt: '2026-03-03T03:10:00.000Z'
       }
@@ -99,7 +100,7 @@ describe('mlsDirectState', () => {
   it('rejects invalid upload payloads', async () => {
     await expect(
       uploadGroupStateDirectTyped(
-        { ...UPLOAD_STATE_REQUEST, encryptedState: '' },
+        { ...UPLOAD_STATE_REQUEST, encryptedState: new Uint8Array() },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
@@ -192,18 +193,6 @@ describe('mlsDirectState', () => {
     ).rejects.toMatchObject({ code: Code.Internal });
   });
 
-  it('rejects upload when encryptedState is not valid base64', async () => {
-    await expect(
-      uploadGroupStateDirectTyped(
-        {
-          ...UPLOAD_STATE_REQUEST,
-          encryptedState: 'not valid base64'
-        },
-        { requestHeader: new Headers() }
-      )
-    ).rejects.toMatchObject({ code: Code.InvalidArgument });
-  });
-
   it('rejects upload when stateHash does not match encryptedState bytes', async () => {
     await expect(
       uploadGroupStateDirectTyped(
@@ -251,7 +240,7 @@ describe('mlsDirectState', () => {
         id: 'state-2',
         groupId: 'group-1',
         epoch: 2,
-        encryptedState: STATE_BYTES_BASE64,
+        encryptedState: textEncoder.encode('state-bytes'),
         stateHash: STATE_BYTES_HASH,
         createdAt: '2026-03-03T03:12:00.000Z'
       }

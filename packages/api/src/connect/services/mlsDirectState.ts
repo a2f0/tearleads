@@ -1,40 +1,22 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  MlsGroupState,
-  MlsGroupStateResponse,
-  UploadMlsStateRequest,
-  UploadMlsStateResponse
-} from '@tearleads/shared';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
+import type {
+  MlsBinaryGroupState,
+  MlsBinaryGroupStateResponse,
+  UploadMlsStateBinaryRequest,
+  UploadMlsStateBinaryResponse
+} from './mlsBinaryTypes.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded, toIsoString } from './mlsDirectCommon.js';
 import { acquireTransactionClient } from './mlsDirectMessagesShared.js';
 import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type GroupIdTypedStateRequest = { groupId: string } & UploadMlsStateRequest;
-
-function decodeBase64Strict(value: string): Uint8Array | null {
-  const normalized = value.replace(/\s+/g, '');
-  if (normalized.length === 0) {
-    return null;
-  }
-
-  const decoded = Buffer.from(normalized, 'base64');
-  if (decoded.length === 0) {
-    return null;
-  }
-
-  if (
-    decoded.toString('base64').replace(/=+$/u, '') !==
-    normalized.replace(/=+$/u, '')
-  ) {
-    return null;
-  }
-
-  return decoded;
-}
+type GroupIdTypedStateRequest = {
+  groupId: string;
+} & UploadMlsStateBinaryRequest;
 
 function sha256Base64(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('base64');
@@ -43,7 +25,7 @@ function sha256Base64(data: Uint8Array): string {
 export async function uploadGroupStateDirectTyped(
   request: GroupIdTypedStateRequest,
   context: { requestHeader: Headers }
-): Promise<UploadMlsStateResponse> {
+): Promise<UploadMlsStateBinaryResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -54,29 +36,21 @@ export async function uploadGroupStateDirectTyped(
     context.requestHeader
   );
 
-  const payload: UploadMlsStateRequest = {
+  const payload: UploadMlsStateBinaryRequest = {
     epoch: request.epoch,
-    encryptedState: request.encryptedState.trim(),
+    encryptedState: Uint8Array.from(request.encryptedState),
     stateHash: request.stateHash.trim()
   };
   if (
     !Number.isInteger(payload.epoch) ||
     payload.epoch < 0 ||
-    payload.encryptedState.length === 0 ||
+    payload.encryptedState.byteLength === 0 ||
     payload.stateHash.length === 0
   ) {
     throw new ConnectError('Invalid state payload', Code.InvalidArgument);
   }
 
-  const decodedState = decodeBase64Strict(payload.encryptedState);
-  if (!decodedState) {
-    throw new ConnectError(
-      'Invalid encryptedState base64 payload',
-      Code.InvalidArgument
-    );
-  }
-
-  const computedStateHash = sha256Base64(decodedState);
+  const computedStateHash = sha256Base64(payload.encryptedState);
   if (computedStateHash !== payload.stateHash) {
     throw new ConnectError('State hash mismatch', Code.InvalidArgument);
   }
@@ -93,7 +67,7 @@ export async function uploadGroupStateDirectTyped(
     }
 
     const client = await acquireTransactionClient(pool);
-    let state: MlsGroupState | null = null;
+    let state: MlsBinaryGroupState | null = null;
 
     try {
       await client.query('BEGIN');
@@ -145,7 +119,7 @@ export async function uploadGroupStateDirectTyped(
           groupId,
           claims.sub,
           payload.epoch,
-          payload.encryptedState,
+          encodeBytesToBase64(payload.encryptedState),
           payload.stateHash
         ]
       );
@@ -193,7 +167,7 @@ export async function uploadGroupStateDirectTyped(
 export async function getGroupStateDirectTyped(
   request: GroupIdRequest,
   context: { requestHeader: Headers }
-): Promise<MlsGroupStateResponse> {
+): Promise<MlsBinaryGroupStateResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -236,7 +210,7 @@ export async function getGroupStateDirectTyped(
       return { state: null };
     }
 
-    const decodedState = decodeBase64Strict(row.encrypted_state);
+    const decodedState = decodeBase64ToBytes(row.encrypted_state);
     if (!decodedState) {
       throw new ConnectError(
         'Stored MLS state is not valid base64',
@@ -248,11 +222,11 @@ export async function getGroupStateDirectTyped(
       throw new ConnectError('Stored MLS state hash mismatch', Code.Internal);
     }
 
-    const state: MlsGroupState = {
+    const state: MlsBinaryGroupState = {
       id: row.id,
       groupId: row.group_id,
       epoch: row.epoch,
-      encryptedState: row.encrypted_state,
+      encryptedState: decodedState,
       stateHash: row.state_hash,
       createdAt: toIsoString(row.created_at)
     };

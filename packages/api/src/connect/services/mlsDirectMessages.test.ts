@@ -42,13 +42,15 @@ import {
 
 const SEND_MESSAGE_REQUEST: {
   groupId: string;
-  ciphertext: string;
+  ciphertext: Uint8Array;
   epoch: number;
   messageType: 'application';
   contentType: string;
 } = {
   groupId: 'group-1',
-  ciphertext: 'ciphertext-1',
+  ciphertext: Uint8Array.from([
+    99, 105, 112, 104, 101, 114, 116, 101, 120, 116, 45, 49
+  ]),
   epoch: 2,
   messageType: 'application',
   contentType: 'text/plain'
@@ -69,7 +71,7 @@ describe('mlsDirectMessages', () => {
     });
     randomUuidMock.mockReturnValue('message-1');
     serializeEnvelopeFieldMock.mockReturnValue({
-      text: 'ciphertext-1',
+      text: 'Y2lwaGVydGV4dC0x',
       bytes: new Uint8Array([1, 2, 3])
     });
     broadcastMock.mockResolvedValue(undefined);
@@ -146,7 +148,7 @@ describe('mlsDirectMessages', () => {
   it('rejects invalid send payloads', async () => {
     await expect(
       sendGroupMessageDirectTyped(
-        { ...SEND_MESSAGE_REQUEST, ciphertext: '' },
+        { ...SEND_MESSAGE_REQUEST, ciphertext: new Uint8Array() },
         { requestHeader: new Headers() }
       )
     ).rejects.toMatchObject({ code: Code.InvalidArgument });
@@ -255,7 +257,8 @@ describe('mlsDirectMessages', () => {
           group_id: 'group-1',
           sender_user_id: 'user-1',
           epoch: 3,
-          ciphertext: 'cipher-3',
+          ciphertext_bytes: Buffer.from([3, 3, 3]),
+          ciphertext_text: null,
           encoded_content_type: 'text%2Fplain',
           sequence_number: 3,
           created_at: new Date('2026-03-03T03:15:00.000Z'),
@@ -266,7 +269,8 @@ describe('mlsDirectMessages', () => {
           group_id: 'group-1',
           sender_user_id: 'user-2',
           epoch: 3,
-          ciphertext: 'cipher-2',
+          ciphertext_bytes: Buffer.from([2, 2, 2]),
+          ciphertext_text: null,
           encoded_content_type: 'text%2Fplain',
           sequence_number: 2,
           created_at: new Date('2026-03-03T03:14:00.000Z'),
@@ -302,7 +306,7 @@ describe('mlsDirectMessages', () => {
           senderUserId: 'user-1',
           senderEmail: 'user@example.com',
           epoch: 3,
-          ciphertext: 'cipher-3',
+          ciphertext: new Uint8Array([3, 3, 3]),
           messageType: 'application',
           contentType: 'text/plain',
           sequenceNumber: 3,
@@ -323,7 +327,8 @@ describe('mlsDirectMessages', () => {
           group_id: 'group-1',
           sender_user_id: 'user-1',
           epoch: 2,
-          ciphertext: 'cipher-1',
+          ciphertext_bytes: Buffer.from([1, 1, 1]),
+          ciphertext_text: null,
           encoded_content_type: null,
           sequence_number: 1,
           created_at: new Date('2026-03-03T03:13:00.000Z'),
@@ -344,7 +349,7 @@ describe('mlsDirectMessages', () => {
           groupId: 'group-1',
           senderUserId: 'user-1',
           epoch: 2,
-          ciphertext: 'cipher-1',
+          ciphertext: new Uint8Array([1, 1, 1]),
           messageType: 'application',
           contentType: 'text/plain',
           sequenceNumber: 1,

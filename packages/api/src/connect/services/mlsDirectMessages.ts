@@ -1,13 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import type {
-  MlsMessage,
-  MlsMessagesResponse,
-  SendMlsMessageRequest,
-  SendMlsMessageResponse
-} from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  decodeBase64ToBytes,
+  encodeBytesToBase64,
+  toUint8Array
+} from './mlsBinaryCodec.js';
+import type {
+  MlsBinaryMessage,
+  MlsBinaryMessagesResponse,
+  SendMlsMessageBinaryRequest,
+  SendMlsMessageBinaryResponse
+} from './mlsBinaryTypes.js';
+import { toTransportMessage } from './mlsBinaryTypes.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded } from './mlsDirectCommon.js';
 import {
@@ -21,13 +27,32 @@ import {
 } from './mlsDirectMessagesShared.js';
 import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
-type GroupIdTypedRequest = { groupId: string } & SendMlsMessageRequest;
+type GroupIdTypedRequest = { groupId: string } & SendMlsMessageBinaryRequest;
 type GroupMessagesRequest = { groupId: string; cursor: string; limit: number };
+
+function decodeStoredCiphertext(
+  ciphertextBytes: Buffer | Uint8Array | null,
+  ciphertextText: string | null
+): Uint8Array {
+  const fromBytea = toUint8Array(ciphertextBytes);
+  if (fromBytea) {
+    return fromBytea;
+  }
+
+  if (typeof ciphertextText === 'string') {
+    const decoded = decodeBase64ToBytes(ciphertextText);
+    if (decoded) {
+      return decoded;
+    }
+  }
+
+  throw new ConnectError('Stored MLS ciphertext is invalid', Code.Internal);
+}
 
 export async function sendGroupMessageDirectTyped(
   request: GroupIdTypedRequest,
   context: { requestHeader: Headers }
-): Promise<SendMlsMessageResponse> {
+): Promise<SendMlsMessageBinaryResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -39,14 +64,14 @@ export async function sendGroupMessageDirectTyped(
   );
 
   const trimmedContentType = request.contentType?.trim();
-  const payload: SendMlsMessageRequest = {
-    ciphertext: request.ciphertext.trim(),
+  const payload: SendMlsMessageBinaryRequest = {
+    ciphertext: Uint8Array.from(request.ciphertext),
     epoch: request.epoch,
     messageType: request.messageType,
     ...(trimmedContentType ? { contentType: trimmedContentType } : {})
   };
   if (
-    payload.ciphertext.length === 0 ||
+    payload.ciphertext.byteLength === 0 ||
     !Number.isInteger(payload.epoch) ||
     payload.epoch < 0
   ) {
@@ -72,7 +97,7 @@ export async function sendGroupMessageDirectTyped(
     }
 
     const client = await acquireTransactionClient(pool);
-    let message: MlsMessage | null = null;
+    let message: MlsBinaryMessage | null = null;
 
     try {
       await client.query('BEGIN');
@@ -165,7 +190,7 @@ export async function sendGroupMessageDirectTyped(
 
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: message,
+      payload: toTransportMessage(message, encodeBytesToBase64),
       timestamp: message.createdAt
     });
 
@@ -183,7 +208,7 @@ export async function sendGroupMessageDirectTyped(
 export async function getGroupMessagesDirectTyped(
   request: GroupMessagesRequest,
   context: { requestHeader: Headers }
-): Promise<MlsMessagesResponse> {
+): Promise<MlsBinaryMessagesResponse> {
   const groupId = request.groupId.trim();
   if (groupId.length === 0) {
     throw new ConnectError('groupId is required', Code.InvalidArgument);
@@ -232,7 +257,8 @@ export async function getGroupMessagesDirectTyped(
            $1::text AS group_id,
            ops.actor_id AS sender_user_id,
            COALESCE(ops.key_epoch, 0) AS epoch,
-           encode(ops.encrypted_payload_bytes, 'base64') AS ciphertext,
+           ops.encrypted_payload_bytes AS ciphertext_bytes,
+           ops.encrypted_payload AS ciphertext_text,
            NULLIF(split_part(ops.source_id, ':', 5), '') AS encoded_content_type,
            CASE
              WHEN split_part(ops.source_id, ':', 3) ~ '^[0-9]+$'
@@ -245,7 +271,10 @@ export async function getGroupMessagesDirectTyped(
          LEFT JOIN users u ON u.id = ops.actor_id
          WHERE ops.source_table = 'mls_message'
            AND ops.op_type = 'item_upsert'
-           AND ops.encrypted_payload_bytes IS NOT NULL
+           AND (
+             ops.encrypted_payload_bytes IS NOT NULL
+             OR ops.encrypted_payload IS NOT NULL
+           )
            AND ops.source_id LIKE $2::text
        )
        SELECT
@@ -253,7 +282,8 @@ export async function getGroupMessagesDirectTyped(
          group_id,
          sender_user_id,
          epoch,
-         ciphertext,
+         ciphertext_bytes,
+         ciphertext_text,
          encoded_content_type,
          sequence_number,
          created_at,
@@ -269,14 +299,17 @@ export async function getGroupMessagesDirectTyped(
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
 
-    const messages: MlsMessage[] = rows.map((row) => {
+    const messages: MlsBinaryMessage[] = rows.map((row) => {
       const createdAt = toIsoString(row.created_at);
-      const message: MlsMessage = {
+      const message: MlsBinaryMessage = {
         id: row.id,
         groupId: row.group_id,
         senderUserId: row.sender_user_id ?? '',
         epoch: row.epoch,
-        ciphertext: row.ciphertext,
+        ciphertext: decodeStoredCiphertext(
+          row.ciphertext_bytes,
+          row.ciphertext_text
+        ),
         messageType: 'application',
         contentType: decodeContentTypeFromSourceId(row.encoded_content_type),
         sequenceNumber: row.sequence_number,
@@ -291,7 +324,7 @@ export async function getGroupMessagesDirectTyped(
       return message;
     });
 
-    const response: MlsMessagesResponse = {
+    const response: MlsBinaryMessagesResponse = {
       messages: messages.reverse(),
       hasMore
     };

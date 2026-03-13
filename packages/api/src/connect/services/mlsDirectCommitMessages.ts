@@ -1,4 +1,4 @@
-import type { MlsMessage } from '@tearleads/shared';
+import type { MlsBinaryMessage } from './mlsBinaryTypes.js';
 import { toIsoString } from './mlsDirectCommon.js';
 import {
   persistMlsMessageToVfs,
@@ -17,7 +17,7 @@ interface InsertCommitMessageInput {
   organizationId: string;
   senderUserId: string;
   epoch: number;
-  commitCiphertext: string;
+  commitCiphertext: Uint8Array;
 }
 
 function buildCommitMessage(input: {
@@ -25,10 +25,10 @@ function buildCommitMessage(input: {
   groupId: string;
   senderUserId: string;
   epoch: number;
-  commitCiphertext: string;
+  commitCiphertext: Uint8Array;
   sequenceNumber: number;
   createdAt: Date | string;
-}): MlsMessage {
+}): MlsBinaryMessage {
   const createdAt = toIsoString(input.createdAt);
   return {
     id: input.id,
@@ -46,7 +46,7 @@ function buildCommitMessage(input: {
 
 export async function insertCommitMessage(
   input: InsertCommitMessageInput
-): Promise<MlsMessage> {
+): Promise<MlsBinaryMessage> {
   const maxSequenceResult = await input.client.query<CommitMaxSequenceRow>(
     `WITH sequences AS (
        SELECT
