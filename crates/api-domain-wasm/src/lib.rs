@@ -1,9 +1,9 @@
 //! WASM bindings for `tearleads-api-domain-core`.
 
+#[cfg(target_arch = "wasm32")]
+use tearleads_api_domain_core::normalize_required_redis_key;
 #[cfg(any(test, target_arch = "wasm32"))]
-use tearleads_api_domain_core::{
-    canonical_sql_identifier_field, normalize_required_redis_key, normalize_sql_identifier,
-};
+use tearleads_api_domain_core::{canonical_sql_identifier_field, normalize_sql_identifier};
 use tearleads_api_domain_core::{
     normalize_admin_rows_limit, normalize_optional_organization_id, normalize_redis_scan_cursor,
     normalize_redis_scan_limit,
@@ -102,16 +102,11 @@ pub fn normalize_optional_organization_id_binding(value: Option<String>) -> Opti
 
 // -- required redis key ------------------------------------------------------
 
-#[cfg(any(test, target_arch = "wasm32"))]
-fn normalize_required_redis_key_inner(key: &str) -> Result<String, String> {
-    normalize_required_redis_key(key).map_err(|error| error.to_string())
-}
-
 /// Normalizes a required Redis key, rejecting blank values.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = normalizeRequiredRedisKey)]
 pub fn normalize_required_redis_key_binding(key: &str) -> Result<String, JsValue> {
-    normalize_required_redis_key_inner(key).map_err(|error| JsValue::from_str(&error))
+    normalize_required_redis_key(key).map_err(|error| JsValue::from_str(&error.to_string()))
 }
 
 // -- admin rows limit --------------------------------------------------------
@@ -127,9 +122,10 @@ mod tests {
     use super::{
         normalize_admin_rows_limit_binding, normalize_optional_organization_id_binding,
         normalize_redis_scan_cursor_binding, normalize_redis_scan_limit_binding,
-        normalize_required_redis_key_inner, normalize_required_resource_id_inner,
-        normalize_sort_direction_inner, normalize_sql_identifier_inner,
+        normalize_required_resource_id_inner, normalize_sort_direction_inner,
+        normalize_sql_identifier_inner,
     };
+    use tearleads_api_domain_core::{DomainValidationError, normalize_required_redis_key};
 
     #[test]
     fn redis_cursor_normalization_matches_domain_behavior() {
@@ -220,11 +216,13 @@ mod tests {
     #[test]
     fn required_redis_key_trims_and_rejects_blank() {
         assert_eq!(
-            normalize_required_redis_key_inner("  feature_flag  "),
+            normalize_required_redis_key("  feature_flag  "),
             Ok(String::from("feature_flag"))
         );
-        let error = normalize_required_redis_key_inner("   ");
-        assert_eq!(error, Err(String::from("key: must not be empty")));
+        assert_eq!(
+            normalize_required_redis_key("   "),
+            Err(DomainValidationError::new("key", "must not be empty"))
+        );
     }
 
     #[test]
