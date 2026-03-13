@@ -35,10 +35,11 @@ export function inboxFolderUuid(userId: string): string {
       h ^= input.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    bytes[b] = (h >>> 0) & 0xff;
+    let byte = (h >>> 0) & 0xff;
+    if (b === 6) byte = (byte & 0x0f) | 0x50;
+    if (b === 8) byte = (byte & 0x3f) | 0x80;
+    bytes[b] = byte;
   }
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
   const hex = Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(
     ''
   );
