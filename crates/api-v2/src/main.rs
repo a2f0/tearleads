@@ -1,6 +1,6 @@
 //! Binary entrypoint for the API v2 service.
 
-use std::{collections::BTreeMap, env, net::SocketAddr};
+use std::{collections::BTreeMap, env, io::Error, net::SocketAddr};
 
 use axum::{
     body::{Body, to_bytes},
@@ -14,15 +14,18 @@ use tokio::net::TcpListener;
 use tracing::instrument;
 use tracing_subscriber::EnvFilter;
 
+use startup::{is_enabled_env_value, read_port_value, runtime_dependency_error_message};
+
 const DEFAULT_PORT: u16 = 5002;
 const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
 const REDIS_URL_ENV_KEY: &str = "REDIS_URL";
 const CONNECT_UPSTREAM_URL_ENV_KEY: &str = "API_V2_CONNECT_UPSTREAM_URL";
-const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/v1/connect";
+const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/connect";
 const MAX_PROXY_REQUEST_BODY_BYTES: usize = 10 * 1024 * 1024;
 
 #[cfg(test)]
 mod main_tests;
+mod startup;
 
 #[derive(Clone)]
 struct ConnectProxyState {
@@ -40,18 +43,17 @@ async fn main() -> std::io::Result<()> {
     initialize_tracing();
 
     let origins = env::var("ALLOWED_ORIGINS").unwrap_or_default();
+    let app = build_app(&origins)?;
     let port = read_port();
     let address = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(address).await?;
-
-    let app = build_app(&origins);
 
     tracing::info!("api-v2 listening on http://{address}");
 
     axum::serve(listener, app).await
 }
 
-fn build_app(origins: &str) -> axum::Router {
+fn build_app(origins: &str) -> std::io::Result<axum::Router> {
     use tearleads_api_v2::TokioPostgresGateway;
     use tearleads_data_access_postgres::PostgresAdminAdapter;
     use tearleads_data_access_redis::RedisAdminAdapter;
@@ -78,59 +80,47 @@ fn build_app(origins: &str) -> axum::Router {
                 )
             }
             (postgres_gateway, redis_gateway) => {
-                let mut failed_components = Vec::new();
-                if postgres_gateway.is_none() {
-                    failed_components.push("postgres");
-                }
-                if redis_gateway.is_none() {
-                    failed_components.push("redis");
-                }
-                tracing::warn!(
-                    "{} initialization failed — using static fixture repositories",
-                    failed_components.join(" + ")
-                );
-                tearleads_api_v2::app_with_origins(origins)
+                let message = runtime_dependency_error_message(
+                    postgres_gateway.is_some(),
+                    redis_gateway.is_some(),
+                )
+                .unwrap_or_else(|| {
+                    "api-v2 runtime dependencies changed during startup validation".to_string()
+                });
+                tracing::error!("{message}");
+                return Err(Error::other(message));
             }
         }
     };
 
     let upstream_connect_base_url = env::var(CONNECT_UPSTREAM_URL_ENV_KEY)
         .unwrap_or_else(|_| DEFAULT_CONNECT_UPSTREAM_URL.to_string());
-    tracing::info!("non-admin connect routes are proxied to {upstream_connect_base_url}");
+    tracing::info!("delegated connect upstream base is {upstream_connect_base_url}");
     let proxy_state = ConnectProxyState {
         http_client: reqwest::Client::new(),
         upstream_connect_base_url,
     };
 
-    app.layer(middleware::from_fn_with_state(
+    Ok(app.layer(middleware::from_fn_with_state(
         proxy_state,
         proxy_non_admin_connect_requests,
-    ))
-}
-
-fn is_enabled_env_var(name: &str) -> bool {
-    env::var(name)
-        .ok()
-        .map(|value| {
-            matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "yes" | "on"
-            )
-        })
-        .unwrap_or(false)
-}
-
-fn read_port() -> u16 {
-    env::var("PORT")
-        .ok()
-        .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(DEFAULT_PORT)
+    )))
 }
 
 fn initialize_tracing() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
+}
+
+fn is_enabled_env_var(name: &str) -> bool {
+    let value = env::var(name).ok();
+    is_enabled_env_value(value.as_deref())
+}
+
+fn read_port() -> u16 {
+    let value = env::var("PORT").ok();
+    read_port_value(value.as_deref())
 }
 
 fn should_proxy_connect_request(path: &str) -> bool {

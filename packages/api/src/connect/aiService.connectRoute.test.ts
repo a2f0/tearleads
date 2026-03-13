@@ -14,10 +14,10 @@ function getBaseUrl(server: Server): string {
   return `http://127.0.0.1:${address.port}`;
 }
 
-function createAiClient(server: Server) {
+function createAiClient(server: Server, requestPathPrefix = '/v1/connect') {
   const transport = createConnectTransport({
     httpVersion: '1.1',
-    baseUrl: `${getBaseUrl(server)}/v1/connect`
+    baseUrl: `${getBaseUrl(server)}${requestPathPrefix}`
   });
   return createClient(AiService, transport);
 }
@@ -78,6 +78,14 @@ describe('Connect AiService v2 route registration', () => {
         totalTokens: 2
       })
     ).rejects.toMatchObject({
+      code: Code.Unauthenticated
+    });
+  });
+
+  it('serves the canonical /connect prefix', async () => {
+    const client = createAiClient(server, '/connect');
+
+    await expect(client.getUsage({})).rejects.toMatchObject({
       code: Code.Unauthenticated
     });
   });

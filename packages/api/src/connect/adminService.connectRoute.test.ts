@@ -14,10 +14,10 @@ function getBaseUrl(server: Server): string {
   return `http://127.0.0.1:${address.port}`;
 }
 
-function createAdminClient(server: Server) {
+function createAdminClient(server: Server, requestPathPrefix = '/v1/connect') {
   const transport = createConnectTransport({
     httpVersion: '1.1',
-    baseUrl: `${getBaseUrl(server)}/v1/connect`
+    baseUrl: `${getBaseUrl(server)}${requestPathPrefix}`
   });
   return createClient(AdminService, transport);
 }
@@ -63,6 +63,14 @@ describe('Connect AdminService route registration', () => {
     const client = createAdminClient(server);
 
     await expect(client.getTables({})).rejects.toMatchObject({
+      code: Code.Unauthenticated
+    });
+  });
+
+  it('serves the canonical /connect prefix', async () => {
+    const client = createAdminClient(server, '/connect');
+
+    await expect(client.getContext({})).rejects.toMatchObject({
       code: Code.Unauthenticated
     });
   });

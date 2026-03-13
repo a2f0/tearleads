@@ -44,7 +44,7 @@
     "rustFmtCheck": "cargo fmt --all --check",
     "rustLint": "cargo clippy --workspace --all-targets --all-features -- -D warnings",
     "rustTest": "cargo test --workspace --all-targets --all-features",
-    "rustCoverage": "cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex 'main\\.rs$' --fail-under-lines 100 --summary-only && cargo llvm-cov --package tearleads-api-v2-ping-wasm --lib --tests --fail-under-lines 100 --summary-only",
+    "rustCoverage": "cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex '(src/main.rs|postgres_gateway/)' --fail-under-lines 100 --summary-only && cargo llvm-cov --package tearleads-api-v2-ping-wasm --lib --tests --fail-under-lines 100 --summary-only",
     "lint:fix": "biome check --write .",
     "lint:scripts": "sh -c 'set -eu; files=\"scripts/*.sh scripts/checks/*.sh scripts/preen/*.sh\"; extra=\"\"; if [ -d ansible/playbooks/files/scripts ]; then extra=$(find ansible/playbooks/files/scripts -maxdepth 1 -type f -name \"*.sh\" -print); fi; shellcheck --severity=info $files $extra' && pnpm --filter @tearleads/client lint:scripts",
     "lint:rubocop": "pnpm --filter @tearleads/client lint:rubocop",

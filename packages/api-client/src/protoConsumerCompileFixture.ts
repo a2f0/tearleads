@@ -21,7 +21,10 @@ import { VfsService } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import * as vfsSharesConnect from '@tearleads/shared/gen/tearleads/v2/vfs_shares_connect';
 import { VfsSharesService } from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 
-const transport = createConnectTransport({ baseUrl: 'https://example.test' });
+const transport = createConnectTransport({
+  baseUrl: 'https://example.test',
+  useBinaryFormat: true
+});
 
 const serviceClients = [
   createClient(AdminService, transport),

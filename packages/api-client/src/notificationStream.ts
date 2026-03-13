@@ -37,7 +37,7 @@ function createNotificationStreamClient(
 ): NotificationStreamClient {
   return createClient(
     NotificationService,
-    createConnectTransport({ baseUrl: connectBaseUrl })
+    createConnectTransport({ baseUrl: connectBaseUrl, useBinaryFormat: true })
   );
 }
 

@@ -11,13 +11,13 @@ Rust API v2 service (Axum + tonic-web).
 - `API_V2_ENABLE_ADMIN_HARNESS` (`1|true|yes|on` to force static fixture repositories)
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE` (admin Postgres gateway wiring)
 - `REDIS_URL` (admin Redis gateway wiring)
-- `API_V2_CONNECT_UPSTREAM_URL` (default `http://api:5001/v1/connect`; upstream used for non-admin `/connect` passthrough)
+- `API_V2_CONNECT_UPSTREAM_URL` (default `http://api:5001/connect`; upstream used for delegated v2 handlers)
 
 ### Routes
 
 - `GET /v2/ping`
 - `POST /connect/tearleads.v2.AdminService/*` (always mounted)
-- `POST /connect/*` for non-admin v2 services (proxied upstream via `API_V2_CONNECT_UPSTREAM_URL`)
+- `POST /connect/*` for all v2 services; delegated handlers use `API_V2_CONNECT_UPSTREAM_URL` internally
 
 `GET /v2/ping` response:
 
@@ -32,12 +32,16 @@ Rust API v2 service (Axum + tonic-web).
 ## Local Run
 
 ```bash
-# default runtime (Postgres + Redis repository wiring from env, with non-admin connect passthrough)
+# default runtime (Postgres + Redis repository wiring from env, with delegated v2 handlers)
 cargo run --package tearleads-api-v2
 
 # force static fixture repositories for admin routes
 API_V2_ENABLE_ADMIN_HARNESS=1 cargo run --package tearleads-api-v2
 ```
+
+Without `API_V2_ENABLE_ADMIN_HARNESS`, startup now fails if either the
+Postgres or Redis runtime dependency is missing. The service no longer falls
+back to static fixture repositories implicitly.
 
 ## Quality Gates
 
@@ -45,5 +49,5 @@ API_V2_ENABLE_ADMIN_HARNESS=1 cargo run --package tearleads-api-v2
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets --all-features
-cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex '(main\.rs|postgres_gateway/)' --fail-under-lines 100 --summary-only
+cargo llvm-cov --package tearleads-api-v2 --lib --tests --ignore-filename-regex '(src/main.rs|postgres_gateway/)' --fail-under-lines 100 --summary-only
 ```
