@@ -159,6 +159,7 @@ These decisions are based on the current compatibility inventory plus recent Bun
 | [#3257](https://github.com/a2f0/tearleads/pull/3257) | Client window-manager `importOriginal` remediation bundle |
 | [#3258](https://github.com/a2f0/tearleads/pull/3258) | Client audio/video/tableRows `importOriginal` remediation bundle |
 | [#3260](https://github.com/a2f0/tearleads/pull/3260) | Client remaining `vi.mock(importOriginal)` remediation bundle |
+| [#3305](https://github.com/a2f0/tearleads/pull/3305) | Client `vi.hoisted` final remediation bundle |
 
 ## Node Pilot Package Status
 
