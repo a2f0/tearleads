@@ -13,6 +13,8 @@ const authState = {
   refreshToken: null as string | null
 };
 
+vi.mock('./pingWasmImport');
+
 vi.mock('./authStorage', () => ({
   getAuthHeaderValue: () =>
     authState.token.length > 0 ? `Bearer ${authState.token}` : null,
@@ -42,18 +44,6 @@ let seededUser: SeededUser;
 
 describe('api with msw admin routing', () => {
   beforeEach(async () => {
-    vi.doMock('./pingWasmImport', () => ({
-      importPingWasmModule: () =>
-        Promise.resolve({
-          v2_ping_path: () => '/v2/ping',
-          parse_v2_ping_value: (payload: unknown) => {
-            if (typeof payload !== 'object' || payload === null) {
-              throw new Error('Invalid v2 ping response payload');
-            }
-            return payload;
-          }
-        })
-    }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
     resetApiCoreRuntimeForTesting();

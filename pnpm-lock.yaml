@@ -229,6 +229,9 @@ importers:
       '@tearleads/api-test-utils':
         specifier: workspace:*
         version: link:../api-test-utils
+      '@tearleads/bun-dom-compat':
+        specifier: workspace:*
+        version: link:../bun-dom-compat
       '@tearleads/msw':
         specifier: workspace:*
         version: link:../msw

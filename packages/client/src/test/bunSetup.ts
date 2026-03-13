@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import '@testing-library/jest-dom/vitest';
 import {
   installBrowserGlobalsForBun,
@@ -10,6 +13,53 @@ import { installBunPolyfills } from './bunPolyfills';
 
 // Install jsdom globals before anything else
 installBrowserGlobalsForBun();
+
+// Preload compliance markdown modules for Bun (replaces Vite import.meta.glob)
+const COMPLIANCE_MARKDOWN_MODULES_GLOBAL =
+  '__TEARLEADS_COMPLIANCE_MARKDOWN_MODULES__';
+const COMPLIANCE_DOCS_ROOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../../compliance'
+);
+
+function collectMarkdownFiles(currentDir: string): string[] {
+  const markdownFiles: string[] = [];
+  const entries = readdirSync(currentDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      markdownFiles.push(...collectMarkdownFiles(entryPath));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      markdownFiles.push(entryPath);
+    }
+  }
+
+  return markdownFiles;
+}
+
+function preloadComplianceMarkdownModulesForBun(): void {
+  if (typeof Reflect.get(import.meta, 'glob') === 'function') {
+    return;
+  }
+
+  if (Reflect.get(globalThis, COMPLIANCE_MARKDOWN_MODULES_GLOBAL) != null) {
+    return;
+  }
+
+  const markdownModules: Record<string, string> = {};
+  const markdownFilePaths = collectMarkdownFiles(COMPLIANCE_DOCS_ROOT);
+  for (const filePath of markdownFilePaths) {
+    markdownModules[filePath] = readFileSync(filePath, 'utf8');
+  }
+
+  Reflect.set(globalThis, COMPLIANCE_MARKDOWN_MODULES_GLOBAL, markdownModules);
+}
+
+preloadComplianceMarkdownModulesForBun();
 
 const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
 

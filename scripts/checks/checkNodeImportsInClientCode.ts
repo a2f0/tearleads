@@ -25,7 +25,8 @@ const EXCLUDED_PATHS = [
   'packages/shared/src/server/',
   'packages/shared/src/redis/',
   'packages/shared/src/scaffolding/',
-  '/wasmNode/'
+  '/wasmNode/',
+  '/test/bunSetup.ts'
 ];
 
 function getRepoRoot(): string {
