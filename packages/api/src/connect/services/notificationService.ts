@@ -1,5 +1,8 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
-import type { BroadcastMessage } from '@tearleads/shared';
+import {
+  type BroadcastMessage,
+  stringifyJsonWithByteArrays
+} from '@tearleads/shared';
 import type { SubscribeRequest } from '@tearleads/shared/gen/tearleads/v2/notifications_pb';
 import {
   filterAuthorizedChannels,
@@ -23,13 +26,13 @@ function toConnectedEnvelope(
   channels: readonly string[]
 ): NotificationEventEnvelope {
   return {
-    json: JSON.stringify({ event: 'connected', channels })
+    json: stringifyJsonWithByteArrays({ event: 'connected', channels })
   };
 }
 
 function toKeepaliveEnvelope(): NotificationEventEnvelope {
   return {
-    json: JSON.stringify({ event: 'keepalive' })
+    json: stringifyJsonWithByteArrays({ event: 'keepalive' })
   };
 }
 
@@ -38,7 +41,7 @@ function toMessageEnvelope(
   message: BroadcastMessage
 ): NotificationEventEnvelope {
   return {
-    json: JSON.stringify({
+    json: stringifyJsonWithByteArrays({
       event: 'message',
       channel,
       message

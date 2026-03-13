@@ -37,8 +37,8 @@ function createSharedRealtimeBridge(): {
   };
 }
 
-function commitCiphertext(bytes: number[]): string {
-  return btoa(String.fromCharCode(...bytes));
+function commitCiphertext(bytes: number[]): Uint8Array {
+  return Uint8Array.from(bytes);
 }
 
 function emitBridgeMessage(
@@ -204,7 +204,7 @@ describe('useMlsRealtime', () => {
           groupId: 'group-1',
           senderUserId: 'other-user',
           epoch: 5,
-          ciphertext: 'not-base64***',
+          ciphertext: 'not-binary',
           messageType: 'commit',
           contentType: 'application/mls-commit',
           sequenceNumber: 9,

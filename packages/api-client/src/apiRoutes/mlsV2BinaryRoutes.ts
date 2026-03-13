@@ -1,129 +1,36 @@
 import type {
   AckMlsWelcomeRequest,
-  AddMlsMemberRequest,
-  AddMlsMemberResponse,
+  AddMlsMemberBinaryRequest,
+  AddMlsMemberBinaryResponse,
   CreateMlsGroupRequest,
   CreateMlsGroupResponse,
+  MlsBinaryGroupState,
+  MlsBinaryGroupStateResponse,
+  MlsBinaryKeyPackage,
+  MlsBinaryKeyPackagesResponse,
+  MlsBinaryMessage,
+  MlsBinaryMessagesResponse,
+  MlsBinaryWelcomeMessage,
+  MlsBinaryWelcomeMessagesResponse,
   MlsGroup,
   MlsGroupMembersResponse,
   MlsGroupResponse,
   MlsGroupState,
-  MlsGroupStateResponse,
   MlsGroupsResponse,
   MlsKeyPackage,
   MlsMessage,
-  MlsMessagesResponse,
   MlsWelcomeMessage,
-  MlsWelcomeMessagesResponse,
-  RemoveMlsMemberRequest,
-  SendMlsMessageRequest,
-  SendMlsMessageResponse,
+  RemoveMlsMemberBinaryRequest,
+  SendMlsMessageBinaryRequest,
+  SendMlsMessageBinaryResponse,
   UpdateMlsGroupRequest,
-  UploadMlsKeyPackagesRequest,
-  UploadMlsStateRequest,
-  UploadMlsStateResponse
+  UploadMlsKeyPackagesBinaryRequest,
+  UploadMlsKeyPackagesBinaryResponse,
+  UploadMlsStateBinaryRequest,
+  UploadMlsStateBinaryResponse
 } from '@tearleads/shared';
 import { bytesToBase64, decodeRequiredTransportBytes } from './mlsV2Binary';
 import { createMlsV2Routes as createWireMlsV2Routes } from './mlsV2Routes';
-
-type MlsBinaryKeyPackage = Omit<MlsKeyPackage, 'keyPackageData'> & {
-  keyPackageData: Uint8Array;
-};
-
-type MlsBinaryMessage = Omit<MlsMessage, 'ciphertext'> & {
-  ciphertext: Uint8Array;
-};
-
-type MlsBinaryWelcomeMessage = Omit<MlsWelcomeMessage, 'welcome'> & {
-  welcome: Uint8Array;
-};
-
-type MlsBinaryGroupState = Omit<MlsGroupState, 'encryptedState'> & {
-  encryptedState: Uint8Array;
-};
-
-export type UploadMlsKeyPackagesBinaryRequest = {
-  keyPackages: Array<
-    Omit<
-      UploadMlsKeyPackagesRequest['keyPackages'][number],
-      'keyPackageData'
-    > & {
-      keyPackageData: Uint8Array;
-    }
-  >;
-};
-
-export type UploadMlsKeyPackagesBinaryResponse = {
-  keyPackages: MlsBinaryKeyPackage[];
-};
-
-export type MlsBinaryKeyPackagesResponse = {
-  keyPackages: MlsBinaryKeyPackage[];
-};
-
-export type AddMlsMemberBinaryRequest = Omit<
-  AddMlsMemberRequest,
-  'commit' | 'welcome'
-> & {
-  commit: Uint8Array;
-  welcome: Uint8Array;
-};
-
-export type RemoveMlsMemberBinaryRequest = Omit<
-  RemoveMlsMemberRequest,
-  'commit'
-> & {
-  commit: Uint8Array;
-};
-
-export type SendMlsMessageBinaryRequest = Omit<
-  SendMlsMessageRequest,
-  'ciphertext'
-> & {
-  ciphertext: Uint8Array;
-};
-
-export type SendMlsMessageBinaryResponse = Omit<
-  SendMlsMessageResponse,
-  'message'
-> & {
-  message: MlsBinaryMessage;
-};
-
-export type MlsBinaryMessagesResponse = Omit<
-  MlsMessagesResponse,
-  'messages'
-> & {
-  messages: MlsBinaryMessage[];
-};
-
-export type MlsBinaryWelcomeMessagesResponse = Omit<
-  MlsWelcomeMessagesResponse,
-  'welcomes'
-> & {
-  welcomes: MlsBinaryWelcomeMessage[];
-};
-
-export type UploadMlsStateBinaryRequest = Omit<
-  UploadMlsStateRequest,
-  'encryptedState'
-> & {
-  encryptedState: Uint8Array;
-};
-
-export type UploadMlsStateBinaryResponse = Omit<
-  UploadMlsStateResponse,
-  'state'
-> & {
-  state: MlsBinaryGroupState;
-};
-
-export type MlsBinaryGroupStateResponse = Omit<
-  MlsGroupStateResponse,
-  'state'
-> & {
-  state: MlsBinaryGroupState | null;
-};
 
 function toBinaryKeyPackage(keyPackage: MlsKeyPackage): MlsBinaryKeyPackage {
   return {
@@ -172,7 +79,7 @@ export interface MlsV2Routes {
   addGroupMember: (
     groupId: string,
     data: AddMlsMemberBinaryRequest
-  ) => Promise<AddMlsMemberResponse>;
+  ) => Promise<AddMlsMemberBinaryResponse>;
   removeGroupMember: (
     groupId: string,
     userId: string,

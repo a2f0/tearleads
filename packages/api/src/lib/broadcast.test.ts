@@ -1,3 +1,4 @@
+import { stringifyJsonWithByteArrays } from '@tearleads/shared';
 import type { RedisClient } from '@tearleads/shared/redis';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BroadcastMessage } from './broadcast.js';
@@ -81,5 +82,25 @@ describe('broadcast', () => {
     const result = await broadcast('broadcast', message);
 
     expect(result).toBe(5);
+  });
+
+  it('preserves Uint8Array payloads through serialization', async () => {
+    const { broadcast } = await import('./broadcast.js');
+    mockPublish.mockResolvedValue(1);
+
+    const message: BroadcastMessage = {
+      type: 'mls:message',
+      payload: {
+        ciphertext: Uint8Array.from([1, 2, 3])
+      },
+      timestamp: '2024-01-01T00:00:00.000Z'
+    };
+
+    await broadcast('mls:group:group-1', message);
+
+    expect(mockPublish).toHaveBeenCalledWith(
+      'mls:group:group-1',
+      stringifyJsonWithByteArrays(message)
+    );
   });
 });

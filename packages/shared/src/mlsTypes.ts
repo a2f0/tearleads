@@ -1,114 +1,58 @@
-// =============================================================================
-// MLS (RFC 9420) Encrypted Chat Types
-// =============================================================================
+import type {
+  AddMlsMemberRequestShape,
+  AddMlsMemberResponseShape,
+  MlsCipherSuite,
+  MlsGroup,
+  MlsGroupMember,
+  MlsGroupMembersResponseShape,
+  MlsGroupStateResponseShape,
+  MlsGroupStateShape,
+  MlsKeyPackageShape,
+  MlsKeyPackagesResponseShape,
+  MlsMessageShape,
+  MlsMessagesResponseShape,
+  MlsWelcomeMessageShape,
+  MlsWelcomeMessagesResponseShape,
+  RemoveMlsMemberRequestShape,
+  SendMlsMessageRequestShape,
+  SendMlsMessageResponseShape,
+  UploadMlsKeyPackagesRequestShape,
+  UploadMlsKeyPackagesResponseShape,
+  UploadMlsStateRequestShape,
+  UploadMlsStateResponseShape
+} from './mlsCoreTypes.js';
 
-/** MLS ciphersuites - X-Wing hybrid (ML-KEM + X25519) for post-quantum security */
-export const MLS_CIPHERSUITES = {
-  /** MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 */
-  X25519_AES128GCM: 1,
-  /** MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519 */
-  X25519_CHACHA20_SHA256_ED25519: 3,
-  /** X-Wing hybrid: ML-KEM-768 + X25519 for post-quantum security */
-  XWING_HYBRID: 65535
-} as const;
-
-export type MlsCipherSuite =
-  (typeof MLS_CIPHERSUITES)[keyof typeof MLS_CIPHERSUITES];
+export {
+  MLS_CIPHERSUITES,
+  type MlsCipherSuite,
+  type MlsGroup,
+  type MlsGroupMember,
+  type MlsGroupMembersResponseShape,
+  type MlsGroupRole,
+  type MlsMessageType
+} from './mlsCoreTypes.js';
 
 /** MLS key package stored on server */
-export interface MlsKeyPackage {
-  id: string;
-  userId: string;
-  keyPackageData: string;
-  keyPackageRef: string; // base64 hash
-  cipherSuite: MlsCipherSuite;
-  createdAt: string;
-  consumed: boolean;
-}
-
-/** MLS group metadata */
-export interface MlsGroup {
-  id: string;
-  groupIdMls: string;
-  name: string;
-  description: string | null;
-  creatorUserId: string;
-  currentEpoch: number;
-  cipherSuite: MlsCipherSuite;
-  createdAt: string;
-  updatedAt: string;
-  lastMessageAt?: string;
-  memberCount?: number;
-  role?: MlsGroupRole;
-}
-
-export type MlsGroupRole = 'admin' | 'member';
-
-/** MLS group member info */
-export interface MlsGroupMember {
-  userId: string;
-  email: string;
-  leafIndex: number | null;
-  role: MlsGroupRole;
-  joinedAt: string;
-  joinedAtEpoch: number;
-}
-
-export type MlsMessageType = 'application' | 'commit' | 'proposal';
+export type MlsKeyPackage = MlsKeyPackageShape<string>;
 
 /** MLS encrypted message (server only stores ciphertext) */
-export interface MlsMessage {
-  id: string;
-  groupId: string;
-  senderUserId: string | null; // null if sender was deleted
-  senderEmail?: string;
-  epoch: number;
-  ciphertext: string;
-  messageType: MlsMessageType;
-  contentType: string;
-  sequenceNumber: number;
-  sentAt: string;
-  createdAt: string;
-}
+export type MlsMessage = MlsMessageShape<string>;
 
 /** MLS welcome message for joining a group */
-export interface MlsWelcomeMessage {
-  id: string;
-  groupId: string;
-  groupName: string;
-  welcome: string;
-  keyPackageRef: string; // reference to the key package used
-  epoch: number;
-  createdAt: string;
-}
+export type MlsWelcomeMessage = MlsWelcomeMessageShape<string>;
 
 /** MLS group state snapshot for multi-device sync */
-export interface MlsGroupState {
-  id: string;
-  groupId: string;
-  epoch: number;
-  encryptedState: string;
-  stateHash: string;
-  createdAt: string;
-}
+export type MlsGroupState = MlsGroupStateShape<string>;
 
 // MLS API Request/Response types
 
-export interface UploadMlsKeyPackagesRequest {
-  keyPackages: Array<{
-    keyPackageData: string;
-    keyPackageRef: string;
-    cipherSuite: MlsCipherSuite;
-  }>;
-}
+export type UploadMlsKeyPackagesRequest =
+  UploadMlsKeyPackagesRequestShape<string>;
 
-export interface UploadMlsKeyPackagesResponse {
-  keyPackages: MlsKeyPackage[];
-}
+export type UploadMlsKeyPackagesResponse =
+  UploadMlsKeyPackagesResponseShape<string>;
 
-export interface MlsKeyPackagesResponse {
-  keyPackages: MlsKeyPackage[];
-}
+export type MlsKeyPackagesResponse = MlsKeyPackagesResponseShape<string>;
 
 export interface CreateMlsGroupRequest {
   name: string;
@@ -135,62 +79,29 @@ export interface UpdateMlsGroupRequest {
   description?: string;
 }
 
-export interface AddMlsMemberRequest {
-  userId: string;
-  commit: string;
-  welcome: string;
-  keyPackageRef: string;
-  newEpoch: number;
-}
+export type AddMlsMemberRequest = AddMlsMemberRequestShape<string>;
 
-export interface AddMlsMemberResponse {
-  member: MlsGroupMember;
-}
+export type AddMlsMemberResponse = AddMlsMemberResponseShape;
 
-export interface RemoveMlsMemberRequest {
-  commit: string;
-  newEpoch: number;
-}
+export interface MlsGroupMembersResponse extends MlsGroupMembersResponseShape {}
 
-export interface MlsGroupMembersResponse {
-  members: MlsGroupMember[];
-}
+export type RemoveMlsMemberRequest = RemoveMlsMemberRequestShape<string>;
 
-export interface SendMlsMessageRequest {
-  ciphertext: string;
-  epoch: number;
-  messageType: MlsMessageType;
-  contentType?: string;
-}
+export type SendMlsMessageRequest = SendMlsMessageRequestShape<string>;
 
-export interface SendMlsMessageResponse {
-  message: MlsMessage;
-}
+export type SendMlsMessageResponse = SendMlsMessageResponseShape<string>;
 
-export interface MlsMessagesResponse {
-  messages: MlsMessage[];
-  hasMore: boolean;
-  cursor?: string;
-}
+export type MlsMessagesResponse = MlsMessagesResponseShape<string>;
 
-export interface MlsWelcomeMessagesResponse {
-  welcomes: MlsWelcomeMessage[];
-}
+export type MlsWelcomeMessagesResponse =
+  MlsWelcomeMessagesResponseShape<string>;
 
 export interface AckMlsWelcomeRequest {
   groupId: string;
 }
 
-export interface UploadMlsStateRequest {
-  epoch: number;
-  encryptedState: string;
-  stateHash: string;
-}
+export type UploadMlsStateRequest = UploadMlsStateRequestShape<string>;
 
-export interface UploadMlsStateResponse {
-  state: MlsGroupState;
-}
+export type UploadMlsStateResponse = UploadMlsStateResponseShape<string>;
 
-export interface MlsGroupStateResponse {
-  state: MlsGroupState | null;
-}
+export type MlsGroupStateResponse = MlsGroupStateResponseShape<string>;

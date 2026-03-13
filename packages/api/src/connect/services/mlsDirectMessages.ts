@@ -6,10 +6,9 @@ import type {
   SendMlsMessageBinaryRequest,
   SendMlsMessageBinaryResponse
 } from '@tearleads/shared';
-import { toTransportMessage } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { encodeBytesToBase64, toUint8Array } from './mlsBinaryCodec.js';
+import { toUint8Array } from './mlsBinaryCodec.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded } from './mlsDirectCommon.js';
 import {
@@ -180,7 +179,7 @@ export async function sendGroupMessageDirectTyped(
 
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: toTransportMessage(message, encodeBytesToBase64),
+      payload: message,
       timestamp: message.createdAt
     });
 
