@@ -2202,8 +2202,8 @@ importers:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(pg@8.18.0)(sql.js@1.14.0)
       file-type:
-        specifier: 21.3.1
-        version: 21.3.1
+        specifier: 21.3.2
+        version: 21.3.2
       i18next:
         specifier: 25.8.14
         version: 25.8.14(typescript@5.9.3)
@@ -4155,6 +4155,9 @@ packages:
 
   '@borewit/text-codec@0.2.1':
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
+
+  '@borewit/text-codec@0.2.2':
+    resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
 
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
@@ -9713,8 +9716,8 @@ packages:
     resolution: {integrity: sha512-/yFHK0aGjFEgDJjEKP0pWCplsPFPhwyfwevf/pVxiN0tmE4L9LmwWxWukdJSHdoCli4VgQLehjJtwQBnqmsKcw==}
     engines: {node: '>=10'}
 
-  file-type@21.3.1:
-    resolution: {integrity: sha512-SrzXX46I/zsRDjTb82eucsGg0ODq2NpGDp4HcsFKApPy8P8vACjpJRDoGGMfEzhFC0ry61ajd7f72J3603anBA==}
+  file-type@21.3.2:
+    resolution: {integrity: sha512-DLkUvGwep3poOV2wpzbHCOnSKGk1LzyXTv+aHFgN2VFl96wnp8YA9YjO2qPzg5PuL8q/SW9Pdi6WTkYOIh995w==}
     engines: {node: '>=20'}
 
   file-uri-to-path@1.0.0:
@@ -16500,6 +16503,8 @@ snapshots:
 
   '@borewit/text-codec@0.2.1': {}
 
+  '@borewit/text-codec@0.2.2': {}
+
   '@braintree/sanitize-url@7.1.2': {}
 
   '@bramus/specificity@2.4.2':
@@ -22663,7 +22668,7 @@ snapshots:
       token-types: 4.2.1
     optional: true
 
-  file-type@21.3.1:
+  file-type@21.3.2:
     dependencies:
       '@tokenizer/inflate': 0.4.1
       strtok3: 10.3.4
@@ -23312,7 +23317,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.6)
+      retry-axios: 2.6.0(axios@1.13.6(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -24800,7 +24805,7 @@ snapshots:
       '@tokenizer/token': 0.3.0
       content-type: 1.0.5
       debug: 4.4.3
-      file-type: 21.3.1
+      file-type: 21.3.2
       media-typer: 1.1.0
       strtok3: 10.3.4
       token-types: 6.1.2
@@ -26367,7 +26372,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.6):
+  retry-axios@2.6.0(axios@1.13.6(debug@4.4.3)):
     dependencies:
       axios: 1.13.6(debug@4.4.3)
     optional: true
@@ -27199,7 +27204,7 @@ snapshots:
 
   token-types@6.1.2:
     dependencies:
-      '@borewit/text-codec': 0.2.1
+      '@borewit/text-codec': 0.2.2
       '@tokenizer/token': 0.3.0
       ieee754: 1.2.1
 
