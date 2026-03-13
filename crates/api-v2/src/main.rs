@@ -69,21 +69,17 @@ fn build_app(origins: &str) -> axum::Router {
                 let redis_repo = RedisAdminAdapter::new(redis_gateway);
                 tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo)
             }
-            (None, Some(_)) => {
+            (postgres_gateway, redis_gateway) => {
+                let mut failed_components = Vec::new();
+                if postgres_gateway.is_none() {
+                    failed_components.push("postgres");
+                }
+                if redis_gateway.is_none() {
+                    failed_components.push("redis");
+                }
                 tracing::warn!(
-                    "postgres pool initialization failed — using static fixture repositories"
-                );
-                tearleads_api_v2::app_with_origins(origins)
-            }
-            (Some(_), None) => {
-                tracing::warn!(
-                    "redis client initialization failed — using static fixture repositories"
-                );
-                tearleads_api_v2::app_with_origins(origins)
-            }
-            (None, None) => {
-                tracing::warn!(
-                    "postgres + redis initialization failed — using static fixture repositories"
+                    "{} initialization failed — using static fixture repositories",
+                    failed_components.join(" + ")
                 );
                 tearleads_api_v2::app_with_origins(origins)
             }
@@ -280,10 +276,35 @@ impl tearleads_data_access_redis::RedisAdminGateway for RuntimeRedisGateway {
                 .await
                 .map_err(|error| map_redis_error("scan", error))?;
 
+            let mut metadata_pipeline = redis::pipe();
+            for key in &keys {
+                metadata_pipeline.cmd("TYPE").arg(key);
+                metadata_pipeline.cmd("TTL").arg(key);
+            }
+            let metadata_values: Vec<redis::Value> = metadata_pipeline
+                .query_async(&mut connection)
+                .await
+                .map_err(|error| map_redis_error("scan metadata", error))?;
+            let expected_metadata_len = keys.len() * 2;
+            if metadata_values.len() != expected_metadata_len {
+                return Err(tearleads_data_access_traits::DataAccessError::new(
+                    tearleads_data_access_traits::DataAccessErrorKind::Internal,
+                    format!(
+                        "redis scan metadata shape mismatch: expected {expected_metadata_len} values, got {}",
+                        metadata_values.len()
+                    ),
+                ));
+            }
+
             let mut records = Vec::with_capacity(keys.len());
-            for key in keys {
-                let (key_type, ttl_seconds) =
-                    Self::read_key_metadata(&mut connection, &key).await?;
+            for (index, key) in keys.into_iter().enumerate() {
+                let metadata_offset = index * 2;
+                let key_type: String =
+                    redis::from_redis_value(&metadata_values[metadata_offset])
+                        .map_err(|error| map_redis_error("scan metadata decode type", error))?;
+                let ttl_seconds: i64 =
+                    redis::from_redis_value(&metadata_values[metadata_offset + 1])
+                        .map_err(|error| map_redis_error("scan metadata decode ttl", error))?;
                 records.push(tearleads_data_access_redis::RedisKeyRecord {
                     key,
                     key_type,
