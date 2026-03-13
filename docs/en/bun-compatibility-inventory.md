@@ -1,13 +1,13 @@
 # Bun Compatibility Inventory
 
-Generated: `2026-03-13T04:21:07.453Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
+Generated: `2026-03-13T11:23:39.822Z` via `node --experimental-strip-types scripts/bun/generateCompatibilityInventory.ts`.
 
 ## Summary
 
 - Packages with tests: 48
-- Bun-primary test scripts: 44
+- Bun-primary test scripts: 45
 - Transitional bun auto-fallback scripts: 0
-- Vitest-primary test scripts: 3
+- Vitest-primary test scripts: 2
 - Packages with DOM/jsdom indicators: 31
 - Packages using high-risk compatibility APIs/patterns (`vi.hoisted`, `vi.importActual`, `vi.mock(importOriginal)`, `vi.waitFor`, `import.meta.glob`, `vi.resetModules`): 2
 
@@ -15,7 +15,7 @@ Generated: `2026-03-13T04:21:07.453Z` via `node --experimental-strip-types scrip
 
 | Package | Risk score | Blockers |
 | --- | ---: | --- |
-| `@tearleads/client` | 20 | vi.hoisted (40), vi.importActual (155), import.meta.glob (1), vi.resetModules (1), DOM setup (4 indicators; see Package Inventory), test script is vitest-primary |
+| `@tearleads/client` | 17 | vi.hoisted (40), vi.importActual (155), import.meta.glob (1), vi.resetModules (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/api-client` | 5 | DOM setup (2 indicators; see Package Inventory), test script is vitest-primary |
 | `@tearleads/app-compliance` | 5 | import.meta.glob (1), DOM setup (4 indicators; see Package Inventory) |
 | `@tearleads/cli` | 3 | test script is vitest-primary |
@@ -35,7 +35,7 @@ Generated: `2026-03-13T04:21:07.453Z` via `node --experimental-strip-types scrip
 
 | Package | Tests | Script mode | Vitest fallback script | Advanced APIs | DOM indicators | Readiness |
 | --- | ---: | --- | --- | --- | --- | --- |
-| `@tearleads/client` | 597 | `vitest-primary` | no | vi.hoisted:40, vi.importActual:155, import.meta.glob:1, vi.resetModules:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
+| `@tearleads/client` | 597 | `bun-primary` | yes | vi.hoisted:40, vi.importActual:155, import.meta.glob:1, vi.resetModules:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/api-client` | 56 | `vitest-primary` | no | none | DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/app-compliance` | 3 | `bun-primary` | yes | import.meta.glob:1 | @testing-library/jest-dom dependency; @testing-library/jest-dom/vitest import; DOM test environment in vitest config; jsdom dependency | `high-remediation` |
 | `@tearleads/cli` | 6 | `vitest-primary` | no | none | none | `needs-remediation` |
