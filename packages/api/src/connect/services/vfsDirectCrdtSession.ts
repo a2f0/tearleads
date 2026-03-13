@@ -244,17 +244,19 @@ export async function runCrdtSessionDirect(
       serverLastReconciledWriteIds
     );
     const pageRows = pullRows.rows.slice(0, parsedPayload.value.limit);
-    const prunedItems = rawPullResponse.items.filter((_item, index) => {
-      const row = pageRows[index];
-      if (!row) {
-        return true;
-      }
-
-      return !shouldPruneSessionRow(row, {
-        runtimeBloomFilter: parsedPayload.value.runtimeBloomFilter,
-        lastReconciledWriteIds: parsedPayload.value.lastReconciledWriteIds
-      });
-    });
+    const pruneOpIds = new Set(
+      pageRows
+        .filter((row) =>
+          shouldPruneSessionRow(row, {
+            runtimeBloomFilter: parsedPayload.value.runtimeBloomFilter,
+            lastReconciledWriteIds: parsedPayload.value.lastReconciledWriteIds
+          })
+        )
+        .map((row) => row.op_id)
+    );
+    const prunedItems = rawPullResponse.items.filter(
+      (item) => !pruneOpIds.has(item.opId)
+    );
     const pullResponse = {
       ...rawPullResponse,
       items: prunedItems,

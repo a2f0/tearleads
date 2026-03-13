@@ -54,7 +54,7 @@ export async function reconcileCrdtDirect(
   );
 
   const parsedPayload = parseVfsCrdtReconcilePayload({
-    clientId: parsedClientId ?? '',
+    clientId: parsedClientId ?? request.clientId,
     cursor: request.cursor,
     lastReconciledWriteIds: request.lastReconciledWriteIds
   });
