@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sweep stale Rust build artifacts (older than 7 days) from this workspace.
+# Sweep Rust build artifacts from this workspace to reclaim disk space.
+# Uses --maxsize to cap the target/ directory.
 # Requires: cargo-sweep (installed via mise)
 
-DAYS="${1:-7}"
-
-if ! [[ "$DAYS" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: Invalid number of days: '$DAYS'. Please provide an integer." >&2
-  exit 1
-fi
+MAX_SIZE="${1:-10GB}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
@@ -23,5 +19,5 @@ if [ ! -f "$REPO_ROOT/Cargo.toml" ] || [ ! -d "$REPO_ROOT/target" ]; then
   exit 0
 fi
 
-echo "Sweeping $REPO_ROOT (artifacts older than ${DAYS}d)..."
-(cd "$REPO_ROOT" && cargo sweep --time "$DAYS")
+echo "Sweeping $REPO_ROOT (maxsize ${MAX_SIZE})..."
+(cd "$REPO_ROOT" && cargo sweep --maxsize "$MAX_SIZE")
