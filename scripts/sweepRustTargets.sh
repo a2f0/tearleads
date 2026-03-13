@@ -5,6 +5,10 @@ set -euo pipefail
 # Uses --maxsize to cap the target/ directory.
 # Requires: cargo-sweep (installed via mise)
 
+if [[ "${1:-}" =~ ^- ]]; then
+  echo "ERROR: Options are not supported. Provide a max size value (e.g. 10GB)." >&2
+  exit 1
+fi
 MAX_SIZE="${1:-10GB}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
