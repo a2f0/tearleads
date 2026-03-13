@@ -1,25 +1,19 @@
-use std::env;
-
-use tracing_subscriber::EnvFilter;
-
 use super::{ADMIN_HARNESS_ENV_KEY, DEFAULT_PORT};
 
-pub(super) fn is_enabled_env_var(name: &str) -> bool {
-    env::var(name)
-        .ok()
-        .map(|value| {
+pub(super) fn is_enabled_env_value(value: Option<&str>) -> bool {
+    value
+        .map(|entry| {
             matches!(
-                value.trim().to_ascii_lowercase().as_str(),
+                entry.trim().to_ascii_lowercase().as_str(),
                 "1" | "true" | "yes" | "on"
             )
         })
         .unwrap_or(false)
 }
 
-pub(super) fn read_port() -> u16 {
-    env::var("PORT")
-        .ok()
-        .and_then(|value| value.parse::<u16>().ok())
+pub(super) fn read_port_value(value: Option<&str>) -> u16 {
+    value
+        .and_then(|entry| entry.parse::<u16>().ok())
         .unwrap_or(DEFAULT_PORT)
 }
 
@@ -43,10 +37,4 @@ pub(super) fn runtime_dependency_error_message(
         "api-v2 runtime dependencies unavailable: missing {}. Set {ADMIN_HARNESS_ENV_KEY}=1 to run static fixtures intentionally.",
         missing_dependencies.join(", ")
     ))
-}
-
-pub(super) fn initialize_tracing() {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-
-    tracing_subscriber::fmt().with_env_filter(filter).init();
 }

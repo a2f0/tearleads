@@ -10,11 +10,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use redis::aio::MultiplexedConnection;
-use startup::{
-    initialize_tracing, is_enabled_env_var, read_port, runtime_dependency_error_message,
-};
 use tokio::net::TcpListener;
 use tracing::instrument;
+use tracing_subscriber::EnvFilter;
+
+use startup::{is_enabled_env_value, read_port_value, runtime_dependency_error_message};
 
 const DEFAULT_PORT: u16 = 5002;
 const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
@@ -105,6 +105,22 @@ fn build_app(origins: &str) -> std::io::Result<axum::Router> {
         proxy_state,
         proxy_non_admin_connect_requests,
     )))
+}
+
+fn initialize_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+}
+
+fn is_enabled_env_var(name: &str) -> bool {
+    let value = env::var(name).ok();
+    is_enabled_env_value(value.as_deref())
+}
+
+fn read_port() -> u16 {
+    let value = env::var("PORT").ok();
+    read_port_value(value.as_deref())
 }
 
 fn should_proxy_connect_request(path: &str) -> bool {
