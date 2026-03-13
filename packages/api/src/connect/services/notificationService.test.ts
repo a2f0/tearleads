@@ -243,44 +243,49 @@ describe('notificationConnectService', () => {
     expect(result.done).toBe(true);
   });
 
-  it('emits keepalive events for active subscriptions', async () => {
-    vi.useFakeTimers();
-    try {
-      const context = createAuthContext('user-1');
-      const stream = notificationConnectService.subscribe(
-        create(SubscribeRequestSchema, {
-          channels: ['broadcast']
-        }),
-        context
-      );
-      const iterator = stream[Symbol.asyncIterator]();
+  // Bun's fake timer implementation does not support async generator
+  // interleaving with advanceTimersByTimeAsync; keep under Vitest only.
+  it.skipIf(typeof Reflect.get(globalThis, 'Bun') !== 'undefined')(
+    'emits keepalive events for active subscriptions',
+    async () => {
+      vi.useFakeTimers();
+      try {
+        const context = createAuthContext('user-1');
+        const stream = notificationConnectService.subscribe(
+          create(SubscribeRequestSchema, {
+            channels: ['broadcast']
+          }),
+          context
+        );
+        const iterator = stream[Symbol.asyncIterator]();
 
-      await iterator.next();
-      const keepaliveResultPromise = iterator.next();
+        await iterator.next();
+        const keepaliveResultPromise = iterator.next();
 
-      await waitForSubscribedHandler('broadcast');
-      expect(mockSubscribe).toHaveBeenCalledWith(
-        'broadcast',
-        expect.any(Function)
-      );
+        await waitForSubscribedHandler('broadcast');
+        expect(mockSubscribe).toHaveBeenCalledWith(
+          'broadcast',
+          expect.any(Function)
+        );
 
-      await vi.advanceTimersByTimeAsync(30000);
+        await vi.advanceTimersByTimeAsync(30000);
 
-      const keepaliveResult = await keepaliveResultPromise;
-      expect(keepaliveResult.done).toBe(false);
-      if (keepaliveResult.done) {
-        throw new Error('Expected keepalive event');
+        const keepaliveResult = await keepaliveResultPromise;
+        expect(keepaliveResult.done).toBe(false);
+        if (keepaliveResult.done) {
+          throw new Error('Expected keepalive event');
+        }
+        expect(JSON.parse(keepaliveResult.value.json)).toEqual({
+          event: 'keepalive'
+        });
+
+        context.abort();
+        await iterator.next();
+      } finally {
+        vi.useRealTimers();
       }
-      expect(JSON.parse(keepaliveResult.value.json)).toEqual({
-        event: 'keepalive'
-      });
-
-      context.abort();
-      await iterator.next();
-    } finally {
-      vi.useRealTimers();
     }
-  });
+  );
 
   it('returns unavailable when redis subscription setup fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

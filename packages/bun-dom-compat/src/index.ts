@@ -215,9 +215,10 @@ interface VitestPolyfillResult {
 }
 
 /**
- * Install polyfills for `vi.hoisted`, `vi.mocked`, `vi.stubGlobal`, and
- * `vi.unstubAllGlobals` when running tests under Bun where these
- * Vitest helpers are unavailable.
+ * Install polyfills for Vitest helpers that are unavailable when running
+ * tests under Bun: `vi.hoisted`, `vi.mocked`, `vi.stubGlobal`,
+ * `vi.unstubAllGlobals`, `vi.setSystemTime`, `vi.advanceTimersByTimeAsync`,
+ * and `vi.isMockFunction`.
  *
  * `vi.mocked` is an identity function in Vitest itself — it exists
  * purely for TypeScript type narrowing (`Mocked<T>`). The polyfill
@@ -230,6 +231,50 @@ export function installVitestPolyfills(vi: object): VitestPolyfillResult {
 
   if (typeof Reflect.get(vi, 'mocked') !== 'function') {
     Reflect.set(vi, 'mocked', <T>(value: T) => value);
+  }
+
+  if (typeof Reflect.get(vi, 'isMockFunction') !== 'function') {
+    Reflect.set(
+      vi,
+      'isMockFunction',
+      (fn: unknown): boolean =>
+        typeof fn === 'function' &&
+        typeof Reflect.get(fn, 'mock') === 'object' &&
+        Reflect.get(fn, 'mock') !== null
+    );
+  }
+
+  if (typeof Reflect.get(vi, 'setSystemTime') !== 'function') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const bunTest = require('bun:test') as {
+        setSystemTime: (date?: Date | number) => void;
+      };
+      Reflect.set(vi, 'setSystemTime', (date?: Date | number) => {
+        bunTest.setSystemTime(date === undefined ? new Date() : date);
+      });
+    } catch {
+      // Not running under Bun — skip polyfill.
+    }
+  }
+
+  if (typeof Reflect.get(vi, 'advanceTimersByTimeAsync') !== 'function') {
+    const syncAdvance = Reflect.get(vi, 'advanceTimersByTime') as
+      | ((ms: number) => void)
+      | undefined;
+    if (typeof syncAdvance === 'function') {
+      Reflect.set(
+        vi,
+        'advanceTimersByTimeAsync',
+        async (ms: number): Promise<void> => {
+          syncAdvance.call(vi, ms);
+          // Flush microtask queue so pending promise callbacks settle.
+          for (let i = 0; i < 10; i += 1) {
+            await Promise.resolve();
+          }
+        }
+      );
+    }
   }
 
   let hasCustomStubber = false;
