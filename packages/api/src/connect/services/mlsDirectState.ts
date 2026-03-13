@@ -1,20 +1,22 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryGroupState,
   MlsBinaryGroupStateResponse,
   UploadMlsStateBinaryRequest,
   UploadMlsStateBinaryResponse
 } from './mlsBinaryTypes.js';
-import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import { encoded, toIsoString } from './mlsDirectCommon.js';
 import { acquireTransactionClient } from './mlsDirectMessagesShared.js';
 import { getActiveMlsGroupMembership } from './mlsDirectShared.js';
 
 type GroupIdRequest = { groupId: string };
-type GroupIdTypedStateRequest = { groupId: string } & UploadMlsStateBinaryRequest;
+type GroupIdTypedStateRequest = {
+  groupId: string;
+} & UploadMlsStateBinaryRequest;
 
 function sha256Base64(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('base64');

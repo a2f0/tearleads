@@ -1,20 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
+import { broadcast } from '../../lib/broadcast.js';
+import { getPostgresPool } from '../../lib/postgres.js';
+import {
+  decodeBase64ToBytes,
+  encodeBytesToBase64,
+  toUint8Array
+} from './mlsBinaryCodec.js';
 import type {
   MlsBinaryMessage,
   MlsBinaryMessagesResponse,
   SendMlsMessageBinaryRequest,
   SendMlsMessageBinaryResponse
 } from './mlsBinaryTypes.js';
-import { broadcast } from '../../lib/broadcast.js';
-import { getPostgresPool } from '../../lib/postgres.js';
-import { requireMlsClaims } from './mlsDirectAuth.js';
-import {
-  decodeBase64ToBytes,
-  encodeBytesToBase64,
-  toUint8Array
-} from './mlsBinaryCodec.js';
 import { toTransportMessage } from './mlsBinaryTypes.js';
+import { requireMlsClaims } from './mlsDirectAuth.js';
 import { encoded } from './mlsDirectCommon.js';
 import {
   acquireTransactionClient,

@@ -1,12 +1,12 @@
 import { Code, ConnectError } from '@connectrpc/connect';
+import type { AckMlsWelcomeRequest } from '@tearleads/shared';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { decodeBase64ToBytes } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryWelcomeMessage,
   MlsBinaryWelcomeMessagesResponse
 } from './mlsBinaryTypes.js';
-import type { AckMlsWelcomeRequest } from '@tearleads/shared';
-import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import { decodeBase64ToBytes } from './mlsBinaryCodec.js';
 
 type AckWelcomeTypedRequest = { id: string } & AckMlsWelcomeRequest;
 
