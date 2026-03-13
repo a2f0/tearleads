@@ -20,12 +20,40 @@ function findWrappedKey(
   return null;
 }
 
+/**
+ * Derive a deterministic UUID for the user's email inbox folder.
+ * Uses FNV-1a to produce 128 bits from a namespaced key, formatted as UUID v5.
+ * Pure JS — no node:crypto dependency — so unit-test mocks of randomUUID
+ * do not break this function.
+ */
+export function inboxFolderUuid(userId: string): string {
+  const input = `email-inbox:${userId}`;
+  const bytes = new Uint8Array(16);
+  const view = new DataView(bytes.buffer);
+  const FNV_PRIME = 16777619;
+  const FNV_OFFSET_BASIS = 2166136261;
+  for (let i = 0; i < 4; i++) {
+    let h = FNV_OFFSET_BASIS ^ i;
+    for (let j = 0; j < input.length; j++) {
+      h ^= input.charCodeAt(j);
+      h = Math.imul(h, FNV_PRIME);
+    }
+    view.setUint32(i * 4, h, false);
+  }
+  view.setUint8(6, (view.getUint8(6) & 0x0f) | 0x50);
+  view.setUint8(8, (view.getUint8(8) & 0x3f) | 0x80);
+  const hex = Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(
+    ''
+  );
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 async function ensureInboxFolder(
   client: PoolClient,
   userId: string,
   organizationId: string
 ): Promise<string> {
-  const folderId = `email-inbox:${userId}`;
+  const folderId = inboxFolderUuid(userId);
   await client.query(
     `INSERT INTO vfs_registry (
        id,
