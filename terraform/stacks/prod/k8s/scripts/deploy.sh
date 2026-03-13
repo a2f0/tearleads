@@ -126,8 +126,11 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
 RENDERED_SECRETS="$TMP_DIR/secrets.yaml"
 RENDERED_CONFIGMAP="$TMP_DIR/configmap.yaml"
+RENDERED_API_V2="$TMP_DIR/api-v2.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$PRODUCTION_DOMAIN/g" \
   "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
+sed "s/DOMAIN_PLACEHOLDER/$PRODUCTION_DOMAIN/g" \
+  "$MANIFESTS_DIR/api-v2.yaml" > "$RENDERED_API_V2"
 envsubst < "$MANIFESTS_DIR/secrets.yaml" > "$RENDERED_SECRETS"
 envsubst < "$MANIFESTS_DIR/configmap.yaml" > "$RENDERED_CONFIGMAP"
 
@@ -139,6 +142,7 @@ kubectl apply -f "$RENDERED_SECRETS"
 kubectl apply -f "$RENDERED_CONFIGMAP"
 kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
 kubectl apply -f "$MANIFESTS_DIR/api.yaml"
+kubectl apply -f "$RENDERED_API_V2"
 kubectl apply -f "$MANIFESTS_DIR/vfs-crdt-compaction-cronjob.yaml"
 kubectl apply -f "$MANIFESTS_DIR/client.yaml"
 kubectl apply -f "$MANIFESTS_DIR/website.yaml"

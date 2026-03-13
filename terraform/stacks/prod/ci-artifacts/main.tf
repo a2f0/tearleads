@@ -29,6 +29,7 @@ module "ci_artifacts" {
   # Container registries
   ecr_repositories = [
     "tearleads-prod/api",
+    "tearleads-prod/api-v2",
     "tearleads-prod/client",
     "tearleads-prod/website",
   ]

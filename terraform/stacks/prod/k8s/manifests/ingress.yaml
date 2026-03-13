@@ -40,6 +40,20 @@ spec:
     - host: api.DOMAIN_PLACEHOLDER
       http:
         paths:
+          - path: /connect
+            pathType: Prefix
+            backend:
+              service:
+                name: api-v2
+                port:
+                  number: 5002
+          - path: /v2
+            pathType: Prefix
+            backend:
+              service:
+                name: api-v2
+                port:
+                  number: 5002
           - path: /
             pathType: Prefix
             backend:
