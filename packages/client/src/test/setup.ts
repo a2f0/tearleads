@@ -1,25 +1,29 @@
 import '@testing-library/jest-dom/vitest';
+import {
+  type ApiV2ServiceHarness,
+  startApiV2ServiceHarness,
+  type TestContext
+} from '@tearleads/api-test-utils';
 import { installVitestPolyfills } from '@tearleads/bun-dom-compat';
+import {
+  configureForExpressPassthrough,
+  getRecordedApiRequests,
+  resetMockApiServerState,
+  server
+} from '@tearleads/msw/node';
 import { cleanup } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
+import {
+  resetSharedTestContextAccessed,
+  setSharedTestContext,
+  wasSharedTestContextAccessed
+} from './testContext';
 
 const isBun = typeof Reflect.get(globalThis, 'Bun') !== 'undefined';
 const { hasCustomStubber, unstubAllGlobals } = installVitestPolyfills(vi);
-
-// MSW and real-API helpers are vitest-only (MSW's WASM interceptor doesn't work under Bun)
-import type {
-  ApiV2ServiceHarness,
-  TestContext
-} from '@tearleads/api-test-utils';
-
-const mswMod = isBun ? undefined : await import('@tearleads/msw/node');
-const apiTestUtilsMod = isBun
-  ? undefined
-  : await import('@tearleads/api-test-utils');
-const testContextMod = isBun ? undefined : await import('./testContext.js');
 
 let testContext: TestContext | null = null;
 let apiV2Harness: ApiV2ServiceHarness | null = null;
@@ -93,12 +97,7 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   if (testContext) {
     return testContext;
   }
-  // Safe: this function is only called when !isBun, so apiTestUtilsMod is defined
-  const mod = apiTestUtilsMod;
-  if (!mod) {
-    throw new Error('apiTestUtilsMod is unexpectedly undefined');
-  }
-  const { createTestContext, startApiV2ServiceHarness } = mod;
+  const { createTestContext } = await import('@tearleads/api-test-utils');
   const [createdTestContext, harness] = await Promise.all([
     createTestContext(async () => {
       const api = await import('@tearleads/api');
@@ -108,7 +107,7 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   ]);
   testContext = createdTestContext;
   apiV2Harness = harness;
-  testContextMod?.setSharedTestContext(testContext);
+  setSharedTestContext(testContext);
   return testContext;
 }
 
@@ -125,7 +124,7 @@ function configurePassthroughRoutes(ctx: TestContext): void {
           }
         ];
 
-  mswMod?.configureForExpressPassthrough(
+  configureForExpressPassthrough(
     'http://localhost',
     ctx.port,
     '/v1',
@@ -152,35 +151,6 @@ if (!isBun) {
   installBunPolyfills();
 }
 
-// Mock virtual:app-config (Vite virtual module, unavailable under Bun)
-if (isBun) {
-  vi.mock('virtual:app-config', () => ({
-    default: {
-      id: 'tearleads',
-      displayName: 'Tearleads',
-      features: [
-        'admin',
-        'analytics',
-        'audio',
-        'businesses',
-        'calendar',
-        'camera',
-        'classic',
-        'compliance',
-        'contacts',
-        'email',
-        'health',
-        'mls-chat',
-        'notes',
-        'sync',
-        'terminal',
-        'vehicles',
-        'wallet'
-      ]
-    }
-  }));
-}
-
 vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   useHostRuntimeDatabaseState: () => ({
     isUnlocked: true,
@@ -189,22 +159,20 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-if (!isBun) {
-  vi.mock('@tearleads/ui', async () => {
-    const actual =
-      await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
+vi.mock('@tearleads/ui', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
 
-    return {
-      ...actual,
-      Tooltip: ({ children }: { children: ReactNode }) =>
-        createElement(Fragment, null, children),
-      TooltipTrigger: ({ children }: { children: ReactNode }) =>
-        createElement(Fragment, null, children),
-      TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
-        createElement('span', props, children)
-    };
-  });
-}
+  return {
+    ...actual,
+    Tooltip: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipTrigger: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
+      createElement('span', props, children)
+  };
+});
 
 vi.mock('@/components/window-console', () => ({
   ConsoleWindow: ({
@@ -309,47 +277,43 @@ function createMockWindow(
     );
 }
 
-if (!isBun) {
-  vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
-    ...(await vi.importActual<Record<string, unknown>>(
-      '@tearleads/app-keychain/clientEntry'
-    )),
-    KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
-  }));
-}
+vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>(
+    '@tearleads/app-keychain/clientEntry'
+  )),
+  KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
+}));
 
 vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 
-if (!isBun) {
-  vi.mock('@tearleads/app-admin/clientEntry', async () => ({
-    ...(await vi.importActual<Record<string, unknown>>(
-      '@tearleads/app-admin/clientEntry'
-    )),
-    AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
-    AdminRedisWindow: createMockWindow('admin-redis', {
-      width: 700,
-      height: 600
-    }),
-    AdminPostgresWindow: createMockWindow('admin-postgres', {
-      width: 700,
-      height: 600
-    }),
-    AdminGroupsWindow: createMockWindow('admin-groups', {
-      width: 700,
-      height: 600
-    }),
-    AdminUsersWindow: createMockWindow('admin-users', {
-      width: 700,
-      height: 600
-    }),
-    AdminOrganizationsWindow: createMockWindow('admin-organizations', {
-      width: 840,
-      height: 620
-    })
-  }));
-}
+vi.mock('@tearleads/app-admin/clientEntry', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>(
+    '@tearleads/app-admin/clientEntry'
+  )),
+  AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
+  AdminRedisWindow: createMockWindow('admin-redis', {
+    width: 700,
+    height: 600
+  }),
+  AdminPostgresWindow: createMockWindow('admin-postgres', {
+    width: 700,
+    height: 600
+  }),
+  AdminGroupsWindow: createMockWindow('admin-groups', {
+    width: 700,
+    height: 600
+  }),
+  AdminUsersWindow: createMockWindow('admin-users', {
+    width: 700,
+    height: 600
+  }),
+  AdminOrganizationsWindow: createMockWindow('admin-organizations', {
+    width: 840,
+    height: 620
+  })
+}));
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
@@ -381,7 +345,7 @@ vi.mock('pdfjs-dist', () => {
 beforeAll(async () => {
   installApiV2WasmBindingsOverride();
   if (!isBun) {
-    mswMod?.server.listen({ onUnhandledRequest: 'warn' });
+    server.listen({ onUnhandledRequest: 'warn' });
   }
 });
 
@@ -399,24 +363,23 @@ afterEach(async () => {
   }
   cleanup();
   if (!isBun) {
-    mswMod?.server.resetHandlers();
+    server.resetHandlers();
     if (testContext) {
       configurePassthroughRoutes(testContext);
-      const usedApi = (mswMod?.getRecordedApiRequests().length ?? 0) > 0;
-      const usedSharedContext =
-        testContextMod?.wasSharedTestContextAccessed() ?? false;
+      const usedApi = getRecordedApiRequests().length > 0;
+      const usedSharedContext = wasSharedTestContextAccessed();
       if (usedApi || usedSharedContext) {
         await testContext.resetState();
       }
     }
-    mswMod?.resetMockApiServerState();
-    testContextMod?.resetSharedTestContextAccessed();
+    resetMockApiServerState();
+    resetSharedTestContextAccessed();
   }
 });
 
 afterAll(async () => {
   if (!isBun) {
-    mswMod?.server.close();
+    server.close();
     await apiV2Harness?.stop();
     apiV2Harness = null;
     await testContext?.teardown();
