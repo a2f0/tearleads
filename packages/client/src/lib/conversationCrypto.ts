@@ -9,7 +9,8 @@ import type {
   AiConversation,
   AiMessage,
   DecryptedAiConversation,
-  DecryptedAiMessage
+  DecryptedAiMessage,
+  VfsKeyPair
 } from '@tearleads/shared';
 import {
   decrypt,
@@ -72,12 +73,7 @@ export async function decryptContent(
  */
 export async function unwrapConversationSessionKey(
   encryptedSessionKey: string,
-  keyPair: {
-    x25519PublicKey: Uint8Array;
-    x25519PrivateKey: Uint8Array;
-    mlKemPublicKey: Uint8Array;
-    mlKemPrivateKey: Uint8Array;
-  }
+  keyPair: VfsKeyPair
 ): Promise<Uint8Array> {
   const encapsulation = splitEncapsulation(encryptedSessionKey);
   return unwrapKeyWithKeyPair(encapsulation, keyPair);

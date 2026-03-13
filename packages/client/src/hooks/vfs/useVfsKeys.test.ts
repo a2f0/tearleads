@@ -32,11 +32,13 @@ vi.mock('@tearleads/shared', async () => {
     })),
     decryptVfsPrivateKeysWithPassword: vi.fn(async () => ({
       x25519PrivateKey: 'dGVzdA==',
-      mlKemPrivateKey: 'dGVzdA=='
+      mlKemPrivateKey: 'dGVzdA==',
+      ed25519PrivateKey: 'dGVzdA=='
     })),
     decryptVfsPrivateKeysWithPasswordMaterial: vi.fn(async () => ({
       x25519PrivateKey: 'dGVzdA==',
-      mlKemPrivateKey: 'dGVzdA=='
+      mlKemPrivateKey: 'dGVzdA==',
+      ed25519PrivateKey: 'dGVzdA=='
     })),
     deserializePublicKey: vi.fn(
       (_serialized: { x25519: string; mlKem: string }) => ({
@@ -56,13 +58,25 @@ vi.mock('@tearleads/shared', async () => {
       x25519PublicKey: new Uint8Array(32).fill(1),
       x25519PrivateKey: new Uint8Array(32).fill(2),
       mlKemPublicKey: new Uint8Array(800).fill(3),
-      mlKemPrivateKey: new Uint8Array(2400).fill(4)
+      mlKemPrivateKey: new Uint8Array(2400).fill(4),
+      ed25519PublicKey: new Uint8Array(32).fill(5),
+      ed25519PrivateKey: new Uint8Array(32).fill(6)
     })),
     serializeKeyPair: vi.fn((_kp: { x25519PublicKey: Uint8Array }) => ({
       x25519PublicKey: 'base64-x25519-pub',
       x25519PrivateKey: 'base64-x25519-priv',
       mlKemPublicKey: 'base64-mlkem-pub',
-      mlKemPrivateKey: 'base64-mlkem-priv'
+      mlKemPrivateKey: 'base64-mlkem-priv',
+      ed25519PublicKey: 'base64-ed25519-pub',
+      ed25519PrivateKey: 'base64-ed25519-priv'
+    })),
+    reconstructVfsKeyPair: vi.fn(() => ({
+      x25519PublicKey: new Uint8Array(32),
+      x25519PrivateKey: new Uint8Array(32),
+      mlKemPublicKey: new Uint8Array(800),
+      mlKemPrivateKey: new Uint8Array(2400),
+      ed25519PublicKey: new Uint8Array(32),
+      ed25519PrivateKey: new Uint8Array(32)
     })),
     splitPublicKey: vi.fn(() => ({
       x25519PublicKey: btoa(String.fromCharCode(...new Uint8Array(32))),
@@ -209,7 +223,7 @@ describe('useVfsKeys', () => {
       expect(keys.mlKemPublicKey).toBeInstanceOf(Uint8Array);
       expect(api.vfs.setupKeys).toHaveBeenCalledWith({
         publicEncryptionKey: 'combined-public-key',
-        // publicSigningKey omitted - not yet implemented
+        publicSigningKey: 'base64-ed25519-pub',
         encryptedPrivateKeys: expect.any(String),
         argon2Salt: expect.any(String)
       });
@@ -265,6 +279,7 @@ describe('useVfsKeys', () => {
 
       expect(payload).toEqual({
         publicEncryptionKey: 'combined-public-key',
+        publicSigningKey: 'base64-ed25519-pub',
         encryptedPrivateKeys: expect.any(String),
         argon2Salt: expect.any(String)
       });

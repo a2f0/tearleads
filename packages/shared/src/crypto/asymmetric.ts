@@ -12,7 +12,7 @@
 
 import { gcm } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/ciphers/utils.js';
-import { x25519 } from '@noble/curves/ed25519.js';
+import { ed25519, x25519 } from '@noble/curves/ed25519.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
@@ -35,6 +35,10 @@ export interface VfsKeyPair {
   mlKemPublicKey: Uint8Array;
   /** ML-KEM-768 private key (~2400 bytes) */
   mlKemPrivateKey: Uint8Array;
+  /** Ed25519 public signing key (32 bytes) */
+  ed25519PublicKey: Uint8Array;
+  /** Ed25519 private signing key (32 bytes) */
+  ed25519PrivateKey: Uint8Array;
 }
 
 /**
@@ -71,6 +75,8 @@ export interface SerializedKeyPair {
   x25519PrivateKey: string;
   mlKemPublicKey: string;
   mlKemPrivateKey: string;
+  ed25519PublicKey: string;
+  ed25519PrivateKey: string;
 }
 
 export interface SerializedPublicKey {
@@ -97,11 +103,17 @@ export function generateKeyPair(): VfsKeyPair {
   // Generate ML-KEM-768 keypair
   const mlKemKeys = ml_kem768.keygen();
 
+  // Generate Ed25519 signing keypair
+  const ed25519PrivateKey = ed25519.utils.randomSecretKey();
+  const ed25519PublicKey = ed25519.getPublicKey(ed25519PrivateKey);
+
   return {
     x25519PublicKey,
     x25519PrivateKey,
     mlKemPublicKey: mlKemKeys.publicKey,
-    mlKemPrivateKey: mlKemKeys.secretKey
+    mlKemPrivateKey: mlKemKeys.secretKey,
+    ed25519PublicKey,
+    ed25519PrivateKey
   };
 }
 
@@ -291,7 +303,9 @@ export function serializeKeyPair(keyPair: VfsKeyPair): SerializedKeyPair {
     x25519PublicKey: toBase64(keyPair.x25519PublicKey),
     x25519PrivateKey: toBase64(keyPair.x25519PrivateKey),
     mlKemPublicKey: toBase64(keyPair.mlKemPublicKey),
-    mlKemPrivateKey: toBase64(keyPair.mlKemPrivateKey)
+    mlKemPrivateKey: toBase64(keyPair.mlKemPrivateKey),
+    ed25519PublicKey: toBase64(keyPair.ed25519PublicKey),
+    ed25519PrivateKey: toBase64(keyPair.ed25519PrivateKey)
   };
 }
 
@@ -303,7 +317,9 @@ export function deserializeKeyPair(serialized: SerializedKeyPair): VfsKeyPair {
     x25519PublicKey: fromBase64(serialized.x25519PublicKey),
     x25519PrivateKey: fromBase64(serialized.x25519PrivateKey),
     mlKemPublicKey: fromBase64(serialized.mlKemPublicKey),
-    mlKemPrivateKey: fromBase64(serialized.mlKemPrivateKey)
+    mlKemPrivateKey: fromBase64(serialized.mlKemPrivateKey),
+    ed25519PublicKey: fromBase64(serialized.ed25519PublicKey),
+    ed25519PrivateKey: fromBase64(serialized.ed25519PrivateKey)
   };
 }
 

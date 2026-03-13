@@ -43,7 +43,7 @@ export async function createVfsOnboardingKeyBundle(
     keyPair,
     setupPayload: {
       publicEncryptionKey: buildVfsPublicEncryptionKey(keyPair),
-      publicSigningKey: '',
+      publicSigningKey: serialized.ed25519PublicKey,
       encryptedPrivateKeys: encryptedBundle.encryptedPrivateKeys,
       argon2Salt: encryptedBundle.argon2Salt
     }
@@ -69,5 +69,9 @@ export async function decryptVfsPrivateKeyBundle(
     password
   );
 
-  return reconstructVfsKeyPair(publicEncryptionKey, privateKeys);
+  return reconstructVfsKeyPair(publicEncryptionKey, {
+    x25519PrivateKey: privateKeys.x25519PrivateKey,
+    mlKemPrivateKey: privateKeys.mlKemPrivateKey,
+    ed25519PrivateKey: privateKeys.ed25519PrivateKey
+  });
 }
