@@ -30,14 +30,54 @@ pub struct TokioPostgresGateway {
 
 impl TokioPostgresGateway {
     /// Reads Postgres connection config from environment variables and builds
-    /// a connection pool. Returns `None` when `POSTGRES_HOST` is not set.
+    /// a connection pool.
+    ///
+    /// When `POSTGRES_HOST` is not set, falls back to dev defaults matching the
+    /// v1 API behaviour (`localhost:5432/tearleads_development` with the current
+    /// OS user).
+    ///
+    /// Returns `None` only when the connection pool fails to build.
     pub fn from_env() -> Option<Self> {
-        let host = env::var("POSTGRES_HOST").ok()?;
+        let (host, is_dev_default) = match env::var("POSTGRES_HOST") {
+            Ok(h) => (h, false),
+            Err(_) => {
+                let default_host = if cfg!(target_os = "linux") {
+                    "/var/run/postgresql"
+                } else {
+                    "localhost"
+                };
+                (default_host.to_string(), true)
+            }
+        };
+
         let port_str = env::var("POSTGRES_PORT").unwrap_or_else(|_| "5432".to_string());
         let port: u16 = port_str.parse().unwrap_or(5432);
-        let user = env::var("POSTGRES_USER").unwrap_or_else(|_| "postgres".to_string());
+
+        let user = env::var("POSTGRES_USER").unwrap_or_else(|_| {
+            if is_dev_default {
+                env::var("USER")
+                    .or_else(|_| env::var("LOGNAME"))
+                    .unwrap_or_else(|_| "postgres".to_string())
+            } else {
+                "postgres".to_string()
+            }
+        });
+
         let password = env::var("POSTGRES_PASSWORD").unwrap_or_default();
-        let database = env::var("POSTGRES_DATABASE").unwrap_or_else(|_| "postgres".to_string());
+
+        let database = env::var("POSTGRES_DATABASE").unwrap_or_else(|_| {
+            if is_dev_default {
+                "tearleads_development".to_string()
+            } else {
+                "postgres".to_string()
+            }
+        });
+
+        if is_dev_default {
+            tracing::info!(
+                "POSTGRES_HOST not set — using dev defaults ({host}:{port}/{database} as {user})"
+            );
+        }
 
         let mut pg_config = tokio_postgres::Config::new();
         pg_config
