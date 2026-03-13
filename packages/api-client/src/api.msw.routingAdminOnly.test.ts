@@ -82,19 +82,17 @@ describe('api with msw admin routing', () => {
   it('routes admin requests through msw and preserves query/encoding', async () => {
     const ctx = getSharedTestContext();
 
-    await ctx.pool.query(
-      `INSERT INTO organizations (id, name, created_at, updated_at)
-       VALUES ('org 1', 'Test Org', NOW(), NOW())`
-    );
+    const groupId = '22222222-2222-4222-8222-222222222222';
     const secondUser = await seedTestUser(ctx);
     await ctx.pool.query(
-      `INSERT INTO groups (id, name, organization_id, created_at, updated_at)
-       VALUES ('group 1', 'Team', 'org 1', NOW(), NOW())`
+      `INSERT INTO groups (id, name, created_at, updated_at)
+       VALUES ($1, 'Team', NOW(), NOW())`,
+      [groupId]
     );
     await ctx.pool.query(
-      `INSERT INTO user_groups (group_id, user_id, joined_at)
-       VALUES ('group 1', $1, NOW())`,
-      [secondUser.userId]
+      `INSERT INTO user_groups (group_id, user_id)
+       VALUES ($1, $2)`,
+      [groupId, secondUser.userId]
     );
     await ctx.redis.set('user:1', 'test-value');
 

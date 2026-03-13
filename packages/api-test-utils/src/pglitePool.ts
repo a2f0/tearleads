@@ -52,21 +52,25 @@ function mapResult(raw: PgliteResult): QueryResult {
 }
 
 /**
- * PGlite's bytea serializer expects Buffer, not Uint8Array.
- * The real `pg` driver accepts both, so service code legitimately passes
- * Uint8Array for BYTEA columns.  Coerce to Buffer here.
+ * PGlite bytea OID.  PGlite's built-in bytea serializer only accepts
+ * Uint8Array.  The real `pg` driver also accepts strings (which PostgreSQL
+ * casts to bytea via text-input rules) and Buffer.  Register a custom
+ * serializer at construction time so all query paths benefit.
  */
-function coerceByteaParams(
-  values: unknown[] | undefined
-): unknown[] | undefined {
-  if (!values) return values;
-  return values.map(function coerce(v: unknown): unknown {
-    if (v instanceof Uint8Array && !(v instanceof Buffer)) {
-      return Buffer.from(v.buffer, v.byteOffset, v.byteLength);
-    }
-    if (Array.isArray(v)) return v.map(coerce);
-    return v;
-  });
+const BYTEA_OID = 17;
+
+function serializeBytea(value: unknown): string {
+  if (ArrayBuffer.isView(value)) {
+    return '\\x' + Buffer.from(
+      value.buffer,
+      value.byteOffset,
+      value.byteLength
+    ).toString('hex');
+  }
+  if (typeof value === 'string') {
+    return '\\x' + Buffer.from(value, 'utf8').toString('hex');
+  }
+  throw new Error('Invalid input for bytea type');
 }
 
 class PglitePoolClient extends EventEmitter {
@@ -81,7 +85,7 @@ class PglitePoolClient extends EventEmitter {
     }
     const result = (await this.pglite.query(
       text,
-      coerceByteaParams(values)
+      values
     )) as unknown as PgliteResult;
     return mapResult(result);
   }
@@ -103,7 +107,7 @@ export class PglitePool extends EventEmitter {
     }
     const result = (await this.pglite.query(
       text,
-      coerceByteaParams(values)
+      values
     )) as unknown as PgliteResult;
     return mapResult(result);
   }
@@ -123,7 +127,9 @@ export async function createPglitePool(): Promise<{
   /** Execute raw multi-statement SQL (bypasses prepared statement limitation) */
   exec: (sql: string) => Promise<void>;
 }> {
-  const pglite = new PGlite();
+  const pglite = new PGlite({
+    serializers: { [BYTEA_OID]: serializeBytea }
+  });
   const pool = new PglitePool(pglite) as unknown as PgPool;
   const exec = async (sql: string): Promise<void> => {
     await pglite.exec(sql);

@@ -33,9 +33,6 @@ vi.mock('./authStorage', () => ({
   waitForRefreshCompletion: async () => false
 }));
 
-const toBase64 = (value: string): string =>
-  Buffer.from(value, 'utf8').toString('base64');
-
 const utf8Bytes = (value: string): Uint8Array =>
   new TextEncoder().encode(value);
 
@@ -108,9 +105,9 @@ describe('api with msw (MLS binary routes)', () => {
       [
         KEY_PACKAGE_ADD_ID,
         secondUser.userId,
-        toBase64('kp-data-add'),
+        utf8Bytes('kp-data-add'),
         KEY_PACKAGE_EXTRA_ID,
-        toBase64('kp-data-extra')
+        utf8Bytes('kp-data-extra')
       ]
     );
 
@@ -194,7 +191,7 @@ describe('api with msw (MLS binary routes)', () => {
         WELCOME_ACK_ID,
         groupId,
         seededUser.userId,
-        toBase64('welcome-data'),
+        utf8Bytes('welcome-data'),
         addMemberEpoch
       ]
     );
