@@ -93,7 +93,12 @@ async function ensureRealApiTestContext(): Promise<TestContext> {
   if (testContext) {
     return testContext;
   }
-  const { createTestContext, startApiV2ServiceHarness } = apiTestUtilsMod ?? {};
+  // Safe: this function is only called when !isBun, so apiTestUtilsMod is defined
+  const mod = apiTestUtilsMod;
+  if (!mod) {
+    throw new Error('apiTestUtilsMod is unexpectedly undefined');
+  }
+  const { createTestContext, startApiV2ServiceHarness } = mod;
   const [createdTestContext, harness] = await Promise.all([
     createTestContext(async () => {
       const api = await import('@tearleads/api');
