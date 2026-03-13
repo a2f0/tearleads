@@ -232,19 +232,13 @@ export function reconstructVfsKeyPair(
 
   if (privateKeys.ed25519PrivateKey) {
     ed25519PrivateKeyBase64 = privateKeys.ed25519PrivateKey;
-    const privBytes = Uint8Array.from(atob(ed25519PrivateKeyBase64), (c) =>
-      c.charCodeAt(0)
-    );
+    const privBytes = fromBase64(ed25519PrivateKeyBase64);
     const pubBytes = ed25519.getPublicKey(privBytes);
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < pubBytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...pubBytes.subarray(i, i + chunkSize));
-    }
-    ed25519PublicKeyBase64 = btoa(binary);
+    ed25519PublicKeyBase64 = toBase64(pubBytes);
   } else {
-    ed25519PublicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(32)));
-    ed25519PrivateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(32)));
+    const emptyKey = toBase64(new Uint8Array(32));
+    ed25519PublicKeyBase64 = emptyKey;
+    ed25519PrivateKeyBase64 = emptyKey;
   }
 
   return deserializeKeyPair({
