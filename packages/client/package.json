@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/client",
-  "version": "0.0.1743",
+  "version": "0.0.1744",
   "description": "React client application for Tearleads",
   "main": "out/main/main.js",
   "type": "module",
