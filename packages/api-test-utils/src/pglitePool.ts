@@ -56,7 +56,9 @@ function mapResult(raw: PgliteResult): QueryResult {
  * The real `pg` driver accepts both, so service code legitimately passes
  * Uint8Array for BYTEA columns.  Coerce to Buffer here.
  */
-function coerceByteaParams(values: unknown[] | undefined): unknown[] | undefined {
+function coerceByteaParams(
+  values: unknown[] | undefined
+): unknown[] | undefined {
   if (!values) return values;
   return values.map(function coerce(v: unknown): unknown {
     if (v instanceof Uint8Array && !(v instanceof Buffer)) {
