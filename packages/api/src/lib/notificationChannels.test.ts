@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stringifyJsonWithByteArrays } from '@tearleads/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   filterAuthorizedChannels,
   normalizeRequestedChannels,

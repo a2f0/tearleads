@@ -1,7 +1,7 @@
 import {
+  type BroadcastMessage,
   isRecord,
-  parseJsonWithByteArrays,
-  type BroadcastMessage
+  parseJsonWithByteArrays
 } from '@tearleads/shared';
 import { getPostgresPool } from './postgres.js';
 import { parseVfsContainerIdFromSyncChannel } from './vfsSyncChannels.js';

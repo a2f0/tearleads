@@ -1,7 +1,7 @@
 import { Code, ConnectError, type HandlerContext } from '@connectrpc/connect';
 import {
-  stringifyJsonWithByteArrays,
-  type BroadcastMessage
+  type BroadcastMessage,
+  stringifyJsonWithByteArrays
 } from '@tearleads/shared';
 import type { SubscribeRequest } from '@tearleads/shared/gen/tearleads/v2/notifications_pb';
 import {
