@@ -6,6 +6,7 @@ use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
 const DEFAULT_PORT: u16 = 5002;
+const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -27,6 +28,13 @@ fn build_app(origins: &str) -> axum::Router {
     use tearleads_api_v2::TokioPostgresGateway;
     use tearleads_data_access_postgres::PostgresAdminAdapter;
 
+    if is_enabled_env_var(ADMIN_HARNESS_ENV_KEY) {
+        tracing::info!(
+            "{ADMIN_HARNESS_ENV_KEY} enabled — using static admin harness repositories"
+        );
+        return tearleads_api_v2::app_with_origins(origins);
+    }
+
     match TokioPostgresGateway::from_env() {
         Some(gateway) => {
             tracing::info!("postgres gateway initialized from environment");
@@ -41,6 +49,18 @@ fn build_app(origins: &str) -> axum::Router {
             tearleads_api_v2::app_with_origins(origins)
         }
     }
+}
+
+fn is_enabled_env_var(name: &str) -> bool {
+    env::var(name)
+        .ok()
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
 }
 
 fn read_port() -> u16 {

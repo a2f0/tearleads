@@ -20,6 +20,8 @@ import {
   getWelcomeMessagesDirectTyped
 } from './mlsDirectWelcomeMessages.js';
 
+const textEncoder = new TextEncoder();
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('mlsDirectWelcomeMessages', () => {
@@ -48,7 +50,7 @@ describe('mlsDirectWelcomeMessages', () => {
           id: 'welcome-1',
           group_id: 'group-1',
           group_name: 'Group One',
-          welcome_data: 'welcome',
+          welcome_data: Buffer.from('welcome', 'utf8').toString('base64'),
           key_package_ref: 'ref-1',
           epoch: 2,
           created_at: new Date('2026-03-03T03:20:00.000Z')
@@ -67,7 +69,7 @@ describe('mlsDirectWelcomeMessages', () => {
           id: 'welcome-1',
           groupId: 'group-1',
           groupName: 'Group One',
-          welcome: 'welcome',
+          welcome: textEncoder.encode('welcome'),
           keyPackageRef: 'ref-1',
           epoch: 2,
           createdAt: '2026-03-03T03:20:00.000Z'

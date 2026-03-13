@@ -109,10 +109,6 @@ function bytes(value: string): Uint8Array {
   return textEncoder.encode(value);
 }
 
-function base64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -157,7 +153,7 @@ describe('mlsConnectServiceV2', () => {
         {
           id: 'kp-1',
           userId: 'u-1',
-          keyPackageData: base64('data'),
+          keyPackageData: bytes('data'),
           keyPackageRef: 'ref',
           cipherSuite: 3,
           createdAt: '2024-01-01T00:00:00Z',
@@ -185,7 +181,7 @@ describe('mlsConnectServiceV2', () => {
       {
         keyPackages: [
           {
-            keyPackageData: base64('data'),
+            keyPackageData: bytes('data'),
             keyPackageRef: 'ref',
             cipherSuite: 3
           }

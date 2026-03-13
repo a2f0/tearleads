@@ -75,9 +75,6 @@ import { mlsConnectServiceV2 } from './mlsService.js';
 const textEncoder = new TextEncoder();
 
 const bytes = (value: string): Uint8Array => textEncoder.encode(value);
-const base64 = (value: string): string =>
-  Buffer.from(value, 'utf8').toString('base64');
-
 function createContext() {
   return {
     requestHeader: new Headers({
@@ -132,7 +129,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         id: 'st-1',
         groupId: 'g-1',
         epoch: 3,
-        encryptedState: base64('enc'),
+        encryptedState: bytes('enc'),
         stateHash: 'hash',
         createdAt: '2024-01-01T00:00:00Z'
       }
@@ -157,7 +154,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         senderUserId: 'u-1',
         senderEmail: 'test@example.com',
         epoch: 2,
-        ciphertext: base64('ct'),
+        ciphertext: bytes('ct'),
         messageType: 'application',
         contentType: 'text/plain',
         sequenceNumber: 5,
@@ -183,7 +180,7 @@ describe('mlsConnectServiceV2 coverage', () => {
     expect(sendGroupMessageDirectMock).toHaveBeenCalledWith(
       {
         groupId: 'g-1',
-        ciphertext: base64('ct'),
+        ciphertext: bytes('ct'),
         epoch: 2,
         messageType: 'application',
         contentType: 'text/plain'
@@ -241,7 +238,7 @@ describe('mlsConnectServiceV2 coverage', () => {
           groupId: 'g-1',
           senderUserId: null,
           epoch: 1,
-          ciphertext: base64('ct'),
+          ciphertext: bytes('ct'),
           messageType: 'commit',
           contentType: '',
           sequenceNumber: 1,
@@ -307,7 +304,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         id: 'st-1',
         groupId: 'g-1',
         epoch: 5,
-        encryptedState: base64('enc'),
+        encryptedState: bytes('enc'),
         stateHash: 'hash',
         createdAt: '2024-01-01T00:00:00Z'
       }
@@ -329,7 +326,7 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         epoch: 5,
-        encryptedState: base64('enc'),
+        encryptedState: bytes('enc'),
         stateHash: 'hash'
       },
       context
@@ -366,8 +363,8 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         userId: 'u-2',
-        commit: base64('commit-data'),
-        welcome: base64('welcome-data'),
+        commit: bytes('commit-data'),
+        welcome: bytes('welcome-data'),
         keyPackageRef: 'ref',
         newEpoch: 3
       },
@@ -394,7 +391,7 @@ describe('mlsConnectServiceV2 coverage', () => {
       {
         groupId: 'g-1',
         userId: 'u-2',
-        commit: base64('commit-data'),
+        commit: bytes('commit-data'),
         newEpoch: 4
       },
       context
@@ -432,7 +429,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         {
           id: 'kp-1',
           userId: 'u-1',
-          keyPackageData: base64('data'),
+          keyPackageData: bytes('data'),
           keyPackageRef: 'ref',
           cipherSuite: 1,
           createdAt: '2024-01-01T00:00:00Z',
@@ -455,7 +452,7 @@ describe('mlsConnectServiceV2 coverage', () => {
         {
           id: 'kp-2',
           userId: 'u-2',
-          keyPackageData: base64('data2'),
+          keyPackageData: bytes('data2'),
           keyPackageRef: 'ref2',
           cipherSuite: 65535,
           createdAt: '2024-01-01T00:00:00Z',

@@ -1,17 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
-  MlsKeyPackage,
-  MlsKeyPackagesResponse,
-  UploadMlsKeyPackagesRequest,
-  UploadMlsKeyPackagesResponse
-} from '@tearleads/shared';
+  MlsBinaryKeyPackage,
+  MlsBinaryKeyPackagesResponse,
+  UploadMlsKeyPackagesBinaryRequest,
+  UploadMlsKeyPackagesBinaryResponse
+} from './mlsBinaryTypes.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
-import {
-  parseUploadKeyPackagesPayload,
-  toSafeCipherSuite
-} from './mlsDirectShared.js';
+import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
+import { toSafeCipherSuite } from './mlsDirectShared.js';
 
 type UserIdRequest = { userId: string };
 type MlsIdRequest = { id: string };
@@ -34,16 +32,48 @@ function toIsoString(value: Date | string): string {
   return value;
 }
 
+const MAX_KEY_PACKAGES_PER_UPLOAD = 100;
+
+function isValidUploadPayload(
+  request: UploadMlsKeyPackagesBinaryRequest
+): boolean {
+  const { keyPackages } = request;
+  if (keyPackages.length === 0 || keyPackages.length > MAX_KEY_PACKAGES_PER_UPLOAD) {
+    return false;
+  }
+
+  for (const keyPackage of keyPackages) {
+    if (
+      keyPackage.keyPackageData.byteLength === 0 ||
+      keyPackage.keyPackageRef.trim().length === 0
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function decodeStoredKeyPackage(
+  value: string,
+  fieldName: string
+): Uint8Array {
+  const decoded = decodeBase64ToBytes(value);
+  if (!decoded) {
+    throw new ConnectError(`${fieldName} is not valid base64`, Code.Internal);
+  }
+  return decoded;
+}
+
 export async function uploadKeyPackagesDirectTyped(
-  request: UploadMlsKeyPackagesRequest,
+  request: UploadMlsKeyPackagesBinaryRequest,
   context: { requestHeader: Headers }
-): Promise<UploadMlsKeyPackagesResponse> {
+): Promise<UploadMlsKeyPackagesBinaryResponse> {
   const claims = await requireMlsClaims(
     '/mls/key-packages',
     context.requestHeader
   );
-  const payload = parseUploadKeyPackagesPayload(request);
-  if (!payload) {
+  if (!isValidUploadPayload(request)) {
     throw new ConnectError(
       'Invalid key packages payload',
       Code.InvalidArgument
@@ -52,14 +82,14 @@ export async function uploadKeyPackagesDirectTyped(
 
   try {
     const pool = await getPostgresPool();
-    const ids = payload.keyPackages.map(() => randomUUID());
-    const keyPackageData = payload.keyPackages.map(
-      (keyPackage) => keyPackage.keyPackageData
+    const ids = request.keyPackages.map(() => randomUUID());
+    const keyPackageData = request.keyPackages.map((keyPackage) =>
+      encodeBytesToBase64(keyPackage.keyPackageData)
     );
-    const keyPackageRef = payload.keyPackages.map(
+    const keyPackageRef = request.keyPackages.map(
       (keyPackage) => keyPackage.keyPackageRef
     );
-    const cipherSuites = payload.keyPackages.map(
+    const cipherSuites = request.keyPackages.map(
       (keyPackage) => keyPackage.cipherSuite
     );
 
@@ -94,10 +124,13 @@ export async function uploadKeyPackagesDirectTyped(
       [ids, keyPackageData, keyPackageRef, cipherSuites, claims.sub]
     );
 
-    const uploadedPackages: MlsKeyPackage[] = result.rows.map((row) => ({
+    const uploadedPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: claims.sub,
-      keyPackageData: row.key_package_data,
+      keyPackageData: decodeStoredKeyPackage(
+        row.key_package_data,
+        'key_package_data'
+      ),
       keyPackageRef: row.key_package_ref,
       cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: toIsoString(row.created_at),
@@ -117,7 +150,7 @@ export async function uploadKeyPackagesDirectTyped(
 export async function getMyKeyPackagesDirectTyped(
   _request: object,
   context: { requestHeader: Headers }
-): Promise<MlsKeyPackagesResponse> {
+): Promise<MlsBinaryKeyPackagesResponse> {
   const claims = await requireMlsClaims(
     '/mls/key-packages/me',
     context.requestHeader
@@ -140,10 +173,13 @@ export async function getMyKeyPackagesDirectTyped(
       [claims.sub]
     );
 
-    const keyPackages: MlsKeyPackage[] = result.rows.map((row) => ({
+    const keyPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: claims.sub,
-      keyPackageData: row.key_package_data,
+      keyPackageData: decodeStoredKeyPackage(
+        row.key_package_data,
+        'key_package_data'
+      ),
       keyPackageRef: row.key_package_ref,
       cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: toIsoString(row.created_at),
@@ -163,7 +199,7 @@ export async function getMyKeyPackagesDirectTyped(
 export async function getUserKeyPackagesDirectTyped(
   request: UserIdRequest,
   context: { requestHeader: Headers }
-): Promise<MlsKeyPackagesResponse> {
+): Promise<MlsBinaryKeyPackagesResponse> {
   const claims = await requireMlsClaims(
     `/mls/key-packages/${encoded(request.userId)}`,
     context.requestHeader
@@ -201,10 +237,13 @@ export async function getUserKeyPackagesDirectTyped(
       [request.userId]
     );
 
-    const keyPackages: MlsKeyPackage[] = result.rows.map((row) => ({
+    const keyPackages: MlsBinaryKeyPackage[] = result.rows.map((row) => ({
       id: row.id,
       userId: request.userId,
-      keyPackageData: row.key_package_data,
+      keyPackageData: decodeStoredKeyPackage(
+        row.key_package_data,
+        'key_package_data'
+      ),
       keyPackageRef: row.key_package_ref,
       cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: toIsoString(row.created_at),
