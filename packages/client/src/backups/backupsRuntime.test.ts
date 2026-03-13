@@ -17,7 +17,8 @@ const getKeyManagerMock = vi.fn();
 const initializeFileStorageMock = vi.fn();
 
 vi.mock('@/db', () => ({
-  getCurrentInstanceId: (...args: unknown[]) => getCurrentInstanceIdMock(...args),
+  getCurrentInstanceId: (...args: unknown[]) =>
+    getCurrentInstanceIdMock(...args),
   getDatabaseAdapter: (...args: unknown[]) => getDatabaseAdapterMock(...args)
 }));
 
@@ -48,16 +49,20 @@ vi.mock('@/lib/fileUtils', () => ({
 vi.mock('@/storage/backupStorage', () => ({
   deleteBackupFromStorage: vi.fn(),
   getBackupStorageUsed: vi.fn(),
-  isBackupStorageSupported: (...args: unknown[]) => isBackupStorageSupportedMock(...args),
+  isBackupStorageSupported: (...args: unknown[]) =>
+    isBackupStorageSupportedMock(...args),
   listStoredBackups: vi.fn(),
   readBackupFromStorage: vi.fn(),
   saveBackupToStorage: (...args: unknown[]) => saveBackupToStorageMock(...args)
 }));
 
 vi.mock('@/storage/opfs', () => ({
-  getFileStorageForInstance: (...args: unknown[]) => getFileStorageForInstanceMock(...args),
-  initializeFileStorage: (...args: unknown[]) => initializeFileStorageMock(...args),
-  isFileStorageInitialized: (...args: unknown[]) => isFileStorageInitializedMock(...args)
+  getFileStorageForInstance: (...args: unknown[]) =>
+    getFileStorageForInstanceMock(...args),
+  initializeFileStorage: (...args: unknown[]) =>
+    initializeFileStorageMock(...args),
+  isFileStorageInitialized: (...args: unknown[]) =>
+    isFileStorageInitializedMock(...args)
 }));
 
 import { clientBackupsRuntime } from './backupsRuntime';

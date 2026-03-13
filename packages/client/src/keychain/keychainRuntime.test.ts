@@ -11,13 +11,17 @@ const resetMock = vi.fn();
 vi.mock('@/db/instanceRegistry', () => ({
   getInstances: (...args: unknown[]) => getInstancesMock(...args),
   getInstance: (...args: unknown[]) => getInstanceMock(...args),
-  deleteInstanceFromRegistry: (...args: unknown[]) => deleteInstanceFromRegistryMock(...args)
+  deleteInstanceFromRegistry: (...args: unknown[]) =>
+    deleteInstanceFromRegistryMock(...args)
 }));
 
 vi.mock('@/db/crypto', () => ({
-  getKeyStatusForInstance: (...args: unknown[]) => getKeyStatusForInstanceMock(...args),
-  deleteSessionKeysForInstance: (...args: unknown[]) => deleteSessionKeysForInstanceMock(...args),
-  getKeyManagerForInstance: (...args: unknown[]) => getKeyManagerForInstanceMock(...args)
+  getKeyStatusForInstance: (...args: unknown[]) =>
+    getKeyStatusForInstanceMock(...args),
+  deleteSessionKeysForInstance: (...args: unknown[]) =>
+    deleteSessionKeysForInstanceMock(...args),
+  getKeyManagerForInstance: (...args: unknown[]) =>
+    getKeyManagerForInstanceMock(...args)
 }));
 
 import { clientKeychainDependencies } from './keychainRuntime';

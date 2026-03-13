@@ -56,14 +56,19 @@ const mockedCapacitorModules = (() => {
 })();
 
 vi.mock('@capacitor-community/sqlite', () => ({
-  CapacitorSQLite: { echo: (...args: unknown[]) => mockedCapacitorModules.echo(...args) },
+  CapacitorSQLite: {
+    echo: (...args: unknown[]) => mockedCapacitorModules.echo(...args)
+  },
   SQLiteConnection: function SQLiteConnection(...args: unknown[]) {
     return mockedCapacitorModules.SQLiteConnection(...args);
   }
 }));
 
 vi.mock('@capacitor/core', () => ({
-  Capacitor: { getPlatform: (...args: unknown[]) => mockedCapacitorModules.getPlatform(...args) }
+  Capacitor: {
+    getPlatform: (...args: unknown[]) =>
+      mockedCapacitorModules.getPlatform(...args)
+  }
 }));
 
 vi.mock('@capacitor/filesystem', () => ({
@@ -71,7 +76,10 @@ vi.mock('@capacitor/filesystem', () => ({
     Data: 'DATA',
     Library: 'LIBRARY'
   },
-  Filesystem: { deleteFile: (...args: unknown[]) => mockedCapacitorModules.deleteFile(...args) }
+  Filesystem: {
+    deleteFile: (...args: unknown[]) =>
+      mockedCapacitorModules.deleteFile(...args)
+  }
 }));
 
 function loadHelpers(options: LoadHelpersOptions = {}): LoadedHelpers {

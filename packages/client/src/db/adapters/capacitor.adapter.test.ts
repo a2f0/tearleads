@@ -7,15 +7,18 @@ const mockGetSQLiteConnection = vi.fn();
 const mockIsIgnorableDeleteDbError = vi.fn();
 
 vi.mock('./capacitorAdapterHelpers', () => ({
-  deleteCapacitorDatabaseFile: (...args: unknown[]) => mockDeleteCapacitorDatabaseFile(...args),
+  deleteCapacitorDatabaseFile: (...args: unknown[]) =>
+    mockDeleteCapacitorDatabaseFile(...args),
   getSQLiteConnection: (...args: unknown[]) => mockGetSQLiteConnection(...args),
-  isIgnorableDeleteDbError: (...args: unknown[]) => mockIsIgnorableDeleteDbError(...args),
+  isIgnorableDeleteDbError: (...args: unknown[]) =>
+    mockIsIgnorableDeleteDbError(...args),
   resetSQLiteConnectionCache: vi.fn()
 }));
 
 vi.mock('@capacitor-community/sqlite', () => ({
   CapacitorSQLite: {
-    clearEncryptionSecret: (...args: unknown[]) => mockCapacitorClearEncryptionSecret(...args),
+    clearEncryptionSecret: (...args: unknown[]) =>
+      mockCapacitorClearEncryptionSecret(...args),
     deleteDatabase: (...args: unknown[]) => mockCapacitorDeleteDatabase(...args)
   }
 }));
