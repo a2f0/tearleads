@@ -50,7 +50,7 @@ describe('mlsDirectWelcomeMessages', () => {
           id: 'welcome-1',
           group_id: 'group-1',
           group_name: 'Group One',
-          welcome_data: Buffer.from('welcome', 'utf8').toString('base64'),
+          welcome_data: Buffer.from('welcome', 'utf8'),
           key_package_ref: 'ref-1',
           epoch: 2,
           created_at: new Date('2026-03-03T03:20:00.000Z')

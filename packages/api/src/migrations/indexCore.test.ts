@@ -4,7 +4,7 @@ import { getCurrentVersion, runMigrations } from './index.js';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
 
-describe('migrations (core through v003)', () => {
+describe('migrations (core through v004)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
@@ -44,7 +44,7 @@ describe('migrations (core through v003)', () => {
         (migration: Migration) => migration.version
       );
 
-      expect(versions).toEqual([1, 2, 3]);
+      expect(versions).toEqual([1, 2, 3, 4]);
       expect(migrations[0]?.version).toBe(1);
     });
 
@@ -68,10 +68,10 @@ describe('migrations (core through v003)', () => {
           if (sql.includes('MAX(version)')) {
             versionCallCount += 1;
             return Promise.resolve({
-              rows: [{ version: versionCallCount === 1 ? null : 3 }],
-              rowCount: 1
-            });
-          }
+            rows: [{ version: versionCallCount === 1 ? null : 4 }],
+            rowCount: 1
+          });
+        }
 
           return Promise.resolve({ rows: [], rowCount: 0 });
         })
@@ -79,24 +79,24 @@ describe('migrations (core through v003)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([1, 2, 3]);
-      expect(result.currentVersion).toBe(3);
+      expect(result.applied).toEqual([1, 2, 3, 4]);
+      expect(result.currentVersion).toBe(4);
       expect(
         pool.queries.filter((query) =>
           query.includes('INSERT INTO schema_migrations')
         )
-      ).toHaveLength(3);
+      ).toHaveLength(4);
     });
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 3 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 4 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(3);
+      expect(result.currentVersion).toBe(4);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -108,7 +108,7 @@ describe('migrations (core through v003)', () => {
         if (sql.includes('MAX(version)')) {
           versionCallCount += 1;
           return Promise.resolve({
-            rows: [{ version: versionCallCount === 1 ? 1 : 3 }],
+            rows: [{ version: versionCallCount === 1 ? 1 : 4 }],
             rowCount: 1
           });
         }
@@ -118,8 +118,8 @@ describe('migrations (core through v003)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([2, 3]);
-      expect(result.currentVersion).toBe(3);
+      expect(result.applied).toEqual([2, 3, 4]);
+      expect(result.currentVersion).toBe(4);
     });
   });
 
@@ -257,6 +257,29 @@ describe('migrations (core through v003)', () => {
       expect(queries).toContain('CREATE TABLE "mls_groups"');
       expect(queries).toContain('CREATE TABLE "organization_billing_accounts"');
       expect(queries).toContain('CREATE TABLE "analytics_events"');
+    });
+  });
+
+  describe('v004 migration', () => {
+    it('converts MLS base64 text payload columns to bytea', async () => {
+      const pool = createMockPool(new Map());
+
+      const v004 = migrations.find(
+        (migration: Migration) => migration.version === 4
+      );
+      if (!v004) {
+        throw new Error('v004 migration not found');
+      }
+
+      await v004.up(pool);
+
+      const queries = pool.queries.join('\n');
+
+      expect(queries).toContain(
+        'ALTER COLUMN "key_package_data" TYPE BYTEA'
+      );
+      expect(queries).toContain('ALTER COLUMN "welcome_data" TYPE BYTEA');
+      expect(queries).toContain('ALTER COLUMN "encrypted_state" TYPE BYTEA');
     });
   });
 });

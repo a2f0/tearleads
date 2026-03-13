@@ -68,8 +68,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Port-forwarding service/api to localhost:$LOCAL_API_PORT..."
-kubectl -n "$NAMESPACE" port-forward "service/api" "$LOCAL_API_PORT:5001" >/dev/null 2>&1 &
+echo "Port-forwarding service/api-v2 to localhost:$LOCAL_API_PORT..."
+kubectl -n "$NAMESPACE" port-forward "service/api-v2" "$LOCAL_API_PORT:5002" >/dev/null 2>&1 &
 port_forward_pid=$!
 
 # Wait up to 15 seconds for the port-forward tunnel to accept connections.
@@ -80,7 +80,7 @@ for _ in $(seq 1 30); do
     exit 1
   fi
 
-  if curl -sS --connect-timeout 1 "http://127.0.0.1:$LOCAL_API_PORT/" >/dev/null 2>&1; then
+  if curl -sS --connect-timeout 1 "http://127.0.0.1:$LOCAL_API_PORT/v2/ping" >/dev/null 2>&1; then
     port_forward_ready=1
     break
   fi
@@ -93,7 +93,7 @@ if [[ "$port_forward_ready" -ne 1 ]]; then
   exit 1
 fi
 
-api_base_url="http://127.0.0.1:$LOCAL_API_PORT/v1/connect"
+api_base_url="http://127.0.0.1:$LOCAL_API_PORT/connect"
 login_url="$api_base_url/tearleads.v2.AuthService/Login"
 context_url="$api_base_url/tearleads.v2.AdminService/GetContext"
 redis_dbsize_url="$api_base_url/tearleads.v2.AdminService/GetRedisDbSize"

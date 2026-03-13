@@ -9,6 +9,7 @@ use tearleads_data_access_traits::{
 use crate::RedisAdminGateway;
 
 /// Redis repository implementation over a driver-specific gateway.
+#[derive(Clone)]
 pub struct RedisAdminAdapter<G> {
     gateway: G,
 }

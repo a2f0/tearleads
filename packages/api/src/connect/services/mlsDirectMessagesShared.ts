@@ -44,7 +44,6 @@ export interface GroupMessageRow {
   sender_user_id: string | null;
   epoch: number;
   ciphertext_bytes: Buffer | Uint8Array | null;
-  ciphertext_text: string | null;
   encoded_content_type: string | null;
   sequence_number: number;
   created_at: Date | string;
@@ -111,6 +110,7 @@ export async function persistMlsMessageToVfs(
   input: VfsMirrorInput
 ): Promise<void> {
   const ciphertext = serializeEnvelopeField(input.ciphertext);
+  const itemStateCiphertext = Buffer.from(input.ciphertext).toString('base64');
   const sourceTable = input.sourceTable ?? 'mls_message';
 
   await client.query(
@@ -155,7 +155,7 @@ export async function persistMlsMessageToVfs(
       updated_at = EXCLUDED.updated_at,
       deleted_at = NULL
     `,
-    [input.messageId, ciphertext.text, input.epoch, input.occurredAtIso]
+    [input.messageId, itemStateCiphertext, input.epoch, input.occurredAtIso]
   );
 
   await client.query(

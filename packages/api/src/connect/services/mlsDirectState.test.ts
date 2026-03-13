@@ -27,7 +27,7 @@ import {
 } from './mlsDirectState.js';
 
 const textEncoder = new TextEncoder();
-const STATE_BYTES_BASE64 = 'c3RhdGUtYnl0ZXM=';
+const STATE_BYTES_BUFFER = Buffer.from('state-bytes', 'utf8');
 const STATE_BYTES_HASH = 'wAEDKaM8s6FdpeNW0sAr8nS7ZQCBwhZ0F3ClXnVBabQ=';
 const UPLOAD_STATE_REQUEST = {
   groupId: 'group-1',
@@ -223,7 +223,7 @@ describe('mlsDirectState', () => {
           id: 'state-2',
           group_id: 'group-1',
           epoch: 2,
-          encrypted_state: STATE_BYTES_BASE64,
+          encrypted_state: STATE_BYTES_BUFFER,
           state_hash: STATE_BYTES_HASH,
           created_at: new Date('2026-03-03T03:12:00.000Z')
         }
@@ -254,7 +254,7 @@ describe('mlsDirectState', () => {
           id: 'state-2',
           group_id: 'group-1',
           epoch: 2,
-          encrypted_state: STATE_BYTES_BASE64,
+          encrypted_state: STATE_BYTES_BUFFER,
           state_hash: 'invalid-hash',
           created_at: new Date('2026-03-03T03:12:00.000Z')
         }

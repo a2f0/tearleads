@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { decodeBase64ToBytes, encodeBytesToBase64 } from './mlsBinaryCodec.js';
+import { toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryGroupState,
   MlsBinaryGroupStateResponse,
@@ -119,7 +119,7 @@ export async function uploadGroupStateDirectTyped(
           groupId,
           claims.sub,
           payload.epoch,
-          encodeBytesToBase64(payload.encryptedState),
+          payload.encryptedState,
           payload.stateHash
         ]
       );
@@ -193,7 +193,7 @@ export async function getGroupStateDirectTyped(
       id: string;
       group_id: string;
       epoch: number;
-      encrypted_state: string;
+      encrypted_state: Buffer | Uint8Array | null;
       state_hash: string;
       created_at: Date | string;
     }>(
@@ -210,10 +210,10 @@ export async function getGroupStateDirectTyped(
       return { state: null };
     }
 
-    const decodedState = decodeBase64ToBytes(row.encrypted_state);
-    if (!decodedState) {
+    const decodedState = toUint8Array(row.encrypted_state);
+    if (!decodedState || decodedState.byteLength === 0) {
       throw new ConnectError(
-        'Stored MLS state is not valid base64',
+        'Stored MLS state bytes are invalid',
         Code.Internal
       );
     }

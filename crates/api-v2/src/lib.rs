@@ -49,7 +49,6 @@ where
     Router::new()
         .route("/v2/ping", get(ping))
         .nest_service("/connect", build_admin_service())
-        .nest_service("/v1/connect", build_admin_service())
         .layer(cors_layer(origins))
         .layer(TraceLayer::new_for_http())
 }
@@ -76,7 +75,6 @@ pub fn app_with_origins(origins: &str) -> Router {
     Router::new()
         .route("/v2/ping", get(ping))
         .nest_service("/connect", build_admin_service())
-        .nest_service("/v1/connect", build_admin_service())
         .layer(cors_layer(origins))
         .layer(TraceLayer::new_for_http())
 }
@@ -121,7 +119,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn admin_connect_routes_are_mounted_by_default() {
+    async fn admin_connect_route_is_mounted_by_default() {
         let response = app_with_origins("")
             .oneshot(admin_tables_request(
                 "/connect/tearleads.v2.AdminService/GetTables",
@@ -129,14 +127,17 @@ mod tests {
             .await
             .expect("router should return a response");
         assert_ne!(response.status(), StatusCode::NOT_FOUND);
+    }
 
-        let v1_prefixed = app_with_origins("")
+    #[tokio::test]
+    async fn v1_admin_connect_alias_is_not_mounted() {
+        let response = app_with_origins("")
             .oneshot(admin_tables_request(
                 "/v1/connect/tearleads.v2.AdminService/GetTables",
             ))
             .await
             .expect("router should return a response");
-        assert_ne!(v1_prefixed.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

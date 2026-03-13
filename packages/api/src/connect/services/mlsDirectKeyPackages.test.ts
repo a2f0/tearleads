@@ -33,10 +33,6 @@ function bytes(value: string): Uint8Array {
   return textEncoder.encode(value);
 }
 
-function base64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 describe('mlsDirectKeyPackages', () => {
@@ -66,7 +62,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-1',
-          key_package_data: base64('data-1'),
+          key_package_data: Buffer.from('data-1', 'utf8'),
           key_package_ref: 'ref-1',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:00:00.000Z')
@@ -96,7 +92,7 @@ describe('mlsDirectKeyPackages', () => {
       expect.stringContaining('FROM unnest('),
       [
         ['kp-1', 'kp-2'],
-        [base64('data-1'), base64('data-2')],
+        [bytes('data-1'), bytes('data-2')],
         ['ref-1', 'ref-2'],
         [1, 1],
         'user-1'
@@ -154,7 +150,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-1',
-          key_package_data: base64('data-1'),
+          key_package_data: Buffer.from('data-1', 'utf8'),
           key_package_ref: 'ref-1',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:05:00.000Z'),
@@ -162,7 +158,7 @@ describe('mlsDirectKeyPackages', () => {
         },
         {
           id: 'kp-2',
-          key_package_data: base64('data-2'),
+          key_package_data: Buffer.from('data-2', 'utf8'),
           key_package_ref: 'ref-2',
           cipher_suite: 2,
           created_at: new Date('2026-03-03T03:06:00.000Z'),
@@ -218,7 +214,7 @@ describe('mlsDirectKeyPackages', () => {
       rows: [
         {
           id: 'kp-3',
-          key_package_data: base64('data-3'),
+          key_package_data: Buffer.from('data-3', 'utf8'),
           key_package_ref: 'ref-3',
           cipher_suite: 1,
           created_at: new Date('2026-03-03T03:10:00.000Z')
