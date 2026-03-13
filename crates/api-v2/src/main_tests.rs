@@ -1,4 +1,6 @@
-use super::{is_native_connect_path, should_proxy_connect_request};
+use super::{
+    is_native_connect_path, runtime_dependency_error_message, should_proxy_connect_request,
+};
 
 #[test]
 fn admin_paths_are_native() {
@@ -105,4 +107,27 @@ fn other_connect_paths_are_proxied() {
     assert!(should_proxy_connect_request(
         "/connect/unknown.Service/Method"
     ));
+}
+
+#[test]
+fn runtime_dependency_errors_require_explicit_harness_mode() {
+    assert_eq!(runtime_dependency_error_message(true, true), None);
+    assert_eq!(
+        runtime_dependency_error_message(false, true),
+        Some(
+            "api-v2 runtime dependencies unavailable: missing postgres. Set API_V2_ENABLE_ADMIN_HARNESS=1 to run static fixtures intentionally.".to_string()
+        )
+    );
+    assert_eq!(
+        runtime_dependency_error_message(true, false),
+        Some(
+            "api-v2 runtime dependencies unavailable: missing redis. Set API_V2_ENABLE_ADMIN_HARNESS=1 to run static fixtures intentionally.".to_string()
+        )
+    );
+    assert_eq!(
+        runtime_dependency_error_message(false, false),
+        Some(
+            "api-v2 runtime dependencies unavailable: missing postgres, redis. Set API_V2_ENABLE_ADMIN_HARNESS=1 to run static fixtures intentionally.".to_string()
+        )
+    );
 }

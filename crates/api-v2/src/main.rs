@@ -1,6 +1,6 @@
 //! Binary entrypoint for the API v2 service.
 
-use std::{collections::BTreeMap, env, net::SocketAddr};
+use std::{collections::BTreeMap, env, io::Error, net::SocketAddr};
 
 use axum::{
     body::{Body, to_bytes},
@@ -18,7 +18,7 @@ const DEFAULT_PORT: u16 = 5002;
 const ADMIN_HARNESS_ENV_KEY: &str = "API_V2_ENABLE_ADMIN_HARNESS";
 const REDIS_URL_ENV_KEY: &str = "REDIS_URL";
 const CONNECT_UPSTREAM_URL_ENV_KEY: &str = "API_V2_CONNECT_UPSTREAM_URL";
-const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/v1/connect";
+const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/connect";
 const MAX_PROXY_REQUEST_BODY_BYTES: usize = 10 * 1024 * 1024;
 
 #[cfg(test)]
@@ -40,18 +40,17 @@ async fn main() -> std::io::Result<()> {
     initialize_tracing();
 
     let origins = env::var("ALLOWED_ORIGINS").unwrap_or_default();
+    let app = build_app(&origins)?;
     let port = read_port();
     let address = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(address).await?;
-
-    let app = build_app(&origins);
 
     tracing::info!("api-v2 listening on http://{address}");
 
     axum::serve(listener, app).await
 }
 
-fn build_app(origins: &str) -> axum::Router {
+fn build_app(origins: &str) -> std::io::Result<axum::Router> {
     use tearleads_api_v2::TokioPostgresGateway;
     use tearleads_data_access_postgres::PostgresAdminAdapter;
     use tearleads_data_access_redis::RedisAdminAdapter;
@@ -60,52 +59,40 @@ fn build_app(origins: &str) -> axum::Router {
         tracing::info!("{ADMIN_HARNESS_ENV_KEY} enabled — using static admin harness repositories");
         tearleads_api_v2::app_with_origins(origins)
     } else {
-        match (
-            TokioPostgresGateway::from_env(),
-            RuntimeRedisGateway::from_env(),
-        ) {
-            (Some(postgres_gateway), Some(redis_gateway)) => {
-                tracing::info!(
-                    "postgres + redis gateways initialized from environment for admin repository wiring"
-                );
-                let postgres_repo = PostgresAdminAdapter::new(postgres_gateway.clone());
-                let redis_repo = RedisAdminAdapter::new(redis_gateway);
-                tearleads_api_v2::app_with_repos(
-                    origins,
-                    postgres_repo,
-                    redis_repo,
-                    postgres_gateway,
-                )
-            }
-            (postgres_gateway, redis_gateway) => {
-                let mut failed_components = Vec::new();
-                if postgres_gateway.is_none() {
-                    failed_components.push("postgres");
-                }
-                if redis_gateway.is_none() {
-                    failed_components.push("redis");
-                }
-                tracing::warn!(
-                    "{} initialization failed — using static fixture repositories",
-                    failed_components.join(" + ")
-                );
-                tearleads_api_v2::app_with_origins(origins)
-            }
+        let postgres_gateway = TokioPostgresGateway::from_env();
+        let redis_gateway = RuntimeRedisGateway::from_env();
+
+        if let Some(message) =
+            runtime_dependency_error_message(postgres_gateway.is_some(), redis_gateway.is_some())
+        {
+            tracing::error!("{message}");
+            return Err(Error::other(message));
         }
+
+        let postgres_gateway = postgres_gateway
+            .expect("postgres gateway presence already validated before app construction");
+        let redis_gateway = redis_gateway
+            .expect("redis gateway presence already validated before app construction");
+        tracing::info!(
+            "postgres + redis gateways initialized from environment for admin repository wiring"
+        );
+        let postgres_repo = PostgresAdminAdapter::new(postgres_gateway.clone());
+        let redis_repo = RedisAdminAdapter::new(redis_gateway);
+        tearleads_api_v2::app_with_repos(origins, postgres_repo, redis_repo, postgres_gateway)
     };
 
     let upstream_connect_base_url = env::var(CONNECT_UPSTREAM_URL_ENV_KEY)
         .unwrap_or_else(|_| DEFAULT_CONNECT_UPSTREAM_URL.to_string());
-    tracing::info!("non-admin connect routes are proxied to {upstream_connect_base_url}");
+    tracing::info!("delegated connect upstream base is {upstream_connect_base_url}");
     let proxy_state = ConnectProxyState {
         http_client: reqwest::Client::new(),
         upstream_connect_base_url,
     };
 
-    app.layer(middleware::from_fn_with_state(
+    Ok(app.layer(middleware::from_fn_with_state(
         proxy_state,
         proxy_non_admin_connect_requests,
-    ))
+    )))
 }
 
 fn is_enabled_env_var(name: &str) -> bool {
@@ -125,6 +112,28 @@ fn read_port() -> u16 {
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(DEFAULT_PORT)
+}
+
+fn runtime_dependency_error_message(
+    postgres_available: bool,
+    redis_available: bool,
+) -> Option<String> {
+    let mut missing_dependencies = Vec::new();
+    if !postgres_available {
+        missing_dependencies.push("postgres");
+    }
+    if !redis_available {
+        missing_dependencies.push("redis");
+    }
+
+    if missing_dependencies.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "api-v2 runtime dependencies unavailable: missing {}. Set {ADMIN_HARNESS_ENV_KEY}=1 to run static fixtures intentionally.",
+        missing_dependencies.join(", ")
+    ))
 }
 
 fn initialize_tracing() {

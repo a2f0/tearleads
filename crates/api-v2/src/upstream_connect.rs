@@ -8,7 +8,7 @@ use tonic::{
 };
 
 const CONNECT_UPSTREAM_URL_ENV_KEY: &str = "API_V2_CONNECT_UPSTREAM_URL";
-const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/v1/connect";
+const DEFAULT_CONNECT_UPSTREAM_URL: &str = "http://api:5001/connect";
 
 /// Shared upstream endpoint factory for delegated service handlers.
 #[derive(Debug, Clone)]

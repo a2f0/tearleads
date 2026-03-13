@@ -168,6 +168,15 @@ phase_in_cluster_api_v2() {
 
   local response=""
   local ok=true
+  local deployment_env_names=""
+  deployment_env_names="$(kubectl -n "$NAMESPACE" get deployment api-v2 -o jsonpath='{range .spec.template.spec.containers[?(@.name=="api-v2")].env[*]}{.name}{"\n"}{end}' 2>/dev/null || true)"
+
+  if grep -qx 'API_V2_ENABLE_ADMIN_HARNESS' <<<"$deployment_env_names"; then
+    fail "api-v2 deployment enables API_V2_ENABLE_ADMIN_HARNESS" || ok=false
+  else
+    pass "api-v2 deployment does not enable API_V2_ENABLE_ADMIN_HARNESS"
+  fi
+
   if response="$(curl -sf --max-time "$CURL_TIMEOUT" "http://127.0.0.1:${local_port}/v2/ping" 2>/dev/null)"; then
     pass "API v2 pod $api_v2_pod responded to /v2/ping ($response)"
   else
@@ -183,7 +192,7 @@ phase_in_cluster_api_v2() {
     --data-binary '' \
     "http://127.0.0.1:${local_port}/connect/tearleads.v2.AdminService/GetTables" 2>/dev/null || true)"
 
-  if [[ -n "$admin_route_status" && "$admin_route_status" != "404" ]]; then
+  if [[ -n "$admin_route_status" && "$admin_route_status" == "200" ]]; then
     pass "API v2 pod $api_v2_pod serves AdminService connect route (HTTP $admin_route_status)"
   else
     fail "API v2 pod $api_v2_pod missing AdminService connect route (HTTP $admin_route_status)" || ok=false

@@ -133,15 +133,18 @@ app.post(
   postRevenuecatWebhooks
 );
 
-app.use('/v1/connect', connectRouteRateLimitMiddleware);
+const CONNECT_ROUTE_PREFIXES = ['/connect', '/v1/connect'] as const;
 
-app.use(
-  expressConnectMiddleware({
-    requestPathPrefix: '/v1/connect',
-    routes: registerConnectRoutes,
-    interceptors: [authInterceptor]
-  })
-);
+for (const requestPathPrefix of CONNECT_ROUTE_PREFIXES) {
+  app.use(requestPathPrefix, connectRouteRateLimitMiddleware);
+  app.use(
+    expressConnectMiddleware({
+      requestPathPrefix,
+      routes: registerConnectRoutes,
+      interceptors: [authInterceptor]
+    })
+  );
+}
 
 app.use(
   express.json({

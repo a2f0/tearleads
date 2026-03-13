@@ -37,7 +37,7 @@ function createChatCompletionsClient(
 ): ChatCompletionsClient {
   return createClient(
     ChatService,
-    createConnectTransport({ baseUrl: connectBaseUrl })
+    createConnectTransport({ baseUrl: connectBaseUrl, useBinaryFormat: true })
   );
 }
 
