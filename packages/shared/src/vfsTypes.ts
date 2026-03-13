@@ -201,7 +201,7 @@ export interface VfsCrdtSyncSessionRequest {
   cursor: string;
   limit: number;
   operations: VfsCrdtPushOperation[];
-  lastReconciledWriteIds?: Record<string, number>;
+  lastReconciledWriteIds: Record<string, number>;
   rootId?: string | null;
   bloomFilter?: VfsSyncBloomFilter | null;
 }
