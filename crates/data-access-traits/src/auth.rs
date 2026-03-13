@@ -63,6 +63,15 @@ pub struct AuthOrganization {
     pub is_personal: bool,
 }
 
+/// Organizations payload returned for one authenticated user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthUserOrganizations {
+    /// Organizations visible to the authenticated user.
+    pub organizations: Vec<AuthOrganization>,
+    /// The user's personal organization identifier.
+    pub personal_organization_id: String,
+}
+
 /// Session row stored in Redis.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthSession {
@@ -108,6 +117,27 @@ pub struct AuthCreateSessionInput {
     pub ip_address: String,
 }
 
+/// Input payload for atomically rotating refresh token + session rows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthRotateTokensInput {
+    /// Refresh token id to revoke.
+    pub old_refresh_token_id: String,
+    /// Session id to revoke.
+    pub old_session_id: String,
+    /// New session id to create.
+    pub new_session_id: String,
+    /// New refresh token id to create.
+    pub new_refresh_token_id: String,
+    /// Session payload for the replacement session.
+    pub session_input: AuthCreateSessionInput,
+    /// TTL applied to the replacement session.
+    pub session_ttl_seconds: u64,
+    /// TTL applied to the replacement refresh token.
+    pub refresh_ttl_seconds: u64,
+    /// Optional original session creation timestamp to retain.
+    pub original_created_at: Option<String>,
+}
+
 /// Repository boundary for auth-related Postgres operations.
 pub trait PostgresAuthRepository: Send + Sync {
     /// Returns user credentials payload for login by normalized email.
@@ -126,7 +156,7 @@ pub trait PostgresAuthRepository: Send + Sync {
     fn list_user_organizations(
         &self,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<(Vec<AuthOrganization>, String), DataAccessError>>;
+    ) -> BoxFuture<'_, Result<AuthUserOrganizations, DataAccessError>>;
 }
 
 /// Repository boundary for auth-related Redis session + token operations.
@@ -179,13 +209,6 @@ pub trait RedisAuthSessionRepository: Send + Sync {
     /// Rotates refresh token and session rows atomically.
     fn rotate_tokens_atomically(
         &self,
-        old_refresh_token_id: &str,
-        old_session_id: &str,
-        new_session_id: &str,
-        new_refresh_token_id: &str,
-        session_input: AuthCreateSessionInput,
-        session_ttl_seconds: u64,
-        refresh_ttl_seconds: u64,
-        original_created_at: Option<String>,
+        input: AuthRotateTokensInput,
     ) -> BoxFuture<'_, Result<(), DataAccessError>>;
 }

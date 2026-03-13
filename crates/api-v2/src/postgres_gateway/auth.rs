@@ -2,8 +2,8 @@ use chrono::Utc;
 use tokio_postgres::error::SqlState;
 
 use tearleads_data_access_traits::{
-    AuthLoginUser, AuthOrganization, AuthRegisterInput, AuthRegisteredUser, BoxFuture,
-    DataAccessError, DataAccessErrorKind, PostgresAuthRepository,
+    AuthLoginUser, AuthOrganization, AuthRegisterInput, AuthRegisteredUser, AuthUserOrganizations,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAuthRepository,
 };
 
 use super::TokioPostgresGateway;
@@ -212,7 +212,7 @@ impl PostgresAuthRepository for TokioPostgresGateway {
     fn list_user_organizations(
         &self,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<(Vec<AuthOrganization>, String), DataAccessError>> {
+    ) -> BoxFuture<'_, Result<AuthUserOrganizations, DataAccessError>> {
         let user_id = user_id.to_string();
         Box::pin(async move {
             let client = self.pool.get().await.map_err(pool_error)?;
@@ -259,7 +259,10 @@ impl PostgresAuthRepository for TokioPostgresGateway {
                 })
                 .collect::<Vec<_>>();
 
-            Ok((organizations, personal_organization_id))
+            Ok(AuthUserOrganizations {
+                organizations,
+                personal_organization_id,
+            })
         })
     }
 }

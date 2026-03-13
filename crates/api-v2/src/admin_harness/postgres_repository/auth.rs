@@ -1,6 +1,6 @@
 use tearleads_data_access_traits::{
-    AuthLoginUser, AuthOrganization, AuthRegisterInput, AuthRegisteredUser, BoxFuture,
-    DataAccessError, DataAccessErrorKind, PostgresAuthRepository,
+    AuthLoginUser, AuthOrganization, AuthRegisterInput, AuthRegisteredUser, AuthUserOrganizations,
+    BoxFuture, DataAccessError, DataAccessErrorKind, PostgresAuthRepository,
 };
 
 use super::{StaticPostgresRepository, fixtures};
@@ -48,7 +48,7 @@ impl PostgresAuthRepository for StaticPostgresRepository {
     fn list_user_organizations(
         &self,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<(Vec<AuthOrganization>, String), DataAccessError>> {
+    ) -> BoxFuture<'_, Result<AuthUserOrganizations, DataAccessError>> {
         let user_id = user_id.to_string();
         Box::pin(async move {
             let users = fixtures::user_summaries();
@@ -82,7 +82,10 @@ impl PostgresAuthRepository for StaticPostgresRepository {
                     )
                 })?;
 
-            Ok((payload, personal_organization_id))
+            Ok(AuthUserOrganizations {
+                organizations: payload,
+                personal_organization_id,
+            })
         })
     }
 }

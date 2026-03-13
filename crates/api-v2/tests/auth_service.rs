@@ -18,8 +18,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
 };
 use tearleads_data_access_traits::{
     AuthCreateSessionInput, AuthLoginUser, AuthOrganization, AuthRefreshToken, AuthRegisterInput,
-    AuthRegisteredUser, AuthSession, BoxFuture, DataAccessError, DataAccessErrorKind,
-    PostgresAuthRepository, RedisAuthSessionRepository,
+    AuthRegisteredUser, AuthRotateTokensInput, AuthSession, AuthUserOrganizations, BoxFuture,
+    DataAccessError, DataAccessErrorKind, PostgresAuthRepository, RedisAuthSessionRepository,
 };
 use tonic::{Code, Request, metadata::MetadataValue};
 
@@ -63,7 +63,7 @@ impl PostgresAuthRepository for FakeAuthRepo {
     fn list_user_organizations(
         &self,
         user_id: &str,
-    ) -> BoxFuture<'_, Result<(Vec<AuthOrganization>, String), DataAccessError>> {
+    ) -> BoxFuture<'_, Result<AuthUserOrganizations, DataAccessError>> {
         let user_id = user_id.to_string();
         let organizations = self.organizations.clone();
         let personal_organization_id = self.personal_organization_id.clone();
@@ -74,7 +74,10 @@ impl PostgresAuthRepository for FakeAuthRepo {
                     "user not found",
                 ));
             }
-            Ok((organizations, personal_organization_id))
+            Ok(AuthUserOrganizations {
+                organizations,
+                personal_organization_id,
+            })
         })
     }
 }
@@ -262,43 +265,33 @@ impl RedisAuthSessionRepository for FakeSessionRepo {
 
     fn rotate_tokens_atomically(
         &self,
-        old_refresh_token_id: &str,
-        old_session_id: &str,
-        new_session_id: &str,
-        new_refresh_token_id: &str,
-        session_input: AuthCreateSessionInput,
-        _session_ttl_seconds: u64,
-        _refresh_ttl_seconds: u64,
-        original_created_at: Option<String>,
+        input: AuthRotateTokensInput,
     ) -> BoxFuture<'_, Result<(), DataAccessError>> {
-        let old_refresh_token_id = old_refresh_token_id.to_string();
-        let old_session_id = old_session_id.to_string();
-        let new_session_id = new_session_id.to_string();
-        let new_refresh_token_id = new_refresh_token_id.to_string();
         let state = self.state.clone();
         Box::pin(async move {
             let mut state = state.lock().expect("session mutex should lock");
-            state.refresh_tokens.remove(&old_refresh_token_id);
-            state.sessions.remove(&old_session_id);
+            state.refresh_tokens.remove(&input.old_refresh_token_id);
+            state.sessions.remove(&input.old_session_id);
             state.sessions.insert(
-                new_session_id.clone(),
+                input.new_session_id.clone(),
                 AuthSession {
-                    id: new_session_id.clone(),
-                    user_id: session_input.user_id.clone(),
-                    email: session_input.email,
-                    admin: session_input.admin,
-                    created_at: original_created_at
+                    id: input.new_session_id.clone(),
+                    user_id: input.session_input.user_id.clone(),
+                    email: input.session_input.email,
+                    admin: input.session_input.admin,
+                    created_at: input
+                        .original_created_at
                         .unwrap_or_else(|| "2026-03-13T12:00:00Z".to_string()),
                     last_active_at: "2026-03-13T12:00:01Z".to_string(),
-                    ip_address: session_input.ip_address,
+                    ip_address: input.session_input.ip_address,
                 },
             );
             state.refresh_tokens.insert(
-                new_refresh_token_id.clone(),
+                input.new_refresh_token_id.clone(),
                 AuthRefreshToken {
-                    id: new_refresh_token_id,
-                    session_id: new_session_id,
-                    user_id: session_input.user_id,
+                    id: input.new_refresh_token_id,
+                    session_id: input.new_session_id,
+                    user_id: input.session_input.user_id,
                     created_at: "2026-03-13T12:00:01Z".to_string(),
                 },
             );

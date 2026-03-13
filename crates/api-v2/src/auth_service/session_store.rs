@@ -4,8 +4,8 @@ use chrono::Utc;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tearleads_data_access_traits::{
-    AuthCreateSessionInput, AuthRefreshToken, AuthSession, BoxFuture, DataAccessError,
-    DataAccessErrorKind, RedisAuthSessionRepository,
+    AuthCreateSessionInput, AuthRefreshToken, AuthRotateTokensInput, AuthSession, BoxFuture,
+    DataAccessError, DataAccessErrorKind, RedisAuthSessionRepository,
 };
 
 const REDIS_URL_ENV_KEY: &str = "REDIS_URL";
@@ -331,31 +331,19 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
 
     fn rotate_tokens_atomically(
         &self,
-        old_refresh_token_id: &str,
-        old_session_id: &str,
-        new_session_id: &str,
-        new_refresh_token_id: &str,
-        session_input: AuthCreateSessionInput,
-        session_ttl_seconds: u64,
-        refresh_ttl_seconds: u64,
-        original_created_at: Option<String>,
+        input: AuthRotateTokensInput,
     ) -> BoxFuture<'_, Result<(), DataAccessError>> {
-        let old_refresh_token_id = old_refresh_token_id.to_string();
-        let old_session_id = old_session_id.to_string();
-        let new_session_id = new_session_id.to_string();
-        let new_refresh_token_id = new_refresh_token_id.to_string();
-
         Box::pin(async move {
             let mut connection = self.connection().await?;
             let now = Utc::now().to_rfc3339();
-            let user_sessions_key = Self::user_sessions_key(&session_input.user_id);
+            let user_sessions_key = Self::user_sessions_key(&input.session_input.user_id);
             let session_payload = serde_json::to_string(&StoredSession {
-                user_id: session_input.user_id.clone(),
-                email: session_input.email,
-                admin: session_input.admin,
-                created_at: original_created_at.unwrap_or_else(|| now.clone()),
+                user_id: input.session_input.user_id.clone(),
+                email: input.session_input.email,
+                admin: input.session_input.admin,
+                created_at: input.original_created_at.unwrap_or_else(|| now.clone()),
                 last_active_at: now.clone(),
-                ip_address: session_input.ip_address,
+                ip_address: input.session_input.ip_address,
             })
             .map_err(|error| {
                 DataAccessError::new(
@@ -364,8 +352,8 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
                 )
             })?;
             let refresh_payload = serde_json::to_string(&StoredRefreshToken {
-                session_id: new_session_id.clone(),
-                user_id: session_input.user_id,
+                session_id: input.new_session_id.clone(),
+                user_id: input.session_input.user_id,
                 created_at: now,
             })
             .map_err(|error| {
@@ -377,33 +365,33 @@ impl RedisAuthSessionRepository for RedisAuthSessionStore {
 
             let mut pipe = redis::pipe();
             pipe.atomic()
-                .del(Self::refresh_token_key(&old_refresh_token_id))
+                .del(Self::refresh_token_key(&input.old_refresh_token_id))
                 .ignore()
-                .del(Self::session_key(&old_session_id))
+                .del(Self::session_key(&input.old_session_id))
                 .ignore()
                 .cmd("SREM")
                 .arg(&user_sessions_key)
-                .arg(&old_session_id)
+                .arg(&input.old_session_id)
                 .ignore()
                 .cmd("SET")
-                .arg(Self::session_key(&new_session_id))
+                .arg(Self::session_key(&input.new_session_id))
                 .arg(session_payload)
                 .arg("EX")
-                .arg(session_ttl_seconds)
+                .arg(input.session_ttl_seconds)
                 .ignore()
                 .cmd("SET")
-                .arg(Self::refresh_token_key(&new_refresh_token_id))
+                .arg(Self::refresh_token_key(&input.new_refresh_token_id))
                 .arg(refresh_payload)
                 .arg("EX")
-                .arg(refresh_ttl_seconds)
+                .arg(input.refresh_ttl_seconds)
                 .ignore()
                 .cmd("SADD")
                 .arg(&user_sessions_key)
-                .arg(&new_session_id)
+                .arg(&input.new_session_id)
                 .ignore()
                 .cmd("EXPIRE")
                 .arg(&user_sessions_key)
-                .arg(refresh_ttl_seconds)
+                .arg(input.refresh_ttl_seconds)
                 .ignore();
 
             let _: () = pipe

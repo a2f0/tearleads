@@ -15,8 +15,8 @@ pub use ai_usage::{
 };
 pub use auth::{
     AuthCreateSessionInput, AuthLoginUser, AuthOrganization, AuthRefreshToken, AuthRegisterInput,
-    AuthRegisteredUser, AuthSession, AuthVfsKeySetupInput, PostgresAuthRepository,
-    RedisAuthSessionRepository,
+    AuthRegisteredUser, AuthRotateTokensInput, AuthSession, AuthUserOrganizations,
+    AuthVfsKeySetupInput, PostgresAuthRepository, RedisAuthSessionRepository,
 };
 pub use billing::{OrganizationBillingAccount, PostgresBillingRepository};
 pub use error::{DataAccessError, DataAccessErrorKind};

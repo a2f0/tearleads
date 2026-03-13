@@ -13,8 +13,8 @@ use tearleads_api_v2_contracts::tearleads::v2::{
     AuthServiceRegisterResponse, AuthUser, AuthUserOrganization, auth_service_server::AuthService,
 };
 use tearleads_data_access_traits::{
-    AuthCreateSessionInput, AuthRegisterInput, DataAccessErrorKind, PostgresAuthRepository,
-    RedisAuthSessionRepository,
+    AuthCreateSessionInput, AuthRegisterInput, AuthRotateTokensInput, DataAccessErrorKind,
+    PostgresAuthRepository, RedisAuthSessionRepository,
 };
 use tonic::{Request, Response, Status, metadata::MetadataMap};
 use uuid::Uuid;
@@ -294,21 +294,21 @@ where
         let new_session_id = Uuid::new_v4().to_string();
         let new_refresh_token_id = Uuid::new_v4().to_string();
         self.session_repo
-            .rotate_tokens_atomically(
-                &claims.jti,
-                &claims.sid,
-                &new_session_id,
-                &new_refresh_token_id,
-                AuthCreateSessionInput {
+            .rotate_tokens_atomically(AuthRotateTokensInput {
+                old_refresh_token_id: claims.jti.clone(),
+                old_session_id: claims.sid.clone(),
+                new_session_id: new_session_id.clone(),
+                new_refresh_token_id: new_refresh_token_id.clone(),
+                session_input: AuthCreateSessionInput {
                     user_id: session.user_id.clone(),
                     email: session.email.clone(),
                     admin: session.admin,
                     ip_address: client_ip_from_metadata(request.metadata()),
                 },
-                self.config.refresh_token_ttl_seconds,
-                self.config.refresh_token_ttl_seconds,
-                Some(session.created_at.clone()),
-            )
+                session_ttl_seconds: self.config.refresh_token_ttl_seconds,
+                refresh_ttl_seconds: self.config.refresh_token_ttl_seconds,
+                original_created_at: Some(session.created_at.clone()),
+            })
             .await
             .map_err(map_data_access_error)?;
 
@@ -415,7 +415,7 @@ where
         request: Request<AuthServiceGetOrganizationsRequest>,
     ) -> Result<Response<AuthServiceGetOrganizationsResponse>, Status> {
         let access = self.require_access_context(request.metadata()).await?;
-        let (organizations, personal_organization_id) = self
+        let organizations = self
             .auth_repo
             .list_user_organizations(&access.user_id)
             .await
@@ -423,6 +423,7 @@ where
 
         Ok(Response::new(AuthServiceGetOrganizationsResponse {
             organizations: organizations
+                .organizations
                 .into_iter()
                 .map(|organization| AuthUserOrganization {
                     id: organization.id,
@@ -430,7 +431,7 @@ where
                     is_personal: organization.is_personal,
                 })
                 .collect(),
-            personal_organization_id,
+            personal_organization_id: organizations.personal_organization_id,
         }))
     }
 }
