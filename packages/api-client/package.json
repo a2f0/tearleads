@@ -39,6 +39,7 @@
     "build": "echo \"@tearleads/api-client is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:bun": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src --timeout 180",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage --exclude src/apiV2ClientWasm.runtimeIntegration.test.ts && pnpm -w codegenWasm && cross-env DOTENV_CONFIG_QUIET=true vitest run src/apiV2ClientWasm.runtimeIntegration.test.ts"
   },
   "dependencies": {
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@tearleads/api-test-utils": "workspace:*",
+    "@tearleads/bun-dom-compat": "workspace:*",
     "@tearleads/msw": "workspace:*",
     "jsdom": "28.1.0"
   }

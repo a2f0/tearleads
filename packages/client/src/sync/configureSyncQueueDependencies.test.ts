@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('configureSyncQueueDependencies', () => {
   beforeEach(() => {
-    vi.resetModules();
+    if (typeof vi.resetModules === 'function') {
+      vi.resetModules();
+    }
   });
   it('configures sync queue dependencies only once', async () => {
     const setSyncQueueDependencies = vi.fn();

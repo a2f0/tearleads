@@ -14,6 +14,19 @@ import { resetAuthStorageRuntimeForTesting } from './authStorage';
 import { AUTH_V2_REFRESH_CONNECT_PATH } from './connectRoutes';
 import { setTestEnv } from './test/env.js';
 
+vi.mock('./pingWasmImport', () => ({
+  importPingWasmModule: () =>
+    Promise.resolve({
+      v2_ping_path: () => '/v2/ping',
+      parse_v2_ping_value: (payload: unknown) => {
+        if (typeof payload !== 'object' || payload === null) {
+          throw new Error('Invalid v2 ping response payload');
+        }
+        return payload;
+      }
+    })
+}));
+
 describe('api edge cases requiring direct fetch mocking', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
@@ -21,18 +34,6 @@ describe('api edge cases requiring direct fetch mocking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetAuthStorageRuntimeForTesting();
-    vi.doMock('./pingWasmImport', () => ({
-      importPingWasmModule: () =>
-        Promise.resolve({
-          v2_ping_path: () => '/v2/ping',
-          parse_v2_ping_value: (payload: unknown) => {
-            if (typeof payload !== 'object' || payload === null) {
-              throw new Error('Invalid v2 ping response payload');
-            }
-            return payload;
-          }
-        })
-    }));
     fetchMock = vi.fn();
     global.fetch = fetchMock;
     localStorage.removeItem('auth_token');

@@ -29,8 +29,8 @@ These decisions are based on the current compatibility inventory plus recent Bun
 
 | Package | Decision | Evidence | Revisit trigger |
 | --- | --- | --- | --- |
-| `@tearleads/client` | Keep `vitest-primary` (coverage) | `vi.hoisted` fully remediated; remaining footprint is `vi.importActual` (155), `import.meta.glob` (1), `vi.resetModules` (1) plus heavy jsdom usage across ~600 tests. Risk score dropped 17→12. | Revisit after shared adapter/codemod work materially reduces the remaining `vi.importActual` surface. |
-| `@tearleads/api-client` | Keep `vitest-primary` | Compatibility blockers are largely remediated, but the package remains jsdom-heavy with Connect/MSW route matrix sensitivity. | Revisit after stabilization work on Connect/MSW-heavy suites and a focused Bun pilot for read-only clients. |
+| `@tearleads/client` | Keep `vitest-primary` (coverage) | `vi.hoisted` fully remediated; `import.meta.glob` remediated via bunSetup preload; `vi.resetModules` guarded for Bun safety. Remaining footprint is `vi.importActual` (155) plus heavy jsdom usage across ~600 tests. Risk score dropped 17→12. | Revisit after shared adapter/codemod work materially reduces the remaining `vi.importActual` surface. |
+| `@tearleads/api-client` | Keep `vitest-primary` | `vi.doMock` fully remediated to `vi.mock`; bunSetup created; `test:bun` script added. Bun pilot shows 49/56 tests passing. Remaining 7 failures are Connect/MSW gRPC trailer incompatibilities under Bun's fetch. | Revisit when Bun's fetch handles gRPC trailers correctly or MSW adds Bun-compatible Connect handlers. |
 | `@tearleads/cli` | Keep `vitest-primary` | Current-main Bun smoke test fails on unsupported `better-sqlite3-multiple-ciphers` loading and Vitest-only matcher behavior in CLI tests. | Revisit if Bun lands the native SQLite binding support needed by the CLI or the CLI DB layer is refactored off that binding. |
 
 ## Merged Slices

@@ -21,6 +21,19 @@ import { installApiV2WasmBindingsOverride } from './test/apiV2WasmBindingsTestOv
 import { setTestEnv } from './test/env.js';
 import { getSharedTestContext } from './test/testContext';
 
+vi.mock('./pingWasmImport', () => ({
+  importPingWasmModule: () =>
+    Promise.resolve({
+      v2_ping_path: () => '/v2/ping',
+      parse_v2_ping_value: (payload: unknown) => {
+        if (typeof payload !== 'object' || payload === null) {
+          throw new Error('Invalid v2 ping response payload');
+        }
+        return payload;
+      }
+    })
+}));
+
 const loadAuthStorage = async () => {
   const module = await import('./authStorage');
   return module;
@@ -38,18 +51,6 @@ let seededUser: SeededUser;
 describe('api with msw', () => {
   beforeEach(async () => {
     resetAuthStorageRuntimeForTesting();
-    vi.doMock('./pingWasmImport', () => ({
-      importPingWasmModule: () =>
-        Promise.resolve({
-          v2_ping_path: () => '/v2/ping',
-          parse_v2_ping_value: (payload: unknown) => {
-            if (typeof payload !== 'object' || payload === null) {
-              throw new Error('Invalid v2 ping response payload');
-            }
-            return payload;
-          }
-        })
-    }));
     vi.clearAllMocks();
     setTestEnv('VITE_API_URL', 'http://localhost');
     resetApiCoreRuntimeForTesting();
