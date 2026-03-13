@@ -1,5 +1,5 @@
 import type { HealthRuntimeProviderProps } from '@tearleads/app-health/clientEntry';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientHealthProvider } from './ClientHealthProvider';
@@ -85,23 +85,31 @@ describe('ClientHealthProvider', () => {
     };
   });
 
-  it('renders children inside HealthRuntimeProvider', () => {
+  it('renders children inside HealthRuntimeProvider', async () => {
     render(
       <ClientHealthProvider>
         <div data-testid="child">Child content</div>
       </ClientHealthProvider>
     );
 
+    await waitFor(() => {
+      expect(mockDbA.select).toHaveBeenCalled();
+    });
+
     expect(screen.getByTestId('health-runtime-provider')).toBeInTheDocument();
     expect(screen.getByTestId('child')).toBeInTheDocument();
   });
 
-  it('passes database state and inline unlock to the runtime provider', () => {
+  it('passes database state and inline unlock to the runtime provider', async () => {
     render(
       <ClientHealthProvider>
         <div>Child</div>
       </ClientHealthProvider>
     );
+
+    await waitFor(() => {
+      expect(mockDbA.select).toHaveBeenCalled();
+    });
 
     expect(requireProviderProps().databaseState).toEqual({
       isUnlocked: true,
@@ -111,12 +119,16 @@ describe('ClientHealthProvider', () => {
     expect(requireProviderProps().InlineUnlock).toBe(InlineUnlock);
   });
 
-  it('rebinds tracker creation to the active database context', () => {
+  it('rebinds tracker creation to the active database context', async () => {
     const { rerender } = render(
       <ClientHealthProvider>
         <div>Child</div>
       </ClientHealthProvider>
     );
+
+    await waitFor(() => {
+      expect(mockDbA.select).toHaveBeenCalled();
+    });
 
     expect(requireProviderProps().createTracker()).toEqual({ db: mockDbA });
     expect(mockCreateHealthTracker).toHaveBeenCalledWith(mockDbA);
@@ -133,6 +145,10 @@ describe('ClientHealthProvider', () => {
         <div>Child</div>
       </ClientHealthProvider>
     );
+
+    await waitFor(() => {
+      expect(mockDbB.select).toHaveBeenCalled();
+    });
 
     expect(requireProviderProps().databaseState).toEqual({
       isUnlocked: true,
