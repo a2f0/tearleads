@@ -26,6 +26,11 @@ allow = [
 ]
 confidence-threshold = 0.8
 
+# aws-lc-sys uses a combined ISC/Apache-2.0/OpenSSL license
+[[licenses.exceptions]]
+allow = ["OpenSSL"]
+crate = "aws-lc-sys"
+
 # Skip license checks for private (publish = false) workspace crates
 [licenses.private]
 ignore = true
