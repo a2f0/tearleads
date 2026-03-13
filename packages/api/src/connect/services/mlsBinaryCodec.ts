@@ -1,7 +1,3 @@
-export function encodeBytesToBase64(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64');
-}
-
 function normalizeBase64(value: string): string {
   return value.trim().replace(/\s+/gu, '');
 }

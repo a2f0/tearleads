@@ -8,10 +8,8 @@ import type {
   MlsBinaryMessage,
   RemoveMlsMemberBinaryRequest
 } from '@tearleads/shared';
-import { toTransportMessage } from '@tearleads/shared';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { encodeBytesToBase64 } from './mlsBinaryCodec.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { insertCommitMessage } from './mlsDirectCommitMessages.js';
 import { encoded, toIsoString, toMlsGroupRole } from './mlsDirectCommon.js';
@@ -195,7 +193,7 @@ export async function addGroupMemberDirectTyped(
     }
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: toTransportMessage(commitMessage, encodeBytesToBase64),
+      payload: commitMessage,
       timestamp: commitMessage.createdAt
     });
     const userResult = await pool.query<{ email: string }>(
@@ -391,7 +389,7 @@ export async function removeGroupMemberDirectTyped(
     }
     await broadcast(`mls:group:${groupId}`, {
       type: 'mls:message',
-      payload: toTransportMessage(commitMessage, encodeBytesToBase64),
+      payload: commitMessage,
       timestamp: commitMessage.createdAt
     });
     await broadcast(`mls:group:${groupId}`, {

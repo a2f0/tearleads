@@ -28,8 +28,8 @@ function createSharedRealtimeBridge(): {
   };
 }
 
-function commitCiphertext(bytes: number[]): string {
-  return btoa(String.fromCharCode(...bytes));
+function commitCiphertext(bytes: number[]): Uint8Array {
+  return Uint8Array.from(bytes);
 }
 
 afterEach(() => {

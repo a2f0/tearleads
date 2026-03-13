@@ -3,11 +3,7 @@
  * Subscribes to group channels and handles incoming messages.
  */
 
-import {
-  decodeRequiredTransportBytes,
-  decodeTransportBytes
-} from '@tearleads/api-client/mlsRoutes';
-import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
+import type { MlsBinaryMessage, MlsMessageType } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -70,13 +66,13 @@ function isValidMessageType(value: unknown): value is MlsMessageType {
 }
 
 /** Type guard for MlsMessage payload */
-function isMlsMessage(value: unknown): value is MlsMessage {
+function isMlsMessage(value: unknown): value is MlsBinaryMessage {
   if (!isRecord(value)) return false;
   return (
     typeof value['id'] === 'string' &&
     typeof value['groupId'] === 'string' &&
     typeof value['epoch'] === 'number' &&
-    typeof value['ciphertext'] === 'string' &&
+    value['ciphertext'] instanceof Uint8Array &&
     isValidMessageType(value['messageType']) &&
     typeof value['contentType'] === 'string' &&
     typeof value['sequenceNumber'] === 'number' &&
@@ -127,10 +123,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
         const message = messageEnvelope.payload;
         if (message.messageType === 'application') {
-          dispatchRealtimeMessage(message.groupId, {
-            ...message,
-            ciphertext: decodeTransportBytes(message.ciphertext)
-          });
+          dispatchRealtimeMessage(message.groupId, message);
           return;
         }
 
@@ -142,18 +135,8 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
           return;
         }
 
-        let commitBytes: Uint8Array;
-        try {
-          commitBytes = decodeRequiredTransportBytes(
-            message.ciphertext,
-            'ciphertext'
-          );
-        } catch {
-          return;
-        }
-
         client
-          .processCommit(message.groupId, commitBytes)
+          .processCommit(message.groupId, message.ciphertext)
           .then(async () => {
             try {
               await uploadGroupStateSnapshot({

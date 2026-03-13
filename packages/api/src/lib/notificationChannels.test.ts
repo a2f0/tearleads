@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { stringifyJsonWithByteArrays } from '@tearleads/shared';
 import {
   filterAuthorizedChannels,
   normalizeRequestedChannels,
@@ -50,6 +51,26 @@ describe('notificationChannels', () => {
       expect(parsed).toEqual({
         type: 'mls:message',
         payload: { id: 'msg-1' },
+        timestamp: '2026-03-02T10:00:00.000Z'
+      });
+    });
+
+    it('revives Uint8Array payload fields from JSON notifications', () => {
+      const parsed = parseBroadcastMessage(
+        stringifyJsonWithByteArrays({
+          type: 'mls:message',
+          payload: {
+            ciphertext: Uint8Array.from([1, 2, 3])
+          },
+          timestamp: '2026-03-02T10:00:00.000Z'
+        })
+      );
+
+      expect(parsed).toEqual({
+        type: 'mls:message',
+        payload: {
+          ciphertext: Uint8Array.from([1, 2, 3])
+        },
         timestamp: '2026-03-02T10:00:00.000Z'
       });
     });

@@ -1,5 +1,6 @@
 import {
   isRecord,
+  parseJsonWithByteArrays,
   type SSEConnectionState,
   type SSEMessage
 } from '@tearleads/shared';
@@ -338,7 +339,7 @@ export function createNotificationStreamManager(
 
           let parsedPayload: unknown;
           try {
-            parsedPayload = JSON.parse(payload);
+            parsedPayload = parseJsonWithByteArrays(payload);
           } catch (error) {
             console.error('Failed to parse SSE message:', error);
             continue;

@@ -44,6 +44,7 @@ export * from './openrouter.js';
 // '@tearleads/shared/server' to avoid bundling Node.js-only code into browser bundles.
 // Tree utilities
 export * from './tree/index.js';
+export * from './typedJson.js';
 // Type guards
 export * from './typeGuards/vfs.js';
 export * from './vfsConnectPaths.js';

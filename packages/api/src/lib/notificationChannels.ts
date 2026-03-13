@@ -1,4 +1,8 @@
-import { type BroadcastMessage, isRecord } from '@tearleads/shared';
+import {
+  isRecord,
+  parseJsonWithByteArrays,
+  type BroadcastMessage
+} from '@tearleads/shared';
 import { getPostgresPool } from './postgres.js';
 import { parseVfsContainerIdFromSyncChannel } from './vfsSyncChannels.js';
 
@@ -164,7 +168,7 @@ export function parseBroadcastMessage(
   message: string
 ): BroadcastMessage | null {
   try {
-    const parsed = JSON.parse(message);
+    const parsed = parseJsonWithByteArrays(message);
     return isBroadcastMessage(parsed) ? parsed : null;
   } catch {
     return null;
