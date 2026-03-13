@@ -4,6 +4,7 @@ mod admin_auth;
 mod admin_harness;
 mod admin_service;
 mod admin_service_common;
+mod ai_service;
 mod billing_auth;
 mod billing_service;
 mod chat_service;
@@ -13,11 +14,12 @@ mod postgres_gateway;
 
 use axum::{Router, routing::get};
 use tearleads_api_v2_contracts::tearleads::v2::{
-    admin_service_server::AdminServiceServer, billing_service_server::BillingServiceServer,
-    chat_service_server::ChatServiceServer,
+    admin_service_server::AdminServiceServer, ai_service_server::AiServiceServer,
+    billing_service_server::BillingServiceServer, chat_service_server::ChatServiceServer,
 };
 use tearleads_data_access_traits::{
-    PostgresAdminRepository, PostgresBillingRepository, RedisAdminRepository,
+    PostgresAdminRepository, PostgresAiUsageRepository, PostgresBillingRepository,
+    RedisAdminRepository,
 };
 use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -27,6 +29,7 @@ pub use admin_auth::{
     AdminAccessContext, AdminAuthError, AdminAuthErrorKind, AdminOperation, AdminRequestAuthorizer,
 };
 pub use admin_service::AdminServiceHandler;
+pub use ai_service::AiServiceHandler;
 pub use billing_auth::{
     AuthorizationHeaderBillingAuthorizer, BillingAccessContext, BillingAuthError,
     BillingAuthErrorKind, BillingRequestAuthorizer, JwtSessionBillingAuthorizer,
@@ -51,7 +54,7 @@ pub fn app_with_repos<P, R, B>(
 where
     P: PostgresAdminRepository + Clone + Send + Sync + 'static,
     R: RedisAdminRepository + Clone + Send + Sync + 'static,
-    B: PostgresBillingRepository + Clone + Send + Sync + 'static,
+    B: PostgresBillingRepository + PostgresAiUsageRepository + Clone + Send + Sync + 'static,
 {
     app_with_repos_with_billing_authorizer(
         origins,
@@ -73,7 +76,7 @@ pub fn app_with_repos_with_billing_authorizer<P, R, B, A>(
 where
     P: PostgresAdminRepository + Clone + Send + Sync + 'static,
     R: RedisAdminRepository + Clone + Send + Sync + 'static,
-    B: PostgresBillingRepository + Clone + Send + Sync + 'static,
+    B: PostgresBillingRepository + PostgresAiUsageRepository + Clone + Send + Sync + 'static,
     A: BillingRequestAuthorizer + Clone + Send + Sync + 'static,
 {
     let build_connect_routes = {
@@ -108,11 +111,20 @@ where
                 .map_request(|request: axum::http::Request<axum::body::Body>| {
                     request.map(tonic::body::Body::new)
                 });
+            let ai_service = tower::ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(AiServiceServer::new(AiServiceHandler::new(
+                    billing_pg.clone(),
+                )))
+                .map_request(|request: axum::http::Request<axum::body::Body>| {
+                    request.map(tonic::body::Body::new)
+                });
 
             Router::new()
                 .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
                 .route_service("/tearleads.v2.BillingService/{*rest}", billing_service)
                 .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
+                .route_service("/tearleads.v2.AiService/{*rest}", ai_service)
         }
     };
 
@@ -154,11 +166,20 @@ pub fn app_with_origins(origins: &str) -> Router {
             .map_request(|request: axum::http::Request<axum::body::Body>| {
                 request.map(tonic::body::Body::new)
             });
+        let ai_service = tower::ServiceBuilder::new()
+            .layer(tonic_web::GrpcWebLayer::new())
+            .service(AiServiceServer::new(AiServiceHandler::new(
+                admin_harness::StaticPostgresRepository,
+            )))
+            .map_request(|request: axum::http::Request<axum::body::Body>| {
+                request.map(tonic::body::Body::new)
+            });
 
         Router::new()
             .route_service("/tearleads.v2.AdminService/{*rest}", admin_service)
             .route_service("/tearleads.v2.BillingService/{*rest}", billing_service)
             .route_service("/tearleads.v2.ChatService/{*rest}", chat_service)
+            .route_service("/tearleads.v2.AiService/{*rest}", ai_service)
     };
 
     Router::new()
@@ -219,6 +240,17 @@ mod tests {
     }
 
     fn chat_request(path: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/grpc-web+proto")
+            .header("x-grpc-web", "1")
+            .header("authorization", "Bearer header.payload.signature")
+            .body(Body::empty())
+            .expect("request should build")
+    }
+
+    fn ai_request(path: &str) -> Request<Body> {
         Request::builder()
             .method("POST")
             .uri(path)
@@ -303,6 +335,24 @@ mod tests {
             .oneshot(chat_request(
                 "/v1/connect/tearleads.v2.ChatService/PostCompletions",
             ))
+            .await
+            .expect("router should return a response");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn ai_connect_route_is_mounted_by_default() {
+        let response = app_with_origins("")
+            .oneshot(ai_request("/connect/tearleads.v2.AiService/GetUsage"))
+            .await
+            .expect("router should return a response");
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn v1_ai_connect_alias_is_not_mounted() {
+        let response = app_with_origins("")
+            .oneshot(ai_request("/v1/connect/tearleads.v2.AiService/GetUsage"))
             .await
             .expect("router should return a response");
         assert_eq!(response.status(), StatusCode::NOT_FOUND);

@@ -31,6 +31,16 @@ fn chat_paths_are_native() {
 }
 
 #[test]
+fn ai_paths_are_native() {
+    assert!(is_native_connect_path(
+        "/connect/tearleads.v2.AiService/GetUsage"
+    ));
+    assert!(!should_proxy_connect_request(
+        "/connect/tearleads.v2.AiService/GetUsage"
+    ));
+}
+
+#[test]
 fn other_connect_paths_are_proxied() {
     assert!(should_proxy_connect_request(
         "/connect/tearleads.v2.NotificationService/Subscribe"

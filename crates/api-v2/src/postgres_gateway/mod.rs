@@ -1,3 +1,4 @@
+mod ai_usage;
 mod billing;
 mod error;
 pub(crate) mod groups;

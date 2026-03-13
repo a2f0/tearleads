@@ -141,6 +141,7 @@ fn is_native_connect_path(path: &str) -> bool {
     path.starts_with("/connect/tearleads.v2.AdminService/")
         || path.starts_with("/connect/tearleads.v2.BillingService/")
         || path.starts_with("/connect/tearleads.v2.ChatService/")
+        || path.starts_with("/connect/tearleads.v2.AiService/")
 }
 
 fn build_upstream_connect_url(base_url: &str, path: &str, query: Option<&str>) -> String {
