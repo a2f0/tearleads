@@ -1,7 +1,6 @@
 #![allow(clippy::expect_used)]
 
 use std::{
-    net::TcpStream,
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -55,11 +54,9 @@ impl RedisServer {
                 panic!("redis-compatible server should start ({server_binary}): {error}")
             });
 
-        wait_for_port(port);
-        Self {
-            child,
-            url: format!("redis://127.0.0.1:{port}"),
-        }
+        let url = format!("redis://127.0.0.1:{port}");
+        wait_for_redis_ready(&url);
+        Self { child, url }
     }
 }
 
@@ -96,14 +93,19 @@ fn reserve_free_port() -> u16 {
         .port()
 }
 
-fn wait_for_port(port: u16) {
-    for _ in 0..40 {
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+fn wait_for_redis_ready(url: &str) {
+    for _ in 0..200 {
+        if let Ok(client) = redis::Client::open(url)
+            && let Ok(mut connection) = client.get_connection()
+            && redis::cmd("PING")
+                .query::<String>(&mut connection)
+                .is_ok_and(|response| response == "PONG")
+        {
             return;
         }
-        thread::sleep(Duration::from_millis(25));
+        thread::sleep(Duration::from_millis(50));
     }
-    panic!("redis server on port {port} did not become ready");
+    panic!("redis server at {url} did not become ready");
 }
 
 fn metadata_with_authorization(value: &str) -> MetadataMap {
