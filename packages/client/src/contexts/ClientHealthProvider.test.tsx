@@ -6,8 +6,21 @@ import { ClientHealthProvider } from './ClientHealthProvider';
 
 const mockCreateHealthTracker = vi.fn();
 
-const mockDbA = { name: 'health-db-a' };
-const mockDbB = { name: 'health-db-b' };
+function makeMockDb(name: string) {
+  const queryChain = {
+    from: vi.fn(),
+    where: vi.fn().mockResolvedValue([])
+  };
+  queryChain.from.mockReturnValue(queryChain);
+  return {
+    name,
+    select: vi.fn().mockReturnValue(queryChain),
+    insert: vi.fn().mockReturnValue({ values: vi.fn() })
+  };
+}
+
+const mockDbA = makeMockDb('health-db-a');
+const mockDbB = makeMockDb('health-db-b');
 
 let mockDatabaseContext = {
   db: mockDbA,
