@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { getPool, getPostgresPool } from '../../lib/postgres.js';
-import { toUint8Array } from './mlsBinaryCodec.js';
 import type {
   MlsBinaryKeyPackage,
   MlsBinaryKeyPackagesResponse,
   UploadMlsKeyPackagesBinaryRequest,
   UploadMlsKeyPackagesBinaryResponse
 } from '@tearleads/shared';
+import { getPool, getPostgresPool } from '../../lib/postgres.js';
+import { toUint8Array } from './mlsBinaryCodec.js';
 import { requireMlsClaims } from './mlsDirectAuth.js';
 import { toSafeCipherSuite } from './mlsDirectShared.js';
 

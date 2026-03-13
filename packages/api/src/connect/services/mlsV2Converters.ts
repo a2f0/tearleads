@@ -1,4 +1,13 @@
 import type {
+  MlsBinaryGroup,
+  MlsBinaryGroupMember,
+  MlsBinaryGroupState,
+  MlsBinaryKeyPackage,
+  MlsBinaryMessage,
+  MlsBinaryMessageType,
+  MlsBinaryWelcomeMessage
+} from '@tearleads/shared';
+import type {
   MlsCipherSuite as ProtoCipherSuite,
   MlsGroupRole as ProtoGroupRole,
   MlsMessageType as ProtoMessageType
@@ -8,15 +17,6 @@ import {
   MlsGroupRole,
   MlsMessageType
 } from '@tearleads/shared/gen/tearleads/v2/mls_pb';
-import type {
-  MlsBinaryGroup,
-  MlsBinaryGroupMember,
-  MlsBinaryGroupState,
-  MlsBinaryKeyPackage,
-  MlsBinaryMessage,
-  MlsBinaryMessageType,
-  MlsBinaryWelcomeMessage
-} from '@tearleads/shared';
 
 // ---------------------------------------------------------------------------
 // Enum converters
