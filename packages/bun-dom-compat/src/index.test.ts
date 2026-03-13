@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { installBrowserGlobalsForBun, installVitestPolyfills } from './index';
 
 function getGlobal(name: string): unknown {
@@ -79,5 +79,46 @@ describe('installBrowserGlobalsForBun', () => {
 
     unstubAllGlobals();
     expect(window.innerWidth).toBe(originalInnerWidth);
+  });
+
+  it('polyfills vi.isMockFunction to detect mock functions', () => {
+    const target: Record<string, unknown> = {};
+    installVitestPolyfills(target);
+
+    const isMockFunction = target['isMockFunction'] as (
+      fn: unknown
+    ) => boolean;
+    expect(typeof isMockFunction).toBe('function');
+
+    const mockFn = vi.fn();
+    expect(isMockFunction(mockFn)).toBe(true);
+    expect(isMockFunction(() => {})).toBe(false);
+    expect(isMockFunction(42)).toBe(false);
+  });
+
+  it('polyfills vi.advanceTimersByTimeAsync from sync advanceTimersByTime', async () => {
+    const target: Record<string, unknown> = {
+      advanceTimersByTime: vi.fn()
+    };
+    installVitestPolyfills(target);
+
+    const advanceAsync = target['advanceTimersByTimeAsync'] as (
+      ms: number
+    ) => Promise<void>;
+    expect(typeof advanceAsync).toBe('function');
+
+    await advanceAsync(500);
+    expect(target['advanceTimersByTime']).toHaveBeenCalledWith(500);
+  });
+
+  it('skips advanceTimersByTimeAsync polyfill when sync variant is already present', () => {
+    const existingAsync = vi.fn();
+    const target: Record<string, unknown> = {
+      advanceTimersByTime: vi.fn(),
+      advanceTimersByTimeAsync: existingAsync
+    };
+    installVitestPolyfills(target);
+
+    expect(target['advanceTimersByTimeAsync']).toBe(existingAsync);
   });
 });

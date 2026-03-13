@@ -243,7 +243,11 @@ describe('notificationConnectService', () => {
     expect(result.done).toBe(true);
   });
 
-  it('emits keepalive events for active subscriptions', async () => {
+  // Bun's fake timer implementation does not support async generator
+  // interleaving with advanceTimersByTimeAsync; keep under Vitest only.
+  it.skipIf(typeof Reflect.get(globalThis, 'Bun') !== 'undefined')(
+    'emits keepalive events for active subscriptions',
+    async () => {
     vi.useFakeTimers();
     try {
       const context = createAuthContext('user-1');
