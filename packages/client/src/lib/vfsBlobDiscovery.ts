@@ -1,4 +1,4 @@
-import type { VfsBlobDownloadOperation } from '@tearleads/api-client/src/vfsBlobDownloadTypes';
+import type { VfsBlobDownloadOperation } from '@tearleads/api-client/clientEntry';
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
 
 export function extractBlobRefsFromSyncItems(
