@@ -4,6 +4,7 @@ import {
   setSyncQueueDependencies
 } from '@tearleads/vfs-sync/clientEntry';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
+import { useVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
 
 const EMPTY_SNAPSHOT: SyncQueueSnapshot = {
   outbound: { crdt: [], blob: [] },
@@ -21,8 +22,15 @@ function createDependencies(): SyncQueueDependencies {
   return {
     useSnapshot(): SyncQueueSnapshot {
       const orchestrator = useVfsOrchestratorInstance();
+      const blobDownloads = useVfsBlobDownloadOperations();
       if (!orchestrator) {
-        return EMPTY_SNAPSHOT;
+        return {
+          ...EMPTY_SNAPSHOT,
+          inbound: {
+            ...EMPTY_SNAPSHOT.inbound,
+            blobDownloads: [...blobDownloads]
+          }
+        };
       }
 
       const crdtOps = orchestrator.queuedCrdtOperations();
@@ -60,7 +68,7 @@ function createDependencies(): SyncQueueDependencies {
           cursor: crdtSnapshot.cursor,
           pendingOperations: crdtSnapshot.pendingOperations,
           nextLocalWriteId: crdtSnapshot.nextLocalWriteId,
-          blobDownloads: []
+          blobDownloads: [...blobDownloads]
         }
       };
     }

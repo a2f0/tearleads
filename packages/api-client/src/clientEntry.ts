@@ -36,10 +36,13 @@ export type {
   VfsBlobDownloadRetryPolicy
 } from './vfsBlobDownloadTypes';
 export {
+  createVfsCryptoEngine,
+  createVfsSecureReadPipeline,
   createVfsSecurePipelineBundle,
   rotateItemKeyEpochAndPersist,
   type VfsKeyManager,
   type VfsKeySetupPayload,
+  type VfsSecureReadPipeline,
   type VfsSecureOrchestratorFacade
 } from './vfsCrypto';
 export {

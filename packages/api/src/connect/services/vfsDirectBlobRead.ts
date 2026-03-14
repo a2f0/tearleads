@@ -24,7 +24,8 @@ interface BlobManifestRow {
 }
 
 interface BlobVisibilityRow {
-  user_id: string | null;
+  accessible_ref_count: number;
+  ref_count: number;
 }
 
 export interface GetBlobManifestResponse {
@@ -56,22 +57,23 @@ async function requireBlobReadAccess(
   const pool = await getPool('read');
   const result = await pool.query<BlobVisibilityRow>(
     `
-    SELECT vev.user_id
-    FROM vfs_registry vr
+    SELECT
+      COUNT(*)::integer AS ref_count,
+      COUNT(vev.item_id)::integer AS accessible_ref_count
+    FROM vfs_blob_refs br
     LEFT JOIN vfs_effective_visibility vev
-      ON vev.item_id = vr.id AND vev.user_id = $2::uuid
-    WHERE vr.id = $1::uuid
-    LIMIT 1
+      ON vev.item_id = br.item_id AND vev.user_id = $2::uuid
+    WHERE br.blob_id = $1::uuid
     `,
     [blobId, claims.sub]
   );
 
   const row = result.rows[0];
-  if (!row) {
+  if (!row || row.ref_count < 1) {
     throw new ConnectError('Blob not found', Code.NotFound);
   }
 
-  if (!row.user_id) {
+  if (row.accessible_ref_count < 1) {
     throw new ConnectError('Forbidden', Code.PermissionDenied);
   }
 }

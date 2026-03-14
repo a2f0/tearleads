@@ -3,9 +3,15 @@ import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
 import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
+import { readStoredAuth } from '@/lib/authStorage';
+import {
+  createVfsBlobDownloadSync,
+  type VfsBlobDownloadSync
+} from '@/lib/vfsBlobDownloadSync';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { withDownloadTracking } from '@/lib/vfsItemSyncWriter';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
+import { resetVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
 
@@ -85,24 +91,75 @@ export function VfsRealtimeSyncBridge() {
     createRemoteReadOrchestrator<void>()
   );
   const blobSyncOrchestratorRef = useRef(createRemoteReadOrchestrator<void>());
+  const blobDownloadSyncRef = useRef<VfsBlobDownloadSync | null>(null);
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleBlobSync = useCallback(() => {
-    void blobSyncOrchestratorRef.current.schedule(
-      async () => {
-        logStore.info(
-          'VFS blob sync triggered after CRDT sync',
-          'scope=vfs-blob-download'
+    const scheduledSnapshot = getInstanceChangeSnapshot();
+    void blobSyncOrchestratorRef.current
+      .schedule(
+        async () => {
+          const executionSnapshot = getInstanceChangeSnapshot();
+          if (
+            executionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
+          ) {
+            return;
+          }
+
+          const blobDownloadSync = blobDownloadSyncRef.current;
+          if (!blobDownloadSync) {
+            return;
+          }
+
+          await blobDownloadSync.sync();
+        },
+        {
+          scope: BLOB_SYNC_SCOPE,
+          debounceMs: BLOB_SYNC_DEBOUNCE_MS,
+          coalesceInFlight: true
+        }
+      )
+      .catch((error) => {
+        const currentSnapshot = getInstanceChangeSnapshot();
+        if (currentSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch) {
+          return;
+        }
+        logStore.warn(
+          'VFS blob sync failed after CRDT sync',
+          error instanceof Error ? error.message : String(error)
         );
-      },
-      {
-        scope: BLOB_SYNC_SCOPE,
-        debounceMs: BLOB_SYNC_DEBOUNCE_MS,
-        coalesceInFlight: true
-      }
-    );
+      });
   }, []);
+
+  useEffect(() => {
+    const userId = readStoredAuth().user?.id;
+    const instanceId = getInstanceChangeSnapshot().currentInstanceId;
+
+    blobDownloadSyncRef.current?.reset();
+    blobDownloadSyncRef.current = null;
+
+    if (!orchestrator || !userId || !instanceId) {
+      resetVfsBlobDownloadOperations();
+      return;
+    }
+
+    const nextBlobDownloadSync = createVfsBlobDownloadSync({
+      userId,
+      instanceId,
+      isActive: () =>
+        getInstanceChangeSnapshot().currentInstanceId === instanceId
+    });
+    blobDownloadSyncRef.current = nextBlobDownloadSync;
+    void nextBlobDownloadSync.hydrateFromPersistence();
+
+    return () => {
+      if (blobDownloadSyncRef.current === nextBlobDownloadSync) {
+        nextBlobDownloadSync.reset();
+        blobDownloadSyncRef.current = null;
+      }
+    };
+  }, [orchestrator]);
 
   const scheduleSync = useCallback(() => {
     if (!orchestrator || retryTimerRef.current) {
@@ -273,6 +330,8 @@ export function VfsRealtimeSyncBridge() {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
+      blobDownloadSyncRef.current?.reset();
+      blobDownloadSyncRef.current = null;
       remoteReadOrchestratorRef.current.cancelInFlight(SYNC_SCOPE);
       blobSyncOrchestratorRef.current.cancelInFlight(BLOB_SYNC_SCOPE);
     };
