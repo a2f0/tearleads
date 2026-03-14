@@ -40,12 +40,12 @@ function buildCachedSettings(instanceId: string | null | undefined): {
   [K in UserSettingKey]: SettingValueMap[K];
 } {
   const result = { ...SETTING_DEFAULTS };
-  for (const key of ALL_SETTING_KEYS) {
+  ALL_SETTING_KEYS.forEach(<K extends UserSettingKey>(key: K) => {
     const stored = getSettingFromStorage(key, instanceId);
     if (stored !== null) {
-      (result as Record<UserSettingKey, string>)[key] = stored;
+      result[key] = stored;
     }
-  }
+  });
   return result;
 }
 
