@@ -87,7 +87,9 @@ for (const file of files) {
     writeFileSync(file, result);
     filesModified++;
     totalReplacements += replacements;
-    console.log(`  ✔  ${file} (${replacements} replacement${replacements > 1 ? 's' : ''})`);
+    console.log(
+      `  ✔  ${file} (${replacements} replacement${replacements > 1 ? 's' : ''})`
+    );
   }
 }
 
