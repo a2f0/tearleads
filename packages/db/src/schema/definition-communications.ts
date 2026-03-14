@@ -3,7 +3,6 @@ import type { TableDefinition } from './types.js';
 export { emailsTable } from './definition-communications-email.js';
 export {
   vfsAclEntriesTable,
-  vfsBlobManifestsTable,
   vfsBlobObjectsTable,
   vfsBlobRefsTable,
   vfsBlobStagingTable,

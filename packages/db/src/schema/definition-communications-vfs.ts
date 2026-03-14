@@ -268,7 +268,6 @@ export const vfsSyncClientStateTable: TableDefinition = {
 };
 
 export {
-  vfsBlobManifestsTable,
   vfsBlobObjectsTable,
   vfsBlobRefsTable,
   vfsBlobStagingTable

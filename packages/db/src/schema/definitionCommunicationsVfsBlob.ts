@@ -198,7 +198,7 @@ export const vfsBlobRefsTable: TableDefinition = {
  * Blob manifest metadata persisted at commit time.
  * Enables chunked download by storing chunk boundaries and hashes.
  */
-export const vfsBlobManifestsTable: TableDefinition = {
+const vfsBlobManifestsTable: TableDefinition = {
   name: 'vfs_blob_manifests',
   propertyName: 'vfsBlobManifests',
   comment:
