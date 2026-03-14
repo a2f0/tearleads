@@ -1,3 +1,4 @@
+import { bytesToBase64 } from '@tearleads/shared';
 import type { VfsCrdtPushOperation } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import {
   VfsAclAccessLevel as ProtoVfsAclAccessLevel,
@@ -268,11 +269,13 @@ function toDirectPushOperation(
     directOperation['encryptionSignature'] = operation.encryptionSignature;
   }
 
-  const operationSignature = decodeOptionalIdentifierBytes(
-    operation.operationSignature
-  );
-  if (operationSignature) {
-    directOperation['operationSignature'] = operationSignature;
+  if (
+    operation.operationSignature instanceof Uint8Array &&
+    operation.operationSignature.length > 0
+  ) {
+    directOperation['operationSignature'] = bytesToBase64(
+      operation.operationSignature
+    );
   }
 
   return directOperation;

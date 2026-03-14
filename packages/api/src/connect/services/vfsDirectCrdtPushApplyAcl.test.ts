@@ -1,70 +1,33 @@
-import type { VfsCrdtPushOperation } from '@tearleads/shared';
-import type { QueryResult, QueryResultRow } from 'pg';
+import {
+  generateKeyPair,
+  serializeKeyPair,
+  type VfsCrdtPushOperation
+} from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
-import type { ParsedPushOperation } from './vfsDirectCrdtPushParse.js';
+import {
+  createAuthorizedItemRow,
+  createItemOwnershipRow,
+  createOperation,
+  createParsedOperation,
+  createQueryResult,
+  signAclPushOperation
+} from './vfsDirectCrdtPushApplyTestUtils.js';
 
-function createOperation(
-  overrides: Partial<VfsCrdtPushOperation>
-): VfsCrdtPushOperation {
-  return {
-    opId: 'op-1',
-    opType: 'item_delete',
-    itemId: 'item-1',
-    replicaId: 'desktop',
-    writeId: 1,
-    occurredAt: '2026-02-16T00:00:00.000Z',
-    ...overrides
-  };
-}
-
-function createParsedOperation(
-  operation: VfsCrdtPushOperation
-): ParsedPushOperation {
-  return {
-    status: 'parsed',
-    opId: operation.opId,
-    operation
-  };
-}
-
-function createItemOwnershipRow(
-  overrides: { ownerId?: string; organizationId?: string } = {}
-): {
-  id: string;
-  owner_id: string;
-  organization_id: string;
+function createSignedAclOperation(overrides: Partial<VfsCrdtPushOperation>): {
+  operation: VfsCrdtPushOperation;
+  publicSigningKey: string;
 } {
+  const keyPair = generateKeyPair();
+  const serializedKeyPair = serializeKeyPair(keyPair);
+  const operation = createOperation(overrides);
+  operation.operationSignature = signAclPushOperation(
+    operation,
+    keyPair.ed25519PrivateKey
+  );
   return {
-    id: 'item-1',
-    owner_id: overrides.ownerId ?? 'user-1',
-    organization_id: overrides.organizationId ?? 'org-1'
-  };
-}
-
-function createAuthorizedItemRow(
-  itemId = 'item-1',
-  accessRank = 2
-): {
-  item_id: string;
-  access_rank: number;
-} {
-  return {
-    item_id: itemId,
-    access_rank: accessRank
-  };
-}
-
-function createQueryResult<T extends QueryResultRow>(
-  rows: T[] = [],
-  rowCount?: number
-): QueryResult<T> {
-  return {
-    command: 'SELECT',
-    rowCount: rowCount ?? rows.length,
-    oid: 0,
-    rows,
-    fields: []
+    operation,
+    publicSigningKey: serializedKeyPair.ed25519PublicKey
   };
 }
 
@@ -206,6 +169,12 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
   });
 
   it('allows owner to grant admin access via acl_add', async () => {
+    const { operation, publicSigningKey } = createSignedAclOperation({
+      opType: 'acl_add',
+      principalType: 'user',
+      principalId: 'target-user',
+      accessLevel: 'admin'
+    });
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const queryMock = vi
       .fn()
@@ -214,6 +183,9 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(
+        createQueryResult([{ public_signing_key: publicSigningKey }])
+      )
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(
         createQueryResult(
@@ -227,16 +199,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       client: { query: queryMock },
       userId: 'user-1',
       organizationId: 'org-1',
-      parsedOperations: [
-        createParsedOperation(
-          createOperation({
-            opType: 'acl_add',
-            principalType: 'user',
-            principalId: 'target-user',
-            accessLevel: 'admin'
-          })
-        )
-      ]
+      parsedOperations: [createParsedOperation(operation)]
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
@@ -248,6 +211,12 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
   });
 
   it('allows writer to grant read access via acl_add', async () => {
+    const { operation, publicSigningKey } = createSignedAclOperation({
+      opType: 'acl_add',
+      principalType: 'user',
+      principalId: 'target-user',
+      accessLevel: 'read'
+    });
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const queryMock = vi
       .fn()
@@ -260,6 +229,9 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(
+        createQueryResult([{ public_signing_key: publicSigningKey }])
+      )
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(
         createQueryResult(
@@ -273,16 +245,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       client: { query: queryMock },
       userId: 'user-1',
       organizationId: 'org-1',
-      parsedOperations: [
-        createParsedOperation(
-          createOperation({
-            opType: 'acl_add',
-            principalType: 'user',
-            principalId: 'target-user',
-            accessLevel: 'read'
-          })
-        )
-      ]
+      parsedOperations: [createParsedOperation(operation)]
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);

@@ -80,7 +80,12 @@ describe('vfsDirectCrdtPushParse', () => {
     it('parses valid acl operations', () => {
       const result = parsePushPayload({
         clientId: 'client-1',
-        operations: [buildValidAclAddOperation()]
+        operations: [
+          {
+            ...buildValidAclAddOperation(),
+            operationSignature: 'c2lnbmF0dXJl'
+          }
+        ]
       });
 
       expect(result).toEqual({
@@ -100,7 +105,8 @@ describe('vfsDirectCrdtPushParse', () => {
                 occurredAt: '2026-02-16T00:00:00.000Z',
                 principalType: 'user',
                 principalId: 'user-2',
-                accessLevel: 'read'
+                accessLevel: 'read',
+                operationSignature: 'c2lnbmF0dXJl'
               }
             }
           ]

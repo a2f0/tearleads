@@ -1,7 +1,13 @@
 import { create, toJsonString } from '@bufbuild/protobuf';
-import { VfsGetCrdtSyncResponseSchema } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
+import {
+  VfsCrdtPushOperationSchema,
+  VfsGetCrdtSyncResponseSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { describe, expect, it } from 'vitest';
-import { toProtoCrdtSyncResponse } from './vfsServiceSyncAdapters.js';
+import {
+  toDirectPushRequest,
+  toProtoCrdtSyncResponse
+} from './vfsServiceSyncAdapters.js';
 
 describe('toProtoCrdtSyncResponse', () => {
   it('produces connect-json-serializable byte identifiers', () => {
@@ -32,5 +38,37 @@ describe('toProtoCrdtSyncResponse', () => {
     expect(() =>
       toJsonString(VfsGetCrdtSyncResponseSchema, message)
     ).not.toThrow();
+  });
+});
+
+describe('toDirectPushRequest', () => {
+  it('converts protobuf operation signatures into base64 strings', () => {
+    const operation = create(VfsCrdtPushOperationSchema, {
+      opId: new TextEncoder().encode('op-1'),
+      opType: 1,
+      itemId: new TextEncoder().encode('item-1'),
+      replicaId: new TextEncoder().encode('desktop'),
+      writeId: 1n,
+      occurredAtMs: BigInt(Date.parse('2026-02-16T00:00:00.000Z')),
+      principalType: 1,
+      principalId: new TextEncoder().encode('user-2'),
+      accessLevel: 1,
+      operationSignature: new Uint8Array([1, 2, 3, 4])
+    });
+    const request = {
+      organizationId: new Uint8Array(new Array(16).fill(1)),
+      clientId: new TextEncoder().encode('desktop'),
+      operations: [operation]
+    } satisfies Parameters<typeof toDirectPushRequest>[0];
+
+    const directRequest = toDirectPushRequest(request);
+    const firstOperation = directRequest.operations[0];
+
+    expect(firstOperation).toMatchObject({
+      opId: 'op-1',
+      itemId: 'item-1',
+      replicaId: 'desktop',
+      operationSignature: 'AQIDBA=='
+    });
   });
 });

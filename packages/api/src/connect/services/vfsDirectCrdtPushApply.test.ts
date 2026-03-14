@@ -1,72 +1,14 @@
-import type { VfsCrdtPushOperation } from '@tearleads/shared';
-import type { QueryResult, QueryResultRow } from 'pg';
+import { generateKeyPair, serializeKeyPair } from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
-import type { ParsedPushOperation } from './vfsDirectCrdtPushParse.js';
-
-function createOperation(
-  overrides: Partial<VfsCrdtPushOperation>
-): VfsCrdtPushOperation {
-  return {
-    opId: 'op-1',
-    opType: 'item_delete',
-    itemId: 'item-1',
-    replicaId: 'desktop',
-    writeId: 1,
-    occurredAt: '2026-02-16T00:00:00.000Z',
-    ...overrides
-  };
-}
-
-function createParsedOperation(
-  operation: VfsCrdtPushOperation
-): ParsedPushOperation {
-  return {
-    status: 'parsed',
-    opId: operation.opId,
-    operation
-  };
-}
-
-function createItemOwnershipRow(
-  overrides: { ownerId?: string; organizationId?: string } = {}
-): {
-  id: string;
-  owner_id: string;
-  organization_id: string;
-} {
-  return {
-    id: 'item-1',
-    owner_id: overrides.ownerId ?? 'user-1',
-    organization_id: overrides.organizationId ?? 'org-1'
-  };
-}
-
-function createAuthorizedItemRow(
-  itemId = 'item-1',
-  accessRank = 2
-): {
-  item_id: string;
-  access_rank: number;
-} {
-  return {
-    item_id: itemId,
-    access_rank: accessRank
-  };
-}
-
-function createQueryResult<T extends QueryResultRow>(
-  rows: T[] = [],
-  rowCount?: number
-): QueryResult<T> {
-  return {
-    command: 'SELECT',
-    rowCount: rowCount ?? rows.length,
-    oid: 0,
-    rows,
-    fields: []
-  };
-}
+import {
+  createAuthorizedItemRow,
+  createItemOwnershipRow,
+  createOperation,
+  createParsedOperation,
+  createQueryResult,
+  signAclPushOperation
+} from './vfsDirectCrdtPushApplyTestUtils.js';
 
 describe('vfsDirectCrdtPushApply', () => {
   it('returns invalidOp for entries marked invalid without querying storage', async () => {
@@ -171,6 +113,25 @@ describe('vfsDirectCrdtPushApply', () => {
   });
 
   it('applies writer read grants for new principals and strips extra ACL fields', async () => {
+    const keyPair = generateKeyPair();
+    const serializedKeyPair = serializeKeyPair(keyPair);
+    const signedOperation = createOperation({
+      opType: 'acl_add',
+      principalType: 'user',
+      principalId: 'user-3',
+      accessLevel: 'read',
+      parentId: 'folder-1',
+      childId: 'other-item',
+      encryptedPayload: 'YWJj',
+      keyEpoch: 7,
+      encryptionNonce: 'bm9uY2U=',
+      encryptionAad: 'YWFk',
+      encryptionSignature: 'c2ln'
+    });
+    signedOperation.operationSignature = signAclPushOperation(
+      signedOperation,
+      keyPair.ed25519PrivateKey
+    );
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -180,6 +141,13 @@ describe('vfsDirectCrdtPushApply', () => {
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(
+        createQueryResult([
+          {
+            public_signing_key: serializedKeyPair.ed25519PublicKey
+          }
+        ])
+      )
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(
         createQueryResult(
@@ -205,23 +173,7 @@ describe('vfsDirectCrdtPushApply', () => {
         client: { query: queryMock },
         userId: 'user-1',
         organizationId: 'org-1',
-        parsedOperations: [
-          createParsedOperation(
-            createOperation({
-              opType: 'acl_add',
-              principalType: 'user',
-              principalId: 'user-3',
-              accessLevel: 'read',
-              parentId: 'folder-1',
-              childId: 'other-item',
-              encryptedPayload: 'YWJj',
-              keyEpoch: 7,
-              encryptionNonce: 'bm9uY2U=',
-              encryptionAad: 'YWFk',
-              encryptionSignature: 'c2ln'
-            })
-          )
-        ]
+        parsedOperations: [createParsedOperation(signedOperation)]
       });
 
       expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
@@ -233,7 +185,7 @@ describe('vfsDirectCrdtPushApply', () => {
         }
       ]);
 
-      const insertValues = queryMock.mock.calls[6]?.[1];
+      const insertValues = queryMock.mock.calls[7]?.[1];
       expect(Array.isArray(insertValues)).toBe(true);
       if (!Array.isArray(insertValues)) {
         throw new Error('expected insert values');
@@ -260,6 +212,8 @@ describe('vfsDirectCrdtPushApply', () => {
       expect(insertValues[17]).toBeNull();
       expect(insertValues[18]).toBeNull();
       expect(insertValues[19]).toBeNull();
+      expect(insertValues[20]).toBeNull();
+      expect(insertValues[21]).toBeInstanceOf(Uint8Array);
 
       const auditEvent = JSON.parse(String(consoleInfoSpy.mock.calls[0]?.[0]));
       expect(auditEvent).toMatchObject({
@@ -279,6 +233,49 @@ describe('vfsDirectCrdtPushApply', () => {
       });
     } finally {
       consoleWarnSpy.mockRestore();
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
+  it('rejects ACL operations without an operationSignature', async () => {
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    const queryMock = vi
+      .fn()
+      .mockResolvedValueOnce(createQueryResult([createItemOwnershipRow()]))
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult([]));
+
+    try {
+      const result = await applyCrdtPushOperations({
+        client: { query: queryMock },
+        userId: 'user-1',
+        organizationId: 'org-1',
+        parsedOperations: [
+          createParsedOperation(
+            createOperation({
+              opType: 'acl_add',
+              principalType: 'user',
+              principalId: 'user-3',
+              accessLevel: 'read'
+            })
+          )
+        ]
+      });
+
+      expect(result.results).toEqual([{ opId: 'op-1', status: 'invalidOp' }]);
+      expect(queryMock).toHaveBeenCalledTimes(5);
+      expect(
+        JSON.parse(String(consoleInfoSpy.mock.calls[0]?.[0]))
+      ).toMatchObject({
+        reason: 'acl_signature_missing',
+        status: 'invalidOp'
+      });
+    } finally {
       consoleInfoSpy.mockRestore();
     }
   });
@@ -445,7 +442,8 @@ describe('vfsDirectCrdtPushApply', () => {
     }
 
     expect(insertValues[11]).toBeNull();
-    expect(insertValues[16]).toBeInstanceOf(Uint8Array);
+    expect(insertValues[16]).toBeNull();
+    expect(insertValues[17]).toBeInstanceOf(Uint8Array);
 
     expect(String(queryMock.mock.calls[7]?.[0])).toContain('vfs_item_state');
     expect(String(queryMock.mock.calls[8]?.[0])).toContain(

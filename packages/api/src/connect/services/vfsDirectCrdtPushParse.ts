@@ -154,6 +154,13 @@ function parsePushOperation(
     operation.encryptionSignature = encryptionSignature;
   }
 
+  const operationSignature = normalizeRequiredString(
+    value['operationSignature']
+  );
+  if (operationSignature) {
+    operation.operationSignature = operationSignature;
+  }
+
   if (opType === 'acl_add' || opType === 'acl_remove') {
     const includesPlaintextAclFields =
       Object.hasOwn(value, 'principalType') ||
