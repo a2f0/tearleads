@@ -92,6 +92,11 @@ describe('toCompactOperation', () => {
     );
   });
 
+  it('excludes domain-only occurredAt field', () => {
+    const result = toCompactOperation(baseOperation);
+    expect(result).not.toHaveProperty('occurredAt');
+  });
+
   it('rejects invalid occurredAt timestamp', () => {
     expect(() =>
       toCompactOperation({ ...baseOperation, occurredAt: 'not-a-date' })

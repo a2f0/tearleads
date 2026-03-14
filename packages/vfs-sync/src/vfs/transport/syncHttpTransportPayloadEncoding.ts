@@ -69,8 +69,9 @@ export function toCompactOperation(
     throw new Error('operation occurredAt must be a valid ISO timestamp');
   }
 
+  const { occurredAt: _occurredAt, ...rest } = operation;
   const compact: Record<string, unknown> = {
-    ...operation,
+    ...rest,
     opId: toPackedIdBase64(operation.opId),
     opType: encodeConnectJsonOpType(operation.opType),
     itemId: toPackedIdBase64(operation.itemId),

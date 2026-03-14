@@ -156,4 +156,14 @@ describe('vfsServiceSyncAdapters', () => {
       })
     ).toThrow(/Invalid identifier encoding/);
   });
+
+  it('falls back to empty string when organizationId is omitted', () => {
+    const request = create(VfsPushCrdtOpsRequestSchema, {
+      clientId: new TextEncoder().encode('desktop'),
+      operations: []
+    });
+
+    const result = toDirectPushRequest(request);
+    expect(result.organizationId).toBe('');
+  });
 });

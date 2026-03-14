@@ -175,10 +175,7 @@ export function toDirectPushRequest(request: {
   operations: VfsCrdtPushOperation[];
 }): DirectPushCrdtOpsRequest {
   return {
-    organizationId: decodeRequiredIdentifierBytes(
-      request.organizationId,
-      'organizationId'
-    ),
+    organizationId: decodeOptionalIdentifierBytes(request.organizationId) ?? '',
     clientId: decodeRequiredIdentifierBytes(request.clientId, 'clientId'),
     operations: request.operations.map((operation) =>
       toDirectPushOperation(operation)
@@ -193,10 +190,7 @@ export function toDirectReconcileCrdtRequest(request: {
   lastReconciledWriteIds: Record<string, number>;
 }): DirectReconcileCrdtRequest {
   return {
-    organizationId: decodeRequiredIdentifierBytes(
-      request.organizationId,
-      'organizationId'
-    ),
+    organizationId: decodeOptionalIdentifierBytes(request.organizationId) ?? '',
     clientId: decodeRequiredIdentifierBytes(request.clientId, 'clientId'),
     cursor: request.cursor,
     lastReconciledWriteIds: request.lastReconciledWriteIds
@@ -226,10 +220,7 @@ export function toDirectRunCrdtSessionRequest(request: {
   const rootId = decodeOptionalIdentifierBytes(request.rootId);
 
   return {
-    organizationId: decodeRequiredIdentifierBytes(
-      request.organizationId,
-      'organizationId'
-    ),
+    organizationId: decodeOptionalIdentifierBytes(request.organizationId) ?? '',
     clientId: decodeRequiredIdentifierBytes(request.clientId, 'clientId'),
     cursor: request.cursor,
     limit: request.limit,
