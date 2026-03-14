@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-businesses",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Business identifier utilities and window components for Tearleads",
   "type": "module",
   "main": "dist/index.js",

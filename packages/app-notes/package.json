@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/app-notes",
-  "version": "0.0.71",
+  "version": "0.0.72",
   "description": "Notes management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
