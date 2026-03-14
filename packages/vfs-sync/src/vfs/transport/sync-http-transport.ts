@@ -18,20 +18,16 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
-  encodeBytesToBase64,
-  packUuidToBytes
-} from '../protocol/syncProtobufNormalization.js';
-import {
   parseApiErrorResponse,
   parseApiPullResponse,
   parseApiPushResponse,
   parseApiReconcileResponse
 } from './sync-http-transport-parser.js';
 import {
-  encodeConnectJsonAccessLevel,
-  encodeConnectJsonOpType,
-  encodeConnectJsonPrincipalType
-} from './syncHttpTransportEnumParsing.js';
+  encodeWriteIdRecord,
+  toCompactOperation,
+  toPackedIdBase64
+} from './syncHttpTransportPayloadEncoding.js';
 
 type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
@@ -40,82 +36,6 @@ const JSON_CONTENT_TYPE = 'application/json';
 const ORGANIZATION_HEADER_NAME = 'X-Organization-Id';
 const MAX_ORG_ID_LENGTH = 100;
 const ORG_ID_PATTERN = /^[a-zA-Z0-9-]+$/u;
-
-function toPackedIdBase64(value: string): string {
-  return encodeBytesToBase64(packUuidToBytes(value));
-}
-
-function toConnectJsonUint64(
-  value: number,
-  fieldName: string,
-  minimum: number
-): string {
-  if (
-    !Number.isFinite(value) ||
-    !Number.isInteger(value) ||
-    value < minimum ||
-    value > Number.MAX_SAFE_INTEGER
-  ) {
-    throw new Error(`operation ${fieldName} must be a safe integer`);
-  }
-
-  return String(value);
-}
-
-function encodeWriteIdRecord(
-  value: Record<string, number>
-): Record<string, string> {
-  const encoded: Record<string, string> = {};
-  for (const [replicaId, writeId] of Object.entries(value)) {
-    encoded[replicaId] = toConnectJsonUint64(
-      writeId,
-      'lastReconciledWriteIds',
-      1
-    );
-  }
-  return encoded;
-}
-
-function toCompactOperation(
-  operation: VfsCrdtOperation
-): Record<string, unknown> {
-  const occurredAtMs = Date.parse(operation.occurredAt);
-  if (!Number.isFinite(occurredAtMs)) {
-    throw new Error('operation occurredAt must be a valid ISO timestamp');
-  }
-
-  const compact: Record<string, unknown> = {
-    ...operation,
-    opId: toPackedIdBase64(operation.opId),
-    opType: encodeConnectJsonOpType(operation.opType),
-    itemId: toPackedIdBase64(operation.itemId),
-    replicaId: toPackedIdBase64(operation.replicaId),
-    writeId: toConnectJsonUint64(operation.writeId, 'writeId', 1),
-    occurredAtMs: toConnectJsonUint64(occurredAtMs, 'occurredAt', 0)
-  };
-
-  if (operation.principalType) {
-    compact['principalType'] = encodeConnectJsonPrincipalType(
-      operation.principalType
-    );
-  }
-  if (operation.principalId) {
-    compact['principalId'] = toPackedIdBase64(operation.principalId);
-  }
-  if (operation.accessLevel) {
-    compact['accessLevel'] = encodeConnectJsonAccessLevel(
-      operation.accessLevel
-    );
-  }
-  if (operation.parentId) {
-    compact['parentId'] = toPackedIdBase64(operation.parentId);
-  }
-  if (operation.childId) {
-    compact['childId'] = toPackedIdBase64(operation.childId);
-  }
-
-  return compact;
-}
 
 export interface VfsHttpCrdtSyncTransportOptions {
   baseUrl?: string;

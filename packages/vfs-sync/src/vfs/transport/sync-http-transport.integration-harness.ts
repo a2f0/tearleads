@@ -56,11 +56,13 @@ function toWriteIdRecord(value: unknown): Record<string, number> {
   const output: Record<string, number> = {};
   for (const [key, candidate] of Object.entries(value)) {
     if (
-      typeof candidate === 'string' &&
-      /^[0-9]+$/u.test(candidate) &&
-      Number.isSafeInteger(Number(candidate))
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      Number.isInteger(candidate) &&
+      Number.isSafeInteger(candidate) &&
+      candidate >= 1
     ) {
-      output[key] = Number(candidate);
+      output[key] = candidate;
     }
   }
 
@@ -69,12 +71,8 @@ function toWriteIdRecord(value: unknown): Record<string, number> {
 
 function encodeWriteIdRecord(
   value: Record<string, number>
-): Record<string, string> {
-  const encoded: Record<string, string> = {};
-  for (const [replicaId, writeId] of Object.entries(value)) {
-    encoded[replicaId] = String(writeId);
-  }
-  return encoded;
+): Record<string, number> {
+  return toWriteIdRecord(value);
 }
 
 interface HttpHarnessDelayConfig {
@@ -88,13 +86,13 @@ interface PullPayloadShape {
   items: Array<Record<string, unknown>>;
   hasMore: boolean;
   nextCursor: string | null;
-  lastReconciledWriteIds: Record<string, string>;
+  lastReconciledWriteIds: Record<string, number>;
 }
 
 interface ReconcilePayloadShape {
   clientId: string;
   cursor: string;
-  lastReconciledWriteIds: Record<string, string>;
+  lastReconciledWriteIds: Record<string, number>;
 }
 
 interface ReconcileMutationContext {

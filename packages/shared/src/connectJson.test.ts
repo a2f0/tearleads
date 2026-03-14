@@ -117,7 +117,7 @@ describe('connectJson helpers', () => {
             sourceId: encodeText('source-1'),
             occurredAtMs: String(occurredAtMs),
             encryptedPayload: 'payload',
-            keyEpoch: '3',
+            keyEpoch: 3,
             encryptionNonce: 'nonce',
             encryptionAad: 'aad',
             encryptionSignature: 'sig'
@@ -126,9 +126,9 @@ describe('connectJson helpers', () => {
         nextCursor: 'cursor-2',
         hasMore: false,
         lastReconciledWriteIds: {
-          desktop: '4',
-          mobile: '0',
-          '  ': '2'
+          desktop: 4,
+          mobile: 0,
+          '  ': 2
         }
       })
     ).toEqual({

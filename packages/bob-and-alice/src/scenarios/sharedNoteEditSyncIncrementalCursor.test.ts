@@ -203,7 +203,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
 
     let staleCursor: VfsSyncCursor | null = null;
     let staleItem: Record<string, unknown> | null = null;
-    let staleLastWriteIds: Record<string, number> = {};
+    let staleLastWriteIdsPayload: Record<string, unknown> | null = null;
     let staleReplayCount = 0;
     const injectStaleReplay: ApiActorFetchInterceptor = async ({
       path,
@@ -214,6 +214,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
         !path.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`) ||
         !staleCursor ||
         !staleItem ||
+        !staleLastWriteIdsPayload ||
         staleReplayCount > 0
       ) {
         return proceed();
@@ -231,7 +232,7 @@ describe('shared note edit sync incremental cursor guardrail', () => {
           items: [staleItem],
           hasMore: false,
           nextCursor: null,
-          lastReconciledWriteIds: staleLastWriteIds
+          lastReconciledWriteIds: staleLastWriteIdsPayload
         }),
         {
           status: 200,
@@ -259,7 +260,6 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     if (!staleCursor) {
       throw new Error('expected Bob cursor after seed sync');
     }
-    staleLastWriteIds = bobSyncClient.snapshot().lastReconciledWriteIds;
 
     const stalePage = await fetchRawCrdtSyncPage({
       actor: bob,
@@ -271,6 +271,13 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     if (!Array.isArray(stalePageItems)) {
       throw new Error('expected GetCrdtSync to return an items array');
     }
+    const rawStaleLastWriteIds = stalePage['lastReconciledWriteIds'];
+    if (!isRecord(rawStaleLastWriteIds)) {
+      throw new Error(
+        'expected GetCrdtSync to return a lastReconciledWriteIds object'
+      );
+    }
+    staleLastWriteIdsPayload = rawStaleLastWriteIds;
     const normalizedStalePage = normalizeVfsCrdtSyncConnectPayload(stalePage);
     const staleItemIndex = normalizedStalePage.items.findIndex(
       (item) => item.opId === staleCursor.changeId

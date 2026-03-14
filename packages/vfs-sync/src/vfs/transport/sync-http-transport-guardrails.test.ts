@@ -116,7 +116,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
             hasMore: false,
             // zero is invalid for reconcile write ids
             lastReconciledWriteIds: {
-              desktop: '0'
+              desktop: 0
             }
           }),
           {

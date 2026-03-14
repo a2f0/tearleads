@@ -25,6 +25,27 @@ interface ConnectJsonApiActor {
   fetchJson<T = unknown>(path: string, init?: RequestInit): Promise<T>;
 }
 
+function hasActorOrganizationId(
+  value: unknown
+): value is { user: { organizationId: string } } {
+  return (
+    isPlainRecord(value) &&
+    isPlainRecord(value['user']) &&
+    typeof value['user']['organizationId'] === 'string'
+  );
+}
+
+function resolveActorOrganizationId(
+  actor: ConnectJsonApiActor
+): string | undefined {
+  if (!hasActorOrganizationId(actor)) {
+    return undefined;
+  }
+
+  const organizationId = actor.user.organizationId.trim();
+  return organizationId.length > 0 ? organizationId : undefined;
+}
+
 function packIdentifierToBytes(value: string): Uint8Array {
   const hex = value.replace(/-/gu, '');
   if (hex.length === 32 && /^[0-9a-fA-F]{32}$/u.test(hex)) {
@@ -282,7 +303,13 @@ export async function fetchVfsConnectJson(input: {
     if (!isVfsCrdtPushRequest(input.requestBody)) {
       throw new Error('transport received invalid push request payload');
     }
-    requestBody = encodePushRequest(input.requestBody);
+    const organizationId =
+      input.requestBody.organizationId ??
+      resolveActorOrganizationId(input.actor);
+    requestBody = encodePushRequest({
+      ...input.requestBody,
+      ...(organizationId !== undefined ? { organizationId } : {})
+    });
   } else {
     requestBody = isPlainRecord(input.requestBody) ? input.requestBody : {};
   }

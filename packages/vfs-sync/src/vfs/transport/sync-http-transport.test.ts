@@ -159,8 +159,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
           nextCursor,
           hasMore: true,
           lastReconciledWriteIds: {
-            desktop: '2',
-            mobile: '5'
+            desktop: 2,
+            mobile: 5
           }
         }),
         {
@@ -240,8 +240,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
             changeId: CURSOR_CHANGE_ID_5
           }),
           lastReconciledWriteIds: {
-            desktop: '5',
-            mobile: '3'
+            desktop: 5,
+            mobile: 3
           }
         }),
         {
@@ -303,7 +303,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         changeId: CURSOR_CHANGE_ID_4
       })
     );
-    expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: '4' });
+    expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
   });
 
   it('runs unified sync session over Connect and parses typed results', async () => {
@@ -342,7 +342,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
                 changeId: CURSOR_CHANGE_ID_7
               }),
               hasMore: false,
-              lastReconciledWriteIds: { desktop: '7' }
+              lastReconciledWriteIds: { desktop: 7 }
             },
             reconcile: {
               clientId: encodeUtf8ToBase64('desktop'),
@@ -350,7 +350,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
                 changedAt: '2026-02-14T20:10:07.000Z',
                 changeId: CURSOR_CHANGE_ID_7
               }),
-              lastReconciledWriteIds: { desktop: '7' }
+              lastReconciledWriteIds: { desktop: 7 }
             }
           }),
           {

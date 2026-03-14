@@ -147,7 +147,6 @@ describe('vfsServiceSyncAdapters', () => {
       rootId: ''
     });
   });
-
   it('rejects malformed sync identifier bytes', () => {
     expect(() =>
       toDirectGetSyncRequest({

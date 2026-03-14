@@ -73,25 +73,11 @@ function readNonEmptyString(value: unknown): string | null {
 }
 
 function readSafeInteger(value: unknown): number | null {
-  if (
-    typeof value === 'number' &&
+  return typeof value === 'number' &&
     Number.isInteger(value) &&
     Number.isSafeInteger(value)
-  ) {
-    return value;
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!/^-?\d+$/u.test(trimmed)) {
-    return null;
-  }
-
-  const parsed = Number(trimmed);
-  return Number.isSafeInteger(parsed) ? parsed : null;
+    ? value
+    : null;
 }
 
 function readSafeIntegerString(value: unknown): number | null {
@@ -350,7 +336,7 @@ function normalizeLastReconciledWriteIds(
   const normalized: Record<string, number> = {};
   for (const [replicaId, writeId] of Object.entries(value)) {
     const trimmedReplicaId = replicaId.trim();
-    const normalizedWriteId = readSafeIntegerString(writeId);
+    const normalizedWriteId = readSafeInteger(writeId);
     if (
       trimmedReplicaId.length === 0 ||
       normalizedWriteId === null ||

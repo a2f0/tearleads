@@ -177,13 +177,19 @@ function parseLastReconciledWriteIds(value: unknown): Record<string, number> {
 
   const normalized: Record<string, number> = {};
   for (const [replicaId, rawWriteId] of Object.entries(value)) {
-    if (typeof rawWriteId !== 'string' || !/^[0-9]+$/u.test(rawWriteId)) {
+    if (
+      typeof rawWriteId !== 'number' ||
+      !Number.isFinite(rawWriteId) ||
+      !Number.isInteger(rawWriteId) ||
+      !Number.isSafeInteger(rawWriteId) ||
+      rawWriteId < 1
+    ) {
       throw new Error(
         'lastReconciledWriteIds contains invalid writeId (must be a positive integer)'
       );
     }
 
-    normalized[replicaId] = Number(rawWriteId);
+    normalized[replicaId] = rawWriteId;
   }
 
   const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(normalized);

@@ -53,7 +53,7 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
         items: [createEncryptedItem(Number.MAX_SAFE_INTEGER + 1)],
         nextCursor: null,
         hasMore: false,
-        lastReconciledWriteIds: { 'client-1': '1' }
+        lastReconciledWriteIds: { 'client-1': 1 }
       })
     ).toThrow(/invalid encrypted envelope at items\[0\]/);
   });
@@ -63,7 +63,7 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
       items: [createEncryptedItem(3)],
       nextCursor: null,
       hasMore: false,
-      lastReconciledWriteIds: { 'client-1': '1' }
+      lastReconciledWriteIds: { 'client-1': 1 }
     });
 
     expect(response.items[0]?.keyEpoch).toBe(3);
@@ -261,7 +261,7 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     const response = parseApiReconcileResponse({
       clientId: encodeUtf8ToBase64('desktop'),
       cursor,
-      lastReconciledWriteIds: { desktop: '5' }
+      lastReconciledWriteIds: { desktop: 5 }
     });
 
     expect(response).toEqual({
@@ -269,5 +269,20 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
       cursor,
       lastReconciledWriteIds: { desktop: 5 }
     });
+  });
+
+  it('rejects legacy stringified reconcile write ids', () => {
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T20:10:05.000Z',
+      changeId: '00000000-0000-0000-0000-000000000005'
+    });
+
+    expect(() =>
+      parseApiReconcileResponse({
+        clientId: encodeUtf8ToBase64('desktop'),
+        cursor,
+        lastReconciledWriteIds: { desktop: '5' }
+      })
+    ).toThrow(/invalid writeId/);
   });
 });
