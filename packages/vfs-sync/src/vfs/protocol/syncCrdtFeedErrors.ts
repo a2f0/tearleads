@@ -7,9 +7,6 @@ export type VfsCrdtFeedOrderViolationCode =
   | 'invalidEncryptedEnvelope';
 
 export class VfsCrdtFeedOrderViolationError extends Error {
-  readonly code: VfsCrdtFeedOrderViolationCode;
-  readonly rowIndex: number;
-
   constructor(
     code: VfsCrdtFeedOrderViolationCode,
     rowIndex: number,
@@ -17,7 +14,19 @@ export class VfsCrdtFeedOrderViolationError extends Error {
   ) {
     super(message);
     this.name = 'VfsCrdtFeedOrderViolationError';
-    this.code = code;
-    this.rowIndex = rowIndex;
+    Object.defineProperties(this, {
+      code: {
+        value: code,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      },
+      rowIndex: {
+        value: rowIndex,
+        enumerable: true,
+        configurable: false,
+        writable: false
+      }
+    });
   }
 }

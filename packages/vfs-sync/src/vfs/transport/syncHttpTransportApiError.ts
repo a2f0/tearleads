@@ -1,4 +1,4 @@
-export interface ParsedApiErrorResponse {
+interface ParsedApiErrorResponse {
   message: string;
   code: string | null;
   requestedCursor: string | null;

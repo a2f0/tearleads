@@ -16,10 +16,7 @@ import {
   normalizeReconcileResponseRecord,
   normalizeSyncItemRecord
 } from './syncHttpTransportCompactNormalization.js';
-export {
-  parseApiErrorResponse,
-  type ParsedApiErrorResponse
-} from './syncHttpTransportApiError.js';
+export { parseApiErrorResponse } from './syncHttpTransportApiError.js';
 
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
