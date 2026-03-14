@@ -123,7 +123,13 @@ describe('vfsCrdtSnapshots', () => {
     const result = await refreshVfsCrdtSnapshot({ query });
 
     expect(result.containerClocks).toBe(1);
-    expect(String(query.mock.calls[3]?.[0])).toContain('link_reassign');
+    expect(
+      String(
+        query.mock.calls.find((call) =>
+          String(call[0]).includes('latest_per_container')
+        )?.[0]
+      )
+    ).toContain('link_reassign');
   });
 
   it('loads rematerialization snapshot filtered to visible items', async () => {
