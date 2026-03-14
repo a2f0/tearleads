@@ -11,6 +11,7 @@ import { v004 } from './v004.js';
 import { v005 } from './v005.js';
 import { v006 } from './v006.js';
 import { v007 } from './v007.js';
+import { v008 } from './v008.js';
 
 /**
  * Migration list.
@@ -24,7 +25,8 @@ export const migrations: Migration[] = [
   v004,
   v005,
   v006,
-  v007
+  v007,
+  v008
 ];
 
 /**

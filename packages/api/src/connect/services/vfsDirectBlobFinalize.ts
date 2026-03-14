@@ -326,6 +326,9 @@ export async function commitBlobDirect(
       mergedCiphertext.set(chunk, offset);
       offset += chunk.byteLength;
     }
+    const blobSha256 = createHash('sha256')
+      .update(mergedCiphertext)
+      .digest('base64');
 
     await persistVfsBlobData({
       blobId,
@@ -333,6 +336,30 @@ export async function commitBlobDirect(
     });
 
     const manifestPool = await getPostgresPool();
+    await manifestPool.query(
+      `
+      INSERT INTO vfs_blob_objects (
+        id,
+        sha256,
+        size_bytes,
+        storage_key,
+        created_by,
+        created_at
+      ) VALUES (
+        $1::uuid,
+        $2::text,
+        $3::integer,
+        $4::text,
+        $5::uuid,
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        sha256 = EXCLUDED.sha256,
+        size_bytes = EXCLUDED.size_bytes,
+        storage_key = EXCLUDED.storage_key
+      `,
+      [blobId, blobSha256, totalCiphertextBytes, blobId, claims.sub]
+    );
     await manifestPool.query(
       `
       INSERT INTO vfs_blob_manifests (
