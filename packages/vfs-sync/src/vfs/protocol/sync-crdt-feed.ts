@@ -5,13 +5,14 @@ import type {
   VfsCrdtSyncItem,
   VfsCrdtSyncResponse
 } from '@tearleads/shared';
-import { VfsCrdtFeedOrderViolationError } from './syncCrdtFeedErrors.js';
 import { VFS_CRDT_SYNC_SQL } from './sync-crdt-feed-sql.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
 } from './sync-cursor.js';
+import { VfsCrdtFeedOrderViolationError } from './syncCrdtFeedErrors.js';
+
 export {
   type VfsCrdtFeedOrderViolationCode,
   VfsCrdtFeedOrderViolationError
