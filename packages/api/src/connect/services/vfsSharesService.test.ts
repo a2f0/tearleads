@@ -139,6 +139,7 @@ describe('vfsSharesConnectService', () => {
         rows: [
           {
             acl_id: 'org-share:org-1:share-2',
+            source_org_id: 'org-1',
             target_org_id: 'org-2',
             item_id: 'item-1',
             access_level: 'read',

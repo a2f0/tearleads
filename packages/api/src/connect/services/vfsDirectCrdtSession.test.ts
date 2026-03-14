@@ -40,6 +40,8 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { runCrdtSessionDirect } from './vfsDirectCrdtSession.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_2 = '00000000-0000-0000-0000-000000000002';
 
 const REQUEST_CONTEXT = {
   requestHeader: new Headers()
@@ -133,7 +135,7 @@ describe('vfsDirectCrdtSession', () => {
         rows: [
           {
             last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
-            last_reconciled_change_id: 'change-2',
+            last_reconciled_change_id: CHANGE_ID_2,
             last_reconciled_write_ids: {}
           }
         ]
@@ -197,7 +199,7 @@ describe('vfsDirectCrdtSession', () => {
   it('rejects session payloads with invalid limit values', async () => {
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -216,7 +218,7 @@ describe('vfsDirectCrdtSession', () => {
   it('rejects session payloads with invalid lastReconciledWriteIds', async () => {
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -246,7 +248,7 @@ describe('vfsDirectCrdtSession', () => {
         {
           containerId: 'item-1',
           changedAt: '2026-03-03T00:00:00.000Z',
-          changeId: 'change-1'
+          changeId: CHANGE_ID_1
         }
       ],
       queryMetrics: {
@@ -258,7 +260,7 @@ describe('vfsDirectCrdtSession', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     const response = await runSession({
@@ -292,7 +294,7 @@ describe('vfsDirectCrdtSession', () => {
     expect(publishVfsContainerCursorBumpMock).toHaveBeenCalledWith({
       containerId: 'item-1',
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1',
+      changeId: CHANGE_ID_1,
       actorId: 'user-1',
       sourceClientId: 'desktop-1'
     });
@@ -311,7 +313,7 @@ describe('vfsDirectCrdtSession', () => {
         clientId: 'desktop-1',
         cursor: encodeVfsSyncCursor({
           changedAt: '2026-03-03T00:00:00.000Z',
-          changeId: 'change-2'
+          changeId: CHANGE_ID_2
         }),
         lastReconciledWriteIds: {}
       },
@@ -332,7 +334,7 @@ describe('vfsDirectCrdtSession', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -355,7 +357,7 @@ describe('vfsDirectCrdtSession', () => {
   it('accepts non-string rootId values', async () => {
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -390,7 +392,7 @@ describe('vfsDirectCrdtSession', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -413,7 +415,7 @@ describe('vfsDirectCrdtSession', () => {
         {
           containerId: 'item-1',
           changedAt: '2026-03-03T00:00:00.000Z',
-          changeId: 'change-1'
+          changeId: CHANGE_ID_1
         }
       ],
       queryMetrics: {
@@ -428,7 +430,7 @@ describe('vfsDirectCrdtSession', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -459,7 +461,7 @@ describe('vfsDirectCrdtSession', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(

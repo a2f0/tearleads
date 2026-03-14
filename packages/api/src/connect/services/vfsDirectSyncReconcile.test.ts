@@ -21,6 +21,8 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { getCrdtSnapshotDirect, reconcileSyncDirect } from './vfsDirectSync.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_2 = '00000000-0000-0000-0000-000000000002';
 
 describe('vfsDirectSync reconcile & snapshots', () => {
   beforeEach(() => {
@@ -119,7 +121,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
           clientId: 'bad:client',
           cursor: encodeVfsSyncCursor({
             changedAt: '2026-03-03T00:00:00.000Z',
-            changeId: 'change-1'
+            changeId: CHANGE_ID_1
           })
         },
         { requestHeader: new Headers() }
@@ -138,7 +140,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
           clientId: 'client-1',
           cursor: encodeVfsSyncCursor({
             changedAt: '2026-03-03T00:00:00.000Z',
-            changeId: 'change-1'
+            changeId: CHANGE_ID_1
           })
         },
         { requestHeader: new Headers() }
@@ -151,14 +153,14 @@ describe('vfsDirectSync reconcile & snapshots', () => {
       rows: [
         {
           last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
-          last_reconciled_change_id: 'change-2'
+          last_reconciled_change_id: CHANGE_ID_2
         }
       ]
     });
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     const response = await reconcileSyncDirect(
@@ -170,7 +172,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
       clientId: 'client-1',
       cursor: encodeVfsSyncCursor({
         changedAt: '2026-03-03T00:00:00.000Z',
-        changeId: 'change-2'
+        changeId: CHANGE_ID_2
       })
     });
   });
@@ -182,7 +184,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -200,7 +202,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -216,7 +218,7 @@ describe('vfsDirectSync reconcile & snapshots', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -239,14 +241,14 @@ describe('vfsDirectSync reconcile & snapshots', () => {
       rows: [
         {
           last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
-          last_reconciled_change_id: 'change-2'
+          last_reconciled_change_id: CHANGE_ID_2
         }
       ]
     });
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await reconcileSyncDirect(
