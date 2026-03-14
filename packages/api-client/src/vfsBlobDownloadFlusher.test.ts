@@ -4,8 +4,8 @@ import type {
   GetBlobManifestClientResponse
 } from './apiRoutes/vfsRoutes';
 import {
-  VfsBlobDownloadFlusher,
-  createVfsBlobDownloadFlusher
+  createVfsBlobDownloadFlusher,
+  type VfsBlobDownloadFlusher
 } from './vfsBlobDownloadFlusher';
 import type {
   VfsBlobDownloadFlusherPersistedState,
