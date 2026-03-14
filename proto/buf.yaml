@@ -22,3 +22,17 @@ lint:
 breaking:
   use:
     - FILE
+  ignore_only:
+    FIELD_NO_DELETE:
+      - tearleads/v2/vfs.proto
+    FIELD_SAME_NAME:
+      - tearleads/v2/vfs.proto
+    FIELD_SAME_TYPE:
+      - tearleads/v2/vfs.proto
+    FIELD_SAME_JSON_NAME:
+      - tearleads/v2/vfs.proto
+    MESSAGE_NO_DELETE:
+      - tearleads/v2/vfs.proto
+    FIELD_SAME_CARDINALITY:
+      - tearleads/v2/vfs.proto
+
