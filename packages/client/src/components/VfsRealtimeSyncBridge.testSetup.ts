@@ -7,10 +7,10 @@ export const mockLogInfo = vi.fn();
 export const mockLogWarn = vi.fn();
 export const mockGetActiveOrganizationId = vi.fn();
 export const mockGetInstanceChangeSnapshot = vi.fn();
-export const mockBlobDownloadSyncHydrateFromPersistence = vi.fn();
-export const mockBlobDownloadSyncReset = vi.fn();
+const mockBlobDownloadSyncHydrateFromPersistence = vi.fn();
+const mockBlobDownloadSyncReset = vi.fn();
 export const mockBlobDownloadSyncRun = vi.fn();
-export const mockCreateVfsBlobDownloadSync = vi.fn((_input: unknown) => ({
+const mockCreateVfsBlobDownloadSync = vi.fn((_input: unknown) => ({
   hydrateFromPersistence: (...args: unknown[]) =>
     mockBlobDownloadSyncHydrateFromPersistence(...args),
   reset: (...args: unknown[]) => mockBlobDownloadSyncReset(...args),

@@ -51,11 +51,11 @@ export function resetVfsBlobDownloadOperations(): void {
   setVfsBlobDownloadOperations([]);
 }
 
-export function getVfsBlobDownloadOperationsSnapshot(): readonly VfsBlobDownloadOperation[] {
+function getVfsBlobDownloadOperationsSnapshot(): readonly VfsBlobDownloadOperation[] {
   return snapshot;
 }
 
-export function subscribeToVfsBlobDownloadOperations(
+function subscribeToVfsBlobDownloadOperations(
   listener: () => void
 ): () => void {
   listeners.add(listener);
