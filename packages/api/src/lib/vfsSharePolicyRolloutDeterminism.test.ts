@@ -24,8 +24,8 @@ function activePolicy(id: string, rootItemId: string): SharePolicyDefinition {
 describe('share policy rollout determinism', () => {
   it('produces deterministic core decisions across unsorted inputs', () => {
     const policies: SharePolicyDefinition[] = [
-      activePolicy('policy-z', 'contact-root'),
-      activePolicy('policy-a', 'playlist-root')
+      activePolicy('policy-z', 'contact-group-root'),
+      activePolicy('policy-a', 'album-root')
     ];
     const selectors: SharePolicySelectorDefinition[] = [
       {
@@ -79,14 +79,14 @@ describe('share policy rollout determinism', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'contact-root', objectType: 'contact' },
-      { id: 'playlist-root', objectType: 'playlist' },
+      { id: 'contact-group-root', objectType: 'contactGroup' },
+      { id: 'album-root', objectType: 'album' },
       { id: 'workout-1', objectType: 'healthWorkoutEntry' },
       { id: 'wallet-1', objectType: 'walletItem' }
     ];
     const links: LinkEdge[] = [
-      { parentId: 'contact-root', childId: 'wallet-1' },
-      { parentId: 'contact-root', childId: 'workout-1' }
+      { parentId: 'contact-group-root', childId: 'wallet-1' },
+      { parentId: 'contact-group-root', childId: 'workout-1' }
     ];
 
     const firstRun = compileSharePolicyCore({
@@ -109,7 +109,7 @@ describe('share policy rollout determinism', () => {
     expect(secondRun).toEqual(firstRun);
     expect(firstRun.decisions).toEqual([
       {
-        itemId: 'playlist-root',
+        itemId: 'album-root',
         principalType: 'user',
         principalId: 'alice',
         decision: 'allow',
@@ -182,7 +182,7 @@ describe('share policy rollout determinism', () => {
           rows: [
             {
               id: 'policy-a',
-              root_item_id: 'contact-root',
+              root_item_id: 'contact-group-root',
               status: 'active',
               revoked_at: null,
               expires_at: null
@@ -223,14 +223,16 @@ describe('share policy rollout determinism', () => {
       if (text.includes('FROM vfs_registry')) {
         return {
           rows: [
-            { id: 'contact-root', object_type: 'contact' },
+            { id: 'contact-group-root', object_type: 'contactGroup' },
             { id: 'wallet-1', object_type: 'walletItem' }
           ] as T[]
         };
       }
       if (text.includes('FROM vfs_links')) {
         return {
-          rows: [{ parent_id: 'contact-root', child_id: 'wallet-1' }] as T[]
+          rows: [
+            { parent_id: 'contact-group-root', child_id: 'wallet-1' }
+          ] as T[]
         };
       }
       if (text.includes('INSERT INTO vfs_acl_entries')) {

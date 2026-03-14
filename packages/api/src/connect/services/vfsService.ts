@@ -6,22 +6,8 @@ import type {
 } from '@tearleads/shared';
 import { isRecord } from '@tearleads/shared';
 import type {
-  VfsAbandonBlobRequest,
-  VfsAttachBlobRequest,
-  VfsDeleteBlobRequest,
-  VfsGetBlobRequest,
-  VfsGetCrdtSnapshotRequest,
-  VfsGetCrdtSyncRequest,
-  VfsGetMyKeysRequest,
-  VfsGetSyncRequest,
-  VfsPushCrdtOpsRequest,
-  VfsReconcileCrdtRequest,
-  VfsReconcileSyncRequest,
   VfsRegisterRequest as VfsRegisterRpcRequest,
-  VfsRekeyItemRequest as VfsRekeyItemRpcRequest,
-  VfsRunCrdtSessionRequest,
-  VfsStageBlobRequest,
-  VfsUploadBlobChunkRequest
+  VfsRekeyItemRequest as VfsRekeyItemRpcRequest
 } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 import {
@@ -63,24 +49,6 @@ import {
   getSyncDirect,
   reconcileSyncDirect
 } from './vfsDirectSync.js';
-import {
-  type DirectGetSyncRequest,
-  type DirectPushCrdtOpsRequest,
-  type DirectReconcileCrdtRequest,
-  type DirectReconcileSyncRequest,
-  type DirectRunCrdtSessionRequest,
-  encodeIdentifierBytes,
-  toDirectGetCrdtSyncRequest,
-  toDirectGetSyncRequest,
-  toDirectPushRequest,
-  toDirectReconcileCrdtRequest,
-  toDirectReconcileSyncRequest,
-  toDirectRunCrdtSessionRequest,
-  toProtoCrdtSyncResponse,
-  toProtoPushResponse,
-  toProtoReconcileResponse,
-  toProtoSyncResponse
-} from './vfsServiceSyncAdapters.js';
 
 type BlobIdRequest = { blobId: string };
 type RegisterPayloadRequest = {
@@ -89,7 +57,43 @@ type RegisterPayloadRequest = {
   encryptedSessionKey: string;
   encryptedName?: string;
 };
+type GetSyncRequest = {
+  cursor: string;
+  limit: number;
+  rootId: string;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+};
 type GetCrdtSnapshotRequest = { clientId: string };
+type ReconcileSyncRequest = { clientId: string; cursor: string };
+type ReconcileCrdtRequest = {
+  organizationId: string;
+  clientId: string;
+  cursor: string;
+  lastReconciledWriteIds: Record<string, number>;
+};
+type PushCrdtOpsRequest = {
+  organizationId: string;
+  clientId: string;
+  operations: unknown[];
+};
+type RunCrdtSessionRequest = {
+  organizationId: string;
+  clientId: string;
+  cursor: string;
+  limit: number;
+  operations: unknown[];
+  lastReconciledWriteIds: Record<string, number>;
+  rootId?: string | null;
+  bloomFilter?: {
+    data: string;
+    capacity: number;
+    errorRate: number;
+  } | null;
+};
 type GetEmailsRequest = { offset: number; limit: number };
 type EmailIdRequest = { id: string };
 type RegisterServiceRequest = VfsRegisterRpcRequest | RegisterPayloadRequest;
@@ -102,7 +106,7 @@ type RekeyItemPayloadRequest = {
 type RekeyItemDirectRequest = { itemId: string } & VfsRekeyRequest;
 type RekeyItemServiceRequest = VfsRekeyItemRpcRequest | RekeyItemPayloadRequest;
 
-function normalizeRequiredString(value: unknown): string | null {
+export function normalizeRequiredString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
@@ -111,7 +115,7 @@ function normalizeRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function parseRegisterDirectRequest(
+export function parseRegisterDirectRequest(
   request: RegisterServiceRequest
 ): VfsRegisterRequest {
   const payload = parseRegisterPayload(request);
@@ -125,8 +129,8 @@ function parseRegisterDirectRequest(
   return payload;
 }
 
-function parseRekeyItemDirectRequest(
-  request: RekeyItemServiceRequest
+export function parseRekeyItemDirectRequest(
+  request: unknown
 ): RekeyItemDirectRequest {
   if (!isRecord(request)) {
     throw new ConnectError(
@@ -150,7 +154,9 @@ function parseRekeyItemDirectRequest(
   };
 }
 
-function parseSetupKeysDirectRequest(request: unknown): VfsKeySetupRequest {
+export function parseSetupKeysDirectRequest(
+  request: unknown
+): VfsKeySetupRequest {
   const payload = parseKeySetupPayload(request);
   if (!payload) {
     throw new ConnectError(
@@ -204,27 +210,27 @@ export const vfsConnectService = {
     context: { requestHeader: Headers }
   ) => rekeyItemDirect(parseRekeyItemDirectRequest(request), context),
   pushCrdtOps: async (
-    request: DirectPushCrdtOpsRequest,
+    request: PushCrdtOpsRequest,
     context: { requestHeader: Headers }
   ) => pushCrdtOpsDirect(request, context),
   reconcileCrdt: async (
-    request: DirectReconcileCrdtRequest,
+    request: ReconcileCrdtRequest,
     context: { requestHeader: Headers }
   ) => reconcileCrdtDirect(request, context),
   reconcileSync: async (
-    request: DirectReconcileSyncRequest,
+    request: ReconcileSyncRequest,
     context: { requestHeader: Headers }
   ) => reconcileSyncDirect(request, context),
   runCrdtSession: async (
-    request: DirectRunCrdtSessionRequest,
+    request: RunCrdtSessionRequest,
     context: { requestHeader: Headers }
   ) => runCrdtSessionDirect(request, context),
   getSync: async (
-    request: DirectGetSyncRequest,
+    request: GetSyncRequest,
     context: { requestHeader: Headers }
   ) => getSyncDirect(request, context),
   getCrdtSync: async (
-    request: DirectGetSyncRequest,
+    request: GetSyncRequest,
     context: { requestHeader: Headers }
   ) => getCrdtSyncDirect(request, context),
   getCrdtSnapshot: async (
@@ -247,99 +253,4 @@ export const vfsConnectService = {
     request: SendRequestPayload,
     context: { requestHeader: Headers }
   ) => sendEmailDirect(request, context)
-};
-
-export const vfsConnectRouterService = {
-  getMyKeys: async (
-    _request: VfsGetMyKeysRequest,
-    context: { requestHeader: Headers }
-  ) => {
-    const keys = await getMyKeysDirect({}, context);
-    return {
-      publicKeyIds: [keys.publicEncryptionKey, keys.publicSigningKey].filter(
-        (keyId) => keyId.trim().length > 0
-      )
-    };
-  },
-  register: async (
-    request: VfsRegisterRpcRequest,
-    context: { requestHeader: Headers }
-  ) => registerDirect(parseRegisterDirectRequest(request), context),
-  getBlob: async (
-    request: VfsGetBlobRequest,
-    context: { requestHeader: Headers }
-  ) => getBlobDirect(request, context),
-  deleteBlob: async (
-    request: VfsDeleteBlobRequest,
-    context: { requestHeader: Headers }
-  ) => deleteBlobDirect(request, context),
-  stageBlob: async (
-    request: VfsStageBlobRequest,
-    context: { requestHeader: Headers }
-  ) => stageBlobDirect(request, context),
-  uploadBlobChunk: async (
-    request: VfsUploadBlobChunkRequest,
-    context: { requestHeader: Headers }
-  ) => uploadBlobChunkDirect(request, context),
-  attachBlob: async (
-    request: VfsAttachBlobRequest,
-    context: { requestHeader: Headers }
-  ) => attachBlobDirect(request, context),
-  abandonBlob: async (
-    request: VfsAbandonBlobRequest,
-    context: { requestHeader: Headers }
-  ) => abandonBlobDirect(request, context),
-  pushCrdtOps: async (
-    request: VfsPushCrdtOpsRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    toProtoPushResponse(
-      await pushCrdtOpsDirect(toDirectPushRequest(request), context)
-    ),
-  reconcileCrdt: async (
-    request: VfsReconcileCrdtRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    toProtoReconcileResponse(
-      await reconcileCrdtDirect(toDirectReconcileCrdtRequest(request), context)
-    ),
-  reconcileSync: async (
-    request: VfsReconcileSyncRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    reconcileSyncDirect(toDirectReconcileSyncRequest(request), context).then(
-      (response) => ({
-        clientId: encodeIdentifierBytes(response.clientId),
-        cursor: response.cursor
-      })
-    ),
-  runCrdtSession: async (
-    request: VfsRunCrdtSessionRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    runCrdtSessionDirect(toDirectRunCrdtSessionRequest(request), context).then(
-      (response) => ({
-        push: toProtoPushResponse(response.push),
-        pull: toProtoCrdtSyncResponse(response.pull),
-        reconcile: toProtoReconcileResponse(response.reconcile)
-      })
-    ),
-  getSync: async (
-    request: VfsGetSyncRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    getSyncDirect(toDirectGetSyncRequest(request), context).then((response) =>
-      toProtoSyncResponse(response)
-    ),
-  getCrdtSync: async (
-    request: VfsGetCrdtSyncRequest,
-    context: { requestHeader: Headers }
-  ) =>
-    getCrdtSyncDirect(toDirectGetCrdtSyncRequest(request), context).then(
-      (response) => toProtoCrdtSyncResponse(response)
-    ),
-  getCrdtSnapshot: async (
-    request: VfsGetCrdtSnapshotRequest,
-    context: { requestHeader: Headers }
-  ) => getCrdtSnapshotDirect(request, context)
 };

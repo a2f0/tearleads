@@ -11,7 +11,7 @@ describe('share policy rollout performance budgets', () => {
   it('keeps core compile within budget for large single-root fanout', () => {
     const descendantCount = 6_000;
     const registryItems = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       ...Array.from({ length: descendantCount }, (_, index) => ({
         id: `item-${index.toString().padStart(5, '0')}`,
         objectType: index % 2 === 0 ? 'walletItem' : 'healthWorkoutEntry'

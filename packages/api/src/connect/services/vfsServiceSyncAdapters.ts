@@ -323,25 +323,25 @@ export function toProtoSyncResponse(response: VfsSyncProtoResponse) {
 export function toProtoCrdtSyncResponse(response: VfsCrdtSyncProtoResponse) {
   return {
     items: response.items.map((item) => ({
-      opId: encodeIdentifierBytes(item.opId),
-      itemId: encodeIdentifierBytes(item.itemId),
+      opId: new Uint8Array(encodeIdentifierBytes(item.opId)),
+      itemId: new Uint8Array(encodeIdentifierBytes(item.itemId)),
       opType: toProtoOpType(item.opType),
       principalType: toProtoPrincipalType(item.principalType),
       principalId: item.principalId
-        ? encodeIdentifierBytes(item.principalId)
+        ? new Uint8Array(encodeIdentifierBytes(item.principalId))
         : new Uint8Array(),
       accessLevel: toProtoAccessLevel(item.accessLevel),
       parentId: item.parentId
-        ? encodeIdentifierBytes(item.parentId)
+        ? new Uint8Array(encodeIdentifierBytes(item.parentId))
         : new Uint8Array(),
       childId: item.childId
-        ? encodeIdentifierBytes(item.childId)
+        ? new Uint8Array(encodeIdentifierBytes(item.childId))
         : new Uint8Array(),
       actorId: item.actorId
-        ? encodeIdentifierBytes(item.actorId)
+        ? new Uint8Array(encodeIdentifierBytes(item.actorId))
         : new Uint8Array(),
       sourceTable: item.sourceTable,
-      sourceId: encodeIdentifierBytes(item.sourceId),
+      sourceId: new Uint8Array(encodeIdentifierBytes(item.sourceId)),
       occurredAtMs: BigInt(item.occurredAtMs),
       ...(item.encryptedPayload
         ? { encryptedPayload: item.encryptedPayload }

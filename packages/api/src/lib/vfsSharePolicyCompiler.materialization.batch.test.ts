@@ -79,7 +79,7 @@ describe('compileVfsSharePolicies (materialization batch)', () => {
       if (text.includes('FROM vfs_registry')) {
         return {
           rows: [
-            { id: 'root-1', object_type: 'contact' },
+            { id: 'root-1', object_type: 'contactGroup' },
             ...descendantIds.map((id) => ({ id, object_type: 'walletItem' }))
           ] as T[]
         };

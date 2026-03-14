@@ -46,12 +46,13 @@ describe('parseVfsCrdtSyncQuery', () => {
 
 describe('buildVfsCrdtSyncQuery', () => {
   it('builds parameterized query with cursor and root scope', () => {
+    const changeId = '11111111-1111-1111-1111-111111111111';
     const query = buildVfsCrdtSyncQuery({
       userId: 'user-1',
       limit: 25,
       cursor: {
         changedAt: '2026-02-14T00:00:00.000Z',
-        changeId: 'op-1'
+        changeId
       },
       rootId: 'root-1'
     });
@@ -59,7 +60,7 @@ describe('buildVfsCrdtSyncQuery', () => {
     expect(query.values).toEqual([
       'user-1',
       '2026-02-14T00:00:00.000Z',
-      'op-1',
+      changeId,
       26,
       'root-1'
     ]);
@@ -95,9 +96,11 @@ describe('buildVfsCrdtSyncQuery', () => {
 
 describe('mapVfsCrdtSyncRows', () => {
   it('paginates rows and emits nextCursor from last returned op', () => {
+    const firstOpId = '11111111-1111-1111-1111-111111111111';
+    const secondOpId = '22222222-2222-2222-2222-222222222222';
     const rows: VfsCrdtSyncDbRow[] = [
       {
-        op_id: 'op-1',
+        op_id: firstOpId,
         item_id: 'item-1',
         op_type: 'acl_add',
         principal_type: 'user',
@@ -111,7 +114,7 @@ describe('mapVfsCrdtSyncRows', () => {
         occurred_at: new Date('2026-02-14T00:00:00.000Z')
       },
       {
-        op_id: 'op-2',
+        op_id: secondOpId,
         item_id: 'item-1',
         op_type: 'acl_remove',
         principal_type: 'user',
@@ -138,7 +141,7 @@ describe('mapVfsCrdtSyncRows', () => {
 
     expect(decodeVfsSyncCursor(result.nextCursor)).toEqual({
       changedAt: '2026-02-14T00:00:00.000Z',
-      changeId: 'op-1'
+      changeId: firstOpId
     });
   });
 

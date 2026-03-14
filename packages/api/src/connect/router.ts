@@ -17,7 +17,7 @@ import { chatConnectService } from './services/chatService.js';
 import { mlsConnectServiceV2 } from './services/mlsService.js';
 import { notificationConnectService } from './services/notificationService.js';
 import { revenuecatConnectService } from './services/revenuecatService.js';
-import { vfsConnectRouterService } from './services/vfsService.js';
+import { vfsConnectRouterService } from './services/vfsConnectRouterService.js';
 import { vfsSharesConnectRouterService } from './services/vfsSharesService.js';
 
 export function registerConnectRoutes(router: ConnectRouter): void {
