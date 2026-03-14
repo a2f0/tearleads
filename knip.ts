@@ -103,7 +103,6 @@ const config: KnipConfig = {
       entry: ['src/gen/**/*.ts', 'src/test/setup.ts']
     },
     'packages/smtp-listener': { entry: ['src/test/setup.ts'] },
-    'packages/ui': { entry: ['src/test/setup.ts'] },
     'packages/vfs-explorer': { entry: ['src/test/setup.ts'] },
     'packages/vfs-sync': {
       entry: [

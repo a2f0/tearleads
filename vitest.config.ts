@@ -7,6 +7,7 @@ export default defineConfig({
       'packages/api-client',
       'packages/cli',
       'packages/client',
+      'packages/ui',
     ],
     // Keep workspace runs from saturating high-core laptops while preserving
     // parallel execution.
