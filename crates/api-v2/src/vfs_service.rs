@@ -72,6 +72,20 @@ impl VfsService for VfsServiceHandler {
         forward_unary!(self, request, get_blob)
     }
 
+    async fn get_blob_manifest(
+        &self,
+        request: Request<v2::VfsGetBlobManifestRequest>,
+    ) -> Result<Response<v2::VfsGetBlobManifestResponse>, Status> {
+        forward_unary!(self, request, get_blob_manifest)
+    }
+
+    async fn get_blob_chunk(
+        &self,
+        request: Request<v2::VfsGetBlobChunkRequest>,
+    ) -> Result<Response<v2::VfsGetBlobChunkResponse>, Status> {
+        forward_unary!(self, request, get_blob_chunk)
+    }
+
     async fn delete_blob(
         &self,
         request: Request<v2::VfsDeleteBlobRequest>,
@@ -230,6 +244,18 @@ mod tests {
         assert_internal(handler.setup_keys(Request::new(Default::default())).await).await;
         assert_internal(handler.register(Request::new(Default::default())).await).await;
         assert_internal(handler.get_blob(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .get_blob_manifest(Request::new(Default::default()))
+                .await,
+        )
+        .await;
+        assert_internal(
+            handler
+                .get_blob_chunk(Request::new(Default::default()))
+                .await,
+        )
+        .await;
         assert_internal(handler.delete_blob(Request::new(Default::default())).await).await;
         assert_internal(handler.stage_blob(Request::new(Default::default())).await).await;
         assert_internal(
