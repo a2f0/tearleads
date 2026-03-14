@@ -1,4 +1,4 @@
-import { communicationsVfsBlobTables } from './definition-communications-vfs-blob.js';
+import { communicationsVfsBlobTables } from './definitionCommunicationsVfsBlob.js';
 import type { TableDefinition } from './types.js';
 
 /**
@@ -272,7 +272,7 @@ export {
   vfsBlobObjectsTable,
   vfsBlobRefsTable,
   vfsBlobStagingTable
-} from './definition-communications-vfs-blob.js';
+} from './definitionCommunicationsVfsBlob.js';
 
 export const communicationsVfsTables: TableDefinition[] = [
   vfsAclEntriesTable,
