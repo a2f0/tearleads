@@ -2,8 +2,8 @@ import type { VfsCrdtPushOperation } from '@tearleads/shared';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  isAclOperation,
   isAclMutationAuthorized,
+  isAclOperation,
   loadAclTargetState,
   logAclMutationAudit,
   normalizeAclOperation
