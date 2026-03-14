@@ -74,6 +74,16 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
     tableName: 'vfs_sync_client_state',
     domain: 'crdtReconcile',
     purpose: 'monotonic per-client reconcile cursor + replica-write state'
+  },
+  {
+    tableName: 'vfs_blob_refs',
+    domain: 'crdtFeed',
+    purpose: 'blob ref metadata enrichment in CRDT sync feed'
+  },
+  {
+    tableName: 'vfs_blob_objects',
+    domain: 'crdtFeed',
+    purpose: 'blob size lookup for enriched CRDT sync feed items'
   }
 ];
 

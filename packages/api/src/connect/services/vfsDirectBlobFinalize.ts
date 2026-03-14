@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import type { PoolClient } from 'pg';
@@ -262,6 +263,14 @@ export async function commitBlobDirect(
     }
 
     const decodedChunks: Uint8Array[] = [];
+    const chunkHashes: string[] = [];
+    const chunkBoundaries: Array<{
+      offset: number;
+      length: number;
+      plaintextLength: number;
+      nonce?: string;
+      aadHash?: string;
+    }> = [];
     let totalCiphertextBytes = 0;
 
     for (const [index, chunk] of chunks.entries()) {
@@ -294,6 +303,17 @@ export async function commitBlobDirect(
         );
       }
 
+      const chunkHash = createHash('sha256').update(decoded).digest('base64');
+      chunkHashes.push(chunkHash);
+
+      chunkBoundaries.push({
+        offset: totalCiphertextBytes,
+        length: chunk.ciphertextLength,
+        plaintextLength: chunk.plaintextLength,
+        ...(chunk.nonce ? { nonce: chunk.nonce } : {}),
+        ...(chunk.aadHash ? { aadHash: chunk.aadHash } : {})
+      });
+
       decodedChunks.push(decoded);
       totalCiphertextBytes += chunk.ciphertextLength;
     }
@@ -309,6 +329,56 @@ export async function commitBlobDirect(
       blobId,
       data: mergedCiphertext
     });
+
+    const manifestPool = await getPostgresPool();
+    await manifestPool.query(
+      `
+      INSERT INTO vfs_blob_manifests (
+        blob_id,
+        key_epoch,
+        chunk_count,
+        total_plaintext_bytes,
+        total_ciphertext_bytes,
+        chunk_hashes,
+        chunk_boundaries,
+        manifest_hash,
+        manifest_signature,
+        created_at
+      ) VALUES (
+        $1::uuid,
+        $2::integer,
+        $3::integer,
+        $4::integer,
+        $5::integer,
+        $6::jsonb,
+        $7::jsonb,
+        $8::text,
+        $9::text,
+        NOW()
+      )
+      ON CONFLICT (blob_id) DO UPDATE SET
+        key_epoch = EXCLUDED.key_epoch,
+        chunk_count = EXCLUDED.chunk_count,
+        total_plaintext_bytes = EXCLUDED.total_plaintext_bytes,
+        total_ciphertext_bytes = EXCLUDED.total_ciphertext_bytes,
+        chunk_hashes = EXCLUDED.chunk_hashes,
+        chunk_boundaries = EXCLUDED.chunk_boundaries,
+        manifest_hash = EXCLUDED.manifest_hash,
+        manifest_signature = EXCLUDED.manifest_signature
+      `,
+      [
+        blobId,
+        payload.keyEpoch,
+        payload.chunkCount,
+        payload.totalPlaintextBytes,
+        payload.totalCiphertextBytes,
+        JSON.stringify(chunkHashes),
+        JSON.stringify(chunkBoundaries),
+        payload.manifestHash,
+        payload.manifestSignature
+      ]
+    );
+
     await deleteBlobUploadSession({
       stagingId,
       uploadId: payload.uploadId

@@ -7,11 +7,17 @@ import {
 import { SyncQueueBlobSection } from './SyncQueueBlobSection';
 import { SyncQueueCrdtSection } from './SyncQueueCrdtSection';
 import { SyncQueueEmptyState } from './SyncQueueEmptyState';
+import { SyncQueueInboundBlobSection } from './SyncQueueInboundBlobSection';
 import { SyncQueueInboundStatus } from './SyncQueueInboundStatus';
 
 const EMPTY_SNAPSHOT: SyncQueueSnapshot = {
   outbound: { crdt: [], blob: [] },
-  inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0 }
+  inbound: {
+    cursor: null,
+    pendingOperations: 0,
+    nextLocalWriteId: 0,
+    blobDownloads: []
+  }
 };
 
 const POLL_INTERVAL_MS = 1000;
@@ -37,6 +43,13 @@ export function SyncQueueTab() {
           {t('inboundStatus')}
         </h3>
         <SyncQueueInboundStatus inbound={snapshot.inbound} />
+        {snapshot.inbound.blobDownloads.length > 0 ? (
+          <div className="mt-2">
+            <SyncQueueInboundBlobSection
+              operations={snapshot.inbound.blobDownloads}
+            />
+          </div>
+        ) : null}
       </div>
 
       {hasOutbound ? (

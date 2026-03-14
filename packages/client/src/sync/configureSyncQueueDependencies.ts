@@ -7,7 +7,12 @@ import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 
 const EMPTY_SNAPSHOT: SyncQueueSnapshot = {
   outbound: { crdt: [], blob: [] },
-  inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0 }
+  inbound: {
+    cursor: null,
+    pendingOperations: 0,
+    nextLocalWriteId: 0,
+    blobDownloads: []
+  }
 };
 
 let configured = false;
@@ -54,7 +59,8 @@ function createDependencies(): SyncQueueDependencies {
         inbound: {
           cursor: crdtSnapshot.cursor,
           pendingOperations: crdtSnapshot.pendingOperations,
-          nextLocalWriteId: crdtSnapshot.nextLocalWriteId
+          nextLocalWriteId: crdtSnapshot.nextLocalWriteId,
+          blobDownloads: []
         }
       };
     }

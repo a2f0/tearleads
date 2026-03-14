@@ -69,6 +69,9 @@ export interface VfsCrdtSyncDbRow {
   encryption_nonce?: string | null;
   encryption_aad?: string | null;
   encryption_signature?: string | null;
+  blob_id?: string | null;
+  blob_size_bytes?: number | string | null;
+  blob_relation_kind?: string | null;
 }
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
@@ -435,6 +438,15 @@ export function mapVfsCrdtSyncRows(
       }
     }
 
+    const blobId = normalizeNonEmptyString(row.blob_id);
+    const blobSizeBytes =
+      row.blob_size_bytes !== undefined && row.blob_size_bytes !== null
+        ? typeof row.blob_size_bytes === 'number'
+          ? row.blob_size_bytes
+          : Number.parseInt(String(row.blob_size_bytes), 10) || null
+        : null;
+    const blobRelationKind = normalizeNonEmptyString(row.blob_relation_kind);
+
     items.push({
       opId: row.op_id,
       itemId: row.item_id,
@@ -456,7 +468,10 @@ export function mapVfsCrdtSyncRows(
         : {}),
       ...(encryptionNonce !== null ? { encryptionNonce } : {}),
       ...(encryptionAad !== null ? { encryptionAad } : {}),
-      ...(encryptionSignature !== null ? { encryptionSignature } : {})
+      ...(encryptionSignature !== null ? { encryptionSignature } : {}),
+      ...(blobId !== null ? { blobId } : {}),
+      ...(blobSizeBytes !== null ? { blobSizeBytes } : {}),
+      ...(blobRelationKind !== null ? { blobRelationKind } : {})
     });
   }
 

@@ -32,6 +32,38 @@ interface ConnectBlobResponse {
   contentType?: string;
 }
 
+interface ConnectBlobChunkResponse {
+  data?: string | number[];
+  chunkIndex: number;
+  isFinal: boolean;
+  plaintextLength: number;
+  ciphertextLength: number;
+  nonce: string;
+  aadHash: string;
+}
+
+export interface GetBlobManifestClientResponse {
+  blobId: string;
+  keyEpoch: number;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
+  chunkHashes: string[];
+  manifestHash: string;
+  manifestSignature: string;
+  contentType?: string;
+}
+
+export interface GetBlobChunkClientResponse {
+  data: Uint8Array;
+  chunkIndex: number;
+  isFinal: boolean;
+  plaintextLength: number;
+  ciphertextLength: number;
+  nonce: string;
+  aadHash: string;
+}
+
 type RequestEventName = Parameters<typeof request>[1]['eventName'];
 
 interface VfsBlobResponse {
@@ -263,6 +295,36 @@ export const vfsRoutes = {
     return {
       data: decodeBlobData(response.data),
       contentType: response.contentType ?? null
+    };
+  },
+  getBlobManifest: async (blobId: string): Promise<GetBlobManifestClientResponse> =>
+    request<GetBlobManifestClientResponse>(
+      `${VFS_V2_CONNECT_BASE_PATH}/GetBlobManifest`,
+      {
+        fetchOptions: createConnectJsonPostInit({ blobId }),
+        eventName: 'api_get_vfs_blob_manifest'
+      }
+    ),
+  getBlobChunk: async (
+    blobId: string,
+    chunkIndex: number
+  ): Promise<GetBlobChunkClientResponse> => {
+    const response = await request<ConnectBlobChunkResponse>(
+      `${VFS_V2_CONNECT_BASE_PATH}/GetBlobChunk`,
+      {
+        fetchOptions: createConnectJsonPostInit({ blobId, chunkIndex }),
+        eventName: 'api_get_vfs_blob_chunk'
+      }
+    );
+
+    return {
+      data: decodeBlobData(response.data),
+      chunkIndex: response.chunkIndex,
+      isFinal: response.isFinal,
+      plaintextLength: response.plaintextLength,
+      ciphertextLength: response.ciphertextLength,
+      nonce: response.nonce,
+      aadHash: response.aadHash
     };
   },
   deleteBlob: (blobId: string) =>

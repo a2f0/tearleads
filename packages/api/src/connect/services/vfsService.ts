@@ -14,6 +14,10 @@ import {
   abandonBlobDirect,
   commitBlobDirect
 } from './vfsDirectBlobFinalize.js';
+import {
+  getBlobChunkDirect,
+  getBlobManifestDirect
+} from './vfsDirectBlobRead.js';
 import type {
   AttachBlobRequest,
   CommitBlobRequest,
@@ -51,6 +55,7 @@ import {
 } from './vfsDirectSync.js';
 
 type BlobIdRequest = { blobId: string };
+type BlobChunkRequest = { blobId: string; chunkIndex: number };
 type RegisterPayloadRequest = {
   id: string;
   objectType: string;
@@ -181,6 +186,14 @@ export const vfsConnectService = {
     request: BlobIdRequest,
     context: { requestHeader: Headers }
   ) => getBlobDirect(request, context),
+  getBlobManifest: async (
+    request: BlobIdRequest,
+    context: { requestHeader: Headers }
+  ) => getBlobManifestDirect(request, context),
+  getBlobChunk: async (
+    request: BlobChunkRequest,
+    context: { requestHeader: Headers }
+  ) => getBlobChunkDirect(request, context),
   deleteBlob: async (
     request: BlobIdRequest,
     context: { requestHeader: Headers }

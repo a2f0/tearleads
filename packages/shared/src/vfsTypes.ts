@@ -136,6 +136,12 @@ export interface VfsCrdtSyncItem {
   encryptionAad?: string | null;
   /** Operation signature for integrity verification (base64-encoded) */
   encryptionSignature?: string | null;
+  /** Blob ID attached to this item, if any */
+  blobId?: string | null;
+  /** Blob size in bytes */
+  blobSizeBytes?: number | null;
+  /** Blob relation kind (file, emailAttachment, photo, other) */
+  blobRelationKind?: string | null;
 }
 
 export interface VfsCrdtSyncResponse {

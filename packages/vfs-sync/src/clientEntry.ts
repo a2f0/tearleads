@@ -6,6 +6,7 @@ export {
 export {
   type SyncQueueDependencies,
   type SyncQueueSnapshot,
+  type SyncQueueSnapshotInboundBlobOp,
   setSyncQueueDependencies
 } from './lib/queueDependencies';
 export { Sync } from './pages/sync';

@@ -12,7 +12,8 @@ export * from './definition-runtime-ai.js';
 const excludedAllTableNames = new Set<string>([
   'vfs_blob_objects',
   'vfs_blob_staging',
-  'vfs_blob_refs'
+  'vfs_blob_refs',
+  'vfs_blob_manifests'
 ]);
 
 const runtimeTables: TableDefinition[] = [

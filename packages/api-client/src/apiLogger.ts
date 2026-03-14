@@ -40,6 +40,8 @@ const API_EVENT_SLUGS = [
   'api_post_vfs_register',
   'api_get_vfs_shares',
   'api_get_vfs_blob',
+  'api_get_vfs_blob_manifest',
+  'api_get_vfs_blob_chunk',
   'api_post_vfs_share',
   'api_patch_vfs_share',
   'api_delete_vfs_share',

@@ -31,6 +31,18 @@ export {
   type VfsSecureOrchestratorFacade
 } from './vfsCrypto';
 export {
+  createVfsBlobDownloadFlusher,
+  VfsBlobDownloadFlusher,
+  type VfsBlobDownloadFlusherOptions
+} from './vfsBlobDownloadFlusher';
+export type {
+  VfsBlobDownloadFlusherPersistedState,
+  VfsBlobDownloadOperation,
+  VfsBlobDownloadResult,
+  VfsBlobDownloadResultEvent,
+  VfsBlobDownloadRetryPolicy
+} from './vfsBlobDownloadTypes';
+export {
   VfsWriteOrchestrator,
   type VfsWriteOrchestratorPersistedState
 } from './vfsWriteOrchestrator';

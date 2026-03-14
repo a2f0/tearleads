@@ -53,7 +53,12 @@ describe('configureSyncQueueDependencies', () => {
 
     expect(result.current).toEqual({
       outbound: { crdt: [], blob: [] },
-      inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0 }
+      inbound: {
+        cursor: null,
+        pendingOperations: 0,
+        nextLocalWriteId: 0,
+        blobDownloads: []
+      }
     });
   });
 
@@ -127,7 +132,8 @@ describe('configureSyncQueueDependencies', () => {
       inbound: {
         cursor: { changedAt: '2026-01-01', changeId: 'c-1' },
         pendingOperations: 3,
-        nextLocalWriteId: 5
+        nextLocalWriteId: 5,
+        blobDownloads: []
       }
     });
   });

@@ -15,6 +15,8 @@ const SYNC_DEBOUNCE_MS = 150;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
 const SYNC_SCOPE = 'vfs-realtime-sync';
+const BLOB_SYNC_SCOPE = 'vfs-blob-download';
+const BLOB_SYNC_DEBOUNCE_MS = 500;
 
 function isSameStringArray(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
@@ -82,8 +84,27 @@ export function VfsRealtimeSyncBridge() {
   const remoteReadOrchestratorRef = useRef(
     createRemoteReadOrchestrator<void>()
   );
+  const blobSyncOrchestratorRef = useRef(
+    createRemoteReadOrchestrator<void>()
+  );
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleBlobSync = useCallback(() => {
+    void blobSyncOrchestratorRef.current.schedule(
+      async () => {
+        logStore.info(
+          'VFS blob sync triggered after CRDT sync',
+          'scope=vfs-blob-download'
+        );
+      },
+      {
+        scope: BLOB_SYNC_SCOPE,
+        debounceMs: BLOB_SYNC_DEBOUNCE_MS,
+        coalesceInFlight: true
+      }
+    );
+  }, []);
 
   const scheduleSync = useCallback(() => {
     if (!orchestrator || retryTimerRef.current) {
@@ -120,6 +141,8 @@ export function VfsRealtimeSyncBridge() {
             return;
           }
           retryAttemptRef.current = 0;
+
+          scheduleBlobSync();
         },
         {
           scope: SYNC_SCOPE,
@@ -150,7 +173,7 @@ export function VfsRealtimeSyncBridge() {
           scheduleSync();
         }, retryDelayMs);
       });
-  }, [orchestrator, refreshSyncState]);
+  }, [orchestrator, refreshSyncState, scheduleBlobSync]);
 
   useEffect(() => {
     if (!orchestrator) {
@@ -253,6 +276,7 @@ export function VfsRealtimeSyncBridge() {
         retryTimerRef.current = null;
       }
       remoteReadOrchestratorRef.current.cancelInFlight(SYNC_SCOPE);
+      blobSyncOrchestratorRef.current.cancelInFlight(BLOB_SYNC_SCOPE);
     };
   }, []);
 
