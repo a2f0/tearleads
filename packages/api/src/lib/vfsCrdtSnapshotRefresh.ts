@@ -159,7 +159,7 @@ async function loadContainerClockRows(
     WITH scoped_ops AS (
       SELECT
         CASE
-          WHEN op_type IN ('link_add', 'link_remove') THEN parent_id
+          WHEN op_type IN ('link_add', 'link_remove', 'link_reassign') THEN parent_id
           ELSE item_id
         END AS container_id,
         occurred_at,

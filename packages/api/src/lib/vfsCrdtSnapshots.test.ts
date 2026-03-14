@@ -97,6 +97,41 @@ describe('vfsCrdtSnapshots', () => {
     ]);
   });
 
+  it('includes link_reassign when deriving snapshot container clocks', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            container_id: 'contact-2',
+            changed_at: '2026-02-24T12:00:02.000Z',
+            change_id: 'crdt:501'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            updated_at: '2026-02-24T12:01:00.000Z'
+          }
+        ]
+      });
+
+    const result = await refreshVfsCrdtSnapshot({ query });
+
+    expect(result.containerClocks).toBe(1);
+    expect(
+      String(
+        query.mock.calls.find((call) =>
+          String(call[0]).includes('latest_per_container')
+        )?.[0]
+      )
+    ).toContain('link_reassign');
+  });
+
   it('loads rematerialization snapshot filtered to visible items', async () => {
     const query = vi
       .fn()
