@@ -24,7 +24,7 @@ export interface ActorSigningKeyCacheEntry {
 export type ActorSigningKeyCacheValue = ActorSigningKeyCacheEntry | null;
 
 export type VerifyAclPushOperationSignatureResult =
-  | { ok: true; verifiedPublicSigningKey: string }
+  | { ok: true; verifiedPublicSigningKey: string | null }
   | { ok: false; reason: string };
 
 function toAclSigningFields(operation: VfsCrdtPushOperation): {
@@ -132,7 +132,7 @@ export async function verifyAclPushOperationSignature(input: {
   runQuery: TimedQueryRunner;
 }): Promise<VerifyAclPushOperationSignatureResult> {
   if (!isAclOperation(input.operation)) {
-    return { ok: true, verifiedPublicSigningKey: '' };
+    return { ok: true, verifiedPublicSigningKey: null };
   }
 
   const operationSignature = normalizeRequiredString(
