@@ -23,6 +23,24 @@ function createOperation(
   };
 }
 
+function createRemoveOperation(
+  overrides: Omit<Partial<VfsCrdtPushOperation>, 'opType'> & {
+    accessLevel?: VfsCrdtPushOperation['accessLevel'] | undefined;
+  }
+): VfsCrdtPushOperation {
+  return {
+    opId: 'op-1',
+    opType: 'acl_remove',
+    itemId: 'item-1',
+    replicaId: 'desktop',
+    writeId: 1,
+    occurredAt: '2026-02-16T00:00:00.000Z',
+    principalType: 'user',
+    principalId: 'user-2',
+    ...overrides
+  };
+}
+
 describe('vfsDirectCrdtPushAclGuardrails', () => {
   it('strips unexpected fields from normalized ACL add operations', () => {
     expect(
@@ -53,8 +71,7 @@ describe('vfsDirectCrdtPushAclGuardrails', () => {
   it('rejects ACL remove operations that include accessLevel', () => {
     expect(
       normalizeAclOperation(
-        createOperation({
-          opType: 'acl_remove',
+        createRemoveOperation({
           accessLevel: 'read'
         })
       )
@@ -90,11 +107,7 @@ describe('vfsDirectCrdtPushAclGuardrails', () => {
 
   it('rejects non-owner attempts to remove item owners', () => {
     const normalizedOperation = normalizeAclOperation(
-      createOperation({
-        opType: 'acl_remove',
-        principalId: 'user-2',
-        accessLevel: undefined
-      })
+      createRemoveOperation({ principalId: 'user-2' })
     );
 
     expect(normalizedOperation).not.toBeNull();
