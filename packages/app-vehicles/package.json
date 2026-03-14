@@ -35,7 +35,6 @@
     "@tearleads/db": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@types/react": "19.2.14",
-    "@vitest/coverage-v8": "4.0.18",
     "drizzle-orm": "0.45.1",
     "react": "19.2.4",
     "typescript": "5.9.3",

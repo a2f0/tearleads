@@ -34,7 +34,6 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "@types/node": "25.3.5",
-    "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "esbuild": "0.27.3",
     "tsx": "4.21.0",

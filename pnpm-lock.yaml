@@ -180,9 +180,6 @@ importers:
       '@types/supertest':
         specifier: 7.2.0
         version: 7.2.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       commander:
         specifier: 14.0.3
         version: 14.0.3
@@ -269,9 +266,6 @@ importers:
       '@types/pg':
         specifier: 8.16.0
         version: 8.16.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -312,9 +306,6 @@ importers:
         specifier: 2.0.7
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -342,12 +333,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -415,12 +400,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -488,12 +467,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -531,9 +504,6 @@ importers:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -561,12 +531,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -601,9 +565,6 @@ importers:
         specifier: 11.12.3
         version: 11.12.3
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -637,12 +598,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -738,12 +693,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -808,12 +757,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -863,12 +806,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -893,9 +830,6 @@ importers:
 
   packages/app-classic:
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -926,12 +860,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(pg@8.18.0)(sql.js@1.14.0)
@@ -993,12 +921,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1084,12 +1006,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(pg@8.18.0)(sql.js@1.14.0)
@@ -1175,12 +1091,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1245,9 +1155,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1285,9 +1192,6 @@ importers:
         specifier: 0.576.0
         version: 0.576.0(react@19.2.4)
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -1318,12 +1222,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1394,12 +1292,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1464,12 +1356,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1537,12 +1423,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1598,12 +1478,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1656,12 +1530,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -1687,9 +1555,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1712,9 +1577,6 @@ importers:
         specifier: 0.7.1
         version: 0.7.1
     devDependencies:
-      '@tearleads/app-builder':
-        specifier: workspace:*
-        version: link:../app-builder
       '@tearleads/bun-dom-compat':
         specifier: workspace:*
         version: link:../bun-dom-compat
@@ -1742,12 +1604,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1799,12 +1655,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1835,9 +1685,6 @@ importers:
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@electric-sql/pglite@0.3.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(pg@8.18.0)(sql.js@1.14.0)
@@ -1899,12 +1746,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -1951,9 +1792,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -1991,9 +1829,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -2375,9 +2210,6 @@ importers:
       '@types/pg':
         specifier: 8.16.0
         version: 8.16.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       tsx:
         specifier: 4.21.0
         version: 4.21.0
@@ -2415,9 +2247,6 @@ importers:
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -2442,9 +2271,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -2461,9 +2287,6 @@ importers:
         specifier: 8.0.3
         version: 8.0.3
     devDependencies:
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -2483,9 +2306,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -2498,18 +2318,12 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-      vitest:
-        specifier: 4.0.18
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1)
 
   packages/shared:
     dependencies:
@@ -2535,9 +2349,6 @@ importers:
       '@types/pg':
         specifier: 8.16.0
         version: 8.16.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       tsx:
         specifier: 4.21.0
         version: 4.21.0
@@ -2581,9 +2392,6 @@ importers:
       '@types/smtp-server':
         specifier: 3.5.12
         version: 3.5.12
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
@@ -2605,9 +2413,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -2633,9 +2438,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       cross-env:
         specifier: 10.1.0
         version: 10.1.0
@@ -2697,12 +2499,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -2779,12 +2575,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -2919,12 +2709,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -2980,12 +2764,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 5.1.4
-        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
-      '@vitest/coverage-v8':
-        specifier: 4.0.18
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@2.0.1)
@@ -20616,18 +20394,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-react@5.1.4(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))':
-    dependencies:
-      '@babel/core': 7.29.0
-      '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.29.0)
-      '@babel/plugin-transform-react-jsx-source': 7.27.1(@babel/core@7.29.0)
-      '@rolldown/pluginutils': 1.0.0-rc.3
-      '@types/babel__core': 7.20.5
-      react-refresh: 0.18.0
-      vite: 7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - supports-color
-
   '@vitest/coverage-v8@4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
@@ -20641,20 +20407,6 @@ snapshots:
       std-env: 3.10.0
       tinyrainbow: 3.0.3
       vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.3.5)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1)
-
-  '@vitest/coverage-v8@4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))':
-    dependencies:
-      '@bcoe/v8-coverage': 1.0.2
-      '@vitest/utils': 4.0.18
-      ast-v8-to-istanbul: 0.3.12
-      istanbul-lib-coverage: 3.2.2
-      istanbul-lib-report: 3.0.1
-      istanbul-reports: 3.2.0
-      magicast: 0.5.2
-      obug: 2.1.1
-      std-env: 3.10.0
-      tinyrainbow: 3.0.3
-      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.4.0)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(msw@2.12.10(@types/node@25.4.0)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1)
 
   '@vitest/expect@4.0.18':
     dependencies:

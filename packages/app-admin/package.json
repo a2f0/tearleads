@@ -44,7 +44,6 @@
     "sonner": "2.0.7"
   },
   "devDependencies": {
-    "@tearleads/app-builder": "workspace:*",
     "@tearleads/bun-dom-compat": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
@@ -54,8 +53,6 @@
     "@types/node": "25.3.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "i18next": "25.8.14",
     "jsdom": "28.1.0",

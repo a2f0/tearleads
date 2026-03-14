@@ -40,16 +40,42 @@ const config: KnipConfig = {
     'packages/api': {
       entry: ['src/**/*.ts']
     },
-    'packages/app-audio': {},
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },
+    'packages/app-admin': { entry: ['src/test/setup.ts'] },
+    'packages/app-ai': { entry: ['src/test/setup.ts'] },
+    'packages/app-analytics': { entry: ['src/test/setup.ts'] },
+    'packages/app-audio': {},
+    'packages/app-backups': { entry: ['src/test/setup.ts'] },
+    'packages/app-businesses': { entry: ['src/test/setup.ts'] },
+    'packages/app-calendar': { entry: ['src/test/setup.ts'] },
+    'packages/app-camera': { entry: ['src/test/setup.ts'] },
+    'packages/app-classic': {
+      entry: ['src/test/**/*.ts']
+    },
+    'packages/app-compliance': { entry: ['src/test/setup.ts'] },
+    'packages/app-contacts': { entry: ['src/test/setup.ts'] },
+    'packages/app-email': { entry: ['src/test/setup.ts'] },
+    'packages/app-health': {
+      entry: ['src/test/**/*.ts']
+    },
+    'packages/app-help': {
+      entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
+    },
+    'packages/app-keychain': { entry: ['src/test/setup.ts'] },
+    'packages/app-mls-chat': { entry: ['src/test/setup.ts'] },
+    'packages/app-notes': { entry: ['src/test/setup.ts'] },
+    'packages/app-notifications': { entry: ['src/test/setup.ts'] },
+    'packages/app-search': { entry: ['src/test/setup.ts'] },
+    'packages/app-settings': { entry: ['src/test/setup.ts'] },
+    'packages/app-terminal': { entry: ['src/test/setup.ts'] },
+    'packages/app-vehicles': { entry: ['src/test/setup.ts'] },
+    'packages/app-wallet': { entry: ['src/test/setup.ts'] },
     'packages/bob-and-alice': {
       entry: ['src/scenarios/**/*.test.ts', 'src/qa/**/*.test.ts']
     },
-    'packages/db-test-utils': {
-      entry: ['src/**/*.test.ts', 'src/**/*.test.tsx']
-    },
+    'packages/chrome-extension': { entry: ['src/test/setup.ts'] },
     'packages/client': {
       entry: [
         'electron.vite.config.ts',
@@ -69,18 +95,16 @@ const config: KnipConfig = {
         'src/index.css'
       ]
     },
-    'packages/app-classic': {
-      entry: ['src/test/**/*.ts']
-    },
-    'packages/app-help': {
-      entry: ['src/**/*.test.tsx', 'src/test/**/*.ts']
-    },
-    'packages/app-health': {
-      entry: ['src/test/**/*.ts']
+    'packages/db': { entry: ['src/test/setup.ts'] },
+    'packages/db-test-utils': {
+      entry: ['src/**/*.test.ts', 'src/**/*.test.tsx']
     },
     'packages/shared': {
-      entry: ['src/gen/**/*.ts']
+      entry: ['src/gen/**/*.ts', 'src/test/setup.ts']
     },
+    'packages/smtp-listener': { entry: ['src/test/setup.ts'] },
+    'packages/ui': { entry: ['src/test/setup.ts'] },
+    'packages/vfs-explorer': { entry: ['src/test/setup.ts'] },
     'packages/vfs-sync': {
       entry: [
         'src/**/*.test.ts',
@@ -92,10 +116,12 @@ const config: KnipConfig = {
     },
     'packages/website': {
       entry: [
+        'src/test/setup.ts',
         // CSS import graph includes @import "tailwindcss".
         'src/styles/global.css'
       ]
-    }
+    },
+    'packages/window-manager': { entry: ['src/test/setup.ts'] }
   }
 };
 

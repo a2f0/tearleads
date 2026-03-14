@@ -49,8 +49,6 @@
     "@types/papaparse": "5.5.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
     "drizzle-orm": "0.45.1",
     "i18next": "25.8.14",
     "jsdom": "28.1.0",
