@@ -47,7 +47,8 @@ vi.mock('@tearleads/ui', () => ({
   )
 }));
 
-vi.mock('@tearleads/window-manager', () => {  return {};
+vi.mock('@tearleads/window-manager', () => {
+  return {};
 });
 
 vi.mock('@tearleads/ui/logo.svg', () => ({

@@ -166,7 +166,8 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@tearleads/ui', () => {  return {
+vi.mock('@tearleads/ui', () => {
+  return {
     Tooltip: ({ children }: { children: ReactNode }) =>
       createElement(Fragment, null, children),
     TooltipTrigger: ({ children }: { children: ReactNode }) =>

@@ -73,7 +73,8 @@ vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
-vi.mock('@tearleads/app-audio', () => {  return {
+vi.mock('@tearleads/app-audio', () => {
+  return {
     AudioUIProvider: (props: AudioUIProviderProps) => {
       lastProviderProps = props;
       return <div data-testid="audio-ui-provider">{props.children}</div>;

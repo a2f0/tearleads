@@ -14,7 +14,8 @@ import {
 } from './useVfsKeys';
 
 // Mock @tearleads/shared crypto functions
-vi.mock('@tearleads/shared', () => {  return {
+vi.mock('@tearleads/shared', () => {
+  return {
     combineEncapsulation: vi.fn(
       (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
         `combined:${enc.x25519.length}:${enc.mlKem.length}`

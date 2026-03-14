@@ -12,7 +12,8 @@ vi.mock('@tearleads/ui', () => ({
     classes.filter((value): value is string => Boolean(value)).join(' ')
 }));
 
-vi.mock('@tearleads/window-manager', () => {  return {
+vi.mock('@tearleads/window-manager', () => {
+  return {
     WindowConnectionIndicator: ({
       state,
       onContextMenu

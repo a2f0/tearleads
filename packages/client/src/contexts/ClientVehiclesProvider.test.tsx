@@ -8,7 +8,8 @@ const mockDb = { name: 'vehicles-db' };
 
 let lastProviderProps: VehiclesRuntimeProviderProps | null = null;
 
-vi.mock('@tearleads/app-vehicles', () => {  return {
+vi.mock('@tearleads/app-vehicles', () => {
+  return {
     createVehicleRepository: (db: unknown) => mockCreateVehicleRepository(db),
     VehiclesRuntimeProvider: (props: VehiclesRuntimeProviderProps) => {
       lastProviderProps = props;

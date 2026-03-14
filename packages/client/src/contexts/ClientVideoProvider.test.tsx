@@ -34,7 +34,8 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@/video/VideoPlaylistContext', () => {  return {
+vi.mock('@/video/VideoPlaylistContext', () => {
+  return {
     VideoPlaylistProvider: (props: VideoPlaylistProviderProps) => {
       lastProviderProps = props;
       return <div data-testid="video-playlist-provider">{props.children}</div>;

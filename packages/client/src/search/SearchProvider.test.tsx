@@ -28,7 +28,8 @@ vi.mock('@/lib/vfsRematerializationEvents', () => ({
   VFS_REMATERIALIZATION_COMPLETE_EVENT: 'vfs:rematerialization-complete'
 }));
 
-vi.mock('@tearleads/app-search', () => {  return {
+vi.mock('@tearleads/app-search', () => {
+  return {
     getSearchStoreForInstance: (instanceId: string) =>
       mockGetSearchStoreForInstance(instanceId),
     closeSearchStoreForInstance: (instanceId: string) =>

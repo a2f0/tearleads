@@ -39,7 +39,8 @@ function requireProviderProps(): HealthRuntimeProviderProps {
   return lastProviderProps;
 }
 
-vi.mock('@tearleads/app-health/clientEntry', () => {  return {
+vi.mock('@tearleads/app-health/clientEntry', () => {
+  return {
     createHealthTracker: (db: unknown) => mockCreateHealthTracker(db),
     HealthRuntimeProvider: (props: HealthRuntimeProviderProps) => {
       lastProviderProps = props;
