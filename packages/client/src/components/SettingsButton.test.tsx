@@ -2,6 +2,7 @@ import { SettingsProvider } from '@tearleads/app-settings';
 import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
@@ -17,42 +18,42 @@ vi.mock('@/hooks/device', () => ({
 }));
 
 vi.mock('./settings/SettingsSheet', () => {
-  function MockSettingsSheet({
-    open,
-    onOpenChange
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-  }) {
-    if (!open) {
-      return null;
-    }
-
-    return (
-      <div
-        role="dialog"
-        tabIndex={-1}
-        data-testid="settings-sheet"
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            onOpenChange(false);
-          }
-        }}
-      >
-        <button
-          type="button"
-          data-testid="settings-sheet-backdrop"
-          onClick={() => onOpenChange(false)}
-        >
-          Backdrop
-        </button>
-        <div>Settings</div>
-      </div>
-    );
-  }
-
   return {
-    SettingsSheet: MockSettingsSheet
+    SettingsSheet: ({
+      open,
+      onOpenChange
+    }: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    }) => {
+      if (!open) {
+        return null;
+      }
+
+      return createElement(
+        'div',
+        {
+          role: 'dialog',
+          tabIndex: -1,
+          'data-testid': 'settings-sheet',
+          onKeyDown: (event) => {
+            if (event.key === 'Escape') {
+              onOpenChange(false);
+            }
+          }
+        },
+        createElement(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'settings-sheet-backdrop',
+            onClick: () => onOpenChange(false)
+          },
+          'Backdrop'
+        ),
+        createElement('div', null, 'Settings')
+      );
+    }
   };
 });
 
@@ -78,11 +79,11 @@ describe('SettingsButton', () => {
 
   function renderSettingsButton() {
     return render(
-      <ThemeProvider defaultTheme="light">
-        <SettingsProvider>
-          <SettingsButton />
-        </SettingsProvider>
-      </ThemeProvider>
+      createElement(
+        ThemeProvider,
+        { defaultTheme: 'light' },
+        createElement(SettingsProvider, null, createElement(SettingsButton))
+      )
     );
   }
 

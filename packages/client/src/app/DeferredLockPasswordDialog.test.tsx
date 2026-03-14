@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
+import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeferredLockPasswordDialog } from './DeferredLockPasswordDialog';
 
@@ -10,18 +11,18 @@ function renderDialog(
   const onOpenChange = props.onOpenChange ?? vi.fn();
   const onSubmit = props.onSubmit ?? vi.fn().mockResolvedValue(undefined);
 
-  const renderResult = render(
-    <DeferredLockPasswordDialog
-      open
-      isSaving={false}
-      errorMessage={null}
-      onOpenChange={onOpenChange}
-      onSubmit={onSubmit}
-      {...props}
-    />
+  const rendered = render(
+    createElement(DeferredLockPasswordDialog, {
+      open: true,
+      isSaving: false,
+      errorMessage: null,
+      onOpenChange,
+      onSubmit,
+      ...props
+    })
   );
 
-  return { onOpenChange, onSubmit, ...renderResult };
+  return { onOpenChange, onSubmit, ...rendered };
 }
 
 describe('DeferredLockPasswordDialog', () => {
