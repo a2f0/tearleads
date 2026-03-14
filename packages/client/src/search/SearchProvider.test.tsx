@@ -28,8 +28,8 @@ vi.mock('@/lib/vfsRematerializationEvents', () => ({
   VFS_REMATERIALIZATION_COMPLETE_EVENT: 'vfs:rematerialization-complete'
 }));
 
-vi.mock('@tearleads/app-search', async () => {
-  const actual = await import('@tearleads/app-search');
+vi.mock('@tearleads/app-search', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/app-search')>();
 
   return {
     ...actual,

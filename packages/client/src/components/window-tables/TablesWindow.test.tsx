@@ -13,8 +13,9 @@ function renderTablesWindow(props: ComponentProps<typeof TablesWindow>) {
   );
 }
 
-vi.mock('@tearleads/window-manager', async () => {
-  const actual = await import('@tearleads/window-manager');
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
 
   return {
     ...actual,

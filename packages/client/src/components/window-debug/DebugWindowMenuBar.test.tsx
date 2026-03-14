@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugWindowMenuBar } from './DebugWindowMenuBar';
 
-vi.mock('@tearleads/window-manager', async () => {
-  const actual = await import('@tearleads/window-manager');
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
 
   return {
     ...actual,

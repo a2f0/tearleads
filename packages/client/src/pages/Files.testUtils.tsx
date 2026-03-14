@@ -43,8 +43,8 @@ vi.mock('@tanstack/react-virtual', () => ({
 }));
 
 export const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await import('react-router-dom');
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => mockNavigate

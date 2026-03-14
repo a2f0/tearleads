@@ -11,16 +11,17 @@ import { navItems, Sidebar } from './Sidebar';
 const mockNavigate = vi.fn();
 const mockOpenWindow = vi.fn();
 
-vi.mock('react-router-dom', async () => {
-  const actual = await import('react-router-dom');
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => mockNavigate
   };
 });
 
-vi.mock('@/contexts/WindowManagerContext', async () => {
-  const actual = await import('@/contexts/WindowManagerContext');
+vi.mock('@/contexts/WindowManagerContext', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/contexts/WindowManagerContext')>();
   return {
     ...actual,
     useWindowManagerActions: () => ({

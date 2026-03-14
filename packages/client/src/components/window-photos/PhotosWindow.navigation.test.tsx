@@ -20,8 +20,9 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-vi.mock('@tearleads/window-manager', async () => {
-  const actual = await import('@tearleads/window-manager');
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
   return {
     ...actual,
     DesktopFloatingWindow: ({

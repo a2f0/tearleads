@@ -6,8 +6,8 @@ let mockResolvedTheme: 'light' | 'dark' = 'light';
 let mockResolvedLanguage = 'en';
 let mockLanguage = 'en';
 
-vi.mock('@tearleads/ui', async () => {
-  const actual = await import('@tearleads/ui');
+vi.mock('@tearleads/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/ui')>();
   return {
     ...actual,
     useTheme: () => ({ resolvedTheme: mockResolvedTheme })
@@ -28,8 +28,8 @@ vi.mock('@/components/markdown-viewer/MarkdownWithToc', () => ({
   )
 }));
 
-vi.mock('@/i18n', async () => {
-  const actual = await import('@/i18n');
+vi.mock('@/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/i18n')>();
   return {
     ...actual,
     useTypedTranslation: () => ({

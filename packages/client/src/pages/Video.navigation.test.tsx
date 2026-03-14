@@ -129,8 +129,8 @@ vi.mock('@/db', () => ({
   })
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await import('react-router-dom');
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => getMocks().mockNavigate,
