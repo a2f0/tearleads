@@ -27,7 +27,6 @@
     "build": "echo \"@tearleads/vfs-sync is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh -- --preload ./src/test/bunSetup.ts"
   },
   "peerDependencies": {

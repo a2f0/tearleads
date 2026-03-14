@@ -23,7 +23,6 @@
     "build": "echo \"@tearleads/app-wallet is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true BUN_TEST_PRELOAD=./src/test/bunSetup.ts BUN_TEST_PATTERNS=src/**/*.test.ts,src/**/*.test.tsx sh ../../scripts/test/runCoverage.sh"
   },
   "peerDependencies": {

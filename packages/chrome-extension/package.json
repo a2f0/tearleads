@@ -8,7 +8,6 @@
     "build": "tsc && cross-env DOTENV_CONFIG_QUIET=true vite build",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts ./src/**/*.test.ts ./src/**/*.test.tsx",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:watch": "cross-env DOTENV_CONFIG_QUIET=true vitest",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },

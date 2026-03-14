@@ -20,7 +20,6 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true NODE_ENV=test vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true NODE_ENV=test sh ../../scripts/test/runCoverage.sh"
   },
   "keywords": [

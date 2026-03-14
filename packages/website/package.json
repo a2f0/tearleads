@@ -9,7 +9,6 @@
     "preview": "astro preview",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh -- --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
     "test:e2e": "playwright test"
   },
