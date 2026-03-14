@@ -19,7 +19,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "bun test",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --root src --coverage"
   },
   "peerDependencies": {
     "@tearleads/ui": "workspace:*",
@@ -37,8 +37,6 @@
     "@types/node": "25.3.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "typescript": "5.9.3",

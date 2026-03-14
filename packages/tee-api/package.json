@@ -22,7 +22,7 @@
     "clean": "rm -rf dist",
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --root src --coverage"
   },
   "keywords": [
     "tee",
@@ -34,7 +34,6 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "@types/node": "25.3.5",
-    "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "esbuild": "0.27.3",
     "tsx": "4.21.0",

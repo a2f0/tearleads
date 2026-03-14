@@ -23,7 +23,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --root src --coverage"
   },
   "keywords": [
     "database",
@@ -43,7 +43,6 @@
     "@testing-library/react": "16.3.2",
     "@types/node": "25.3.5",
     "@types/react": "19.2.14",
-    "@vitest/coverage-v8": "4.0.18",
     "jsdom": "28.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",

@@ -23,7 +23,7 @@
     "build": "echo \"@tearleads/app-health is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true BUN_TEST_PRELOAD=./src/test/bunSetup.ts BUN_TEST_PATTERNS=src/**/*.test.ts,src/**/*.test.tsx sh ../../scripts/test/runCoverage.sh"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src --coverage"
   },
   "peerDependencies": {
     "@tearleads/db": "workspace:*",
@@ -58,7 +58,6 @@
     "@types/jsdom": "28.0.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "drizzle-orm": "0.45.1",
     "jsdom": "28.1.0",
