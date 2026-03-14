@@ -9,7 +9,7 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
-export interface UseSharePolicyPreviewOptions {
+interface UseSharePolicyPreviewOptions {
   rootItemId: string;
   principalType: VfsAclPrincipalType;
   principalId: string;
@@ -20,7 +20,7 @@ export interface UseSharePolicyPreviewOptions {
   objectType?: VfsObjectType[] | null;
 }
 
-export interface UseSharePolicyPreviewResult {
+interface UseSharePolicyPreviewResult {
   nodes: VfsSharePolicyPreviewNode[];
   summary: VfsSharePolicyPreviewSummary | null;
   loading: boolean;
