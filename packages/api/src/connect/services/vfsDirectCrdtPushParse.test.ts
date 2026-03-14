@@ -15,6 +15,19 @@ function buildValidAclAddOperation(): Record<string, unknown> {
   };
 }
 
+function buildValidAclRemoveOperation(): Record<string, unknown> {
+  return {
+    opId: 'op-2',
+    opType: 'acl_remove',
+    itemId: 'item-1',
+    replicaId: 'client-1',
+    writeId: 2,
+    occurredAt: '2026-02-16T00:01:00.000Z',
+    principalType: 'user',
+    principalId: 'user-2'
+  };
+}
+
 function buildValidLinkAddOperation(): Record<string, unknown> {
   return {
     opId: 'op-1',
@@ -105,6 +118,28 @@ describe('vfsDirectCrdtPushParse', () => {
             }
           ]
         }
+      });
+    });
+
+    it('rejects plaintext ACL remove operations that include accessLevel', () => {
+      const result = parsePushPayload({
+        clientId: 'client-1',
+        operations: [
+          {
+            ...buildValidAclRemoveOperation(),
+            accessLevel: 'read'
+          }
+        ]
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error('Expected parsePushPayload to succeed');
+      }
+
+      expect(result.value.operations[0]).toEqual({
+        status: 'invalid',
+        opId: 'op-2'
       });
     });
 

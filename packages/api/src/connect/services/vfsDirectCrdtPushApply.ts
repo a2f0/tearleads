@@ -9,6 +9,13 @@ import {
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
+import {
+  isAclMutationAuthorized,
+  isAclOperation,
+  loadAclTargetState,
+  logAclMutationAudit,
+  normalizeAclOperation
+} from './vfsDirectCrdtPushAclGuardrails.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
   buildAclAuditEntry,
@@ -40,7 +47,7 @@ interface ItemOwnerRow {
 }
 interface EffectiveVisibilityRow {
   item_id: string | null;
-  access_rank: number | null;
+  access_rank: number | string | null;
 }
 interface ExistingSourceRow {
   id: string;
@@ -66,10 +73,6 @@ interface ApplyCrdtPushOperationsResult {
   queryMetrics: VfsCrdtQueryMetrics;
 }
 
-function isAclOperation(opType: string): boolean {
-  return opType === 'acl_add' || opType === 'acl_remove';
-}
-
 export async function applyCrdtPushOperations(input: {
   client: Pick<PoolClient, 'query'>;
   userId: string;
@@ -90,6 +93,13 @@ export async function applyCrdtPushOperations(input: {
   const containerNotifications = new Map<
     string,
     VfsContainerCursorNotification
+  >();
+  const authorizedItemIds = new Set<string>();
+  const itemOwnersById = new Map<string, ItemOwnerRow>();
+  const actorAccessRanksByItemId = new Map<string, number>();
+  const aclTargetStateCache = new Map<
+    string,
+    Awaited<ReturnType<typeof loadAclTargetState>>
   >();
   const validOperations: VfsCrdtPushOperation[] = [];
   for (const entry of input.parsedOperations) {
@@ -117,6 +127,7 @@ export async function applyCrdtPushOperations(input: {
     const itemOwnerIds = new Map<string, string | null>();
     for (const row of itemRows.rows) {
       itemOwnerIds.set(row.id, row.owner_id);
+      itemOwnersById.set(row.id, row);
       if (
         row.owner_id === input.userId &&
         row.organization_id === input.organizationId
@@ -126,6 +137,8 @@ export async function applyCrdtPushOperations(input: {
           accessRank: 3,
           ownerId: row.owner_id
         });
+        authorizedItemIds.add(row.id);
+        actorAccessRanksByItemId.set(row.id, 3);
       }
     }
 
@@ -136,15 +149,14 @@ export async function applyCrdtPushOperations(input: {
       FROM vfs_effective_visibility
       WHERE user_id = $1::uuid
         AND item_id = ANY($2::uuid[])
-        AND access_rank >= 2
       `,
       [input.userId, uniqueItemIds]
     );
     for (const row of visibilityRows.rows) {
       const itemId = normalizeRequiredString(row.item_id);
+      const accessRank = parseAccessRank(row.access_rank);
       if (itemId) {
         const existing = itemAuthInfo.get(itemId);
-        const accessRank = row.access_rank ?? 2;
         if (!existing || accessRank > existing.accessRank) {
           itemAuthInfo.set(itemId, {
             isOwner: existing?.isOwner ?? false,
@@ -152,6 +164,13 @@ export async function applyCrdtPushOperations(input: {
             ownerId: itemOwnerIds.get(itemId) ?? null
           });
         }
+        const currentAccessRank = actorAccessRanksByItemId.get(itemId) ?? 0;
+        if (accessRank > currentAccessRank) {
+          actorAccessRanksByItemId.set(itemId, accessRank);
+        }
+      }
+      if (itemId && accessRank >= 2) {
+        authorizedItemIds.add(itemId);
       }
     }
   }
@@ -160,7 +179,7 @@ export async function applyCrdtPushOperations(input: {
     (entry) =>
       entry.status === 'parsed' &&
       !!entry.operation &&
-      itemAuthInfo.has(entry.operation.itemId)
+      authorizedItemIds.has(entry.operation.itemId)
   );
 
   const replicaWriteHeads = new Map<string, number>();
@@ -211,16 +230,42 @@ export async function applyCrdtPushOperations(input: {
 
     const operation = entry.operation;
     const authInfo = itemAuthInfo.get(operation.itemId);
+    let operationToPersist = operation;
+    const recordAclAudit = (
+      status: VfsCrdtPushResult['status'],
+      reason?: string
+    ): void => {
+      if (!isAclOperation(operation)) {
+        return;
+      }
+
+      logAclMutationAudit({
+        actorId: input.userId,
+        organizationId: input.organizationId,
+        operation: operationToPersist,
+        reason: reason ?? null,
+        status
+      });
+    };
+    if (!authorizedItemIds.has(operation.itemId)) {
+      results.push({
+        opId: operation.opId,
+        status: 'invalidOp'
+      });
+      recordAclAudit('invalidOp', 'item_not_authorized');
+      continue;
+    }
+
     if (!authInfo) {
       results.push({
         opId: operation.opId,
         status: 'invalidOp'
       });
+      recordAclAudit('invalidOp', 'item_auth_missing');
       continue;
     }
 
-    // ACL semantic validation for acl_add / acl_remove operations
-    if (isAclOperation(operation.opType)) {
+    if (isAclOperation(operation)) {
       const validation = validateAclOperationSemantics(operation, {
         actorId: input.userId,
         actorAccessRank: authInfo.accessRank,
@@ -242,11 +287,75 @@ export async function applyCrdtPushOperations(input: {
           opId: operation.opId,
           status: 'aclDenied'
         });
+        recordAclAudit('aclDenied', validation.reason);
         continue;
+      }
+
+      if (!operation.encryptedPayload) {
+        const normalizedAclOperation = normalizeAclOperation(operation);
+        if (!normalizedAclOperation) {
+          results.push({
+            opId: operation.opId,
+            status: 'invalidOp'
+          });
+          recordAclAudit('invalidOp', 'acl_fields_invalid');
+          continue;
+        }
+
+        operationToPersist = normalizedAclOperation;
+        const aclTargetStateKey = [
+          normalizedAclOperation.itemId,
+          normalizedAclOperation.principalType,
+          normalizedAclOperation.principalId
+        ].join(':');
+        const cachedAclTargetState = aclTargetStateCache.get(aclTargetStateKey);
+        const aclTargetState =
+          cachedAclTargetState ??
+          (await loadAclTargetState(runQuery, {
+            itemId: normalizedAclOperation.itemId,
+            itemOwnerId:
+              itemOwnersById.get(normalizedAclOperation.itemId)?.owner_id ??
+              null,
+            principalType: normalizedAclOperation.principalType,
+            principalId: normalizedAclOperation.principalId
+          }));
+        if (!cachedAclTargetState) {
+          aclTargetStateCache.set(aclTargetStateKey, aclTargetState);
+        }
+
+        const actorAccessRank =
+          actorAccessRanksByItemId.get(normalizedAclOperation.itemId) ?? 0;
+        const itemOwnerId =
+          itemOwnersById.get(normalizedAclOperation.itemId)?.owner_id ?? null;
+        if (
+          !isAclMutationAuthorized({
+            actorAccessRank,
+            actorId: input.userId,
+            itemOwnerId,
+            operation: normalizedAclOperation,
+            targetState: aclTargetState
+          })
+        ) {
+          console.warn(
+            'ACL operation denied:',
+            buildAclAuditEntry(
+              operation,
+              input.userId,
+              'denied',
+              'acl_semantics_rejected'
+            )
+          );
+          results.push({
+            opId: operation.opId,
+            status: 'aclDenied'
+          });
+          recordAclAudit('aclDenied', 'acl_semantics_rejected');
+          continue;
+        }
       }
     }
 
-    const sourceId = toPushSourceId(input.userId, operation);
+    const sourceId = toPushSourceId(input.userId, operationToPersist);
     const existing = await runQuery<ExistingSourceRow>(
       'existing_source_lookup',
       `
@@ -261,44 +370,55 @@ export async function applyCrdtPushOperations(input: {
     if (existing.rows[0]) {
       const existingOccurredAt = existing.rows[0].occurred_at;
       const existingReplicaWriteId =
-        replicaWriteHeads.get(operation.replicaId) ?? 0;
-      if (operation.writeId > existingReplicaWriteId) {
-        replicaWriteHeads.set(operation.replicaId, operation.writeId);
+        replicaWriteHeads.get(operationToPersist.replicaId) ?? 0;
+      if (operationToPersist.writeId > existingReplicaWriteId) {
+        replicaWriteHeads.set(
+          operationToPersist.replicaId,
+          operationToPersist.writeId
+        );
         maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, existingOccurredAt);
         await upsertReplicaHead(
           runQuery,
           input.userId,
-          operation.replicaId,
-          operation.writeId,
+          operationToPersist.replicaId,
+          operationToPersist.writeId,
           existingOccurredAt
         );
       }
 
       results.push({
-        opId: operation.opId,
+        opId: operationToPersist.opId,
         status: 'alreadyApplied'
       });
+      recordAclAudit('alreadyApplied');
       continue;
     }
 
-    const maxWriteId = replicaWriteHeads.get(operation.replicaId) ?? 0;
-    if (operation.writeId <= maxWriteId) {
+    const maxWriteId = replicaWriteHeads.get(operationToPersist.replicaId) ?? 0;
+    if (operationToPersist.writeId <= maxWriteId) {
       results.push({
-        opId: operation.opId,
+        opId: operationToPersist.opId,
         status: 'staleWriteId'
       });
+      recordAclAudit('staleWriteId');
       continue;
     }
 
     const canonicalOccurredAt = normalizeCanonicalOccurredAt(
-      operation.occurredAt,
+      operationToPersist.occurredAt,
       maxOccurredAt
     );
-    const encryptedPayload = serializeEnvelopeField(operation.encryptedPayload);
-    const encryptionNonce = serializeEnvelopeField(operation.encryptionNonce);
-    const encryptionAad = serializeEnvelopeField(operation.encryptionAad);
+    const encryptedPayload = serializeEnvelopeField(
+      operationToPersist.encryptedPayload
+    );
+    const encryptionNonce = serializeEnvelopeField(
+      operationToPersist.encryptionNonce
+    );
+    const encryptionAad = serializeEnvelopeField(
+      operationToPersist.encryptionAad
+    );
     const encryptionSignature = serializeEnvelopeField(
-      operation.encryptionSignature
+      operationToPersist.encryptionSignature
     );
     const insertResult = await runQuery<InsertedCrdtOpRow>(
       'insert_crdt_op',
@@ -353,19 +473,19 @@ export async function applyCrdtPushOperations(input: {
       RETURNING id, occurred_at
       `,
       [
-        operation.itemId,
-        operation.opType,
-        operation.principalType ?? null,
-        operation.principalId ?? null,
-        operation.accessLevel ?? null,
-        operation.parentId ?? null,
-        operation.childId ?? null,
+        operationToPersist.itemId,
+        operationToPersist.opType,
+        operationToPersist.principalType ?? null,
+        operationToPersist.principalId ?? null,
+        operationToPersist.accessLevel ?? null,
+        operationToPersist.parentId ?? null,
+        operationToPersist.childId ?? null,
         input.userId,
         CRDT_CLIENT_PUSH_SOURCE_TABLE,
         sourceId,
         canonicalOccurredAt,
         encryptedPayload.text,
-        operation.keyEpoch ?? null,
+        operationToPersist.keyEpoch ?? null,
         encryptionNonce.text,
         encryptionAad.text,
         encryptionSignature.text,
@@ -373,7 +493,7 @@ export async function applyCrdtPushOperations(input: {
         encryptionNonce.bytes,
         encryptionAad.bytes,
         encryptionSignature.bytes,
-        resolveContainerId(operation)
+        resolveContainerId(operationToPersist)
       ]
     );
 
@@ -383,16 +503,19 @@ export async function applyCrdtPushOperations(input: {
       const insertedOccurredAt =
         insertedRow?.occurred_at ?? canonicalOccurredAt;
       maxOccurredAt = pickNewerOccurredAt(maxOccurredAt, insertedOccurredAt);
-      replicaWriteHeads.set(operation.replicaId, operation.writeId);
+      replicaWriteHeads.set(
+        operationToPersist.replicaId,
+        operationToPersist.writeId
+      );
       await upsertReplicaHead(
         runQuery,
         input.userId,
-        operation.replicaId,
-        operation.writeId,
+        operationToPersist.replicaId,
+        operationToPersist.writeId,
         insertedOccurredAt
       );
 
-      const containerId = resolveContainerId(operation);
+      const containerId = resolveContainerId(operationToPersist);
       const changedAt = insertedRow
         ? toIsoString(insertedRow.occurred_at)
         : null;
@@ -412,21 +535,25 @@ export async function applyCrdtPushOperations(input: {
         }
       }
 
-      await applyCanonicalItemOperation(runQuery, input.userId, operation);
+      await applyCanonicalItemOperation(
+        runQuery,
+        input.userId,
+        operationToPersist
+      );
 
-      // Audit log for successful ACL mutations
-      if (isAclOperation(operation.opType)) {
+      if (isAclOperation(operation)) {
         console.warn(
           'ACL operation applied:',
-          buildAclAuditEntry(operation, input.userId, 'applied')
+          buildAclAuditEntry(operationToPersist, input.userId, 'applied')
         );
       }
     }
 
     results.push({
-      opId: operation.opId,
+      opId: operationToPersist.opId,
       status: applied ? 'applied' : 'outdatedOp'
     });
+    recordAclAudit(applied ? 'applied' : 'outdatedOp');
   }
 
   return {
@@ -434,4 +561,19 @@ export async function applyCrdtPushOperations(input: {
     notifications: Array.from(containerNotifications.values()),
     queryMetrics
   };
+}
+
+function parseAccessRank(value: number | string | null): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number.parseInt(value, 10);
+    if (Number.isInteger(parsedValue) && parsedValue > 0) {
+      return parsedValue;
+    }
+  }
+
+  return 0;
 }

@@ -170,6 +170,108 @@ describe('vfsDirectCrdtPushApply', () => {
     expect(queryMock).toHaveBeenCalledTimes(9);
   });
 
+  it('applies writer read grants for new principals and strips extra ACL fields', async () => {
+    const queryMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createQueryResult([createItemOwnershipRow({ ownerId: 'user-2' })])
+      )
+      .mockResolvedValueOnce(createQueryResult([createAuthorizedItemRow()]))
+      .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(
+        createQueryResult(
+          [
+            {
+              id: 'change-1',
+              occurred_at: '2026-02-16T00:00:02.000Z'
+            }
+          ],
+          1
+        )
+      )
+      .mockResolvedValueOnce(createQueryResult([]));
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const result = await applyCrdtPushOperations({
+        client: { query: queryMock },
+        userId: 'user-1',
+        organizationId: 'org-1',
+        parsedOperations: [
+          createParsedOperation(
+            createOperation({
+              opType: 'acl_add',
+              principalType: 'user',
+              principalId: 'user-3',
+              accessLevel: 'read',
+              parentId: 'folder-1',
+              childId: 'other-item',
+              encryptedPayload: 'YWJj',
+              keyEpoch: 7,
+              encryptionNonce: 'bm9uY2U=',
+              encryptionAad: 'YWFk',
+              encryptionSignature: 'c2ln'
+            })
+          )
+        ]
+      });
+
+      expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
+      expect(result.notifications).toEqual([
+        {
+          containerId: 'item-1',
+          changedAt: '2026-02-16T00:00:02.000Z',
+          changeId: 'change-1'
+        }
+      ]);
+
+      const insertValues = queryMock.mock.calls[6]?.[1];
+      expect(Array.isArray(insertValues)).toBe(true);
+      if (!Array.isArray(insertValues)) {
+        throw new Error('expected insert values');
+      }
+
+      expect(insertValues[2]).toBe('user');
+      expect(insertValues[3]).toBe('user-3');
+      expect(insertValues[4]).toBe('read');
+      expect(insertValues[5]).toBeNull();
+      expect(insertValues[6]).toBeNull();
+      expect(insertValues[11]).toBeNull();
+      expect(insertValues[12]).toBeNull();
+      expect(insertValues[13]).toBeNull();
+      expect(insertValues[14]).toBeNull();
+      expect(insertValues[15]).toBeNull();
+      expect(insertValues[16]).toBeNull();
+      expect(insertValues[17]).toBeNull();
+      expect(insertValues[18]).toBeNull();
+      expect(insertValues[19]).toBeNull();
+
+      const auditEvent = JSON.parse(String(consoleInfoSpy.mock.calls[0]?.[0]));
+      expect(auditEvent).toMatchObject({
+        reason: null,
+        status: 'applied',
+        operation: {
+          opId: 'op-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-16T00:00:00.000Z',
+          principalType: 'user',
+          principalId: 'user-3',
+          accessLevel: 'read'
+        }
+      });
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
   it('returns staleWriteId when writeId does not advance replica head', async () => {
     const queryMock = vi
       .fn()
