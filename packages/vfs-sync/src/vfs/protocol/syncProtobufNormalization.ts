@@ -50,6 +50,7 @@ interface OperationPayloadSource {
   encryptionNonce?: string;
   encryptionAad?: string;
   encryptionSignature?: string;
+  operationSignature?: string;
 }
 
 export function normalizeRequiredBytes(
@@ -143,6 +144,13 @@ export function toOperationPayload(
       fieldName: 'encryptionSignature'
     });
   }
+  if (typeof operation.operationSignature === 'string') {
+    writeEnvelopeField(payload, {
+      bytesKey: 'operationSignatureBytes',
+      value: operation.operationSignature,
+      fieldName: 'operationSignature'
+    });
+  }
   return payload;
 }
 
@@ -208,6 +216,12 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (encryptionSignature !== undefined) {
     decoded['encryptionSignature'] = encryptionSignature;
   }
+  const operationSignature = readEnvelopeField(
+    operation['operationSignatureBytes']
+  );
+  if (operationSignature !== undefined) {
+    decoded['operationSignature'] = operationSignature;
+  }
   return decoded;
 }
 
@@ -260,6 +274,12 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
   );
   if (encryptionSignature !== undefined) {
     decoded['encryptionSignature'] = encryptionSignature;
+  }
+  const operationSignature2 = readEnvelopeField(
+    operation['operationSignatureBytes']
+  );
+  if (operationSignature2 !== undefined) {
+    decoded['operationSignature'] = operationSignature2;
   }
   return decoded;
 }

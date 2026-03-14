@@ -236,6 +236,8 @@ message VfsCrdtPushOperation {
   VfsAclAccessLevel access_level_enum = 25;
   bytes parent_id_bytes = 26;
   bytes child_id_bytes = 27;
+  optional string operation_signature = 28;
+  bytes operation_signature_bytes = 29;
 }
 message VfsPushCrdtOpsRequest {
   string organization_id = 1;
