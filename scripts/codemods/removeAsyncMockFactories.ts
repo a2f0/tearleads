@@ -77,21 +77,21 @@ function transformFile(content: string): {
     match !== null;
     match = viMockPattern.exec(content)
   ) {
-    const paramListStartInMatch = match[0].indexOf(match[3]);
+    const paramListStartInMatch = match[0].indexOf(match[3]!);
     matches.push({
       fullMatchStart: match.index,
       fullMatchEnd: match.index + match[0].length,
-      modulePath: match[2],
-      paramList: match[3],
+      modulePath: match[2]!,
+      paramList: match[3]!,
       paramListStart: match.index + paramListStartInMatch,
-      paramListEnd: match.index + paramListStartInMatch + match[3].length,
+      paramListEnd: match.index + paramListStartInMatch + match[3]!.length,
       bodyStart: match.index + match[0].length // right after '{'
     });
   }
 
   // Process matches in reverse order so offsets don't shift
   for (let i = matches.length - 1; i >= 0; i--) {
-    const m = matches[i];
+    const m = matches[i]!;
 
     // Find the end of the factory body by counting braces
     let braceDepth = 1;
