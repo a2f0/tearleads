@@ -137,6 +137,39 @@ Current design direction:
 
 Design intent is defense-in-depth plus a path toward post-quantum resistance.
 
+## ACL Operation Signing Format
+
+ACL mutation signatures use Ed25519 over a deterministic byte string defined in
+`packages/shared/src/crypto/aclOperationSigning.ts`.
+
+- Version: prepend a single version byte, currently `0x01`
+- Field order: `opId`, `opType`, `itemId`, `replicaId`, `writeId`,
+  `occurredAt`, `principalType`, `principalId`, `accessLevel`
+- Encoding: each field is UTF-8 with a 4-byte unsigned big-endian length prefix
+- `writeId`: serialize as its base-10 string before UTF-8 encoding
+- `acl_remove`: serialize `accessLevel` as the empty string
+- Signature output: base64-encoded Ed25519 signature persisted as
+  `operationSignature`
+
+Equivalent wire format:
+
+```text
+0x01
+|| u32be(len(opId)) || utf8(opId)
+|| u32be(len(opType)) || utf8(opType)
+|| u32be(len(itemId)) || utf8(itemId)
+|| u32be(len(replicaId)) || utf8(replicaId)
+|| u32be(len(decimal(writeId))) || utf8(decimal(writeId))
+|| u32be(len(occurredAt)) || utf8(occurredAt)
+|| u32be(len(principalType)) || utf8(principalType)
+|| u32be(len(principalId)) || utf8(principalId)
+|| u32be(len(accessLevel)) || utf8(accessLevel)
+```
+
+Any client or auditor that reproduces these bytes exactly and verifies the
+signature against the actor's Ed25519 public signing key should reach the same
+result as the canonical implementation.
+
 ## Example Hierarchy
 
 ```text
