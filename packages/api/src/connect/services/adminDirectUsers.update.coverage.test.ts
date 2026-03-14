@@ -211,7 +211,9 @@ describe('adminDirectUsers update coverage branches', () => {
     expect(organizationLookupCall?.[0]).toContain(
       'SELECT id FROM organizations WHERE id = ANY($1::uuid[])'
     );
-    expect(insertCall?.[0]).toContain('FROM unnest($2::uuid[]) AS organization_id');
+    expect(insertCall?.[0]).toContain(
+      'FROM unnest($2::uuid[]) AS organization_id'
+    );
     expect(insertCall?.[1]).toEqual([
       'user-1',
       ['org-2', 'org-personal'],
