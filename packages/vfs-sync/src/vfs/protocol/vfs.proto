@@ -35,6 +35,7 @@ enum PushStatus {
   INVALID_OP = 4;
   ALREADY_APPLIED = 5;
   ENCRYPTED_ENVELOPE_UNSUPPORTED = 6;
+  ACL_DENIED = 7;
 }
 
 message SyncBloomFilter {

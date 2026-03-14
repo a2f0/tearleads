@@ -58,6 +58,7 @@ const PUSH_STATUS_ENUM_NAME_MAP: Record<string, VfsCrdtPushStatus> = {
   VFS_CRDT_PUSH_STATUS_STALE_WRITE_ID: 'staleWriteId',
   VFS_CRDT_PUSH_STATUS_OUTDATED_OP: 'outdatedOp',
   VFS_CRDT_PUSH_STATUS_INVALID_OP: 'invalidOp',
+  VFS_CRDT_PUSH_STATUS_ACL_DENIED: 'aclDenied',
   VFS_CRDT_PUSH_STATUS_ENCRYPTED_ENVELOPE_UNSUPPORTED:
     'encryptedEnvelopeUnsupported'
 };
@@ -68,7 +69,8 @@ const PUSH_STATUS_ENUM_NUMERIC_MAP: Record<number, VfsCrdtPushStatus> = {
   3: 'outdatedOp',
   4: 'invalidOp',
   5: 'alreadyApplied',
-  6: 'encryptedEnvelopeUnsupported'
+  6: 'encryptedEnvelopeUnsupported',
+  7: 'aclDenied'
 };
 
 function isRecord(value: unknown): value is RecordValue {

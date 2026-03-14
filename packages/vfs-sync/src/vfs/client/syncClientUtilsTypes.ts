@@ -53,6 +53,7 @@ export type VfsCrdtSyncPushStatus =
   | 'staleWriteId'
   | 'outdatedOp'
   | 'invalidOp'
+  | 'aclDenied'
   | 'encryptedEnvelopeUnsupported';
 
 export interface VfsCrdtSyncPushResult {

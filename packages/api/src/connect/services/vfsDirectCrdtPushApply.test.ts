@@ -42,11 +42,16 @@ function createItemOwnershipRow(
   };
 }
 
-function createAuthorizedItemRow(itemId = 'item-1'): {
+function createAuthorizedItemRow(
+  itemId = 'item-1',
+  accessRank = 2
+): {
   item_id: string;
+  access_rank: number;
 } {
   return {
-    item_id: itemId
+    item_id: itemId,
+    access_rank: accessRank
   };
 }
 

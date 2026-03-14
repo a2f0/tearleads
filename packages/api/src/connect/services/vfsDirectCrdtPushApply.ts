@@ -11,6 +11,10 @@ import {
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
+  buildAclAuditEntry,
+  validateAclOperationSemantics
+} from './vfsDirectCrdtPushAclValidation.js';
+import {
   applyCanonicalItemOperation,
   compareCursor,
   pickNewerOccurredAt,
@@ -36,6 +40,7 @@ interface ItemOwnerRow {
 }
 interface EffectiveVisibilityRow {
   item_id: string | null;
+  access_rank: number | null;
 }
 interface ExistingSourceRow {
   id: string;
@@ -48,10 +53,21 @@ interface InsertedCrdtOpRow {
   id: string;
   occurred_at: Date | string;
 }
+
+interface ItemAuthorizationInfo {
+  isOwner: boolean;
+  accessRank: number;
+  ownerId: string | null;
+}
+
 interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
   queryMetrics: VfsCrdtQueryMetrics;
+}
+
+function isAclOperation(opType: string): boolean {
+  return opType === 'acl_add' || opType === 'acl_remove';
 }
 
 export async function applyCrdtPushOperations(input: {
@@ -82,7 +98,7 @@ export async function applyCrdtPushOperations(input: {
     }
   }
 
-  const authorizedItemIds = new Set<string>();
+  const itemAuthInfo = new Map<string, ItemAuthorizationInfo>();
   if (validOperations.length > 0) {
     const uniqueItemIds = Array.from(
       new Set(validOperations.map((operation) => operation.itemId))
@@ -96,19 +112,27 @@ export async function applyCrdtPushOperations(input: {
       `,
       [uniqueItemIds]
     );
+
+    // Track owner_id per item for ACL validation even if actor is not the owner
+    const itemOwnerIds = new Map<string, string | null>();
     for (const row of itemRows.rows) {
+      itemOwnerIds.set(row.id, row.owner_id);
       if (
         row.owner_id === input.userId &&
         row.organization_id === input.organizationId
       ) {
-        authorizedItemIds.add(row.id);
+        itemAuthInfo.set(row.id, {
+          isOwner: true,
+          accessRank: 3,
+          ownerId: row.owner_id
+        });
       }
     }
 
     const visibilityRows = await runQuery<EffectiveVisibilityRow>(
       'authorized_item_lookup',
       `
-      SELECT item_id
+      SELECT item_id, access_rank
       FROM vfs_effective_visibility
       WHERE user_id = $1::uuid
         AND item_id = ANY($2::uuid[])
@@ -119,7 +143,15 @@ export async function applyCrdtPushOperations(input: {
     for (const row of visibilityRows.rows) {
       const itemId = normalizeRequiredString(row.item_id);
       if (itemId) {
-        authorizedItemIds.add(itemId);
+        const existing = itemAuthInfo.get(itemId);
+        const accessRank = row.access_rank ?? 2;
+        if (!existing || accessRank > existing.accessRank) {
+          itemAuthInfo.set(itemId, {
+            isOwner: existing?.isOwner ?? false,
+            accessRank,
+            ownerId: itemOwnerIds.get(itemId) ?? null
+          });
+        }
       }
     }
   }
@@ -128,7 +160,7 @@ export async function applyCrdtPushOperations(input: {
     (entry) =>
       entry.status === 'parsed' &&
       !!entry.operation &&
-      authorizedItemIds.has(entry.operation.itemId)
+      itemAuthInfo.has(entry.operation.itemId)
   );
 
   const replicaWriteHeads = new Map<string, number>();
@@ -178,12 +210,40 @@ export async function applyCrdtPushOperations(input: {
     }
 
     const operation = entry.operation;
-    if (!authorizedItemIds.has(operation.itemId)) {
+    const authInfo = itemAuthInfo.get(operation.itemId);
+    if (!authInfo) {
       results.push({
         opId: operation.opId,
         status: 'invalidOp'
       });
       continue;
+    }
+
+    // ACL semantic validation for acl_add / acl_remove operations
+    if (isAclOperation(operation.opType)) {
+      const validation = validateAclOperationSemantics(operation, {
+        actorId: input.userId,
+        actorAccessRank: authInfo.accessRank,
+        isItemOwner: authInfo.isOwner,
+        itemOwnerId: authInfo.ownerId
+      });
+
+      if (!validation.valid) {
+        console.warn(
+          'ACL operation denied:',
+          buildAclAuditEntry(
+            operation,
+            input.userId,
+            'denied',
+            validation.reason
+          )
+        );
+        results.push({
+          opId: operation.opId,
+          status: 'aclDenied'
+        });
+        continue;
+      }
     }
 
     const sourceId = toPushSourceId(input.userId, operation);
@@ -353,6 +413,14 @@ export async function applyCrdtPushOperations(input: {
       }
 
       await applyCanonicalItemOperation(runQuery, input.userId, operation);
+
+      // Audit log for successful ACL mutations
+      if (isAclOperation(operation.opType)) {
+        console.warn(
+          'ACL operation applied:',
+          buildAclAuditEntry(operation, input.userId, 'applied')
+        );
+      }
     }
 
     results.push({
