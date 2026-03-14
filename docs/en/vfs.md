@@ -111,6 +111,21 @@ For rollout correctness/perf gates, see
 The same object can be linked from multiple parents by adding more `vfs_links`
 rows. Each link can have independent visibility constraints.
 
+### Has-one parent (link_reassign)
+
+Some object types require single-parent semantics — a child must belong to
+exactly one container. For example, a health reading is assigned to one contact
+at a time.
+
+The `link_reassign` CRDT operation enforces this by atomically tombstoning all
+existing parent links for a child before adding the new one. Two concurrent
+reassign operations from different replicas converge deterministically to a
+single parent via the CRDT tiebreaker chain.
+
+This is opt-in per operation, not per object type. Callers use `link_reassign`
+instead of `link_add` when single-parent enforcement is needed. See
+`packages/vfs-sync/src/vfs/protocol/README.md` for merge semantics.
+
 ## Encryption Direction
 
 Current design direction:
