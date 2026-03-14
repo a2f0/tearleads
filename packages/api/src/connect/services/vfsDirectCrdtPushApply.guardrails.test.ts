@@ -63,6 +63,9 @@ describe('vfsDirectCrdtPushApply guardrails', () => {
     const consoleInfoSpy = vi
       .spyOn(console, 'info')
       .mockImplementation(() => {});
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
     const queryMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -83,14 +86,22 @@ describe('vfsDirectCrdtPushApply guardrails', () => {
         parsedOperations: [createParsedOperation(createOperation({}))]
       });
 
-      expect(result.results).toEqual([{ opId: 'op-1', status: 'invalidOp' }]);
+      expect(result.results).toEqual([{ opId: 'op-1', status: 'aclDenied' }]);
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'ACL operation denied:',
+        expect.objectContaining({
+          denialReason: 'only admins can grant admin access',
+          result: 'denied'
+        })
+      );
       expect(
         JSON.parse(String(consoleInfoSpy.mock.calls[0]?.[0]))
       ).toMatchObject({
-        reason: 'acl_semantics_rejected',
-        status: 'invalidOp'
+        reason: 'only admins can grant admin access',
+        status: 'aclDenied'
       });
     } finally {
+      consoleWarnSpy.mockRestore();
       consoleInfoSpy.mockRestore();
     }
   });

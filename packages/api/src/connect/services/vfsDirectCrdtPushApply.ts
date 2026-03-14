@@ -11,16 +11,16 @@ import {
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
-  isAclMutationAuthorized,
+  type AclTargetState,
   isAclOperation,
-  loadAclTargetState,
-  logAclMutationAudit,
-  normalizeAclOperation
+  logAclMutationAudit
 } from './vfsDirectCrdtPushAclGuardrails.js';
 import {
-  buildAclAuditEntry,
-  validateAclOperationSemantics
-} from './vfsDirectCrdtPushAclValidation.js';
+  type ApplyAclAuthorizationInfo,
+  parseAccessRank,
+  prepareAclOperation
+} from './vfsDirectCrdtPushAclPreflight.js';
+import { buildAclAuditEntry } from './vfsDirectCrdtPushAclValidation.js';
 import {
   applyCanonicalItemOperation,
   compareCursor,
@@ -61,12 +61,6 @@ interface InsertedCrdtOpRow {
   occurred_at: Date | string;
 }
 
-interface ItemAuthorizationInfo {
-  isOwner: boolean;
-  accessRank: number;
-  ownerId: string | null;
-}
-
 interface ApplyCrdtPushOperationsResult {
   results: VfsCrdtPushResult[];
   notifications: VfsContainerCursorNotification[];
@@ -97,10 +91,7 @@ export async function applyCrdtPushOperations(input: {
   const authorizedItemIds = new Set<string>();
   const itemOwnersById = new Map<string, ItemOwnerRow>();
   const actorAccessRanksByItemId = new Map<string, number>();
-  const aclTargetStateCache = new Map<
-    string,
-    Awaited<ReturnType<typeof loadAclTargetState>>
-  >();
+  const aclTargetStateCache = new Map<string, AclTargetState>();
   const validOperations: VfsCrdtPushOperation[] = [];
   for (const entry of input.parsedOperations) {
     if (entry.status === 'parsed' && entry.operation) {
@@ -108,7 +99,7 @@ export async function applyCrdtPushOperations(input: {
     }
   }
 
-  const itemAuthInfo = new Map<string, ItemAuthorizationInfo>();
+  const itemAuthInfo = new Map<string, ApplyAclAuthorizationInfo>();
   if (validOperations.length > 0) {
     const uniqueItemIds = Array.from(
       new Set(validOperations.map((operation) => operation.itemId))
@@ -266,93 +257,34 @@ export async function applyCrdtPushOperations(input: {
     }
 
     if (isAclOperation(operation)) {
-      const validation = validateAclOperationSemantics(operation, {
+      const preparedAclOperation = await prepareAclOperation({
+        aclTargetStateCache,
+        actorAccessRanksByItemId,
         actorId: input.userId,
-        actorAccessRank: authInfo.accessRank,
-        isItemOwner: authInfo.isOwner,
-        itemOwnerId: authInfo.ownerId
+        authInfo,
+        itemOwnersById,
+        operation,
+        runQuery
       });
-
-      if (!validation.valid) {
-        console.warn(
-          'ACL operation denied:',
-          buildAclAuditEntry(
-            operation,
-            input.userId,
-            'denied',
-            validation.reason
-          )
-        );
+      if (preparedAclOperation.kind === 'denied') {
+        if (preparedAclOperation.warningEntry) {
+          console.warn(
+            'ACL operation denied:',
+            preparedAclOperation.warningEntry
+          );
+        }
         results.push({
           opId: operation.opId,
-          status: 'aclDenied'
+          status: preparedAclOperation.resultStatus
         });
-        recordAclAudit('aclDenied', validation.reason);
+        recordAclAudit(
+          preparedAclOperation.resultStatus,
+          preparedAclOperation.auditReason
+        );
         continue;
       }
 
-      if (!operation.encryptedPayload) {
-        const normalizedAclOperation = normalizeAclOperation(operation);
-        if (!normalizedAclOperation) {
-          results.push({
-            opId: operation.opId,
-            status: 'invalidOp'
-          });
-          recordAclAudit('invalidOp', 'acl_fields_invalid');
-          continue;
-        }
-
-        operationToPersist = normalizedAclOperation;
-        const aclTargetStateKey = [
-          normalizedAclOperation.itemId,
-          normalizedAclOperation.principalType,
-          normalizedAclOperation.principalId
-        ].join(':');
-        const cachedAclTargetState = aclTargetStateCache.get(aclTargetStateKey);
-        const aclTargetState =
-          cachedAclTargetState ??
-          (await loadAclTargetState(runQuery, {
-            itemId: normalizedAclOperation.itemId,
-            itemOwnerId:
-              itemOwnersById.get(normalizedAclOperation.itemId)?.owner_id ??
-              null,
-            principalType: normalizedAclOperation.principalType,
-            principalId: normalizedAclOperation.principalId
-          }));
-        if (!cachedAclTargetState) {
-          aclTargetStateCache.set(aclTargetStateKey, aclTargetState);
-        }
-
-        const actorAccessRank =
-          actorAccessRanksByItemId.get(normalizedAclOperation.itemId) ?? 0;
-        const itemOwnerId =
-          itemOwnersById.get(normalizedAclOperation.itemId)?.owner_id ?? null;
-        if (
-          !isAclMutationAuthorized({
-            actorAccessRank,
-            actorId: input.userId,
-            itemOwnerId,
-            operation: normalizedAclOperation,
-            targetState: aclTargetState
-          })
-        ) {
-          console.warn(
-            'ACL operation denied:',
-            buildAclAuditEntry(
-              operation,
-              input.userId,
-              'denied',
-              'acl_semantics_rejected'
-            )
-          );
-          results.push({
-            opId: operation.opId,
-            status: 'aclDenied'
-          });
-          recordAclAudit('aclDenied', 'acl_semantics_rejected');
-          continue;
-        }
-      }
+      operationToPersist = preparedAclOperation.operationToPersist;
     }
 
     const sourceId = toPushSourceId(input.userId, operationToPersist);
@@ -561,19 +493,4 @@ export async function applyCrdtPushOperations(input: {
     notifications: Array.from(containerNotifications.values()),
     queryMetrics
   };
-}
-
-function parseAccessRank(value: number | string | null): number {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsedValue = Number.parseInt(value, 10);
-    if (Number.isInteger(parsedValue) && parsedValue > 0) {
-      return parsedValue;
-    }
-  }
-
-  return 0;
 }

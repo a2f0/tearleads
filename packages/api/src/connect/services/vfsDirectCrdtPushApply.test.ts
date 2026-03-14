@@ -196,6 +196,9 @@ describe('vfsDirectCrdtPushApply', () => {
     const consoleInfoSpy = vi
       .spyOn(console, 'info')
       .mockImplementation(() => {});
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
 
     try {
       const result = await applyCrdtPushOperations({
@@ -238,6 +241,13 @@ describe('vfsDirectCrdtPushApply', () => {
 
       expect(insertValues[2]).toBe('user');
       expect(insertValues[3]).toBe('user-3');
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'ACL operation applied:',
+        expect.objectContaining({
+          action: 'acl_mutation',
+          result: 'applied'
+        })
+      );
       expect(insertValues[4]).toBe('read');
       expect(insertValues[5]).toBeNull();
       expect(insertValues[6]).toBeNull();
@@ -268,6 +278,7 @@ describe('vfsDirectCrdtPushApply', () => {
         }
       });
     } finally {
+      consoleWarnSpy.mockRestore();
       consoleInfoSpy.mockRestore();
     }
   });

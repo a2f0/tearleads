@@ -217,6 +217,7 @@ export function isAclMutationAuthorized(input: {
     }
 
     if (input.actorAccessRank < 3) {
+      // Writers can only bootstrap a brand-new principal with read access.
       if (requestedAccessRank !== 1) {
         return false;
       }
