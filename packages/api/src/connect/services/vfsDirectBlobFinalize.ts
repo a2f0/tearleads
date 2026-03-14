@@ -271,6 +271,7 @@ export async function commitBlobDirect(
       nonce?: string;
       aadHash?: string;
     }> = [];
+    let totalPlaintextBytes = 0;
     let totalCiphertextBytes = 0;
 
     for (const [index, chunk] of chunks.entries()) {
@@ -315,6 +316,7 @@ export async function commitBlobDirect(
       });
 
       decodedChunks.push(decoded);
+      totalPlaintextBytes += chunk.plaintextLength;
       totalCiphertextBytes += chunk.ciphertextLength;
     }
 
@@ -369,9 +371,9 @@ export async function commitBlobDirect(
       [
         blobId,
         payload.keyEpoch,
-        payload.chunkCount,
-        payload.totalPlaintextBytes,
-        payload.totalCiphertextBytes,
+        chunks.length,
+        totalPlaintextBytes,
+        totalCiphertextBytes,
         JSON.stringify(chunkHashes),
         JSON.stringify(chunkBoundaries),
         payload.manifestHash,

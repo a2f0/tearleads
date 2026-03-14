@@ -37,13 +37,13 @@ export type {
 } from './vfsBlobDownloadTypes';
 export {
   createVfsCryptoEngine,
-  createVfsSecureReadPipeline,
   createVfsSecurePipelineBundle,
+  createVfsSecureReadPipeline,
   rotateItemKeyEpochAndPersist,
   type VfsKeyManager,
   type VfsKeySetupPayload,
-  type VfsSecureReadPipeline,
-  type VfsSecureOrchestratorFacade
+  type VfsSecureOrchestratorFacade,
+  type VfsSecureReadPipeline
 } from './vfsCrypto';
 export {
   VfsWriteOrchestrator,

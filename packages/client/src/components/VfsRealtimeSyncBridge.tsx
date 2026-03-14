@@ -2,16 +2,16 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
-import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { readStoredAuth } from '@/lib/authStorage';
+import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
+import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
+import { resetVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
 import {
   createVfsBlobDownloadSync,
   type VfsBlobDownloadSync
 } from '@/lib/vfsBlobDownloadSync';
-import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
 import { withDownloadTracking } from '@/lib/vfsItemSyncWriter';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
-import { resetVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
 import { useSSE } from '@/sse';
 import { logStore } from '@/stores/logStore';
 

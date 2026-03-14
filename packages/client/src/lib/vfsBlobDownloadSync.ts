@@ -5,14 +5,14 @@ import {
   type VfsBlobDownloadOperation
 } from '@tearleads/api-client/clientEntry';
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
-import { createItemKeyStore } from '@/db/vfsItemKeys';
 import {
   loadVfsBlobDownloadState,
   saveVfsBlobDownloadState
 } from '@/db/vfsBlobDownloadState';
+import { createItemKeyStore } from '@/db/vfsItemKeys';
 import { api } from '@/lib/api';
-import { getDatabase } from '@/db';
 import { createStoreLogger, getOrInitializeFileStorage } from '@/storage/opfs';
 import {
   resetVfsBlobDownloadOperations,
@@ -39,7 +39,10 @@ function compareBlobDownloads(
   left: VfsBlobDownloadOperation,
   right: VfsBlobDownloadOperation
 ): number {
-  return left.itemId.localeCompare(right.itemId) || left.blobId.localeCompare(right.blobId);
+  return (
+    left.itemId.localeCompare(right.itemId) ||
+    left.blobId.localeCompare(right.blobId)
+  );
 }
 
 function isPositiveInteger(value: unknown): value is number {
@@ -51,7 +54,10 @@ function toStoragePath(blobId: string): string {
 }
 
 export async function fetchAllCrdtSyncItems(
-  fetchPage: (cursor?: string, limit?: number) => Promise<{
+  fetchPage: (
+    cursor?: string,
+    limit?: number
+  ) => Promise<{
     items: VfsCrdtSyncItem[];
     nextCursor: string | null;
     hasMore: boolean;
@@ -171,7 +177,8 @@ export function createVfsBlobDownloadSync(input: {
   });
   const flusher = createVfsBlobDownloadFlusher({
     getBlobManifest: (blobId) => api.vfs.getBlobManifest(blobId),
-    getBlobChunk: (blobId, chunkIndex) => api.vfs.getBlobChunk(blobId, chunkIndex),
+    getBlobChunk: (blobId, chunkIndex) =>
+      api.vfs.getBlobChunk(blobId, chunkIndex),
     decryptBlob: (downloadInput) =>
       secureReadPipeline.decryptEncryptedBlob(downloadInput),
     existsLocal: async (blobId) => {
@@ -182,8 +189,7 @@ export function createVfsBlobDownloadSync(input: {
       );
       return storage.exists(toStoragePath(blobId));
     },
-    loadState: async () =>
-      loadVfsBlobDownloadState(input.userId, CLIENT_ID),
+    loadState: async () => loadVfsBlobDownloadState(input.userId, CLIENT_ID),
     saveState: async (state) => {
       if (!isActive()) {
         return;
@@ -235,14 +241,17 @@ export function createVfsBlobDownloadSync(input: {
           return;
         }
 
-        const discovery = await discoverPendingBlobDownloads(items, async (blobId) => {
-          const encryptionKey = getCurrentFileStorageEncryptionKey();
-          const storage = await getOrInitializeFileStorage(
-            encryptionKey,
-            input.instanceId
-          );
-          return storage.exists(toStoragePath(blobId));
-        });
+        const discovery = await discoverPendingBlobDownloads(
+          items,
+          async (blobId) => {
+            const encryptionKey = getCurrentFileStorageEncryptionKey();
+            const storage = await getOrInitializeFileStorage(
+              encryptionKey,
+              input.instanceId
+            );
+            return storage.exists(toStoragePath(blobId));
+          }
+        );
         if (!isActive()) {
           return;
         }

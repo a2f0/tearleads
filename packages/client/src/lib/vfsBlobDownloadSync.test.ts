@@ -23,7 +23,9 @@ function createCrdtItem(
     occurredAt: input.occurredAt ?? '2026-03-14T00:00:00.000Z',
     ...(input.blobId ? { blobId: input.blobId } : {}),
     ...(input.blobSizeBytes ? { blobSizeBytes: input.blobSizeBytes } : {}),
-    ...(input.blobRelationKind ? { blobRelationKind: input.blobRelationKind } : {})
+    ...(input.blobRelationKind
+      ? { blobRelationKind: input.blobRelationKind }
+      : {})
   };
 }
 
@@ -51,7 +53,9 @@ describe('vfsBlobDownloadSync', () => {
   });
 
   it('keeps only latest live blob refs and skips blobs already stored locally', async () => {
-    const existsLocal = vi.fn(async (blobId: string) => blobId === 'blob-local');
+    const existsLocal = vi.fn(
+      async (blobId: string) => blobId === 'blob-local'
+    );
     const items = [
       createCrdtItem({
         itemId: 'item-1',
