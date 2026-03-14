@@ -10,6 +10,10 @@ import {
 import { vfsRegistry } from './schema-content.js';
 import { organizations, users } from './schema-foundation.js';
 
+/**
+ * CRDT-style operation log for ACL and link mutations.
+ * Ensures deterministic convergence for concurrent multi-client updates.
+ */
 export const vfsCrdtOps = pgTable(
   'vfs_crdt_ops',
   {

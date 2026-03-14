@@ -13,6 +13,10 @@ import {
 
 export * from './schemaHealth.js';
 
+/**
+ * Sync metadata table for tracking entity sync status.
+ * Designed for future cloud sync capabilities.
+ */
 export const syncMetadata = pgTable(
   'sync_metadata',
   {
@@ -346,7 +350,6 @@ export const vehicles = pgTable(
     index('vehicles_deleted_idx').on(table.deleted)
   ]
 );
-
 /**
  * Groups table for organizing users into named groups.
  */
@@ -387,8 +390,3 @@ export const userGroups = pgTable(
     index('user_groups_group_idx').on(table.groupId)
   ]
 );
-
-/**
- * User cryptographic keys for VFS encryption and sharing.
- * Stores asymmetric keypairs (ML-KEM + X25519 hybrid) for key exchange.
- */

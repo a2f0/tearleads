@@ -9,6 +9,10 @@ import {
 import { vfsRegistry } from './schema-content.js';
 import { organizations, users } from './schema-foundation.js';
 
+/**
+ * CRDT-style operation log for ACL and link mutations.
+ * Ensures deterministic convergence for concurrent multi-client updates.
+ */
 export const vfsCrdtOps = sqliteTable(
   'vfs_crdt_ops',
   {
@@ -229,7 +233,3 @@ export const aiUsage = sqliteTable(
     index('ai_usage_conversation_idx').on(table.conversationId)
   ]
 );
-
-/**
- * Schema object containing all table definitions.
- */

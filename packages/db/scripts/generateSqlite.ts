@@ -7,6 +7,7 @@ import { sqliteRuntimeTables } from '../src/schema/definition.js';
 const outputDir = path.resolve(import.meta.dirname, '../src/generated/sqlite');
 const rootOutputPath = path.join(outputDir, 'schema.ts');
 const foundationOutputPath = path.join(outputDir, 'schema-foundation.ts');
+const healthOutputPath = path.join(outputDir, 'schemaHealth.ts');
 const contentOutputPath = path.join(outputDir, 'schema-content.ts');
 const policyOutputPath = path.join(outputDir, 'schemaPolicy.ts');
 const runtimeOutputPath = path.join(outputDir, 'schema-runtime.ts');
@@ -30,6 +31,7 @@ const foundationNames = [
   'notes',
   'vehicles',
   'healthExercises',
+  'healthHeightReadings',
   'healthWeightReadings',
   'healthBloodPressureReadings',
   'healthWorkoutEntries',
@@ -117,6 +119,22 @@ function findLineOrThrow(lines: string[], pattern: string): number {
   return index;
 }
 
+function findSectionStartOrThrow(lines: string[], pattern: string): number {
+  const exportIndex = findLineOrThrow(lines, pattern);
+
+  if (exportIndex === 0 || lines[exportIndex - 1]?.trim() !== '*/') {
+    return exportIndex;
+  }
+
+  for (let index = exportIndex - 1; index >= 0; index -= 1) {
+    if (lines[index]?.trim() === '/**') {
+      return index;
+    }
+  }
+
+  return exportIndex;
+}
+
 function detectUsedSymbols(source: string, names: readonly string[]): string[] {
   return names.filter((name) =>
     new RegExp(`\\b${name}\\s*\\.`, 'u').test(source)
@@ -160,39 +178,52 @@ function buildModuleImports(
 function splitGeneratedSqliteSchema(input: string): {
   root: string;
   foundation: string;
+  health: string;
   content: string;
   policy: string;
   runtime: string;
 } {
   const lines = input.split('\n');
 
-  const foundationStart = findLineOrThrow(
+  const foundationStart = findSectionStartOrThrow(
     lines,
     'export const syncMetadata = sqliteTable('
   );
-  const contentStart = findLineOrThrow(
+  const healthStart = findSectionStartOrThrow(
+    lines,
+    'export const healthExercises = sqliteTable('
+  );
+  const groupsStart = findSectionStartOrThrow(
+    lines,
+    'export const groups = sqliteTable('
+  );
+  const contentStart = findSectionStartOrThrow(
     lines,
     'export const userKeys = sqliteTable('
   );
-  const policyStart = findLineOrThrow(
+  const policyStart = findSectionStartOrThrow(
     lines,
     'export const vfsSharePolicies = sqliteTable('
   );
-  const runtimeStart = findLineOrThrow(
+  const runtimeStart = findSectionStartOrThrow(
     lines,
     'export const vfsCrdtOps = sqliteTable('
   );
-  const schemaStart = findLineOrThrow(lines, 'export const schema = {');
+  const schemaStart = findSectionStartOrThrow(lines, 'export const schema = {');
 
-  const foundationBody = `${lines.slice(foundationStart, contentStart).join('\n').trimEnd()}\n`;
+  const foundationBody = `${lines.slice(foundationStart, healthStart).join('\n').trimEnd()}\n`;
+  const healthBody = `${lines.slice(healthStart, groupsStart).join('\n').trimEnd()}\n`;
+  const foundationSuffix = `${lines.slice(groupsStart, contentStart).join('\n').trimEnd()}\n`;
   const contentBody = `${lines.slice(contentStart, policyStart).join('\n').trimEnd()}\n`;
   const policyBody = `${lines.slice(policyStart, runtimeStart).join('\n').trimEnd()}\n`;
   const runtimeBody = `${lines.slice(runtimeStart, schemaStart).join('\n').trimEnd()}\n`;
 
+  const combinedFoundationBody = `${foundationBody}${foundationSuffix}`;
   const foundationCoreImports = detectUsedCoreSymbols(
-    foundationBody,
+    combinedFoundationBody,
     sqliteCoreSymbols
   );
+  const healthCoreImports = detectUsedCoreSymbols(healthBody, sqliteCoreSymbols);
   const contentCoreImports = detectUsedCoreSymbols(contentBody, sqliteCoreSymbols);
   const policyCoreImports = detectUsedCoreSymbols(policyBody, sqliteCoreSymbols);
   const runtimeCoreImports = detectUsedCoreSymbols(runtimeBody, sqliteCoreSymbols);
@@ -227,7 +258,8 @@ function splitGeneratedSqliteSchema(input: string): {
 
   return {
     root,
-    foundation: `${renderSqliteCoreImport(foundationCoreImports)}${foundationBody}`,
+    foundation: `${renderSqliteCoreImport(foundationCoreImports)}export * from './schemaHealth.js';\n\n${combinedFoundationBody}`,
+    health: `${renderSqliteCoreImport(healthCoreImports)}${healthBody}`,
     content: `${contentImports}${contentBody}`,
     policy: `${policyImports}${policyBody}`,
     runtime: `${runtimeImports}${runtimeBody}`
@@ -240,6 +272,7 @@ const splitSchema = splitGeneratedSqliteSchema(schemaCode);
 fs.mkdirSync(outputDir, { recursive: true });
 fs.writeFileSync(rootOutputPath, splitSchema.root);
 fs.writeFileSync(foundationOutputPath, splitSchema.foundation);
+fs.writeFileSync(healthOutputPath, splitSchema.health);
 fs.writeFileSync(contentOutputPath, splitSchema.content);
 fs.writeFileSync(policyOutputPath, splitSchema.policy);
 fs.writeFileSync(runtimeOutputPath, splitSchema.runtime);
@@ -255,6 +288,7 @@ const biomeResult = spawnSync(
     '--unsafe',
     rootOutputPath,
     foundationOutputPath,
+    healthOutputPath,
     contentOutputPath,
     policyOutputPath,
     runtimeOutputPath

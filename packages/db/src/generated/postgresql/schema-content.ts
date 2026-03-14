@@ -11,6 +11,10 @@ import {
 
 import { files, users } from './schema-foundation.js';
 
+/**
+ * User cryptographic keys for VFS encryption and sharing.
+ * Stores asymmetric keypairs (ML-KEM + X25519 hybrid) for key exchange.
+ */
 export const userKeys = pgTable('user_keys', {
   userId: text('user_id')
     .primaryKey()
@@ -339,8 +343,3 @@ export const walletItemMedia = pgTable(
     )
   ]
 );
-
-/**
- * Policy headers for container-scoped sharing rules.
- * Defines root scope and lifecycle metadata for share-policy compilation.
- */
