@@ -41,9 +41,7 @@ function isAuthUser(value: unknown): value is AuthUser {
     return false;
   }
 
-  return (
-    typeof value['id'] === 'string' && typeof value['email'] === 'string'
-  );
+  return typeof value['id'] === 'string' && typeof value['email'] === 'string';
 }
 
 function notifyAuthListeners(): void {

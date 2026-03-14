@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { VfsObjectType, VfsShareType } from '@tearleads/shared';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import { useSharePolicyPreview } from '../../hooks/useSharePolicyPreview.js';
 import { ShareAccessSummaryFilters } from './ShareAccessSummaryFilters.js';
 import { ShareAccessSummaryResults } from './ShareAccessSummaryResults.js';
