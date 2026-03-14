@@ -1,9 +1,7 @@
 import {
   normalizeOptionalBytes,
   packUuidToBytes,
-  readEnvelopeField,
-  unpackBytesToUuid,
-  writeEnvelopeField
+  unpackBytesToUuid
 } from './syncProtobufNormalizationBytes.js';
 import {
   ACCESS_LEVEL_MAP,
@@ -129,7 +127,9 @@ export function toOperationPayload(
     payload['encryptionSignature'] = operation.encryptionSignature;
   }
   if (typeof operation.operationSignature === 'string') {
-    payload['operationSignature'] = packUuidToBytes(operation.operationSignature);
+    payload['operationSignature'] = packUuidToBytes(
+      operation.operationSignature
+    );
   }
   return payload;
 }
@@ -188,7 +188,9 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (typeof operation['encryptionSignature'] === 'string') {
     decoded['encryptionSignature'] = operation['encryptionSignature'];
   }
-  const operationSignature = normalizeOptionalBytesString(operation['operationSignature']);
+  const operationSignature = normalizeOptionalBytesString(
+    operation['operationSignature']
+  );
   if (operationSignature !== undefined) {
     decoded['operationSignature'] = operationSignature;
   }
@@ -237,7 +239,9 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
   if (typeof operation['encryptionSignature'] === 'string') {
     decoded['encryptionSignature'] = operation['encryptionSignature'];
   }
-  const operationSignature = normalizeOptionalBytesString(operation['operationSignature']);
+  const operationSignature = normalizeOptionalBytesString(
+    operation['operationSignature']
+  );
   if (operationSignature !== undefined) {
     decoded['operationSignature'] = operationSignature;
   }

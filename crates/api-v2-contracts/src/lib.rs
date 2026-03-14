@@ -70,11 +70,11 @@ mod tests {
         let vfs = VfsGetSyncRequest {
             cursor: String::from("cursor_2"),
             limit: 100,
-            root_id: String::from("root_456"),
+            root_id: String::from("root_456").into(),
         };
         assert_eq!(vfs.cursor, "cursor_2");
         assert_eq!(vfs.limit, 100);
-        assert_eq!(vfs.root_id, "root_456");
+        assert_eq!(vfs.root_id, b"root_456");
 
         let shares = VfsSharesGetItemSharesRequest {
             item_id: String::from("item_1"),

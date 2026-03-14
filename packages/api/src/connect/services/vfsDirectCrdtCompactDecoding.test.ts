@@ -23,7 +23,9 @@ describe('vfsDirectCrdtCompactDecoding', () => {
       0x00, 0x00, 0x00, 0x01
     ]);
 
-    expect(parseIdentifier(toBase64(uuidBytes))).toBe('00000000-0000-0000-0000-000000000001');
+    expect(parseIdentifier(toBase64(uuidBytes))).toBe(
+      '00000000-0000-0000-0000-000000000001'
+    );
   });
 
   it('returns null for invalid identifiers', () => {

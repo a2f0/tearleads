@@ -13,22 +13,6 @@ import {
 const MAX_CLIENT_ID_LENGTH = 128;
 const MAX_PUSH_OPERATIONS = 500;
 
-const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'link_reassign',
-  'item_upsert',
-  'item_delete'
-];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
-const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
-
 export interface ParsedPushOperation {
   status: 'parsed' | 'invalid';
   opId: string;
@@ -159,7 +143,11 @@ export function parsePushPayload(body: unknown): ParsePushPayloadResult {
   }
 
   const clientId = parseIdentifier(body['clientId']);
-  if (!clientId || clientId.length > MAX_CLIENT_ID_LENGTH || clientId.includes(':')) {
+  if (
+    !clientId ||
+    clientId.length > MAX_CLIENT_ID_LENGTH ||
+    clientId.includes(':')
+  ) {
     return {
       ok: false,
       error: 'clientId must be non-empty, <=128 chars, and must not contain ":"'

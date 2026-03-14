@@ -97,7 +97,9 @@ export function encodeVfsCrdtPushRequestProtobuf(
   request: VfsCrdtPushRequest
 ): Uint8Array {
   return encode(PUSH_REQUEST_TYPE, {
-    organizationId: request.organizationId ? packUuidToBytes(request.organizationId) : [],
+    organizationId: request.organizationId
+      ? packUuidToBytes(request.organizationId)
+      : [],
     clientId: packUuidToBytes(request.clientId),
     operations: request.operations.map((operation) =>
       toOperationPayload(operation)
@@ -110,7 +112,8 @@ export function decodeVfsCrdtPushRequestProtobuf(bytes: Uint8Array): unknown {
     ? payload['operations'].map((operation) => decodePushOperation(operation))
     : [];
   return {
-    organizationId: normalizeOptionalBytesString(payload['organizationId']) ?? null,
+    organizationId:
+      normalizeOptionalBytesString(payload['organizationId']) ?? null,
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
     operations
   };
@@ -175,7 +178,9 @@ export function encodeVfsCrdtReconcileRequestProtobuf(
   request: VfsCrdtReconcileRequest
 ): Uint8Array {
   return encode(RECONCILE_REQUEST_TYPE, {
-    organizationId: request.organizationId ? packUuidToBytes(request.organizationId) : [],
+    organizationId: request.organizationId
+      ? packUuidToBytes(request.organizationId)
+      : [],
     clientId: packUuidToBytes(request.clientId),
     cursor: request.cursor,
     lastReconciledWriteIds: request.lastReconciledWriteIds ?? {}
@@ -186,7 +191,8 @@ export function decodeVfsCrdtReconcileRequestProtobuf(
 ): unknown {
   const payload = toObject(RECONCILE_REQUEST_TYPE, bytes);
   return {
-    organizationId: normalizeOptionalBytesString(payload['organizationId']) ?? null,
+    organizationId:
+      normalizeOptionalBytesString(payload['organizationId']) ?? null,
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
     cursor: payload['cursor'] as string,
     lastReconciledWriteIds: normalizeWriteIdMap(
@@ -219,7 +225,9 @@ export function encodeVfsCrdtSyncSessionRequestProtobuf(
   request: VfsCrdtSyncSessionRequest
 ): Uint8Array {
   const payload: Record<string, unknown> = {
-    organizationId: request.organizationId ? packUuidToBytes(request.organizationId) : [],
+    organizationId: request.organizationId
+      ? packUuidToBytes(request.organizationId)
+      : [],
     clientId: packUuidToBytes(request.clientId),
     cursor: request.cursor,
     limit: request.limit,
@@ -239,7 +247,8 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
 ): unknown {
   const payload = toObject(SYNC_SESSION_REQUEST_TYPE, bytes);
   return {
-    organizationId: normalizeOptionalBytesString(payload['organizationId']) ?? null,
+    organizationId:
+      normalizeOptionalBytesString(payload['organizationId']) ?? null,
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
     cursor: payload['cursor'] as string,
     limit: normalizePositiveSafeInteger(payload['limit'], 'limit'),

@@ -22,9 +22,7 @@ export function parseLimit(value: unknown): number | null {
   return null;
 }
 
-export function parseOptionalRootId(
-  value: unknown
-): string | null {
+export function parseOptionalRootId(value: unknown): string | null {
   return parseIdentifier(value);
 }
 

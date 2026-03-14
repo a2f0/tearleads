@@ -10,9 +10,7 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import {
-  parseIdentifier
-} from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 
 interface ReconcileCrdtRequest {

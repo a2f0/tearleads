@@ -62,8 +62,7 @@ function toCompactOperation(
   };
 
   if (operation.principalType) {
-    compact['principalType'] =
-      PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
+    compact['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
   }
   if (operation.principalId) {
     compact['principalId'] = toPackedIdBase64(operation.principalId);
@@ -126,7 +125,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       await this.requestConnectJson(
         'PushCrdtOps',
         {
-          organizationId: organizationId ? toPackedIdBase64(organizationId) : '',
+          organizationId: organizationId
+            ? toPackedIdBase64(organizationId)
+            : '',
           clientId: toPackedIdBase64(input.clientId),
           operations: input.operations.map((operation) =>
             toCompactOperation(operation)

@@ -22,9 +22,7 @@ import {
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import {
-  parseIdentifier
-} from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import {
   type ParsedPushOperation,

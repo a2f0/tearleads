@@ -3,11 +3,6 @@ export interface VfsSyncCursor {
   changeId: string;
 }
 
-function isValidIsoTimestamp(value: string): boolean {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed);
-}
-
 function encodeBytesToBase64Url(bytes: Uint8Array): string {
   const chars =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -107,7 +102,9 @@ export function encodeVfsSyncCursor(cursor: VfsSyncCursor): string {
   const uuidBytes = uuidToBytes(cursor.changeId);
 
   if (!Number.isFinite(timestamp) || !uuidBytes) {
-    throw new Error('invalid cursor: changedAt must be ISO timestamp and changeId must be UUID');
+    throw new Error(
+      'invalid cursor: changedAt must be ISO timestamp and changeId must be UUID'
+    );
   }
 
   const bytes = new Uint8Array(1 + 8 + 16);

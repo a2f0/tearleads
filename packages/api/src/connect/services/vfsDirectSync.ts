@@ -142,9 +142,7 @@ function normalizeSyncQueryRequest(request: GetSyncRequest): {
 } {
   const normalizedCursor =
     typeof request.cursor === 'string' ? request.cursor.trim() : '';
-  const normalizedRootId =
-    parseIdentifier(request.rootId) ??
-    '';
+  const normalizedRootId = parseIdentifier(request.rootId) ?? '';
   const normalizedLimit =
     typeof request.limit === 'number' &&
     Number.isFinite(request.limit) &&

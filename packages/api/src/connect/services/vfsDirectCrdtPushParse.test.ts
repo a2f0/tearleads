@@ -15,19 +15,6 @@ function buildValidAclAddOperation(): Record<string, unknown> {
   };
 }
 
-function buildValidAclRemoveOperation(): Record<string, unknown> {
-  return {
-    opId: 'op-2',
-    opType: 'acl_remove',
-    itemId: 'item-1',
-    replicaId: 'client-1',
-    writeId: 2,
-    occurredAtMs: Date.parse('2026-02-16T00:01:00.000Z'),
-    principalType: 'user',
-    principalId: 'user-2'
-  };
-}
-
 function buildValidLinkAddOperation(): Record<string, unknown> {
   return {
     opId: 'op-1',
