@@ -46,6 +46,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PM_SCRIPT="$ROOT_DIR/scripts/tooling/pm.sh"
 STATE_DIR="$ROOT_DIR/.git/preen"
 CURSOR_FILE="$STATE_DIR/cursor"
 RUNS_FILE="$STATE_DIR/runs.jsonl"
@@ -172,7 +173,7 @@ run_discovery() {
       gh issue list -R "$REPO" --label 'deferred' --state open --limit 20 2>/dev/null || true
       ;;
     preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40 || true
+      sh "$PM_SCRIPT" exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40 || true
       ;;
     preen-database-performance)
       rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
@@ -183,7 +184,7 @@ run_discovery() {
       rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40 || true
       ;;
     preen-dependency-security)
-      pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
+      sh "$PM_SCRIPT" audit --prod --audit-level high --json 2>/dev/null | head -40 || true
       ./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --sort updated --direction desc --per-page 25 2>/dev/null | jq '.alerts[:10]' 2>/dev/null || true
       rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true
       ;;
@@ -263,7 +264,7 @@ run_discovery() {
       ./scripts/checks/checkFileLimits.sh --all 2>&1 | head -40 || true
       ;;
     preen-knip)
-      pnpm exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true
+      sh "$PM_SCRIPT" exec knip --config knip.ts --use-tsconfig-files --reporter compact | head -80 || true
       ;;
   esac
 }
@@ -281,7 +282,7 @@ metric_count() {
       gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
       ;;
     preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
+      sh "$PM_SCRIPT" exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
       ;;
     preen-database-performance)
       rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l || true
@@ -290,7 +291,7 @@ metric_count() {
       rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l || true
       ;;
     preen-dependency-security)
-      AUDIT_COUNT=$(pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0)
+      AUDIT_COUNT=$(sh "$PM_SCRIPT" audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0)
       DEPENDABOT_COUNT=$(./scripts/agents/tooling/agentTool.ts listDependabotAlerts --state open --per-page 100 2>/dev/null | jq '.alerts | length' 2>/dev/null || echo 0)
       echo $((AUDIT_COUNT + DEPENDABOT_COUNT))
       ;;
@@ -365,7 +366,7 @@ metric_count() {
       ;;
     preen-knip)
       KNIP_JSON=$(mktemp)
-      pnpm exec knip --config knip.ts --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
+      sh "$PM_SCRIPT" exec knip --config knip.ts --use-tsconfig-files --reporter json > "$KNIP_JSON" 2>/dev/null || true
       jq '[
         .issues[]? |
         (.dependencies // []),

@@ -39,4 +39,5 @@ if [ "${HAS_PG_ENV}" -eq 0 ] && command -v pg_isready >/dev/null 2>&1; then
   fi
 fi
 
-pnpm --filter @tearleads/api exec tsx "$ROOT_DIR/packages/api/src/apiCli.ts" migrate "$@"
+PM_SCRIPT="$ROOT_DIR/scripts/tooling/pm.sh"
+sh "$PM_SCRIPT" --filter @tearleads/api exec tsx "$ROOT_DIR/packages/api/src/apiCli.ts" migrate "$@"

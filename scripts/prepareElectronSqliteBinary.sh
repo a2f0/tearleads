@@ -14,6 +14,7 @@ to_node_path() {
 }
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PM_SCRIPT="$ROOT_DIR/scripts/tooling/pm.sh"
 CLIENT_DIR="$ROOT_DIR/packages/client"
 GENERATED_DIR="$CLIENT_DIR/.generated/electron-native"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tearleads-electron-sqlite-build.XXXXXX")"
@@ -82,11 +83,11 @@ EOF
 
 (
   cd "$WORKSPACE_DIR"
-  pnpm install \
+  sh "$PM_SCRIPT" install \
     --ignore-scripts \
     --config.node-linker=isolated \
     --config.package-import-method=copy
-  pnpm exec electron-rebuild \
+  sh "$PM_SCRIPT" exec electron-rebuild \
     --force \
     --only better-sqlite3-multiple-ciphers \
     --version "$ELECTRON_VERSION"

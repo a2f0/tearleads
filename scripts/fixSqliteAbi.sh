@@ -18,6 +18,7 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 PROJECT_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
+PM_SCRIPT="${PROJECT_ROOT}/scripts/tooling/pm.sh"
 
 echo "Node version: $(node -v)"
 echo "Node ABI: $(node -p "process.versions.modules")"
@@ -36,7 +37,7 @@ rm -rf "${MODULE_DIR}/build"
 echo "Rebuilding better-sqlite3-multiple-ciphers from source..."
 (
   cd "${MODULE_DIR}" &&
-    npm_config_build_from_source=true pnpm run install
+    npm_config_build_from_source=true sh "${PM_SCRIPT}" run install
 )
 
 echo "Verifying native module can load..."
@@ -48,7 +49,7 @@ echo "Verifying native module can load..."
 if [ "${1:-}" = "--test" ]; then
   echo "Running @tearleads/cli tests..."
   cd "${PROJECT_ROOT}"
-  pnpm --filter @tearleads/cli test
+  sh "${PM_SCRIPT}" --filter @tearleads/cli run test
 fi
 
 echo "SQLite native ABI fix complete."
