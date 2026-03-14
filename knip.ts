@@ -40,7 +40,10 @@ const config: KnipConfig = {
     'packages/api': {
       entry: ['src/**/*.ts']
     },
-    'packages/app-audio': {},
+    'packages/app-admin': { entry: ['src/test/setup.ts'] },
+    'packages/app-audio': { entry: ['src/test/setup.ts'] },
+    'packages/app-backups': { entry: ['src/test/setup.ts'] },
+    'packages/app-keychain': { entry: ['src/test/setup.ts'] },
     'packages/chrome-extension': { entry: ['src/test/setup.ts'] },
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
@@ -82,6 +85,7 @@ const config: KnipConfig = {
     'packages/shared': {
       entry: ['src/gen/**/*.ts']
     },
+    'packages/vfs-explorer': { entry: ['src/test/setup.ts'] },
     'packages/vfs-sync': {
       entry: [
         'src/**/*.test.ts',
