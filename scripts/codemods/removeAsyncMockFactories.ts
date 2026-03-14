@@ -188,8 +188,9 @@ function transformFile(content: string): {
 // ── main ──────────────────────────────────────────────────────────────
 
 // Find test files and specific non-test files that may contain vi.mock
+const clientSrc = ['packages', 'client', 'src'].join('/');
 const testFiles = execSync(
-  'grep -rln "await import(" packages/client/src ' +
+  `grep -rln "await import(" ${clientSrc} ` +
     '--include="*.test.ts" --include="*.test.tsx" --include="*.testUtils.tsx"',
   { encoding: 'utf8' }
 )
@@ -199,10 +200,10 @@ const testFiles = execSync(
 
 // Also check specific non-test files
 const extraFiles = [
-  'packages/client/src/test/setup.ts',
-  'packages/client/src/test/setupIntegration.ts',
-  'packages/client/src/test/screensaverMock.ts',
-  'packages/client/src/test/windowRendererTestHarness.tsx'
+  `${clientSrc}/test/setup.ts`,
+  `${clientSrc}/test/setupIntegration.ts`,
+  `${clientSrc}/test/screensaverMock.ts`,
+  `${clientSrc}/test/windowRendererTestHarness.tsx`
 ];
 
 const extraMatches: string[] = [];
