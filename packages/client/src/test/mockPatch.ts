@@ -14,7 +14,8 @@ import { vi } from 'vitest';
  * returns a plain object), letting us extract the result via `.then()` in
  * the same microtick and register a sync factory with originalMock.
  */
-const isBun = typeof globalThis.Bun !== 'undefined';
+const isBun =
+  typeof (globalThis as Record<string, unknown>)['Bun'] !== 'undefined';
 
 if (isBun) {
   // Mock virtual modules BEFORE any preloading — transitive imports
@@ -93,7 +94,10 @@ if (isBun) {
     }
   }
 
-  const originalMock = vi.mock.bind(vi);
+  const originalMock = vi.mock as (
+    path: string,
+    factory?: (() => unknown) | undefined
+  ) => void;
 
   vi.mock = ((path: string, factoryOrOpts?: unknown): void => {
     if (typeof factoryOrOpts === 'function') {
@@ -123,6 +127,6 @@ if (isBun) {
         return;
       }
     }
-    originalMock(path, factoryOrOpts as Parameters<typeof vi.mock>[1]);
+    originalMock(path, factoryOrOpts as (() => unknown) | undefined);
   }) as typeof vi.mock;
 }
