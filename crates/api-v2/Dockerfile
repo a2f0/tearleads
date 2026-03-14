@@ -1,4 +1,4 @@
-FROM rust:1.94.0-slim AS builder
+FROM rust:1.94.0-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY proto proto
 
 RUN cargo build --release --package tearleads-api-v2
 
-FROM debian:trixie-slim
+FROM debian:bookworm-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
