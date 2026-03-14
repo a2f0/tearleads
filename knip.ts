@@ -40,15 +40,26 @@ const config: KnipConfig = {
     'packages/api': {
       entry: ['src/**/*.ts']
     },
+    'packages/app-ai': { entry: ['src/test/setup.ts'] },
     'packages/app-audio': {},
+    'packages/app-businesses': { entry: ['src/test/setup.ts'] },
+    'packages/app-calendar': { entry: ['src/test/setup.ts'] },
+    'packages/app-camera': { entry: ['src/test/setup.ts'] },
+    'packages/app-notes': { entry: ['src/test/setup.ts'] },
+    'packages/app-search': { entry: ['src/test/setup.ts'] },
+    'packages/app-settings': { entry: ['src/test/setup.ts'] },
+    'packages/app-terminal': { entry: ['src/test/setup.ts'] },
+    'packages/app-vehicles': { entry: ['src/test/setup.ts'] },
+    'packages/app-wallet': { entry: ['src/test/setup.ts'] },
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },
     'packages/bob-and-alice': {
       entry: ['src/scenarios/**/*.test.ts', 'src/qa/**/*.test.ts']
     },
+    'packages/db': { entry: ['src/test/setup.ts'] },
     'packages/db-test-utils': {
-      entry: ['src/**/*.test.ts', 'src/**/*.test.tsx']
+      entry: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/test/setup.ts']
     },
     'packages/client': {
       entry: [
@@ -79,11 +90,13 @@ const config: KnipConfig = {
       entry: ['src/test/**/*.ts']
     },
     'packages/shared': {
-      entry: ['src/gen/**/*.ts']
+      entry: ['src/gen/**/*.ts', 'src/test/setup.ts']
     },
+    'packages/smtp-listener': { entry: ['src/test/setup.ts'] },
     'packages/vfs-sync': {
       entry: [
         'src/**/*.test.ts',
+        'src/test/setup.ts',
         // Keep bloom filter protocol module in the knip program to avoid TS
         // reference lookup crashes when its transitive import graph is test-only.
         'src/vfs/protocol/syncBloomFilter.ts'
@@ -91,6 +104,7 @@ const config: KnipConfig = {
     },
     'packages/website': {
       entry: [
+        'src/test/setup.ts',
         // CSS import graph includes @import "tailwindcss".
         'src/styles/global.css'
       ]
