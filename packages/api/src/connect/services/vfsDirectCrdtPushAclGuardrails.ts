@@ -217,7 +217,8 @@ export function isAclMutationAuthorized(input: {
     }
 
     if (input.actorAccessRank < 3) {
-      // Writers can only bootstrap a brand-new principal with read access.
+      // Writers may only seed read access for a principal with no existing ACL.
+      // Admins must handle any escalation or edits to an existing principal.
       if (requestedAccessRank !== 1) {
         return false;
       }
