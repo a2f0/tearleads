@@ -11,6 +11,7 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+PM_SCRIPT="$REPO_ROOT/scripts/tooling/pm.sh"
 CLIENT_DIR="$REPO_ROOT/packages/client"
 HOST_OS="$(uname -s)"
 
@@ -25,13 +26,13 @@ git pull
 echo "Installing Node.js version from .nvmrc via mise..."
 mise install node
 
-# Install pnpm dependencies
-echo "Installing pnpm dependencies..."
-pnpm install
+# Install dependencies
+echo "Installing dependencies..."
+sh "$PM_SCRIPT" install
 
 # Build TypeScript packages
 echo "Building TypeScript packages..."
-pnpm build
+sh "$PM_SCRIPT" run build
 
 # Build Rust crates when the workspace has a Cargo manifest.
 if [ -f "$REPO_ROOT/Cargo.toml" ]; then
@@ -57,7 +58,7 @@ fi
 echo "Syncing Capacitor..."
 cd "$CLIENT_DIR"
 if [ "$HOST_OS" = "Darwin" ]; then
-  pnpm cap sync
+  sh "$PM_SCRIPT" exec cap sync
 
   # Install Ruby gems (for fastlane, cocoapods, etc.)
   echo "Installing Ruby gems..."
@@ -70,7 +71,7 @@ if [ "$HOST_OS" = "Darwin" ]; then
   cd "$CLIENT_DIR/ios/App"
   bundle exec pod install
 else
-  pnpm cap sync android
+  sh "$PM_SCRIPT" exec cap sync android
   echo "Skipping Ruby/CocoaPods install on non-macOS host."
 fi
 

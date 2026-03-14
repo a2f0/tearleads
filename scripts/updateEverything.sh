@@ -10,14 +10,14 @@
 #   TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1 Continue even if active Node != .nvmrc
 #   Node runtime is always managed with mise; script exits if mise is unavailable
 #   SKIP_RUBY=1       Skip bundle update/install
-#   SKIP_CAP_SYNC=1   Skip pnpm cap:sync
+#   SKIP_CAP_SYNC=1   Skip cap:sync
 #   SKIP_POD_CLEAN=1  Skip clean pod install (removes Pods/ and Podfile.lock)
 #   SKIP_MAESTRO=1    Skip Maestro tests
-#   SKIP_TESTS=1      Skip pnpm test
-#   SKIP_BUILD=1      Skip pnpm build
-#   SKIP_LINT=1       Skip pnpm lint:fix + pnpm lint
-#   SKIP_UPDATE=1     Skip pnpm -r update --latest
-#   SKIP_INSTALL=1    Skip pnpm install
+#   SKIP_TESTS=1      Skip test
+#   SKIP_BUILD=1      Skip build
+#   SKIP_LINT=1       Skip lint:fix + lint
+#   SKIP_UPDATE=1     Skip recursive dependency update
+#   SKIP_INSTALL=1    Skip dependency install
 #   UPGRADE_CODEX=1   Opt in to brew upgrade codex on macOS
 set -eu
 
@@ -28,6 +28,7 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
+PM_SCRIPT="$REPO_ROOT/scripts/tooling/pm.sh"
 WARNINGS_SUMMARY=""
 
 warn() {
@@ -65,7 +66,10 @@ cd "$REPO_ROOT"
 
 require_command git "Install git and rerun."
 require_command jq "Install jq and rerun."
-require_command pnpm "Install pnpm and rerun."
+if ! sh "$PM_SCRIPT" which >/dev/null 2>&1; then
+  echo "updateEverything: no supported package manager found. Install pnpm or bun and rerun." >&2
+  exit 1
+fi
 
 if [ "${SKIP_BRANCH_GUARD:-0}" -ne 1 ]; then
   CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
@@ -107,11 +111,11 @@ if [ "${SKIP_TOOLCHAIN_SYNC:-0}" -ne 1 ]; then
 fi
 
 if [ "${SKIP_UPDATE:-0}" -ne 1 ]; then
-  pnpm -r update --latest
+  sh "$PM_SCRIPT" -r update --latest
 fi
 
 if [ "${SKIP_INSTALL:-0}" -ne 1 ]; then
-  pnpm install
+  sh "$PM_SCRIPT" install
 fi
 
 # Check for unpinned dependencies (carets/tildes) in dependencies and devDependencies only.
@@ -168,16 +172,16 @@ if [ -n "$PEER_MISMATCHES" ]; then
 fi
 
 if [ "${SKIP_LINT:-0}" -ne 1 ]; then
-  pnpm lint:fix
-  pnpm lint
+  sh "$PM_SCRIPT" run lint:fix
+  sh "$PM_SCRIPT" run lint
 fi
 
 if [ "${SKIP_BUILD:-0}" -ne 1 ]; then
-  pnpm build
+  sh "$PM_SCRIPT" run build
 fi
 
 if [ "${SKIP_TESTS:-0}" -ne 1 ]; then
-  pnpm test
+  sh "$PM_SCRIPT" run test
 fi
 
 if [ "${SKIP_RUBY:-0}" -ne 1 ] && ! command -v bundle >/dev/null 2>&1; then
@@ -192,7 +196,7 @@ if [ "${SKIP_RUBY:-0}" -ne 1 ]; then
 fi
 
 if [ "${SKIP_CAP_SYNC:-0}" -ne 1 ]; then
-  pnpm --filter @tearleads/client cap:sync
+  sh "$PM_SCRIPT" --filter @tearleads/client run cap:sync
 fi
 
 if [ "${SKIP_POD_CLEAN:-0}" -ne 1 ] && ! command -v pod >/dev/null 2>&1; then

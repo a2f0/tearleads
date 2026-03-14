@@ -4,6 +4,8 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 
+PM_SCRIPT="$REPO_ROOT/scripts/tooling/pm.sh"
+
 cd "$REPO_ROOT"
 
 set -- --filter @tearleads/api cli vfs-crdt-compaction
@@ -40,4 +42,4 @@ if [ "${VFS_CRDT_COMPACTION_SKIP_SNAPSHOT_REFRESH:-0}" = "1" ]; then
   set -- "$@" --skip-snapshot-refresh
 fi
 
-exec pnpm "$@"
+exec sh "$PM_SCRIPT" "$@"

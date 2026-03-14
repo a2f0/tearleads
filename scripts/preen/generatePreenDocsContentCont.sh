@@ -75,16 +75,16 @@ Apply minimal, behavior-preserving changes and add/update tests where needed.
 Run impacted checks first:
 
 ```bash
-pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null
-pnpm exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
+sh scripts/tooling/pm.sh exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null
+sh scripts/tooling/pm.sh exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
 ```
 
 Run full checks when the change is broad or security-sensitive:
 
 ```bash
-pnpm typecheck >/dev/null
-pnpm lint >/dev/null
-pnpm test >/dev/null
+sh scripts/tooling/pm.sh run typecheck >/dev/null
+sh scripts/tooling/pm.sh run lint >/dev/null
+sh scripts/tooling/pm.sh run test >/dev/null
 ```
 
 **CRITICAL: Verify coverage thresholds before proceeding.**
@@ -95,7 +95,7 @@ Concurrent PR merges can cause cumulative coverage drops even when individual ch
 # Run coverage for packages with thresholds that may be affected
 # Check which packages are impacted and run their coverage
 # Note: Keep stdout visible here to see which packages are targeted
-pnpm exec tsx scripts/ciImpact/runImpactedTests.ts
+sh scripts/tooling/pm.sh exec tsx scripts/ciImpact/runImpactedTests.ts
 ```
 
 If coverage thresholds fail, **DO NOT proceed**. Add tests to bring coverage back above thresholds before continuing.
@@ -316,11 +316,11 @@ Always regenerate from registry after structural changes:
 ## Token Efficiency
 
 ```bash
-pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null
-pnpm exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
-pnpm typecheck >/dev/null
-pnpm lint >/dev/null
-pnpm test >/dev/null
+sh scripts/tooling/pm.sh exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null
+sh scripts/tooling/pm.sh exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
+sh scripts/tooling/pm.sh run typecheck >/dev/null
+sh scripts/tooling/pm.sh run lint >/dev/null
+sh scripts/tooling/pm.sh run test >/dev/null
 git commit -S -m "message" >/dev/null
 git push >/dev/null
 ```

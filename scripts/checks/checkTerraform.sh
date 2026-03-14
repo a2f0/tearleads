@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PM_SCRIPT="$REPO_ROOT/scripts/tooling/pm.sh"
 
 TERRAFORM_DIRS=(
   "terraform"
@@ -54,7 +55,7 @@ run_vault_script_typecheck() {
   )
   if ! (
     cd "$REPO_ROOT" &&
-      pnpm exec tsc --pretty false --noEmit \
+      sh "$PM_SCRIPT" exec tsc --pretty false --noEmit \
         --module NodeNext \
         --moduleResolution NodeNext \
         --target ES2022 \
