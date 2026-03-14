@@ -4,9 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import type { HealthTracker } from '../lib/healthTracker';
 import { HealthRuntimeProvider } from '../runtime';
-import { Health } from './Health';
-
 import type { HealthDrilldownRoute } from './Health';
+import { Health } from './Health';
 
 const mockTracker: HealthTracker = {
   listExercises: vi.fn(async () => []),

@@ -267,7 +267,9 @@ describe('ClientHealthProvider', () => {
     mockIsLoggedIn.mockReturnValue(true);
     mockGetFeatureFlagValue.mockReturnValue(true);
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mockVfsRegister.mockRejectedValueOnce(new Error('Server rejected register'));
+    mockVfsRegister.mockRejectedValueOnce(
+      new Error('Server rejected register')
+    );
 
     render(
       <ClientHealthProvider>

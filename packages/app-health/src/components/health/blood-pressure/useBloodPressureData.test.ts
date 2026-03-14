@@ -51,7 +51,9 @@ describe('useBloodPressureData', () => {
     mockTracker = mockHealthTracker;
     mockListBloodPressureReadings.mockResolvedValue(mockReadings);
     moduleVersion += 1;
-    const module = await import(`./useBloodPressureData.ts?test=${moduleVersion}`);
+    const module = await import(
+      `./useBloodPressureData.ts?test=${moduleVersion}`
+    );
     useBloodPressureData = module.useBloodPressureData;
   });
 

@@ -14,8 +14,8 @@ import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs/useVfsKeys';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
-import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 import { queueLinkReassignAndFlush } from '@/lib/vfsItemSyncWriter';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
 interface ClientHealthProviderProps {
   children: ReactNode;

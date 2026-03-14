@@ -32,7 +32,9 @@ describe('generated schema health exports', () => {
   });
 
   it('re-exports sqlite health tables through schema-foundation', () => {
-    expect(sqliteHealthExercisesFromFoundation).toBe(sqliteHealthExercisesFromHealth);
+    expect(sqliteHealthExercisesFromFoundation).toBe(
+      sqliteHealthExercisesFromHealth
+    );
     expect(sqliteHealthHeightReadingsFromFoundation).toBe(
       sqliteHealthHeightReadingsFromHealth
     );

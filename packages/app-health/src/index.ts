@@ -14,10 +14,10 @@ export type {
   CreateWeightReadingInput,
   CreateWorkoutEntryInput,
   Exercise,
-  HeightReading,
-  HeightUnit,
   HealthReadingTable,
   HealthTracker,
+  HeightReading,
+  HeightUnit,
   WeightReading,
   WeightUnit,
   WorkoutEntry
