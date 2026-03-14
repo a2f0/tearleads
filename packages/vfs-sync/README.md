@@ -94,7 +94,7 @@ The CRDT transport currently uses:
 
 ### CRDT model
 
-- Operation types: `acl_add`, `acl_remove`, `link_add`, `link_remove`.
+- Operation types: `acl_add`, `acl_remove`, `link_add`, `link_remove`, `link_reassign`.
 - Pull responses include `lastReconciledWriteIds` for stale-write recovery.
 - Reconcile is monotonic: cursor/write IDs must not regress.
 

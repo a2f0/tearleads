@@ -11,6 +11,12 @@ import {
   encodeVfsSyncCursor,
   type VfsSyncCursor
 } from './sync-cursor.js';
+import { VfsCrdtFeedOrderViolationError } from './syncCrdtFeedErrors.js';
+
+export {
+  type VfsCrdtFeedOrderViolationCode,
+  VfsCrdtFeedOrderViolationError
+} from './syncCrdtFeedErrors.js';
 
 const DEFAULT_SYNC_LIMIT = 100;
 const MAX_SYNC_LIMIT = 500;
@@ -28,14 +34,8 @@ export interface ParsedVfsCrdtSyncQuery {
 }
 
 export type ParseVfsCrdtSyncQueryResult =
-  | {
-      ok: true;
-      value: ParsedVfsCrdtSyncQuery;
-    }
-  | {
-      ok: false;
-      error: string;
-    };
+  | { ok: true; value: ParsedVfsCrdtSyncQuery }
+  | { ok: false; error: string };
 
 export interface BuildVfsCrdtSyncQueryInput {
   userId: string;
@@ -71,36 +71,13 @@ export interface VfsCrdtSyncDbRow {
   encryption_signature?: string | null;
 }
 
-export type VfsCrdtFeedOrderViolationCode =
-  | 'invalidOccurredAt'
-  | 'missingOpId'
-  | 'duplicateOpId'
-  | 'outOfOrderRow'
-  | 'invalidLinkPayload'
-  | 'invalidEncryptedEnvelope';
-
-export class VfsCrdtFeedOrderViolationError extends Error {
-  readonly code: VfsCrdtFeedOrderViolationCode;
-  readonly rowIndex: number;
-
-  constructor(
-    code: VfsCrdtFeedOrderViolationCode,
-    rowIndex: number,
-    message: string
-  ) {
-    super(message);
-    this.name = 'VfsCrdtFeedOrderViolationError';
-    this.code = code;
-    this.rowIndex = rowIndex;
-  }
-}
-
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
   'acl_remove',
   'link_add',
   'link_remove',
+  'link_reassign',
   'item_upsert',
   'item_delete'
 ];
@@ -435,7 +412,11 @@ export function mapVfsCrdtSyncRows(
       );
     }
 
-    if (opType === 'link_add' || opType === 'link_remove') {
+    if (
+      opType === 'link_add' ||
+      opType === 'link_remove' ||
+      opType === 'link_reassign'
+    ) {
       const hasPlaintextLinkFields = parentId !== null || childId !== null;
       const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
       if (

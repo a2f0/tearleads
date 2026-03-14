@@ -289,6 +289,43 @@ describe('mapVfsCrdtSyncRows', () => {
     );
   });
 
+  it('preserves link_reassign rows as link operations', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-link-reassign-1',
+        item_id: 'item-1',
+        op_type: 'link_reassign',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: 'contact-2',
+        child_id: 'item-1',
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'user-1:desktop:4:op-link-reassign-1',
+        occurred_at: new Date('2026-02-14T00:00:02.000Z')
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10);
+    expect(result.items).toEqual([
+      {
+        opId: 'op-link-reassign-1',
+        itemId: 'item-1',
+        opType: 'link_reassign',
+        principalType: null,
+        principalId: null,
+        accessLevel: null,
+        parentId: 'contact-2',
+        childId: 'item-1',
+        actorId: 'user-1',
+        sourceTable: 'vfs_crdt_client_push',
+        sourceId: 'user-1:desktop:4:op-link-reassign-1',
+        occurredAt: '2026-02-14T00:00:02.000Z'
+      }
+    ]);
+  });
+
   it('allows encrypted link rows without plaintext parent/child fields', () => {
     const rows: VfsCrdtSyncDbRow[] = [
       {

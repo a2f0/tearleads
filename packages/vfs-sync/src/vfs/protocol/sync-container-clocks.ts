@@ -32,7 +32,11 @@ function parseCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor | null {
 }
 
 function resolveContainerId(item: VfsCrdtSyncItem): string | null {
-  if (item.opType === 'link_add' || item.opType === 'link_remove') {
+  if (
+    item.opType === 'link_add' ||
+    item.opType === 'link_remove' ||
+    item.opType === 'link_reassign'
+  ) {
     return normalizeRequiredString(item.parentId);
   }
 

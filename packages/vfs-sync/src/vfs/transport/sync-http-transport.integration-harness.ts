@@ -100,6 +100,7 @@ const VALID_OP_TYPES: VfsCrdtOperation['opType'][] = [
   'acl_remove',
   'link_add',
   'link_remove',
+  'link_reassign',
   'item_upsert',
   'item_delete'
 ];

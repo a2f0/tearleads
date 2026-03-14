@@ -11,8 +11,88 @@ import { createServerBackedFetch } from './sync-http-transport.integration-harne
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
+type HttpFetchImpl = ReturnType<typeof createServerBackedFetch>;
+type SyncServerSnapshot = ReturnType<InMemoryVfsCrdtSyncServer['snapshot']>;
+
+function createClient(input: {
+  fetchImpl: HttpFetchImpl;
+  clientId: string;
+  pullLimit: number;
+}): VfsBackgroundSyncClient {
+  return new VfsBackgroundSyncClient(
+    'user-1',
+    input.clientId,
+    new VfsHttpCrdtSyncTransport({
+      baseUrl: 'https://sync.local',
+      fetchImpl: input.fetchImpl,
+      organizationId: TEST_ORGANIZATION_ID
+    }),
+    { pullLimit: input.pullLimit }
+  );
+}
+
+function expectClientToMatchServer(
+  client: VfsBackgroundSyncClient,
+  serverSnapshot: SyncServerSnapshot
+): void {
+  const snapshot = client.snapshot();
+  expect(snapshot.pendingOperations).toBe(0);
+  expect(snapshot.acl).toEqual(serverSnapshot.acl);
+  expect(snapshot.links).toEqual(serverSnapshot.links);
+  expect(snapshot.lastReconciledWriteIds).toEqual(
+    serverSnapshot.lastReconciledWriteIds
+  );
+}
 
 describe('VfsHttpCrdtSyncTransport integration', () => {
+  it('syncs link_reassign operations across HTTP transport', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const fetchImpl = createServerBackedFetch(server, { delays: {} });
+
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 2
+    });
+
+    desktop.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'reading-1',
+      parentId: 'contact-1',
+      childId: 'reading-1',
+      occurredAt: '2026-02-14T21:59:59.000Z'
+    });
+    await desktop.flush();
+    await Promise.all([desktop.sync(), mobile.sync()]);
+
+    desktop.queueLocalOperation({
+      opType: 'link_reassign',
+      itemId: 'reading-1',
+      parentId: 'contact-2',
+      childId: 'reading-1',
+      occurredAt: '2026-02-14T22:00:00.000Z'
+    });
+
+    await desktop.flush();
+    await Promise.all([desktop.sync(), mobile.sync()]);
+
+    const serverSnapshot = server.snapshot();
+
+    expect(serverSnapshot.links).toEqual([
+      {
+        parentId: 'contact-2',
+        childId: 'reading-1'
+      }
+    ]);
+    expectClientToMatchServer(desktop, serverSnapshot);
+    expectClientToMatchServer(mobile, serverSnapshot);
+  });
+
   it('converges concurrent clients through HTTP transport', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     const fetchImpl = createServerBackedFetch(server, {
@@ -23,27 +103,16 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       }
     });
 
-    const desktop = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 2 }
-    );
-
-    const mobile = new VfsBackgroundSyncClient(
-      'user-1',
-      'mobile',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 1
+    });
 
     desktop.queueLocalOperation({
       opType: 'acl_add',
@@ -87,21 +156,9 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await Promise.all([desktop.sync(), mobile.sync()]);
 
     const serverSnapshot = server.snapshot();
-    const desktopSnapshot = desktop.snapshot();
-    const mobileSnapshot = mobile.snapshot();
 
-    expect(desktopSnapshot.pendingOperations).toBe(0);
-    expect(mobileSnapshot.pendingOperations).toBe(0);
-    expect(desktopSnapshot.acl).toEqual(serverSnapshot.acl);
-    expect(mobileSnapshot.acl).toEqual(serverSnapshot.acl);
-    expect(desktopSnapshot.links).toEqual(serverSnapshot.links);
-    expect(mobileSnapshot.links).toEqual(serverSnapshot.links);
-    expect(desktopSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
-    expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
+    expectClientToMatchServer(desktop, serverSnapshot);
+    expectClientToMatchServer(mobile, serverSnapshot);
   });
 
   it('preserves branch-delete races across paged sync and reconcile acknowledgements', async () => {
@@ -115,38 +172,21 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       }
     });
 
-    const desktop = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 2 }
-    );
-
-    const mobile = new VfsBackgroundSyncClient(
-      'user-1',
-      'mobile',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
-
-    const tablet = new VfsBackgroundSyncClient(
-      'user-1',
-      'tablet',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 3 }
-    );
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 1
+    });
+    const tablet = createClient({
+      fetchImpl,
+      clientId: 'tablet',
+      pullLimit: 3
+    });
 
     desktop.queueLocalOperation({
       opType: 'link_add',
@@ -196,16 +236,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await Promise.all([desktop.flush(), mobile.flush(), tablet.flush()]);
     await Promise.all([desktop.sync(), mobile.sync(), tablet.sync()]);
 
-    const observer = new VfsBackgroundSyncClient(
-      'user-1',
-      'observer',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const observer = createClient({
+      fetchImpl,
+      clientId: 'observer',
+      pullLimit: 1
+    });
 
     await observer.sync();
     const observerAfterFirstSync = observer.snapshot();
@@ -219,9 +254,6 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     const observerAfterSecondSync = observer.snapshot();
 
     const serverSnapshot = server.snapshot();
-    const desktopSnapshot = desktop.snapshot();
-    const mobileSnapshot = mobile.snapshot();
-    const tabletSnapshot = tablet.snapshot();
 
     expect(serverSnapshot.acl).toEqual([]);
     expect(serverSnapshot.links).toEqual([]);
@@ -230,21 +262,9 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       mobile: 3,
       tablet: 1
     });
-    expect(desktopSnapshot.pendingOperations).toBe(0);
-    expect(mobileSnapshot.pendingOperations).toBe(0);
-    expect(tabletSnapshot.pendingOperations).toBe(0);
-    expect(desktopSnapshot.links).toEqual(serverSnapshot.links);
-    expect(mobileSnapshot.links).toEqual(serverSnapshot.links);
-    expect(tabletSnapshot.links).toEqual(serverSnapshot.links);
-    expect(desktopSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
-    expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
-    expect(tabletSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
+    expectClientToMatchServer(desktop, serverSnapshot);
+    expectClientToMatchServer(mobile, serverSnapshot);
+    expectClientToMatchServer(tablet, serverSnapshot);
     expect(observerAfterFirstSync).toEqual(observerAfterSecondSync);
     expect(observerAfterSecondSync.links).toEqual(serverSnapshot.links);
     expect(observerAfterSecondSync.lastReconciledWriteIds).toEqual(
@@ -271,16 +291,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     const healthyFetch = createServerBackedFetch(server, { delays: {} });
-    const seedClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const seedClient = createClient({
+      fetchImpl: healthyFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
 
     await seedClient.sync();
     seedClient.queueLocalOperation({
@@ -310,16 +325,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
         nextCursor: null
       })
     });
-    const failedResumeClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: malformedPullFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const failedResumeClient = createClient({
+      fetchImpl: malformedPullFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
     failedResumeClient.hydrateState(persisted);
     const preFailureExportState =
       captureExportedSyncClientState(failedResumeClient);
@@ -332,16 +342,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       before: preFailureExportState
     });
 
-    const resumedClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const resumedClient = createClient({
+      fetchImpl: healthyFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
     resumedClient.hydrateState(persisted);
 
     await resumedClient.flush();
@@ -349,14 +354,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await resumedClient.sync();
 
     const serverSnapshot = server.snapshot();
-    const resumedSnapshot = resumedClient.snapshot();
-    expect(resumedSnapshot.pendingOperations).toBe(0);
-    expect(resumedSnapshot.acl).toEqual(serverSnapshot.acl);
-    expect(resumedSnapshot.links).toEqual(serverSnapshot.links);
-    expect(resumedSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
-    expect(resumedSnapshot.cursor).not.toBeNull();
+    expectClientToMatchServer(resumedClient, serverSnapshot);
+    expect(resumedClient.snapshot().cursor).not.toBeNull();
   });
 
   it('preserves reconcile checkpoint handoff across hydrate restart with queued locals', async () => {
@@ -393,16 +392,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       }
     });
 
-    const seedClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const seedClient = createClient({
+      fetchImpl: healthyFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
 
     await seedClient.sync();
     seedClient.queueLocalOperation({
@@ -424,16 +418,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
         nextCursor: null
       })
     });
-    const failedResumeClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: malformedPullFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const failedResumeClient = createClient({
+      fetchImpl: malformedPullFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
     failedResumeClient.hydrateState(persistedState);
     const preFailureExportState =
       captureExportedSyncClientState(failedResumeClient);
@@ -446,16 +435,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       before: preFailureExportState
     });
 
-    const resumedClient = new VfsBackgroundSyncClient(
-      'user-1',
-      'desktop',
-      new VfsHttpCrdtSyncTransport({
-        baseUrl: 'https://sync.local',
-        fetchImpl: healthyFetch,
-        organizationId: TEST_ORGANIZATION_ID
-      }),
-      { pullLimit: 1 }
-    );
+    const resumedClient = createClient({
+      fetchImpl: healthyFetch,
+      clientId: 'desktop',
+      pullLimit: 1
+    });
     resumedClient.hydrateState(persistedState);
 
     await resumedClient.flush();
@@ -463,15 +447,8 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await resumedClient.flush();
     await resumedClient.sync();
 
-    const resumedSnapshot = resumedClient.snapshot();
     const serverSnapshot = server.snapshot();
-
-    expect(resumedSnapshot.pendingOperations).toBe(0);
-    expect(resumedSnapshot.acl).toEqual(serverSnapshot.acl);
-    expect(resumedSnapshot.links).toEqual(serverSnapshot.links);
-    expect(resumedSnapshot.lastReconciledWriteIds).toEqual(
-      serverSnapshot.lastReconciledWriteIds
-    );
+    expectClientToMatchServer(resumedClient, serverSnapshot);
     expect(observedReconcileInputs.length).toBeGreaterThan(0);
     expect(observedReconcileInputs.at(-1)?.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
