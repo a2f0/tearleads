@@ -8,6 +8,6 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*", "vitest.config.ts", "vite.config.ts"],
+  "include": ["src/**/*", "vite.config.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

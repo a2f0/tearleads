@@ -8,5 +8,5 @@
     "outDir": "./node_modules/.cache/tsc-node",
     "tsBuildInfoFile": "./node_modules/.cache/tsc-node/tsconfig.node.tsbuildinfo"
   },
-  "include": ["vitest.config.ts"]
+  "include": ["src/test/setup.ts"]
 }
