@@ -1,10 +1,13 @@
-import type { VfsCrdtPushOperation, VfsCrdtPushStatus } from '@tearleads/shared';
+import type {
+  VfsCrdtPushOperation,
+  VfsCrdtPushStatus
+} from '@tearleads/shared';
 import {
+  type AclTargetState,
   isAclMutationAuthorized,
   isAclOperation,
   loadAclTargetState,
-  normalizeAclOperation,
-  type AclTargetState
+  normalizeAclOperation
 } from './vfsDirectCrdtPushAclGuardrails.js';
 import {
   buildAclAuditEntry,
