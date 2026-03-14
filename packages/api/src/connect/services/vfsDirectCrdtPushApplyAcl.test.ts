@@ -14,9 +14,7 @@ import {
   signAclPushOperation
 } from './vfsDirectCrdtPushApplyTestUtils.js';
 
-function createSignedAclOperation(
-  overrides: Partial<VfsCrdtPushOperation>
-): {
+function createSignedAclOperation(overrides: Partial<VfsCrdtPushOperation>): {
   operation: VfsCrdtPushOperation;
   publicSigningKey: string;
 } {
@@ -201,9 +199,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       client: { query: queryMock },
       userId: 'user-1',
       organizationId: 'org-1',
-      parsedOperations: [
-        createParsedOperation(operation)
-      ]
+      parsedOperations: [createParsedOperation(operation)]
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
@@ -249,9 +245,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       client: { query: queryMock },
       userId: 'user-1',
       organizationId: 'org-1',
-      parsedOperations: [
-        createParsedOperation(operation)
-      ]
+      parsedOperations: [createParsedOperation(operation)]
     });
 
     expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);
