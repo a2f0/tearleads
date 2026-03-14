@@ -2,7 +2,6 @@ import type {
   VfsCrdtPushOperation,
   VfsCrdtPushRequest,
   VfsCrdtPushResponse,
-  VfsCrdtPushStatus,
   VfsCrdtSyncResponse,
   VfsSyncResponse
 } from '@tearleads/shared';
@@ -112,14 +111,11 @@ function decodeConnectIdentifier(value: unknown, fieldName: string): string {
     return bytesToUuid(decoded);
   }
 
-  return new TextDecoder().decode(decoded);
-}
-
-function normalizePushStatus(
-  value: unknown,
-  fieldName: string
-): VfsCrdtPushStatus {
-  return parsePushStatus(value, fieldName);
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(decoded);
+  if (!/^[\u0020-\u007E]+$/u.test(text)) {
+    throw new Error(`transport returned invalid ${fieldName}`);
+  }
+  return text;
 }
 
 function isVfsCrdtPushRequest(value: unknown): value is VfsCrdtPushRequest {
@@ -228,7 +224,7 @@ function normalizePushPayload(payload: unknown): VfsCrdtPushResponse {
 
       return {
         opId: decodeConnectIdentifier(result['opId'], `results[${index}].opId`),
-        status: normalizePushStatus(
+        status: parsePushStatus(
           result['status'],
           `results[${index}].status`
         )
