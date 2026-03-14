@@ -1,5 +1,7 @@
 import { GridSquare } from '@tearleads/ui';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSettingsOptional } from '../context/SettingsProvider.js';
 import type { LanguageValue } from '../types/userSettings.js';
 
 export interface LanguageConfig {
@@ -27,13 +29,18 @@ export function LanguageSelector({
   onLanguageChange
 }: LanguageSelectorProps) {
   const { t, i18n } = useTranslation('common');
+  const settings = useSettingsOptional();
 
-  const handleLanguageChange = async (langCode: LanguageValue) => {
-    if (onLanguageChange) {
-      await onLanguageChange(langCode);
-    }
-    i18n.changeLanguage(langCode);
-  };
+  const handleLanguageChange = useCallback(
+    async (langCode: LanguageValue) => {
+      if (onLanguageChange) {
+        await onLanguageChange(langCode);
+      }
+      i18n.changeLanguage(langCode);
+      settings?.setSetting('language', langCode);
+    },
+    [i18n, onLanguageChange, settings]
+  );
 
   return (
     <div className="space-y-3">

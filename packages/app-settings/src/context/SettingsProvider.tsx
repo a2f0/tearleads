@@ -28,6 +28,27 @@ import {
   setSettingInStorage
 } from '../types/userSettings.js';
 
+const ALL_SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as UserSettingKey[];
+
+/**
+ * Build a full settings map from instance-scoped localStorage, falling back
+ * to defaults for keys that aren't cached yet.  This lets ThemeProvider and
+ * i18n pick up the correct per-instance values immediately on switch,
+ * instead of flashing to defaults while we wait for the async DB sync.
+ */
+function buildCachedSettings(instanceId: string | null | undefined): {
+  [K in UserSettingKey]: SettingValueMap[K];
+} {
+  const result = { ...SETTING_DEFAULTS };
+  ALL_SETTING_KEYS.forEach(<K extends UserSettingKey>(key: K) => {
+    const stored = getSettingFromStorage(key, instanceId);
+    if (stored !== null) {
+      result[key] = stored;
+    }
+  });
+  return result;
+}
+
 interface SettingsContextValue {
   /** Get a setting value (from cache, localStorage, or default) */
   getSetting: <K extends UserSettingKey>(key: K) => SettingValueMap[K];
@@ -89,10 +110,12 @@ export function SettingsProvider({
     }
     prevInstanceIdRef.current = instanceId;
 
-    // On instance switch, reset ThemeProvider/i18n to defaults immediately
-    // so stale values from the previous instance don't persist.
+    // On instance switch, restore ThemeProvider/i18n from the incoming
+    // instance's localStorage cache so stale values from the previous
+    // instance don't persist and we avoid flashing to defaults while the
+    // async DB sync is in flight.
     if (isInstanceSwitch) {
-      dispatchSettingsSyncedEvent({ ...SETTING_DEFAULTS });
+      dispatchSettingsSyncedEvent(buildCachedSettings(instanceId));
     }
   }, [instanceId]);
 

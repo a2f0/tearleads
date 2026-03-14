@@ -222,9 +222,14 @@ async fn proxy_non_admin_connect_requests(
     response
 }
 
+const DEFAULT_DEV_REDIS_URL: &str = "redis://localhost:6379";
+
 impl RuntimeRedisGateway {
     fn from_env() -> Option<Self> {
-        let redis_url = env::var(REDIS_URL_ENV_KEY).ok()?;
+        let (redis_url, is_dev_default) = match env::var(REDIS_URL_ENV_KEY) {
+            Ok(url) => (url, false),
+            Err(_) => (DEFAULT_DEV_REDIS_URL.to_string(), true),
+        };
         let client = match redis::Client::open(redis_url.clone()) {
             Ok(value) => value,
             Err(error) => {
@@ -232,7 +237,13 @@ impl RuntimeRedisGateway {
                 return None;
             }
         };
-        tracing::info!("redis gateway initialized from {REDIS_URL_ENV_KEY}");
+        if is_dev_default {
+            tracing::info!(
+                "{REDIS_URL_ENV_KEY} not set — using dev default ({DEFAULT_DEV_REDIS_URL})"
+            );
+        } else {
+            tracing::info!("redis gateway initialized from {REDIS_URL_ENV_KEY}");
+        }
         Some(Self { client })
     }
 

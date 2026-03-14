@@ -35,6 +35,7 @@ function TestConsumer() {
     <div>
       <span data-testid="theme">{getSetting('theme')}</span>
       <span data-testid="language">{getSetting('language')}</span>
+      <span data-testid="desktopPattern">{getSetting('desktopPattern')}</span>
       <span data-testid="synced">{isSynced ? 'yes' : 'no'}</span>
       <button type="button" onClick={() => setSetting('theme', 'dark')}>
         Set Dark
@@ -129,7 +130,7 @@ describe('SettingsProvider instance-scoped', () => {
     expect(getSettingsFromDb2).toHaveBeenCalled();
   });
 
-  it('dispatches defaults on instance switch', async () => {
+  it('dispatches cached localStorage values on instance switch', async () => {
     const getSettingsFromDb = vi.fn().mockResolvedValue({
       theme: 'dark'
     });
@@ -148,6 +149,9 @@ describe('SettingsProvider instance-scoped', () => {
       expect(screen.getByTestId('synced')).toHaveTextContent('yes');
     });
 
+    // Pre-populate inst-2 localStorage with a cached theme
+    localStorageData['setting:inst-2:theme'] = 'tokyo-night';
+
     dispatchSpy.mockClear();
 
     rerender(
@@ -156,12 +160,14 @@ describe('SettingsProvider instance-scoped', () => {
       </SettingsProvider>
     );
 
+    // Should dispatch the cached localStorage value for inst-2, not the
+    // hard default.  Keys without a cached value still fall back to defaults.
     expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'settings-synced',
         detail: {
           settings: expect.objectContaining({
-            theme: 'light',
+            theme: 'tokyo-night',
             language: 'en'
           })
         }
@@ -189,6 +195,64 @@ describe('SettingsProvider instance-scoped', () => {
       'setting:inst-1:i18nextLng',
       'es'
     );
+  });
+
+  it('restores settings from DB when switching back to original instance', async () => {
+    const getSettingsFromDbInst1 = vi
+      .fn()
+      .mockResolvedValue({ theme: 'dark', desktopPattern: 'diamonds' });
+
+    const { rerender } = render(
+      <SettingsProvider
+        instanceId="inst-1"
+        getSettingsFromDb={getSettingsFromDbInst1}
+      >
+        <TestConsumer />
+      </SettingsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('synced')).toHaveTextContent('yes');
+    });
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+
+    // Switch to inst-2
+    const getSettingsFromDbInst2 = vi
+      .fn()
+      .mockResolvedValue({ theme: 'tokyo-night' });
+
+    rerender(
+      <SettingsProvider
+        instanceId="inst-2"
+        getSettingsFromDb={getSettingsFromDbInst2}
+      >
+        <TestConsumer />
+      </SettingsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('synced')).toHaveTextContent('yes');
+    });
+    expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
+
+    // Switch back to inst-1 — settings should be restored from DB
+    const getSettingsFromDbInst1Again = vi
+      .fn()
+      .mockResolvedValue({ theme: 'dark', desktopPattern: 'diamonds' });
+
+    rerender(
+      <SettingsProvider
+        instanceId="inst-1"
+        getSettingsFromDb={getSettingsFromDbInst1Again}
+      >
+        <TestConsumer />
+      </SettingsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('synced')).toHaveTextContent('yes');
+    });
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
   });
 
   it('dispatches settings-synced with DB values only', async () => {
