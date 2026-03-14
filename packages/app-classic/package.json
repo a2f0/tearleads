@@ -18,7 +18,7 @@
     "build": "tsc",
     "clean": "rm -rf dist dist-tests coverage",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts ./src/**/*.test.ts ./src/**/*.test.tsx",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true BUN_TEST_PRELOAD=./src/test/bunSetup.ts BUN_TEST_PATTERNS=./src/**/*.test.ts,./src/**/*.test.tsx bash ../../scripts/test/runCoverage.sh || cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src --coverage"
   },
   "peerDependencies": {
     "@tearleads/window-manager": "workspace:*",
@@ -27,7 +27,6 @@
     "react-i18next": "16.5.6"
   },
   "devDependencies": {
-    "@tearleads/app-builder": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@tearleads/db": "workspace:*",
     "@tearleads/db-test-utils": "workspace:*",
@@ -36,8 +35,6 @@
     "@types/node": "25.3.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
     "drizzle-orm": "0.45.1",
     "i18next": "25.8.14",
     "jsdom": "28.1.0",

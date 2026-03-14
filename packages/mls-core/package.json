@@ -19,7 +19,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --root src --coverage"
   },
   "keywords": [
     "mls",
@@ -34,7 +34,6 @@
     "idb": "8.0.3"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "4.0.18",
     "cross-env": "10.1.0",
     "typescript": "5.9.3",
     "vitest": "4.0.18"

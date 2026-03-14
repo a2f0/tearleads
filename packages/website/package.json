@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh -- --preload ./src/test/bunSetup.ts src/**/*.test.ts src/**/*.test.tsx",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src --coverage",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -27,8 +27,6 @@
     "@testing-library/react": "16.3.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
     "jsdom": "28.1.0",
     "lucide-react": "0.576.0",
     "tailwindcss": "4.2.1",

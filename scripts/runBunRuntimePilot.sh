@@ -41,9 +41,9 @@ fi
 
 get_suite_path() {
   case "$1" in
-    node) printf '%s\n' "packages/app-builder/src/generators/theme.test.ts" ;;
-    ui) printf '%s\n' "packages/ui/src/context/useTheme.test.tsx" ;;
-    api) printf '%s\n' "packages/app-mls-chat/src/hooks/useMlsRealtime.test.tsx" ;;
+    node) printf '%s\n' "packages/cli/src/crypto/keyManager.test.ts" ;;
+    ui) printf '%s\n' "packages/client/src/sse/notificationStreamManager.test.ts" ;;
+    api) printf '%s\n' "packages/api-client/src/vfsWriteOrchestrator.concurrent.test.ts" ;;
     *)
       echo "Unknown suite '$1' (expected: node, ui, api)" >&2
       return 1
