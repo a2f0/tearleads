@@ -76,17 +76,12 @@ function installRealWasmImporter(bindings: ApiV2GeneratedWasmBindings): void {
             'tearleads_api_client_wasm_bg.wasm'
           )
         ];
-        let wasmModulePath: string | null = null;
-
-        for (const candidatePath of candidatePaths) {
-          try {
+        const wasmModulePath = await Promise.any(
+          candidatePaths.map(async (candidatePath) => {
             await access(candidatePath);
-            wasmModulePath = candidatePath;
-            break;
-          } catch {
-            // Try the next candidate.
-          }
-        }
+            return candidatePath;
+          })
+        ).catch(() => null);
 
         if (wasmModulePath === null) {
           throw new Error(
