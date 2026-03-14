@@ -17,7 +17,12 @@ describe('SyncQueueTab', () => {
     vi.spyOn(queueDeps, 'getSyncQueueDependencies').mockReturnValue({
       useSnapshot: () => ({
         outbound: { crdt: [], blob: [] },
-        inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0, blobDownloads: [] }
+        inbound: {
+          cursor: null,
+          pendingOperations: 0,
+          nextLocalWriteId: 0,
+          blobDownloads: []
+        }
       })
     });
 
@@ -42,7 +47,12 @@ describe('SyncQueueTab', () => {
           ],
           blob: []
         },
-        inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 1, blobDownloads: [] }
+        inbound: {
+          cursor: null,
+          pendingOperations: 0,
+          nextLocalWriteId: 1,
+          blobDownloads: []
+        }
       })
     });
 
@@ -64,7 +74,12 @@ describe('SyncQueueTab', () => {
             }
           ]
         },
-        inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0, blobDownloads: [] }
+        inbound: {
+          cursor: null,
+          pendingOperations: 0,
+          nextLocalWriteId: 0,
+          blobDownloads: []
+        }
       })
     });
 

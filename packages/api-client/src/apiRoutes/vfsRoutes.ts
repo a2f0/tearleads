@@ -297,7 +297,9 @@ export const vfsRoutes = {
       contentType: response.contentType ?? null
     };
   },
-  getBlobManifest: async (blobId: string): Promise<GetBlobManifestClientResponse> =>
+  getBlobManifest: async (
+    blobId: string
+  ): Promise<GetBlobManifestClientResponse> =>
     request<GetBlobManifestClientResponse>(
       `${VFS_V2_CONNECT_BASE_PATH}/GetBlobManifest`,
       {

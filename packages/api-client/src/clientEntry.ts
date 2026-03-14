@@ -24,13 +24,6 @@ export {
 } from './connectRoutes';
 export { openNotificationEventStream } from './notificationStream';
 export {
-  createVfsSecurePipelineBundle,
-  rotateItemKeyEpochAndPersist,
-  type VfsKeyManager,
-  type VfsKeySetupPayload,
-  type VfsSecureOrchestratorFacade
-} from './vfsCrypto';
-export {
   createVfsBlobDownloadFlusher,
   VfsBlobDownloadFlusher,
   type VfsBlobDownloadFlusherOptions
@@ -42,6 +35,13 @@ export type {
   VfsBlobDownloadResultEvent,
   VfsBlobDownloadRetryPolicy
 } from './vfsBlobDownloadTypes';
+export {
+  createVfsSecurePipelineBundle,
+  rotateItemKeyEpochAndPersist,
+  type VfsKeyManager,
+  type VfsKeySetupPayload,
+  type VfsSecureOrchestratorFacade
+} from './vfsCrypto';
 export {
   VfsWriteOrchestrator,
   type VfsWriteOrchestratorPersistedState

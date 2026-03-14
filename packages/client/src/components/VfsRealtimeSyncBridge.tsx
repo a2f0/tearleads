@@ -84,9 +84,7 @@ export function VfsRealtimeSyncBridge() {
   const remoteReadOrchestratorRef = useRef(
     createRemoteReadOrchestrator<void>()
   );
-  const blobSyncOrchestratorRef = useRef(
-    createRemoteReadOrchestrator<void>()
-  );
+  const blobSyncOrchestratorRef = useRef(createRemoteReadOrchestrator<void>());
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
