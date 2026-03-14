@@ -49,8 +49,16 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     const server = new InMemoryVfsCrdtSyncServer();
     const fetchImpl = createServerBackedFetch(server, { delays: {} });
 
-    const desktop = createClient({ fetchImpl, clientId: 'desktop', pullLimit: 2 });
-    const mobile = createClient({ fetchImpl, clientId: 'mobile', pullLimit: 2 });
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 2
+    });
 
     desktop.queueLocalOperation({
       opType: 'link_add',
@@ -95,8 +103,16 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       }
     });
 
-    const desktop = createClient({ fetchImpl, clientId: 'desktop', pullLimit: 2 });
-    const mobile = createClient({ fetchImpl, clientId: 'mobile', pullLimit: 1 });
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 1
+    });
 
     desktop.queueLocalOperation({
       opType: 'acl_add',
@@ -156,9 +172,21 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       }
     });
 
-    const desktop = createClient({ fetchImpl, clientId: 'desktop', pullLimit: 2 });
-    const mobile = createClient({ fetchImpl, clientId: 'mobile', pullLimit: 1 });
-    const tablet = createClient({ fetchImpl, clientId: 'tablet', pullLimit: 3 });
+    const desktop = createClient({
+      fetchImpl,
+      clientId: 'desktop',
+      pullLimit: 2
+    });
+    const mobile = createClient({
+      fetchImpl,
+      clientId: 'mobile',
+      pullLimit: 1
+    });
+    const tablet = createClient({
+      fetchImpl,
+      clientId: 'tablet',
+      pullLimit: 3
+    });
 
     desktop.queueLocalOperation({
       opType: 'link_add',
@@ -208,7 +236,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await Promise.all([desktop.flush(), mobile.flush(), tablet.flush()]);
     await Promise.all([desktop.sync(), mobile.sync(), tablet.sync()]);
 
-    const observer = createClient({ fetchImpl, clientId: 'observer', pullLimit: 1 });
+    const observer = createClient({
+      fetchImpl,
+      clientId: 'observer',
+      pullLimit: 1
+    });
 
     await observer.sync();
     const observerAfterFirstSync = observer.snapshot();

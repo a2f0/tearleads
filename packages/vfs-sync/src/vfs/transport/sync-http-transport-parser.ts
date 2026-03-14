@@ -16,19 +16,25 @@ import {
   normalizeReconcileResponseRecord,
   normalizeSyncItemRecord
 } from './syncHttpTransportCompactNormalization.js';
-
-interface ParsedApiErrorResponse {
-  message: string;
-  code: string | null;
-  requestedCursor: string | null;
-  oldestAvailableCursor: string | null;
-}
+export {
+  parseApiErrorResponse,
+  type ParsedApiErrorResponse
+} from './syncHttpTransportApiError.js';
 
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add', 'acl_remove', 'link_add', 'link_remove', 'link_reassign',
-  'item_upsert', 'item_delete'
+  'acl_add',
+  'acl_remove',
+  'link_add',
+  'link_remove',
+  'link_reassign',
+  'item_upsert',
+  'item_delete'
 ];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = ['user', 'group', 'organization'];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
+  'user',
+  'group',
+  'organization'
+];
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
   'applied',
@@ -435,60 +441,5 @@ export function parseApiReconcileResponse(
     clientId,
     cursor: rawCursor,
     lastReconciledWriteIds: parsedWriteIds.value
-  };
-}
-
-function parseErrorMessage(status: number, body: unknown): string {
-  if (isRecord(body) && typeof body['error'] === 'string') {
-    const normalized = body['error'].trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-  }
-
-  if (isRecord(body) && typeof body['message'] === 'string') {
-    const normalized = body['message'].trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-  }
-
-  return `request failed with status ${status}`;
-}
-
-export function parseApiErrorResponse(
-  status: number,
-  body: unknown
-): ParsedApiErrorResponse {
-  const message = parseErrorMessage(status, body);
-  if (!isRecord(body)) {
-    return {
-      message,
-      code: null,
-      requestedCursor: null,
-      oldestAvailableCursor: null
-    };
-  }
-
-  const codeRaw = body['code'];
-  const requestedCursorRaw = body['requestedCursor'];
-  const oldestAvailableCursorRaw = body['oldestAvailableCursor'];
-
-  return {
-    message,
-    code:
-      typeof codeRaw === 'string' && codeRaw.trim().length > 0
-        ? codeRaw.trim()
-        : null,
-    requestedCursor:
-      typeof requestedCursorRaw === 'string' &&
-      requestedCursorRaw.trim().length > 0
-        ? requestedCursorRaw.trim()
-        : null,
-    oldestAvailableCursor:
-      typeof oldestAvailableCursorRaw === 'string' &&
-      oldestAvailableCursorRaw.trim().length > 0
-        ? oldestAvailableCursorRaw.trim()
-        : null
   };
 }
