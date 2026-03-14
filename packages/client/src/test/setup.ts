@@ -166,12 +166,7 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
-
-  return {
-    ...actual,
+vi.mock('@tearleads/ui', () => {  return {
     Tooltip: ({ children }: { children: ReactNode }) =>
       createElement(Fragment, null, children),
     TooltipTrigger: ({ children }: { children: ReactNode }) =>
@@ -284,10 +279,7 @@ function createMockWindow(
     );
 }
 
-vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-keychain/clientEntry'
-  )),
+vi.mock('@tearleads/app-keychain/clientEntry', () => ({
   KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
 }));
 
@@ -295,10 +287,7 @@ vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 
-vi.mock('@tearleads/app-admin/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-admin/clientEntry'
-  )),
+vi.mock('@tearleads/app-admin/clientEntry', () => ({
   AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
   AdminRedisWindow: createMockWindow('admin-redis', {
     width: 700,

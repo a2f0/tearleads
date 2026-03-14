@@ -25,10 +25,7 @@ import App from './App';
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 const mockLock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@tearleads/app-contacts', async () => {
-  const actual = await vi.importActual('@tearleads/app-contacts');
-  return {
-    ...actual,
+vi.mock('@tearleads/app-contacts', () => {  return {
     ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />,
     ContactsPage: () => (
       <div>

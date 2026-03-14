@@ -34,12 +34,7 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@/video/VideoPlaylistContext', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/video/VideoPlaylistContext')
-  >('@/video/VideoPlaylistContext');
-  return {
-    ...actual,
+vi.mock('@/video/VideoPlaylistContext', () => {  return {
     VideoPlaylistProvider: (props: VideoPlaylistProviderProps) => {
       lastProviderProps = props;
       return <div data-testid="video-playlist-provider">{props.children}</div>;

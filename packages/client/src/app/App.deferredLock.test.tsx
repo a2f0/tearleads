@@ -46,14 +46,7 @@ vi.mock('@tearleads/ui', () => ({
   )
 }));
 
-vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
-
-  return {
-    ...actual
-  };
+vi.mock('@tearleads/window-manager', () => {  return {};
 });
 
 vi.mock('@tearleads/ui/logo.svg', () => ({
