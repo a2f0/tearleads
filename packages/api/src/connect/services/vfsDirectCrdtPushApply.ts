@@ -148,9 +148,7 @@ export async function applyCrdtPushOperations(input: {
         if (!existing || accessRank > existing.accessRank) {
           itemAuthInfo.set(itemId, {
             isOwner: existing?.isOwner ?? false,
-            accessRank: existing
-              ? Math.max(existing.accessRank, accessRank)
-              : accessRank,
+            accessRank,
             ownerId: itemOwnerIds.get(itemId) ?? null
           });
         }
