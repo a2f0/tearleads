@@ -8,7 +8,7 @@ COPY proto proto
 
 RUN cargo build --release --package tearleads-api-v2
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
