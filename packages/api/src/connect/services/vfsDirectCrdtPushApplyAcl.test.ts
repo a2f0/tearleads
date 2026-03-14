@@ -214,6 +214,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
       .mockResolvedValueOnce(createQueryResult())
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(
         createQueryResult(
           [{ id: 'change-1', occurred_at: '2026-02-16T00:00:02.000Z' }],
@@ -257,6 +258,7 @@ describe('vfsDirectCrdtPushApply ACL semantic validation', () => {
         createQueryResult([createAuthorizedItemRow('item-1', 2)])
       )
       .mockResolvedValueOnce(createQueryResult())
+      .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(createQueryResult([]))
       .mockResolvedValueOnce(

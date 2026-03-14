@@ -328,6 +328,14 @@ function parsePushOperation(
       if (accessLevel) {
         operation.accessLevel = accessLevel;
       }
+    } else if (
+      Object.hasOwn(value, 'accessLevel') ||
+      hasCompactEnumField(value, 'accessLevelEnum')
+    ) {
+      return {
+        status: 'invalid',
+        opId
+      };
     }
   }
 
