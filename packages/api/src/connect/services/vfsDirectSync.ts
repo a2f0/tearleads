@@ -27,7 +27,7 @@ import {
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
@@ -44,7 +44,6 @@ type GetSyncRequest = {
   cursor?: string;
   limit?: number;
   rootId?: string;
-  rootIdBytes?: unknown;
   bloomFilter?: {
     data: string;
     capacity: number;
@@ -143,9 +142,7 @@ function normalizeSyncQueryRequest(request: GetSyncRequest): {
 } {
   const normalizedCursor =
     typeof request.cursor === 'string' ? request.cursor.trim() : '';
-  const normalizedRootId =
-    parseIdentifierWithCompactFallback(request.rootId, request.rootIdBytes) ??
-    '';
+  const normalizedRootId = parseIdentifier(request.rootId) ?? '';
   const normalizedLimit =
     typeof request.limit === 'number' &&
     Number.isFinite(request.limit) &&
@@ -380,8 +377,7 @@ export async function reconcileSyncDirect(
 ): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('ReconcileSync'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   if (!isValidUuid(claims.sub)) {

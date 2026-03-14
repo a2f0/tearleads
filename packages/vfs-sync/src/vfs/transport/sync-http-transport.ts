@@ -53,29 +53,28 @@ function toCompactOperation(
 
   const compact: Record<string, unknown> = {
     ...operation,
-    opIdBytes: toPackedIdBase64(operation.opId),
-    opTypeEnum: OP_TYPE_MAP[operation.opType] ?? 0,
-    itemIdBytes: toPackedIdBase64(operation.itemId),
-    replicaIdBytes: toPackedIdBase64(operation.replicaId),
-    writeIdU64: operation.writeId,
+    opId: toPackedIdBase64(operation.opId),
+    opType: OP_TYPE_MAP[operation.opType] ?? 0,
+    itemId: toPackedIdBase64(operation.itemId),
+    replicaId: toPackedIdBase64(operation.replicaId),
+    writeId: operation.writeId,
     occurredAtMs
   };
 
   if (operation.principalType) {
-    compact['principalTypeEnum'] =
-      PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
+    compact['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
   }
   if (operation.principalId) {
-    compact['principalIdBytes'] = toPackedIdBase64(operation.principalId);
+    compact['principalId'] = toPackedIdBase64(operation.principalId);
   }
   if (operation.accessLevel) {
-    compact['accessLevelEnum'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
+    compact['accessLevel'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
   }
   if (operation.parentId) {
-    compact['parentIdBytes'] = toPackedIdBase64(operation.parentId);
+    compact['parentId'] = toPackedIdBase64(operation.parentId);
   }
   if (operation.childId) {
-    compact['childIdBytes'] = toPackedIdBase64(operation.childId);
+    compact['childId'] = toPackedIdBase64(operation.childId);
   }
 
   return compact;
@@ -126,16 +125,13 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       await this.requestConnectJson(
         'PushCrdtOps',
         {
-          organizationId: organizationId ?? '',
-          clientId: input.clientId,
-          ...(organizationId
-            ? { organizationIdBytes: toPackedIdBase64(organizationId) }
-            : {}),
-          clientIdBytes: toPackedIdBase64(input.clientId),
+          organizationId: organizationId
+            ? toPackedIdBase64(organizationId)
+            : '',
+          clientId: toPackedIdBase64(input.clientId),
           operations: input.operations.map((operation) =>
             toCompactOperation(operation)
-          ),
-          version: 2
+          )
         },
         {
           organizationId
@@ -156,8 +152,7 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   }): Promise<VfsCrdtSyncPullResponse> {
     const organizationId = this.resolveOrganizationId();
     const requestBody: Record<string, unknown> = {
-      limit: input.limit,
-      version: 2
+      limit: input.limit
     };
     if (input.cursor) {
       requestBody['cursor'] = encodeVfsSyncCursor(input.cursor);
@@ -204,15 +199,10 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
       await this.requestConnectJson(
         'ReconcileCrdt',
         {
-          organizationId,
-          clientId: input.clientId,
-          ...(organizationId
-            ? { organizationIdBytes: toPackedIdBase64(organizationId) }
-            : {}),
-          clientIdBytes: toPackedIdBase64(input.clientId),
+          organizationId: toPackedIdBase64(organizationId),
+          clientId: toPackedIdBase64(input.clientId),
           cursor: encodeVfsSyncCursor(input.cursor),
-          lastReconciledWriteIds: input.lastReconciledWriteIds,
-          version: 2
+          lastReconciledWriteIds: input.lastReconciledWriteIds
         },
         {
           organizationId
@@ -255,24 +245,16 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     const parsedSession = await this.requestConnectJson(
       'RunCrdtSession',
       {
-        organizationId: organizationId ?? '',
-        clientId: input.clientId,
-        ...(organizationId
-          ? { organizationIdBytes: toPackedIdBase64(organizationId) }
-          : {}),
-        clientIdBytes: toPackedIdBase64(input.clientId),
+        organizationId: organizationId ? toPackedIdBase64(organizationId) : '',
+        clientId: toPackedIdBase64(input.clientId),
         cursor: encodeVfsSyncCursor(input.cursor),
         limit: input.limit,
         operations: input.operations.map((operation) =>
           toCompactOperation(operation)
         ),
         lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ?? null,
-        ...(input.rootId
-          ? { rootIdBytes: toPackedIdBase64(input.rootId) }
-          : {}),
-        bloomFilter: input.bloomFilter ?? null,
-        version: 2
+        rootId: input.rootId ? toPackedIdBase64(input.rootId) : null,
+        bloomFilter: input.bloomFilter ?? null
       },
       {
         organizationId

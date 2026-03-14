@@ -18,6 +18,10 @@ export type VfsObjectType =
   | 'mlsMessage'
   | 'conversation'
   | 'healthReading'
+  | 'organization'
+  | 'user'
+  | 'group'
+  | 'device'
   // Collections
   | 'folder'
   | 'emailFolder'

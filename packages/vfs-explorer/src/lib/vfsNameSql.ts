@@ -24,7 +24,7 @@ import { sql } from 'drizzle-orm';
  * SQL fragment that builds a contact display name from firstName / lastName.
  * Returns NULL when no contacts row is joined (all columns are NULL).
  */
-export function contactNameSql(): SQL {
+function contactNameSql(): SQL {
   return sql`CASE
     WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
       THEN ${contacts.firstName} || ' ' || ${contacts.lastName}

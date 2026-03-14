@@ -81,7 +81,9 @@ export async function runCorrectedCheckpointBoundaryScenario(
     ]
   });
 
-  const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+  const baseTransport: VfsCrdtSyncTransport = new InMemoryVfsCrdtSyncTransport(
+    server
+  );
   const sourceClient = new VfsBackgroundSyncClient(
     'user-1',
     'desktop',

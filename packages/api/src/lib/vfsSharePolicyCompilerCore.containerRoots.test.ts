@@ -62,12 +62,12 @@ describe('compileSharePolicyCore container roots', () => {
     expect(result.decisions).toEqual([]);
   });
 
-  it('supports folder, playlist, emailFolder, and contact roots', () => {
+  it('supports folder, album, emailFolder, and contactGroup roots', () => {
     const policies: SharePolicyDefinition[] = [
       activePolicy('policy-folder', 'folder-root'),
-      activePolicy('policy-playlist', 'playlist-root'),
+      activePolicy('policy-album', 'album-root'),
       activePolicy('policy-email', 'email-root'),
-      activePolicy('policy-contact', 'contact-root')
+      activePolicy('policy-contact-group', 'contact-group-root')
     ];
     const selectors: SharePolicySelectorDefinition[] = policies.map(
       (policy, index) => ({
@@ -92,10 +92,10 @@ describe('compileSharePolicyCore container roots', () => {
       })
     );
     const registryItems: RegistryItemType[] = [
-      { id: 'contact-root', objectType: 'contact' },
+      { id: 'contact-group-root', objectType: 'contactGroup' },
       { id: 'email-root', objectType: 'emailFolder' },
       { id: 'folder-root', objectType: 'folder' },
-      { id: 'playlist-root', objectType: 'playlist' }
+      { id: 'album-root', objectType: 'album' }
     ];
 
     const result = compileSharePolicyCore({
@@ -110,13 +110,23 @@ describe('compileSharePolicyCore container roots', () => {
     expect(result.activePolicyCount).toBe(4);
     expect(result.decisions).toEqual([
       {
-        itemId: 'contact-root',
+        itemId: 'album-root',
         principalType: 'user',
         principalId: 'alice',
         decision: 'allow',
         accessLevel: 'read',
-        policyId: 'policy-contact',
-        selectorId: 'sel-policy-contact',
+        policyId: 'policy-album',
+        selectorId: 'sel-policy-album',
+        precedence: 2
+      },
+      {
+        itemId: 'contact-group-root',
+        principalType: 'user',
+        principalId: 'alice',
+        decision: 'allow',
+        accessLevel: 'read',
+        policyId: 'policy-contact-group',
+        selectorId: 'sel-policy-contact-group',
         precedence: 4
       },
       {
@@ -138,16 +148,6 @@ describe('compileSharePolicyCore container roots', () => {
         policyId: 'policy-folder',
         selectorId: 'sel-policy-folder',
         precedence: 1
-      },
-      {
-        itemId: 'playlist-root',
-        principalType: 'user',
-        principalId: 'alice',
-        decision: 'allow',
-        accessLevel: 'read',
-        policyId: 'policy-playlist',
-        selectorId: 'sel-policy-playlist',
-        precedence: 2
       }
     ]);
   });

@@ -3,11 +3,6 @@ export interface VfsSyncCursor {
   changeId: string;
 }
 
-function isValidIsoTimestamp(value: string): boolean {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed);
-}
-
 function encodeBytesToBase64Url(bytes: Uint8Array): string {
   const chars =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -107,14 +102,8 @@ export function encodeVfsSyncCursor(cursor: VfsSyncCursor): string {
   const uuidBytes = uuidToBytes(cursor.changeId);
 
   if (!Number.isFinite(timestamp) || !uuidBytes) {
-    // Fallback to V1 JSON encoding if we can't pack it (e.g. non-UUID changeId)
-    const payload = {
-      version: 1,
-      changedAt: cursor.changedAt,
-      changeId: cursor.changeId
-    };
-    return encodeBytesToBase64Url(
-      new TextEncoder().encode(JSON.stringify(payload))
+    throw new Error(
+      'invalid cursor: changedAt must be ISO timestamp and changeId must be UUID'
     );
   }
 
@@ -146,16 +135,6 @@ export function decodeVfsSyncCursor(encoded: string): VfsSyncCursor | null {
       return {
         changedAt: new Date(timestamp).toISOString(),
         changeId
-      };
-    }
-
-    // Fallback to V1 JSON decoding
-    const decoded = new TextDecoder().decode(bytes);
-    const parsed = JSON.parse(decoded);
-    if (parsed.version === 1 && isValidIsoTimestamp(parsed.changedAt)) {
-      return {
-        changedAt: parsed.changedAt,
-        changeId: parsed.changeId
       };
     }
 

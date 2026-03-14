@@ -174,17 +174,14 @@ describe('shared note edit sync', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'bob-client',
-          operations: [bobPushOperation]
-        })
+    const bobPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: bob,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'bob-client',
+        operations: [bobPushOperation]
       }
-    );
+    });
     expect(bobPush.results[0]?.status).toBe('applied');
 
     await refreshLocalStateFromApi({
@@ -206,17 +203,14 @@ describe('shared note edit sync', () => {
       plaintext: aliceEditPlaintext
     });
     const aliceEditPayload = alicePushOperation.encryptedPayload ?? '';
-    const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client',
-          operations: [alicePushOperation]
-        })
+    const alicePush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client',
+        operations: [alicePushOperation]
       }
-    );
+    });
     expect(alicePush.results[0]?.status).toBe('applied');
 
     await refreshLocalStateFromApi({
@@ -252,17 +246,14 @@ describe('shared note edit sync', () => {
     });
     const aliceSecondEditPayload =
       aliceSecondPushOperation.encryptedPayload ?? '';
-    const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client',
-          operations: [aliceSecondPushOperation]
-        })
+    const aliceSecondPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client',
+        operations: [aliceSecondPushOperation]
       }
-    );
+    });
     expect(aliceSecondPush.results[0]?.status).toBe('applied');
 
     for (let cycle = 0; cycle < 2; cycle += 1) {

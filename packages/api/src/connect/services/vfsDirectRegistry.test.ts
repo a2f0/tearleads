@@ -209,6 +209,7 @@ describe('vfsDirectRegistry', () => {
     expect(response).toEqual({
       itemId: 'item-1',
       newEpoch: 2,
+      success: true,
       wrapsApplied: 2
     });
     expect(clientReleaseMock).toHaveBeenCalled();

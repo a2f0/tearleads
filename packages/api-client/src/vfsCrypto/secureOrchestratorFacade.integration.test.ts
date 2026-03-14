@@ -5,6 +5,14 @@ import { setTestEnv } from '../test/env.js';
 import { createVfsSecureOrchestratorFacade } from './secureOrchestratorFacade';
 import { recordSecureFacadeRequestBody } from './secureOrchestratorFacade.testSupport';
 
+const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
+const ENCODED_CLIENT_ID = btoa('desktop');
+const ENCODED_DESKTOP_OP_ID = btoa('desktop-1');
+const ENCODED_CIPHERTEXT_OP_ID = btoa('ciphertext-op-1');
+const ENCODED_PARENT_ID = btoa('enc-parent:9');
+const ENCODED_ITEM_ID = btoa('item-11');
+const LINK_ADD_OP_TYPE = 3;
+
 function connectJsonEnvelope(payload: unknown): string {
   return JSON.stringify({ json: JSON.stringify(payload) });
 }
@@ -67,7 +75,7 @@ describe('secureOrchestratorFacade integration', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-18T00:00:00.000Z',
-                changeId: 'desktop-1'
+                changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
@@ -236,7 +244,7 @@ describe('secureOrchestratorFacade integration', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-19T00:00:00.000Z',
-                changeId: 'desktop-1'
+                changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
@@ -316,13 +324,19 @@ describe('secureOrchestratorFacade integration', () => {
 
     expect(pushRequest?.body).toEqual(
       expect.objectContaining({
-        clientId: 'desktop',
+        clientId: ENCODED_CLIENT_ID,
+        organizationId: '',
         operations: [
           expect.objectContaining({
-            opType: 'link_add',
-            itemId: 'ciphertext-op-1',
-            parentId: 'enc-parent:9',
-            childId: 'ciphertext-op-1'
+            opId: ENCODED_DESKTOP_OP_ID,
+            opType: LINK_ADD_OP_TYPE,
+            itemId: ENCODED_CIPHERTEXT_OP_ID,
+            parentId: ENCODED_PARENT_ID,
+            childId: ENCODED_CIPHERTEXT_OP_ID,
+            replicaId: ENCODED_CLIENT_ID,
+            writeId: 1,
+            occurredAt: expect.any(String),
+            occurredAtMs: expect.any(Number)
           })
         ]
       })
@@ -371,7 +385,7 @@ describe('secureOrchestratorFacade integration', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-19T00:00:00.000Z',
-                changeId: 'desktop-1'
+                changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
@@ -454,8 +468,13 @@ describe('secureOrchestratorFacade integration', () => {
     const pushedOp = pushRequest.body['operations'][0];
     expect(pushedOp).toEqual(
       expect.objectContaining({
-        opType: 'link_add',
-        itemId: 'item-11',
+        opId: ENCODED_DESKTOP_OP_ID,
+        opType: LINK_ADD_OP_TYPE,
+        itemId: ENCODED_ITEM_ID,
+        replicaId: ENCODED_CLIENT_ID,
+        writeId: 1,
+        occurredAt: expect.any(String),
+        occurredAtMs: expect.any(Number),
         encryptedPayload: 'base64-encrypted-payload',
         keyEpoch: 11,
         encryptionNonce: 'nonce-abc',

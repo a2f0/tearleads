@@ -74,6 +74,7 @@ export function ShareListItem({
     setSaving(true);
     try {
       await onSaveEdit(share.id, {
+        shareId: share.id,
         permissionLevel: editState.permissionLevel,
         expiresAt: editState.expiresAt || null
       });

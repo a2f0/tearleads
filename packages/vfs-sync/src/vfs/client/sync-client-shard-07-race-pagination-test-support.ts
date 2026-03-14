@@ -80,9 +80,11 @@ export async function runHydrateRejectionDuringFlushConvergenceScenario(): Promi
 
   const server = new InMemoryVfsCrdtSyncServer();
   let pushStarted = false;
-  let releaseDesktopPush: (() => void) | null = null;
+  const desktopPushController: {
+    release?: () => void;
+  } = {};
   const desktopPushGate = new Promise<void>((resolve) => {
-    releaseDesktopPush = resolve;
+    desktopPushController.release = resolve;
   });
 
   const desktopTransport = createFlushGatedDesktopTransport({
@@ -149,10 +151,11 @@ export async function runHydrateRejectionDuringFlushConvergenceScenario(): Promi
     hydrateError = error instanceof Error ? error.message : String(error);
   }
 
-  if (!releaseDesktopPush) {
+  if (typeof desktopPushController.release !== 'function') {
     throw new Error('missing desktop push release hook');
   }
-  releaseDesktopPush();
+  const releaseDesktopFlush = desktopPushController.release;
+  releaseDesktopFlush();
   await desktopFlushPromise;
 
   for (let index = 0; index < 3; index++) {
@@ -179,9 +182,11 @@ export async function runForwardOnlyPaginationAfterHydrateRaceScenario(): Promis
 
   const server = new InMemoryVfsCrdtSyncServer();
   let pushStarted = false;
-  let releaseDesktopPush: (() => void) | null = null;
+  const desktopPushController: {
+    release?: () => void;
+  } = {};
   const desktopPushGate = new Promise<void>((resolve) => {
-    releaseDesktopPush = resolve;
+    desktopPushController.release = resolve;
   });
 
   const desktopTransport = createFlushGatedDesktopTransport({
@@ -261,10 +266,11 @@ export async function runForwardOnlyPaginationAfterHydrateRaceScenario(): Promis
     hydrateError = error instanceof Error ? error.message : String(error);
   }
 
-  if (!releaseDesktopPush) {
+  if (typeof desktopPushController.release !== 'function') {
     throw new Error('missing desktop push release hook');
   }
-  releaseDesktopPush();
+  const releaseDesktopFlush = desktopPushController.release;
+  releaseDesktopFlush();
   await desktopFlushPromise;
 
   for (let index = 0; index < 3; index++) {

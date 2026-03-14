@@ -57,7 +57,7 @@ describe('compileSharePolicyCore', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       { id: 'wallet-1', objectType: 'walletItem' },
       { id: 'workout-1', objectType: 'healthWorkoutEntry' }
     ];
@@ -145,7 +145,7 @@ describe('compileSharePolicyCore', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       { id: 'wallet-1', objectType: 'walletItem' }
     ];
     const links: LinkEdge[] = [{ parentId: 'root-1', childId: 'wallet-1' }];
@@ -198,7 +198,7 @@ describe('compileSharePolicyCore', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       { id: 'inside-1', objectType: 'walletItem' },
       { id: 'outside-root', objectType: 'folder' },
       { id: 'outside-child', objectType: 'note' }
@@ -231,7 +231,7 @@ describe('compileSharePolicyCore', () => {
         anchorItemId: null,
         maxDepth: 1,
         includeRoot: true,
-        objectTypes: ['contact', 'folder'],
+        objectTypes: ['contactGroup', 'folder'],
         selectorOrder: 5
       }
     ];
@@ -245,7 +245,7 @@ describe('compileSharePolicyCore', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       { id: 'folder-1', objectType: 'folder' },
       { id: 'note-1', objectType: 'note' },
       { id: 'deep-note', objectType: 'note' }
@@ -337,7 +337,7 @@ describe('compileSharePolicyCore', () => {
       })
     );
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' },
+      { id: 'root-1', objectType: 'contactGroup' },
       { id: 'item-1', objectType: 'walletItem' }
     ];
     const links: LinkEdge[] = [{ parentId: 'root-1', childId: 'item-1' }];
@@ -378,7 +378,7 @@ describe('compileSharePolicyCore', () => {
         anchorItemId: null,
         maxDepth: null,
         includeRoot: true,
-        objectTypes: [' ', 'contact'],
+        objectTypes: [' ', 'contactGroup'],
         selectorOrder: 1
       }
     ];
@@ -399,7 +399,7 @@ describe('compileSharePolicyCore', () => {
       }
     ];
     const registryItems: RegistryItemType[] = [
-      { id: 'root-1', objectType: 'contact' }
+      { id: 'root-1', objectType: 'contactGroup' }
     ];
 
     const result = compileSharePolicyCore({

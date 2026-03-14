@@ -21,12 +21,15 @@ export function createGuardrailViolationCollector(): {
   return {
     violations,
     onGuardrailViolation: (violation) => {
-      violations.push({
+      const snapshot: GuardrailViolationSnapshot = {
         code: violation.code,
         stage: violation.stage,
-        message: violation.message,
-        details: violation.details ? { ...violation.details } : undefined
-      });
+        message: violation.message
+      };
+      if (violation.details) {
+        snapshot.details = { ...violation.details };
+      }
+      violations.push(snapshot);
     }
   };
 }

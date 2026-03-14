@@ -19,10 +19,7 @@ export async function registerDirect(
 ): Promise<VfsRegisterResponse> {
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('Register'),
-    context.requestHeader,
-    {
-      requireDeclaredOrganization: true
-    }
+    context.requestHeader
   );
   const payload = parseRegisterPayload(request);
   if (!payload) {
@@ -97,8 +94,7 @@ export async function rekeyItemDirect(
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('RekeyItem'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const payload = parseRekeyPayload(request);
@@ -194,6 +190,7 @@ export async function rekeyItemDirect(
       transactionOpen = false;
 
       const response: VfsRekeyResponse = {
+        success: true,
         itemId,
         newEpoch: payload.newEpoch,
         wrapsApplied: updateResult.rowCount ?? 0

@@ -52,9 +52,6 @@ export type CommitBlobRequest = StagingIdRequest & {
   keyEpoch: number;
   manifestHash: string;
   manifestSignature: string;
-  chunkCount: number;
-  totalPlaintextBytes: number;
-  totalCiphertextBytes: number;
 };
 
 type VfsBlobRelationKind = 'file' | 'emailAttachment' | 'photo' | 'other';
@@ -242,9 +239,6 @@ interface ParsedBlobCommitBody {
   keyEpoch: number;
   manifestHash: string;
   manifestSignature: string;
-  chunkCount: number;
-  totalPlaintextBytes: number;
-  totalCiphertextBytes: number;
 }
 
 export function parseBlobCommitBody(
@@ -258,36 +252,19 @@ export function parseBlobCommitBody(
   const manifestHash = normalizeRequiredString(body['manifestHash']);
   const manifestSignature = normalizeRequiredString(body['manifestSignature']);
   const keyEpochValue = body['keyEpoch'];
-  const chunkCountValue = body['chunkCount'];
-  const totalPlaintextBytesValue = body['totalPlaintextBytes'];
-  const totalCiphertextBytesValue = body['totalCiphertextBytes'];
 
-  if (
-    typeof keyEpochValue !== 'number' ||
-    typeof chunkCountValue !== 'number' ||
-    typeof totalPlaintextBytesValue !== 'number' ||
-    typeof totalCiphertextBytesValue !== 'number'
-  ) {
+  if (typeof keyEpochValue !== 'number') {
     return null;
   }
 
   const keyEpoch = keyEpochValue;
-  const chunkCount = chunkCountValue;
-  const totalPlaintextBytes = totalPlaintextBytesValue;
-  const totalCiphertextBytes = totalCiphertextBytesValue;
 
   if (
     !uploadId ||
     !manifestHash ||
     !manifestSignature ||
     !Number.isInteger(keyEpoch) ||
-    keyEpoch < 1 ||
-    !Number.isInteger(chunkCount) ||
-    chunkCount < 1 ||
-    !Number.isInteger(totalPlaintextBytes) ||
-    totalPlaintextBytes < 0 ||
-    !Number.isInteger(totalCiphertextBytes) ||
-    totalCiphertextBytes < 0
+    keyEpoch < 1
   ) {
     return null;
   }
@@ -296,10 +273,7 @@ export function parseBlobCommitBody(
     uploadId,
     keyEpoch,
     manifestHash,
-    manifestSignature,
-    chunkCount,
-    totalPlaintextBytes,
-    totalCiphertextBytes
+    manifestSignature
   };
 }
 

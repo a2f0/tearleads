@@ -67,8 +67,7 @@ export async function setupKeysDirect(
 ): Promise<{ created: boolean }> {
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('SetupKeys'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
   const payload = parseKeySetupPayload(request);
   if (!payload) {

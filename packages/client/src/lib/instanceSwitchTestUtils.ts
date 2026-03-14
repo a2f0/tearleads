@@ -3,8 +3,9 @@ import {
   combinePublicKey,
   createConnectJsonPostInit,
   generateKeyPair,
+  normalizeVfsCrdtSyncConnectPayload,
+  normalizeVfsSyncConnectPayload,
   parseConnectJsonEnvelopeBody,
-  parseConnectJsonString,
   serializePublicKey,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -93,106 +94,30 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   return JSON.parse(raw);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function normalizeLastReconciledWriteIds(
-  value: unknown
-): Record<string, number> {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  const normalized: Record<string, number> = {};
-  for (const [replicaId, writeId] of Object.entries(value)) {
-    const trimmedReplicaId = replicaId.trim();
-    if (trimmedReplicaId.length === 0) {
-      continue;
-    }
-    if (
-      typeof writeId !== 'number' ||
-      !Number.isInteger(writeId) ||
-      !Number.isSafeInteger(writeId) ||
-      writeId < 1
-    ) {
-      continue;
-    }
-    normalized[trimmedReplicaId] = writeId;
-  }
-
-  return normalized;
-}
-
-function normalizeSyncPagePayload(
-  payload: unknown,
-  methodName: string
-): unknown {
-  if (methodName !== 'GetSync' && methodName !== 'GetCrdtSync') {
-    return payload;
-  }
-
-  const recordPayload = isRecord(payload) ? payload : {};
-  const rawItems = recordPayload['items'];
-  const rawNextCursor = recordPayload['nextCursor'];
-  const rawHasMore = recordPayload['hasMore'];
-
-  const items = Array.isArray(rawItems) ? rawItems : [];
-  const nextCursor =
-    typeof rawNextCursor === 'string' && rawNextCursor.trim().length > 0
-      ? rawNextCursor
-      : null;
-  const hasMore = rawHasMore === true;
-
-  if (methodName === 'GetSync') {
-    return {
-      ...recordPayload,
-      items,
-      nextCursor,
-      hasMore
-    };
-  }
-
-  return {
-    ...recordPayload,
-    items,
-    nextCursor,
-    hasMore,
-    lastReconciledWriteIds: normalizeLastReconciledWriteIds(
-      recordPayload['lastReconciledWriteIds']
-    )
-  };
-}
-
-function toParsedJson<T>(payload: unknown): T {
-  if (typeof payload === 'string') {
-    return parseConnectJsonString<T>(payload);
-  }
-  if (payload === null || payload === undefined) {
-    return parseConnectJsonString<T>('{}');
-  }
-  try {
-    return parseConnectJsonString<T>(JSON.stringify(payload));
-  } catch {
-    return parseConnectJsonString<T>('{}');
-  }
-}
-
-async function fetchVfsConnectJson<T>(input: {
+async function fetchVfsConnectJson(input: {
   actor: JsonApiActor;
-  methodName: string;
+  methodName: 'GetSync';
   requestBody?: Record<string, unknown>;
-}): Promise<T> {
+}): Promise<VfsSyncResponse>;
+async function fetchVfsConnectJson(input: {
+  actor: JsonApiActor;
+  methodName: 'GetCrdtSync';
+  requestBody?: Record<string, unknown>;
+}): Promise<VfsCrdtSyncResponse>;
+async function fetchVfsConnectJson(input: {
+  actor: JsonApiActor;
+  methodName: 'GetSync' | 'GetCrdtSync';
+  requestBody?: Record<string, unknown>;
+}): Promise<VfsSyncResponse | VfsCrdtSyncResponse> {
   const responseBody = await input.actor.fetchJson(
     `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
   );
   const parsedPayload = parseConnectJsonEnvelopeBody(responseBody);
-  const normalizedPayload = normalizeSyncPagePayload(
-    parsedPayload,
-    input.methodName
-  );
-  return toParsedJson<T>(normalizedPayload);
+  if (input.methodName === 'GetSync') {
+    return normalizeVfsSyncConnectPayload(parsedPayload);
+  }
+  return normalizeVfsCrdtSyncConnectPayload(parsedPayload);
 }
 
 export function createTokenActor(input: {
@@ -234,7 +159,7 @@ export function installConnectSyncMocks(input: { baseUrl: string }): void {
         baseUrl: input.baseUrl,
         resolveToken: () => readStoredAuth().token
       });
-      return fetchVfsConnectJson<VfsSyncResponse>({
+      return fetchVfsConnectJson({
         actor,
         methodName: 'GetSync',
         requestBody: {
@@ -251,7 +176,7 @@ export function installConnectSyncMocks(input: { baseUrl: string }): void {
         baseUrl: input.baseUrl,
         resolveToken: () => readStoredAuth().token
       });
-      return fetchVfsConnectJson<VfsCrdtSyncResponse>({
+      return fetchVfsConnectJson({
         actor,
         methodName: 'GetCrdtSync',
         requestBody: {

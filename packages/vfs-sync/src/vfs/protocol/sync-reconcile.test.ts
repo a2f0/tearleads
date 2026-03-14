@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { encodeVfsSyncCursor } from './sync-cursor.js';
 import {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,
   parseVfsSyncReconcilePayload,
   reconcileVfsSyncCursor
 } from './sync-reconcile.js';
+
+const CHANGE_ID_01 = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_09 = '00000000-0000-0000-0000-000000000009';
+const CHANGE_ID_10 = '00000000-0000-0000-0000-000000000010';
+const CHANGE_ID_11 = '00000000-0000-0000-0000-000000000011';
+const CHANGE_ID_12 = '00000000-0000-0000-0000-000000000012';
+const CHANGE_ID_50 = '00000000-0000-0000-0000-000000000050';
+const CHANGE_ID_99 = '00000000-0000-0000-0000-000000000099';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -16,14 +25,10 @@ describe('parseVfsSyncReconcilePayload', () => {
   it('parses a valid payload', () => {
     const result = parseVfsSyncReconcilePayload({
       clientId: 'client-a',
-      cursor: Buffer.from(
-        JSON.stringify({
-          version: 1,
-          changedAt: '2025-02-01T00:00:00.000Z',
-          changeId: 'change-10'
-        }),
-        'utf8'
-      ).toString('base64url')
+      cursor: encodeVfsSyncCursor({
+        changedAt: '2025-02-01T00:00:00.000Z',
+        changeId: CHANGE_ID_10
+      })
     });
 
     expect(result).toEqual({
@@ -32,7 +37,7 @@ describe('parseVfsSyncReconcilePayload', () => {
         clientId: 'client-a',
         cursor: {
           changedAt: '2025-02-01T00:00:00.000Z',
-          changeId: 'change-10'
+          changeId: CHANGE_ID_10
         }
       }
     });
@@ -55,11 +60,11 @@ describe('cursor ordering and reconciliation', () => {
   it('orders cursors by timestamp then changeId', () => {
     const first = {
       changedAt: '2025-02-01T00:00:00.000Z',
-      changeId: 'change-10'
+      changeId: CHANGE_ID_10
     };
     const second = {
       changedAt: '2025-02-01T00:00:00.000Z',
-      changeId: 'change-11'
+      changeId: CHANGE_ID_11
     };
 
     expect(compareVfsSyncCursorOrder(first, second)).toBe(-1);
@@ -69,11 +74,11 @@ describe('cursor ordering and reconciliation', () => {
   it('keeps the highest cursor during reconcile', () => {
     const current = {
       changedAt: '2025-02-01T00:00:00.000Z',
-      changeId: 'change-11'
+      changeId: CHANGE_ID_11
     };
     const stale = {
       changedAt: '2025-02-01T00:00:00.000Z',
-      changeId: 'change-09'
+      changeId: CHANGE_ID_09
     };
 
     expect(reconcileVfsSyncCursor(current, stale)).toEqual({
@@ -94,21 +99,21 @@ describe('InMemoryVfsSyncClientStateStore', () => {
         delayMs: 30,
         cursor: {
           changedAt: '2025-02-01T00:00:00.000Z',
-          changeId: 'change-10'
+          changeId: CHANGE_ID_10
         }
       },
       {
         delayMs: 10,
         cursor: {
           changedAt: '2025-02-01T00:00:00.000Z',
-          changeId: 'change-12'
+          changeId: CHANGE_ID_12
         }
       },
       {
         delayMs: 20,
         cursor: {
           changedAt: '2025-02-01T00:00:01.000Z',
-          changeId: 'change-01'
+          changeId: CHANGE_ID_01
         }
       }
     ];
@@ -122,7 +127,7 @@ describe('InMemoryVfsSyncClientStateStore', () => {
 
     expect(store.get(userId, clientId)).toEqual({
       changedAt: '2025-02-01T00:00:01.000Z',
-      changeId: 'change-01'
+      changeId: CHANGE_ID_01
     });
   });
 
@@ -135,25 +140,25 @@ describe('InMemoryVfsSyncClientStateStore', () => {
         await wait(10);
         store.reconcile(userId, 'desktop', {
           changedAt: '2025-02-01T00:00:02.000Z',
-          changeId: 'change-99'
+          changeId: CHANGE_ID_99
         });
       })(),
       (async () => {
         await wait(5);
         store.reconcile(userId, 'mobile', {
           changedAt: '2025-02-01T00:00:01.000Z',
-          changeId: 'change-50'
+          changeId: CHANGE_ID_50
         });
       })()
     ]);
 
     expect(store.get(userId, 'desktop')).toEqual({
       changedAt: '2025-02-01T00:00:02.000Z',
-      changeId: 'change-99'
+      changeId: CHANGE_ID_99
     });
     expect(store.get(userId, 'mobile')).toEqual({
       changedAt: '2025-02-01T00:00:01.000Z',
-      changeId: 'change-50'
+      changeId: CHANGE_ID_50
     });
   });
 });

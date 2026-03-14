@@ -101,9 +101,10 @@ function createPhasePullRecordingTransport(input: {
   }) => Promise<ReconcileStateOutput>;
 }): VfsCrdtSyncTransport {
   const baseReconcileState = input.baseTransport.reconcileState;
-  const reconcileState = input.reconcileState
+  const phaseReconcileState = input.reconcileState;
+  const reconcileState = phaseReconcileState
     ? (reconcileInput: ReconcileStateInput) =>
-        input.reconcileState({
+        phaseReconcileState({
           phase: input.phase,
           reconcileInput,
           baseTransport: input.baseTransport
@@ -113,7 +114,7 @@ function createPhasePullRecordingTransport(input: {
           baseReconcileState(reconcileInput)
       : undefined;
 
-  return {
+  const transport: VfsCrdtSyncTransport = {
     pushOperations: (pushInput) =>
       input.baseTransport.pushOperations(pushInput),
     pullOperations: async (pullInput) => {
@@ -132,9 +133,14 @@ function createPhasePullRecordingTransport(input: {
       }
       input.observedPulls.push(observedPull);
       return response;
-    },
-    reconcileState
+    }
   };
+
+  if (reconcileState) {
+    transport.reconcileState = reconcileState;
+  }
+
+  return transport;
 }
 
 export function createPhasePullRecordingTransportFactory(input: {
@@ -152,8 +158,12 @@ export function createPhasePullRecordingTransportFactory(input: {
       phase,
       baseTransport: input.baseTransport,
       observedPulls: input.observedPulls,
-      includeLastReconciledWriteIds: input.includeLastReconciledWriteIds,
-      reconcileState: input.reconcileState
+      ...(typeof input.includeLastReconciledWriteIds === 'boolean'
+        ? {
+            includeLastReconciledWriteIds: input.includeLastReconciledWriteIds
+          }
+        : {}),
+      ...(input.reconcileState ? { reconcileState: input.reconcileState } : {})
     });
 }
 
@@ -242,7 +252,7 @@ export function createPullRecordingTransport(input: {
   baseTransport: VfsCrdtSyncTransport;
   observedPulls: ObservedPullPage[];
 }): VfsCrdtSyncTransport {
-  return {
+  const transport: VfsCrdtSyncTransport = {
     pushOperations: (pushInput) =>
       input.baseTransport.pushOperations(pushInput),
     pullOperations: async (pullInput) => {
@@ -254,11 +264,16 @@ export function createPullRecordingTransport(input: {
         nextCursor: response.nextCursor ? { ...response.nextCursor } : null
       });
       return response;
-    },
-    reconcileState: input.baseTransport.reconcileState
-      ? (reconcileInput) => input.baseTransport.reconcileState(reconcileInput)
-      : undefined
+    }
   };
+
+  const baseReconcileState = input.baseTransport.reconcileState;
+  if (baseReconcileState) {
+    transport.reconcileState = (reconcileInput) =>
+      baseReconcileState(reconcileInput);
+  }
+
+  return transport;
 }
 
 export function readForwardContainerSignatures(input: {

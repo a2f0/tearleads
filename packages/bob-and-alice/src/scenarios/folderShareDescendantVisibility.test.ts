@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import {
   buildVfsSharesV2ConnectMethodPath,
-  buildVfsV2ConnectMethodPath
+  buildVfsV2ConnectMethodPath,
+  type VfsSyncResponse
 } from '@tearleads/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiScenarioHarness } from '../harness/apiScenarioHarness.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
+import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
 interface SyncItem {
   itemId: string;
@@ -15,15 +17,17 @@ interface SyncItem {
 async function listSyncItems(
   actor: ReturnType<ApiScenarioHarness['actor']>
 ): Promise<SyncItem[]> {
-  const response = await actor.fetchJson<{ items: SyncItem[] }>(
-    buildVfsV2ConnectMethodPath('GetSync'),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 500 })
+  const response = await fetchVfsConnectJson<VfsSyncResponse>({
+    actor,
+    methodName: 'GetSync',
+    requestBody: {
+      limit: 500
     }
-  );
-  return response.items;
+  });
+  return response.items.map((item) => ({
+    itemId: item.itemId,
+    objectType: item.objectType
+  }));
 }
 
 describe('folder share descendant visibility', () => {

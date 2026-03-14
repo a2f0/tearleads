@@ -85,7 +85,7 @@ describe('vfsDirectCrdtRouteHelpers', () => {
             opType: 'acl_add',
             sourceTable: 'vfs_crdt_client_push',
             sourceId: 'source-1',
-            occurredAt: '2026-03-07T23:00:00.000Z'
+            occurredAtMs: 1772924400000
           }
         ],
         hasMore: false,
@@ -139,7 +139,7 @@ describe('vfsDirectCrdtRouteHelpers', () => {
             actorId: 'user-1',
             sourceTable: 'vfs_crdt_client_push',
             sourceId: 'source-2',
-            occurredAt: '2026-03-07T23:00:01.000Z',
+            occurredAtMs: 1772924401000,
             encryptedPayload: 'payload',
             keyEpoch: 4,
             encryptionNonce: 'nonce',

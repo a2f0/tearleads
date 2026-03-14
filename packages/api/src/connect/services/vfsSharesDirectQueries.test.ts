@@ -1,201 +1,152 @@
-import { Code } from '@connectrpc/connect';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadOrgShares, loadUserShares } from './vfsSharesDirectQueries.js';
 
-const getPoolMock = vi.fn();
-const queryMock = vi.fn();
-const requireVfsSharesClaimsMock = vi.fn();
+const queryMock =
+  vi.fn<(text: string, values?: unknown[]) => Promise<{ rows: unknown[] }>>();
 
-vi.mock('../../lib/postgres.js', () => ({
-  getPool: (...args: unknown[]) => getPoolMock(...args)
-}));
-
-vi.mock('./vfsSharesDirectHandlers.js', () => ({
-  requireVfsSharesClaims: (...args: unknown[]) =>
-    requireVfsSharesClaimsMock(...args)
-}));
-
-import { getItemSharesDirect } from './vfsSharesDirectQueries.js';
-
-let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const pool = {
+  query: (text: string, values?: unknown[]) => queryMock(text, values)
+};
 
 describe('vfsSharesDirectQueries', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     queryMock.mockReset();
-    getPoolMock.mockReset();
-    requireVfsSharesClaimsMock.mockReset();
-    getPoolMock.mockResolvedValue({
-      query: queryMock
-    });
-    requireVfsSharesClaimsMock.mockResolvedValue({
-      sub: 'user-1'
-    });
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(() => {
-    consoleErrorSpy?.mockRestore();
-    consoleErrorSpy = null;
-  });
-
-  it('returns not found when the item does not exist', async () => {
-    queryMock.mockResolvedValueOnce({
-      rows: []
-    });
-
-    await expect(
-      getItemSharesDirect(
-        {
-          itemId: 'missing-item'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.NotFound
-    });
-  });
-
-  it('returns permission denied when caller is not the owner', async () => {
-    queryMock.mockResolvedValueOnce({
-      rows: [{ owner_id: 'user-2' }]
-    });
-
-    await expect(
-      getItemSharesDirect(
-        {
-          itemId: 'item-1'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.PermissionDenied
-    });
-  });
-
-  it('maps user/group/org shares and preserves valid wrapped keys', async () => {
+  it('maps user and group shares with canonical share ids', async () => {
     const createdAt = new Date('2026-03-02T00:00:00.000Z');
-    queryMock
-      .mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            acl_id: 'share:share-1',
-            item_id: 'item-1',
-            share_type: 'user',
-            target_id: 'user-2',
-            access_level: 'read',
-            created_by: 'user-1',
-            created_at: createdAt,
-            expires_at: null,
-            target_name: 'target@example.com',
-            created_by_email: 'creator@example.com',
-            wrapped_session_key: 'enc-key-1',
-            wrapped_hierarchical_key:
-              '{"recipientPublicKeyId":"pub-1","senderSignature":"sig-1"}',
-            key_epoch: 2
-          },
-          {
-            acl_id: 'share:share-2',
-            item_id: 'item-1',
-            share_type: 'group',
-            target_id: 'group-1',
-            access_level: 'write',
-            created_by: null,
-            created_at: createdAt,
-            expires_at: createdAt,
-            target_name: null,
-            created_by_email: null,
-            wrapped_session_key: 'ignored-for-group',
-            wrapped_hierarchical_key:
-              '{"recipientPublicKeyId":"pub-2","senderSignature":"sig-2"}',
-            key_epoch: 3
-          }
-        ]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            acl_id: 'org-share:source-org:org-share-1',
-            target_org_id: 'target-org',
-            item_id: 'item-1',
-            access_level: 'read',
-            created_by: 'user-1',
-            created_at: createdAt,
-            expires_at: null,
-            source_org_name: 'Source Org',
-            target_org_name: 'Target Org',
-            created_by_email: 'creator@example.com',
-            wrapped_session_key: 'org-enc-key',
-            wrapped_hierarchical_key:
-              '{"recipientPublicKeyId":"pub-org","senderSignature":"sig-org"}',
-            key_epoch: 5
-          }
-        ]
-      });
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          acl_id: 'share:share-1',
+          item_id: 'item-1',
+          share_type: 'user',
+          target_id: 'user-2',
+          access_level: 'read',
+          created_by: 'user-1',
+          created_at: createdAt,
+          expires_at: null,
+          target_name: 'target@example.com',
+          created_by_email: 'creator@example.com',
+          wrapped_session_key: 'enc-key-1',
+          wrapped_hierarchical_key:
+            '{"recipientPublicKeyId":"pub-1","senderSignature":"sig-1"}',
+          key_epoch: 2
+        },
+        {
+          acl_id: 'share:share-2',
+          item_id: 'item-1',
+          share_type: 'group',
+          target_id: 'group-1',
+          access_level: 'write',
+          created_by: null,
+          created_at: createdAt,
+          expires_at: createdAt,
+          target_name: null,
+          created_by_email: null,
+          wrapped_session_key: 'ignored-for-group',
+          wrapped_hierarchical_key:
+            '{"recipientPublicKeyId":"pub-2","senderSignature":"sig-2"}',
+          key_epoch: 3
+        }
+      ]
+    });
 
-    const response = await getItemSharesDirect(
-      {
-        itemId: 'item-1'
-      },
-      {
-        requestHeader: new Headers()
+    const shares = await loadUserShares(pool, 'item-1');
+    expect(shares).toHaveLength(2);
+    const [firstShare, secondShare] = shares;
+
+    if (!firstShare || !secondShare) {
+      throw new Error('Expected two user shares');
+    }
+
+    expect(firstShare).toMatchObject({
+      id: 'share-1',
+      itemId: 'item-1',
+      shareType: 'user',
+      targetId: 'user-2',
+      targetName: 'target@example.com',
+      permissionLevel: 'view',
+      createdBy: 'user-1',
+      createdByEmail: 'creator@example.com',
+      createdAt: createdAt.toISOString(),
+      expiresAt: null,
+      wrappedKey: {
+        recipientUserId: 'user-2',
+        recipientPublicKeyId: 'pub-1',
+        keyEpoch: 2,
+        encryptedKey: 'enc-key-1',
+        senderSignature: 'sig-1'
       }
-    );
-    const shares = response.shares;
-    const orgShares = response.orgShares;
+    });
+    expect(secondShare).toMatchObject({
+      id: 'share-2',
+      targetName: 'Unknown',
+      permissionLevel: 'edit',
+      createdBy: 'unknown',
+      createdByEmail: 'Unknown',
+      expiresAt: createdAt.toISOString()
+    });
+    expect('wrappedKey' in secondShare).toBe(false);
+  });
 
-    if (
-      !Array.isArray(shares) ||
-      !isRecord(shares[0]) ||
-      !isRecord(shares[1])
-    ) {
-      throw new Error('Expected shares array payload');
-    }
-    if (!Array.isArray(orgShares) || !isRecord(orgShares[0])) {
-      throw new Error('Expected orgShares array payload');
-    }
-
-    expect(shares[0]['id']).toBe('share-1');
-    expect(shares[0]['wrappedKey']).toMatchObject({
-      recipientUserId: 'user-2',
-      recipientPublicKeyId: 'pub-1',
-      keyEpoch: 2,
-      encryptedKey: 'enc-key-1',
-      senderSignature: 'sig-1'
+  it('maps org shares with canonical share ids', async () => {
+    const createdAt = new Date('2026-03-02T00:00:00.000Z');
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          acl_id: 'org-share:source-org:org-share-1',
+          source_org_id: 'source-org',
+          target_org_id: 'target-org',
+          item_id: 'item-1',
+          access_level: 'read',
+          created_by: 'user-1',
+          created_at: createdAt,
+          expires_at: null,
+          source_org_name: 'Source Org',
+          target_org_name: 'Target Org',
+          created_by_email: 'creator@example.com',
+          wrapped_session_key: 'org-enc-key',
+          wrapped_hierarchical_key:
+            '{"recipientPublicKeyId":"pub-org","senderSignature":"sig-org"}',
+          key_epoch: 5
+        }
+      ]
     });
 
-    expect(shares[1]['id']).toBe('share-2');
-    expect(shares[1]['targetName']).toBe('Unknown');
-    expect(shares[1]['createdBy']).toBe('unknown');
-    expect(shares[1]['createdByEmail']).toBe('Unknown');
-    expect(shares[1]['wrappedKey']).toBeUndefined();
+    const orgShares = await loadOrgShares(pool, 'item-1');
+    expect(orgShares).toHaveLength(1);
+    const [firstOrgShare] = orgShares;
 
-    expect(orgShares[0]['id']).toBe('org-share-1');
-    expect(orgShares[0]['wrappedKey']).toMatchObject({
-      recipientOrgId: 'target-org',
-      recipientPublicKeyId: 'pub-org',
-      keyEpoch: 5,
-      encryptedKey: 'org-enc-key',
-      senderSignature: 'sig-org'
+    if (!firstOrgShare) {
+      throw new Error('Expected one org share');
+    }
+
+    expect(firstOrgShare).toMatchObject({
+      id: 'org-share-1',
+      sourceOrgId: 'source-org',
+      sourceOrgName: 'Source Org',
+      targetOrgId: 'target-org',
+      targetOrgName: 'Target Org',
+      itemId: 'item-1',
+      permissionLevel: 'view',
+      createdBy: 'user-1',
+      createdByEmail: 'creator@example.com',
+      createdAt: createdAt.toISOString(),
+      expiresAt: null,
+      wrappedKey: {
+        recipientOrgId: 'target-org',
+        recipientPublicKeyId: 'pub-org',
+        keyEpoch: 5,
+        encryptedKey: 'org-enc-key',
+        senderSignature: 'sig-org'
+      }
     });
   });
 
-  it('omits wrapped keys when metadata is malformed', async () => {
+  it('omits malformed wrapped-key metadata and applies fallback names', async () => {
     const createdAt = new Date('2026-03-02T00:00:00.000Z');
     queryMock
-      .mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
-      })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -220,6 +171,7 @@ describe('vfsSharesDirectQueries', () => {
         rows: [
           {
             acl_id: 'org-share:source-org:org-share-1',
+            source_org_id: 'source-org',
             target_org_id: 'target-org',
             item_id: 'item-1',
             access_level: 'read',
@@ -236,45 +188,26 @@ describe('vfsSharesDirectQueries', () => {
         ]
       });
 
-    const response = await getItemSharesDirect(
-      {
-        itemId: 'item-1'
-      },
-      {
-        requestHeader: new Headers()
-      }
-    );
-    const shares = response.shares;
-    const orgShares = response.orgShares;
+    const shares = await loadUserShares(pool, 'item-1');
+    const orgShares = await loadOrgShares(pool, 'item-1');
+    expect(shares).toHaveLength(1);
+    expect(orgShares).toHaveLength(1);
 
-    if (!Array.isArray(shares) || !isRecord(shares[0])) {
-      throw new Error('Expected shares payload');
-    }
-    if (!Array.isArray(orgShares) || !isRecord(orgShares[0])) {
-      throw new Error('Expected orgShares payload');
+    const [firstShare] = shares;
+    const [firstOrgShare] = orgShares;
+
+    if (!firstShare || !firstOrgShare) {
+      throw new Error('Expected wrapped-key fallback rows');
     }
 
-    expect(shares[0]['wrappedKey']).toBeUndefined();
-    expect(orgShares[0]['wrappedKey']).toBeUndefined();
-    expect(orgShares[0]['sourceOrgName']).toBe('Unknown');
-    expect(orgShares[0]['targetOrgName']).toBe('Unknown');
-    expect(orgShares[0]['createdBy']).toBe('unknown');
-  });
-
-  it('returns internal error when query execution throws unexpectedly', async () => {
-    getPoolMock.mockRejectedValueOnce(new Error('db unavailable'));
-
-    await expect(
-      getItemSharesDirect(
-        {
-          itemId: 'item-1'
-        },
-        {
-          requestHeader: new Headers()
-        }
-      )
-    ).rejects.toMatchObject({
-      code: Code.Internal
+    expect('wrappedKey' in firstShare).toBe(false);
+    expect(firstOrgShare).toMatchObject({
+      id: 'org-share-1',
+      sourceOrgName: 'Unknown',
+      targetOrgName: 'Unknown',
+      createdBy: 'unknown',
+      createdByEmail: 'Unknown'
     });
+    expect('wrappedKey' in firstOrgShare).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import type {
   VfsRegisterRequest,
   VfsRekeyRequest
 } from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import type {
   VfsRegisterRequest as VfsRegisterRpcRequest,
   VfsRekeyItemRequest as VfsRekeyItemRpcRequest
@@ -37,7 +38,11 @@ import {
 } from './vfsDirectEmails.js';
 import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
-import { parseRegisterPayload, parseRekeyPayload } from './vfsDirectShared.js';
+import {
+  parseKeySetupPayload,
+  parseRegisterPayload,
+  parseRekeyPayload
+} from './vfsDirectShared.js';
 import {
   getCrdtSnapshotDirect,
   getCrdtSyncDirect,
@@ -101,7 +106,16 @@ type RekeyItemPayloadRequest = {
 type RekeyItemDirectRequest = { itemId: string } & VfsRekeyRequest;
 type RekeyItemServiceRequest = VfsRekeyItemRpcRequest | RekeyItemPayloadRequest;
 
-function parseRegisterDirectRequest(
+export function normalizeRequiredString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function parseRegisterDirectRequest(
   request: RegisterServiceRequest
 ): VfsRegisterRequest {
   const payload = parseRegisterPayload(request);
@@ -115,11 +129,19 @@ function parseRegisterDirectRequest(
   return payload;
 }
 
-function parseRekeyItemDirectRequest(
-  request: RekeyItemServiceRequest
+export function parseRekeyItemDirectRequest(
+  request: unknown
 ): RekeyItemDirectRequest {
+  if (!isRecord(request)) {
+    throw new ConnectError(
+      'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.',
+      Code.InvalidArgument
+    );
+  }
+
+  const itemId = normalizeRequiredString(request['itemId']);
   const payload = parseRekeyPayload(request);
-  if (!payload) {
+  if (!itemId || !payload) {
     throw new ConnectError(
       'Invalid request payload. Please check the `reason`, `newEpoch`, and `wrappedKeys` fields.',
       Code.InvalidArgument
@@ -127,18 +149,30 @@ function parseRekeyItemDirectRequest(
   }
 
   return {
-    itemId: request.itemId,
+    itemId,
     ...payload
   };
+}
+
+export function parseSetupKeysDirectRequest(
+  request: unknown
+): VfsKeySetupRequest {
+  const payload = parseKeySetupPayload(request);
+  if (!payload) {
+    throw new ConnectError(
+      'publicEncryptionKey, publicSigningKey, encryptedPrivateKeys, and argon2Salt are required',
+      Code.InvalidArgument
+    );
+  }
+
+  return payload;
 }
 
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
     getMyKeysDirect({}, context),
-  setupKeys: async (
-    request: VfsKeySetupRequest,
-    context: { requestHeader: Headers }
-  ) => setupKeysDirect(request, context),
+  setupKeys: async (request: unknown, context: { requestHeader: Headers }) =>
+    setupKeysDirect(parseSetupKeysDirectRequest(request), context),
   register: async (
     request: RegisterServiceRequest,
     context: { requestHeader: Headers }

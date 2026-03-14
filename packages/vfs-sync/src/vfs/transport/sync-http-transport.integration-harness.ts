@@ -1,16 +1,18 @@
-import {
-  VFS_V2_CONNECT_BASE_PATH,
-  type VfsCrdtSyncItem
-} from '@tearleads/shared';
+import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import {
   InMemoryVfsCrdtClientStateStore,
   type InMemoryVfsCrdtSyncServer
 } from '../index.js';
-import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
+import {
+  decodeCompactClientId,
+  encodeCompactIdentifier,
+  encodePullItem,
+  parseCompactPushOperations
+} from './syncHttpTransportHarnessPayloads.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -72,7 +74,7 @@ interface HttpHarnessDelayConfig {
 }
 
 interface PullPayloadShape {
-  items: VfsCrdtSyncItem[];
+  items: Array<Record<string, unknown>>;
   hasMore: boolean;
   nextCursor: string | null;
   lastReconciledWriteIds: Record<string, number>;
@@ -95,29 +97,6 @@ interface ReconcileMutationContext {
   };
 }
 
-const VALID_OP_TYPES: VfsCrdtOperation['opType'][] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'link_reassign',
-  'item_upsert',
-  'item_delete'
-];
-const VALID_PRINCIPAL_TYPES: Array<
-  NonNullable<VfsCrdtOperation['principalType']>
-> = ['user', 'group', 'organization'];
-const VALID_ACCESS_LEVELS: Array<NonNullable<VfsCrdtOperation['accessLevel']>> =
-  ['read', 'write', 'admin'];
-
-function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`Integration harness failed to parse ${fieldName}`);
-  }
-
-  return value;
-}
-
 function parseRequiredString(value: unknown, fieldName: string): string {
   if (typeof value !== 'string') {
     throw new Error(`Integration harness failed to parse ${fieldName}`);
@@ -126,127 +105,20 @@ function parseRequiredString(value: unknown, fieldName: string): string {
   return value;
 }
 
-function parseWriteId(value: unknown, fieldName: string): number {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    !Number.isInteger(value) ||
-    value < 1
-  ) {
+function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`Integration harness failed to parse ${fieldName}`);
   }
 
-  return value;
+  const record: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    record[key] = entry;
+  }
+  return record;
 }
 
 function parseOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
-}
-
-function parseOpType(value: unknown): VfsCrdtOperation['opType'] {
-  if (
-    typeof value === 'string' &&
-    VALID_OP_TYPES.some((candidate) => candidate === value)
-  ) {
-    return value;
-  }
-
-  throw new Error('Integration harness failed to parse opType');
-}
-
-function parsePrincipalType(
-  value: unknown
-): VfsCrdtOperation['principalType'] | undefined {
-  if (
-    typeof value === 'string' &&
-    VALID_PRINCIPAL_TYPES.some((candidate) => candidate === value)
-  ) {
-    return value;
-  }
-
-  return undefined;
-}
-
-function parseAccessLevel(
-  value: unknown
-): VfsCrdtOperation['accessLevel'] | undefined {
-  if (
-    typeof value === 'string' &&
-    VALID_ACCESS_LEVELS.some((candidate) => candidate === value)
-  ) {
-    return value;
-  }
-
-  return undefined;
-}
-
-function parsePushOperation(value: unknown): VfsCrdtOperation {
-  const operation = asRecord(value, 'push operation');
-  const parsed: VfsCrdtOperation = {
-    opId: parseRequiredString(operation['opId'], 'opId'),
-    opType: parseOpType(operation['opType']),
-    itemId: parseRequiredString(operation['itemId'], 'itemId'),
-    replicaId: parseRequiredString(operation['replicaId'], 'replicaId'),
-    writeId: parseWriteId(operation['writeId'], 'writeId'),
-    occurredAt: parseRequiredString(operation['occurredAt'], 'occurredAt')
-  };
-
-  const principalType = parsePrincipalType(operation['principalType']);
-  if (principalType) {
-    parsed.principalType = principalType;
-  }
-  const principalId = parseOptionalString(operation['principalId']);
-  if (principalId) {
-    parsed.principalId = principalId;
-  }
-  const accessLevel = parseAccessLevel(operation['accessLevel']);
-  if (accessLevel) {
-    parsed.accessLevel = accessLevel;
-  }
-  const parentId = parseOptionalString(operation['parentId']);
-  if (parentId) {
-    parsed.parentId = parentId;
-  }
-  const childId = parseOptionalString(operation['childId']);
-  if (childId) {
-    parsed.childId = childId;
-  }
-  const encryptedPayload = parseOptionalString(operation['encryptedPayload']);
-  if (encryptedPayload) {
-    parsed.encryptedPayload = encryptedPayload;
-  }
-  if (
-    typeof operation['keyEpoch'] === 'number' &&
-    Number.isFinite(operation['keyEpoch']) &&
-    Number.isInteger(operation['keyEpoch']) &&
-    operation['keyEpoch'] >= 1
-  ) {
-    parsed.keyEpoch = operation['keyEpoch'];
-  }
-  const encryptionNonce = parseOptionalString(operation['encryptionNonce']);
-  if (encryptionNonce) {
-    parsed.encryptionNonce = encryptionNonce;
-  }
-  const encryptionAad = parseOptionalString(operation['encryptionAad']);
-  if (encryptionAad) {
-    parsed.encryptionAad = encryptionAad;
-  }
-  const encryptionSignature = parseOptionalString(
-    operation['encryptionSignature']
-  );
-  if (encryptionSignature) {
-    parsed.encryptionSignature = encryptionSignature;
-  }
-
-  return parsed;
-}
-
-function parsePushOperations(value: unknown): VfsCrdtOperation[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((entry) => parsePushOperation(entry));
 }
 
 async function readRequestJson(
@@ -299,8 +171,8 @@ export function createServerBackedFetch(
     ) {
       const pushBody = await readRequestJson(init);
 
-      const clientId = parseRequiredString(pushBody['clientId'], 'clientId');
-      const operations = parsePushOperations(pushBody['operations']);
+      const clientId = decodeCompactClientId(pushBody['clientId']);
+      const operations = parseCompactPushOperations(pushBody['operations']);
 
       if (
         clientId === 'desktop' &&
@@ -326,8 +198,11 @@ export function createServerBackedFetch(
       });
 
       return connectJsonResponse({
-        clientId,
-        results: pushResult.results
+        clientId: encodeCompactIdentifier(clientId),
+        results: pushResult.results.map((result) => ({
+          ...result,
+          opId: encodeCompactIdentifier(result.opId)
+        }))
       });
     }
 
@@ -356,7 +231,7 @@ export function createServerBackedFetch(
 
       const pullPayload = options.mutatePullPayload
         ? options.mutatePullPayload({
-            items: pullResult.items,
+            items: pullResult.items.map((item) => encodePullItem(item)),
             hasMore: pullResult.hasMore,
             nextCursor: pullResult.nextCursor
               ? encodeVfsSyncCursor(pullResult.nextCursor)
@@ -364,7 +239,7 @@ export function createServerBackedFetch(
             lastReconciledWriteIds: pullResult.lastReconciledWriteIds
           })
         : {
-            items: pullResult.items,
+            items: pullResult.items.map((item) => encodePullItem(item)),
             hasMore: pullResult.hasMore,
             nextCursor: pullResult.nextCursor
               ? encodeVfsSyncCursor(pullResult.nextCursor)
@@ -388,7 +263,7 @@ export function createServerBackedFetch(
           'Integration harness failed to decode cursor in reconcile'
         );
 
-      const clientId = parseRequiredString(body['clientId'], 'clientId');
+      const decodedClientId = decodeCompactClientId(body['clientId']);
       const lastReconciledWriteIds =
         typeof body === 'object' &&
         body !== null &&
@@ -400,7 +275,7 @@ export function createServerBackedFetch(
 
       const reconcileResult = reconcileStateStore.reconcile(
         'user-1',
-        clientId,
+        decodedClientId,
         cursor,
         lastReconciledWriteIds
       );
@@ -408,21 +283,21 @@ export function createServerBackedFetch(
       const reconcilePayload = options.mutateReconcilePayload
         ? options.mutateReconcilePayload(
             {
-              clientId,
+              clientId: encodeCompactIdentifier(decodedClientId),
               cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
               lastReconciledWriteIds:
                 reconcileResult.state.lastReconciledWriteIds
             },
             {
               body: {
-                clientId,
+                clientId: decodedClientId,
                 cursor,
                 lastReconciledWriteIds
               }
             }
           )
         : {
-            clientId,
+            clientId: encodeCompactIdentifier(decodedClientId),
             cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
             lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
           };

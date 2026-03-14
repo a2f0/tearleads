@@ -9,6 +9,8 @@ import {
   toScopedCrdtClientId
 } from './vfsDirectBlobAttachHelpers.js';
 
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+
 describe('vfsDirectBlobAttachHelpers', () => {
   describe('parseBlobAttachConsistency', () => {
     it('returns null consistency when reconcile guardrails are omitted', () => {
@@ -28,7 +30,7 @@ describe('vfsDirectBlobAttachHelpers', () => {
         parseBlobAttachConsistency({
           requiredCursor: encodeVfsSyncCursor({
             changedAt: '2026-02-15T00:00:00.000Z',
-            changeId: 'change-1'
+            changeId: CHANGE_ID_1
           })
         })
       ).toEqual({
@@ -43,7 +45,7 @@ describe('vfsDirectBlobAttachHelpers', () => {
           clientId: 'bad:client',
           requiredCursor: encodeVfsSyncCursor({
             changedAt: '2026-02-15T00:00:00.000Z',
-            changeId: 'change-1'
+            changeId: CHANGE_ID_1
           })
         })
       ).toEqual({
@@ -77,7 +79,7 @@ describe('vfsDirectBlobAttachHelpers', () => {
     it('parses reconcile guardrails when payload is valid', () => {
       const requiredCursor = encodeVfsSyncCursor({
         changedAt: '2026-02-15T00:00:00.000Z',
-        changeId: 'change-1'
+        changeId: CHANGE_ID_1
       });
       const result = parseBlobAttachConsistency({
         clientId: 'client-1',
@@ -94,7 +96,7 @@ describe('vfsDirectBlobAttachHelpers', () => {
           clientId: 'client-1',
           requiredCursor: {
             changedAt: '2026-02-15T00:00:00.000Z',
-            changeId: 'change-1'
+            changeId: CHANGE_ID_1
           },
           requiredLastReconciledWriteIds: {
             alpha: 7,
@@ -109,7 +111,7 @@ describe('vfsDirectBlobAttachHelpers', () => {
         clientId: 'client-1',
         requiredCursor: encodeVfsSyncCursor({
           changedAt: '2026-02-15T00:00:00.000Z',
-          changeId: 'change-1'
+          changeId: CHANGE_ID_1
         }),
         requiredLastReconciledWriteIds: {
           alpha: 0

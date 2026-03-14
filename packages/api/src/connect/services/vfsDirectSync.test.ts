@@ -32,6 +32,8 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { getCrdtSyncDirect, getSyncDirect } from './vfsDirectSync.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_2 = '00000000-0000-0000-0000-000000000002';
 
 describe('vfsDirectSync core', () => {
   beforeEach(() => {
@@ -155,11 +157,11 @@ describe('vfsDirectSync core', () => {
   it('returns AlreadyExists when CRDT cursor is stale', async () => {
     const staleCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
     readOldestAccessibleCursorCacheMock.mockResolvedValueOnce({
       changedAt: '2026-03-03T00:00:01.000Z',
-      changeId: 'change-2'
+      changeId: CHANGE_ID_2
     });
 
     await expect(
@@ -173,12 +175,12 @@ describe('vfsDirectSync core', () => {
   it('writes oldest cursor cache after cache miss during CRDT sync', async () => {
     const cursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
     getVfsCrdtCompactionEpochMock.mockResolvedValueOnce('4');
     queryMock
       .mockResolvedValueOnce({
-        rows: [{ occurred_at: '2026-03-03T00:00:00.000Z', id: 'change-1' }]
+        rows: [{ occurred_at: '2026-03-03T00:00:00.000Z', id: CHANGE_ID_1 }]
       })
       .mockResolvedValueOnce({ rows: [] });
 

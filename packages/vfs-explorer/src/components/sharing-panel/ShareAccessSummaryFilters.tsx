@@ -41,7 +41,12 @@ const OBJECT_TYPE_LABELS: Record<VfsObjectType, string> = {
   album: 'Album',
   contactGroup: 'Contact Group',
   tag: 'Tag',
-  healthReading: 'Health Reading'
+  healthReading: 'Health Reading',
+  organization: 'Organization',
+  user: 'User',
+  group: 'Group',
+  device: 'Device',
+  blob: 'Blob'
 };
 
 export function ShareAccessSummaryFilters({

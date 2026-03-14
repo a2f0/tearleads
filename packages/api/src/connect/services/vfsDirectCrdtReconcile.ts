@@ -10,14 +10,12 @@ import {
 } from '@tearleads/vfs-sync/vfs';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 
 interface ReconcileCrdtRequest {
   organizationId?: string;
-  organizationIdBytes?: unknown;
   clientId?: string;
-  clientIdBytes?: unknown;
   cursor: string;
   lastReconciledWriteIds: Record<string, number>;
 }
@@ -36,25 +34,18 @@ export async function reconcileCrdtDirect(
   request: ReconcileCrdtRequest,
   context: { requestHeader: Headers }
 ): Promise<VfsCrdtReconcileResponse> {
-  const declaredOrganizationId = parseIdentifierWithCompactFallback(
-    request.organizationId,
-    request.organizationIdBytes
-  );
+  const declaredOrganizationId = parseIdentifier(request.organizationId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('ReconcileCrdt'),
     context.requestHeader,
     {
-      requireDeclaredOrganization: true,
       declaredOrganizationId
     }
   );
-  const parsedClientId = parseIdentifierWithCompactFallback(
-    request.clientId,
-    request.clientIdBytes
-  );
+  const parsedClientId = parseIdentifier(request.clientId);
 
   const parsedPayload = parseVfsCrdtReconcilePayload({
-    clientId: parsedClientId ?? request.clientId,
+    clientId: parsedClientId ?? request.clientId ?? '',
     cursor: request.cursor,
     lastReconciledWriteIds: request.lastReconciledWriteIds
   });

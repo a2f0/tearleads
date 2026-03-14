@@ -17,6 +17,8 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { reconcileCrdtDirect } from './vfsDirectCrdtReconcile.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_2 = '00000000-0000-0000-0000-000000000002';
 
 describe('vfsDirectCrdtReconcile', () => {
   beforeEach(() => {
@@ -64,7 +66,7 @@ describe('vfsDirectCrdtReconcile', () => {
   it('rejects clientId values containing a colon', async () => {
     const cursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -91,14 +93,14 @@ describe('vfsDirectCrdtReconcile', () => {
       rows: [
         {
           last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
-          last_reconciled_change_id: 'change-2',
+          last_reconciled_change_id: CHANGE_ID_2,
           last_reconciled_write_ids: { replicaA: 7 }
         }
       ]
     });
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await reconcileCrdtDirect(
@@ -117,7 +119,6 @@ describe('vfsDirectCrdtReconcile', () => {
       '/connect/tearleads.v2.VfsService/ReconcileCrdt',
       expect.any(Headers),
       {
-        requireDeclaredOrganization: true,
         declaredOrganizationId: 'org-1'
       }
     );
@@ -128,7 +129,7 @@ describe('vfsDirectCrdtReconcile', () => {
       rows: [
         {
           last_reconciled_at: new Date('2026-03-03T00:00:00.000Z'),
-          last_reconciled_change_id: 'change-2',
+          last_reconciled_change_id: CHANGE_ID_2,
           last_reconciled_write_ids: { replicaA: 7 }
         }
       ]
@@ -136,7 +137,7 @@ describe('vfsDirectCrdtReconcile', () => {
 
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     const response = await reconcileCrdtDirect(
@@ -155,7 +156,7 @@ describe('vfsDirectCrdtReconcile', () => {
       clientId: 'desktop-1',
       cursor: encodeVfsSyncCursor({
         changedAt: '2026-03-03T00:00:00.000Z',
-        changeId: 'change-2'
+        changeId: CHANGE_ID_2
       }),
       lastReconciledWriteIds: {
         replicaA: 7
@@ -167,7 +168,7 @@ describe('vfsDirectCrdtReconcile', () => {
     queryMock.mockRejectedValueOnce(new Error('db down'));
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -193,7 +194,7 @@ describe('vfsDirectCrdtReconcile', () => {
     });
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(
@@ -219,7 +220,7 @@ describe('vfsDirectCrdtReconcile', () => {
     );
     const inputCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     await expect(

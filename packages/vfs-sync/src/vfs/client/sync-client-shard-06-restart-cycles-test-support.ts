@@ -1,3 +1,4 @@
+import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { VfsCrdtSyncTransport } from './sync-client-test-support.js';
 import {
   compareVfsSyncCursorOrder,
@@ -67,8 +68,14 @@ export async function runThreeCycleAlternatingReconcileScenario(): Promise<Resta
 
   const random = createDeterministicRandom(1222);
   const parentIds = ['root', 'archive'];
-  const aclPrincipalTypes = ['group', 'organization'];
-  const aclAccessLevels = ['read', 'write', 'admin'];
+  const aclPrincipalTypes: Array<
+    NonNullable<VfsCrdtOperation['principalType']>
+  > = ['group', 'organization'];
+  const aclAccessLevels: Array<NonNullable<VfsCrdtOperation['accessLevel']>> = [
+    'read',
+    'write',
+    'admin'
+  ];
   const cycleWriteIdStarts = [10, 16, 23];
   const reconcileModes = ['ahead', 'equal', 'ahead'];
   const cyclePushWriteIds: number[][] = [];
@@ -227,7 +234,7 @@ export async function runThreeCycleAlternatingReconcileScenario(): Promise<Resta
       pushedWriteIds: [...pushedWriteIds],
       nextLocalWriteId: resumedClient.snapshot().nextLocalWriteId,
       desktopLastReconciledWriteId:
-        resumedClient.snapshot().lastReconciledWriteIds.desktop ?? 0,
+        resumedClient.snapshot().lastReconciledWriteIds['desktop'] ?? 0,
       firstPushedOccurredAtMs,
       secondPushedOccurredAtMs,
       persistedCursorMs: Date.parse(persistedCursor.changedAt)
@@ -276,8 +283,13 @@ export async function runReplayAlignedLagRestartCycleScenario(): Promise<LagRest
 
   const random = createDeterministicRandom(1223);
   const parentIds = ['root', 'archive'];
-  const principalTypes = ['group', 'organization'];
-  const accessLevels = ['read', 'write', 'admin'];
+  const principalTypes: Array<NonNullable<VfsCrdtOperation['principalType']>> =
+    ['group', 'organization'];
+  const accessLevels: Array<NonNullable<VfsCrdtOperation['accessLevel']>> = [
+    'read',
+    'write',
+    'admin'
+  ];
   const cycleWriteIdStarts = [12, 20, 29];
   const cyclePushWriteIds: number[][] = [];
   const cycleMetrics: CycleMetric[] = [];
@@ -403,7 +415,7 @@ export async function runReplayAlignedLagRestartCycleScenario(): Promise<LagRest
       pushedWriteIds: [...pushedWriteIds],
       nextLocalWriteId: resumedClient.snapshot().nextLocalWriteId,
       desktopLastReconciledWriteId:
-        resumedClient.snapshot().lastReconciledWriteIds.desktop ?? 0,
+        resumedClient.snapshot().lastReconciledWriteIds['desktop'] ?? 0,
       firstPushedOccurredAtMs,
       secondPushedOccurredAtMs,
       persistedCursorMs: Date.parse(replayCursor.changedAt)

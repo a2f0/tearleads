@@ -17,7 +17,7 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
 }
 
 describe('syncProtobuf envelope bytes behavior', () => {
-  it('encodes base64 envelope fields into bytes by default', () => {
+  it('encodes canonical envelope fields as protobuf strings', () => {
     const encryptedPayload = createBase64('ciphertext');
     const encryptionNonce = createBase64('nonce');
     const encryptionAad = createBase64('aad');
@@ -28,7 +28,7 @@ describe('syncProtobuf envelope bytes behavior', () => {
       operations: [
         {
           opId: 'op-1',
-          opType: 'ITEM_UPSERT',
+          opType: 'item_upsert',
           itemId: 'item-1',
           replicaId: 'desktop',
           writeId: 1,
@@ -58,14 +58,10 @@ describe('syncProtobuf envelope bytes behavior', () => {
     }
     const firstOperation = readRecord(rawOperations[0], 'operations[0]');
 
-    expect(firstOperation['encryptedPayload']).toBeUndefined();
-    expect(firstOperation['encryptionNonce']).toBeUndefined();
-    expect(firstOperation['encryptionAad']).toBeUndefined();
-    expect(firstOperation['encryptionSignature']).toBeUndefined();
-    expect(firstOperation['encryptedPayloadBytes']).toBeDefined();
-    expect(firstOperation['encryptionNonceBytes']).toBeDefined();
-    expect(firstOperation['encryptionAadBytes']).toBeDefined();
-    expect(firstOperation['encryptionSignatureBytes']).toBeDefined();
+    expect(firstOperation['encryptedPayload']).toBe(encryptedPayload);
+    expect(firstOperation['encryptionNonce']).toBe(encryptionNonce);
+    expect(firstOperation['encryptionAad']).toBe(encryptionAad);
+    expect(firstOperation['encryptionSignature']).toBe(encryptionSignature);
 
     const decoded = readRecord(
       decodeVfsCrdtPushRequestProtobuf(encoded),
@@ -87,29 +83,24 @@ describe('syncProtobuf envelope bytes behavior', () => {
     );
   });
 
-  it('decodes bytes-only envelope fields', () => {
-    const textEncoder = new TextEncoder();
-    const encryptedPayloadBytes = textEncoder.encode('ciphertext');
-    const expectedEncryptedPayload = Buffer.from(
-      encryptedPayloadBytes
-    ).toString('base64');
-    const encoded = PUSH_REQUEST_TYPE.encode(
-      PUSH_REQUEST_TYPE.create({
-        clientId: textEncoder.encode('desktop'),
-        operations: [
-          {
-            opId: textEncoder.encode('op-1'),
-            opType: 'ITEM_UPSERT',
-            itemId: textEncoder.encode('item-1'),
-            replicaId: textEncoder.encode('desktop'),
-            writeId: 1,
-            occurredAt: '2026-02-14T00:00:00.000Z',
-            encryptedPayloadBytes,
-            keyEpoch: 3
-          }
-        ]
-      })
-    ).finish();
+  it('round-trips operation signatures through canonical bytes fields', () => {
+    const operationSignature = createBase64('operation-signature');
+    const encoded = encodeVfsCrdtPushRequestProtobuf({
+      clientId: 'desktop',
+      operations: [
+        {
+          opId: 'op-1',
+          opType: 'item_upsert',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T00:00:00.000Z',
+          encryptedPayload: createBase64('ciphertext'),
+          keyEpoch: 3,
+          operationSignature
+        }
+      ]
+    });
 
     const decoded = readRecord(
       decodeVfsCrdtPushRequestProtobuf(encoded),
@@ -120,25 +111,6 @@ describe('syncProtobuf envelope bytes behavior', () => {
       throw new Error('expected operations[]');
     }
     const firstOperation = readRecord(operations[0], 'operations[0]');
-    expect(firstOperation['encryptedPayload']).toBe(expectedEncryptedPayload);
-  });
-
-  it('rejects invalid base64 envelope payloads on encode', () => {
-    expect(() =>
-      encodeVfsCrdtPushRequestProtobuf({
-        clientId: 'desktop',
-        operations: [
-          {
-            opId: 'op-1',
-            opType: 'ITEM_UPSERT',
-            itemId: 'item-1',
-            replicaId: 'desktop',
-            writeId: 1,
-            occurredAt: '2026-02-14T00:00:00.000Z',
-            encryptedPayload: 'not-base64***'
-          }
-        ]
-      })
-    ).toThrow('invalid protobuf payload field: encryptedPayload');
+    expect(firstOperation['operationSignature']).toBe(operationSignature);
   });
 });

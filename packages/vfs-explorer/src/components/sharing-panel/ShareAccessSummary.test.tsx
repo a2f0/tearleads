@@ -38,7 +38,7 @@ vi.mock('../../context', () => ({
   })
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks/useSharePolicyPreview.js', () => ({
   useSharePolicyPreview: (options: unknown) =>
     mockUseSharePolicyPreview(options)
 }));
@@ -101,7 +101,7 @@ describe('ShareAccessSummary', () => {
     expect(latestCall).toMatchObject({
       maxDepth: null,
       objectType: null,
-      search: ''
+      q: ''
     });
   });
 });

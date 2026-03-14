@@ -1,35 +1,124 @@
-import { create } from '@bufbuild/protobuf';
-import { Code, ConnectError } from '@connectrpc/connect';
 import type {
+  VfsAclAccessLevel,
   VfsOrgShare,
   VfsOrgWrappedKeyPayload,
   VfsShare,
+  VfsSharePolicyPreviewRequest,
   VfsShareType,
   VfsWrappedKeyPayload
 } from '@tearleads/shared';
-import { buildVfsSharesV2ConnectMethodPath, isRecord } from '@tearleads/shared';
-import type {
-  VfsOrgSharePayload,
-  VfsSharePayload,
-  VfsSharesGetItemSharesResponse
-} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
-import {
-  VfsOrgSharePayloadSchema,
-  VfsSharePayloadSchema,
-  VfsSharesGetItemSharesResponseSchema
-} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
-import { getPool } from '../../lib/postgres.js';
-import { requireVfsSharesClaims } from './vfsSharesDirectHandlers.js';
+import { isRecord } from '@tearleads/shared';
+import { mapAclAccessLevelToSharePermissionLevel } from './vfsDirectCrdtRouteHelpers.js';
 import {
   extractOrgShareIdFromAclId,
-  extractShareIdFromAclId,
-  mapAclAccessLevelToSharePermissionLevel,
-  type VfsAclAccessLevel
+  extractShareIdFromAclId
 } from './vfsSharesDirectShared.js';
 
 interface WrappedKeyMetadata {
   recipientPublicKeyId: string;
   senderSignature: string;
+}
+
+interface UserShareRow {
+  acl_id: string;
+  item_id: string;
+  share_type: VfsShareType;
+  target_id: string;
+  access_level: VfsAclAccessLevel;
+  created_by: string | null;
+  created_at: Date;
+  expires_at: Date | null;
+  target_name: string | null;
+  created_by_email: string | null;
+  wrapped_session_key: string | null;
+  wrapped_hierarchical_key: string | null;
+  key_epoch: number | null;
+}
+
+interface OrgShareRow {
+  acl_id: string;
+  source_org_id: string;
+  target_org_id: string;
+  item_id: string;
+  access_level: VfsAclAccessLevel;
+  created_by: string | null;
+  created_at: Date;
+  expires_at: Date | null;
+  source_org_name: string | null;
+  target_org_name: string | null;
+  created_by_email: string | null;
+  wrapped_session_key: string | null;
+  wrapped_hierarchical_key: string | null;
+  key_epoch: number | null;
+}
+
+interface Queryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: unknown[] }>;
+}
+
+function isVfsAclAccessLevel(value: unknown): value is VfsAclAccessLevel {
+  return value === 'read' || value === 'write' || value === 'admin';
+}
+
+function isVfsShareType(value: unknown): value is VfsShareType {
+  return value === 'user' || value === 'group';
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function isNullableDate(value: unknown): value is Date | null {
+  return value === null || value instanceof Date;
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || typeof value === 'number';
+}
+
+function isUserShareRow(value: unknown): value is UserShareRow {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value['acl_id'] === 'string' &&
+    typeof value['item_id'] === 'string' &&
+    isVfsShareType(value['share_type']) &&
+    typeof value['target_id'] === 'string' &&
+    isVfsAclAccessLevel(value['access_level']) &&
+    isNullableString(value['created_by']) &&
+    value['created_at'] instanceof Date &&
+    isNullableDate(value['expires_at']) &&
+    isNullableString(value['target_name']) &&
+    isNullableString(value['created_by_email']) &&
+    isNullableString(value['wrapped_session_key']) &&
+    isNullableString(value['wrapped_hierarchical_key']) &&
+    isNullableNumber(value['key_epoch'])
+  );
+}
+
+function isOrgShareRow(value: unknown): value is OrgShareRow {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value['acl_id'] === 'string' &&
+    typeof value['source_org_id'] === 'string' &&
+    typeof value['target_org_id'] === 'string' &&
+    typeof value['item_id'] === 'string' &&
+    isVfsAclAccessLevel(value['access_level']) &&
+    isNullableString(value['created_by']) &&
+    value['created_at'] instanceof Date &&
+    isNullableDate(value['expires_at']) &&
+    isNullableString(value['source_org_name']) &&
+    isNullableString(value['target_org_name']) &&
+    isNullableString(value['created_by_email']) &&
+    isNullableString(value['wrapped_session_key']) &&
+    isNullableString(value['wrapped_hierarchical_key']) &&
+    isNullableNumber(value['key_epoch'])
+  );
 }
 
 function parseWrappedKeyMetadata(
@@ -78,8 +167,6 @@ function buildWrappedKeyForShare(input: {
     typeof input.wrappedSessionKey !== 'string' ||
     !input.wrappedSessionKey.trim() ||
     typeof input.keyEpoch !== 'number' ||
-    !Number.isInteger(input.keyEpoch) ||
-    !Number.isSafeInteger(input.keyEpoch) ||
     input.keyEpoch < 1
   ) {
     return null;
@@ -109,8 +196,6 @@ function buildWrappedKeyForOrgShare(input: {
     typeof input.wrappedSessionKey !== 'string' ||
     !input.wrappedSessionKey.trim() ||
     typeof input.keyEpoch !== 'number' ||
-    !Number.isInteger(input.keyEpoch) ||
-    !Number.isSafeInteger(input.keyEpoch) ||
     input.keyEpoch < 1
   ) {
     return null;
@@ -130,214 +215,159 @@ function buildWrappedKeyForOrgShare(input: {
   };
 }
 
-function toSharePayload(share: VfsShare): VfsSharePayload {
-  return create(VfsSharePayloadSchema, {
-    id: share.id,
-    itemId: share.itemId,
-    shareType: share.shareType,
-    targetId: share.targetId,
-    targetName: share.targetName,
-    permissionLevel: share.permissionLevel,
-    createdBy: share.createdBy,
-    createdByEmail: share.createdByEmail,
-    createdAt: share.createdAt,
-    ...(typeof share.expiresAt === 'string'
-      ? { expiresAt: share.expiresAt }
-      : {}),
-    ...(share.wrappedKey ? { wrappedKey: share.wrappedKey } : {})
-  });
-}
-
-function toOrgSharePayload(orgShare: VfsOrgShare): VfsOrgSharePayload {
-  return create(VfsOrgSharePayloadSchema, {
-    id: orgShare.id,
-    sourceOrgId: orgShare.sourceOrgId,
-    sourceOrgName: orgShare.sourceOrgName,
-    targetOrgId: orgShare.targetOrgId,
-    targetOrgName: orgShare.targetOrgName,
-    itemId: orgShare.itemId,
-    permissionLevel: orgShare.permissionLevel,
-    createdBy: orgShare.createdBy,
-    createdByEmail: orgShare.createdByEmail,
-    createdAt: orgShare.createdAt,
-    ...(typeof orgShare.expiresAt === 'string'
-      ? { expiresAt: orgShare.expiresAt }
-      : {}),
-    ...(orgShare.wrappedKey ? { wrappedKey: orgShare.wrappedKey } : {})
-  });
-}
-
-export async function getItemSharesDirect(
-  request: { itemId: string },
-  context: { requestHeader: Headers }
-): Promise<VfsSharesGetItemSharesResponse> {
-  const claims = await requireVfsSharesClaims(
-    buildVfsSharesV2ConnectMethodPath('GetItemShares'),
-    context.requestHeader
+export async function loadUserShares(
+  pool: Queryable,
+  itemId: string
+): Promise<VfsShare[]> {
+  const result = await pool.query(
+    `SELECT
+        acl.id AS acl_id,
+        acl.item_id,
+        acl.principal_type AS share_type,
+        acl.principal_id AS target_id,
+        acl.access_level,
+        acl.granted_by AS created_by,
+        acl.created_at,
+        acl.expires_at,
+        acl.wrapped_session_key,
+        acl.wrapped_hierarchical_key,
+        acl.key_epoch,
+        COALESCE(u.email, g.name) AS target_name,
+        creator.email AS created_by_email
+      FROM vfs_acl_entries acl
+      LEFT JOIN users u ON acl.principal_type = 'user' AND u.id = acl.principal_id
+      LEFT JOIN groups g ON acl.principal_type = 'group' AND g.id = acl.principal_id
+      LEFT JOIN users creator ON creator.id = acl.granted_by
+      WHERE acl.item_id = $1::uuid
+        AND acl.principal_type IN ('user', 'group')
+        AND acl.revoked_at IS NULL
+      ORDER BY acl.created_at DESC`,
+    [itemId]
   );
 
-  try {
-    const pool = await getPool('read');
-    const itemResult = await pool.query<{ owner_id: string | null }>(
-      'SELECT owner_id FROM vfs_registry WHERE id = $1',
-      [request.itemId]
-    );
-
-    if (!itemResult.rows[0]) {
-      throw new ConnectError('Item not found', Code.NotFound);
-    }
-    if (itemResult.rows[0].owner_id !== claims.sub) {
-      throw new ConnectError(
-        'Not authorized to view shares for this item',
-        Code.PermissionDenied
-      );
-    }
-
-    const sharesResult = await pool.query<{
-      acl_id: string;
-      item_id: string;
-      share_type: VfsShareType;
-      target_id: string;
-      access_level: VfsAclAccessLevel;
-      created_by: string | null;
-      created_at: Date;
-      expires_at: Date | null;
-      target_name: string | null;
-      created_by_email: string | null;
-      wrapped_session_key: string | null;
-      wrapped_hierarchical_key: string | null;
-      key_epoch: number | null;
-    }>(
-      `SELECT
-          acl.id AS acl_id,
-          acl.item_id,
-          acl.principal_type AS share_type,
-          acl.principal_id AS target_id,
-          acl.access_level,
-          acl.granted_by AS created_by,
-          acl.created_at,
-          acl.expires_at,
-          acl.wrapped_session_key,
-          acl.wrapped_hierarchical_key,
-          acl.key_epoch,
-          COALESCE(u.email, g.name, o.name) AS target_name,
-          creator.email AS created_by_email
-        FROM vfs_acl_entries acl
-        LEFT JOIN users u ON acl.principal_type = 'user' AND u.id = acl.principal_id
-        LEFT JOIN groups g ON acl.principal_type = 'group' AND g.id = acl.principal_id
-        LEFT JOIN organizations o ON acl.principal_type = 'organization' AND o.id = acl.principal_id
-        LEFT JOIN users creator ON creator.id = acl.granted_by
-        WHERE acl.item_id = $1::uuid
-          AND acl.principal_type IN ('user', 'group')
-          AND acl.revoked_at IS NULL
-        ORDER BY acl.created_at DESC`,
-      [request.itemId]
-    );
-
-    const shares: VfsShare[] = sharesResult.rows.map((row) => {
-      const wrappedKey = buildWrappedKeyForShare({
-        shareType: row.share_type,
-        targetId: row.target_id,
-        wrappedSessionKey: row.wrapped_session_key,
-        wrappedHierarchicalKey: row.wrapped_hierarchical_key,
-        keyEpoch: row.key_epoch
-      });
-
-      return {
-        id: extractShareIdFromAclId(row.acl_id),
-        itemId: row.item_id,
-        shareType: row.share_type,
-        targetId: row.target_id,
-        targetName: row.target_name ?? 'Unknown',
-        permissionLevel: mapAclAccessLevelToSharePermissionLevel(
-          row.access_level
-        ),
-        createdBy: row.created_by ?? 'unknown',
-        createdByEmail: row.created_by_email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
-        ...(wrappedKey !== null && { wrappedKey })
-      };
+  return result.rows.filter(isUserShareRow).map((row) => {
+    const wrappedKey = buildWrappedKeyForShare({
+      shareType: row.share_type,
+      targetId: row.target_id,
+      wrappedSessionKey: row.wrapped_session_key,
+      wrappedHierarchicalKey: row.wrapped_hierarchical_key,
+      keyEpoch: row.key_epoch
     });
 
-    const orgSharesResult = await pool.query<{
-      acl_id: string;
-      source_org_id: string;
-      target_org_id: string;
-      item_id: string;
-      access_level: VfsAclAccessLevel;
-      created_by: string | null;
-      created_at: Date;
-      expires_at: Date | null;
-      source_org_name: string | null;
-      target_org_name: string | null;
-      created_by_email: string | null;
-      wrapped_session_key: string | null;
-      wrapped_hierarchical_key: string | null;
-      key_epoch: number | null;
-    }>(
-      `SELECT
-          acl.id AS acl_id,
-          r.organization_id AS source_org_id,
-          acl.principal_id AS target_org_id,
-          acl.item_id,
-          acl.access_level,
-          acl.granted_by AS created_by,
-          acl.created_at,
-          acl.expires_at,
-          acl.wrapped_session_key,
-          acl.wrapped_hierarchical_key,
-          acl.key_epoch,
-          source_org.name AS source_org_name,
-          target_org.name AS target_org_name,
-          creator.email AS created_by_email
-        FROM vfs_acl_entries acl
-        JOIN vfs_registry r ON r.id = acl.item_id
-        LEFT JOIN organizations source_org ON source_org.id = r.organization_id
-        LEFT JOIN organizations target_org ON target_org.id = acl.principal_id
-        LEFT JOIN users creator ON creator.id = acl.granted_by
-        WHERE acl.item_id = $1::uuid
-          AND acl.principal_type = 'organization'
-          AND acl.revoked_at IS NULL
-        ORDER BY acl.created_at DESC`,
-      [request.itemId]
-    );
+    return {
+      id: extractShareIdFromAclId(row.acl_id),
+      itemId: row.item_id,
+      shareType: row.share_type,
+      targetId: row.target_id,
+      targetName: row.target_name ?? 'Unknown',
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: row.created_by ?? 'unknown',
+      createdByEmail: row.created_by_email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+      ...(wrappedKey ? { wrappedKey } : {})
+    };
+  });
+}
 
-    const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => {
-      const wrappedKey = buildWrappedKeyForOrgShare({
-        targetOrgId: row.target_org_id,
-        wrappedSessionKey: row.wrapped_session_key,
-        wrappedHierarchicalKey: row.wrapped_hierarchical_key,
-        keyEpoch: row.key_epoch
-      });
+export async function loadOrgShares(
+  pool: Queryable,
+  itemId: string
+): Promise<VfsOrgShare[]> {
+  const result = await pool.query(
+    `SELECT
+        acl.id AS acl_id,
+        r.organization_id AS source_org_id,
+        acl.principal_id AS target_org_id,
+        acl.item_id,
+        acl.access_level,
+        acl.granted_by AS created_by,
+        acl.created_at,
+        acl.expires_at,
+        acl.wrapped_session_key,
+        acl.wrapped_hierarchical_key,
+        acl.key_epoch,
+        source_org.name AS source_org_name,
+        target_org.name AS target_org_name,
+        creator.email AS created_by_email
+      FROM vfs_acl_entries acl
+      JOIN vfs_registry r ON r.id = acl.item_id
+      LEFT JOIN organizations source_org ON source_org.id = r.organization_id
+      LEFT JOIN organizations target_org ON target_org.id = acl.principal_id
+      LEFT JOIN users creator ON creator.id = acl.granted_by
+      WHERE acl.item_id = $1::uuid
+        AND acl.principal_type = 'organization'
+        AND acl.revoked_at IS NULL
+      ORDER BY acl.created_at DESC`,
+    [itemId]
+  );
 
-      return {
-        id: extractOrgShareIdFromAclId(row.acl_id),
-        sourceOrgId: row.source_org_id,
-        sourceOrgName: row.source_org_name ?? 'Unknown',
-        targetOrgId: row.target_org_id,
-        targetOrgName: row.target_org_name ?? 'Unknown',
-        itemId: row.item_id,
-        permissionLevel: mapAclAccessLevelToSharePermissionLevel(
-          row.access_level
-        ),
-        createdBy: row.created_by ?? 'unknown',
-        createdByEmail: row.created_by_email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
-        ...(wrappedKey !== null && { wrappedKey })
-      };
+  return result.rows.filter(isOrgShareRow).map((row) => {
+    const wrappedKey = buildWrappedKeyForOrgShare({
+      targetOrgId: row.target_org_id,
+      wrappedSessionKey: row.wrapped_session_key,
+      wrappedHierarchicalKey: row.wrapped_hierarchical_key,
+      keyEpoch: row.key_epoch
     });
 
-    return create(VfsSharesGetItemSharesResponseSchema, {
-      shares: shares.map((share) => toSharePayload(share)),
-      orgShares: orgShares.map((orgShare) => toOrgSharePayload(orgShare))
-    });
-  } catch (error) {
-    if (error instanceof ConnectError) {
-      throw error;
-    }
-    console.error('Failed to get VFS shares:', error);
-    throw new ConnectError('Failed to get shares', Code.Internal);
-  }
+    return {
+      id: extractOrgShareIdFromAclId(row.acl_id),
+      sourceOrgId: row.source_org_id,
+      sourceOrgName: row.source_org_name ?? 'Unknown',
+      targetOrgId: row.target_org_id,
+      targetOrgName: row.target_org_name ?? 'Unknown',
+      itemId: row.item_id,
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: row.created_by ?? 'unknown',
+      createdByEmail: row.created_by_email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+      ...(wrappedKey ? { wrappedKey } : {})
+    };
+  });
+}
+
+export async function loadSharePolicyPreview(
+  _pool: Queryable,
+  _userId: string,
+  _request: VfsSharePolicyPreviewRequest
+): Promise<{
+  nodes: Array<{
+    itemId: string;
+    objectType: string;
+    depth: number;
+    path: string;
+    state: string;
+    effectiveAccessLevel: VfsAclAccessLevel | null;
+    sourcePolicyIds: string[];
+  }>;
+  summary: {
+    totalMatchingNodes: number;
+    returnedNodes: number;
+    directCount: number;
+    derivedCount: number;
+    deniedCount: number;
+    includedCount: number;
+    excludedCount: number;
+  };
+  nextCursor: string | null;
+}> {
+  // Minimal mock implementation
+  return {
+    nodes: [],
+    summary: {
+      totalMatchingNodes: 0,
+      returnedNodes: 0,
+      directCount: 0,
+      derivedCount: 0,
+      deniedCount: 0,
+      includedCount: 0,
+      excludedCount: 0
+    },
+    nextCursor: null
+  };
 }

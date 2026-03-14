@@ -84,7 +84,7 @@ describe('compileVfsSharePolicies (materialization)', () => {
       if (text.includes('FROM vfs_registry')) {
         return {
           rows: [
-            { id: 'root-1', object_type: 'contact' },
+            { id: 'root-1', object_type: 'contactGroup' },
             { id: 'wallet-1', object_type: 'walletItem' },
             { id: 'workout-1', object_type: 'healthWorkoutEntry' }
           ] as T[]
@@ -229,7 +229,7 @@ describe('compileVfsSharePolicies (materialization)', () => {
       if (text.includes('FROM vfs_registry')) {
         return {
           rows: [
-            { id: 'root-1', object_type: 'contact' },
+            { id: 'root-1', object_type: 'contactGroup' },
             { id: 'item-1', object_type: 'walletItem' }
           ] as T[]
         };
@@ -332,7 +332,7 @@ describe('compileVfsSharePolicies (materialization)', () => {
       if (text.includes('FROM vfs_registry')) {
         return {
           rows: [
-            { id: 'root-1', object_type: 'contact' },
+            { id: 'root-1', object_type: 'contactGroup' },
             { id: 'item-1', object_type: 'walletItem' }
           ] as T[]
         };

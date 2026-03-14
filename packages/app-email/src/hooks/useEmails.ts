@@ -1,4 +1,7 @@
-import { VFS_V2_GET_EMAILS_CONNECT_PATH } from '@tearleads/shared';
+import {
+  parseConnectJsonEnvelopeBody,
+  VFS_V2_GET_EMAILS_CONNECT_PATH
+} from '@tearleads/shared';
 import { useCallback, useState } from 'react';
 import { useEmailApi } from '../context';
 import type { EmailItem } from '../lib';
@@ -23,7 +26,9 @@ function isStringArray(value: unknown): value is string[] {
   return true;
 }
 
-function isEmailItem(value: unknown): value is EmailItem {
+function isEmailItemShape(
+  value: unknown
+): value is Omit<EmailItem, 'size'> & { size?: number } {
   if (!isRecord(value)) {
     return false;
   }
@@ -35,21 +40,40 @@ function isEmailItem(value: unknown): value is EmailItem {
     (value['cc'] === undefined || isStringArray(value['cc'])) &&
     typeof value['subject'] === 'string' &&
     typeof value['receivedAt'] === 'string' &&
-    typeof value['size'] === 'number'
+    (value['size'] === undefined || typeof value['size'] === 'number')
   );
 }
 
 function readEmailsFromPayload(payload: unknown): EmailItem[] {
-  if (!isRecord(payload)) {
+  const parsedPayload = parseConnectJsonEnvelopeBody(payload);
+  if (!isRecord(parsedPayload)) {
     return [];
   }
 
-  const emails = payload['emails'];
+  const emails = Array.isArray(parsedPayload['items'])
+    ? parsedPayload['items']
+    : parsedPayload['emails'];
   if (!Array.isArray(emails)) {
     return [];
   }
 
-  return emails.filter(isEmailItem);
+  return emails.flatMap((value) => {
+    if (!isEmailItemShape(value)) {
+      return [];
+    }
+
+    return [
+      {
+        id: value.id,
+        from: value.from,
+        to: value.to,
+        ...(value.cc ? { cc: value.cc } : {}),
+        subject: value.subject,
+        receivedAt: value.receivedAt,
+        size: typeof value.size === 'number' ? value.size : 0
+      }
+    ];
+  });
 }
 
 function readErrorField(value: unknown): string | null {

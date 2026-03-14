@@ -196,7 +196,7 @@ describe('api with msw', () => {
         principalType: 'user',
         principalId: secondUser.userId
       })
-    ).rejects.toThrow('Root item must be a container object type');
+    ).rejects.toThrow('Share policy previews require a folder root item');
 
     await ctx.pool.query(
       `INSERT INTO ai_usage (

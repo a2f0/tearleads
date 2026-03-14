@@ -16,10 +16,8 @@ service VfsService {
   rpc CommitBlob(VfsCommitBlobRequest) returns (VfsCommitBlobResponse);
   rpc RekeyItem(VfsRekeyItemRequest) returns (VfsRekeyItemResponse);
   rpc PushCrdtOps(VfsPushCrdtOpsRequest) returns (VfsPushCrdtOpsResponse);
-  rpc ReconcileCrdt(VfsReconcileCrdtRequest)
-      returns (VfsReconcileCrdtResponse);
-  rpc ReconcileSync(VfsReconcileSyncRequest)
-      returns (VfsReconcileSyncResponse);
+  rpc ReconcileCrdt(VfsReconcileCrdtRequest) returns (VfsReconcileCrdtResponse);
+  rpc ReconcileSync(VfsReconcileSyncRequest) returns (VfsReconcileSyncResponse);
   rpc RunCrdtSession(VfsRunCrdtSessionRequest)
       returns (VfsRunCrdtSessionResponse);
   rpc GetSync(VfsGetSyncRequest) returns (VfsGetSyncResponse);
@@ -31,12 +29,14 @@ service VfsService {
   rpc DeleteEmail(VfsDeleteEmailRequest) returns (VfsDeleteEmailResponse);
   rpc SendEmail(VfsSendEmailRequest) returns (VfsSendEmailResponse);
 }
+
 message VfsGetMyKeysRequest {}
 message VfsGetMyKeysResponse {
-  string public_encryption_key = 1;
-  string public_signing_key = 2;
-  optional string encrypted_private_keys = 3;
-  optional string argon2_salt = 4;
+  repeated string public_key_ids = 1;
+  string public_encryption_key = 2;
+  string public_signing_key = 3;
+  optional string encrypted_private_keys = 4;
+  optional string argon2_salt = 5;
 }
 message VfsSetupKeysRequest {
   string public_encryption_key = 1;
@@ -46,6 +46,25 @@ message VfsSetupKeysRequest {
 }
 message VfsSetupKeysResponse {
   bool created = 1;
+}
+message VfsRekeyWrappedKey {
+  string recipient_user_id = 1;
+  string recipient_public_key_id = 2;
+  int32 key_epoch = 3;
+  string encrypted_key = 4;
+  string sender_signature = 5;
+}
+message VfsRekeyItemRequest {
+  string item_id = 1;
+  string reason = 2;
+  int32 new_epoch = 3;
+  repeated VfsRekeyWrappedKey wrapped_keys = 4;
+}
+message VfsRekeyItemResponse {
+  bool success = 1;
+  string item_id = 2;
+  int32 new_epoch = 3;
+  int32 wraps_applied = 4;
 }
 message VfsRegisterRequest {
   string id = 1;
@@ -148,34 +167,12 @@ message VfsCommitBlobRequest {
   int32 key_epoch = 3;
   string manifest_hash = 4;
   string manifest_signature = 5;
-  int32 chunk_count = 6;
-  int32 total_plaintext_bytes = 7;
-  int32 total_ciphertext_bytes = 8;
 }
 message VfsCommitBlobResponse {
-  bool committed = 1;
-  string staging_id = 2;
-  string upload_id = 3;
-  string blob_id = 4;
+  bool success = 1;
+  string blob_id = 2;
 }
-message VfsRekeyItemRequest {
-  string item_id = 1;
-  string reason = 2;
-  int32 new_epoch = 3;
-  repeated VfsRekeyWrappedKey wrapped_keys = 4;
-}
-message VfsRekeyWrappedKey {
-  string recipient_user_id = 1;
-  string recipient_public_key_id = 2;
-  int32 key_epoch = 3;
-  string encrypted_key = 4;
-  string sender_signature = 5;
-}
-message VfsRekeyItemResponse {
-  string item_id = 1;
-  int32 new_epoch = 2;
-  int32 wraps_applied = 3;
-}
+
 enum VfsCrdtOpType {
   VFS_CRDT_OP_TYPE_UNSPECIFIED = 0;
   VFS_CRDT_OP_TYPE_ACL_ADD = 1;
@@ -209,74 +206,62 @@ enum VfsCrdtPushStatus {
   VFS_CRDT_PUSH_STATUS_ACL_DENIED = 7;
 }
 message VfsCrdtPushOperation {
-  string op_id = 1;
-  string op_type = 2;
-  string item_id = 3;
-  string replica_id = 4;
-  int32 write_id = 5;
-  string occurred_at = 6;
-  optional string principal_type = 7;
-  optional string principal_id = 8;
-  optional string access_level = 9;
-  optional string parent_id = 10;
-  optional string child_id = 11;
+  reserved 1 to 11, 28;
+  bytes op_id = 17;
+  VfsCrdtOpType op_type = 18;
+  bytes item_id = 19;
+  bytes replica_id = 20;
+  uint64 write_id = 21;
+  uint64 occurred_at_ms = 22;
+  VfsAclPrincipalType principal_type = 23;
+  bytes principal_id = 24;
+  VfsAclAccessLevel access_level = 25;
+  bytes parent_id = 26;
+  bytes child_id = 27;
   optional string encrypted_payload = 12;
   optional int32 key_epoch = 13;
   optional string encryption_nonce = 14;
   optional string encryption_aad = 15;
   optional string encryption_signature = 16;
-  bytes op_id_bytes = 17;
-  VfsCrdtOpType op_type_enum = 18;
-  bytes item_id_bytes = 19;
-  bytes replica_id_bytes = 20;
-  uint64 write_id_u64 = 21;
-  uint64 occurred_at_ms = 22;
-  VfsAclPrincipalType principal_type_enum = 23;
-  bytes principal_id_bytes = 24;
-  VfsAclAccessLevel access_level_enum = 25;
-  bytes parent_id_bytes = 26;
-  bytes child_id_bytes = 27;
-  optional string operation_signature = 28;
-  bytes operation_signature_bytes = 29;
+  optional bytes operation_signature = 29;
 }
 message VfsPushCrdtOpsRequest {
-  string organization_id = 1;
-  string client_id = 2;
+  reserved 1, 2;
+  bytes organization_id = 4;
+  bytes client_id = 5;
   repeated VfsCrdtPushOperation operations = 3;
-  bytes organization_id_bytes = 4;
-  bytes client_id_bytes = 5;
 }
 message VfsCrdtPushResult {
-  string op_id = 1;
-  string status = 2;
-  bytes op_id_bytes = 3;
-  VfsCrdtPushStatus status_enum = 4;
+  reserved 1, 2;
+  bytes op_id = 3;
+  VfsCrdtPushStatus status = 4;
 }
 message VfsPushCrdtOpsResponse {
-  string client_id = 1;
+  reserved 1;
+  bytes client_id = 3;
   repeated VfsCrdtPushResult results = 2;
-  bytes client_id_bytes = 3;
 }
 message VfsReconcileCrdtRequest {
-  string organization_id = 1;
-  string client_id = 2;
+  reserved 1, 2;
+  bytes organization_id = 5;
+  bytes client_id = 6;
   string cursor = 3;
   map<string, int32> last_reconciled_write_ids = 4;
-  bytes organization_id_bytes = 5;
-  bytes client_id_bytes = 6;
 }
 message VfsReconcileCrdtResponse {
-  string client_id = 1;
+  reserved 1;
+  bytes client_id = 4;
   string cursor = 2;
   map<string, int32> last_reconciled_write_ids = 3;
-  bytes client_id_bytes = 4;
 }
 message VfsReconcileSyncRequest {
-  string client_id = 1;
+  reserved 1;
+  bytes client_id = 3;
   string cursor = 2;
 }
 message VfsReconcileSyncResponse {
-  string client_id = 1;
+  reserved 1;
+  bytes client_id = 3;
   string cursor = 2;
 }
 message VfsSyncBloomFilter {
@@ -285,17 +270,15 @@ message VfsSyncBloomFilter {
   double error_rate = 3;
 }
 message VfsRunCrdtSessionRequest {
-  string organization_id = 1;
-  string client_id = 2;
+  reserved 1, 2, 7;
+  bytes organization_id = 9;
+  bytes client_id = 10;
   string cursor = 3;
   int32 limit = 4;
   repeated VfsCrdtPushOperation operations = 5;
   map<string, int32> last_reconciled_write_ids = 6;
-  optional string root_id = 7;
+  optional bytes root_id = 11;
   optional VfsSyncBloomFilter bloom_filter = 8;
-  bytes organization_id_bytes = 9;
-  bytes client_id_bytes = 10;
-  bytes root_id_bytes = 11;
 }
 message VfsRunCrdtSessionResponse {
   VfsPushCrdtOpsResponse push = 1;
@@ -303,20 +286,22 @@ message VfsRunCrdtSessionResponse {
   VfsReconcileCrdtResponse reconcile = 3;
 }
 message VfsGetSyncRequest {
+  reserved 3;
   string cursor = 1;
   int32 limit = 2;
-  string root_id = 3;
+  bytes root_id = 4;
 }
 message VfsSyncItem {
-  string change_id = 1;
-  string item_id = 2;
+  reserved 1, 2, 4, 7, 8, 9;
+  bytes change_id = 10;
+  bytes item_id = 11;
   string change_type = 3;
-  string changed_at = 4;
+  uint64 changed_at_ms = 12;
   optional string object_type = 5;
   optional string encrypted_name = 6;
-  optional string owner_id = 7;
-  optional string created_at = 8;
-  string access_level = 9;
+  optional bytes owner_id = 13;
+  optional uint64 created_at_ms = 14;
+  VfsAclAccessLevel access_level = 15;
 }
 message VfsGetSyncResponse {
   repeated VfsSyncItem items = 1;
@@ -324,41 +309,31 @@ message VfsGetSyncResponse {
   bool has_more = 3;
 }
 message VfsGetCrdtSyncRequest {
+  reserved 3;
   string cursor = 1;
   int32 limit = 2;
-  string root_id = 3;
   optional VfsSyncBloomFilter bloom_filter = 4;
-  bytes root_id_bytes = 5;
+  bytes root_id = 5;
 }
 message VfsCrdtSyncItem {
-  string op_id = 1;
-  string item_id = 2;
-  string op_type = 3;
-  optional string principal_type = 4;
-  optional string principal_id = 5;
-  optional string access_level = 6;
-  optional string parent_id = 7;
-  optional string child_id = 8;
-  optional string actor_id = 9;
+  reserved 1 to 9, 11, 12;
+  bytes op_id = 18;
+  bytes item_id = 19;
+  VfsCrdtOpType op_type = 20;
+  VfsAclPrincipalType principal_type = 21;
+  bytes principal_id = 22;
+  VfsAclAccessLevel access_level = 23;
+  bytes parent_id = 24;
+  bytes child_id = 25;
+  bytes actor_id = 26;
   string source_table = 10;
-  string source_id = 11;
-  string occurred_at = 12;
+  bytes source_id = 27;
+  uint64 occurred_at_ms = 28;
   optional string encrypted_payload = 13;
   optional int32 key_epoch = 14;
   optional string encryption_nonce = 15;
   optional string encryption_aad = 16;
   optional string encryption_signature = 17;
-  bytes op_id_bytes = 18;
-  bytes item_id_bytes = 19;
-  VfsCrdtOpType op_type_enum = 20;
-  VfsAclPrincipalType principal_type_enum = 21;
-  bytes principal_id_bytes = 22;
-  VfsAclAccessLevel access_level_enum = 23;
-  bytes parent_id_bytes = 24;
-  bytes child_id_bytes = 25;
-  bytes actor_id_bytes = 26;
-  bytes source_id_bytes = 27;
-  uint64 occurred_at_ms = 28;
 }
 message VfsGetCrdtSyncResponse {
   repeated VfsCrdtSyncItem items = 1;
@@ -405,35 +380,43 @@ message VfsGetCrdtSnapshotResponse {
   string snapshot_updated_at = 4;
 }
 message VfsGetEmailsRequest {
-  int32 offset = 1;
-  int32 limit = 2;
+  optional string cursor = 1;
+  optional int32 limit = 2;
 }
-message VfsEmailListItem {
+message VfsEmailItem {
   string id = 1;
-  string from = 2;
-  repeated string to = 3;
-  string subject = 4;
-  string received_at = 5;
-  int32 size = 6;
+  string thread_id = 2;
+  string from = 3;
+  repeated string to = 4;
+  string subject = 5;
+  string snippet = 6;
+  string received_at = 7;
+  bool is_read = 8;
+  bool has_attachments = 9;
 }
 message VfsGetEmailsResponse {
-  repeated VfsEmailListItem emails = 1;
-  int32 total = 2;
-  int32 offset = 3;
-  int32 limit = 4;
+  repeated VfsEmailItem items = 1;
+  optional string next_cursor = 2;
+}
+message VfsEmailHeader {
+  string name = 1;
+  string value = 2;
 }
 message VfsGetEmailRequest {
   string id = 1;
 }
 message VfsGetEmailResponse {
   string id = 1;
-  string from = 2;
-  repeated string to = 3;
-  string subject = 4;
-  string received_at = 5;
-  int32 size = 6;
-  string raw_data = 7;
-  optional string encrypted_body_path = 8;
+  string thread_id = 2;
+  string from = 3;
+  repeated string to = 4;
+  repeated string cc = 5;
+  repeated string bcc = 6;
+  string subject = 7;
+  string body_html = 8;
+  string body_text = 9;
+  string received_at = 10;
+  repeated VfsEmailHeader headers = 11;
 }
 message VfsDeleteEmailRequest {
   string id = 1;
@@ -442,9 +425,9 @@ message VfsDeleteEmailResponse {
   bool success = 1;
 }
 message VfsSendEmailAttachment {
-  string file_name = 1;
-  string mime_type = 2;
-  string content = 3;
+  string name = 1;
+  string content_base64 = 2;
+  string content_type = 3;
 }
 message VfsSendEmailRequest {
   repeated string to = 1;

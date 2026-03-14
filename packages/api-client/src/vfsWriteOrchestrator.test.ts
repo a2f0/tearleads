@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setTestEnv } from './test/env.js';
 import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator';
 
+const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
+
 describe('vfsWriteOrchestrator', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
@@ -186,7 +188,7 @@ describe('vfsWriteOrchestrator', () => {
                 clientId: 'desktop',
                 cursor: encodeVfsSyncCursor({
                   changedAt: '2026-02-18T00:00:00.000Z',
-                  changeId: 'desktop-1'
+                  changeId: RECONCILE_CURSOR_CHANGE_ID
                 }),
                 lastReconciledWriteIds: { desktop: 1 }
               })

@@ -23,6 +23,7 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { attachBlobDirect } from './vfsDirectBlobAttach.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
 
 describe('vfsDirectBlobAttach', () => {
   beforeEach(() => {
@@ -181,7 +182,7 @@ describe('vfsDirectBlobAttach', () => {
   it('returns conflict when reconcile state is behind required visibility', async () => {
     const requiredCursor = encodeVfsSyncCursor({
       changedAt: '2026-03-03T00:00:00.000Z',
-      changeId: 'change-1'
+      changeId: CHANGE_ID_1
     });
 
     clientQueryMock

@@ -131,6 +131,32 @@ describe('requireVfsClaims', () => {
     );
   });
 
+  it('accepts declared organization when writes rely on route context', async () => {
+    verifyOrganizationMembershipMock.mockResolvedValueOnce({
+      ok: true,
+      organizationId: 'org-declared'
+    });
+
+    await expect(
+      requireVfsClaims(
+        '/connect/tearleads.v2.VfsService/PushCrdtOps',
+        new Headers(),
+        {
+          declaredOrganizationId: 'org-declared'
+        }
+      )
+    ).resolves.toEqual({
+      sub: 'user-1',
+      organizationId: 'org-declared'
+    });
+
+    expect(queryMock).not.toHaveBeenCalled();
+    expect(verifyOrganizationMembershipMock).toHaveBeenCalledWith(
+      'user-1',
+      'org-declared'
+    );
+  });
+
   it('rejects mismatched request/header organization declarations', async () => {
     resolveOrganizationMembershipMock.mockResolvedValueOnce({
       ok: true,

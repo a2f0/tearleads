@@ -3,8 +3,6 @@ import type {
   CreateVfsShareRequest,
   ShareTargetSearchResponse,
   UpdateVfsShareRequest,
-  VfsCrdtSyncItem,
-  VfsCrdtSyncResponse,
   VfsKeySetupRequest,
   VfsOrgShare,
   VfsRegisterRequest,
@@ -16,12 +14,12 @@ import type {
   VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType,
-  VfsSyncItem,
-  VfsSyncResponse,
   VfsUserKeysResponse
 } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
+  normalizeVfsCrdtSyncConnectPayload,
+  normalizeVfsSyncConnectPayload,
   parseConnectJsonEnvelopeBody,
   parseConnectJsonString,
   VFS_SHARES_V2_CONNECT_BASE_PATH,
@@ -41,12 +39,6 @@ interface VfsBlobResponse {
   contentType: string | null;
 }
 
-interface NormalizedSyncPage<TItem> {
-  items: TItem[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}
-
 function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
   const parsedPayload = parseConnectJsonEnvelopeBody(responseBody);
   if (
@@ -61,56 +53,6 @@ function parseConnectJsonResponse<TResponse>(responseBody: unknown): TResponse {
     return parseConnectJsonString<TResponse>('{}');
   }
   throw new Error('transport returned non-object connect payload');
-}
-
-function normalizeSyncPage<TItem>(page: {
-  items: TItem[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}): NormalizedSyncPage<TItem> {
-  const items = Array.isArray(page.items) ? page.items : [];
-  const nextCursor =
-    typeof page.nextCursor === 'string' && page.nextCursor.trim().length > 0
-      ? page.nextCursor
-      : null;
-
-  return {
-    items,
-    nextCursor,
-    hasMore: page.hasMore === true
-  };
-}
-
-function normalizeLastReconciledWriteIds(
-  lastReconciledWriteIds: VfsCrdtSyncResponse['lastReconciledWriteIds']
-): VfsCrdtSyncResponse['lastReconciledWriteIds'] {
-  if (
-    !lastReconciledWriteIds ||
-    typeof lastReconciledWriteIds !== 'object' ||
-    Array.isArray(lastReconciledWriteIds)
-  ) {
-    return {};
-  }
-
-  const normalized: Record<string, number> = {};
-  for (const [replicaId, writeId] of Object.entries(lastReconciledWriteIds)) {
-    const trimmedReplicaId = replicaId.trim();
-    if (trimmedReplicaId.length === 0) {
-      continue;
-    }
-    if (
-      typeof writeId !== 'number' ||
-      !Number.isInteger(writeId) ||
-      !Number.isSafeInteger(writeId) ||
-      writeId < 1
-    ) {
-      continue;
-    }
-
-    normalized[trimmedReplicaId] = writeId;
-  }
-
-  return normalized;
 }
 
 function requestVfsTyped<TResponse>(
@@ -165,30 +107,22 @@ export const vfsRoutes = {
     if (cursor) {
       requestBody['cursor'] = cursor;
     }
-    return requestVfsTyped<VfsSyncResponse>(
+    return requestVfsTyped<unknown>(
       'GetSync',
       requestBody,
       'api_get_vfs_sync'
-    ).then((response) => normalizeSyncPage<VfsSyncItem>(response));
+    ).then((response) => normalizeVfsSyncConnectPayload(response));
   },
   getCrdtSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
     if (cursor) {
       requestBody['cursor'] = cursor;
     }
-    return requestVfsTyped<VfsCrdtSyncResponse>(
+    return requestVfsTyped<unknown>(
       'GetCrdtSync',
       requestBody,
       'api_get_vfs_crdt_sync'
-    ).then((response) => {
-      const normalizedPage = normalizeSyncPage<VfsCrdtSyncItem>(response);
-      return {
-        ...normalizedPage,
-        lastReconciledWriteIds: normalizeLastReconciledWriteIds(
-          response.lastReconciledWriteIds
-        )
-      };
-    });
+    ).then((response) => normalizeVfsCrdtSyncConnectPayload(response));
   },
   setupKeys: (data: VfsKeySetupRequest) =>
     request<{ created: boolean }>(`${VFS_V2_CONNECT_BASE_PATH}/SetupKeys`, {

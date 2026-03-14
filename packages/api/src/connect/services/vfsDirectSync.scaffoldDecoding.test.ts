@@ -16,6 +16,7 @@ vi.mock('./vfsDirectAuth.js', () => ({
 import { getSyncDirect } from './vfsDirectSync.js';
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
+const CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
 
 async function encryptNameForScaffold(
   plaintextName: string,
@@ -52,7 +53,7 @@ describe('vfsDirectSync scaffold decryption', () => {
       .mockResolvedValueOnce({
         rows: [
           {
-            change_id: 'change-1',
+            change_id: CHANGE_ID_1,
             item_id: 'item-1',
             change_type: 'upsert',
             changed_at: '2026-03-03T00:00:00.000Z',
@@ -90,10 +91,10 @@ describe('vfsDirectSync scaffold decryption', () => {
       items: [
         {
           accessLevel: 'admin',
-          changeId: 'change-1',
+          changeId: CHANGE_ID_1,
           changeType: 'upsert',
-          changedAt: '2026-03-03T00:00:00.000Z',
-          createdAt: '2026-03-03T00:00:00.000Z',
+          changedAtMs: 1772496000000,
+          createdAtMs: 1772496000000,
           encryptedName: 'Notes shared with Alice',
           itemId: 'item-1',
           objectType: 'folder',

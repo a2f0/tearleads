@@ -9,7 +9,7 @@ import {
   renderSync,
   resetSyncTestState,
   setupSyncDependencies
-} from './Sync.testHelpers';
+} from './syncTestHelpers';
 
 function queries(): ReturnType<typeof within> {
   return within(document.body);

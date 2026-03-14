@@ -81,8 +81,7 @@ export async function abandonBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('AbandonBlob'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const pool = await getPostgresPool();
@@ -200,8 +199,7 @@ export async function commitBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('CommitBlob'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const payload = parseBlobCommitBody(request);
@@ -263,16 +261,8 @@ export async function commitBlobDirect(
       );
     }
 
-    if (chunks.length !== payload.chunkCount) {
-      throw new ConnectError(
-        'Chunk count does not match commit payload',
-        Code.AlreadyExists
-      );
-    }
-
     const decodedChunks: Uint8Array[] = [];
     let totalCiphertextBytes = 0;
-    let totalPlaintextBytes = 0;
 
     for (const [index, chunk] of chunks.entries()) {
       if (chunk.chunkIndex !== index) {
@@ -306,20 +296,6 @@ export async function commitBlobDirect(
 
       decodedChunks.push(decoded);
       totalCiphertextBytes += chunk.ciphertextLength;
-      totalPlaintextBytes += chunk.plaintextLength;
-    }
-
-    if (totalCiphertextBytes !== payload.totalCiphertextBytes) {
-      throw new ConnectError(
-        'Ciphertext size does not match commit payload',
-        Code.AlreadyExists
-      );
-    }
-    if (totalPlaintextBytes !== payload.totalPlaintextBytes) {
-      throw new ConnectError(
-        'Plaintext size does not match commit payload',
-        Code.AlreadyExists
-      );
     }
 
     const mergedCiphertext = new Uint8Array(totalCiphertextBytes);

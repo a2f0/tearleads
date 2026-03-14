@@ -246,10 +246,7 @@ describe('vfsConnectService', () => {
       uploadId: 'u1',
       keyEpoch: 1,
       manifestHash: 'h',
-      manifestSignature: 's',
-      chunkCount: 1,
-      totalPlaintextBytes: 4,
-      totalCiphertextBytes: 4
+      manifestSignature: 's'
     };
     const rekeyItemRequest = {
       itemId: 'item-1',

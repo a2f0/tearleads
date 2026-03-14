@@ -77,7 +77,7 @@ function createConcurrentCompileQueryHarness() {
     }
     if (text.includes('FROM vfs_registry')) {
       return {
-        rows: [{ id: 'root-1', object_type: 'contact' }] as T[]
+        rows: [{ id: 'root-1', object_type: 'contactGroup' }] as T[]
       };
     }
     if (text.includes('FROM vfs_links')) {

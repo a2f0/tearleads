@@ -1,14 +1,12 @@
-import type {
-  VfsCrdtSyncState,
-  VfsSyncCursor,
-  VfsSyncGuardrailViolation
-} from './sync-client.js';
+import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import type { VfsSyncGuardrailViolation } from './sync-client.js';
 import {
   compareVfsSyncCursorOrder,
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport,
   VfsBackgroundSyncClient
 } from './sync-client-test-support.js';
+import type { VfsBackgroundSyncClientPersistedState } from './syncClientUtilsTypes.js';
 
 interface HydrateGuardrailRecord {
   code: string;
@@ -44,7 +42,7 @@ export function createHydrateGuardrailHarness(input?: {
 
 export async function createEqualBoundaryHydrateState(): Promise<{
   server: InMemoryVfsCrdtSyncServer;
-  persisted: VfsCrdtSyncState;
+  persisted: VfsBackgroundSyncClientPersistedState;
   replayCursor: VfsSyncCursor;
 }> {
   const server = new InMemoryVfsCrdtSyncServer();

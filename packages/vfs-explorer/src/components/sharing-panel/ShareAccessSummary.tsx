@@ -1,9 +1,9 @@
 import type { VfsObjectType, VfsShareType } from '@tearleads/shared';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { useSharePolicyPreview } from '../../hooks';
-import { ShareAccessSummaryFilters } from './ShareAccessSummaryFilters';
-import { ShareAccessSummaryResults } from './ShareAccessSummaryResults';
+import { useState } from 'react';
+import { useSharePolicyPreview } from '../../hooks/useSharePolicyPreview.js';
+import { ShareAccessSummaryFilters } from './ShareAccessSummaryFilters.js';
+import { ShareAccessSummaryResults } from './ShareAccessSummaryResults.js';
 
 interface ShareAccessSummaryProps {
   itemId: string;
@@ -24,17 +24,6 @@ export function ShareAccessSummary({
   const [selectedObjectTypes, setSelectedObjectTypes] = useState<
     VfsObjectType[]
   >([]);
-  const previousTargetIdRef = useRef<string | null>(selectedTargetId);
-
-  useEffect(() => {
-    if (previousTargetIdRef.current === selectedTargetId) {
-      return;
-    }
-    previousTargetIdRef.current = selectedTargetId;
-    setSearch('');
-    setMaxDepth(null);
-    setSelectedObjectTypes([]);
-  }, [selectedTargetId]);
 
   const objectTypeFilter =
     selectedObjectTypes.length > 0 ? selectedObjectTypes : null;
@@ -42,9 +31,9 @@ export function ShareAccessSummary({
   const preview = useSharePolicyPreview({
     rootItemId: itemId,
     principalType: shareType,
-    principalId: selectedTargetId,
+    principalId: selectedTargetId ?? '',
     limit: 50,
-    search,
+    q: search,
     maxDepth,
     objectType: objectTypeFilter,
     enabled: selectedTargetId !== null && expanded
@@ -52,12 +41,14 @@ export function ShareAccessSummary({
 
   if (!selectedTargetId) return null;
 
-  const accessibleCount =
-    preview.summary.directCount +
-    preview.summary.derivedCount +
-    preview.summary.includedCount;
-  const noAccessCount =
-    preview.summary.deniedCount + preview.summary.excludedCount;
+  const accessibleCount = preview.summary
+    ? preview.summary.directCount +
+      preview.summary.derivedCount +
+      preview.summary.includedCount
+    : 0;
+  const noAccessCount = preview.summary
+    ? preview.summary.deniedCount + preview.summary.excludedCount
+    : 0;
 
   const toggleObjectTypeFilter = (objectType: VfsObjectType) => {
     setSelectedObjectTypes((previous) =>
@@ -91,6 +82,7 @@ export function ShareAccessSummary({
         )}
         <span className="font-medium">Access details</span>
         {expanded &&
+          preview.summary &&
           preview.summary.totalMatchingNodes > 0 &&
           !preview.loading && (
             <span className="ml-auto text-[11px]">
@@ -122,7 +114,7 @@ export function ShareAccessSummary({
           <ShareAccessSummaryResults
             nodes={preview.nodes}
             loading={preview.loading}
-            error={preview.error}
+            error={preview.error ? preview.error.message : null}
             hasMore={preview.hasMore}
             onLoadMore={() => void preview.loadMore()}
           />

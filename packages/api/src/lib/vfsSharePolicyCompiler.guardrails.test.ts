@@ -82,7 +82,7 @@ function createSingleDecisionQuery(calls: QueryCall[]) {
     if (text.includes('FROM vfs_registry')) {
       return {
         rows: [
-          { id: 'root-1', object_type: 'contact' },
+          { id: 'root-1', object_type: 'contactGroup' },
           { id: 'item-1', object_type: 'walletItem' }
         ] as T[]
       };

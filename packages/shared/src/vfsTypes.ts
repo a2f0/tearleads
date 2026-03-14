@@ -1,61 +1,87 @@
-// VFS types
-export interface VfsUserKeysResponse {
-  publicEncryptionKey: string;
-  publicSigningKey: string;
-  encryptedPrivateKeys?: string;
-  argon2Salt?: string;
-}
+export type VfsAclPrincipalType = 'user' | 'group' | 'organization';
+export type VfsAclAccessLevel = 'read' | 'write' | 'admin';
 
-export interface VfsKeySetupRequest {
-  publicEncryptionKey: string;
-  publicSigningKey?: string; // Optional for now, not yet implemented
-  encryptedPrivateKeys: string;
-  argon2Salt: string;
-}
+export type VfsObjectType =
+  | 'file'
+  | 'folder'
+  | 'organization'
+  | 'user'
+  | 'group'
+  | 'email'
+  | 'device'
+  | 'photo'
+  | 'audio'
+  | 'video'
+  | 'contact'
+  | 'note'
+  | 'mlsMessage'
+  | 'conversation'
+  | 'emailFolder'
+  | 'playlist'
+  | 'album'
+  | 'contactGroup'
+  | 'tag'
+  | 'healthReading'
+  | 'blob';
 
-export const VFS_OBJECT_TYPES = [
-  // Entities
+export const VFS_OBJECT_TYPES: VfsObjectType[] = [
   'file',
+  'folder',
+  'organization',
+  'user',
+  'group',
+  'email',
+  'device',
   'photo',
   'audio',
   'video',
   'contact',
   'note',
-  'email',
   'mlsMessage',
   'conversation',
-  'healthReading',
-  // Collections
-  'folder',
   'emailFolder',
   'playlist',
   'album',
   'contactGroup',
-  'tag'
-] as const;
+  'tag',
+  'healthReading',
+  'blob'
+];
 
-export type VfsObjectType = (typeof VFS_OBJECT_TYPES)[number];
-
-export const VFS_CONTAINER_OBJECT_TYPES = [
+export const VFS_CONTAINER_OBJECT_TYPES: VfsObjectType[] = [
   'folder',
+  'organization',
+  'user',
+  'group',
   'emailFolder',
-  'playlist',
-  'contact'
-] as const;
+  'album',
+  'contactGroup'
+];
 
-export type VfsContainerObjectType =
-  (typeof VFS_CONTAINER_OBJECT_TYPES)[number];
+export type VfsSyncChangeType =
+  | 'upsert'
+  | 'delete'
+  | 'acl'
+  | 'acl_add'
+  | 'acl_remove'
+  | 'link_add'
+  | 'link_remove'
+  | 'item_upsert'
+  | 'item_delete'
+  | 'link_reassign';
 
-export interface VfsRegisterRequest {
-  id: string;
-  objectType: VfsObjectType;
-  encryptedSessionKey: string;
-  encryptedName?: string;
-}
+export type VfsCrdtOpType =
+  | 'acl_add'
+  | 'acl_remove'
+  | 'link_add'
+  | 'link_remove'
+  | 'link_reassign'
+  | 'item_upsert'
+  | 'item_delete';
 
-export interface VfsRegisterResponse {
-  id: string;
-  createdAt: string;
+export interface VfsSyncCursor {
+  changedAt: string;
+  changeId: string;
 }
 
 export interface VfsSyncBloomFilter {
@@ -64,18 +90,13 @@ export interface VfsSyncBloomFilter {
   errorRate: number;
 }
 
-// VFS sync + ACL types
-export type VfsAclPrincipalType = 'user' | 'group' | 'organization';
-export type VfsAclAccessLevel = 'read' | 'write' | 'admin';
-export type VfsSyncChangeType = 'upsert' | 'delete' | 'acl';
-
 export interface VfsSyncItem {
   changeId: string;
   itemId: string;
-  changeType: VfsSyncChangeType;
+  changeType: string;
   changedAt: string;
-  objectType: VfsObjectType | null;
-  encryptedName?: string | null;
+  objectType: string | null;
+  encryptedName: string | null;
   ownerId: string | null;
   createdAt: string | null;
   accessLevel: VfsAclAccessLevel;
@@ -87,24 +108,10 @@ export interface VfsSyncResponse {
   hasMore: boolean;
 }
 
-export interface VfsSyncReconcileRequest {
-  clientId: string;
-  cursor: string;
-}
-
 export interface VfsSyncReconcileResponse {
   clientId: string;
   cursor: string;
 }
-
-export type VfsCrdtOpType =
-  | 'acl_add'
-  | 'acl_remove'
-  | 'link_add'
-  | 'link_remove'
-  | 'link_reassign'
-  | 'item_upsert'
-  | 'item_delete';
 
 export interface VfsCrdtSyncItem {
   opId: string;
@@ -120,15 +127,15 @@ export interface VfsCrdtSyncItem {
   sourceId: string;
   occurredAt: string;
   /** Encrypted operation payload (base64-encoded ciphertext) */
-  encryptedPayload?: string;
+  encryptedPayload?: string | null;
   /** Key epoch used for encryption */
-  keyEpoch?: number;
+  keyEpoch?: number | null;
   /** Encryption nonce (base64-encoded) */
-  encryptionNonce?: string;
+  encryptionNonce?: string | null;
   /** Additional authenticated data hash (base64-encoded) */
-  encryptionAad?: string;
+  encryptionAad?: string | null;
   /** Operation signature for integrity verification (base64-encoded) */
-  encryptionSignature?: string;
+  encryptionSignature?: string | null;
 }
 
 export interface VfsCrdtSyncResponse {
@@ -140,6 +147,7 @@ export interface VfsCrdtSyncResponse {
 }
 
 export interface VfsCrdtReconcileRequest {
+  organizationId?: string | null;
   clientId: string;
   cursor: string;
   lastReconciledWriteIds?: Record<string, number>;
@@ -178,6 +186,7 @@ export interface VfsCrdtPushOperation {
 }
 
 export interface VfsCrdtPushRequest {
+  organizationId?: string | null;
   clientId: string;
   operations: VfsCrdtPushOperation[];
 }
@@ -202,6 +211,7 @@ export interface VfsCrdtPushResponse {
 }
 
 export interface VfsCrdtSyncSessionRequest {
+  organizationId?: string | null;
   clientId: string;
   cursor: string;
   limit: number;
@@ -221,6 +231,22 @@ export interface VfsCrdtSyncSessionResponse {
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';
 
+export interface VfsWrappedKeyPayload {
+  recipientUserId: string;
+  recipientPublicKeyId: string;
+  keyEpoch: number;
+  encryptedKey: string;
+  senderSignature: string;
+}
+
+export interface VfsOrgWrappedKeyPayload {
+  recipientOrgId: string;
+  recipientPublicKeyId: string;
+  keyEpoch: number;
+  encryptedKey: string;
+  senderSignature: string;
+}
+
 export interface VfsShare {
   id: string;
   itemId: string;
@@ -232,10 +258,6 @@ export interface VfsShare {
   createdByEmail: string;
   createdAt: string;
   expiresAt: string | null;
-  /**
-   * Wrapped key metadata for encrypted user shares.
-   * Present when server has persisted share-key material for this share.
-   */
   wrappedKey?: VfsWrappedKeyPayload;
 }
 
@@ -251,11 +273,54 @@ export interface VfsOrgShare {
   createdByEmail: string;
   createdAt: string;
   expiresAt: string | null;
-  /**
-   * Wrapped key metadata for encrypted org shares.
-   * Present when server has persisted share-key material for this share.
-   */
   wrappedKey?: VfsOrgWrappedKeyPayload;
+}
+
+export interface VfsKeySetupRequest {
+  publicEncryptionKey: string;
+  publicSigningKey: string;
+  encryptedPrivateKeys: string;
+  argon2Salt: string;
+}
+
+export interface VfsUserKeysResponse {
+  publicEncryptionKey: string;
+  publicSigningKey: string;
+  publicKeyIds?: string[];
+  encryptedPrivateKeys?: string;
+  argon2Salt?: string;
+}
+
+export interface VfsRekeyRequest {
+  reason: 'manual' | 'unshare' | 'expiry';
+  newEpoch: number;
+  wrappedKeys: VfsWrappedKeyPayload[];
+  itemId?: string;
+  encryptedSessionKey?: string;
+  keyEpoch?: number;
+}
+
+export interface VfsRekeyResponse {
+  success: boolean;
+  itemId: string;
+  newEpoch: number;
+  wrapsApplied: number;
+}
+
+export interface VfsSharesResponse {
+  shares: VfsShare[];
+  orgShares: VfsOrgShare[];
+}
+
+export interface ShareTargetSearchResult {
+  id: string;
+  type: VfsShareType;
+  name: string;
+  description: string | null;
+}
+
+export interface ShareTargetSearchResponse {
+  results: ShareTargetSearchResult[];
 }
 
 export interface CreateVfsShareRequest {
@@ -264,10 +329,6 @@ export interface CreateVfsShareRequest {
   targetId: string;
   permissionLevel: VfsPermissionLevel;
   expiresAt?: string | null;
-  /**
-   * Wrapped key payload for encrypted user shares.
-   * Must target the same user as `targetId` when provided.
-   */
   wrappedKey?: VfsWrappedKeyPayload | null;
 }
 
@@ -277,47 +338,33 @@ export interface CreateOrgShareRequest {
   targetOrgId: string;
   permissionLevel: VfsPermissionLevel;
   expiresAt?: string | null;
-  /**
-   * Wrapped key payload for encrypted org shares.
-   * Must target the same org as `targetOrgId` when provided.
-   */
   wrappedKey?: VfsOrgWrappedKeyPayload | null;
 }
 
-export interface VfsSharesResponse {
-  shares: VfsShare[];
-  orgShares: VfsOrgShare[];
-}
-
 export interface UpdateVfsShareRequest {
-  permissionLevel?: VfsPermissionLevel;
+  shareId: string;
+  permissionLevel?: VfsPermissionLevel | null;
   expiresAt?: string | null;
+  clearExpiresAt?: boolean;
 }
 
-export interface ShareTargetSearchResult {
-  id: string;
-  type: VfsShareType;
-  name: string;
-  description?: string | undefined;
+export interface VfsSharePolicyPreviewRequest {
+  rootItemId: string;
+  principalType: VfsAclPrincipalType;
+  principalId: string;
+  limit: number;
+  cursor?: string | null;
+  maxDepth?: number | null;
+  q?: string | null;
+  objectType?: VfsObjectType[] | null;
 }
-
-export interface ShareTargetSearchResponse {
-  results: ShareTargetSearchResult[];
-}
-
-export type VfsSharePolicyPreviewState =
-  | 'included'
-  | 'excluded'
-  | 'denied'
-  | 'direct'
-  | 'derived';
 
 export interface VfsSharePolicyPreviewNode {
   itemId: string;
   objectType: VfsObjectType;
   depth: number;
   path: string;
-  state: VfsSharePolicyPreviewState;
+  state: string;
   effectiveAccessLevel: VfsAclAccessLevel | null;
   sourcePolicyIds: string[];
 }
@@ -332,98 +379,31 @@ export interface VfsSharePolicyPreviewSummary {
   excludedCount: number;
 }
 
-export interface VfsSharePolicyPreviewRequest {
-  rootItemId: string;
-  principalType: VfsShareType;
-  principalId: string;
-  limit?: number;
-  cursor?: string | null;
-  maxDepth?: number | null;
-  q?: string | null;
-  objectType?: string[] | null;
-}
-
 export interface VfsSharePolicyPreviewResponse {
   nodes: VfsSharePolicyPreviewNode[];
   summary: VfsSharePolicyPreviewSummary;
   nextCursor: string | null;
 }
 
-/**
- * Item shared by the current user with others (outgoing share).
- * Includes the item details plus share metadata about who it was shared with.
- */
-export interface VfsSharedByMeItem {
+export interface VfsRegisterRequest {
   id: string;
-  objectType: VfsObjectType;
-  name: string;
-  createdAt: string;
-  shareId: string;
-  targetId: string;
-  targetName: string;
-  shareType: VfsShareType;
-  permissionLevel: VfsPermissionLevel;
-  sharedAt: string;
-  expiresAt: string | null;
+  objectType: string;
+  encryptedSessionKey: string;
+  encryptedName?: string;
 }
 
-/**
- * Item shared with the current user by others (incoming share).
- * Includes the item details plus share metadata about who shared it.
- */
-export interface VfsSharedWithMeItem {
+export interface VfsRegisterResponse {
   id: string;
-  objectType: VfsObjectType;
-  name: string;
   createdAt: string;
-  shareId: string;
-  sharedById: string;
-  sharedByEmail: string;
-  shareType: VfsShareType;
-  permissionLevel: VfsPermissionLevel;
-  sharedAt: string;
-  expiresAt: string | null;
 }
 
-/**
- * Wrapped key payload for a single recipient.
- * Contains the encrypted session key and sender signature.
- */
-export interface VfsWrappedKeyPayload {
-  recipientUserId: string;
-  recipientPublicKeyId: string;
+export interface CommitBlobRequest {
+  stagingId: string;
+  uploadId: string;
   keyEpoch: number;
-  encryptedKey: string;
-  senderSignature: string;
-}
-
-/**
- * Wrapped key payload for a target organization.
- * Mirrors user wrapped-key metadata with org recipient identity.
- */
-export interface VfsOrgWrappedKeyPayload {
-  recipientOrgId: string;
-  recipientPublicKeyId: string;
-  keyEpoch: number;
-  encryptedKey: string;
-  senderSignature: string;
-}
-
-/**
- * Request to rotate the encryption key for a VFS item.
- * Client generates the new epoch and wraps for all active recipients.
- */
-export interface VfsRekeyRequest {
-  reason: 'unshare' | 'expiry' | 'manual';
-  newEpoch: number;
-  wrappedKeys: VfsWrappedKeyPayload[];
-}
-
-/**
- * Response from a successful rekey operation.
- */
-export interface VfsRekeyResponse {
-  itemId: string;
-  newEpoch: number;
-  wrapsApplied: number;
+  manifestHash: string;
+  manifestSignature: string;
+  chunkCount: number;
+  totalPlaintextBytes: number;
+  totalCiphertextBytes: number;
 }

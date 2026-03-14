@@ -94,7 +94,10 @@ export async function updateShareDirect(
     const values: (string | Date | null)[] = [];
     let paramIndex = 1;
 
-    if (payload.permissionLevel !== undefined) {
+    if (
+      payload.permissionLevel !== undefined &&
+      payload.permissionLevel !== null
+    ) {
       updates.push(`access_level = $${paramIndex++}`);
       values.push(
         mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel)

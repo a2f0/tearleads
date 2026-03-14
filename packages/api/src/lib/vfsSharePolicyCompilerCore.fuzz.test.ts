@@ -58,9 +58,9 @@ function buildScenario(seed: number): CoreInput {
 
   const nonContainerObjectTypes = ['walletItem', 'healthWorkoutEntry', 'note'];
   const registryItems: RegistryItemType[] = [
-    { id: 'root-0', objectType: 'contact' },
-    { id: 'root-1', objectType: 'playlist' },
-    { id: 'root-2', objectType: 'contact' },
+    { id: 'root-0', objectType: 'contactGroup' },
+    { id: 'root-1', objectType: 'album' },
+    { id: 'root-2', objectType: 'contactGroup' },
     ...itemIds.map((itemId) => ({
       id: itemId,
       objectType: pick(nonContainerObjectTypes, rng)

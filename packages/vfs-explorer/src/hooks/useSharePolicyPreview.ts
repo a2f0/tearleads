@@ -1,148 +1,156 @@
 import type {
+  VfsAclPrincipalType,
+  VfsObjectType,
   VfsSharePolicyPreviewNode,
-  VfsSharePolicyPreviewSummary,
-  VfsShareType
+  VfsSharePolicyPreviewRequest,
+  VfsSharePolicyPreviewResponse,
+  VfsSharePolicyPreviewSummary
 } from '@tearleads/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
 interface UseSharePolicyPreviewOptions {
   rootItemId: string;
-  principalType: VfsShareType;
-  principalId: string | null;
-  limit?: number;
-  search?: string;
-  maxDepth?: number | null;
-  objectType?: string[] | null;
+  principalType: VfsAclPrincipalType;
+  principalId: string;
   enabled?: boolean;
+  limit?: number;
+  maxDepth?: number | null;
+  q?: string | null;
+  objectType?: VfsObjectType[] | null;
 }
 
 interface UseSharePolicyPreviewResult {
   nodes: VfsSharePolicyPreviewNode[];
-  summary: VfsSharePolicyPreviewSummary;
-  nextCursor: string | null;
-  hasMore: boolean;
+  summary: VfsSharePolicyPreviewSummary | null;
   loading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
+  error: Error | null;
+  hasMore: boolean;
   loadMore: () => Promise<void>;
+  refetch: () => Promise<void>;
+  // Filters
+  maxDepth: number | null;
+  setMaxDepth: (depth: number | null) => void;
+  q: string;
+  setQ: (query: string) => void;
+  selectedObjectTypes: VfsObjectType[];
+  toggleObjectType: (type: VfsObjectType) => void;
+  clearFilters: () => void;
 }
-
-const EMPTY_SUMMARY: VfsSharePolicyPreviewSummary = {
-  totalMatchingNodes: 0,
-  returnedNodes: 0,
-  directCount: 0,
-  derivedCount: 0,
-  deniedCount: 0,
-  includedCount: 0,
-  excludedCount: 0
-};
 
 export function useSharePolicyPreview(
   options: UseSharePolicyPreviewOptions
 ): UseSharePolicyPreviewResult {
   const { vfsShareApi } = useVfsExplorerContext();
-  const previewApi = vfsShareApi?.getSharePolicyPreview;
   const [nodes, setNodes] = useState<VfsSharePolicyPreviewNode[]>([]);
-  const [summary, setSummary] =
-    useState<VfsSharePolicyPreviewSummary>(EMPTY_SUMMARY);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [summary, setSummary] = useState<VfsSharePolicyPreviewSummary | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const latestRequestIdRef = useRef(0);
+  const [error, setError] = useState<Error | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
-  const limit = options.limit ?? 100;
-  const search = options.search?.trim() ?? '';
+  // Filters
+  const [maxDepth, setMaxDepth] = useState<number | null>(
+    options.maxDepth ?? null
+  );
+  const [q, setQ] = useState(options.q ?? '');
+  const [selectedObjectTypes, setSelectedObjectTypes] = useState<
+    VfsObjectType[]
+  >(options.objectType ?? []);
 
-  const fetchPreview = useCallback(
-    async (cursor: string | null, append: boolean) => {
-      if (!previewApi || !options.principalId || !options.enabled) {
+  const fetchPage = useCallback(
+    async (cursor: string | null) => {
+      if (!options.enabled) return;
+      if (!vfsShareApi?.getSharePolicyPreview) {
+        setError(new Error('VFS share API is unavailable'));
         return;
       }
 
-      const requestId = latestRequestIdRef.current + 1;
-      latestRequestIdRef.current = requestId;
       setLoading(true);
-      setError(null);
       try {
-        const response = await previewApi({
+        const request: VfsSharePolicyPreviewRequest = {
           rootItemId: options.rootItemId,
           principalType: options.principalType,
           principalId: options.principalId,
-          limit,
+          limit: options.limit ?? 20,
           cursor,
-          maxDepth: options.maxDepth ?? null,
-          q: search.length > 0 ? search : null,
-          objectType: options.objectType ?? null
-        });
-        if (requestId !== latestRequestIdRef.current) {
-          return;
+          maxDepth,
+          q: q.trim() || null,
+          objectType:
+            selectedObjectTypes.length > 0 ? selectedObjectTypes : null
+        };
+
+        const response: VfsSharePolicyPreviewResponse =
+          await vfsShareApi.getSharePolicyPreview(request);
+
+        if (cursor) {
+          setNodes((prev) => [...prev, ...response.nodes]);
+        } else {
+          setNodes(response.nodes);
         }
-        setNodes((prev) =>
-          append ? [...prev, ...response.nodes] : response.nodes
-        );
         setSummary(response.summary);
-        setNextCursor(response.nextCursor);
+        setNextCursor(response.nextCursor ?? null);
+        setError(null);
       } catch (err) {
-        if (requestId !== latestRequestIdRef.current) {
-          return;
-        }
-        console.error('Failed to fetch share policy preview:', err);
-        setError('Failed to load preview');
+        setError(err instanceof Error ? err : new Error('Unknown error'));
       } finally {
-        if (requestId === latestRequestIdRef.current) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     },
     [
-      previewApi,
-      options.principalId,
       options.enabled,
       options.rootItemId,
       options.principalType,
-      limit,
-      options.maxDepth,
-      search,
-      options.objectType
+      options.principalId,
+      options.limit,
+      maxDepth,
+      q,
+      selectedObjectTypes,
+      vfsShareApi
     ]
   );
 
-  const refetch = useCallback(async () => {
-    setNodes([]);
-    setSummary(EMPTY_SUMMARY);
-    setNextCursor(null);
-    await fetchPreview(null, false);
-  }, [fetchPreview]);
+  useEffect(() => {
+    fetchPage(null);
+  }, [fetchPage]);
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loading) {
-      return;
+    if (nextCursor && !loading) {
+      await fetchPage(nextCursor);
     }
-    await fetchPreview(nextCursor, true);
-  }, [nextCursor, loading, fetchPreview]);
+  }, [nextCursor, loading, fetchPage]);
 
-  useEffect(() => {
-    if (!options.enabled || !options.principalId || !previewApi) {
-      latestRequestIdRef.current += 1;
-      setNodes([]);
-      setSummary(EMPTY_SUMMARY);
-      setNextCursor(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    void refetch();
-  }, [options.enabled, options.principalId, previewApi, refetch]);
+  const refetch = useCallback(async () => {
+    await fetchPage(null);
+  }, [fetchPage]);
+
+  const toggleObjectType = useCallback((type: VfsObjectType) => {
+    setSelectedObjectTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setMaxDepth(null);
+    setQ('');
+    setSelectedObjectTypes([]);
+  }, []);
 
   return {
     nodes,
     summary,
-    nextCursor,
-    hasMore: nextCursor !== null,
     loading,
     error,
+    hasMore: nextCursor !== null,
+    loadMore,
     refetch,
-    loadMore
+    maxDepth,
+    setMaxDepth,
+    q,
+    setQ,
+    selectedObjectTypes,
+    toggleObjectType,
+    clearFilters
   };
 }

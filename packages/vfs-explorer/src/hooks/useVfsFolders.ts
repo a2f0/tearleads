@@ -1,6 +1,6 @@
 import {
-  contacts,
-  playlists,
+  albums,
+  contactGroups,
   vfsLinks,
   vfsRegistry
 } from '@tearleads/db/sqlite';
@@ -8,7 +8,6 @@ import { VFS_CONTAINER_OBJECT_TYPES } from '@tearleads/shared';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
-import { contactNameSql } from '../lib/vfsNameSql';
 import type { VfsObjectType } from '../lib/vfsTypes';
 
 export interface VfsFolderNode {
@@ -30,6 +29,13 @@ export interface UseVfsFoldersResult {
 
 const TREE_CONTAINER_TYPES = VFS_CONTAINER_OBJECT_TYPES;
 const DATABASE_NOT_INITIALIZED_ERROR_MESSAGE = 'Database not initialized';
+
+function isTreeContainerType(value: unknown): value is VfsObjectType {
+  return (
+    typeof value === 'string' &&
+    TREE_CONTAINER_TYPES.some((objectType) => objectType === value)
+  );
+}
 
 function isDatabaseNotInitializedError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -63,12 +69,12 @@ export function useVfsFolders(): UseVfsFoldersResult {
       const db = getDatabase();
       const folderNameExpr = sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
-        ${playlists.encryptedName},
-        ${contactNameSql()},
+        ${albums.encryptedName},
+        ${contactGroups.encryptedName},
         CASE ${vfsRegistry.objectType}
-          WHEN 'playlist' THEN 'Unnamed Playlist'
           WHEN 'emailFolder' THEN 'Unnamed Folder'
-          WHEN 'contact' THEN 'Unnamed Contact'
+          WHEN 'album' THEN 'Unnamed Album'
+          WHEN 'contactGroup' THEN 'Unnamed Group'
           ELSE 'Unnamed Folder'
         END
       )`;
@@ -80,8 +86,8 @@ export function useVfsFolders(): UseVfsFoldersResult {
           createdAt: vfsRegistry.createdAt
         })
         .from(vfsRegistry)
-        .leftJoin(playlists, eq(playlists.id, vfsRegistry.id))
-        .leftJoin(contacts, eq(contacts.id, vfsRegistry.id))
+        .leftJoin(albums, eq(albums.id, vfsRegistry.id))
+        .leftJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
         .where(inArray(vfsRegistry.objectType, TREE_CONTAINER_TYPES));
 
       if (folderRows.length === 0) {
@@ -126,11 +132,13 @@ export function useVfsFolders(): UseVfsFoldersResult {
       // Build flat list of folder nodes
       const nodeMap = new Map<string, VfsFolderNode>();
       for (const folder of folderRows) {
-        const objectType =
-          folder.objectType as (typeof TREE_CONTAINER_TYPES)[number];
+        if (!isTreeContainerType(folder.objectType)) {
+          continue;
+        }
+
         nodeMap.set(folder.id, {
           id: folder.id,
-          objectType,
+          objectType: folder.objectType,
           name: folder.name,
           parentId: parentMap.get(folder.id) || null,
           childCount: childCountMap.get(folder.id) || 0,
@@ -146,12 +154,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
           if (parent) {
             parent.children?.push(node);
           }
-        } else if (
-          TREE_CONTAINER_TYPES.includes(
-            node.objectType as (typeof TREE_CONTAINER_TYPES)[number]
-          )
-        ) {
-          // Any supported container type may be a tree root when unlinked.
+        } else {
           rootFolders.push(node);
         }
       }

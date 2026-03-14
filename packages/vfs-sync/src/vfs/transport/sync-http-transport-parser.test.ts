@@ -6,20 +6,23 @@ import {
   parseApiReconcileResponse
 } from './sync-http-transport-parser';
 
+const OCCURRED_AT = '2026-02-21T10:00:00.000Z';
+const OCCURRED_AT_MS = Date.parse(OCCURRED_AT);
+
 function createEncryptedItem(keyEpoch: number): Record<string, unknown> {
   return {
-    opId: 'op-1',
-    itemId: 'item-1',
+    opId: encodeUtf8ToBase64('op-1'),
+    itemId: encodeUtf8ToBase64('item-1'),
     opType: 'acl_add',
     principalType: null,
     principalId: null,
     accessLevel: null,
     parentId: null,
     childId: null,
-    actorId: 'user-1',
+    actorId: encodeUtf8ToBase64('user-1'),
     sourceTable: 'vfs_acl_entries',
-    sourceId: 'row-1',
-    occurredAt: new Date('2026-02-21T10:00:00.000Z').toISOString(),
+    sourceId: encodeUtf8ToBase64('row-1'),
+    occurredAtMs: OCCURRED_AT_MS,
     encryptedPayload: 'base64-ciphertext',
     keyEpoch
   };
@@ -71,8 +74,8 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     const response = parseApiPullResponse({
       items: [
         {
-          opId: 'op-2',
-          itemId: 'item-2',
+          opId: encodeUtf8ToBase64('op-2'),
+          itemId: encodeUtf8ToBase64('item-2'),
           opType: 'item_upsert',
           principalType: '',
           principalId: '',
@@ -81,8 +84,8 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
           childId: '',
           actorId: '',
           sourceTable: 'vfs_item_state',
-          sourceId: 'row-2',
-          occurredAt: new Date('2026-02-21T10:00:01.000Z').toISOString()
+          sourceId: encodeUtf8ToBase64('row-2'),
+          occurredAtMs: Date.parse('2026-02-21T10:00:01.000Z')
         }
       ],
       nextCursor: null,
@@ -114,7 +117,7 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
           actorId: 'user-1',
           sourceTable: 'vfs_crdt_client_push',
           sourceId: 'desktop:1',
-          occurredAt: new Date('2026-02-21T10:00:02.000Z').toISOString()
+          occurredAtMs: Date.parse('2026-02-21T10:00:02.000Z')
         }
       ],
       nextCursor: null,
@@ -144,7 +147,7 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
             actorId: 'user-1',
             sourceTable: 'vfs_crdt_client_push',
             sourceId: 'desktop:2',
-            occurredAt: new Date('2026-02-21T10:00:03.000Z').toISOString()
+            occurredAtMs: Date.parse('2026-02-21T10:00:03.000Z')
           }
         ],
         nextCursor: null,
@@ -154,13 +157,13 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     ).toThrow(/invalid link payload at items\[0\]/);
   });
 
-  it('parses compact push response fields', () => {
+  it('parses canonical push response fields', () => {
     const response = parseApiPushResponse({
-      clientIdBytes: encodeUtf8ToBase64('desktop'),
+      clientId: encodeUtf8ToBase64('desktop'),
       results: [
         {
-          opIdBytes: encodeUtf8ToBase64('desktop-1'),
-          statusEnum: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+          opId: encodeUtf8ToBase64('desktop-1'),
+          status: 'applied'
         }
       ]
     });
@@ -176,20 +179,42 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     });
   });
 
-  it('parses compact pull item fields', () => {
+  it('parses protobuf enum push response fields', () => {
+    const response = parseApiPushResponse({
+      clientId: encodeUtf8ToBase64('desktop'),
+      results: [
+        {
+          opId: encodeUtf8ToBase64('desktop-9'),
+          status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+        }
+      ]
+    });
+
+    expect(response).toEqual({
+      clientId: 'desktop',
+      results: [
+        {
+          opId: 'desktop-9',
+          status: 'applied'
+        }
+      ]
+    });
+  });
+
+  it('parses canonical pull item fields', () => {
     const response = parseApiPullResponse({
       items: [
         {
-          opIdBytes: encodeUtf8ToBase64('desktop-2'),
-          itemIdBytes: encodeUtf8ToBase64('item-2'),
-          opTypeEnum: 5,
-          principalTypeEnum: 2,
-          principalIdBytes: encodeUtf8ToBase64('group-1'),
-          accessLevelEnum: 2,
-          actorIdBytes: encodeUtf8ToBase64('user-1'),
+          opId: encodeUtf8ToBase64('desktop-2'),
+          itemId: encodeUtf8ToBase64('item-2'),
+          opType: 'item_upsert',
+          principalType: 'group',
+          principalId: encodeUtf8ToBase64('group-1'),
+          accessLevel: 'write',
+          actorId: encodeUtf8ToBase64('user-1'),
           sourceTable: 'vfs_crdt_client_push',
-          sourceIdBytes: encodeUtf8ToBase64('source-row-2'),
-          occurredAtMs: '1740132001000'
+          sourceId: encodeUtf8ToBase64('source-row-2'),
+          occurredAtMs: 1740132001000
         }
       ],
       nextCursor: null,
@@ -212,13 +237,49 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     );
   });
 
-  it('parses compact reconcile response fields', () => {
+  it('parses protobuf enum pull item fields', () => {
+    const response = parseApiPullResponse({
+      items: [
+        {
+          opId: encodeUtf8ToBase64('desktop-3'),
+          itemId: encodeUtf8ToBase64('item-3'),
+          opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
+          principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
+          principalId: encodeUtf8ToBase64('group-2'),
+          accessLevel: 'VFS_ACL_ACCESS_LEVEL_WRITE',
+          actorId: encodeUtf8ToBase64('user-2'),
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: encodeUtf8ToBase64('source-row-3'),
+          occurredAtMs: '1740132002000'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response.items[0]).toEqual(
+      expect.objectContaining({
+        opId: 'desktop-3',
+        itemId: 'item-3',
+        opType: 'item_upsert',
+        principalType: 'group',
+        principalId: 'group-2',
+        accessLevel: 'write',
+        actorId: 'user-2',
+        sourceId: 'source-row-3',
+        occurredAt: '2025-02-21T10:00:02.000Z'
+      })
+    );
+  });
+
+  it('parses canonical reconcile response fields', () => {
     const cursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T20:10:05.000Z',
-      changeId: 'desktop-5'
+      changeId: '00000000-0000-0000-0000-000000000005'
     });
     const response = parseApiReconcileResponse({
-      clientIdBytes: encodeUtf8ToBase64('desktop'),
+      clientId: encodeUtf8ToBase64('desktop'),
       cursor,
       lastReconciledWriteIds: { desktop: 5 }
     });

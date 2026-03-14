@@ -178,10 +178,7 @@ describe('vfsDirectBlobFinalize', () => {
         uploadId: 'upload-1',
         keyEpoch: 1,
         manifestHash: 'hash-1',
-        manifestSignature: 'sig-1',
-        chunkCount: 1,
-        totalPlaintextBytes: 4,
-        totalCiphertextBytes: 4
+        manifestSignature: 'sig-1'
       },
       {
         requestHeader: new Headers()
@@ -212,10 +209,7 @@ describe('vfsDirectBlobFinalize', () => {
           uploadId: '',
           keyEpoch: 0,
           manifestHash: '',
-          manifestSignature: '',
-          chunkCount: 0,
-          totalPlaintextBytes: -1,
-          totalCiphertextBytes: -1
+          manifestSignature: ''
         },
         {
           requestHeader: new Headers()
@@ -245,10 +239,7 @@ describe('vfsDirectBlobFinalize', () => {
           uploadId: 'upload-1',
           keyEpoch: 1,
           manifestHash: 'hash-1',
-          manifestSignature: 'sig-1',
-          chunkCount: 1,
-          totalPlaintextBytes: 4,
-          totalCiphertextBytes: 4
+          manifestSignature: 'sig-1'
         },
         {
           requestHeader: new Headers()
@@ -286,10 +277,7 @@ describe('vfsDirectBlobFinalize', () => {
           uploadId: 'upload-1',
           keyEpoch: 1,
           manifestHash: 'hash-1',
-          manifestSignature: 'sig-1',
-          chunkCount: 1,
-          totalPlaintextBytes: 4,
-          totalCiphertextBytes: 4
+          manifestSignature: 'sig-1'
         },
         {
           requestHeader: new Headers()

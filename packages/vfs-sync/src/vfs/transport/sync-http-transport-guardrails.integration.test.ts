@@ -12,6 +12,11 @@ import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
+const SEED_CURSOR_OP_ID = '00000000-0000-0000-0000-000000000101';
+const SEED_WRITE_ID_OP_ID = '00000000-0000-0000-0000-000000000102';
+const PAGE_TAIL_OP_ID = '00000000-0000-0000-0000-000000000103';
+const REGRESSED_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000201';
+const DRIFTED_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000202';
 
 describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
   it('fails closed when reconcile acknowledgement regresses cursor frontier', async () => {
@@ -19,7 +24,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     await server.pushOperations({
       operations: [
         {
-          opId: 'seed-cursor',
+          opId: SEED_CURSOR_OP_ID,
           opType: 'acl_add',
           itemId: 'item-1',
           replicaId: 'desktop',
@@ -54,7 +59,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
           ...payload,
           cursor: encodeVfsSyncCursor({
             changedAt: '2000-01-01T00:00:00.000Z',
-            changeId: 'regressed-op'
+            changeId: REGRESSED_CURSOR_CHANGE_ID
           })
         };
       }
@@ -84,7 +89,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     await server.pushOperations({
       operations: [
         {
-          opId: 'seed-1',
+          opId: SEED_WRITE_ID_OP_ID,
           opType: 'acl_add',
           itemId: 'item-1',
           replicaId: 'desktop',
@@ -147,7 +152,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
     await server.pushOperations({
       operations: [
         {
-          opId: 'op-1',
+          opId: PAGE_TAIL_OP_ID,
           opType: 'link_add',
           itemId: 'item-1',
           replicaId: 'desktop',
@@ -166,7 +171,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
           ...payload,
           nextCursor: encodeVfsSyncCursor({
             changedAt: '1999-01-01T00:00:00.000Z',
-            changeId: 'cursor-regression'
+            changeId: DRIFTED_CURSOR_CHANGE_ID
           })
         };
       }

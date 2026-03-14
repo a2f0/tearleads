@@ -10,6 +10,10 @@ import {
 } from '../index.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { createServerBackedFetch } from './sync-http-transport.integration-harness.js';
+import {
+  OLDEST_CURSOR_CHANGE_ID,
+  REQUESTED_CURSOR_CHANGE_ID
+} from './syncHttpTransportTestHelpers.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
 
@@ -25,11 +29,11 @@ describe('VfsHttpCrdtSyncTransport rematerialization integration', () => {
 
     const requestedCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-10T00:00:00.000Z',
-      changeId: 'op-old'
+      changeId: REQUESTED_CURSOR_CHANGE_ID
     });
     const oldestAvailableCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T00:00:00.000Z',
-      changeId: 'op-compaction-frontier'
+      changeId: OLDEST_CURSOR_CHANGE_ID
     });
 
     let interceptCount = 0;

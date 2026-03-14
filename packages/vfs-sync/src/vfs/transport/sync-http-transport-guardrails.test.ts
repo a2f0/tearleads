@@ -3,6 +3,7 @@ import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
+const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
 
 function connectJsonEnvelope(payload: unknown): string {
   return JSON.stringify({ json: JSON.stringify(payload) });
@@ -41,7 +42,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
             clientId: 'wrong-client',
             cursor: encodeVfsSyncCursor({
               changedAt: '2026-02-14T20:00:00.000Z',
-              changeId: 'op-1'
+              changeId: RECONCILE_CURSOR_CHANGE_ID
             }),
             lastReconciledWriteIds: {}
           }),
@@ -64,7 +65,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
         clientId: 'desktop',
         cursor: {
           changedAt: '2026-02-14T20:00:00.000Z',
-          changeId: 'op-1'
+          changeId: RECONCILE_CURSOR_CHANGE_ID
         },
         lastReconciledWriteIds: {}
       })
