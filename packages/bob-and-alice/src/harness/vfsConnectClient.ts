@@ -46,10 +46,7 @@ function packIdentifierToBytes(value: string): Uint8Array {
   if (hex.length === 32 && /^[0-9a-fA-F]{32}$/u.test(hex)) {
     const bytes = new Uint8Array(16);
     for (let index = 0; index < 16; index += 1) {
-      bytes[index] = Number.parseInt(
-        hex.slice(index * 2, index * 2 + 2),
-        16
-      );
+      bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
     }
     return bytes;
   }
@@ -208,7 +205,8 @@ function encodePushOperation(
     payload['principalId'] = encodeIdentifierToBase64(operation.principalId);
   }
   if (operation.accessLevel) {
-    payload['accessLevel'] = PUSH_ACCESS_LEVEL_ENUMS[operation.accessLevel] ?? 0;
+    payload['accessLevel'] =
+      PUSH_ACCESS_LEVEL_ENUMS[operation.accessLevel] ?? 0;
   }
   if (operation.parentId) {
     payload['parentId'] = encodeIdentifierToBase64(operation.parentId);
@@ -238,14 +236,20 @@ function encodePushOperation(
   return payload;
 }
 
-function encodePushRequest(request: VfsCrdtPushRequest): Record<string, unknown> {
+function encodePushRequest(
+  request: VfsCrdtPushRequest
+): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     clientId: encodeIdentifierToBase64(request.clientId),
-    operations: request.operations.map((operation) => encodePushOperation(operation))
+    operations: request.operations.map((operation) =>
+      encodePushOperation(operation)
+    )
   };
 
   if (typeof request.organizationId === 'string' && request.organizationId) {
-    payload['organizationId'] = encodeIdentifierToBase64(request.organizationId);
+    payload['organizationId'] = encodeIdentifierToBase64(
+      request.organizationId
+    );
   }
 
   return payload;
@@ -337,7 +341,10 @@ export async function fetchVfsConnectJson(input: {
   methodName: string;
   requestBody?: Record<string, unknown> | VfsCrdtPushRequest;
 }): Promise<
-  VfsSyncResponse | VfsCrdtSyncResponse | VfsCrdtPushResponse | Record<string, unknown>
+  | VfsSyncResponse
+  | VfsCrdtSyncResponse
+  | VfsCrdtPushResponse
+  | Record<string, unknown>
 > {
   let requestBody: Record<string, unknown>;
   if (input.methodName === 'PushCrdtOps') {
@@ -346,7 +353,7 @@ export async function fetchVfsConnectJson(input: {
     }
     requestBody = encodePushRequest(input.requestBody);
   } else {
-    requestBody = input.requestBody ?? {};
+    requestBody = isPlainRecord(input.requestBody) ? input.requestBody : {};
   }
 
   const envelope = await input.actor.fetchJson<unknown>(

@@ -23,6 +23,8 @@ import { ensureVfsKeysExist } from '../harness/ensureVfsKeysExist.js';
 import { getApiDeps } from '../harness/getApiDeps.js';
 import { fetchVfsConnectJson } from '../harness/vfsConnectClient.js';
 
+type ScenarioActor = ReturnType<ApiScenarioHarness['actor']>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
