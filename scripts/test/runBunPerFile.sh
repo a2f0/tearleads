@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-Usage: runBunPerFile.sh [--preload <path>] [--root <path>] [--timeout <secs>]
+Usage: runBunPerFile.sh [--preload <path>] [--root <path>] [--timeout <secs>] [--coverage]
 
 Runs Bun tests one file at a time to avoid cross-file mock leakage.
 Test files are discovered under <root> (default: src) using:
@@ -14,12 +14,14 @@ Options:
   --preload <path>    Preload script for bun test
   --root <path>       Root directory to search for test files (default: src)
   --timeout <secs>    Per-file timeout in seconds; timed-out files are skipped
+  --coverage          Collect lcov coverage per file and merge into coverage/lcov.info
 EOF
 }
 
 preload=""
 search_root="src"
 per_file_timeout=""
+coverage=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -46,6 +48,9 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       per_file_timeout="$1"
+      ;;
+    --coverage)
+      coverage="1"
       ;;
     -h|--help)
       usage
@@ -89,12 +94,22 @@ if [ -z "$test_files" ]; then
 fi
 
 temp_file=$(mktemp "${TMPDIR:-/tmp}/runBunPerFile.XXXXXX")
-trap 'rm -f "$temp_file"' EXIT HUP INT TERM
+
+# When coverage is enabled, create a temp dir for per-file lcov fragments
+cov_tmp_dir=""
+if [ -n "$coverage" ]; then
+  cov_tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/runBunPerFileCov.XXXXXX")
+  trap 'rm -f "$temp_file"; rm -rf "$cov_tmp_dir"' EXIT HUP INT TERM
+else
+  trap 'rm -f "$temp_file"' EXIT HUP INT TERM
+fi
+
 printf '%s\n' "$test_files" > "$temp_file"
 
 passed=0
 failed=0
 skipped=0
+file_index=0
 
 while IFS= read -r test_file; do
   if [ -z "$test_file" ]; then
@@ -107,6 +122,13 @@ while IFS= read -r test_file; do
   if [ -n "$preload" ]; then
     set -- "$@" --preload "$preload"
   fi
+
+  if [ -n "$coverage" ]; then
+    file_cov_dir="$cov_tmp_dir/$file_index"
+    set -- "$@" --coverage --coverage-reporter=lcov --coverage-dir="$file_cov_dir"
+    file_index=$((file_index + 1))
+  fi
+
   set -- "$@" "$test_file"
 
   if [ -n "$per_file_timeout" ]; then
@@ -123,16 +145,30 @@ while IFS= read -r test_file; do
       fi
     fi
   else
-    "$@"
-    passed=$((passed + 1))
+    if "$@"; then
+      passed=$((passed + 1))
+    else
+      echo "runBunPerFile: FAIL $test_file" >&2
+      failed=$((failed + 1))
+    fi
   fi
 done < "$temp_file"
 
 total=$((passed + failed + skipped))
+echo "runBunPerFile: $passed passed, $failed failed, $skipped skipped / $total total"
 
-if [ -n "$per_file_timeout" ]; then
-  echo "runBunPerFile: $passed passed, $failed failed, $skipped skipped (timeout) / $total total"
-  if [ "$failed" -gt 0 ]; then
-    exit 1
-  fi
+# Merge per-file lcov fragments into coverage/lcov.info
+if [ -n "$coverage" ]; then
+  mkdir -p coverage
+  : > coverage/lcov.info
+  for lcov_file in "$cov_tmp_dir"/*/lcov.info; do
+    if [ -f "$lcov_file" ]; then
+      cat "$lcov_file" >> coverage/lcov.info
+    fi
+  done
+  echo "runBunPerFile: merged coverage into coverage/lcov.info"
+fi
+
+if [ "$failed" -gt 0 ]; then
+  exit 1
 fi

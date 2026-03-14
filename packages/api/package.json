@@ -46,7 +46,7 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --preload ./src/test/bunSetup.ts --root src --coverage"
   },
   "keywords": [
     "api",
@@ -83,7 +83,6 @@
     "@types/nodemailer": "7.0.11",
     "@types/pg": "8.16.0",
     "@types/supertest": "7.2.0",
-    "@vitest/coverage-v8": "4.0.18",
     "commander": "14.0.3",
     "esbuild": "0.27.3",
     "supertest": "7.2.2",
