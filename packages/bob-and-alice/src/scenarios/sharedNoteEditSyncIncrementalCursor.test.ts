@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import {
   buildVfsSharesV2ConnectMethodPath,
   buildVfsV2ConnectMethodPath,
+  createConnectJsonPostInit,
+  normalizeVfsCrdtSyncConnectPayload,
+  parseConnectJsonEnvelopeBody,
   VFS_V2_CONNECT_BASE_PATH,
   type VfsCrdtPushOperation,
-  type VfsCrdtPushResponse,
-  type VfsCrdtSyncItem,
-  type VfsCrdtSyncResponse
+  type VfsCrdtPushResponse
 } from '@tearleads/shared';
 import {
   encodeVfsSyncCursor,
@@ -32,6 +33,42 @@ function toBase64(value: string): string {
 
 function connectJsonEnvelope(payload: unknown): string {
   return JSON.stringify({ json: JSON.stringify(payload) });
+}
+
+function unwrapConnectPayload(payload: unknown): unknown {
+  let current = parseConnectJsonEnvelopeBody(payload);
+  let unwrapDepth = 0;
+
+  while (
+    isRecord(current) &&
+    'result' in current &&
+    current['result'] !== undefined
+  ) {
+    if (unwrapDepth >= 8) {
+      throw new Error('transport returned cyclic connect result wrapper');
+    }
+
+    current = parseConnectJsonEnvelopeBody(current['result']);
+    unwrapDepth += 1;
+  }
+
+  return current;
+}
+
+async function fetchRawCrdtSyncPage(input: {
+  actor: ScenarioActor;
+  requestBody: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const envelope = await input.actor.fetchJson<unknown>(
+    buildVfsV2ConnectMethodPath('GetCrdtSync'),
+    createConnectJsonPostInit(input.requestBody)
+  );
+  const payload = unwrapConnectPayload(envelope);
+  if (!isRecord(payload)) {
+    throw new Error('expected GetCrdtSync to return an object payload');
+  }
+
+  return payload;
 }
 
 function buildItemUpsertOperation(input: {
@@ -152,21 +189,18 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       occurredAt: new Date(baseOccurredAtMs).toISOString(),
       plaintext: 'bob-seed'
     });
-    const bobPush = await bob.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'bob-client',
-          operations: [bobPushOperation]
-        })
+    const bobPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: bob,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'bob-client',
+        operations: [bobPushOperation]
       }
-    );
+    });
     expect(bobPush.results[0]?.status).toBe('applied');
 
     let staleCursor: VfsSyncCursor | null = null;
-    let staleItem: VfsCrdtSyncItem | null = null;
+    let staleItem: Record<string, unknown> | null = null;
     let staleLastWriteIds: Record<string, number> = {};
     let staleReplayCount = 0;
     const injectStaleReplay: ApiActorFetchInterceptor = async ({
@@ -225,16 +259,23 @@ describe('shared note edit sync incremental cursor guardrail', () => {
     }
     staleLastWriteIds = bobSyncClient.snapshot().lastReconciledWriteIds;
 
-    staleItem =
-      (
-        await fetchVfsConnectJson<VfsCrdtSyncResponse>({
-          actor: bob,
-          methodName: 'GetCrdtSync',
-          requestBody: {
-            limit: 200
-          }
-        })
-      ).items.find((item) => item.opId === staleCursor?.changeId) ?? null;
+    const stalePage = await fetchRawCrdtSyncPage({
+      actor: bob,
+      requestBody: {
+        limit: 200
+      }
+    });
+    const stalePageItems = stalePage['items'];
+    if (!Array.isArray(stalePageItems)) {
+      throw new Error('expected GetCrdtSync to return an items array');
+    }
+    const normalizedStalePage = normalizeVfsCrdtSyncConnectPayload(stalePage);
+    const staleItemIndex = normalizedStalePage.items.findIndex(
+      (item) => item.opId === staleCursor.changeId
+    );
+    const rawStaleItem =
+      staleItemIndex >= 0 ? stalePageItems[staleItemIndex] : null;
+    staleItem = isRecord(rawStaleItem) ? rawStaleItem : null;
     if (!staleItem) {
       throw new Error('expected to find Bob cursor item in CRDT feed');
     }
@@ -247,17 +288,14 @@ describe('shared note edit sync incremental cursor guardrail', () => {
       occurredAt: new Date(baseOccurredAtMs + 1_000).toISOString(),
       plaintext: 'alice-edit-v2'
     });
-    const alicePush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client',
-          operations: [alicePushOperation]
-        })
+    const alicePush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client',
+        operations: [alicePushOperation]
       }
-    );
+    });
     expect(alicePush.results[0]?.status).toBe('applied');
 
     const stateBeforeStalePull = bobSyncClient.exportState();

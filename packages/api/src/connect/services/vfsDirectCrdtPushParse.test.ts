@@ -248,5 +248,27 @@ describe('vfsDirectCrdtPushParse', () => {
         }
       });
     });
+
+    it('accepts ISO occurredAt values from connect router adapters', () => {
+      const result = parsePushPayload({
+        clientId: 'client-1',
+        operations: [
+          {
+            ...buildValidAclAddOperation(),
+            occurredAt: '2026-02-16T00:00:00.000Z'
+          }
+        ]
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error('Expected parsePushPayload to succeed');
+      }
+
+      expect(result.value.operations[0]?.status).toBe('parsed');
+      expect(result.value.operations[0]?.operation?.occurredAt).toBe(
+        '2026-02-16T00:00:00.000Z'
+      );
+    });
   });
 });

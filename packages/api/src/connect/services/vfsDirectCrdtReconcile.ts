@@ -39,7 +39,6 @@ export async function reconcileCrdtDirect(
     buildVfsV2ConnectMethodPath('ReconcileCrdt'),
     context.requestHeader,
     {
-      requireDeclaredOrganization: true,
       declaredOrganizationId
     }
   );

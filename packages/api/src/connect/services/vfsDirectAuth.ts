@@ -68,14 +68,14 @@ async function resolveVfsOrganizationId(
     options.declaredOrganizationId
   );
 
-  if (options.requireDeclaredOrganization) {
-    if (!declaredOrganizationId) {
+  if (!declaredOrganizationId) {
+    if (options.requireDeclaredOrganization) {
       throw new ConnectError(
         'organizationId is required in request body for VFS write requests',
         Code.InvalidArgument
       );
     }
-
+  } else {
     if (
       headerOrganizationId !== null &&
       headerOrganizationId !== declaredOrganizationId

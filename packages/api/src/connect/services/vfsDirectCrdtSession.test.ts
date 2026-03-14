@@ -278,7 +278,6 @@ describe('vfsDirectCrdtSession', () => {
       '/connect/tearleads.v2.VfsService/RunCrdtSession',
       expect.any(Headers),
       {
-        requireDeclaredOrganization: true,
         declaredOrganizationId: 'org-1'
       }
     );

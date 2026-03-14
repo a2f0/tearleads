@@ -70,6 +70,21 @@ function parseEnum<T extends string>(
   return null;
 }
 
+function parseOccurredAtTimestamp(value: unknown): number | null {
+  const occurredAtMs = parseInteger(value);
+  if (occurredAtMs !== null) {
+    return occurredAtMs >= 0 ? occurredAtMs : null;
+  }
+
+  const occurredAt = normalizeRequiredString(value);
+  if (!occurredAt) {
+    return null;
+  }
+
+  const parsedMs = Date.parse(occurredAt);
+  return Number.isFinite(parsedMs) && parsedMs >= 0 ? parsedMs : null;
+}
+
 function parsePushOperation(
   value: unknown,
   index: number,
@@ -87,7 +102,9 @@ function parsePushOperation(
   const itemId = parseIdentifier(value['itemId']);
   const replicaId = parseIdentifier(value['replicaId']);
   const writeId = parseInteger(value['writeId']);
-  const occurredAtMs = parseInteger(value['occurredAtMs']);
+  const occurredAtMs = parseOccurredAtTimestamp(
+    value['occurredAtMs'] ?? value['occurredAt']
+  );
 
   if (
     !opType ||
@@ -96,7 +113,6 @@ function parsePushOperation(
     writeId === null ||
     writeId < 1 ||
     occurredAtMs === null ||
-    occurredAtMs < 0 ||
     replicaId !== expectedClientId
   ) {
     return {

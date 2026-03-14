@@ -192,7 +192,6 @@ export async function runCrdtSessionDirect(
     buildVfsV2ConnectMethodPath('RunCrdtSession'),
     context.requestHeader,
     {
-      requireDeclaredOrganization: true,
       declaredOrganizationId
     }
   );

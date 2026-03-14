@@ -40,7 +40,6 @@ export async function pushCrdtOpsDirect(
     buildVfsV2ConnectMethodPath('PushCrdtOps'),
     context.requestHeader,
     {
-      requireDeclaredOrganization: true,
       declaredOrganizationId
     }
   );

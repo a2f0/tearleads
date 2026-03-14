@@ -179,6 +179,28 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     });
   });
 
+  it('parses protobuf enum push response fields', () => {
+    const response = parseApiPushResponse({
+      clientId: encodeUtf8ToBase64('desktop'),
+      results: [
+        {
+          opId: encodeUtf8ToBase64('desktop-9'),
+          status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+        }
+      ]
+    });
+
+    expect(response).toEqual({
+      clientId: 'desktop',
+      results: [
+        {
+          opId: 'desktop-9',
+          status: 'applied'
+        }
+      ]
+    });
+  });
+
   it('parses canonical pull item fields', () => {
     const response = parseApiPullResponse({
       items: [
@@ -211,6 +233,42 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
         actorId: 'user-1',
         sourceId: 'source-row-2',
         occurredAt: '2025-02-21T10:00:01.000Z'
+      })
+    );
+  });
+
+  it('parses protobuf enum pull item fields', () => {
+    const response = parseApiPullResponse({
+      items: [
+        {
+          opId: encodeUtf8ToBase64('desktop-3'),
+          itemId: encodeUtf8ToBase64('item-3'),
+          opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
+          principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
+          principalId: encodeUtf8ToBase64('group-2'),
+          accessLevel: 'VFS_ACL_ACCESS_LEVEL_WRITE',
+          actorId: encodeUtf8ToBase64('user-2'),
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: encodeUtf8ToBase64('source-row-3'),
+          occurredAtMs: '1740132002000'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response.items[0]).toEqual(
+      expect.objectContaining({
+        opId: 'desktop-3',
+        itemId: 'item-3',
+        opType: 'item_upsert',
+        principalType: 'group',
+        principalId: 'group-2',
+        accessLevel: 'write',
+        actorId: 'user-2',
+        sourceId: 'source-row-3',
+        occurredAt: '2025-02-21T10:00:02.000Z'
       })
     );
   });

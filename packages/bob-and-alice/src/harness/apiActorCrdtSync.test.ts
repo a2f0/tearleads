@@ -11,11 +11,11 @@ describe('createApiActorCrdtTransport', () => {
   it('routes GetCrdtSync through ApiActor.fetch and decodes cursors', async () => {
     const requestCursor = {
       changedAt: '2026-03-08T00:00:00.000Z',
-      changeId: 'cursor-1'
+      changeId: '00000000-0000-0000-0000-000000000001'
     };
     const nextCursor = {
       changedAt: '2026-03-08T00:00:01.000Z',
-      changeId: 'cursor-2'
+      changeId: '00000000-0000-0000-0000-000000000002'
     };
     const actor = {
       alias: 'alice',
@@ -33,7 +33,6 @@ describe('createApiActorCrdtTransport', () => {
         expect(init?.body).toBe(
           JSON.stringify({
             limit: 25,
-            version: 2,
             cursor: encodeVfsSyncCursor(requestCursor)
           })
         );

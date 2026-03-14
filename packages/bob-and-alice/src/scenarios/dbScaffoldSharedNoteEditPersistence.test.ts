@@ -6,7 +6,6 @@ import type {
   VfsCrdtSyncResponse
 } from '@tearleads/shared';
 import {
-  buildVfsV2ConnectMethodPath,
   combinePublicKey,
   generateKeyPair,
   serializePublicKey
@@ -241,7 +240,10 @@ describe('DB scaffold shared note edit persistence', () => {
       }, 0);
     // Keep push timestamps above scaffolded CRDT entries so writes are never
     // interpreted as stale based on wall-clock execution time.
-    const baseOccurredAtMs = Math.max(seededNoteTimelineFloorMs, Date.now());
+    const baseOccurredAtMs = Math.max(
+      seededNoteTimelineFloorMs + 1_000,
+      Date.now()
+    );
 
     const aliceFirstEditPlaintext = 'alice-edit-after-db-scaffold';
     const aliceFirstOperation = buildItemUpsertOperation({
@@ -253,17 +255,14 @@ describe('DB scaffold shared note edit persistence', () => {
       plaintext: aliceFirstEditPlaintext
     });
     const aliceFirstPayload = aliceFirstOperation.encryptedPayload ?? '';
-    const aliceFirstPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client',
-          operations: [aliceFirstOperation]
-        })
+    const aliceFirstPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client',
+        operations: [aliceFirstOperation]
       }
-    );
+    });
     expect(aliceFirstPush.results[0]?.status).toBe('applied');
 
     // Simulate close -> reopen by rematerializing local state repeatedly.
@@ -289,17 +288,14 @@ describe('DB scaffold shared note edit persistence', () => {
       plaintext: aliceSecondEditPlaintext
     });
     const aliceSecondPayload = aliceSecondOperation.encryptedPayload ?? '';
-    const aliceSecondPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client',
-          operations: [aliceSecondOperation]
-        })
+    const aliceSecondPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client',
+        operations: [aliceSecondOperation]
       }
-    );
+    });
     expect(aliceSecondPush.results[0]?.status).toBe('applied');
 
     for (let cycle = 0; cycle < 2; cycle += 1) {
@@ -413,26 +409,23 @@ describe('DB scaffold shared note edit persistence', () => {
     expect(alicePermission.canEdit).toBe(false);
     expect(alicePermission.permissionLevel).toBe('view');
 
-    const rejectedPush = await alice.fetchJson<VfsCrdtPushResponse>(
-      buildVfsV2ConnectMethodPath('PushCrdtOps'),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: 'alice-client-readonly',
-          operations: [
-            buildItemUpsertOperation({
-              opId: `alice-op-${randomUUID()}`,
-              itemId: seededShare.noteId,
-              replicaId: 'alice-client-readonly',
-              writeId: 1,
-              occurredAt: '2026-03-07T18:00:00.000Z',
-              plaintext: 'alice-should-not-be-allowed-to-write'
-            })
-          ]
-        })
+    const rejectedPush = await fetchVfsConnectJson<VfsCrdtPushResponse>({
+      actor: alice,
+      methodName: 'PushCrdtOps',
+      requestBody: {
+        clientId: 'alice-client-readonly',
+        operations: [
+          buildItemUpsertOperation({
+            opId: `alice-op-${randomUUID()}`,
+            itemId: seededShare.noteId,
+            replicaId: 'alice-client-readonly',
+            writeId: 1,
+            occurredAt: '2026-03-07T18:00:00.000Z',
+            plaintext: 'alice-should-not-be-allowed-to-write'
+          })
+        ]
       }
-    );
+    });
     expect(rejectedPush.results[0]?.status).toBe('invalidOp');
 
     await refreshLocalStateFromApi({

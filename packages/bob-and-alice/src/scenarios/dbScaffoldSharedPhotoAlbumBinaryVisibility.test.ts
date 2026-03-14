@@ -387,10 +387,7 @@ describe('DB scaffolding shared photo album binary visibility', () => {
       uploadId,
       keyEpoch: 1,
       manifestHash: 'manifest-hash-1',
-      manifestSignature: 'manifest-signature-1',
-      chunkCount: 1,
-      totalPlaintextBytes: logoBytes.byteLength,
-      totalCiphertextBytes: logoBytes.byteLength
+      manifestSignature: 'manifest-signature-1'
     });
 
     await postVfsConnectJson(bob, harness, 'AttachBlob', {

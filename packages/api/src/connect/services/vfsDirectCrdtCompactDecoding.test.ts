@@ -42,6 +42,7 @@ describe('vfsDirectCrdtCompactDecoding', () => {
 
   it('rejects invalid integer payloads', () => {
     expect(parseInteger('x')).toBeNull();
+    expect(parseInteger('2026-03-09T12:00:00.000Z')).toBeNull();
     expect(parseInteger(true)).toBeNull();
   });
 });

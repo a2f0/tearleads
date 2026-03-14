@@ -119,7 +119,6 @@ describe('vfsDirectCrdtReconcile', () => {
       '/connect/tearleads.v2.VfsService/ReconcileCrdt',
       expect.any(Headers),
       {
-        requireDeclaredOrganization: true,
         declaredOrganizationId: 'org-1'
       }
     );

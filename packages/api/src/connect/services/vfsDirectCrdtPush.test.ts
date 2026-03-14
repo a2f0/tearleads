@@ -145,7 +145,6 @@ describe('vfsDirectCrdtPush', () => {
       '/connect/tearleads.v2.VfsService/PushCrdtOps',
       expect.any(Headers),
       {
-        requireDeclaredOrganization: true,
         declaredOrganizationId: 'org-1'
       }
     );

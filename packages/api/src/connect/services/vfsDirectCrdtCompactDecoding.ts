@@ -93,7 +93,12 @@ export function parseInteger(value: unknown): number | null {
     return value;
   }
   if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
+    const trimmed = value.trim();
+    if (!/^-?[0-9]+$/u.test(trimmed)) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
     if (Number.isSafeInteger(parsed)) return parsed;
   }
   return null;

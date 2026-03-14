@@ -1,9 +1,5 @@
 import type {
-  VfsAclAccessLevel,
-  VfsAclPrincipalType,
-  VfsCrdtOpType,
   VfsCrdtPushResponse,
-  VfsCrdtPushStatus,
   VfsCrdtReconcileResponse,
   VfsCrdtSyncItem,
   VfsCrdtSyncResponse,
@@ -15,36 +11,18 @@ import {
   decodeBase64ToBytes,
   unpackBytesToUuid
 } from '../protocol/syncProtobufNormalization.js';
+import {
+  parseNullableAccessLevel,
+  parseNullablePrincipalType,
+  parseOpType,
+  parsePushStatus
+} from './syncHttpTransportEnumParsing.js';
 
 export { parseApiErrorResponse } from './syncHttpTransportApiError.js';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const OPAQUE_IDENTIFIER_PATTERN = /^[a-z0-9:-]+$/u;
-const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'link_reassign',
-  'item_upsert',
-  'item_delete'
-];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
-const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
-const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
-  'applied',
-  'alreadyApplied',
-  'staleWriteId',
-  'outdatedOp',
-  'invalidOp',
-  'aclDenied',
-  'encryptedEnvelopeUnsupported'
-];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -138,80 +116,6 @@ function parseOptionalNullableString(
   return parseNullableString(value, fieldName);
 }
 
-function isOpType(value: unknown): value is VfsCrdtOpType {
-  return (
-    typeof value === 'string' &&
-    VALID_OP_TYPES.some((candidate) => candidate === value)
-  );
-}
-
-function parseOpType(value: unknown, fieldName: string): VfsCrdtOpType {
-  if (!isOpType(value)) {
-    throw new Error(`transport returned invalid ${fieldName}`);
-  }
-
-  return value;
-}
-
-function isPrincipalType(value: unknown): value is VfsAclPrincipalType {
-  return (
-    typeof value === 'string' &&
-    VALID_PRINCIPAL_TYPES.some((candidate) => candidate === value)
-  );
-}
-
-function parseNullablePrincipalType(
-  value: unknown,
-  fieldName: string
-): VfsAclPrincipalType | null {
-  if (
-    value === null ||
-    value === undefined ||
-    (typeof value === 'string' && value.trim().length === 0)
-  ) {
-    return null;
-  }
-
-  if (!isPrincipalType(value)) {
-    throw new Error(`transport returned invalid ${fieldName}`);
-  }
-
-  return value;
-}
-
-function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
-  return (
-    typeof value === 'string' &&
-    VALID_ACCESS_LEVELS.some((candidate) => candidate === value)
-  );
-}
-
-function parseNullableAccessLevel(
-  value: unknown,
-  fieldName: string
-): VfsAclAccessLevel | null {
-  if (
-    value === null ||
-    value === undefined ||
-    (typeof value === 'string' && value.trim().length === 0)
-  ) {
-    return null;
-  }
-
-  if (!isAccessLevel(value)) {
-    throw new Error(`transport returned invalid ${fieldName}`);
-  }
-
-  return value;
-}
-
-function isPushStatus(value: unknown): value is VfsCrdtPushStatus {
-  return (
-    typeof value === 'string' &&
-    VALID_PUSH_STATUSES.some((candidate) => candidate === value)
-  );
-}
-
 function parseOccurredAtMs(value: unknown, fieldName: string): string {
   const parsed =
     typeof value === 'number'
@@ -259,14 +163,9 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
     }
 
     const opId = parseIdentifier(rawResult['opId'], `results[${index}].opId`);
-    const statusValue = rawResult['status'];
-    if (!isPushStatus(statusValue)) {
-      throw new Error(`transport returned invalid results[${index}].status`);
-    }
-
     results.push({
       opId,
-      status: statusValue
+      status: parsePushStatus(rawResult['status'], `results[${index}].status`)
     });
   }
 

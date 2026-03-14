@@ -27,12 +27,12 @@ function readEmailIds(payload: unknown): string[] {
     return [];
   }
 
-  const emailsValue = payload['emails'];
-  if (!Array.isArray(emailsValue)) {
+  const itemsValue = payload['items'];
+  if (!Array.isArray(itemsValue)) {
     return [];
   }
 
-  return emailsValue
+  return itemsValue
     .filter(isRecord)
     .map((entry) => entry['id'])
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
@@ -40,8 +40,7 @@ function readEmailIds(payload: unknown): string[] {
 
 interface EmailDetailPayload {
   id: string;
-  rawData: string;
-  encryptedBodyPath: string | null;
+  bodyText: string;
 }
 
 function readEmailDetail(payload: unknown): EmailDetailPayload | null {
@@ -50,23 +49,14 @@ function readEmailDetail(payload: unknown): EmailDetailPayload | null {
   }
 
   const id = payload['id'];
-  const rawData = payload['rawData'];
-  const encryptedBodyPathValue = payload['encryptedBodyPath'];
-  if (typeof id !== 'string' || typeof rawData !== 'string') {
-    return null;
-  }
-
-  let encryptedBodyPath: string | null = null;
-  if (typeof encryptedBodyPathValue === 'string') {
-    encryptedBodyPath = encryptedBodyPathValue;
-  } else if (encryptedBodyPathValue != null) {
+  const bodyText = payload['bodyText'];
+  if (typeof id !== 'string' || typeof bodyText !== 'string') {
     return null;
   }
 
   return {
     id,
-    rawData,
-    encryptedBodyPath
+    bodyText
   };
 }
 
@@ -265,8 +255,7 @@ describe('DB scaffolding welcome email visibility', () => {
       bob,
       seededEmails.bob.emailItemId
     );
-    expect(bobEmailDetail.encryptedBodyPath).toBeNull();
-    expect(bobEmailDetail.rawData).toContain(SCAFFOLD_WELCOME_EMAIL_BODY_TEXT);
+    expect(bobEmailDetail.bodyText).toContain(SCAFFOLD_WELCOME_EMAIL_BODY_TEXT);
 
     const postgresEmail = await harness.ctx.pool.query<{
       encrypted_body_path: string | null;

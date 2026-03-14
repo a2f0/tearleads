@@ -261,13 +261,6 @@ export async function commitBlobDirect(
       );
     }
 
-    if (chunks.length !== payload.chunkCount) {
-      throw new ConnectError(
-        'Chunk count does not match commit payload',
-        Code.AlreadyExists
-      );
-    }
-
     const decodedChunks: Uint8Array[] = [];
     let totalCiphertextBytes = 0;
     let totalPlaintextBytes = 0;
@@ -305,19 +298,6 @@ export async function commitBlobDirect(
       decodedChunks.push(decoded);
       totalCiphertextBytes += chunk.ciphertextLength;
       totalPlaintextBytes += chunk.plaintextLength;
-    }
-
-    if (totalCiphertextBytes !== payload.totalCiphertextBytes) {
-      throw new ConnectError(
-        'Ciphertext size does not match commit payload',
-        Code.AlreadyExists
-      );
-    }
-    if (totalPlaintextBytes !== payload.totalPlaintextBytes) {
-      throw new ConnectError(
-        'Plaintext size does not match commit payload',
-        Code.AlreadyExists
-      );
     }
 
     const mergedCiphertext = new Uint8Array(totalCiphertextBytes);
