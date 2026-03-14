@@ -1,7 +1,7 @@
 import {
   base64ToBytes,
-  verifyAclOperationSignature,
-  type VfsCrdtPushOperation
+  type VfsCrdtPushOperation,
+  verifyAclOperationSignature
 } from '@tearleads/shared';
 import type { QueryResultRow } from 'pg';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
@@ -101,10 +101,7 @@ async function loadActorPublicSigningKey(input: {
       ? decodedPublicSigningKey
       : null;
 
-  input.cachedPublicSigningKeys.set(
-    input.actorId,
-    normalizedPublicSigningKey
-  );
+  input.cachedPublicSigningKeys.set(input.actorId, normalizedPublicSigningKey);
   return normalizedPublicSigningKey;
 }
 

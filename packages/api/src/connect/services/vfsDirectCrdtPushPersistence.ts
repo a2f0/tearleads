@@ -21,8 +21,12 @@ export async function insertCrdtOperation(input: {
   rowCount: number | null;
   rows: InsertedCrdtOpRow[];
 }> {
-  const encryptedPayload = serializeEnvelopeField(input.operation.encryptedPayload);
-  const encryptionNonce = serializeEnvelopeField(input.operation.encryptionNonce);
+  const encryptedPayload = serializeEnvelopeField(
+    input.operation.encryptedPayload
+  );
+  const encryptionNonce = serializeEnvelopeField(
+    input.operation.encryptionNonce
+  );
   const encryptionAad = serializeEnvelopeField(input.operation.encryptionAad);
   const encryptionSignature = serializeEnvelopeField(
     input.operation.encryptionSignature

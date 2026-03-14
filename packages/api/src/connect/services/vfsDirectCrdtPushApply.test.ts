@@ -173,9 +173,7 @@ describe('vfsDirectCrdtPushApply', () => {
         client: { query: queryMock },
         userId: 'user-1',
         organizationId: 'org-1',
-        parsedOperations: [
-          createParsedOperation(signedOperation)
-        ]
+        parsedOperations: [createParsedOperation(signedOperation)]
       });
 
       expect(result.results).toEqual([{ opId: 'op-1', status: 'applied' }]);

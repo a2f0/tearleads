@@ -59,11 +59,13 @@ describe('verifyAclPushOperationSignature', () => {
   it('rejects ACL operations with invalid signatures', async () => {
     const keyPair = generateKeyPair();
     const serializedKeyPair = serializeKeyPair(keyPair);
-    const queryMock = vi.fn().mockResolvedValue(
-      createQueryResult([
-        { public_signing_key: serializedKeyPair.ed25519PublicKey }
-      ])
-    );
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        createQueryResult([
+          { public_signing_key: serializedKeyPair.ed25519PublicKey }
+        ])
+      );
 
     const result = await verifyAclPushOperationSignature({
       actorId: 'user-1',
@@ -86,11 +88,13 @@ describe('verifyAclPushOperationSignature', () => {
     const serializedKeyPair = serializeKeyPair(keyPair);
     const operation = createAclOperation();
     const cachedPublicSigningKeys = new Map<string, Uint8Array | null>();
-    const queryMock = vi.fn().mockResolvedValue(
-      createQueryResult([
-        { public_signing_key: serializedKeyPair.ed25519PublicKey }
-      ])
-    );
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        createQueryResult([
+          { public_signing_key: serializedKeyPair.ed25519PublicKey }
+        ])
+      );
 
     const signature = signAclOperation(
       {

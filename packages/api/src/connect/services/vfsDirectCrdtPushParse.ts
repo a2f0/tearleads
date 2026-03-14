@@ -154,7 +154,9 @@ function parsePushOperation(
     operation.encryptionSignature = encryptionSignature;
   }
 
-  const operationSignature = normalizeRequiredString(value['operationSignature']);
+  const operationSignature = normalizeRequiredString(
+    value['operationSignature']
+  );
   if (operationSignature) {
     operation.operationSignature = operationSignature;
   }

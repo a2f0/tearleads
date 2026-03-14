@@ -14,12 +14,12 @@ import {
   isAclOperation,
   logAclMutationAudit
 } from './vfsDirectCrdtPushAclGuardrails.js';
-import { verifyAclPushOperationSignature } from './vfsDirectCrdtPushAclSignatures.js';
 import {
   type ApplyAclAuthorizationInfo,
   parseAccessRank,
   prepareAclOperation
 } from './vfsDirectCrdtPushAclPreflight.js';
+import { verifyAclPushOperationSignature } from './vfsDirectCrdtPushAclSignatures.js';
 import { buildAclAuditEntry } from './vfsDirectCrdtPushAclValidation.js';
 import {
   applyCanonicalItemOperation,
@@ -37,10 +37,8 @@ import {
   parseMaxWriteId,
   toPushSourceId
 } from './vfsDirectCrdtPushCanonical.js';
-import {
-  insertCrdtOperation
-} from './vfsDirectCrdtPushPersistence.js';
 import type { ParsedPushOperation } from './vfsDirectCrdtPushParse.js';
+import { insertCrdtOperation } from './vfsDirectCrdtPushPersistence.js';
 import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 
 interface ItemOwnerRow {
