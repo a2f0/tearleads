@@ -9,12 +9,12 @@ import {
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
-import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
   type AclTargetState,
   isAclOperation,
   logAclMutationAudit
 } from './vfsDirectCrdtPushAclGuardrails.js';
+import { verifyAclPushOperationSignature } from './vfsDirectCrdtPushAclSignatures.js';
 import {
   type ApplyAclAuthorizationInfo,
   parseAccessRank,
@@ -37,6 +37,9 @@ import {
   parseMaxWriteId,
   toPushSourceId
 } from './vfsDirectCrdtPushCanonical.js';
+import {
+  insertCrdtOperation
+} from './vfsDirectCrdtPushPersistence.js';
 import type { ParsedPushOperation } from './vfsDirectCrdtPushParse.js';
 import { toIsoString } from './vfsDirectCrdtRouteHelpers.js';
 
@@ -55,10 +58,6 @@ interface ExistingSourceRow {
 }
 interface ReplicaWriteHeadRow extends MaxWriteIdRow {
   replica_id: string | null;
-}
-interface InsertedCrdtOpRow {
-  id: string;
-  occurred_at: Date | string;
 }
 
 interface ApplyCrdtPushOperationsResult {
@@ -91,6 +90,7 @@ export async function applyCrdtPushOperations(input: {
   const authorizedItemIds = new Set<string>();
   const itemOwnersById = new Map<string, ItemOwnerRow>();
   const actorAccessRanksByItemId = new Map<string, number>();
+  const actorPublicSigningKeys = new Map<string, Uint8Array | null>();
   const aclTargetStateCache = new Map<string, AclTargetState>();
   const validOperations: VfsCrdtPushOperation[] = [];
   for (const entry of input.parsedOperations) {
@@ -284,6 +284,18 @@ export async function applyCrdtPushOperations(input: {
         continue;
       }
 
+      const signatureVerification = await verifyAclPushOperationSignature({
+        actorId: input.userId,
+        cachedPublicSigningKeys: actorPublicSigningKeys,
+        operation: preparedAclOperation.operationToPersist,
+        runQuery
+      });
+      if (!signatureVerification.ok) {
+        results.push({ opId: operation.opId, status: 'invalidOp' });
+        recordAclAudit('invalidOp', signatureVerification.reason);
+        continue;
+      }
+
       operationToPersist = preparedAclOperation.operationToPersist;
     }
 
@@ -340,94 +352,13 @@ export async function applyCrdtPushOperations(input: {
       operationToPersist.occurredAt,
       maxOccurredAt
     );
-    const encryptedPayload = serializeEnvelopeField(
-      operationToPersist.encryptedPayload
-    );
-    const encryptionNonce = serializeEnvelopeField(
-      operationToPersist.encryptionNonce
-    );
-    const encryptionAad = serializeEnvelopeField(
-      operationToPersist.encryptionAad
-    );
-    const encryptionSignature = serializeEnvelopeField(
-      operationToPersist.encryptionSignature
-    );
-    const insertResult = await runQuery<InsertedCrdtOpRow>(
-      'insert_crdt_op',
-      `
-      INSERT INTO vfs_crdt_ops (
-        id,
-        item_id,
-        op_type,
-        principal_type,
-        principal_id,
-        access_level,
-        parent_id,
-        child_id,
-        actor_id,
-        source_table,
-        source_id,
-        occurred_at,
-        encrypted_payload,
-        key_epoch,
-        encryption_nonce,
-        encryption_aad,
-        encryption_signature,
-        encrypted_payload_bytes,
-        encryption_nonce_bytes,
-        encryption_aad_bytes,
-        encryption_signature_bytes,
-        root_id
-      ) VALUES (
-        vfs_make_event_id('crdt'),
-        $1::uuid,
-        $2::text,
-        $3::text,
-        $4::uuid,
-        $5::text,
-        $6::uuid,
-        $7::uuid,
-        $8::uuid,
-        $9::text,
-        $10::text,
-        $11::timestamptz,
-        $12::text,
-        $13::integer,
-        $14::text,
-        $15::text,
-        $16::text,
-        $17::bytea,
-        $18::bytea,
-        $19::bytea,
-        $20::bytea,
-        $21::uuid
-      )
-      RETURNING id, occurred_at
-      `,
-      [
-        operationToPersist.itemId,
-        operationToPersist.opType,
-        operationToPersist.principalType ?? null,
-        operationToPersist.principalId ?? null,
-        operationToPersist.accessLevel ?? null,
-        operationToPersist.parentId ?? null,
-        operationToPersist.childId ?? null,
-        input.userId,
-        CRDT_CLIENT_PUSH_SOURCE_TABLE,
-        sourceId,
-        canonicalOccurredAt,
-        encryptedPayload.text,
-        operationToPersist.keyEpoch ?? null,
-        encryptionNonce.text,
-        encryptionAad.text,
-        encryptionSignature.text,
-        encryptedPayload.bytes,
-        encryptionNonce.bytes,
-        encryptionAad.bytes,
-        encryptionSignature.bytes,
-        resolveContainerId(operationToPersist)
-      ]
-    );
+    const insertResult = await insertCrdtOperation({
+      actorId: input.userId,
+      canonicalOccurredAt,
+      operation: operationToPersist,
+      runQuery,
+      sourceId
+    });
 
     const applied = (insertResult.rowCount ?? 0) > 0;
     if (applied) {

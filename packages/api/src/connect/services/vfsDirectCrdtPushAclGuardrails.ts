@@ -22,6 +22,7 @@ interface NormalizedAclBaseOperation {
   replicaId: string;
   writeId: number;
   occurredAt: string;
+  operationSignature?: string;
   principalType: VfsAclPrincipalType;
   principalId: string;
 }
@@ -59,6 +60,9 @@ function normalizeAclBaseOperation(
     ? operation.principalType
     : null;
   const principalId = normalizeRequiredString(operation.principalId);
+  const operationSignature = normalizeRequiredString(
+    operation.operationSignature
+  );
 
   if (
     !opId ||
@@ -79,6 +83,7 @@ function normalizeAclBaseOperation(
     replicaId,
     writeId: operation.writeId,
     occurredAt,
+    ...(operationSignature ? { operationSignature } : {}),
     principalType,
     principalId
   };
