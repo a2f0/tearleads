@@ -12,8 +12,9 @@ import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import {
   combinePublicKey,
   generateKeyPair,
+  normalizeVfsCrdtSyncConnectPayload,
+  normalizeVfsSyncConnectPayload,
   parseConnectJsonEnvelopeBody,
-  parseConnectJsonString,
   serializePublicKey,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
@@ -248,10 +249,18 @@ describe('DB scaffolding plaintext render integration', () => {
     });
     setTestEnv('VITE_API_URL', `${ctx.baseUrl}/v1`);
 
-    const fetchConnectVfsJson = async <TResponse,>(
+    async function fetchConnectVfsJson(
+      methodName: 'GetSync',
+      body: { limit: number; cursor?: string }
+    ): Promise<VfsSyncResponse>;
+    async function fetchConnectVfsJson(
+      methodName: 'GetCrdtSync',
+      body: { limit: number; cursor?: string }
+    ): Promise<VfsCrdtSyncResponse>;
+    async function fetchConnectVfsJson(
       methodName: 'GetSync' | 'GetCrdtSync',
       body: { limit: number; cursor?: string }
-    ): Promise<TResponse> => {
+    ): Promise<VfsSyncResponse | VfsCrdtSyncResponse> {
       const response = await fetch(
         `${ctx.baseUrl}/v1${VFS_V2_CONNECT_BASE_PATH}/${methodName}`,
         {
@@ -272,17 +281,17 @@ describe('DB scaffolding plaintext render integration', () => {
       }
       const connectEnvelope = await response.json();
       const parsedBody = parseConnectJsonEnvelopeBody(connectEnvelope);
-      if (typeof parsedBody === 'string') {
-        return parseConnectJsonString<TResponse>(parsedBody);
+      if (methodName === 'GetSync') {
+        return normalizeVfsSyncConnectPayload(parsedBody);
       }
-      return parseConnectJsonString<TResponse>(JSON.stringify(parsedBody));
-    };
+      return normalizeVfsCrdtSyncConnectPayload(parsedBody);
+    }
 
     const { api } = await import('@/lib/api');
     const getSyncSpy = vi
       .spyOn(api.vfs, 'getSync')
       .mockImplementation(async (cursor?: string, limit = 500) =>
-        fetchConnectVfsJson<VfsSyncResponse>('GetSync', {
+        fetchConnectVfsJson('GetSync', {
           limit,
           ...(cursor ? { cursor } : {})
         })
@@ -290,7 +299,7 @@ describe('DB scaffolding plaintext render integration', () => {
     const getCrdtSyncSpy = vi
       .spyOn(api.vfs, 'getCrdtSync')
       .mockImplementation(async (cursor?: string, limit = 500) =>
-        fetchConnectVfsJson<VfsCrdtSyncResponse>('GetCrdtSync', {
+        fetchConnectVfsJson('GetCrdtSync', {
           limit,
           ...(cursor ? { cursor } : {})
         })

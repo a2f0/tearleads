@@ -119,10 +119,7 @@ export const vfsConnectRouterService = {
       parseSetupKeysDirectRequest(request),
       context
     );
-    return {
-      success: response.created,
-      created: response.created
-    };
+    return { created: response.created };
   },
   register: async (
     request: VfsRegisterRpcRequest,

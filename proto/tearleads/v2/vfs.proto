@@ -33,22 +33,38 @@ service VfsService {
 message VfsGetMyKeysRequest {}
 message VfsGetMyKeysResponse {
   repeated string public_key_ids = 1;
+  string public_encryption_key = 2;
+  string public_signing_key = 3;
+  optional string encrypted_private_keys = 4;
+  optional string argon2_salt = 5;
 }
 message VfsSetupKeysRequest {
-  string public_key_id = 1;
-  string encrypted_private_key = 2;
-  string public_key_jwk_json = 3;
+  string public_encryption_key = 1;
+  string public_signing_key = 2;
+  string encrypted_private_keys = 3;
+  string argon2_salt = 4;
 }
 message VfsSetupKeysResponse {
-  bool success = 1;
+  bool created = 1;
+}
+message VfsRekeyWrappedKey {
+  string recipient_user_id = 1;
+  string recipient_public_key_id = 2;
+  int32 key_epoch = 3;
+  string encrypted_key = 4;
+  string sender_signature = 5;
 }
 message VfsRekeyItemRequest {
   string item_id = 1;
-  string encrypted_session_key = 2;
-  int32 key_epoch = 3;
+  string reason = 2;
+  int32 new_epoch = 3;
+  repeated VfsRekeyWrappedKey wrapped_keys = 4;
 }
 message VfsRekeyItemResponse {
   bool success = 1;
+  string item_id = 2;
+  int32 new_epoch = 3;
+  int32 wraps_applied = 4;
 }
 message VfsRegisterRequest {
   string id = 1;

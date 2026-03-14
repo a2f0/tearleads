@@ -83,8 +83,7 @@ export async function attachBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('AttachBlob'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const parsedBody = parseBlobAttachBody(request);

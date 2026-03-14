@@ -81,8 +81,7 @@ export async function abandonBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('AbandonBlob'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const pool = await getPostgresPool();
@@ -200,8 +199,7 @@ export async function commitBlobDirect(
   const stagingId = requireStagingId(request.stagingId);
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('CommitBlob'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   const payload = parseBlobCommitBody(request);

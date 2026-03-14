@@ -1,8 +1,10 @@
+import type { VfsCrdtSyncResponse, VfsSyncResponse } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
   isPlainRecord,
+  normalizeVfsCrdtSyncConnectPayload,
+  normalizeVfsSyncConnectPayload,
   parseConnectJsonEnvelopeBody,
-  parseConnectJsonString,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
 
@@ -41,96 +43,28 @@ function unwrapConnectPayload(payload: unknown): unknown {
   return current;
 }
 
-function normalizeLastReconciledWriteIds(
-  value: unknown
-): Record<string, number> {
-  if (!isPlainRecord(value)) {
-    return {};
-  }
-
-  const normalized: Record<string, number> = {};
-  for (const [replicaId, writeId] of Object.entries(value)) {
-    const trimmedReplicaId = replicaId.trim();
-    if (trimmedReplicaId.length === 0) {
-      continue;
-    }
-    if (
-      typeof writeId !== 'number' ||
-      !Number.isInteger(writeId) ||
-      !Number.isSafeInteger(writeId) ||
-      writeId < 1
-    ) {
-      continue;
-    }
-
-    normalized[trimmedReplicaId] = writeId;
-  }
-
-  return normalized;
-}
-
-function normalizeSyncPagePayload(
-  payload: unknown,
-  methodName: string
-): unknown {
-  if (methodName !== 'GetSync' && methodName !== 'GetCrdtSync') {
-    return payload;
-  }
-
-  const recordPayload = isPlainRecord(payload) ? payload : {};
-  const rawItems = recordPayload['items'];
-  const rawNextCursor = recordPayload['nextCursor'];
-  const rawHasMore = recordPayload['hasMore'];
-
-  const items = Array.isArray(rawItems) ? rawItems : [];
-  const nextCursor =
-    typeof rawNextCursor === 'string' && rawNextCursor.trim().length > 0
-      ? rawNextCursor
-      : null;
-  const hasMore = rawHasMore === true;
-
-  if (methodName === 'GetSync') {
-    return {
-      ...recordPayload,
-      items,
-      nextCursor,
-      hasMore
-    };
-  }
-
-  return {
-    ...recordPayload,
-    items,
-    nextCursor,
-    hasMore,
-    lastReconciledWriteIds: normalizeLastReconciledWriteIds(
-      recordPayload['lastReconciledWriteIds']
-    )
-  };
-}
-
-function toParsedJson<T>(payload: unknown): T {
-  if (isPlainRecord(payload)) {
-    return parseConnectJsonString<T>(JSON.stringify(payload));
-  }
-
-  // Harness transport should always decode to an object payload.
-  throw new Error('transport returned non-object connect payload');
-}
-
-export async function fetchVfsConnectJson<T>(input: {
+export async function fetchVfsConnectJson(input: {
   actor: ConnectJsonApiActor;
-  methodName: string;
+  methodName: 'GetSync';
   requestBody?: Record<string, unknown>;
-}): Promise<T> {
+}): Promise<VfsSyncResponse>;
+export async function fetchVfsConnectJson(input: {
+  actor: ConnectJsonApiActor;
+  methodName: 'GetCrdtSync';
+  requestBody?: Record<string, unknown>;
+}): Promise<VfsCrdtSyncResponse>;
+export async function fetchVfsConnectJson(input: {
+  actor: ConnectJsonApiActor;
+  methodName: 'GetSync' | 'GetCrdtSync';
+  requestBody?: Record<string, unknown>;
+}): Promise<VfsSyncResponse | VfsCrdtSyncResponse> {
   const envelope = await input.actor.fetchJson<unknown>(
     `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
   );
   const parsedPayload = unwrapConnectPayload(envelope);
-  const normalizedPayload = normalizeSyncPagePayload(
-    parsedPayload,
-    input.methodName
-  );
-  return toParsedJson<T>(normalizedPayload);
+  if (input.methodName === 'GetSync') {
+    return normalizeVfsSyncConnectPayload(parsedPayload);
+  }
+  return normalizeVfsCrdtSyncConnectPayload(parsedPayload);
 }

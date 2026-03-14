@@ -72,7 +72,6 @@ describe('vfsConnectRouterService', () => {
       context
     );
     expect(setupKeysResponse).toEqual({
-      success: true,
       created: true
     });
     expect(setupKeysDirectMock).toHaveBeenCalledWith(setupKeysRequest, context);

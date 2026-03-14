@@ -284,8 +284,7 @@ export async function deleteEmailDirect(
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('DeleteEmail'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   try {
@@ -383,11 +382,7 @@ export async function sendEmailDirect(
   request: SendEmailRequest,
   context: { requestHeader: Headers }
 ): Promise<{ success: boolean; messageId?: string }> {
-  await requireVfsClaims(
-    VFS_V2_SEND_EMAIL_CONNECT_PATH,
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
-  );
+  await requireVfsClaims(VFS_V2_SEND_EMAIL_CONNECT_PATH, context.requestHeader);
 
   try {
     const payload = parseSendRequestPayload(request);

@@ -377,8 +377,7 @@ export async function reconcileSyncDirect(
 ): Promise<VfsSyncReconcileResponse> {
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('ReconcileSync'),
-    context.requestHeader,
-    { requireDeclaredOrganization: true }
+    context.requestHeader
   );
 
   if (!isValidUuid(claims.sub)) {

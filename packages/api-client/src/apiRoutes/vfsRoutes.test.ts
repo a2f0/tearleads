@@ -141,12 +141,39 @@ describe('vfsRoutes', () => {
   it('accepts direct connect payloads for sync and share routes', async () => {
     requestMock
       .mockResolvedValueOnce({
-        items: [{ itemId: 'note-1' }],
+        items: [
+          {
+            changeId: 'change-1',
+            itemId: 'note-1',
+            changeType: 'upsert',
+            changedAt: '2026-03-08T00:00:00.000Z',
+            objectType: 'note',
+            encryptedName: 'encrypted-note-name',
+            ownerId: 'user-1',
+            createdAt: '2026-03-07T00:00:00.000Z',
+            accessLevel: 'read'
+          }
+        ],
         hasMore: true,
         nextCursor: 'cursor-1'
       })
       .mockResolvedValueOnce({
-        items: [{ itemId: 'note-1', opType: 'item_upsert' }],
+        items: [
+          {
+            opId: 'desktop-1',
+            itemId: 'note-1',
+            opType: 'item_upsert',
+            principalType: null,
+            principalId: null,
+            accessLevel: null,
+            parentId: null,
+            childId: null,
+            actorId: 'user-1',
+            sourceTable: 'vfs_item_state',
+            sourceId: 'source-1',
+            occurredAt: '2026-03-08T00:00:00.000Z'
+          }
+        ],
         hasMore: false,
         nextCursor: null,
         lastReconciledWriteIds: {
@@ -164,13 +191,23 @@ describe('vfsRoutes', () => {
       });
 
     await expect(vfsRoutes.getSync()).resolves.toEqual({
-      items: [{ itemId: 'note-1' }],
+      items: [
+        expect.objectContaining({
+          itemId: 'note-1',
+          changeType: 'upsert'
+        })
+      ],
       nextCursor: 'cursor-1',
       hasMore: true
     });
 
     await expect(vfsRoutes.getCrdtSync()).resolves.toEqual({
-      items: [{ itemId: 'note-1', opType: 'item_upsert' }],
+      items: [
+        expect.objectContaining({
+          itemId: 'note-1',
+          opType: 'item_upsert'
+        })
+      ],
       nextCursor: null,
       hasMore: false,
       lastReconciledWriteIds: {
