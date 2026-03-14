@@ -97,6 +97,10 @@ The CRDT transport currently uses:
 - Operation types: `acl_add`, `acl_remove`, `link_add`, `link_remove`, `link_reassign`.
 - Pull responses include `lastReconciledWriteIds` for stale-write recovery.
 - Reconcile is monotonic: cursor/write IDs must not regress.
+- ACL ops may include `operationSignature`, a base64 Ed25519 signature over a
+  versioned, length-prefixed UTF-8 encoding of
+  `opId/opType/itemId/replicaId/writeId/occurredAt/principalType/principalId/accessLevel`.
+- The canonical ACL signing spec is documented in [`../../docs/en/vfs.md`](../../docs/en/vfs.md).
 
 ### Blob model
 
