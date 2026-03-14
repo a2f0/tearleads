@@ -18,7 +18,6 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "bun test src/integration.documentFactories.test.ts src/integration.indexing.test.ts && bun test src/SearchStore.test.ts",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh src/integration.documentFactories.test.ts src/integration.indexing.test.ts src/SearchStore.test.ts"
   },
   "peerDependencies": {

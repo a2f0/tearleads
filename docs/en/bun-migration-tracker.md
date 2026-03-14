@@ -9,7 +9,7 @@ Issue: [#2773](https://github.com/a2f0/tearleads/issues/2773)
 | Phase 0: Baseline and guardrails | Complete | Baseline and SLOs documented in [bun-migration-baseline.md](./bun-migration-baseline.md). |
 | Phase 1: Bun runtime pilot (Vitest) | In progress | Pilot workflows are running; ongoing stability/perf tracking. |
 | Phase 2: PM abstraction and script decoupling | In progress | `pm.sh` routing is now broad across hooks/workflows/scripts; remaining cleanup is mostly deprecation/removal work. |
-| Phase 3: Node-only `bun test` migration | In progress | Node pilot packages now run Bun-first via `test`; Vitest fallback remains where needed. |
+| Phase 3: Node-only `bun test` migration | Complete | All 45 Bun-primary packages run `bun test` via `test` script; `testVitest` fallback scripts removed. |
 | Phase 4: Advanced compatibility remediation | In progress | Compatibility inventory is tracked in [bun-compatibility-inventory.md](./bun-compatibility-inventory.md); fallback classification is now accurate and Bun DOM setup shims are centralized. |
 | Phase 5: jsdom/UI-heavy strategy | In progress | UI-heavy Bun pilots now cover analytics, compliance, window-manager, notifications, classic, chrome-extension, contacts, app-email, app-backups, app-audio, app-keychain, app-admin, and vfs-explorer. Remaining Vitest-primary package decisions are now recorded below; next work is shared remediation against those decisions. |
 | Phase 6: CI default cutover and cleanup | Not started | Pending parity and release rehearsal gates. |
@@ -163,18 +163,7 @@ These decisions are based on the current compatibility inventory plus recent Bun
 
 ## Node Pilot Package Status
 
-| Package | Bun-primary script | Vitest fallback | Notes |
-| --- | --- | --- | --- |
-| `@tearleads/app-builder` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
-| `@tearleads/bob-and-alice` | `test` (`bun test src/**/*.test.ts`) | `testVitest` | Bun-primary full package suite with clean-checkout runtime loaders for dist-only dependencies |
-| `@tearleads/local-write-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/mls-core` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
-| `@tearleads/msw` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/app-photos` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/remote-read-orchestrator` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/app-search` | `test` (`bun test ...`) | `testVitest` | Bun-primary full package suite |
-| `@tearleads/tee-api` | `test` (`bun test`) | n/a | Bun-primary full package suite |
-| `@tearleads/app-vehicles` | `test` (`bun test`) | n/a | Bun-primary full package suite |
+All 45 Bun-primary packages now use `bun test` as their primary `test` script. The `testVitest` fallback scripts have been removed. Only `api-client` and `cli` remain Vitest-primary (see decisions above).
 
 ## Next Milestones
 

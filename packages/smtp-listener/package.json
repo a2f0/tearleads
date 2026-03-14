@@ -14,7 +14,6 @@
     "clean": "rm -rf dist",
     "start": "node dist/server.cjs",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test",
-    "testVitest": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runCoverage.sh"
   },
   "keywords": [
