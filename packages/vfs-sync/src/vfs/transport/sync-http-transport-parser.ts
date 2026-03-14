@@ -12,8 +12,8 @@ import type {
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
-  decodeBase64ToBytes,
-  unpackBytesToUuid
+  unpackBytesToUuid,
+  decodeBase64ToBytes
 } from '../protocol/syncProtobufNormalization.js';
 
 export { parseApiErrorResponse } from './syncHttpTransportApiError.js';
@@ -61,20 +61,26 @@ function parseRequiredString(value: unknown, fieldName: string): string {
 }
 
 function parseIdentifier(value: unknown, fieldName: string): string {
-  if (typeof value === 'string') {
-    const bytes = decodeBase64ToBytes(value);
-    if (bytes && bytes.length === 16) {
+  if (typeof value !== 'string') {
+    throw new Error(`transport returned invalid ${fieldName}`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`transport returned invalid ${fieldName}`);
+  }
+
+  const bytes = decodeBase64ToBytes(trimmed);
+  if (bytes) {
+    if (bytes.length === 16) {
       return unpackBytesToUuid(bytes);
     }
-    return value;
+    return new TextDecoder().decode(bytes);
   }
-  throw new Error(`transport returned invalid ${fieldName}`);
+
+  return trimmed;
 }
 
-function parseOptionalIdentifier(
-  value: unknown,
-  fieldName: string
-): string | null {
+function parseOptionalIdentifier(value: unknown, fieldName: string): string | null {
   if (value === undefined || value === null) return null;
   return parseIdentifier(value, fieldName);
 }
@@ -206,7 +212,10 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
       );
     }
 
-    const opId = parseIdentifier(rawResult['opId'], `results[${index}].opId`);
+    const opId = parseIdentifier(
+      rawResult['opId'],
+      `results[${index}].opId`
+    );
     const statusValue = rawResult['status'];
     if (!isPushStatus(statusValue)) {
       throw new Error(`transport returned invalid results[${index}].status`);
@@ -231,7 +240,10 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
 
   const parsedItem: VfsCrdtSyncItem = {
     opId: parseIdentifier(value['opId'], `items[${index}].opId`),
-    itemId: parseIdentifier(value['itemId'], `items[${index}].itemId`),
+    itemId: parseIdentifier(
+      value['itemId'],
+      `items[${index}].itemId`
+    ),
     opType: parseOpType(value['opType'], `items[${index}].opType`),
     principalType: parseNullablePrincipalType(
       value['principalType'],
@@ -261,7 +273,10 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
       value['sourceTable'],
       `items[${index}].sourceTable`
     ),
-    sourceId: parseIdentifier(value['sourceId'], `items[${index}].sourceId`),
+    sourceId: parseIdentifier(
+      value['sourceId'],
+      `items[${index}].sourceId`
+    ),
     occurredAt: new Date(Number(value['occurredAtMs'])).toISOString()
   };
 

@@ -13,6 +13,22 @@ import {
 const MAX_CLIENT_ID_LENGTH = 128;
 const MAX_PUSH_OPERATIONS = 500;
 
+const VALID_OP_TYPES: VfsCrdtOpType[] = [
+  'acl_add',
+  'acl_remove',
+  'link_add',
+  'link_remove',
+  'link_reassign',
+  'item_upsert',
+  'item_delete'
+];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
+  'user',
+  'group',
+  'organization'
+];
+const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
+
 export interface ParsedPushOperation {
   status: 'parsed' | 'invalid';
   opId: string;
@@ -37,6 +53,18 @@ function normalizeRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function parseEnum<T extends string>(
+  value: unknown,
+  validValues: T[]
+): T | null {
+  if (typeof value === 'string') {
+    if (validValues.includes(value as T)) {
+      return value as T;
+    }
+  }
+  return null;
+}
+
 function parsePushOperation(
   value: unknown,
   index: number,
@@ -50,7 +78,7 @@ function parsePushOperation(
   }
 
   const opId = parseIdentifier(value['opId']) ?? `invalid-${index}`;
-  const opType = value['opType'] as VfsCrdtOpType;
+  const opType = parseEnum(value['opType'], VALID_OP_TYPES);
   const itemId = parseIdentifier(value['itemId']);
   const replicaId = parseIdentifier(value['replicaId']);
   const writeId = parseInteger(value['writeId']);
@@ -103,14 +131,14 @@ function parsePushOperation(
   }
 
   if (opType === 'acl_add' || opType === 'acl_remove') {
-    const principalType = value['principalType'] as VfsAclPrincipalType;
+    const principalType = parseEnum(value['principalType'], VALID_PRINCIPAL_TYPES);
     const principalId = parseIdentifier(value['principalId']);
 
     if (principalType) operation.principalType = principalType;
     if (principalId) operation.principalId = principalId;
 
     if (opType === 'acl_add') {
-      const accessLevel = value['accessLevel'] as VfsAclAccessLevel;
+      const accessLevel = parseEnum(value['accessLevel'], VALID_ACCESS_LEVELS);
       if (accessLevel) operation.accessLevel = accessLevel;
     }
   }
@@ -143,11 +171,7 @@ export function parsePushPayload(body: unknown): ParsePushPayloadResult {
   }
 
   const clientId = parseIdentifier(body['clientId']);
-  if (
-    !clientId ||
-    clientId.length > MAX_CLIENT_ID_LENGTH ||
-    clientId.includes(':')
-  ) {
+  if (!clientId || clientId.length > MAX_CLIENT_ID_LENGTH || clientId.includes(':')) {
     return {
       ok: false,
       error: 'clientId must be non-empty, <=128 chars, and must not contain ":"'

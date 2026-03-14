@@ -37,14 +37,23 @@ export function bytesToUuid(bytes: Uint8Array): string {
 }
 
 export function parseIdentifier(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const bytes = decodeBase64ToBytes(value);
-    if (bytes && bytes.length === 16) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const bytes = decodeBase64ToBytes(trimmed);
+  if (bytes) {
+    if (bytes.length === 16) {
       return bytesToUuid(bytes);
     }
-    return value.trim() || null;
+    return new TextDecoder().decode(bytes);
   }
-  return null;
+
+  return trimmed;
 }
 
 export function parseInteger(value: unknown): number | null {

@@ -13,8 +13,8 @@ describe('vfsDirectCrdtCompactDecoding', () => {
     expect(parseIdentifier('client-1')).toBe('client-1');
 
     const compactUtf8 = toBase64(new TextEncoder().encode('client-2'));
-    // Since 'client-2' is not 16 bytes, it will be returned as is (trimmed)
-    expect(parseIdentifier(compactUtf8)).toBe(compactUtf8);
+    // Since 'client-2' is not 16 bytes, it will be decoded as a UTF-8 string
+    expect(parseIdentifier(compactUtf8)).toBe('client-2');
   });
 
   it('parses UUID identifiers from compact 16-byte base64 payloads', () => {
