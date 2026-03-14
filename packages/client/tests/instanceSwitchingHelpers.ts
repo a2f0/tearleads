@@ -27,6 +27,20 @@ async function getSelectedInstanceId(page: Page): Promise<string | null> {
   return testId.slice('instance-'.length);
 }
 
+async function switchToInstanceById(page: Page, instanceId: string): Promise<void> {
+  await page.getByTestId('account-switcher-button').click();
+  const targetInstance = page.getByTestId(`instance-${instanceId}`);
+  await expect(targetInstance).toBeVisible();
+  await targetInstance.click();
+
+  // Wait for the account switcher dropdown to close (indicates click was handled)
+  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+
+  await expect
+    .poll(() => getSelectedInstanceId(page), { timeout: DB_OPERATION_TIMEOUT })
+    .toBe(instanceId);
+}
+
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 const isMobileViewport = (page: Page): boolean => {
   const viewport = page.viewportSize();
@@ -207,12 +221,13 @@ export const switchToInstanceFromAnyPage = async (
   }
 
   const targetInstanceId = targetTestId.slice('instance-'.length);
-  await targetInstance.click();
+  await page.keyboard.press('Escape');
+  await switchToInstanceById(page, targetInstanceId);
+};
 
-  // Wait for the account switcher dropdown to close (indicates click was handled)
-  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
-
-  await expect
-    .poll(() => getSelectedInstanceId(page), { timeout: DB_OPERATION_TIMEOUT })
-    .toBe(targetInstanceId);
+export const switchToInstanceByIdFromAnyPage = async (
+  page: Page,
+  instanceId: string
+) => {
+  await switchToInstanceById(page, instanceId);
 };
