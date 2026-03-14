@@ -28,14 +28,8 @@ export interface ParsedVfsCrdtSyncQuery {
 }
 
 export type ParseVfsCrdtSyncQueryResult =
-  | {
-      ok: true;
-      value: ParsedVfsCrdtSyncQuery;
-    }
-  | {
-      ok: false;
-      error: string;
-    };
+  | { ok: true; value: ParsedVfsCrdtSyncQuery }
+  | { ok: false; error: string };
 
 export interface BuildVfsCrdtSyncQueryInput {
   userId: string;
@@ -72,12 +66,8 @@ export interface VfsCrdtSyncDbRow {
 }
 
 export type VfsCrdtFeedOrderViolationCode =
-  | 'invalidOccurredAt'
-  | 'missingOpId'
-  | 'duplicateOpId'
-  | 'outOfOrderRow'
-  | 'invalidLinkPayload'
-  | 'invalidEncryptedEnvelope';
+  | 'invalidOccurredAt' | 'missingOpId' | 'duplicateOpId'
+  | 'outOfOrderRow' | 'invalidLinkPayload' | 'invalidEncryptedEnvelope';
 
 export class VfsCrdtFeedOrderViolationError extends Error {
   readonly code: VfsCrdtFeedOrderViolationCode;
@@ -97,18 +87,10 @@ export class VfsCrdtFeedOrderViolationError extends Error {
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'item_upsert',
-  'item_delete'
+  'acl_add', 'acl_remove', 'link_add', 'link_remove', 'link_reassign',
+  'item_upsert', 'item_delete'
 ];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = ['user', 'group', 'organization'];
 
 function parseSyncLimit(value: unknown): number | null {
   if (value === undefined) {
@@ -435,7 +417,11 @@ export function mapVfsCrdtSyncRows(
       );
     }
 
-    if (opType === 'link_add' || opType === 'link_remove') {
+    if (
+      opType === 'link_add' ||
+      opType === 'link_remove' ||
+      opType === 'link_reassign'
+    ) {
       const hasPlaintextLinkFields = parentId !== null || childId !== null;
       const shouldRequirePlaintextLinkFields = !hasEncryptedPayload;
       if (

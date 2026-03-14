@@ -102,6 +102,58 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     );
   });
 
+  it('accepts link_reassign pull items', () => {
+    const response = parseApiPullResponse({
+      items: [
+        {
+          opId: 'op-link-reassign-1',
+          itemId: 'reading-1',
+          opType: 'link_reassign',
+          parentId: 'contact-2',
+          childId: 'reading-1',
+          actorId: 'user-1',
+          sourceTable: 'vfs_crdt_client_push',
+          sourceId: 'desktop:1',
+          occurredAt: new Date('2026-02-21T10:00:02.000Z').toISOString()
+        }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      lastReconciledWriteIds: {}
+    });
+
+    expect(response.items[0]).toEqual(
+      expect.objectContaining({
+        opType: 'link_reassign',
+        parentId: 'contact-2',
+        childId: 'reading-1'
+      })
+    );
+  });
+
+  it('rejects malformed link_reassign pull items', () => {
+    expect(() =>
+      parseApiPullResponse({
+        items: [
+          {
+            opId: 'op-link-reassign-2',
+            itemId: 'reading-1',
+            opType: 'link_reassign',
+            parentId: 'contact-2',
+            childId: 'reading-2',
+            actorId: 'user-1',
+            sourceTable: 'vfs_crdt_client_push',
+            sourceId: 'desktop:2',
+            occurredAt: new Date('2026-02-21T10:00:03.000Z').toISOString()
+          }
+        ],
+        nextCursor: null,
+        hasMore: false,
+        lastReconciledWriteIds: {}
+      })
+    ).toThrow(/invalid link payload at items\[0\]/);
+  });
+
   it('parses compact push response fields', () => {
     const response = parseApiPushResponse({
       clientIdBytes: encodeUtf8ToBase64('desktop'),

@@ -37,7 +37,7 @@ function linkItem(params: {
   parentId: string;
   childId: string;
   occurredAt: string;
-  opType?: 'link_add' | 'link_remove';
+  opType?: 'link_add' | 'link_remove' | 'link_reassign';
 }): VfsCrdtSyncItem {
   return {
     opId: params.opId,
@@ -179,6 +179,28 @@ describe('InMemoryVfsContainerClockStore', () => {
         })
       ])
     ).toThrowError(/invalid container fields/);
+  });
+
+  it('uses the parent container for link_reassign entries', () => {
+    const store = new InMemoryVfsContainerClockStore();
+
+    store.applyFeedItems([
+      linkItem({
+        opId: 'op-1',
+        parentId: 'contact-2',
+        childId: 'reading-1',
+        occurredAt: '2026-02-14T13:25:00.000Z',
+        opType: 'link_reassign'
+      })
+    ]);
+
+    expect(store.snapshot()).toEqual([
+      {
+        containerId: 'contact-2',
+        changedAt: '2026-02-14T13:25:00.000Z',
+        changeId: 'op-1'
+      }
+    ]);
   });
 
   it('remains deterministic under concurrent io', async () => {

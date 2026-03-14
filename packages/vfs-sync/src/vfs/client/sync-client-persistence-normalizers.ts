@@ -189,7 +189,11 @@ export function normalizePersistedPendingOperation(input: {
     }
   }
 
-  if (opType === 'link_add' || opType === 'link_remove') {
+  if (
+    opType === 'link_add' ||
+    opType === 'link_remove' ||
+    opType === 'link_reassign'
+  ) {
     const parentId = normalizeRequiredString(operation.parentId);
     const childId = normalizeRequiredString(operation.childId);
     if (!parentId || !childId) {

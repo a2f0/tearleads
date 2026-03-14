@@ -25,18 +25,10 @@ interface ParsedApiErrorResponse {
 }
 
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'item_upsert',
-  'item_delete'
+  'acl_add', 'acl_remove', 'link_add', 'link_remove', 'link_reassign',
+  'item_upsert', 'item_delete'
 ];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = ['user', 'group', 'organization'];
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
   'applied',
@@ -324,7 +316,11 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
     parsedItem.encryptionSignature = encryptionSignature;
   }
 
-  if (parsedItem.opType === 'link_add' || parsedItem.opType === 'link_remove') {
+  if (
+    parsedItem.opType === 'link_add' ||
+    parsedItem.opType === 'link_remove' ||
+    parsedItem.opType === 'link_reassign'
+  ) {
     /**
      * Guardrail: link graph mutations must preserve the same child scope as
      * the CRDT operation identity and must never self-link. Rejecting malformed
