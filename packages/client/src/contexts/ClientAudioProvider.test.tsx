@@ -74,7 +74,7 @@ vi.mock('@/lib/fileUtils', () => ({
 }));
 
 vi.mock('@tearleads/app-audio', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/app-audio')>(
+  const actual = await import(
     '@tearleads/app-audio'
   );
   return {

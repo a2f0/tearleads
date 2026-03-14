@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Dropzone } from './dropzone';
 
 vi.mock('@/lib/utils', async () => {
-  const actual = await vi.importActual('@/lib/utils');
+  const actual = await import('@/lib/utils');
   return { ...actual, detectPlatform: vi.fn(() => 'web') };
 });
 

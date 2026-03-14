@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tearleads/shared', async () => {
   const actual =
-    await vi.importActual<typeof import('@tearleads/shared')>(
+    await import(
       '@tearleads/shared'
     );
   return {

@@ -9,9 +9,7 @@ const mockExpandAll = vi.fn();
 const mockCollapseAll = vi.fn();
 
 vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
+  const actual = await import('@tearleads/window-manager');
 
   return {
     ...actual,
@@ -48,7 +46,7 @@ vi.mock('@tearleads/window-manager', async () => {
 });
 
 vi.mock('@/pages/opfs/OpfsBrowser', async () => {
-  const ReactModule = await vi.importActual<typeof import('react')>('react');
+  const ReactModule = await import('react');
   return {
     OpfsBrowser: ReactModule.forwardRef((_props, ref) => {
       ReactModule.useImperativeHandle(ref, () => ({

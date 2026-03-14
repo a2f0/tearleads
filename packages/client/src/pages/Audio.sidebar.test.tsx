@@ -51,7 +51,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 // Mock @tearleads/app-audio: sidebar stub + audio hooks
 vi.mock('@tearleads/app-audio', async () => ({
-  ...(await vi.importActual<typeof import('@tearleads/app-audio')>(
+  ...(await import(
     '@tearleads/app-audio'
   )),
   ALL_AUDIO_ID: '__all__',
@@ -145,7 +145,7 @@ vi.mock('@/db', () => ({
 // Mock navigation
 vi.mock('react-router-dom', async () => {
   const actual =
-    await vi.importActual<typeof import('react-router-dom')>(
+    await import(
       'react-router-dom'
     );
   return {

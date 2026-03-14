@@ -8,7 +8,7 @@ const themeState = {
 
 vi.mock('@tearleads/ui', async () => {
   const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
+    await import('@tearleads/ui');
   return {
     ...actual,
     useTheme: () => ({ resolvedTheme: themeState.resolvedTheme })

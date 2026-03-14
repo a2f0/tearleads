@@ -53,9 +53,7 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
 
 // Mock FloatingWindow component
 vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
+  const actual = await import('@tearleads/window-manager');
 
   return {
     ...actual,

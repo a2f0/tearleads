@@ -13,7 +13,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 
 vi.mock('@tearleads/ui', async () => {
   const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
+    await import('@tearleads/ui');
   return {
     ...actual,
     ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
@@ -34,9 +34,7 @@ vi.mock('@tearleads/ui', async () => {
 });
 
 vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
+  const actual = await import('@tearleads/window-manager');
   return {
     ...actual,
     DesktopFloatingWindow: ({

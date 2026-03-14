@@ -9,9 +9,7 @@ const mockDb = { name: 'vehicles-db' };
 let lastProviderProps: VehiclesRuntimeProviderProps | null = null;
 
 vi.mock('@tearleads/app-vehicles', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/app-vehicles')
-  >('@tearleads/app-vehicles');
+  const actual = await import('@tearleads/app-vehicles');
 
   return {
     ...actual,

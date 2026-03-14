@@ -22,7 +22,7 @@ const mockUnwrapKeyWithKeyPair = vi.fn();
 
 vi.mock('@tearleads/shared', async () => {
   const actual =
-    await vi.importActual<typeof import('@tearleads/shared')>(
+    await import(
       '@tearleads/shared'
     );
   return {

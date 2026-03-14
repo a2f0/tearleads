@@ -32,7 +32,7 @@ import { setTestEnv } from '../test/env.js';
 
 // Use real implementation instead of global mock (integration test with real DB)
 vi.mock('@/db/hooks/useHostRuntimeDatabaseState', async () => {
-  return await vi.importActual('@/db/hooks/useHostRuntimeDatabaseState');
+  return await import('@/db/hooks/useHostRuntimeDatabaseState');
 });
 
 import { getDatabase } from '@/db';

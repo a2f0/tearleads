@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SearchWindow } from './SearchWindow';
 
 vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
+  const actual = await import('@tearleads/window-manager');
 
   return {
     ...actual,

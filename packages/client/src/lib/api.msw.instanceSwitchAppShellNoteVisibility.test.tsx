@@ -73,9 +73,7 @@ vi.mock('@/components/markdown-editor', () => ({
 }));
 
 vi.mock('@/lib/vfsItemSyncWriter', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/lib/vfsItemSyncWriter')
-  >('@/lib/vfsItemSyncWriter');
+  const actual = await import('@/lib/vfsItemSyncWriter');
   return {
     ...actual,
     queueItemUpsertAndFlush: vi.fn(async () => undefined),

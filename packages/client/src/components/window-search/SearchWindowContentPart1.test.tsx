@@ -12,7 +12,7 @@ const mockUseIsMobile = vi.fn();
 const mockResolveFileOpenTarget = vi.fn();
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+  const actual = await import('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate

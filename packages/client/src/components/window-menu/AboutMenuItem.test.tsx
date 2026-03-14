@@ -11,9 +11,7 @@ vi.mock('@/hooks/app', () => ({
 }));
 
 vi.mock('@/components/ui/dropdown-menu', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/components/ui/dropdown-menu')
-  >('@/components/ui/dropdown-menu');
+  const actual = await import('@/components/ui/dropdown-menu');
   return {
     ...actual,
     useDropdownMenuContext: vi.fn(() => null)

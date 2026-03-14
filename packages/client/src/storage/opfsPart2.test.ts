@@ -11,7 +11,7 @@ const mockDecrypt = vi.fn();
 
 vi.mock('@tearleads/shared', async () => {
   const original =
-    await vi.importActual<typeof import('@tearleads/shared')>(
+    await import(
       '@tearleads/shared'
     );
   return {

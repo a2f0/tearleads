@@ -8,9 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies EXCEPT @tearleads/app-mls-chat to test real context integration
 vi.mock('@tearleads/window-manager', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/window-manager')
-  >('@tearleads/window-manager');
+  const actual = await import('@tearleads/window-manager');
 
   return {
     ...actual,

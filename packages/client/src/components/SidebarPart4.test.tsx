@@ -12,7 +12,7 @@ const mockNavigate = vi.fn();
 const mockOpenWindow = vi.fn();
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+  const actual = await import('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate
@@ -20,7 +20,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@/contexts/WindowManagerContext', async () => {
-  const actual = await vi.importActual('@/contexts/WindowManagerContext');
+  const actual = await import('@/contexts/WindowManagerContext');
   return {
     ...actual,
     useWindowManagerActions: () => ({

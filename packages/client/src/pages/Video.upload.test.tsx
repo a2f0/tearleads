@@ -134,7 +134,7 @@ vi.mock('@/db', () => ({
 
 vi.mock('react-router-dom', async () => {
   const actual =
-    await vi.importActual<typeof import('react-router-dom')>(
+    await import(
       'react-router-dom'
     );
   return {
