@@ -41,6 +41,7 @@ const config: KnipConfig = {
       entry: ['src/**/*.ts']
     },
     'packages/app-audio': {},
+    'packages/chrome-extension': { entry: ['src/test/setup.ts'] },
     'packages/api-test-utils': {
       entry: ['src/**/*.test.ts']
     },
