@@ -9,6 +9,7 @@ import {
   type VfsCrdtQueryMetrics
 } from '../../lib/vfsCrdtPerformanceMetrics.js';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
+import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
   isAclMutationAuthorized,
   isAclOperation,
@@ -16,7 +17,6 @@ import {
   logAclMutationAudit,
   normalizeAclOperation
 } from './vfsDirectCrdtPushAclGuardrails.js';
-import { serializeEnvelopeField } from './vfsDirectCrdtEnvelopeStorage.js';
 import {
   buildAclAuditEntry,
   validateAclOperationSemantics
