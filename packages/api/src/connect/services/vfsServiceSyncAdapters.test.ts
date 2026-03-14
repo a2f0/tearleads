@@ -1,12 +1,18 @@
 import { create, toJsonString } from '@bufbuild/protobuf';
 import {
+  VfsCrdtOpType,
   VfsCrdtPushOperationSchema,
-  VfsGetCrdtSyncResponseSchema
+  VfsGetCrdtSyncResponseSchema,
+  VfsGetSyncRequestSchema,
+  VfsPushCrdtOpsRequestSchema,
+  VfsPushCrdtOpsResponseSchema
 } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { describe, expect, it } from 'vitest';
 import {
+  toDirectGetSyncRequest,
   toDirectPushRequest,
-  toProtoCrdtSyncResponse
+  toProtoCrdtSyncResponse,
+  toProtoPushResponse
 } from './vfsServiceSyncAdapters.js';
 
 describe('toProtoCrdtSyncResponse', () => {
@@ -26,7 +32,9 @@ describe('toProtoCrdtSyncResponse', () => {
         }
       ],
       hasMore: false,
-      lastReconciledWriteIds: {}
+      lastReconciledWriteIds: {
+        desktop: 7
+      }
     });
 
     const firstItem = response.items[0];
@@ -35,17 +43,55 @@ describe('toProtoCrdtSyncResponse', () => {
     expect(firstItem?.itemId).toBeInstanceOf(Uint8Array);
 
     const message = create(VfsGetCrdtSyncResponseSchema, response);
-    expect(() =>
-      toJsonString(VfsGetCrdtSyncResponseSchema, message)
-    ).not.toThrow();
+    expect(toJsonString(VfsGetCrdtSyncResponseSchema, message)).toContain(
+      '"lastReconciledWriteIds":{"desktop":7}'
+    );
   });
 });
 
-describe('toDirectPushRequest', () => {
+describe('vfsServiceSyncAdapters', () => {
+  it('rejects inbound push operations with unspecified op types', () => {
+    const request = create(VfsPushCrdtOpsRequestSchema, {
+      organizationId: new Uint8Array([1]),
+      clientId: new Uint8Array([2]),
+      operations: [
+        {
+          opId: new Uint8Array([3]),
+          opType: VfsCrdtOpType.UNSPECIFIED,
+          itemId: new Uint8Array([4]),
+          replicaId: new Uint8Array([5]),
+          writeId: 1n,
+          occurredAtMs: 1n
+        }
+      ]
+    });
+
+    expect(() => toDirectPushRequest(request)).toThrow(/opType is invalid/);
+  });
+
+  it('rejects inbound push operations with missing required identifiers', () => {
+    const request = create(VfsPushCrdtOpsRequestSchema, {
+      organizationId: new Uint8Array([1]),
+      clientId: new Uint8Array([2]),
+      operations: [
+        {
+          opId: new Uint8Array(),
+          opType: VfsCrdtOpType.ACL_ADD,
+          itemId: new Uint8Array([4]),
+          replicaId: new Uint8Array([5]),
+          writeId: 1n,
+          occurredAtMs: 1n
+        }
+      ]
+    });
+
+    expect(() => toDirectPushRequest(request)).toThrow(/opId is required/);
+  });
+
   it('converts protobuf operation signatures into base64 strings', () => {
     const operation = create(VfsCrdtPushOperationSchema, {
       opId: new TextEncoder().encode('op-1'),
-      opType: 1,
+      opType: VfsCrdtOpType.ACL_ADD,
       itemId: new TextEncoder().encode('item-1'),
       replicaId: new TextEncoder().encode('desktop'),
       writeId: 1n,
@@ -70,5 +116,45 @@ describe('toDirectPushRequest', () => {
       replicaId: 'desktop',
       operationSignature: 'AQIDBA=='
     });
+  });
+
+  it('encodes push statuses with canonical proto enum names', () => {
+    const response = toProtoPushResponse({
+      clientId: 'desktop',
+      results: [
+        {
+          opId: 'desktop-1',
+          status: 'aclDenied'
+        }
+      ]
+    });
+
+    const message = create(VfsPushCrdtOpsResponseSchema, response);
+    expect(toJsonString(VfsPushCrdtOpsResponseSchema, message)).toContain(
+      'VFS_CRDT_PUSH_STATUS_ACL_DENIED'
+    );
+  });
+
+  it('allows omitted rootId on sync requests', () => {
+    const request = create(VfsGetSyncRequestSchema, {
+      cursor: '',
+      limit: 500
+    });
+
+    expect(toDirectGetSyncRequest(request)).toEqual({
+      cursor: '',
+      limit: 500,
+      rootId: ''
+    });
+  });
+
+  it('rejects malformed sync identifier bytes', () => {
+    expect(() =>
+      toDirectGetSyncRequest({
+        cursor: '',
+        limit: 500,
+        rootId: new Uint8Array([0xc3, 0x28])
+      })
+    ).toThrow(/Invalid identifier encoding/);
   });
 });

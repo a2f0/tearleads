@@ -43,7 +43,7 @@ describe('createApiActorCrdtTransport', () => {
             hasMore: false,
             nextCursor: encodeVfsSyncCursor(nextCursor),
             lastReconciledWriteIds: {
-              desktop: 3
+              desktop: '3'
             }
           }),
           {

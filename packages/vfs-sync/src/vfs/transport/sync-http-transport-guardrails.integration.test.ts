@@ -123,7 +123,7 @@ describe('VfsHttpCrdtSyncTransport integration guardrails', () => {
         return {
           ...payload,
           lastReconciledWriteIds: {
-            desktop: 1 // Regressed from 10
+            desktop: '1' // Regressed from 10
           }
         };
       }

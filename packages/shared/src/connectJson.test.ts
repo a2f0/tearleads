@@ -109,7 +109,7 @@ describe('connectJson helpers', () => {
             opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
             principalType: 'VFS_ACL_PRINCIPAL_TYPE_USER',
             principalId: encodeUuid('00000000-0000-0000-0000-000000000203'),
-            accessLevel: 2,
+            accessLevel: 'VFS_ACL_ACCESS_LEVEL_WRITE',
             parentId: encodeUuid('00000000-0000-0000-0000-000000000204'),
             childId: encodeUuid('00000000-0000-0000-0000-000000000205'),
             actorId: encodeUuid('00000000-0000-0000-0000-000000000206'),
@@ -127,8 +127,8 @@ describe('connectJson helpers', () => {
         hasMore: false,
         lastReconciledWriteIds: {
           desktop: '4',
-          mobile: 0,
-          '  ': 2
+          mobile: '0',
+          '  ': '2'
         }
       })
     ).toEqual({

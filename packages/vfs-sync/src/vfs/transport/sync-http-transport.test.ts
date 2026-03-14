@@ -45,7 +45,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
           results: [
             {
               opId: encodeUtf8ToBase64('desktop-1'),
-              status: 'applied'
+              status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
             }
           ]
         }),
@@ -109,14 +109,14 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(operations[0]).toEqual(
       expect.objectContaining({
         opId: encodeUtf8ToBase64('desktop-1'),
-        opType: 1,
+        opType: 'VFS_CRDT_OP_TYPE_ACL_ADD',
         itemId: encodeUtf8ToBase64('item-1'),
         replicaId: encodeUtf8ToBase64('desktop'),
-        writeId: 1,
-        occurredAtMs: Date.parse('2026-02-14T20:00:00.000Z'),
-        principalType: 2,
+        writeId: '1',
+        occurredAtMs: String(Date.parse('2026-02-14T20:00:00.000Z')),
+        principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
         principalId: encodeUtf8ToBase64('group-1'),
-        accessLevel: 1
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_READ'
       })
     );
 
@@ -144,23 +144,23 @@ describe('VfsHttpCrdtSyncTransport', () => {
             {
               opId: encodeUtf8ToBase64('desktop-2'),
               itemId: encodeUtf8ToBase64('item-1'),
-              opType: 'acl_add',
-              principalType: 'group',
+              opType: 'VFS_CRDT_OP_TYPE_ACL_ADD',
+              principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
               principalId: encodeUtf8ToBase64('group-1'),
-              accessLevel: 'write',
+              accessLevel: 'VFS_ACL_ACCESS_LEVEL_WRITE',
               parentId: null,
               childId: null,
               actorId: encodeUtf8ToBase64('user-1'),
               sourceTable: 'vfs_crdt_client_push',
               sourceId: encodeUtf8ToBase64('user-1:desktop:2:desktop-2'),
-              occurredAtMs: Date.parse('2026-02-14T20:10:01.000Z')
+              occurredAtMs: String(Date.parse('2026-02-14T20:10:01.000Z'))
             }
           ],
           nextCursor,
           hasMore: true,
           lastReconciledWriteIds: {
-            desktop: 2,
-            mobile: 5
+            desktop: '2',
+            mobile: '5'
           }
         }),
         {
@@ -240,8 +240,8 @@ describe('VfsHttpCrdtSyncTransport', () => {
             changeId: CURSOR_CHANGE_ID_5
           }),
           lastReconciledWriteIds: {
-            desktop: 5,
-            mobile: 3
+            desktop: '5',
+            mobile: '3'
           }
         }),
         {
@@ -303,7 +303,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         changeId: CURSOR_CHANGE_ID_4
       })
     );
-    expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
+    expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: '4' });
   });
 
   it('runs unified sync session over Connect and parses typed results', async () => {
@@ -314,7 +314,10 @@ describe('VfsHttpCrdtSyncTransport', () => {
             push: {
               clientId: encodeUtf8ToBase64('desktop'),
               results: [
-                { opId: encodeUtf8ToBase64('desktop-6'), status: 'applied' }
+                {
+                  opId: encodeUtf8ToBase64('desktop-6'),
+                  status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+                }
               ]
             },
             pull: {
@@ -322,16 +325,16 @@ describe('VfsHttpCrdtSyncTransport', () => {
                 {
                   opId: encodeUtf8ToBase64('desktop-7'),
                   itemId: encodeUtf8ToBase64('item-1'),
-                  opType: 'acl_add',
-                  principalType: 'group',
+                  opType: 'VFS_CRDT_OP_TYPE_ACL_ADD',
+                  principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
                   principalId: encodeUtf8ToBase64('group-1'),
-                  accessLevel: 'read',
+                  accessLevel: 'VFS_ACL_ACCESS_LEVEL_READ',
                   parentId: null,
                   childId: null,
                   actorId: encodeUtf8ToBase64('user-1'),
                   sourceTable: 'vfs_crdt_client_push',
                   sourceId: encodeUtf8ToBase64('user-1:desktop:7:desktop-7'),
-                  occurredAtMs: Date.parse('2026-02-14T20:10:07.000Z')
+                  occurredAtMs: String(Date.parse('2026-02-14T20:10:07.000Z'))
                 }
               ],
               nextCursor: encodeVfsSyncCursor({
@@ -339,7 +342,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
                 changeId: CURSOR_CHANGE_ID_7
               }),
               hasMore: false,
-              lastReconciledWriteIds: { desktop: 7 }
+              lastReconciledWriteIds: { desktop: '7' }
             },
             reconcile: {
               clientId: encodeUtf8ToBase64('desktop'),
@@ -347,7 +350,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
                 changedAt: '2026-02-14T20:10:07.000Z',
                 changeId: CURSOR_CHANGE_ID_7
               }),
-              lastReconciledWriteIds: { desktop: 7 }
+              lastReconciledWriteIds: { desktop: '7' }
             }
           }),
           {

@@ -18,10 +18,7 @@ import {
   type VfsSyncCursor
 } from '../protocol/sync-cursor.js';
 import {
-  ACCESS_LEVEL_MAP,
   encodeBytesToBase64,
-  OP_TYPE_MAP,
-  PRINCIPAL_TYPE_MAP,
   packUuidToBytes
 } from '../protocol/syncProtobufNormalization.js';
 import {
@@ -30,6 +27,11 @@ import {
   parseApiPushResponse,
   parseApiReconcileResponse
 } from './sync-http-transport-parser.js';
+import {
+  encodeConnectJsonAccessLevel,
+  encodeConnectJsonOpType,
+  encodeConnectJsonPrincipalType
+} from './syncHttpTransportEnumParsing.js';
 
 type FetchImpl = typeof fetch;
 const CRDT_REMATERIALIZATION_REQUIRED_CODE = 'crdt_rematerialization_required';
@@ -43,6 +45,37 @@ function toPackedIdBase64(value: string): string {
   return encodeBytesToBase64(packUuidToBytes(value));
 }
 
+function toConnectJsonUint64(
+  value: number,
+  fieldName: string,
+  minimum: number
+): string {
+  if (
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    value > Number.MAX_SAFE_INTEGER
+  ) {
+    throw new Error(`operation ${fieldName} must be a safe integer`);
+  }
+
+  return String(value);
+}
+
+function encodeWriteIdRecord(
+  value: Record<string, number>
+): Record<string, string> {
+  const encoded: Record<string, string> = {};
+  for (const [replicaId, writeId] of Object.entries(value)) {
+    encoded[replicaId] = toConnectJsonUint64(
+      writeId,
+      'lastReconciledWriteIds',
+      1
+    );
+  }
+  return encoded;
+}
+
 function toCompactOperation(
   operation: VfsCrdtOperation
 ): Record<string, unknown> {
@@ -54,21 +87,25 @@ function toCompactOperation(
   const compact: Record<string, unknown> = {
     ...operation,
     opId: toPackedIdBase64(operation.opId),
-    opType: OP_TYPE_MAP[operation.opType] ?? 0,
+    opType: encodeConnectJsonOpType(operation.opType),
     itemId: toPackedIdBase64(operation.itemId),
     replicaId: toPackedIdBase64(operation.replicaId),
-    writeId: operation.writeId,
-    occurredAtMs
+    writeId: toConnectJsonUint64(operation.writeId, 'writeId', 1),
+    occurredAtMs: toConnectJsonUint64(occurredAtMs, 'occurredAt', 0)
   };
 
   if (operation.principalType) {
-    compact['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
+    compact['principalType'] = encodeConnectJsonPrincipalType(
+      operation.principalType
+    );
   }
   if (operation.principalId) {
     compact['principalId'] = toPackedIdBase64(operation.principalId);
   }
   if (operation.accessLevel) {
-    compact['accessLevel'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
+    compact['accessLevel'] = encodeConnectJsonAccessLevel(
+      operation.accessLevel
+    );
   }
   if (operation.parentId) {
     compact['parentId'] = toPackedIdBase64(operation.parentId);
@@ -121,22 +158,20 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     operations: VfsCrdtOperation[];
   }): Promise<VfsCrdtSyncPushResponse> {
     const organizationId = this.resolveOrganizationId();
-    const parsed = parseApiPushResponse(
-      await this.requestConnectJson(
-        'PushCrdtOps',
-        {
-          organizationId: organizationId
-            ? toPackedIdBase64(organizationId)
-            : '',
-          clientId: toPackedIdBase64(input.clientId),
-          operations: input.operations.map((operation) =>
-            toCompactOperation(operation)
-          )
-        },
-        {
-          organizationId
-        }
+    const requestBody: Record<string, unknown> = {
+      clientId: toPackedIdBase64(input.clientId),
+      operations: input.operations.map((operation) =>
+        toCompactOperation(operation)
       )
+    };
+    if (organizationId) {
+      requestBody['organizationId'] = toPackedIdBase64(organizationId);
+    }
+
+    const parsed = parseApiPushResponse(
+      await this.requestConnectJson('PushCrdtOps', requestBody, {
+        organizationId
+      })
     );
     return {
       results: parsed.results
@@ -202,7 +237,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
           organizationId: toPackedIdBase64(organizationId),
           clientId: toPackedIdBase64(input.clientId),
           cursor: encodeVfsSyncCursor(input.cursor),
-          lastReconciledWriteIds: input.lastReconciledWriteIds
+          lastReconciledWriteIds: encodeWriteIdRecord(
+            input.lastReconciledWriteIds
+          )
         },
         {
           organizationId
@@ -242,20 +279,28 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     reconcile: VfsCrdtSyncReconcileResponse;
   }> {
     const organizationId = this.resolveOrganizationId();
+    const requestBody: Record<string, unknown> = {
+      clientId: toPackedIdBase64(input.clientId),
+      cursor: encodeVfsSyncCursor(input.cursor),
+      limit: input.limit,
+      operations: input.operations.map((operation) =>
+        toCompactOperation(operation)
+      ),
+      lastReconciledWriteIds: encodeWriteIdRecord(input.lastReconciledWriteIds)
+    };
+    if (organizationId) {
+      requestBody['organizationId'] = toPackedIdBase64(organizationId);
+    }
+    if (input.rootId) {
+      requestBody['rootId'] = toPackedIdBase64(input.rootId);
+    }
+    if (input.bloomFilter) {
+      requestBody['bloomFilter'] = input.bloomFilter;
+    }
+
     const parsedSession = await this.requestConnectJson(
       'RunCrdtSession',
-      {
-        organizationId: organizationId ? toPackedIdBase64(organizationId) : '',
-        clientId: toPackedIdBase64(input.clientId),
-        cursor: encodeVfsSyncCursor(input.cursor),
-        limit: input.limit,
-        operations: input.operations.map((operation) =>
-          toCompactOperation(operation)
-        ),
-        lastReconciledWriteIds: input.lastReconciledWriteIds,
-        rootId: input.rootId ? toPackedIdBase64(input.rootId) : null,
-        bloomFilter: input.bloomFilter ?? null
-      },
+      requestBody,
       {
         organizationId
       }

@@ -70,19 +70,18 @@ function parseEnum<T extends string>(
   return null;
 }
 
-function parseOccurredAtTimestamp(value: unknown): number | null {
-  const occurredAtMs = parseInteger(value);
-  if (occurredAtMs !== null) {
-    return occurredAtMs >= 0 ? occurredAtMs : null;
-  }
-
+function parseOccurredAt(value: unknown): string | null {
   const occurredAt = normalizeRequiredString(value);
   if (!occurredAt) {
     return null;
   }
 
   const parsedMs = Date.parse(occurredAt);
-  return Number.isFinite(parsedMs) && parsedMs >= 0 ? parsedMs : null;
+  if (!Number.isFinite(parsedMs) || parsedMs < 0) {
+    return null;
+  }
+
+  return new Date(parsedMs).toISOString();
 }
 
 function parsePushOperation(
@@ -102,9 +101,7 @@ function parsePushOperation(
   const itemId = parseIdentifier(value['itemId']);
   const replicaId = parseIdentifier(value['replicaId']);
   const writeId = parseInteger(value['writeId']);
-  const occurredAtMs = parseOccurredAtTimestamp(
-    value['occurredAtMs'] ?? value['occurredAt']
-  );
+  const occurredAt = parseOccurredAt(value['occurredAt']);
 
   if (
     !opType ||
@@ -112,7 +109,7 @@ function parsePushOperation(
     !replicaId ||
     writeId === null ||
     writeId < 1 ||
-    occurredAtMs === null ||
+    !occurredAt ||
     replicaId !== expectedClientId
   ) {
     return {
@@ -127,7 +124,7 @@ function parsePushOperation(
     itemId,
     replicaId,
     writeId,
-    occurredAt: new Date(occurredAtMs).toISOString()
+    occurredAt
   };
 
   const encryptedPayload = normalizeRequiredString(value['encryptedPayload']);

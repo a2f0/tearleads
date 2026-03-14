@@ -7,11 +7,11 @@ import {
   ACCESS_LEVEL_MAP,
   OP_TYPE_MAP,
   PRINCIPAL_TYPE_MAP,
-  PUSH_STATUS_MAP,
-  REV_ACCESS_LEVEL_MAP,
-  REV_OP_TYPE_MAP,
-  REV_PRINCIPAL_TYPE_MAP,
-  REV_PUSH_STATUS_MAP
+  PROTOBUF_ACCESS_LEVEL_MAP,
+  PROTOBUF_OP_TYPE_MAP,
+  PROTOBUF_PRINCIPAL_TYPE_MAP,
+  PROTOBUF_PUSH_STATUS_MAP,
+  PUSH_STATUS_MAP
 } from './syncProtobufNormalizationEnums.js';
 import {
   normalizeNonNegativeSafeIntegerOrNull,
@@ -72,14 +72,72 @@ export function normalizeOptionalBytesString(
   return unpackBytesToUuid(bytes);
 }
 
+function normalizeRequiredEnumValue(
+  value: string,
+  fieldName: string,
+  enumMap: Record<string, number>
+): number {
+  const normalized = enumMap[value];
+  if (typeof normalized !== 'number') {
+    throw new Error(`invalid protobuf payload field: ${fieldName}`);
+  }
+  return normalized;
+}
+
+function normalizeRequiredOccurredAt(
+  value: unknown,
+  fieldName: string
+): string {
+  const occurredAtMs = normalizeNonNegativeSafeIntegerOrNull(value);
+  if (occurredAtMs === null) {
+    throw new Error(`invalid protobuf payload field: ${fieldName}`);
+  }
+  return new Date(occurredAtMs).toISOString();
+}
+
+function normalizeDecodedEnum(
+  value: unknown,
+  fieldName: string,
+  protobufNameMap: Record<string, string>
+): string {
+  if (typeof value === 'string') {
+    const normalized = protobufNameMap[value];
+    if (typeof normalized === 'string') {
+      return normalized;
+    }
+  }
+
+  throw new Error(`invalid protobuf payload field: ${fieldName}`);
+}
+
+function normalizeOptionalDecodedEnum(
+  value: unknown,
+  fieldName: string,
+  protobufNameMap: Record<string, string>
+): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return normalizeDecodedEnum(value, fieldName, protobufNameMap);
+}
+
 export function toOperationPayload(
   operation: OperationPayloadSource
 ): Record<string, unknown> {
+  const occurredAtMs = Date.parse(operation.occurredAt);
+  if (
+    !Number.isFinite(occurredAtMs) ||
+    !Number.isSafeInteger(occurredAtMs) ||
+    occurredAtMs < 0
+  ) {
+    throw new Error('invalid protobuf payload field: occurredAt');
+  }
+
   const payload: Record<string, unknown> = {
     opId: packUuidToBytes(operation.opId),
-    opType: OP_TYPE_MAP[operation.opType] ?? 0,
+    opType: normalizeRequiredEnumValue(operation.opType, 'opType', OP_TYPE_MAP),
     itemId: packUuidToBytes(operation.itemId),
-    occurredAtMs: Date.parse(operation.occurredAt)
+    occurredAtMs
   };
   if (typeof operation.replicaId === 'string') {
     payload['replicaId'] = packUuidToBytes(operation.replicaId);
@@ -91,10 +149,18 @@ export function toOperationPayload(
     payload['principalId'] = packUuidToBytes(operation.principalId);
   }
   if (typeof operation.principalType === 'string') {
-    payload['principalType'] = PRINCIPAL_TYPE_MAP[operation.principalType] ?? 0;
+    payload['principalType'] = normalizeRequiredEnumValue(
+      operation.principalType,
+      'principalType',
+      PRINCIPAL_TYPE_MAP
+    );
   }
   if (typeof operation.accessLevel === 'string') {
-    payload['accessLevel'] = ACCESS_LEVEL_MAP[operation.accessLevel] ?? 0;
+    payload['accessLevel'] = normalizeRequiredEnumValue(
+      operation.accessLevel,
+      'accessLevel',
+      ACCESS_LEVEL_MAP
+    );
   }
   if (typeof operation.parentId === 'string') {
     payload['parentId'] = packUuidToBytes(operation.parentId);
@@ -136,33 +202,40 @@ export function toOperationPayload(
 
 export function decodePushOperation(value: unknown): Record<string, unknown> {
   const operation = asRecord(value, 'operations[]');
-  const occurredAtMs = normalizeNonNegativeSafeIntegerOrNull(
-    operation['occurredAtMs']
-  );
   const decoded: Record<string, unknown> = {
     opId: normalizeRequiredBytes(operation['opId'], 'opId'),
-    opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
+    opType: normalizeDecodedEnum(
+      operation['opType'],
+      'opType',
+      PROTOBUF_OP_TYPE_MAP
+    ),
     itemId: normalizeRequiredBytes(operation['itemId'], 'itemId'),
     replicaId: normalizeRequiredBytes(operation['replicaId'], 'replicaId'),
     writeId: normalizePositiveSafeInteger(operation['writeId'], 'writeId'),
-    occurredAt:
-      occurredAtMs !== null
-        ? new Date(occurredAtMs).toISOString()
-        : '1970-01-01T00:00:00.000Z'
+    occurredAt: normalizeRequiredOccurredAt(
+      operation['occurredAtMs'],
+      'occurredAtMs'
+    )
   };
-  const principalType = operation['principalType'];
-  if (typeof principalType === 'number' || typeof principalType === 'string') {
-    decoded['principalType'] =
-      REV_PRINCIPAL_TYPE_MAP[Number(principalType)] ?? 'user';
+  const principalType = normalizeOptionalDecodedEnum(
+    operation['principalType'],
+    'principalType',
+    PROTOBUF_PRINCIPAL_TYPE_MAP
+  );
+  if (principalType !== undefined) {
+    decoded['principalType'] = principalType;
   }
   const principalId = normalizeOptionalBytesString(operation['principalId']);
   if (principalId !== undefined) {
     decoded['principalId'] = principalId;
   }
-  const accessLevel = operation['accessLevel'];
-  if (typeof accessLevel === 'number' || typeof accessLevel === 'string') {
-    decoded['accessLevel'] =
-      REV_ACCESS_LEVEL_MAP[Number(accessLevel)] ?? 'read';
+  const accessLevel = normalizeOptionalDecodedEnum(
+    operation['accessLevel'],
+    'accessLevel',
+    PROTOBUF_ACCESS_LEVEL_MAP
+  );
+  if (accessLevel !== undefined) {
+    decoded['accessLevel'] = accessLevel;
   }
   const parentId = normalizeOptionalBytesString(operation['parentId']);
   if (parentId !== undefined) {
@@ -199,17 +272,27 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
 
 export function decodeSyncItem(value: unknown): Record<string, unknown> {
   const operation = asRecord(value, 'items[]');
-  const occurredAtMs = normalizeNonNegativeSafeIntegerOrNull(
-    operation['occurredAtMs']
+  const principalType = normalizeOptionalDecodedEnum(
+    operation['principalType'],
+    'principalType',
+    PROTOBUF_PRINCIPAL_TYPE_MAP
+  );
+  const accessLevel = normalizeOptionalDecodedEnum(
+    operation['accessLevel'],
+    'accessLevel',
+    PROTOBUF_ACCESS_LEVEL_MAP
   );
   const decoded: Record<string, unknown> = {
     opId: normalizeRequiredBytes(operation['opId'], 'opId'),
     itemId: normalizeRequiredBytes(operation['itemId'], 'itemId'),
-    opType: REV_OP_TYPE_MAP[Number(operation['opType'])] ?? 'acl_add',
-    principalType:
-      REV_PRINCIPAL_TYPE_MAP[Number(operation['principalType'])] ?? null,
+    opType: normalizeDecodedEnum(
+      operation['opType'],
+      'opType',
+      PROTOBUF_OP_TYPE_MAP
+    ),
+    principalType: principalType ?? null,
     principalId: normalizeOptionalBytesString(operation['principalId']) ?? null,
-    accessLevel: REV_ACCESS_LEVEL_MAP[Number(operation['accessLevel'])] ?? null,
+    accessLevel: accessLevel ?? null,
     parentId: normalizeOptionalBytesString(operation['parentId']) ?? null,
     childId: normalizeOptionalBytesString(operation['childId']) ?? null,
     actorId: normalizeOptionalBytesString(operation['actorId']) ?? null,
@@ -218,10 +301,10 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
       'sourceTable'
     ),
     sourceId: normalizeRequiredBytes(operation['sourceId'], 'sourceId'),
-    occurredAt:
-      occurredAtMs !== null
-        ? new Date(occurredAtMs).toISOString()
-        : '1970-01-01T00:00:00.000Z'
+    occurredAt: normalizeRequiredOccurredAt(
+      operation['occurredAtMs'],
+      'occurredAtMs'
+    )
   };
   if (typeof operation['encryptedPayload'] === 'string') {
     decoded['encryptedPayload'] = operation['encryptedPayload'];
@@ -249,9 +332,9 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
 }
 
 export function normalizePushStatus(value: unknown): string {
-  return REV_PUSH_STATUS_MAP[Number(value)] ?? 'invalidOp';
+  return normalizeDecodedEnum(value, 'status', PROTOBUF_PUSH_STATUS_MAP);
 }
 
 export function toPushStatus(value: string): number {
-  return PUSH_STATUS_MAP[value] ?? 0;
+  return normalizeRequiredEnumValue(value, 'status', PUSH_STATUS_MAP);
 }

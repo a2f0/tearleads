@@ -12,6 +12,10 @@ vi.mock('../apiCore', () => ({
 
 import { vfsRoutes } from './vfsRoutes';
 
+function encodeText(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 describe('vfsRoutes', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -75,9 +79,9 @@ describe('vfsRoutes', () => {
   it('normalizes omitted sync pagination defaults from connect responses', async () => {
     requestMock.mockResolvedValueOnce({}).mockResolvedValueOnce({
       lastReconciledWriteIds: {
-        desktop: 4,
-        mobile: 0,
-        '  ': 2
+        desktop: '4',
+        mobile: '0',
+        '  ': '2'
       }
     });
 
@@ -101,24 +105,24 @@ describe('vfsRoutes', () => {
     requestMock.mockResolvedValueOnce({
       items: [
         {
-          opId: 'desktop-1',
-          itemId: 'item-1',
-          opType: 'acl_add',
-          principalType: 'group',
-          principalId: 'group-1',
-          accessLevel: 'read',
+          opId: encodeText('desktop-1'),
+          itemId: encodeText('item-1'),
+          opType: 'VFS_CRDT_OP_TYPE_ACL_ADD',
+          principalType: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
+          principalId: encodeText('group-1'),
+          accessLevel: 'VFS_ACL_ACCESS_LEVEL_READ',
           parentId: null,
           childId: null,
-          actorId: 'user-1',
+          actorId: encodeText('user-1'),
           sourceTable: 'vfs_crdt_client_push',
-          sourceId: 'user-1:desktop:1:desktop-1',
-          occurredAt: '2026-03-08T00:00:00.000Z'
+          sourceId: encodeText('user-1:desktop:1:desktop-1'),
+          occurredAtMs: String(Date.parse('2026-03-08T00:00:00.000Z'))
         }
       ],
       nextCursor: null,
       hasMore: false,
       lastReconciledWriteIds: {
-        desktop: 1
+        desktop: '1'
       }
     });
 
@@ -138,20 +142,20 @@ describe('vfsRoutes', () => {
     });
   });
 
-  it('accepts direct connect payloads for sync and share routes', async () => {
+  it('accepts canonical connect payloads for sync and share routes', async () => {
     requestMock
       .mockResolvedValueOnce({
         items: [
           {
-            changeId: 'change-1',
-            itemId: 'note-1',
+            changeId: encodeText('change-1'),
+            itemId: encodeText('note-1'),
             changeType: 'upsert',
-            changedAt: '2026-03-08T00:00:00.000Z',
+            changedAtMs: String(Date.parse('2026-03-08T00:00:00.000Z')),
             objectType: 'note',
             encryptedName: 'encrypted-note-name',
-            ownerId: 'user-1',
-            createdAt: '2026-03-07T00:00:00.000Z',
-            accessLevel: 'read'
+            ownerId: encodeText('user-1'),
+            createdAtMs: String(Date.parse('2026-03-07T00:00:00.000Z')),
+            accessLevel: 'VFS_ACL_ACCESS_LEVEL_READ'
           }
         ],
         hasMore: true,
@@ -160,24 +164,24 @@ describe('vfsRoutes', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            opId: 'desktop-1',
-            itemId: 'note-1',
-            opType: 'item_upsert',
+            opId: encodeText('desktop-1'),
+            itemId: encodeText('note-1'),
+            opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
             principalType: null,
             principalId: null,
             accessLevel: null,
             parentId: null,
             childId: null,
-            actorId: 'user-1',
+            actorId: encodeText('user-1'),
             sourceTable: 'vfs_item_state',
-            sourceId: 'source-1',
-            occurredAt: '2026-03-08T00:00:00.000Z'
+            sourceId: encodeText('source-1'),
+            occurredAtMs: String(Date.parse('2026-03-08T00:00:00.000Z'))
           }
         ],
         hasMore: false,
         nextCursor: null,
         lastReconciledWriteIds: {
-          desktop: 3
+          desktop: '3'
         }
       })
       .mockResolvedValueOnce({

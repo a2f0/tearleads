@@ -69,16 +69,12 @@ describe('vfsDirectCrdtSessionHelpers', () => {
   });
 
   describe('parseOptionalRootId', () => {
-    it('parses identifiers', () => {
+    it('parses canonical identifiers', () => {
       expect(parseOptionalRootId(' root-legacy ')).toBe('root-legacy');
-
-      const compactRootId = Buffer.from('root-compact', 'utf8').toString(
-        'base64'
-      );
-      expect(parseOptionalRootId(compactRootId)).toBe('root-compact');
     });
 
-    it('returns null for invalid payloads', () => {
+    it('returns null for legacy-shape and invalid payloads', () => {
+      expect(parseOptionalRootId('cm9vdC1jb21wYWN0')).toBeNull();
       expect(parseOptionalRootId(undefined)).toBeNull();
       expect(parseOptionalRootId([])).toBeNull();
     });

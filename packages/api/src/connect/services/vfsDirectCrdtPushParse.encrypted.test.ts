@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 
 const OCCURRED_AT = '2026-02-16T00:00:00.000Z';
-const OCCURRED_AT_MS = Date.parse(OCCURRED_AT);
 
 function buildValidAclAddOperation(): Record<string, unknown> {
   return {
@@ -11,7 +10,7 @@ function buildValidAclAddOperation(): Record<string, unknown> {
     itemId: 'item-1',
     replicaId: 'client-1',
     writeId: 1,
-    occurredAtMs: OCCURRED_AT_MS,
+    occurredAt: OCCURRED_AT,
     principalType: 'user',
     principalId: 'user-2',
     accessLevel: 'read'
@@ -29,7 +28,7 @@ describe('vfsDirectCrdtPushParse encrypted envelope', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAtMs: OCCURRED_AT_MS,
+          occurredAt: OCCURRED_AT,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -73,7 +72,7 @@ describe('vfsDirectCrdtPushParse encrypted envelope', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAtMs: OCCURRED_AT_MS,
+          occurredAt: OCCURRED_AT,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -153,7 +152,7 @@ describe('vfsDirectCrdtPushParse encrypted envelope', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAtMs: OCCURRED_AT_MS,
+          occurredAt: OCCURRED_AT,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',

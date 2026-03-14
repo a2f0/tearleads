@@ -26,6 +26,19 @@ function connectJsonEnvelope(payload: unknown): string {
 const REMATERIALIZED_OLDER_CHANGE_ID = '00000000-0000-0000-0000-000000000009';
 const REMATERIALIZED_NEWER_CHANGE_ID = '00000000-0000-0000-0000-000000000010';
 
+function encodeTextToBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
+function createEmptyPullResponse() {
+  return {
+    items: [],
+    hasMore: false,
+    nextCursor: null,
+    lastReconciledWriteIds: {}
+  };
+}
+
 describe('vfsNetworkFlusher', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
@@ -75,8 +88,13 @@ describe('vfsNetworkFlusher', () => {
 
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
-              results: [{ opId: 'op-1', status: 'applied' }]
+              clientId: encodeTextToBase64('desktop'),
+              results: [
+                {
+                  opId: encodeTextToBase64('op-1'),
+                  status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+                }
+              ]
             }),
             {
               status: 200,
@@ -159,12 +177,7 @@ describe('vfsNetworkFlusher', () => {
         )
       })
     );
-    const pullOperations = vi.fn(async () => ({
-      items: [],
-      hasMore: false,
-      nextCursor: null,
-      lastReconciledWriteIds: {}
-    }));
+    const pullOperations = vi.fn(async () => createEmptyPullResponse());
     const reconcileState = vi.fn(async () => ({
       cursor: {
         changedAt: '2026-02-18T00:00:00.000Z',
@@ -228,12 +241,7 @@ describe('vfsNetworkFlusher', () => {
           }
         )
       }),
-      pullOperations: async () => ({
-        items: [],
-        hasMore: false,
-        nextCursor: null,
-        lastReconciledWriteIds: {}
-      }),
+      pullOperations: async () => createEmptyPullResponse(),
       reconcileState: async ({ cursor, lastReconciledWriteIds }) => ({
         cursor,
         lastReconciledWriteIds
@@ -285,12 +293,7 @@ describe('vfsNetworkFlusher', () => {
         if (pullCalls === 1) {
           throw new MockRematerializationRequiredError();
         }
-        return {
-          items: [],
-          hasMore: false,
-          nextCursor: null,
-          lastReconciledWriteIds: {}
-        };
+        return createEmptyPullResponse();
       },
       reconcileState: async ({ cursor, lastReconciledWriteIds }) => ({
         cursor,
@@ -340,29 +343,21 @@ describe('vfsNetworkFlusher', () => {
             );
           }
 
-          return new Response(
-            connectJsonEnvelope({
-              items: [],
-              hasMore: false,
-              nextCursor: null,
-              lastReconciledWriteIds: {}
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' }
-            }
-          );
+          return new Response(connectJsonEnvelope(createEmptyPullResponse()), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
 
         if (url.includes(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
+              clientId: encodeTextToBase64('desktop'),
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-24T12:10:00.000Z',
                 changeId: REMATERIALIZED_NEWER_CHANGE_ID
               }),
-              lastReconciledWriteIds: { desktop: 10 }
+              lastReconciledWriteIds: { desktop: '10' }
             }),
             {
               status: 200,
@@ -452,12 +447,7 @@ describe('vfsNetworkFlusher', () => {
     );
     const transport: VfsCrdtSyncTransport = {
       pushOperations,
-      pullOperations: async () => ({
-        items: [],
-        hasMore: false,
-        nextCursor: null,
-        lastReconciledWriteIds: {}
-      })
+      pullOperations: async () => createEmptyPullResponse()
     };
     const signAclOperation = vi.fn(
       async (operation: { opId: string; writeId: number }) =>
