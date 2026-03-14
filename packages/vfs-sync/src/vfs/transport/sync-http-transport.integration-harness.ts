@@ -115,7 +115,11 @@ function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
     throw new Error(`Integration harness failed to parse ${fieldName}`);
   }
 
-  return value;
+  const record: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    record[key] = entry;
+  }
+  return record;
 }
 
 function parseRequiredString(value: unknown, fieldName: string): string {
@@ -144,11 +148,12 @@ function parseOptionalString(value: unknown): string | undefined {
 }
 
 function parseOpType(value: unknown): VfsCrdtOperation['opType'] {
-  if (
-    typeof value === 'string' &&
-    VALID_OP_TYPES.some((candidate) => candidate === value)
-  ) {
-    return value;
+  if (typeof value === 'string') {
+    for (const candidate of VALID_OP_TYPES) {
+      if (candidate === value) {
+        return candidate;
+      }
+    }
   }
 
   throw new Error('Integration harness failed to parse opType');
@@ -157,11 +162,12 @@ function parseOpType(value: unknown): VfsCrdtOperation['opType'] {
 function parsePrincipalType(
   value: unknown
 ): VfsCrdtOperation['principalType'] | undefined {
-  if (
-    typeof value === 'string' &&
-    VALID_PRINCIPAL_TYPES.some((candidate) => candidate === value)
-  ) {
-    return value;
+  if (typeof value === 'string') {
+    for (const candidate of VALID_PRINCIPAL_TYPES) {
+      if (candidate === value) {
+        return candidate;
+      }
+    }
   }
 
   return undefined;
@@ -170,11 +176,12 @@ function parsePrincipalType(
 function parseAccessLevel(
   value: unknown
 ): VfsCrdtOperation['accessLevel'] | undefined {
-  if (
-    typeof value === 'string' &&
-    VALID_ACCESS_LEVELS.some((candidate) => candidate === value)
-  ) {
-    return value;
+  if (typeof value === 'string') {
+    for (const candidate of VALID_ACCESS_LEVELS) {
+      if (candidate === value) {
+        return candidate;
+      }
+    }
   }
 
   return undefined;

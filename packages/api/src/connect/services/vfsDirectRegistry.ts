@@ -194,6 +194,7 @@ export async function rekeyItemDirect(
       transactionOpen = false;
 
       const response: VfsRekeyResponse = {
+        success: true,
         itemId,
         newEpoch: payload.newEpoch,
         wrapsApplied: updateResult.rowCount ?? 0

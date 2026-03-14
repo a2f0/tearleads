@@ -20,6 +20,7 @@ import {
   normalizePositiveSafeInteger,
   normalizePushStatus,
   normalizeRequiredBytes,
+  normalizeRequiredString,
   normalizeWriteIdMap,
   packUuidToBytes,
   toOperationPayload,
@@ -93,6 +94,17 @@ function decodeBloomFilter(value: unknown): VfsSyncBloomFilter | null {
   };
 }
 
+function normalizeOptionalString(
+  value: unknown,
+  fieldName: string
+): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  return normalizeRequiredString(value, fieldName);
+}
+
 export function encodeVfsCrdtPushRequestProtobuf(
   request: VfsCrdtPushRequest
 ): Uint8Array {
@@ -162,7 +174,10 @@ export function encodeVfsCrdtSyncResponseProtobuf(
 export function decodeVfsCrdtSyncResponseProtobuf(bytes: Uint8Array): unknown {
   const payload = toObject(PULL_RESPONSE_TYPE, bytes);
   const rawItems = Array.isArray(payload['items']) ? payload['items'] : [];
-  const nextCursor = (payload['nextCursor'] as string) || null;
+  const nextCursor = normalizeOptionalString(
+    payload['nextCursor'],
+    'nextCursor'
+  );
   const hasMore = payload['hasMore'] === true;
   return {
     items: rawItems.map((entry) => decodeSyncItem(entry)),
@@ -194,7 +209,7 @@ export function decodeVfsCrdtReconcileRequestProtobuf(
     organizationId:
       normalizeOptionalBytesString(payload['organizationId']) ?? null,
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
-    cursor: payload['cursor'] as string,
+    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
     )
@@ -215,7 +230,7 @@ export function decodeVfsCrdtReconcileResponseProtobuf(
   const payload = toObject(RECONCILE_RESPONSE_TYPE, bytes);
   return {
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
-    cursor: payload['cursor'] as string,
+    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
     lastReconciledWriteIds: normalizeWriteIdMap(
       payload['lastReconciledWriteIds']
     )
@@ -250,7 +265,7 @@ export function decodeVfsCrdtSyncSessionRequestProtobuf(
     organizationId:
       normalizeOptionalBytesString(payload['organizationId']) ?? null,
     clientId: normalizeRequiredBytes(payload['clientId'], 'clientId'),
-    cursor: payload['cursor'] as string,
+    cursor: normalizeRequiredString(payload['cursor'], 'cursor'),
     limit: normalizePositiveSafeInteger(payload['limit'], 'limit'),
     operations: Array.isArray(payload['operations'])
       ? payload['operations'].map((operation) => decodePushOperation(operation))

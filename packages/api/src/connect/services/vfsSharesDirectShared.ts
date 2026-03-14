@@ -430,13 +430,17 @@ export function parseCreateOrgSharePayload(
 
 export function parseUpdateSharePayload(
   body: unknown
-): UpdateVfsShareRequest | null {
+): Partial<
+  Pick<UpdateVfsShareRequest, 'permissionLevel' | 'expiresAt'>
+> | null {
   if (!isRecord(body)) {
     return null;
   }
   const { permissionLevel, expiresAt } = body;
 
-  const result: UpdateVfsShareRequest = {};
+  const result: Partial<
+    Pick<UpdateVfsShareRequest, 'permissionLevel' | 'expiresAt'>
+  > = {};
 
   if (permissionLevel !== undefined) {
     if (!isValidPermissionLevel(permissionLevel)) {

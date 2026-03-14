@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { type RenderResult, render } from '@testing-library/react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -236,7 +236,7 @@ export function setupSyncDependencies(
     RegisterForm,
     SessionList,
     ping: () => mockPingGet(),
-    initialAuthMode
+    ...(initialAuthMode ? { initialAuthMode } : {})
   });
 }
 
@@ -254,7 +254,7 @@ export function resetSyncTestState(): void {
   setupSyncDependencies();
 }
 
-export function renderSync(showBackLink = true) {
+export function renderSync(showBackLink = true): RenderResult {
   return render(
     <MemoryRouter>
       <Sync showBackLink={showBackLink} />

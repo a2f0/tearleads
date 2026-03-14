@@ -316,7 +316,7 @@ describe('vfsSharesConnectService', () => {
     });
     expect(authenticateMock).toHaveBeenCalledWith(context.requestHeader);
     expect(resolveOrganizationMembershipMock).toHaveBeenCalledWith(
-      '/connect/tearleads.v2.VfsSharesService/SearchShareTargets',
+      '/tearleads.v2.VfsSharesService/SearchShareTargets',
       context.requestHeader,
       'user-1'
     );

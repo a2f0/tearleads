@@ -398,13 +398,12 @@ export function mapVfsSyncRows(
       changeType: normalizeChangeType(row.change_type),
       changedAt,
       objectType: isValidObjectType(row.object_type) ? row.object_type : null,
+      encryptedName:
+        typeof row.encrypted_name === 'string' ? row.encrypted_name : null,
       ownerId: row.owner_id,
       createdAt,
       accessLevel: normalizeAccessLevel(row.access_level)
     };
-    if (typeof row.encrypted_name === 'string') {
-      item.encryptedName = row.encrypted_name;
-    }
     items.push(item);
   }
 

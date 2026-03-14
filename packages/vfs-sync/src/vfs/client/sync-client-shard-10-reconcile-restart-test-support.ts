@@ -1,7 +1,4 @@
-import type {
-  ObservedPhasePullPage,
-  VfsCrdtSyncTransport
-} from './sync-client-test-support.js';
+import type { ObservedPhasePullPage } from './sync-client-test-support.js';
 import {
   createGuardrailViolationCollector,
   createPhasePullRecordingTransportFactory,
@@ -58,7 +55,11 @@ interface ReconcileRestartRecoveryResult {
 function buildObservedTransport(input: {
   baseTransport: InMemoryVfsCrdtSyncTransport;
   observedPulls: ObservedPhasePullPage[];
-  reconcileState: VfsCrdtSyncTransport['reconcileState'];
+  reconcileState: NonNullable<
+    Parameters<
+      typeof createPhasePullRecordingTransportFactory
+    >[0]['reconcileState']
+  >;
 }) {
   return createPhasePullRecordingTransportFactory({
     baseTransport: input.baseTransport,

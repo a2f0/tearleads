@@ -11,7 +11,7 @@ type RekeyReason = 'unshare' | 'expiry' | 'manual';
 function isValidObjectType(value: unknown): value is VfsObjectType {
   return (
     typeof value === 'string' &&
-    VFS_OBJECT_TYPES.includes(value as VfsObjectType)
+    VFS_OBJECT_TYPES.some((objectType) => objectType === value)
   );
 }
 

@@ -1,16 +1,23 @@
+import { create } from '@bufbuild/protobuf';
 import type {
+  VfsAclAccessLevel,
   VfsCrdtSyncItem,
   VfsCrdtSyncResponse,
+  VfsOrgShare,
+  VfsPermissionLevel,
+  VfsShare,
   VfsSyncItem,
   VfsSyncResponse
 } from '@tearleads/shared';
-import type { VfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshotCommon.js';
+import {
+  type VfsOrgSharePayload,
+  VfsOrgSharePayloadSchema,
+  VfsOrgWrappedKeyPayloadSchema,
+  type VfsSharePayload,
+  VfsSharePayloadSchema,
+  VfsWrappedKeyPayloadSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_shares_pb';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
-
-interface VfsCrdtReplicaWriteIdRow {
-  replica_id: string | null;
-  max_write_id: string | number | null;
-}
 
 export interface VfsCrdtSyncProtoItem {
   opId: string;
@@ -103,6 +110,18 @@ export interface VfsCrdtSnapshotProtoResponse {
   snapshotUpdatedAt: string;
 }
 
+export function buildVfsSharesV2ConnectMethodPath(methodName: string): string {
+  return `/tearleads.v2.VfsSharesService/${methodName}`;
+}
+
+export function extractShareIdFromAclId(aclId: string): string {
+  return aclId;
+}
+
+export function extractOrgShareIdFromAclId(aclId: string): string {
+  return aclId;
+}
+
 function parseWriteId(value: unknown): number | null {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value) || value < 1) {
@@ -129,7 +148,10 @@ function parseWriteId(value: unknown): number | null {
 }
 
 export function toLastReconciledWriteIds(
-  rows: VfsCrdtReplicaWriteIdRow[]
+  rows: Array<{
+    replica_id: string | null;
+    max_write_id: string | number | null;
+  }>
 ): Record<string, number> {
   const entries: Array<[string, number]> = [];
   for (const row of rows) {
@@ -321,9 +343,28 @@ function toProtoSnapshotCursor(value: {
   };
 }
 
-export function toProtoVfsCrdtSnapshotResponse(
-  response: VfsCrdtRematerializationSnapshot
-): VfsCrdtSnapshotProtoResponse {
+export function toProtoVfsCrdtSnapshotResponse(response: {
+  replaySnapshot: {
+    acl: Array<{
+      itemId: string;
+      principalType: string;
+      principalId: string;
+      accessLevel: string;
+    }>;
+    links: Array<{ parentId: string; childId: string }>;
+    cursor?: { changedAt: string; changeId: string } | null;
+  };
+  containerClocks: Array<{
+    containerId: string;
+    changedAt: string;
+    changeId: string;
+  }>;
+  snapshotUpdatedAt: string;
+  reconcileState?: {
+    cursor: { changedAt: string; changeId: string };
+    lastReconciledWriteIds: Record<string, number>;
+  } | null;
+}): VfsCrdtSnapshotProtoResponse {
   const parsed: VfsCrdtSnapshotProtoResponse = {
     replaySnapshot: {
       acl: response.replaySnapshot.acl.map((entry) => ({
@@ -361,4 +402,85 @@ export function toProtoVfsCrdtSnapshotResponse(
   }
 
   return parsed;
+}
+
+export function mapAclAccessLevelToSharePermissionLevel(
+  level: VfsAclAccessLevel
+): VfsPermissionLevel {
+  switch (level) {
+    case 'admin':
+      return 'edit'; // Map admin to edit for shares
+    case 'write':
+      return 'edit';
+    default:
+      return 'view';
+  }
+}
+
+export function mapSharePermissionLevelToAclAccessLevel(
+  level: VfsPermissionLevel
+): VfsAclAccessLevel {
+  switch (level) {
+    case 'edit':
+      return 'write';
+    default:
+      return 'read';
+  }
+}
+
+export function toSharePayload(share: VfsShare): VfsSharePayload {
+  return create(VfsSharePayloadSchema, {
+    id: share.id,
+    itemId: share.itemId,
+    shareType: share.shareType,
+    targetId: share.targetId,
+    targetName: share.targetName,
+    permissionLevel: share.permissionLevel,
+    createdBy: share.createdBy,
+    createdByEmail: share.createdByEmail,
+    createdAt: share.createdAt,
+    ...(typeof share.expiresAt === 'string'
+      ? { expiresAt: share.expiresAt }
+      : {}),
+    ...(share.wrappedKey
+      ? {
+          wrappedKey: create(VfsWrappedKeyPayloadSchema, {
+            recipientUserId: share.wrappedKey.recipientUserId,
+            recipientPublicKeyId: share.wrappedKey.recipientPublicKeyId,
+            keyEpoch: share.wrappedKey.keyEpoch,
+            encryptedKey: share.wrappedKey.encryptedKey,
+            senderSignature: share.wrappedKey.senderSignature
+          })
+        }
+      : {})
+  });
+}
+
+export function toOrgSharePayload(orgShare: VfsOrgShare): VfsOrgSharePayload {
+  return create(VfsOrgSharePayloadSchema, {
+    id: orgShare.id,
+    sourceOrgId: orgShare.sourceOrgId,
+    sourceOrgName: orgShare.sourceOrgName,
+    targetOrgId: orgShare.targetOrgId,
+    targetOrgName: orgShare.targetOrgName,
+    itemId: orgShare.itemId,
+    permissionLevel: orgShare.permissionLevel,
+    createdBy: orgShare.createdBy,
+    createdByEmail: orgShare.createdByEmail,
+    createdAt: orgShare.createdAt,
+    ...(typeof orgShare.expiresAt === 'string'
+      ? { expiresAt: orgShare.expiresAt }
+      : {}),
+    ...(orgShare.wrappedKey
+      ? {
+          wrappedKey: create(VfsOrgWrappedKeyPayloadSchema, {
+            recipientOrgId: orgShare.wrappedKey.recipientOrgId,
+            recipientPublicKeyId: orgShare.wrappedKey.recipientPublicKeyId,
+            keyEpoch: orgShare.wrappedKey.keyEpoch,
+            encryptedKey: orgShare.wrappedKey.encryptedKey,
+            senderSignature: orgShare.wrappedKey.senderSignature
+          })
+        }
+      : {})
+  });
 }

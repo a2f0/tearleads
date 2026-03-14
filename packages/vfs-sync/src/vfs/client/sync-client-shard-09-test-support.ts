@@ -297,7 +297,7 @@ export async function runBoundaryReplayAvoidanceScenario(): Promise<Shard09Bound
     seedGuardrailViolations,
     resumedGuardrailViolations,
     resumedLastReconciledRemoteWriteId:
-      resumedClient.snapshot().lastReconciledWriteIds.remote ?? 0,
+      resumedClient.snapshot().lastReconciledWriteIds['remote'] ?? 0,
     resumedCursor
   };
 }

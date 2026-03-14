@@ -2,9 +2,9 @@ import {
   InMemoryVfsCrdtFeedReplayStore,
   InMemoryVfsCrdtStateStore,
   type VfsCrdtOperation,
-  type VfsCrdtSnapshot,
   type VfsCrdtSyncItem
 } from '../index.js';
+import type { VfsCrdtSnapshot } from './sync-crdt-types.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {

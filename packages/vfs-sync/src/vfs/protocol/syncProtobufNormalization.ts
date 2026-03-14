@@ -43,12 +43,12 @@ interface OperationPayloadSource {
   actorId?: string | null;
   sourceTable?: string;
   sourceId?: string;
-  encryptedPayload?: string;
-  keyEpoch?: number;
-  encryptionNonce?: string;
-  encryptionAad?: string;
-  encryptionSignature?: string;
-  operationSignature?: string;
+  encryptedPayload?: string | null;
+  keyEpoch?: number | null;
+  encryptionNonce?: string | null;
+  encryptionAad?: string | null;
+  encryptionSignature?: string | null;
+  operationSignature?: string | null;
 }
 
 export function normalizeRequiredBytes(

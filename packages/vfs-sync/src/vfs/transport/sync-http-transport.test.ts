@@ -1,13 +1,24 @@
-import { VFS_V2_CONNECT_BASE_PATH } from '@tearleads/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsCrdtRematerializationRequiredError } from '../client/sync-client-utils.js';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
-
-const PUSH_CRDT_OPS_PATH = `${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`;
-const GET_CRDT_SYNC_PATH = `${VFS_V2_CONNECT_BASE_PATH}/GetCrdtSync`;
-const RECONCILE_CRDT_PATH = `${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`;
-const RUN_CRDT_SESSION_PATH = `${VFS_V2_CONNECT_BASE_PATH}/RunCrdtSession`;
+import {
+  asRecord,
+  CURSOR_CHANGE_ID_1,
+  CURSOR_CHANGE_ID_2,
+  CURSOR_CHANGE_ID_4,
+  CURSOR_CHANGE_ID_5,
+  CURSOR_CHANGE_ID_6,
+  CURSOR_CHANGE_ID_7,
+  connectJsonEnvelope,
+  encodeUtf8ToBase64,
+  GET_CRDT_SYNC_PATH,
+  OLDEST_CURSOR_CHANGE_ID,
+  PUSH_CRDT_OPS_PATH,
+  RECONCILE_CRDT_PATH,
+  REQUESTED_CURSOR_CHANGE_ID,
+  RUN_CRDT_SESSION_PATH
+} from './syncHttpTransportTestHelpers.js';
 
 async function readRequestJson(
   input: unknown,
@@ -25,30 +36,15 @@ async function readRequestJson(
   throw new Error('expected request body to be JSON');
 }
 
-function connectJsonEnvelope(payload: unknown): string {
-  return JSON.stringify({ json: JSON.stringify(payload) });
-}
-
-function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`expected ${fieldName} to be an object`);
-  }
-  return value;
-}
-
-function encodeUtf8ToBase64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
 describe('VfsHttpCrdtSyncTransport', () => {
   it('pushes operations to Connect CRDT endpoint with auth headers', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
         connectJsonEnvelope({
-          clientId: 'desktop',
+          clientId: encodeUtf8ToBase64('desktop'),
           results: [
             {
-              opId: 'desktop-1',
+              opId: encodeUtf8ToBase64('desktop-1'),
               status: 'applied'
             }
           ]
@@ -104,24 +100,23 @@ describe('VfsHttpCrdtSyncTransport', () => {
       await readRequestJson(requestUrl, requestInit),
       'push request'
     );
-    expect(requestBody['organizationId']).toBe('org-1');
-    expect(requestBody['clientId']).toBe('desktop');
+    expect(requestBody['organizationId']).toBe(encodeUtf8ToBase64('org-1'));
+    expect(requestBody['clientId']).toBe(encodeUtf8ToBase64('desktop'));
     const operations = requestBody['operations'];
     if (!Array.isArray(operations)) {
       throw new Error('expected push request operations');
     }
     expect(operations[0]).toEqual(
       expect.objectContaining({
-        opId: 'desktop-1',
-        opIdBytes: encodeUtf8ToBase64('desktop-1'),
-        opTypeEnum: 1,
-        itemIdBytes: encodeUtf8ToBase64('item-1'),
-        replicaIdBytes: encodeUtf8ToBase64('desktop'),
-        writeIdU64: 1,
+        opId: encodeUtf8ToBase64('desktop-1'),
+        opType: 1,
+        itemId: encodeUtf8ToBase64('item-1'),
+        replicaId: encodeUtf8ToBase64('desktop'),
+        writeId: 1,
         occurredAtMs: Date.parse('2026-02-14T20:00:00.000Z'),
-        principalTypeEnum: 2,
-        principalIdBytes: encodeUtf8ToBase64('group-1'),
-        accessLevelEnum: 1
+        principalType: 2,
+        principalId: encodeUtf8ToBase64('group-1'),
+        accessLevel: 1
       })
     );
 
@@ -135,11 +130,11 @@ describe('VfsHttpCrdtSyncTransport', () => {
   it('pulls operations, decodes cursor, and includes replica write ids', async () => {
     const cursor = {
       changedAt: '2026-02-14T20:10:00.000Z',
-      changeId: 'desktop-1'
+      changeId: CURSOR_CHANGE_ID_1
     };
     const nextCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T20:10:01.000Z',
-      changeId: 'desktop-2'
+      changeId: CURSOR_CHANGE_ID_2
     });
 
     const fetchMock = vi.fn(async () => {
@@ -147,18 +142,18 @@ describe('VfsHttpCrdtSyncTransport', () => {
         connectJsonEnvelope({
           items: [
             {
-              opId: 'desktop-2',
-              itemId: 'item-1',
+              opId: encodeUtf8ToBase64('desktop-2'),
+              itemId: encodeUtf8ToBase64('item-1'),
               opType: 'acl_add',
               principalType: 'group',
-              principalId: 'group-1',
+              principalId: encodeUtf8ToBase64('group-1'),
               accessLevel: 'write',
               parentId: null,
               childId: null,
-              actorId: 'user-1',
+              actorId: encodeUtf8ToBase64('user-1'),
               sourceTable: 'vfs_crdt_client_push',
-              sourceId: 'user-1:desktop:2:desktop-2',
-              occurredAt: '2026-02-14T20:10:01.000Z'
+              sourceId: encodeUtf8ToBase64('user-1:desktop:2:desktop-2'),
+              occurredAtMs: Date.parse('2026-02-14T20:10:01.000Z')
             }
           ],
           nextCursor,
@@ -208,7 +203,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
       hasMore: true,
       nextCursor: {
         changedAt: '2026-02-14T20:10:01.000Z',
-        changeId: 'desktop-2'
+        changeId: CURSOR_CHANGE_ID_2
       },
       lastReconciledWriteIds: {
         desktop: 2,
@@ -239,10 +234,10 @@ describe('VfsHttpCrdtSyncTransport', () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
         connectJsonEnvelope({
-          clientId: 'desktop',
+          clientId: encodeUtf8ToBase64('desktop'),
           cursor: encodeVfsSyncCursor({
             changedAt: '2026-02-14T20:10:05.000Z',
-            changeId: 'desktop-5'
+            changeId: CURSOR_CHANGE_ID_5
           }),
           lastReconciledWriteIds: {
             desktop: 5,
@@ -267,7 +262,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
       clientId: 'desktop',
       cursor: {
         changedAt: '2026-02-14T20:10:04.000Z',
-        changeId: 'desktop-4'
+        changeId: CURSOR_CHANGE_ID_4
       },
       lastReconciledWriteIds: {
         desktop: 4
@@ -277,7 +272,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(result).toEqual({
       cursor: {
         changedAt: '2026-02-14T20:10:05.000Z',
-        changeId: 'desktop-5'
+        changeId: CURSOR_CHANGE_ID_5
       },
       lastReconciledWriteIds: {
         desktop: 5,
@@ -297,15 +292,15 @@ describe('VfsHttpCrdtSyncTransport', () => {
       await readRequestJson(requestUrl, requestInit),
       'reconcile request'
     );
-    expect(requestBody['organizationId']).toBe('org-1');
+    expect(requestBody['organizationId']).toBe(encodeUtf8ToBase64('org-1'));
     const requestHeaders = new Headers(requestInit?.headers);
     expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
 
-    expect(requestBody['clientId']).toBe('desktop');
+    expect(requestBody['clientId']).toBe(encodeUtf8ToBase64('desktop'));
     expect(requestBody['cursor']).toBe(
       encodeVfsSyncCursor({
         changedAt: '2026-02-14T20:10:04.000Z',
-        changeId: 'desktop-4'
+        changeId: CURSOR_CHANGE_ID_4
       })
     );
     expect(requestBody['lastReconciledWriteIds']).toEqual({ desktop: 4 });
@@ -317,38 +312,40 @@ describe('VfsHttpCrdtSyncTransport', () => {
         new Response(
           connectJsonEnvelope({
             push: {
-              clientId: 'desktop',
-              results: [{ opId: 'desktop-6', status: 'applied' }]
+              clientId: encodeUtf8ToBase64('desktop'),
+              results: [
+                { opId: encodeUtf8ToBase64('desktop-6'), status: 'applied' }
+              ]
             },
             pull: {
               items: [
                 {
-                  opId: 'desktop-7',
-                  itemId: 'item-1',
+                  opId: encodeUtf8ToBase64('desktop-7'),
+                  itemId: encodeUtf8ToBase64('item-1'),
                   opType: 'acl_add',
                   principalType: 'group',
-                  principalId: 'group-1',
+                  principalId: encodeUtf8ToBase64('group-1'),
                   accessLevel: 'read',
                   parentId: null,
                   childId: null,
-                  actorId: 'user-1',
+                  actorId: encodeUtf8ToBase64('user-1'),
                   sourceTable: 'vfs_crdt_client_push',
-                  sourceId: 'user-1:desktop:7:desktop-7',
-                  occurredAt: '2026-02-14T20:10:07.000Z'
+                  sourceId: encodeUtf8ToBase64('user-1:desktop:7:desktop-7'),
+                  occurredAtMs: Date.parse('2026-02-14T20:10:07.000Z')
                 }
               ],
               nextCursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-14T20:10:07.000Z',
-                changeId: 'desktop-7'
+                changeId: CURSOR_CHANGE_ID_7
               }),
               hasMore: false,
               lastReconciledWriteIds: { desktop: 7 }
             },
             reconcile: {
-              clientId: 'desktop',
+              clientId: encodeUtf8ToBase64('desktop'),
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-14T20:10:07.000Z',
-                changeId: 'desktop-7'
+                changeId: CURSOR_CHANGE_ID_7
               }),
               lastReconciledWriteIds: { desktop: 7 }
             }
@@ -371,7 +368,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
       clientId: 'desktop',
       cursor: {
         changedAt: '2026-02-14T20:10:06.000Z',
-        changeId: 'desktop-6'
+        changeId: CURSOR_CHANGE_ID_6
       },
       limit: 100,
       operations: [
@@ -406,7 +403,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         hasMore: false,
         nextCursor: {
           changedAt: '2026-02-14T20:10:07.000Z',
-          changeId: 'desktop-7'
+          changeId: CURSOR_CHANGE_ID_7
         },
         lastReconciledWriteIds: { desktop: 7 },
         bloomFilter: null
@@ -414,7 +411,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
       reconcile: {
         cursor: {
           changedAt: '2026-02-14T20:10:07.000Z',
-          changeId: 'desktop-7'
+          changeId: CURSOR_CHANGE_ID_7
         },
         lastReconciledWriteIds: { desktop: 7 }
       }
@@ -431,12 +428,12 @@ describe('VfsHttpCrdtSyncTransport', () => {
     );
     const requestHeaders = new Headers(requestInit?.headers);
     expect(requestHeaders.get('X-Organization-Id')).toBe('org-1');
-    expect(requestBody['organizationId']).toBe('org-1');
-    expect(requestBody['clientId']).toBe('desktop');
+    expect(requestBody['organizationId']).toBe(encodeUtf8ToBase64('org-1'));
+    expect(requestBody['clientId']).toBe(encodeUtf8ToBase64('desktop'));
     expect(requestBody['operations']).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          opId: 'desktop-6'
+          opId: encodeUtf8ToBase64('desktop-6')
         })
       ])
     );
@@ -445,11 +442,11 @@ describe('VfsHttpCrdtSyncTransport', () => {
   it('throws typed rematerialization error for 409 stale-cursor responses', async () => {
     const requestedCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-10T00:00:00.000Z',
-      changeId: 'op-10'
+      changeId: REQUESTED_CURSOR_CHANGE_ID
     });
     const oldestAvailableCursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T00:00:00.000Z',
-      changeId: 'op-100'
+      changeId: OLDEST_CURSOR_CHANGE_ID
     });
 
     const fetchMock = vi.fn(
@@ -477,7 +474,7 @@ describe('VfsHttpCrdtSyncTransport', () => {
         clientId: 'desktop',
         cursor: {
           changedAt: '2026-02-10T00:00:00.000Z',
-          changeId: 'op-10'
+          changeId: REQUESTED_CURSOR_CHANGE_ID
         },
         limit: 50
       })

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 
+const OCCURRED_AT = '2026-02-16T00:00:00.000Z';
+const OCCURRED_AT_MS = Date.parse(OCCURRED_AT);
+
 describe('vfsDirectCrdtPushParse encrypted item operations', () => {
   it('parses encrypted item_upsert operation with full envelope', () => {
     const result = parsePushPayload({
@@ -12,7 +15,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -36,63 +39,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
         itemId: 'item-1',
         replicaId: 'client-1',
         writeId: 1,
-        occurredAt: '2026-02-16T00:00:00.000Z',
-        encryptedPayload: 'base64-ciphertext',
-        keyEpoch: 1,
-        encryptionNonce: 'base64-nonce',
-        encryptionAad: 'base64-aad',
-        encryptionSignature: 'base64-sig'
-      }
-    });
-  });
-
-  it('parses encrypted item_upsert when compact defaults are zero-valued', () => {
-    const result = parsePushPayload({
-      clientId: 'client-1',
-      operations: [
-        {
-          $typeName: 'tearleads.v2.VfsCrdtPushOperation',
-          opId: 'op-upsert-compact-defaults',
-          opType: 'item_upsert',
-          itemId: 'item-1',
-          replicaId: 'client-1',
-          writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
-          opIdBytes: new Uint8Array(0),
-          opTypeEnum: 0,
-          itemIdBytes: new Uint8Array(0),
-          replicaIdBytes: new Uint8Array(0),
-          writeIdU64: 0n,
-          occurredAtMs: 0n,
-          principalTypeEnum: 0,
-          principalIdBytes: new Uint8Array(0),
-          accessLevelEnum: 0,
-          parentIdBytes: new Uint8Array(0),
-          childIdBytes: new Uint8Array(0),
-          encryptedPayload: 'base64-ciphertext',
-          keyEpoch: 1,
-          encryptionNonce: 'base64-nonce',
-          encryptionAad: 'base64-aad',
-          encryptionSignature: 'base64-sig'
-        }
-      ]
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) {
-      throw new Error('Expected parsePushPayload to succeed');
-    }
-
-    expect(result.value.operations[0]).toEqual({
-      status: 'parsed',
-      opId: 'op-upsert-compact-defaults',
-      operation: {
-        opId: 'op-upsert-compact-defaults',
-        opType: 'item_upsert',
-        itemId: 'item-1',
-        replicaId: 'client-1',
-        writeId: 1,
-        occurredAt: '2026-02-16T00:00:00.000Z',
+        occurredAt: OCCURRED_AT,
         encryptedPayload: 'base64-ciphertext',
         keyEpoch: 1,
         encryptionNonce: 'base64-nonce',
@@ -112,7 +59,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z'
+          occurredAtMs: OCCURRED_AT_MS
         }
       ]
     });
@@ -138,7 +85,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z'
+          occurredAtMs: OCCURRED_AT_MS
         }
       ]
     });
@@ -157,7 +104,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
         itemId: 'item-1',
         replicaId: 'client-1',
         writeId: 1,
-        occurredAt: '2026-02-16T00:00:00.000Z'
+        occurredAt: OCCURRED_AT
       }
     });
   });
@@ -172,7 +119,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -203,7 +150,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -237,7 +184,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           encryptedPayload: 'base64-ciphertext',
           keyEpoch: 1,
           encryptionNonce: 'base64-nonce',
@@ -270,7 +217,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           principalType: 'user'
         }
       ]
@@ -297,7 +244,7 @@ describe('vfsDirectCrdtPushParse encrypted item operations', () => {
           itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 1,
-          occurredAt: '2026-02-16T00:00:00.000Z',
+          occurredAtMs: OCCURRED_AT_MS,
           parentId: 'folder-1',
           childId: 'item-1'
         }

@@ -57,11 +57,16 @@ function parseEnum<T extends string>(
   value: unknown,
   validValues: T[]
 ): T | null {
-  if (typeof value === 'string') {
-    if (validValues.includes(value as T)) {
-      return value as T;
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  for (const candidate of validValues) {
+    if (candidate === value) {
+      return candidate;
     }
   }
+
   return null;
 }
 
@@ -88,8 +93,10 @@ function parsePushOperation(
     !opType ||
     !itemId ||
     !replicaId ||
-    !writeId ||
+    writeId === null ||
+    writeId < 1 ||
     occurredAtMs === null ||
+    occurredAtMs < 0 ||
     replicaId !== expectedClientId
   ) {
     return {
@@ -108,7 +115,8 @@ function parsePushOperation(
   };
 
   const encryptedPayload = normalizeRequiredString(value['encryptedPayload']);
-  if (encryptedPayload !== null) {
+  const hasEncryptedPayload = encryptedPayload !== null;
+  if (hasEncryptedPayload) {
     const keyEpoch = parseInteger(value['keyEpoch']);
     if (keyEpoch === null || keyEpoch < 1) {
       return { status: 'invalid', opId };
@@ -131,15 +139,35 @@ function parsePushOperation(
   }
 
   if (opType === 'acl_add' || opType === 'acl_remove') {
-    const principalType = parseEnum(value['principalType'], VALID_PRINCIPAL_TYPES);
+    const includesPlaintextAclFields =
+      Object.hasOwn(value, 'principalType') ||
+      Object.hasOwn(value, 'principalId') ||
+      Object.hasOwn(value, 'accessLevel');
+    if (hasEncryptedPayload && includesPlaintextAclFields) {
+      return { status: 'invalid', opId };
+    }
+
+    const principalType = parseEnum(
+      value['principalType'],
+      VALID_PRINCIPAL_TYPES
+    );
     const principalId = parseIdentifier(value['principalId']);
+
+    if (!hasEncryptedPayload && (!principalType || !principalId)) {
+      return { status: 'invalid', opId };
+    }
 
     if (principalType) operation.principalType = principalType;
     if (principalId) operation.principalId = principalId;
 
     if (opType === 'acl_add') {
       const accessLevel = parseEnum(value['accessLevel'], VALID_ACCESS_LEVELS);
+      if (!hasEncryptedPayload && !accessLevel) {
+        return { status: 'invalid', opId };
+      }
       if (accessLevel) operation.accessLevel = accessLevel;
+    } else if (Object.hasOwn(value, 'accessLevel')) {
+      return { status: 'invalid', opId };
     }
   }
 
@@ -148,11 +176,50 @@ function parsePushOperation(
     opType === 'link_remove' ||
     opType === 'link_reassign'
   ) {
+    const includesPlaintextLinkFields =
+      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+    if (hasEncryptedPayload && includesPlaintextLinkFields) {
+      return { status: 'invalid', opId };
+    }
+
     const parentId = parseIdentifier(value['parentId']);
-    const childId = parseIdentifier(value['childId']);
+    const rawChildId = parseIdentifier(value['childId']);
+    const childId = hasEncryptedPayload ? rawChildId : (rawChildId ?? itemId);
+
+    if (!hasEncryptedPayload && (!parentId || !childId)) {
+      return { status: 'invalid', opId };
+    }
+
+    if (
+      (parentId !== null || childId !== null) &&
+      (!parentId || !childId || childId !== itemId || parentId === childId)
+    ) {
+      return { status: 'invalid', opId };
+    }
 
     if (parentId) operation.parentId = parentId;
     if (childId) operation.childId = childId;
+  }
+
+  if (opType === 'item_upsert' || opType === 'item_delete') {
+    const includesAclFields =
+      Object.hasOwn(value, 'principalType') ||
+      Object.hasOwn(value, 'principalId') ||
+      Object.hasOwn(value, 'accessLevel');
+    const includesLinkFields =
+      Object.hasOwn(value, 'parentId') || Object.hasOwn(value, 'childId');
+
+    if (includesAclFields || includesLinkFields) {
+      return { status: 'invalid', opId };
+    }
+
+    if (opType === 'item_upsert' && !hasEncryptedPayload) {
+      return { status: 'invalid', opId };
+    }
+
+    if (opType === 'item_delete' && hasEncryptedPayload) {
+      return { status: 'invalid', opId };
+    }
   }
 
   return {
@@ -171,7 +238,11 @@ export function parsePushPayload(body: unknown): ParsePushPayloadResult {
   }
 
   const clientId = parseIdentifier(body['clientId']);
-  if (!clientId || clientId.length > MAX_CLIENT_ID_LENGTH || clientId.includes(':')) {
+  if (
+    !clientId ||
+    clientId.length > MAX_CLIENT_ID_LENGTH ||
+    clientId.includes(':')
+  ) {
     return {
       ok: false,
       error: 'clientId must be non-empty, <=128 chars, and must not contain ":"'

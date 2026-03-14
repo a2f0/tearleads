@@ -1,5 +1,6 @@
 import {
   Binary,
+  Building,
   FileIcon,
   Folder,
   HeartPulse,
@@ -9,6 +10,7 @@ import {
   Mail,
   MessageSquare,
   Music,
+  Smartphone,
   StickyNote,
   Tag,
   User,
@@ -30,6 +32,10 @@ export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   mlsMessage: MessageSquare,
   conversation: MessageSquare,
   healthReading: HeartPulse,
+  organization: Building,
+  user: User,
+  group: Users,
+  device: Smartphone,
   // Collections
   folder: Folder,
   emailFolder: Mail,
@@ -52,6 +58,10 @@ export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   mlsMessage: 'text-indigo-600 dark:text-indigo-400',
   conversation: 'text-indigo-600 dark:text-indigo-400',
   healthReading: 'text-rose-600 dark:text-rose-400',
+  organization: 'text-indigo-700 dark:text-indigo-300',
+  user: 'text-cyan-600 dark:text-cyan-400',
+  group: 'text-emerald-600 dark:text-emerald-400',
+  device: 'text-gray-700 dark:text-gray-300',
   // Collections
   folder: 'text-yellow-600 dark:text-yellow-500',
   emailFolder: 'text-sky-600 dark:text-sky-400',

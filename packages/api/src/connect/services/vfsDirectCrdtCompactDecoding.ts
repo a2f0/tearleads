@@ -1,10 +1,15 @@
 import { Buffer } from 'node:buffer';
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const OPAQUE_IDENTIFIER_PATTERN = /^[a-z0-9:-]+$/u;
+
+function toBase64WithoutPadding(value: string): string {
+  return value.replace(/=+$/u, '');
+}
+
 export function decodeBase64ToBytes(value: string): Uint8Array | null {
-  const normalized = value
-    .replace(/\s+/gu, '')
-    .replace(/-/gu, '+')
-    .replace(/_/gu, '/');
+  const normalized = value.replace(/\s+/gu, '');
   if (normalized.length === 0 || /[^A-Za-z0-9+/=]/u.test(normalized)) {
     return null;
   }
@@ -18,7 +23,14 @@ export function decodeBase64ToBytes(value: string): Uint8Array | null {
       : normalized.padEnd(normalized.length + (4 - remainder), '=');
 
   try {
-    return new Uint8Array(Buffer.from(padded, 'base64'));
+    const bytes = new Uint8Array(Buffer.from(padded, 'base64'));
+    if (
+      toBase64WithoutPadding(Buffer.from(bytes).toString('base64')) !==
+      toBase64WithoutPadding(normalized)
+    ) {
+      return null;
+    }
+    return bytes;
   } catch {
     return null;
   }
@@ -36,6 +48,30 @@ export function bytesToUuid(bytes: Uint8Array): string {
   )}-${hex.slice(20)}`;
 }
 
+function isOpaqueIdentifier(value: string): boolean {
+  return OPAQUE_IDENTIFIER_PATTERN.test(value);
+}
+
+function decodeIdentifier(value: string): string | null {
+  const bytes = decodeBase64ToBytes(value);
+  if (!bytes) {
+    return null;
+  }
+
+  if (bytes.length === 16) {
+    return bytesToUuid(bytes);
+  }
+
+  const decoded = new TextDecoder().decode(bytes);
+  if (decoded.length === 0) {
+    return null;
+  }
+
+  return UUID_PATTERN.test(decoded) || isOpaqueIdentifier(decoded)
+    ? decoded
+    : null;
+}
+
 export function parseIdentifier(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -45,15 +81,11 @@ export function parseIdentifier(value: unknown): string | null {
     return null;
   }
 
-  const bytes = decodeBase64ToBytes(trimmed);
-  if (bytes) {
-    if (bytes.length === 16) {
-      return bytesToUuid(bytes);
-    }
-    return new TextDecoder().decode(bytes);
+  if (UUID_PATTERN.test(trimmed) || isOpaqueIdentifier(trimmed)) {
+    return trimmed;
   }
 
-  return trimmed;
+  return decodeIdentifier(trimmed) ?? trimmed;
 }
 
 export function parseInteger(value: unknown): number | null {

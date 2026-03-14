@@ -11,6 +11,7 @@ function toBase64(bytes: Uint8Array): string {
 describe('vfsDirectCrdtCompactDecoding', () => {
   it('parses identifiers from string and base64 bytes', () => {
     expect(parseIdentifier('client-1')).toBe('client-1');
+    expect(parseIdentifier('desktop')).toBe('desktop');
 
     const compactUtf8 = toBase64(new TextEncoder().encode('client-2'));
     // Since 'client-2' is not 16 bytes, it will be decoded as a UTF-8 string
