@@ -7,6 +7,9 @@ service VfsService {
   rpc SetupKeys(VfsSetupKeysRequest) returns (VfsSetupKeysResponse);
   rpc Register(VfsRegisterRequest) returns (VfsRegisterResponse);
   rpc GetBlob(VfsGetBlobRequest) returns (VfsGetBlobResponse);
+  rpc GetBlobManifest(VfsGetBlobManifestRequest)
+      returns (VfsGetBlobManifestResponse);
+  rpc GetBlobChunk(VfsGetBlobChunkRequest) returns (VfsGetBlobChunkResponse);
   rpc DeleteBlob(VfsDeleteBlobRequest) returns (VfsDeleteBlobResponse);
   rpc StageBlob(VfsStageBlobRequest) returns (VfsStageBlobResponse);
   rpc UploadBlobChunk(VfsUploadBlobChunkRequest)
@@ -334,6 +337,9 @@ message VfsCrdtSyncItem {
   optional string encryption_nonce = 15;
   optional string encryption_aad = 16;
   optional string encryption_signature = 17;
+  optional string blob_id = 29;
+  optional int64 blob_size_bytes = 30;
+  optional string blob_relation_kind = 31;
 }
 message VfsGetCrdtSyncResponse {
   repeated VfsCrdtSyncItem items = 1;
@@ -440,4 +446,31 @@ message VfsSendEmailRequest {
 message VfsSendEmailResponse {
   bool success = 1;
   optional string message_id = 2;
+}
+message VfsGetBlobManifestRequest {
+  string blob_id = 1;
+}
+message VfsGetBlobManifestResponse {
+  string blob_id = 1;
+  int32 key_epoch = 2;
+  int32 chunk_count = 3;
+  int32 total_plaintext_bytes = 4;
+  int32 total_ciphertext_bytes = 5;
+  repeated string chunk_hashes = 6;
+  string manifest_hash = 7;
+  string manifest_signature = 8;
+  optional string content_type = 9;
+}
+message VfsGetBlobChunkRequest {
+  string blob_id = 1;
+  int32 chunk_index = 2;
+}
+message VfsGetBlobChunkResponse {
+  bytes data = 1;
+  int32 chunk_index = 2;
+  bool is_final = 3;
+  int32 plaintext_length = 4;
+  int32 ciphertext_length = 5;
+  string nonce = 6;
+  string aad_hash = 7;
 }

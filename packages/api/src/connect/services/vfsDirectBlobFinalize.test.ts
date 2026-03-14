@@ -193,6 +193,30 @@ describe('vfsDirectBlobFinalize', () => {
       stagingId: 'stage-1',
       uploadId: 'upload-1'
     });
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO vfs_blob_objects'),
+      [
+        'blob-1',
+        'Om6weQ85rIfJTzhWst0sXREOaBFgImGpqSPTuyOtyLc=',
+        4,
+        'blob-1',
+        'user-1'
+      ]
+    );
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO vfs_blob_manifests'),
+      [
+        'blob-1',
+        1,
+        1,
+        4,
+        4,
+        JSON.stringify(['Om6weQ85rIfJTzhWst0sXREOaBFgImGpqSPTuyOtyLc=']),
+        JSON.stringify([{ offset: 0, length: 4, plaintextLength: 4 }]),
+        'hash-1',
+        'sig-1'
+      ]
+    );
     expect(response).toEqual({
       committed: true,
       stagingId: 'stage-1',

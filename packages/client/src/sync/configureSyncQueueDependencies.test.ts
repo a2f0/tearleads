@@ -1,11 +1,15 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockUseVfsBlobDownloadOperations = vi.fn(() => []);
+
 describe('configureSyncQueueDependencies', () => {
   beforeEach(() => {
     if (typeof vi.resetModules === 'function') {
       vi.resetModules();
     }
+    mockUseVfsBlobDownloadOperations.mockReset();
+    mockUseVfsBlobDownloadOperations.mockReturnValue([]);
   });
   it('configures sync queue dependencies only once', async () => {
     const setSyncQueueDependencies = vi.fn();
@@ -15,6 +19,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
       useVfsOrchestratorInstance: vi.fn(() => null)
+    }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
     }));
 
     const { configureSyncQueueDependencies } = await import(
@@ -41,6 +48,9 @@ describe('configureSyncQueueDependencies', () => {
     vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
       useVfsOrchestratorInstance: vi.fn(() => null)
     }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
 
     const { configureSyncQueueDependencies } = await import(
       './configureSyncQueueDependencies'
@@ -53,7 +63,12 @@ describe('configureSyncQueueDependencies', () => {
 
     expect(result.current).toEqual({
       outbound: { crdt: [], blob: [] },
-      inbound: { cursor: null, pendingOperations: 0, nextLocalWriteId: 0 }
+      inbound: {
+        cursor: null,
+        pendingOperations: 0,
+        nextLocalWriteId: 0,
+        blobDownloads: []
+      }
     });
   });
 
@@ -92,6 +107,9 @@ describe('configureSyncQueueDependencies', () => {
     vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
       useVfsOrchestratorInstance: vi.fn(() => mockOrchestrator)
     }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
 
     const { configureSyncQueueDependencies } = await import(
       './configureSyncQueueDependencies'
@@ -127,7 +145,8 @@ describe('configureSyncQueueDependencies', () => {
       inbound: {
         cursor: { changedAt: '2026-01-01', changeId: 'c-1' },
         pendingOperations: 3,
-        nextLocalWriteId: 5
+        nextLocalWriteId: 5,
+        blobDownloads: []
       }
     });
   });
@@ -159,6 +178,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
       useVfsOrchestratorInstance: vi.fn(() => mockOrchestrator)
+    }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
     }));
 
     const { configureSyncQueueDependencies } = await import(
@@ -199,6 +221,9 @@ describe('configureSyncQueueDependencies', () => {
     vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
       useVfsOrchestratorInstance: vi.fn(() => mockOrchestrator)
     }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
 
     const { configureSyncQueueDependencies } = await import(
       './configureSyncQueueDependencies'
@@ -216,5 +241,57 @@ describe('configureSyncQueueDependencies', () => {
       itemId: undefined,
       chunkIndex: undefined
     });
+  });
+
+  it('useSnapshot includes inbound blob downloads from the download store', async () => {
+    const setSyncQueueDependencies = vi.fn();
+    const mockOrchestrator = {
+      queuedCrdtOperations: vi.fn(() => []),
+      queuedBlobOperations: vi.fn(() => []),
+      crdt: {
+        snapshot: vi.fn(() => ({
+          cursor: null,
+          pendingOperations: 0,
+          nextLocalWriteId: 1
+        }))
+      }
+    };
+
+    mockUseVfsBlobDownloadOperations.mockReturnValue([
+      {
+        operationId: 'download:blob-1',
+        blobId: 'blob-1',
+        itemId: 'item-1',
+        sizeBytes: 64
+      }
+    ]);
+
+    vi.doMock('@tearleads/vfs-sync/clientEntry', () => ({
+      setSyncQueueDependencies
+    }));
+    vi.doMock('@/contexts/VfsOrchestratorContext', () => ({
+      useVfsOrchestratorInstance: vi.fn(() => mockOrchestrator)
+    }));
+    vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
+      useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
+
+    const { configureSyncQueueDependencies } = await import(
+      './configureSyncQueueDependencies'
+    );
+
+    configureSyncQueueDependencies();
+
+    const deps = setSyncQueueDependencies.mock.calls[0][0];
+    const { result } = renderHook(() => deps.useSnapshot());
+
+    expect(result.current.inbound.blobDownloads).toEqual([
+      {
+        operationId: 'download:blob-1',
+        blobId: 'blob-1',
+        itemId: 'item-1',
+        sizeBytes: 64
+      }
+    ]);
   });
 });

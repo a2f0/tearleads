@@ -69,6 +69,9 @@ export interface VfsCrdtSyncDbRow {
   encryption_nonce?: string | null;
   encryption_aad?: string | null;
   encryption_signature?: string | null;
+  blob_id?: string | null;
+  blob_size_bytes?: number | string | null;
+  blob_relation_kind?: string | null;
 }
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
@@ -228,6 +231,13 @@ function normalizePositiveInteger(value: unknown): number | null {
   }
 
   return null;
+}
+
+function normalizeBlobSizeBytes(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = Number.parseInt(String(value), 10);
+  return !Number.isNaN(parsed) ? parsed : null;
 }
 
 function normalizeOpType(value: unknown): VfsCrdtOpType {
@@ -435,6 +445,10 @@ export function mapVfsCrdtSyncRows(
       }
     }
 
+    const blobId = normalizeNonEmptyString(row.blob_id);
+    const blobSizeBytes = normalizeBlobSizeBytes(row.blob_size_bytes);
+    const blobRelationKind = normalizeNonEmptyString(row.blob_relation_kind);
+
     items.push({
       opId: row.op_id,
       itemId: row.item_id,
@@ -456,7 +470,10 @@ export function mapVfsCrdtSyncRows(
         : {}),
       ...(encryptionNonce !== null ? { encryptionNonce } : {}),
       ...(encryptionAad !== null ? { encryptionAad } : {}),
-      ...(encryptionSignature !== null ? { encryptionSignature } : {})
+      ...(encryptionSignature !== null ? { encryptionSignature } : {}),
+      ...(blobId !== null ? { blobId } : {}),
+      ...(blobSizeBytes !== null ? { blobSizeBytes } : {}),
+      ...(blobRelationKind !== null ? { blobRelationKind } : {})
     });
   }
 

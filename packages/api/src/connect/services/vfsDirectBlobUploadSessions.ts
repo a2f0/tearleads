@@ -6,6 +6,8 @@ interface UploadedChunk {
   ciphertextBase64: string;
   plaintextLength: number;
   ciphertextLength: number;
+  nonce?: string;
+  aadHash?: string;
 }
 
 const BLOB_UPLOAD_CHUNK_KEY_PREFIX = 'vfs:blobUpload';
@@ -103,12 +105,21 @@ function parseUploadedChunk(value: unknown): UploadedChunk | null {
     return null;
   }
 
+  const nonce = Object.hasOwn(candidate, 'nonce')
+    ? Reflect.get(candidate, 'nonce')
+    : undefined;
+  const aadHash = Object.hasOwn(candidate, 'aadHash')
+    ? Reflect.get(candidate, 'aadHash')
+    : undefined;
+
   return {
     chunkIndex,
     isFinal,
     ciphertextBase64,
     plaintextLength,
-    ciphertextLength
+    ciphertextLength,
+    ...(typeof nonce === 'string' && nonce.length > 0 ? { nonce } : {}),
+    ...(typeof aadHash === 'string' && aadHash.length > 0 ? { aadHash } : {})
   };
 }
 

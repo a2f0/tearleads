@@ -24,11 +24,26 @@ export {
 } from './connectRoutes';
 export { openNotificationEventStream } from './notificationStream';
 export {
+  createVfsBlobDownloadFlusher,
+  VfsBlobDownloadFlusher,
+  type VfsBlobDownloadFlusherOptions
+} from './vfsBlobDownloadFlusher';
+export type {
+  VfsBlobDownloadFlusherPersistedState,
+  VfsBlobDownloadOperation,
+  VfsBlobDownloadResult,
+  VfsBlobDownloadResultEvent,
+  VfsBlobDownloadRetryPolicy
+} from './vfsBlobDownloadTypes';
+export {
+  createVfsCryptoEngine,
   createVfsSecurePipelineBundle,
+  createVfsSecureReadPipeline,
   rotateItemKeyEpochAndPersist,
   type VfsKeyManager,
   type VfsKeySetupPayload,
-  type VfsSecureOrchestratorFacade
+  type VfsSecureOrchestratorFacade,
+  type VfsSecureReadPipeline
 } from './vfsCrypto';
 export {
   VfsWriteOrchestrator,

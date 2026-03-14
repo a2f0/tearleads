@@ -12,7 +12,8 @@ describe('SyncQueueInboundStatus', () => {
             changeId: 'abcdef1234567890'
           },
           pendingOperations: 3,
-          nextLocalWriteId: 42
+          nextLocalWriteId: 42,
+          blobDownloads: []
         }}
       />
     );
@@ -27,7 +28,8 @@ describe('SyncQueueInboundStatus', () => {
         inbound={{
           cursor: null,
           pendingOperations: 0,
-          nextLocalWriteId: 1
+          nextLocalWriteId: 1,
+          blobDownloads: []
         }}
       />
     );
@@ -40,7 +42,8 @@ describe('SyncQueueInboundStatus', () => {
         inbound={{
           cursor: null,
           pendingOperations: 0,
-          nextLocalWriteId: 0
+          nextLocalWriteId: 0,
+          blobDownloads: []
         }}
       />
     );

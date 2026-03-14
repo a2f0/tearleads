@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  mockBlobDownloadSyncRun,
   mockHydrateLocalReadModelFromRemoteFeeds,
   mockLogInfo,
   mockUseSSE,
@@ -223,6 +224,49 @@ describe('VfsRealtimeSyncBridge', () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(1);
     expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs blob download sync after CRDT sync completes', async () => {
+    const addChannels = vi.fn();
+    const removeChannels = vi.fn();
+    const syncCrdt = vi.fn().mockResolvedValue(undefined);
+    const sseState = {
+      addChannels,
+      removeChannels,
+      lastMessage: null as {
+        channel: string;
+        message: { type: string; payload: unknown; timestamp: string };
+      } | null
+    };
+
+    mockUseSSE.mockImplementation(() => sseState);
+    mockUseVfsOrchestratorInstance.mockReturnValue({
+      crdt: {
+        listChangedContainers: vi.fn(() => ({
+          items: [{ containerId: 'item-1' }],
+          hasMore: false,
+          nextCursor: null
+        }))
+      },
+      syncCrdt
+    });
+
+    const { rerender } = render(<VfsRealtimeSyncBridge />);
+    sseState.lastMessage = {
+      channel: 'vfs:container:item-1:sync',
+      message: {
+        type: 'vfs:cursor-bump',
+        payload: {},
+        timestamp: new Date().toISOString()
+      }
+    };
+    rerender(<VfsRealtimeSyncBridge />);
+
+    await vi.advanceTimersByTimeAsync(700);
+
+    expect(syncCrdt).toHaveBeenCalledTimes(1);
+    expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
+    expect(mockBlobDownloadSyncRun).toHaveBeenCalledTimes(1);
   });
 
   it('ignores non-VFS or non-cursor-bump messages', async () => {

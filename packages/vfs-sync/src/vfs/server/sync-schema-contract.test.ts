@@ -53,6 +53,8 @@ describe('sync schema contract', () => {
     // CRDT feed optimized to use denormalized visibility and link check.
     // Snapshot tables are used by rematerialization routes, not hot-log pulls.
     expect(extractSqlTableReferences(crdtQuery.text)).toEqual([
+      'vfs_blob_objects',
+      'vfs_blob_refs',
       'vfs_crdt_ops',
       'vfs_effective_visibility'
     ]);

@@ -225,7 +225,9 @@ describe('vfsDirectBlobStageUpload', () => {
         isFinal: true,
         ciphertextBase64: 'ZGF0YQ==',
         plaintextLength: 4,
-        ciphertextLength: 4
+        ciphertextLength: 4,
+        nonce: 'nonce-1',
+        aadHash: 'aad-1'
       }
     });
     expect(response).toEqual({

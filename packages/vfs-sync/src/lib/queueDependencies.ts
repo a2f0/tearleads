@@ -15,6 +15,13 @@ export interface SyncQueueSnapshotBlobOp {
   chunkIndex?: number | undefined;
 }
 
+export interface SyncQueueSnapshotInboundBlobOp {
+  operationId: string;
+  blobId: string;
+  itemId: string;
+  sizeBytes: number;
+}
+
 export interface SyncQueueSnapshot {
   outbound: {
     crdt: SyncQueueSnapshotCrdtOp[];
@@ -24,6 +31,7 @@ export interface SyncQueueSnapshot {
     cursor: { changedAt: string; changeId: string } | null;
     pendingOperations: number;
     nextLocalWriteId: number;
+    blobDownloads: SyncQueueSnapshotInboundBlobOp[];
   };
 }
 

@@ -352,7 +352,9 @@ export async function uploadBlobChunkDirect(
         isFinal: payload.isFinal,
         ciphertextBase64: payload.ciphertextBase64,
         plaintextLength: payload.plaintextLength,
-        ciphertextLength: payload.ciphertextLength
+        ciphertextLength: payload.ciphertextLength,
+        ...(payload.nonce ? { nonce: payload.nonce } : {}),
+        ...(payload.aadHash ? { aadHash: payload.aadHash } : {})
       }
     });
 

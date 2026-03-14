@@ -7,6 +7,15 @@ export const mockLogInfo = vi.fn();
 export const mockLogWarn = vi.fn();
 export const mockGetActiveOrganizationId = vi.fn();
 export const mockGetInstanceChangeSnapshot = vi.fn();
+const mockBlobDownloadSyncHydrateFromPersistence = vi.fn();
+const mockBlobDownloadSyncReset = vi.fn();
+export const mockBlobDownloadSyncRun = vi.fn();
+const mockCreateVfsBlobDownloadSync = vi.fn((_input: unknown) => ({
+  hydrateFromPersistence: (...args: unknown[]) =>
+    mockBlobDownloadSyncHydrateFromPersistence(...args),
+  reset: (...args: unknown[]) => mockBlobDownloadSyncReset(...args),
+  sync: (...args: unknown[]) => mockBlobDownloadSyncRun(...args)
+}));
 export const orgChangeListeners = new Set<() => void>();
 
 vi.mock('@/sse', () => ({
@@ -48,6 +57,17 @@ vi.mock('@/hooks/app/useInstanceChange', () => ({
   getInstanceChangeSnapshot: () => mockGetInstanceChangeSnapshot()
 }));
 
+vi.mock('@/lib/authStorage', () => ({
+  readStoredAuth: () => ({
+    user: { id: 'user-1' }
+  })
+}));
+
+vi.mock('@/lib/vfsBlobDownloadSync', () => ({
+  createVfsBlobDownloadSync: (input: unknown) =>
+    mockCreateVfsBlobDownloadSync(input)
+}));
+
 export function resetVfsRealtimeSyncBridgeTestMocks(): void {
   vi.clearAllMocks();
   orgChangeListeners.clear();
@@ -57,4 +77,6 @@ export function resetVfsRealtimeSyncBridgeTestMocks(): void {
     instanceEpoch: 1
   });
   mockHydrateLocalReadModelFromRemoteFeeds.mockResolvedValue(undefined);
+  mockBlobDownloadSyncHydrateFromPersistence.mockResolvedValue(false);
+  mockBlobDownloadSyncRun.mockResolvedValue(undefined);
 }

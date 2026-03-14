@@ -61,6 +61,8 @@ export type AnalyticsEventSlug =
   | 'api_post_vfs_register'
   | 'api_get_vfs_shares'
   | 'api_get_vfs_blob'
+  | 'api_get_vfs_blob_manifest'
+  | 'api_get_vfs_blob_chunk'
   | 'api_post_vfs_share'
   | 'api_patch_vfs_share'
   | 'api_delete_vfs_share'
@@ -260,6 +262,8 @@ export type ApiPostVfsKeysDetail = { created?: boolean };
 export type ApiPostVfsRegisterDetail = { objectType?: string };
 export type ApiGetVfsSharesDetail = { shareCount?: number };
 export type ApiGetVfsBlobDetail = { blobId?: string };
+export type ApiGetVfsBlobManifestDetail = { blobId?: string };
+export type ApiGetVfsBlobChunkDetail = { blobId?: string; chunkIndex?: number };
 export type ApiPostVfsShareDetail = { shareType?: string };
 export type ApiPatchVfsShareDetail = { shareId?: string };
 export type ApiDeleteVfsShareDetail = { deleted?: boolean };
@@ -392,6 +396,8 @@ export interface EventDetailMap {
   api_post_vfs_register: ApiPostVfsRegisterDetail;
   api_get_vfs_shares: ApiGetVfsSharesDetail;
   api_get_vfs_blob: ApiGetVfsBlobDetail;
+  api_get_vfs_blob_manifest: ApiGetVfsBlobManifestDetail;
+  api_get_vfs_blob_chunk: ApiGetVfsBlobChunkDetail;
   api_post_vfs_share: ApiPostVfsShareDetail;
   api_patch_vfs_share: ApiPatchVfsShareDetail;
   api_delete_vfs_share: ApiDeleteVfsShareDetail;

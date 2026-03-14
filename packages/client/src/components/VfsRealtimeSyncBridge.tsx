@@ -2,8 +2,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsSyncState } from '@/contexts/VfsSyncStateContext';
 import { getInstanceChangeSnapshot } from '@/hooks/app/useInstanceChange';
+import { readStoredAuth } from '@/lib/authStorage';
 import { hasActiveOrganizationId, onOrgChange } from '@/lib/orgStorage';
 import { createRemoteReadOrchestrator } from '@/lib/remoteReadOrchestrator';
+import { resetVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
+import {
+  createVfsBlobDownloadSync,
+  type VfsBlobDownloadSync
+} from '@/lib/vfsBlobDownloadSync';
 import { withDownloadTracking } from '@/lib/vfsItemSyncWriter';
 import { hydrateLocalReadModelFromRemoteFeeds } from '@/lib/vfsReadModelHydration';
 import { useSSE } from '@/sse';
@@ -15,6 +21,8 @@ const SYNC_DEBOUNCE_MS = 150;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
 const SYNC_SCOPE = 'vfs-realtime-sync';
+const BLOB_SYNC_SCOPE = 'vfs-blob-download';
+const BLOB_SYNC_DEBOUNCE_MS = 500;
 
 function isSameStringArray(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
@@ -82,8 +90,76 @@ export function VfsRealtimeSyncBridge() {
   const remoteReadOrchestratorRef = useRef(
     createRemoteReadOrchestrator<void>()
   );
+  const blobSyncOrchestratorRef = useRef(createRemoteReadOrchestrator<void>());
+  const blobDownloadSyncRef = useRef<VfsBlobDownloadSync | null>(null);
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleBlobSync = useCallback(() => {
+    const scheduledSnapshot = getInstanceChangeSnapshot();
+    void blobSyncOrchestratorRef.current
+      .schedule(
+        async () => {
+          const executionSnapshot = getInstanceChangeSnapshot();
+          if (
+            executionSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch
+          ) {
+            return;
+          }
+
+          const blobDownloadSync = blobDownloadSyncRef.current;
+          if (!blobDownloadSync) {
+            return;
+          }
+
+          await blobDownloadSync.sync();
+        },
+        {
+          scope: BLOB_SYNC_SCOPE,
+          debounceMs: BLOB_SYNC_DEBOUNCE_MS,
+          coalesceInFlight: true
+        }
+      )
+      .catch((error) => {
+        const currentSnapshot = getInstanceChangeSnapshot();
+        if (currentSnapshot.instanceEpoch !== scheduledSnapshot.instanceEpoch) {
+          return;
+        }
+        logStore.warn(
+          'VFS blob sync failed after CRDT sync',
+          error instanceof Error ? error.message : String(error)
+        );
+      });
+  }, []);
+
+  useEffect(() => {
+    const userId = readStoredAuth().user?.id;
+    const instanceId = getInstanceChangeSnapshot().currentInstanceId;
+
+    blobDownloadSyncRef.current?.reset();
+    blobDownloadSyncRef.current = null;
+
+    if (!orchestrator || !userId || !instanceId) {
+      resetVfsBlobDownloadOperations();
+      return;
+    }
+
+    const nextBlobDownloadSync = createVfsBlobDownloadSync({
+      userId,
+      instanceId,
+      isActive: () =>
+        getInstanceChangeSnapshot().currentInstanceId === instanceId
+    });
+    blobDownloadSyncRef.current = nextBlobDownloadSync;
+    void nextBlobDownloadSync.hydrateFromPersistence();
+
+    return () => {
+      if (blobDownloadSyncRef.current === nextBlobDownloadSync) {
+        nextBlobDownloadSync.reset();
+        blobDownloadSyncRef.current = null;
+      }
+    };
+  }, [orchestrator]);
 
   const scheduleSync = useCallback(() => {
     if (!orchestrator || retryTimerRef.current) {
@@ -120,6 +196,8 @@ export function VfsRealtimeSyncBridge() {
             return;
           }
           retryAttemptRef.current = 0;
+
+          scheduleBlobSync();
         },
         {
           scope: SYNC_SCOPE,
@@ -150,7 +228,7 @@ export function VfsRealtimeSyncBridge() {
           scheduleSync();
         }, retryDelayMs);
       });
-  }, [orchestrator, refreshSyncState]);
+  }, [orchestrator, refreshSyncState, scheduleBlobSync]);
 
   useEffect(() => {
     if (!orchestrator) {
@@ -252,7 +330,10 @@ export function VfsRealtimeSyncBridge() {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
+      blobDownloadSyncRef.current?.reset();
+      blobDownloadSyncRef.current = null;
       remoteReadOrchestratorRef.current.cancelInFlight(SYNC_SCOPE);
+      blobSyncOrchestratorRef.current.cancelInFlight(BLOB_SYNC_SCOPE);
     };
   }, []);
 

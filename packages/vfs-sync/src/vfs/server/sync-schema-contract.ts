@@ -74,6 +74,16 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
     tableName: 'vfs_sync_client_state',
     domain: 'crdtReconcile',
     purpose: 'monotonic per-client reconcile cursor + replica-write state'
+  },
+  {
+    tableName: 'vfs_blob_refs',
+    domain: 'crdtFeed',
+    purpose: 'blob ref metadata enrichment in CRDT sync feed'
+  },
+  {
+    tableName: 'vfs_blob_objects',
+    domain: 'crdtFeed',
+    purpose: 'blob size lookup for enriched CRDT sync feed items'
   }
 ];
 
@@ -105,6 +115,7 @@ function normalizeSqlTableReference(rawReference: string): string {
 export function extractSqlTableReferences(sql: string): string[] {
   const cteNames = extractCteNames(sql);
   const tableNames = new Set<string>();
+  const ignoredReferences = new Set(['lateral']);
   const pattern =
     /\b(?:FROM|JOIN|INTO|UPDATE|DELETE\s+FROM)\s+(?!SET\b)([a-zA-Z_"][a-zA-Z0-9_."-]*)/gim;
   let match: RegExpExecArray | null = pattern.exec(sql);
@@ -117,7 +128,7 @@ export function extractSqlTableReferences(sql: string): string[] {
 
     const normalizedName =
       normalizeSqlTableReference(rawReference).toLowerCase();
-    if (cteNames.has(normalizedName)) {
+    if (cteNames.has(normalizedName) || ignoredReferences.has(normalizedName)) {
       match = pattern.exec(sql);
       continue;
     }
