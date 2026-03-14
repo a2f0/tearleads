@@ -20,7 +20,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true bun test --preload ./src/test/setup.ts ./src",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true sh ../../scripts/test/runBunPerFile.sh --root src --coverage"
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true BUN_TEST_PRELOAD=./src/test/setup.ts sh ../../scripts/test/runCoverage.sh"
   },
   "keywords": [
     "tee",
