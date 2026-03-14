@@ -131,6 +131,8 @@ describe('adminDirectUsers list/get coverage branches', () => {
     );
 
     const queryCall = queryMock.mock.calls[0];
+    expect(queryCall?.[0]).toContain('uo.organization_id = ANY($1::uuid[])');
+    expect(queryCall?.[0]).toContain('uof.organization_id = ANY($1::uuid[])');
     expect(queryCall?.[1]).toEqual([['org-1']]);
     expect(response.users).toEqual([]);
   });
@@ -215,6 +217,35 @@ describe('adminDirectUsers list/get coverage branches', () => {
     expect(response.user?.disabledBy).toBeUndefined();
     expect(response.user?.markedForDeletionAt).toBeUndefined();
     expect(response.user?.markedForDeletionBy).toBeUndefined();
+  });
+
+  it('uses scoped organization list for non-root getUser requests', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'user-1',
+            email: 'user1@example.com',
+            email_confirmed: true,
+            admin: false,
+            disabled: false,
+            disabled_at: null,
+            disabled_by: null,
+            marked_for_deletion_at: null,
+            marked_for_deletion_by: null,
+            created_at: new Date('2026-03-03T02:10:00.000Z'),
+            organization_ids: ['org-1']
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await getUserDirect({ id: 'user-1' }, { requestHeader: new Headers() });
+
+    const queryCall = queryMock.mock.calls[0];
+    expect(queryCall?.[0]).toContain('uo.organization_id = ANY($2::uuid[])');
+    expect(queryCall?.[0]).toContain('uof.organization_id = ANY($2::uuid[])');
+    expect(queryCall?.[1]).toEqual(['user-1', ['org-1']]);
   });
 
   it('maps getUser query failures to internal', async () => {
