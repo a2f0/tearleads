@@ -129,7 +129,7 @@ export async function listUsersDirect(
                MIN(uc.created_at) AS created_at,
                COALESCE(
                  ARRAY_AGG(uo.organization_id) FILTER (
-                   WHERE uo.organization_id = ANY($1::text[])
+                   WHERE uo.organization_id = ANY($1::uuid[])
                  ),
                  '{}'
                ) AS organization_ids
@@ -140,7 +140,7 @@ export async function listUsersDirect(
                SELECT 1
                FROM user_organizations uof
                WHERE uof.user_id = u.id
-                 AND uof.organization_id = ANY($1::text[])
+                 AND uof.organization_id = ANY($1::uuid[])
              )
              GROUP BY u.id
              ORDER BY u.email`,
@@ -221,7 +221,7 @@ export async function getUserDirect(
                MIN(uc.created_at) AS created_at,
                COALESCE(
                  ARRAY_AGG(uo.organization_id) FILTER (
-                   WHERE uo.organization_id = ANY($2::text[])
+                   WHERE uo.organization_id = ANY($2::uuid[])
                  ),
                  '{}'
                ) AS organization_ids
@@ -233,7 +233,7 @@ export async function getUserDirect(
                  SELECT 1
                  FROM user_organizations uof
                  WHERE uof.user_id = u.id
-                   AND uof.organization_id = ANY($2::text[])
+                   AND uof.organization_id = ANY($2::uuid[])
                )
              GROUP BY u.id`,
           [request.id, authorization.adminAccess.organizationIds]
@@ -390,7 +390,7 @@ export async function updateUserDirect(
 
       if (organizationIds.length > 0) {
         const orgResult = await pool.query<{ id: string }>(
-          'SELECT id FROM organizations WHERE id = ANY($1::text[])',
+          'SELECT id FROM organizations WHERE id = ANY($1::uuid[])',
           [organizationIds]
         );
         if (orgResult.rows.length !== organizationIds.length) {
@@ -408,7 +408,7 @@ export async function updateUserDirect(
         await pool.query(
           `INSERT INTO user_organizations (user_id, organization_id, joined_at, is_admin)
            SELECT $1, organization_id, NOW(), organization_id = $3
-           FROM unnest($2::text[]) AS organization_id`,
+           FROM unnest($2::uuid[]) AS organization_id`,
           [userId, organizationIds, personalOrganizationId]
         );
       }

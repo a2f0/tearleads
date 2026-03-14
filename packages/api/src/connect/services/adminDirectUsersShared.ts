@@ -100,7 +100,7 @@ export async function getUserAccounting(
        COUNT(*) AS request_count,
        MAX(created_at) AS last_used_at
      FROM ai_usage
-     WHERE user_id = ANY($1::text[])
+     WHERE user_id = ANY($1::uuid[])
      GROUP BY user_id`,
     [userIds]
   );

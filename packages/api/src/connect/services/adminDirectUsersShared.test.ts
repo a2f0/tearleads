@@ -51,6 +51,8 @@ describe('admin users shared', () => {
       'user-2'
     ]);
 
+    expect(query.mock.calls[0]?.[0]).toContain('WHERE user_id = ANY($1::uuid[])');
+    expect(query.mock.calls[0]?.[1]).toEqual([['user-1', 'user-2']]);
     expect(result['user-1']).toEqual({
       totalPromptTokens: 11,
       totalCompletionTokens: 22,

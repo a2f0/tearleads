@@ -203,6 +203,15 @@ describe('adminDirectUsers update coverage branches', () => {
         typeof call[0] === 'string' &&
         call[0].includes('INSERT INTO user_organizations')
     );
+    const organizationLookupCall = queryMock.mock.calls.find(
+      (call) =>
+        typeof call[0] === 'string' &&
+        call[0].includes('SELECT id FROM organizations')
+    );
+    expect(organizationLookupCall?.[0]).toContain(
+      'SELECT id FROM organizations WHERE id = ANY($1::uuid[])'
+    );
+    expect(insertCall?.[0]).toContain('FROM unnest($2::uuid[]) AS organization_id');
     expect(insertCall?.[1]).toEqual([
       'user-1',
       ['org-2', 'org-personal'],
