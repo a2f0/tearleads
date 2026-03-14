@@ -78,31 +78,6 @@ export function decodeBase64ToBytes(value: string): Uint8Array | null {
   }
 }
 
-export function readEnvelopeField(bytesValue: unknown): string | undefined {
-  const parsedBytes = normalizeOptionalBytes(bytesValue);
-  if (parsedBytes) {
-    return encodeBytesToBase64(parsedBytes);
-  }
-
-  return undefined;
-}
-
-export function writeEnvelopeField(
-  payload: Record<string, unknown>,
-  input: {
-    bytesKey: string;
-    value: string;
-    fieldName: string;
-  }
-): void {
-  const decoded = decodeBase64ToBytes(input.value);
-  if (!decoded) {
-    throw new Error(`invalid protobuf payload field: ${input.fieldName}`);
-  }
-
-  payload[input.bytesKey] = decoded;
-}
-
 /**
  * Packs a UUID string (36 chars) into 16 bytes.
  * If the string is not a valid UUID, it falls back to UTF-8 encoding.
