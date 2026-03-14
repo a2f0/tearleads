@@ -57,6 +57,25 @@ describe('vfsConnectService mutation payload parsing', () => {
     });
   });
 
+  it('accepts health reading register payloads', async () => {
+    const context = createContext();
+    const payload = {
+      id: 'reading-1',
+      objectType: 'healthReading',
+      encryptedSessionKey: 'wrapped-session-key'
+    };
+    registerDirectMock.mockResolvedValueOnce({
+      id: payload.id,
+      createdAt: '2026-03-03T00:00:00.000Z'
+    });
+
+    await expect(callRegister(payload, context)).resolves.toEqual({
+      id: payload.id,
+      createdAt: '2026-03-03T00:00:00.000Z'
+    });
+    expect(registerDirectMock).toHaveBeenCalledWith(payload, context);
+  });
+
   it('rejects legacy json-wrapped register payloads', async () => {
     const context = createContext();
     const wrappedPayload = {

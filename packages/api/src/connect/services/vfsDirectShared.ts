@@ -4,31 +4,14 @@ import type {
   VfsRegisterRequest,
   VfsRekeyRequest
 } from '@tearleads/shared';
-import { isRecord } from '@tearleads/shared';
-
-const VALID_OBJECT_TYPES: VfsObjectType[] = [
-  'file',
-  'photo',
-  'audio',
-  'video',
-  'contact',
-  'note',
-  'email',
-  'mlsMessage',
-  'conversation',
-  'folder',
-  'playlist',
-  'album',
-  'contactGroup',
-  'tag'
-];
+import { isRecord, VFS_OBJECT_TYPES } from '@tearleads/shared';
 
 type RekeyReason = 'unshare' | 'expiry' | 'manual';
 
 function isValidObjectType(value: unknown): value is VfsObjectType {
   return (
     typeof value === 'string' &&
-    VALID_OBJECT_TYPES.includes(value as VfsObjectType)
+    VFS_OBJECT_TYPES.includes(value as VfsObjectType)
   );
 }
 
