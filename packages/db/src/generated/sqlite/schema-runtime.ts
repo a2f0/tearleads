@@ -43,6 +43,7 @@ export const vfsCrdtOps = sqliteTable(
     actorId: text('actor_id').references(() => users.id, {
       onDelete: 'set null'
     }),
+    actorSigningPublicKey: text('actor_signing_public_key'),
     sourceTable: text('source_table').notNull(),
     sourceId: text('source_id').notNull(),
     occurredAt: integer('occurred_at', { mode: 'timestamp_ms' }).notNull(),

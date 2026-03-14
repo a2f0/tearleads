@@ -193,6 +193,7 @@ describe('vfsDirectCrdtPushApply', () => {
 
       expect(insertValues[2]).toBe('user');
       expect(insertValues[3]).toBe('user-3');
+      expect(insertValues[8]).toBe(serializedKeyPair.ed25519PublicKey);
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         'ACL operation applied:',
         expect.objectContaining({
@@ -203,7 +204,6 @@ describe('vfsDirectCrdtPushApply', () => {
       expect(insertValues[4]).toBe('read');
       expect(insertValues[5]).toBeNull();
       expect(insertValues[6]).toBeNull();
-      expect(insertValues[11]).toBeNull();
       expect(insertValues[12]).toBeNull();
       expect(insertValues[13]).toBeNull();
       expect(insertValues[14]).toBeNull();
@@ -213,7 +213,8 @@ describe('vfsDirectCrdtPushApply', () => {
       expect(insertValues[18]).toBeNull();
       expect(insertValues[19]).toBeNull();
       expect(insertValues[20]).toBeNull();
-      expect(insertValues[21]).toBeInstanceOf(Uint8Array);
+      expect(insertValues[21]).toBeNull();
+      expect(insertValues[22]).toBeInstanceOf(Uint8Array);
 
       const auditEvent = JSON.parse(String(consoleInfoSpy.mock.calls[0]?.[0]));
       expect(auditEvent).toMatchObject({
@@ -441,9 +442,10 @@ describe('vfsDirectCrdtPushApply', () => {
       throw new Error('expected insert values');
     }
 
-    expect(insertValues[11]).toBeNull();
-    expect(insertValues[16]).toBeNull();
-    expect(insertValues[17]).toBeInstanceOf(Uint8Array);
+    expect(insertValues[8]).toBeNull();
+    expect(insertValues[12]).toBeNull();
+    expect(insertValues[17]).toBeNull();
+    expect(insertValues[18]).toBeInstanceOf(Uint8Array);
 
     expect(String(queryMock.mock.calls[7]?.[0])).toContain('vfs_item_state');
     expect(String(queryMock.mock.calls[8]?.[0])).toContain(

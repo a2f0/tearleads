@@ -4,7 +4,7 @@ import { getCurrentVersion, runMigrations } from './index.js';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
 
-describe('migrations (core through v006)', () => {
+describe('migrations (core through v007)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
@@ -44,7 +44,7 @@ describe('migrations (core through v006)', () => {
         (migration: Migration) => migration.version
       );
 
-      expect(versions).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7]);
       expect(migrations[0]?.version).toBe(1);
     });
 
@@ -68,7 +68,7 @@ describe('migrations (core through v006)', () => {
           if (sql.includes('MAX(version)')) {
             versionCallCount += 1;
             return Promise.resolve({
-              rows: [{ version: versionCallCount === 1 ? null : 6 }],
+              rows: [{ version: versionCallCount === 1 ? null : 7 }],
               rowCount: 1
             });
           }
@@ -79,24 +79,24 @@ describe('migrations (core through v006)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([1, 2, 3, 4, 5, 6]);
-      expect(result.currentVersion).toBe(6);
+      expect(result.applied).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(result.currentVersion).toBe(7);
       expect(
         pool.queries.filter((query) =>
           query.includes('INSERT INTO schema_migrations')
         )
-      ).toHaveLength(6);
+      ).toHaveLength(7);
     });
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 6 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 7 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(6);
+      expect(result.currentVersion).toBe(7);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -108,7 +108,7 @@ describe('migrations (core through v006)', () => {
         if (sql.includes('MAX(version)')) {
           versionCallCount += 1;
           return Promise.resolve({
-            rows: [{ version: versionCallCount === 1 ? 1 : 6 }],
+            rows: [{ version: versionCallCount === 1 ? 1 : 7 }],
             rowCount: 1
           });
         }
@@ -118,8 +118,8 @@ describe('migrations (core through v006)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([2, 3, 4, 5, 6]);
-      expect(result.currentVersion).toBe(6);
+      expect(result.applied).toEqual([2, 3, 4, 5, 6, 7]);
+      expect(result.currentVersion).toBe(7);
     });
   });
 
@@ -324,6 +324,31 @@ describe('migrations (core through v006)', () => {
       expect(queries).toContain(
         'ADD COLUMN IF NOT EXISTS "operation_signature_bytes" BYTEA'
       );
+    });
+  });
+
+  describe('v007 migration', () => {
+    it('adds and backfills persisted ACL signer public keys', async () => {
+      const pool = createMockPool(new Map());
+
+      const v007 = migrations.find(
+        (migration: Migration) => migration.version === 7
+      );
+      if (!v007) {
+        throw new Error('v007 migration not found');
+      }
+
+      await v007.up(pool);
+
+      const queries = pool.queries.join('\n');
+
+      expect(queries).toContain('ALTER TABLE "vfs_crdt_ops"');
+      expect(queries).toContain(
+        'ADD COLUMN IF NOT EXISTS "actor_signing_public_key" TEXT'
+      );
+      expect(queries).toContain('UPDATE "vfs_crdt_ops" AS ops');
+      expect(queries).toContain('SET "actor_signing_public_key"');
+      expect(queries).toContain('FROM "user_keys" AS keys');
     });
   });
 });

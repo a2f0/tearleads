@@ -10,13 +10,22 @@ import { v003 } from './v003.js';
 import { v004 } from './v004.js';
 import { v005 } from './v005.js';
 import { v006 } from './v006.js';
+import { v007 } from './v007.js';
 
 /**
  * Migration list.
  *
  * We consolidated 41 migrations into focused staged migrations for greenfield performance.
  */
-export const migrations: Migration[] = [v001, v002, v003, v004, v005, v006];
+export const migrations: Migration[] = [
+  v001,
+  v002,
+  v003,
+  v004,
+  v005,
+  v006,
+  v007
+];
 
 /**
  * Get the current migration version.

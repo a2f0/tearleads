@@ -265,6 +265,7 @@ describe('vfsCrdtOpsTable', () => {
     expect(vfsCrdtOpsTable.columns['principalType']).toBeDefined();
     expect(vfsCrdtOpsTable.columns['parentId']).toBeDefined();
     expect(vfsCrdtOpsTable.columns['childId']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['actorSigningPublicKey']).toBeDefined();
     expect(vfsCrdtOpsTable.columns['occurredAt']).toBeDefined();
   });
 });

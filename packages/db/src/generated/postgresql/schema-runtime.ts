@@ -44,6 +44,7 @@ export const vfsCrdtOps = pgTable(
     actorId: text('actor_id').references(() => users.id, {
       onDelete: 'set null'
     }),
+    actorSigningPublicKey: text('actor_signing_public_key'),
     sourceTable: text('source_table').notNull(),
     sourceId: text('source_id').notNull(),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),

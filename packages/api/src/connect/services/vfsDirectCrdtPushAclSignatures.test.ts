@@ -6,7 +6,10 @@ import {
 } from '@tearleads/shared';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import { verifyAclPushOperationSignature } from './vfsDirectCrdtPushAclSignatures.js';
+import {
+  type ActorSigningKeyCacheValue,
+  verifyAclPushOperationSignature
+} from './vfsDirectCrdtPushAclSignatures.js';
 
 function createQueryResult<T extends QueryResultRow>(
   rows: T[] = [],
@@ -87,7 +90,10 @@ describe('verifyAclPushOperationSignature', () => {
     const keyPair = generateKeyPair();
     const serializedKeyPair = serializeKeyPair(keyPair);
     const operation = createAclOperation();
-    const cachedPublicSigningKeys = new Map<string, Uint8Array | null>();
+    const cachedPublicSigningKeys = new Map<
+      string,
+      ActorSigningKeyCacheValue
+    >();
     const queryMock = vi
       .fn()
       .mockResolvedValue(
@@ -121,7 +127,10 @@ describe('verifyAclPushOperationSignature', () => {
         },
         runQuery: queryMock
       })
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({
+      ok: true,
+      verifiedPublicSigningKey: serializedKeyPair.ed25519PublicKey
+    });
 
     await expect(
       verifyAclPushOperationSignature({
@@ -147,7 +156,10 @@ describe('verifyAclPushOperationSignature', () => {
         },
         runQuery: queryMock
       })
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({
+      ok: true,
+      verifiedPublicSigningKey: serializedKeyPair.ed25519PublicKey
+    });
 
     expect(queryMock).toHaveBeenCalledTimes(1);
   });
