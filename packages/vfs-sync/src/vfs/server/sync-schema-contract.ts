@@ -128,10 +128,7 @@ export function extractSqlTableReferences(sql: string): string[] {
 
     const normalizedName =
       normalizeSqlTableReference(rawReference).toLowerCase();
-    if (
-      cteNames.has(normalizedName) ||
-      ignoredReferences.has(normalizedName)
-    ) {
+    if (cteNames.has(normalizedName) || ignoredReferences.has(normalizedName)) {
       match = pattern.exec(sql);
       continue;
     }
