@@ -36,9 +36,9 @@ const ALL_SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as UserSettingKey[];
  * i18n pick up the correct per-instance values immediately on switch,
  * instead of flashing to defaults while we wait for the async DB sync.
  */
-function buildCachedSettings(
-  instanceId: string | null | undefined
-): { [K in UserSettingKey]: SettingValueMap[K] } {
+function buildCachedSettings(instanceId: string | null | undefined): {
+  [K in UserSettingKey]: SettingValueMap[K];
+} {
   const result = { ...SETTING_DEFAULTS };
   for (const key of ALL_SETTING_KEYS) {
     const stored = getSettingFromStorage(key, instanceId);
