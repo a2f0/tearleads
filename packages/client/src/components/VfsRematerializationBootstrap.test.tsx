@@ -256,7 +256,9 @@ describe('VfsRematerializationBootstrap', () => {
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(2_000);
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(2_001);
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(2);
     expect(consoleWarnSpy).not.toHaveBeenCalled();
 

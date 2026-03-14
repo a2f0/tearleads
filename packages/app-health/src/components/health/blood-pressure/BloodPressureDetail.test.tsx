@@ -11,7 +11,6 @@ const mockRegisterReadingInVfs = vi.fn().mockResolvedValue(undefined);
 const mockLinkReadingToContact = vi.fn().mockResolvedValue(undefined);
 let mockAvailableContacts: Array<{ id: string; name: string }> = [];
 let BloodPressureDetail: typeof BloodPressureDetailComponent;
-let componentVersion = 0;
 
 vi.mock('./useBloodPressureData', () => ({
   useBloodPressureData: () => mockUseBloodPressureData()
@@ -47,6 +46,7 @@ const mockReadings = [
 describe('BloodPressureDetail', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
     mockAvailableContacts = [];
     mockAddReading.mockResolvedValue({
       id: 'bp_2',
@@ -55,10 +55,7 @@ describe('BloodPressureDetail', () => {
       diastolic: 78,
       contactId: null
     });
-    componentVersion += 1;
-    const module = await import(
-      `./BloodPressureDetail.tsx?test=${componentVersion}`
-    );
+    const module = await import('./BloodPressureDetail');
     BloodPressureDetail = module.BloodPressureDetail;
   });
 

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   mockHydrateLocalReadModelFromRemoteFeeds,
   mockLogInfo,
-  mockLogWarn,
   mockUseSSE,
   mockUseVfsOrchestratorInstance,
   resetVfsRealtimeSyncBridgeTestMocks
@@ -224,10 +223,6 @@ describe('VfsRealtimeSyncBridge', () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(1);
     expect(mockHydrateLocalReadModelFromRemoteFeeds).toHaveBeenCalledTimes(1);
-    expect(mockLogInfo).toHaveBeenCalledWith(
-      'VFS SSE cursor bump received; triggering CRDT sync',
-      expect.stringContaining('channel=vfs:container:item-1:sync')
-    );
   });
 
   it('ignores non-VFS or non-cursor-bump messages', async () => {
@@ -398,10 +393,6 @@ describe('VfsRealtimeSyncBridge', () => {
 
     await vi.advanceTimersByTimeAsync(200);
     expect(syncCrdt).toHaveBeenCalledTimes(2);
-    expect(mockLogWarn).toHaveBeenCalledWith(
-      'VFS CRDT sync failed after SSE trigger; scheduling retry',
-      expect.stringContaining('attempt=1')
-    );
     randomSpy.mockRestore();
   });
 

@@ -42,18 +42,15 @@ const mockReadings = [
 ];
 
 let useBloodPressureData: typeof import('./useBloodPressureData').useBloodPressureData;
-let moduleVersion = 0;
 
 describe('useBloodPressureData', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
     mockIsUnlocked = true;
     mockTracker = mockHealthTracker;
     mockListBloodPressureReadings.mockResolvedValue(mockReadings);
-    moduleVersion += 1;
-    const module = await import(
-      `./useBloodPressureData.ts?test=${moduleVersion}`
-    );
+    const module = await import('./useBloodPressureData');
     useBloodPressureData = module.useBloodPressureData;
   });
 

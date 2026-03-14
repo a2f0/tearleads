@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ function renderDialog(
   const onOpenChange = props.onOpenChange ?? vi.fn();
   const onSubmit = props.onSubmit ?? vi.fn().mockResolvedValue(undefined);
 
-  render(
+  const renderResult = render(
     <DeferredLockPasswordDialog
       open
       isSaving={false}
@@ -21,7 +21,7 @@ function renderDialog(
     />
   );
 
-  return { onOpenChange, onSubmit };
+  return { onOpenChange, onSubmit, ...renderResult };
 }
 
 describe('DeferredLockPasswordDialog', () => {
@@ -30,7 +30,7 @@ describe('DeferredLockPasswordDialog', () => {
   });
 
   it('does not render when closed', () => {
-    render(
+    const { queryByTestId } = render(
       <DeferredLockPasswordDialog
         open={false}
         isSaving={false}
@@ -41,41 +41,38 @@ describe('DeferredLockPasswordDialog', () => {
     );
 
     expect(
-      screen.queryByTestId('deferred-lock-password-dialog')
+      queryByTestId('deferred-lock-password-dialog')
     ).not.toBeInTheDocument();
   });
 
   it('validates empty submit and does not call onSubmit', async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
+    const { getByTestId, onSubmit } = renderDialog();
 
-    await user.click(screen.getByTestId('deferred-lock-password-submit'));
+    await user.click(getByTestId('deferred-lock-password-submit'));
 
-    expect(
-      screen.getByTestId('deferred-lock-password-error')
-    ).toHaveTextContent('Enter a password to continue.');
+    expect(getByTestId('deferred-lock-password-error')).toHaveTextContent(
+      'Enter a password to continue.'
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('submits trimmed password', async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
+    const { getByTestId, onSubmit } = renderDialog();
 
-    await user.type(
-      screen.getByTestId('deferred-lock-password-input'),
-      ' pass '
-    );
-    await user.click(screen.getByTestId('deferred-lock-password-submit'));
+    await user.type(getByTestId('deferred-lock-password-input'), ' pass ');
+    await user.click(getByTestId('deferred-lock-password-submit'));
 
     expect(onSubmit).toHaveBeenCalledWith('pass');
   });
 
   it('submits when enter is pressed in the password input', async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
+    const { getByTestId, onSubmit } = renderDialog();
 
     await user.type(
-      screen.getByTestId('deferred-lock-password-input'),
+      getByTestId('deferred-lock-password-input'),
       ' pass{Enter}'
     );
 
@@ -83,37 +80,39 @@ describe('DeferredLockPasswordDialog', () => {
   });
 
   it('shows external error message', () => {
-    renderDialog({ errorMessage: 'Could not save password' });
+    const { getByTestId } = renderDialog({
+      errorMessage: 'Could not save password'
+    });
 
-    expect(
-      screen.getByTestId('deferred-lock-password-error')
-    ).toHaveTextContent('Could not save password');
+    expect(getByTestId('deferred-lock-password-error')).toHaveTextContent(
+      'Could not save password'
+    );
   });
 
   it('closes via escape, backdrop, and cancel when not saving', async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderDialog();
+    const { getByTestId, onOpenChange } = renderDialog();
 
-    fireEvent.keyDown(screen.getByTestId('deferred-lock-password-dialog'), {
+    fireEvent.keyDown(getByTestId('deferred-lock-password-dialog'), {
       key: 'Escape'
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
 
-    await user.click(screen.getByTestId('deferred-lock-password-backdrop'));
-    await user.click(screen.getByTestId('deferred-lock-password-cancel'));
+    await user.click(getByTestId('deferred-lock-password-backdrop'));
+    await user.click(getByTestId('deferred-lock-password-cancel'));
     expect(onOpenChange).toHaveBeenCalledTimes(3);
   });
 
   it('does not close while saving', async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderDialog({ isSaving: true });
+    const { getByTestId, onOpenChange } = renderDialog({ isSaving: true });
 
-    fireEvent.keyDown(screen.getByTestId('deferred-lock-password-dialog'), {
+    fireEvent.keyDown(getByTestId('deferred-lock-password-dialog'), {
       key: 'Escape'
     });
-    await user.click(screen.getByTestId('deferred-lock-password-backdrop'));
-    expect(screen.getByTestId('deferred-lock-password-cancel')).toBeDisabled();
-    expect(screen.getByTestId('deferred-lock-password-submit')).toBeDisabled();
+    await user.click(getByTestId('deferred-lock-password-backdrop'));
+    expect(getByTestId('deferred-lock-password-cancel')).toBeDisabled();
+    expect(getByTestId('deferred-lock-password-submit')).toBeDisabled();
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
@@ -184,9 +183,10 @@ describe('DeferredLockPasswordDialog', () => {
       'http://www.w3.org/2000/svg',
       'svg'
     );
-    const activeElementSpy = vi
-      .spyOn(document, 'activeElement', 'get')
-      .mockReturnValue(svgActiveElement);
+    Object.defineProperty(document, 'activeElement', {
+      configurable: true,
+      get: () => svgActiveElement
+    });
 
     const { rerender: rerenderSvg } = render(
       <DeferredLockPasswordDialog
@@ -210,6 +210,6 @@ describe('DeferredLockPasswordDialog', () => {
       );
     }).not.toThrow();
 
-    activeElementSpy.mockRestore();
+    Reflect.deleteProperty(document, 'activeElement');
   });
 });

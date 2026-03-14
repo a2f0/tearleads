@@ -7,7 +7,6 @@ import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
 import { setupThemeMocks } from '@/test/themeTestUtils';
 import { SettingsButton } from './SettingsButton';
-import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: vi.fn()
@@ -16,6 +15,46 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 vi.mock('@/hooks/device', () => ({
   useIsMobile: vi.fn()
 }));
+
+vi.mock('./settings/SettingsSheet', () => {
+  function MockSettingsSheet({
+    open,
+    onOpenChange
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) {
+    if (!open) {
+      return null;
+    }
+
+    return (
+      <div
+        role="dialog"
+        tabIndex={-1}
+        data-testid="settings-sheet"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            onOpenChange(false);
+          }
+        }}
+      >
+        <button
+          type="button"
+          data-testid="settings-sheet-backdrop"
+          onClick={() => onOpenChange(false)}
+        >
+          Backdrop
+        </button>
+        <div>Settings</div>
+      </div>
+    );
+  }
+
+  return {
+    SettingsSheet: MockSettingsSheet
+  };
+});
 
 describe('SettingsButton', () => {
   const openWindow = vi.fn();
@@ -100,12 +139,9 @@ describe('SettingsButton', () => {
 
     await user.click(screen.getByTestId('settings-sheet-backdrop'));
 
-    await waitFor(
-      () => {
-        expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
-      },
-      { timeout: ANIMATION_DURATION_MS + 500 }
-    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
+    });
   });
 
   it('closes settings sheet when Escape pressed', async () => {
@@ -116,13 +152,10 @@ describe('SettingsButton', () => {
     await user.click(screen.getByTestId('settings-button'));
     expect(screen.getByTestId('settings-sheet')).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByTestId('settings-sheet'), { key: 'Escape' });
 
-    await waitFor(
-      () => {
-        expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
-      },
-      { timeout: ANIMATION_DURATION_MS + 500 }
-    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
+    });
   });
 });

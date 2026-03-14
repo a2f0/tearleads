@@ -313,15 +313,22 @@ describe('DB scaffolding plaintext render integration', () => {
         }
       });
 
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'VFS Explorer' })
-        ).toBeInTheDocument();
-        expect(screen.getByText('Notes shared with Alice')).toBeInTheDocument();
-        expect(
-          screen.queryByText(folderCiphertext ?? '')
-        ).not.toBeInTheDocument();
+      await screen.findByRole(
+        'heading',
+        { name: 'VFS Explorer' },
+        { timeout: 5_000 }
+      );
+      await screen.findByText('Notes shared with Alice', undefined, {
+        timeout: 5_000
       });
+      await waitFor(
+        () => {
+          expect(
+            screen.queryByText(folderCiphertext ?? '')
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 5_000 }
+      );
 
       const db = getDatabase();
       const localFolder = await db
@@ -401,22 +408,25 @@ describe('DB scaffolding plaintext render integration', () => {
 
       const emailRender = await renderWithDatabase(createElement(EmailPage));
 
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'Email' })
-        ).toBeInTheDocument();
-        expect(screen.getByText('Inbox')).toBeInTheDocument();
-        expect(screen.getByText('Welcome to Tearleads')).toBeInTheDocument();
-        expect(
-          screen.getByText('From: system@tearleads.com')
-        ).toBeInTheDocument();
-        expect(
-          screen.queryByText(inboxCiphertext ?? '')
-        ).not.toBeInTheDocument();
-        expect(
-          screen.queryByText(subjectCiphertext ?? '')
-        ).not.toBeInTheDocument();
+      await screen.findByRole('heading', { name: 'Email' }, { timeout: 5_000 });
+      await screen.findByText('Inbox', undefined, { timeout: 5_000 });
+      await screen.findByText('Welcome to Tearleads', undefined, {
+        timeout: 5_000
       });
+      await screen.findByText('From: system@tearleads.com', undefined, {
+        timeout: 5_000
+      });
+      await waitFor(
+        () => {
+          expect(
+            screen.queryByText(inboxCiphertext ?? '')
+          ).not.toBeInTheDocument();
+          expect(
+            screen.queryByText(subjectCiphertext ?? '')
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 5_000 }
+      );
 
       const localEmailSubject = await db
         .select({

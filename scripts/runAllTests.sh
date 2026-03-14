@@ -44,7 +44,23 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
-sh "$PM_SCRIPT" run test
+# Run Vitest-configured packages through the workspace runner, then execute the
+# remaining Bun-only package test scripts explicitly, and finally run tuxedo.
+sh "$PM_SCRIPT" exec vitest run
+for PACKAGE_NAME in \
+  @tearleads/api \
+  @tearleads/app-admin \
+  @tearleads/app-audio \
+  @tearleads/app-backups \
+  @tearleads/app-builder \
+  @tearleads/app-keychain \
+  @tearleads/chrome-extension \
+  @tearleads/vfs-explorer \
+  @tearleads/vfs-sync
+do
+  sh "$PM_SCRIPT" --filter "$PACKAGE_NAME" run test
+done
+sh "$PM_SCRIPT" run test:tuxedo
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
 

@@ -278,8 +278,8 @@ exit 0
 EOF
     chmod +x "$TEMP_DIR/bin/pgrep" "$TEMP_DIR/bin/pkill" "$TEMP_DIR/bin/tmux"
 
-    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-    "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP" TMUX="" \
+        "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
     assert_contains "$(cat "$KILL_OUT")" "Killed 1 neovim session(s)"
     assert_contains "$(cat "$KILL_OUT")" "Killed tmux session: tuxedo"
 
@@ -303,8 +303,8 @@ exit 0
 EOF
     chmod +x "$TEMP_DIR/bin/tmux"
 
-    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-    "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP" TMUX="" \
+        "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
     assert_contains "$(cat "$KILL_OUT")" "No tmux session 'tuxedo' found"
 
     PATH="$PATH_BACKUP"
