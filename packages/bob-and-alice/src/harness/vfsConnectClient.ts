@@ -224,10 +224,7 @@ function normalizePushPayload(payload: unknown): VfsCrdtPushResponse {
 
       return {
         opId: decodeConnectIdentifier(result['opId'], `results[${index}].opId`),
-        status: parsePushStatus(
-          result['status'],
-          `results[${index}].status`
-        )
+        status: parsePushStatus(result['status'], `results[${index}].status`)
       };
     })
   };

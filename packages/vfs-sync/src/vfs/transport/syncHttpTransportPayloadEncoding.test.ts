@@ -99,9 +99,9 @@ describe('toCompactOperation', () => {
   });
 
   it('rejects zero writeId', () => {
-    expect(() =>
-      toCompactOperation({ ...baseOperation, writeId: 0 })
-    ).toThrow('must be a safe integer');
+    expect(() => toCompactOperation({ ...baseOperation, writeId: 0 })).toThrow(
+      'must be a safe integer'
+    );
   });
 
   it('includes optional ACL fields when present', () => {
