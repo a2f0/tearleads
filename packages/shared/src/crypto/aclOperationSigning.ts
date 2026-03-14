@@ -7,6 +7,7 @@
  */
 
 import { ed25519 } from '@noble/curves/ed25519.js';
+import { base64ToBytes, bytesToBase64 } from '../base64.js';
 
 const TEXT_ENCODER = new TextEncoder();
 const CANONICAL_VERSION = 1;
@@ -85,7 +86,7 @@ export function signAclOperation(
 ): string {
   const canonical = canonicalizeAclOperation(fields);
   const signature = ed25519.sign(canonical, ed25519PrivateKey);
-  return uint8ArrayToBase64(signature);
+  return bytesToBase64(signature);
 }
 
 /**
@@ -99,32 +100,13 @@ export function verifyAclOperationSignature(
   ed25519PublicKey: Uint8Array
 ): boolean {
   const canonical = canonicalizeAclOperation(fields);
+  const signature = base64ToBytes(signatureBase64);
+  if (!signature) {
+    return false;
+  }
   try {
-    const signature = base64ToUint8Array(signatureBase64);
     return ed25519.verify(signature, canonical, ed25519PublicKey);
   } catch {
     return false;
   }
-}
-
-function uint8ArrayToBase64(data: Uint8Array): string {
-  const chunks: string[] = [];
-  const chunkSize = 8192;
-  for (let i = 0; i < data.length; i += chunkSize) {
-    chunks.push(
-      String.fromCharCode(
-        ...data.subarray(i, Math.min(i + chunkSize, data.length))
-      )
-    );
-  }
-  return btoa(chunks.join(''));
-}
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
 }

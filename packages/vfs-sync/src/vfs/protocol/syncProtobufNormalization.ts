@@ -275,11 +275,11 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
   if (encryptionSignature !== undefined) {
     decoded['encryptionSignature'] = encryptionSignature;
   }
-  const operationSignature2 = readEnvelopeField(
+  const operationSignature = readEnvelopeField(
     operation['operationSignatureBytes']
   );
-  if (operationSignature2 !== undefined) {
-    decoded['operationSignature'] = operationSignature2;
+  if (operationSignature !== undefined) {
+    decoded['operationSignature'] = operationSignature;
   }
   return decoded;
 }
