@@ -53,11 +53,18 @@ export async function fetchVfsConnectJson(input: {
   methodName: 'GetCrdtSync';
   requestBody?: Record<string, unknown>;
 }): Promise<VfsCrdtSyncResponse>;
+export async function fetchVfsConnectJson<TResponse>(
+  input: {
+    actor: ConnectJsonApiActor;
+    methodName: string;
+    requestBody?: Record<string, unknown>;
+  }
+): Promise<TResponse>;
 export async function fetchVfsConnectJson(input: {
   actor: ConnectJsonApiActor;
-  methodName: 'GetSync' | 'GetCrdtSync';
+  methodName: string;
   requestBody?: Record<string, unknown>;
-}): Promise<VfsSyncResponse | VfsCrdtSyncResponse> {
+}): Promise<VfsSyncResponse | VfsCrdtSyncResponse | Record<string, unknown>> {
   const envelope = await input.actor.fetchJson<unknown>(
     `${VFS_V2_CONNECT_BASE_PATH}/${input.methodName}`,
     createConnectJsonPostInit(input.requestBody ?? {})
@@ -66,5 +73,11 @@ export async function fetchVfsConnectJson(input: {
   if (input.methodName === 'GetSync') {
     return normalizeVfsSyncConnectPayload(parsedPayload);
   }
-  return normalizeVfsCrdtSyncConnectPayload(parsedPayload);
+  if (input.methodName === 'GetCrdtSync') {
+    return normalizeVfsCrdtSyncConnectPayload(parsedPayload);
+  }
+  if (isPlainRecord(parsedPayload)) {
+    return parsedPayload;
+  }
+  throw new Error('transport returned non-object connect payload');
 }
