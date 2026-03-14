@@ -7,8 +7,8 @@ import {
 import type { QueryResult, QueryResultRow } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  verifyAclPushOperationSignature,
-  type ActorSigningKeyCacheValue
+  type ActorSigningKeyCacheValue,
+  verifyAclPushOperationSignature
 } from './vfsDirectCrdtPushAclSignatures.js';
 
 function createQueryResult<T extends QueryResultRow>(
@@ -90,7 +90,10 @@ describe('verifyAclPushOperationSignature', () => {
     const keyPair = generateKeyPair();
     const serializedKeyPair = serializeKeyPair(keyPair);
     const operation = createAclOperation();
-    const cachedPublicSigningKeys = new Map<string, ActorSigningKeyCacheValue>();
+    const cachedPublicSigningKeys = new Map<
+      string,
+      ActorSigningKeyCacheValue
+    >();
     const queryMock = vi
       .fn()
       .mockResolvedValue(

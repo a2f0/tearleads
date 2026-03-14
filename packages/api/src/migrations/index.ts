@@ -17,7 +17,15 @@ import { v007 } from './v007.js';
  *
  * We consolidated 41 migrations into focused staged migrations for greenfield performance.
  */
-export const migrations: Migration[] = [v001, v002, v003, v004, v005, v006, v007];
+export const migrations: Migration[] = [
+  v001,
+  v002,
+  v003,
+  v004,
+  v005,
+  v006,
+  v007
+];
 
 /**
  * Get the current migration version.
