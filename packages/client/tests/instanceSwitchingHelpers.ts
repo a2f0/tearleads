@@ -108,16 +108,17 @@ export const setupDatabaseOnSqlitePage = async (
   }
 
   if (status === 'Locked') {
-    // Database is locked, reset it first to get to "Not Set Up" state
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
-    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
+    const unlockButton = page.getByTestId('db-unlock-button');
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+
+    if (await unlockButton.isVisible().catch(() => false)) {
+      await unlockButton.click();
+    }
+
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
     });
+    return;
   }
 
   // Now set up the database
