@@ -9,10 +9,8 @@ vi.mock('@/contexts/ClientVehiclesProvider', () => ({
   )
 }));
 
-vi.mock('@tearleads/window-manager', async () => ({
-  ...(await vi.importActual<typeof import('@tearleads/window-manager')>(
-    '@tearleads/window-manager'
-  )),
+vi.mock('@tearleads/window-manager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/window-manager')>()),
   DesktopFloatingWindow: ({
     children,
     title,

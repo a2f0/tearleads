@@ -102,10 +102,8 @@ vi.mock('@/contexts/ClientAudioProvider', () => ({
 }));
 
 // Mock the audio context
-vi.mock('@tearleads/app-audio', async () => ({
-  ...(await vi.importActual<typeof import('@tearleads/app-audio')>(
-    '@tearleads/app-audio'
-  )),
+vi.mock('@tearleads/app-audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tearleads/app-audio')>()),
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => new Uint8Array(12)
 }));
@@ -130,11 +128,8 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock navigation
-vi.mock('react-router-dom', async () => {
-  const actual =
-    await vi.importActual<typeof import('react-router-dom')>(
-      'react-router-dom'
-    );
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => mockNavigate,

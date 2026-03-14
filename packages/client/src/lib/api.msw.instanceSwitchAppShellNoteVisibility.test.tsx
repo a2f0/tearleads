@@ -72,10 +72,9 @@ vi.mock('@/components/markdown-editor', () => ({
   }) => <textarea data-testid="mock-md-editor" value={value ?? ''} readOnly />
 }));
 
-vi.mock('@/lib/vfsItemSyncWriter', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/lib/vfsItemSyncWriter')
-  >('@/lib/vfsItemSyncWriter');
+vi.mock('@/lib/vfsItemSyncWriter', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/vfsItemSyncWriter')>();
   return {
     ...actual,
     queueItemUpsertAndFlush: vi.fn(async () => undefined),

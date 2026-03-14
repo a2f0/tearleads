@@ -7,6 +7,7 @@ import {
 } from '@tearleads/bun-dom-compat';
 import { createElement } from 'react';
 import { afterEach, beforeAll, vi } from 'vitest';
+import './mockPatch';
 import { installBunPolyfills } from './bunPolyfills';
 
 // Install jsdom globals before anything else

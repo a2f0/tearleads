@@ -18,10 +18,9 @@ vi.mock('@/db/analytics', () => ({
 
 const authState = { token: '' };
 
-vi.mock('@tearleads/api-client/authStorage', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/api-client/authStorage')
-  >('@tearleads/api-client/authStorage');
+vi.mock('@tearleads/api-client/authStorage', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/api-client/authStorage')>();
   return {
     ...actual,
     getAuthHeaderValue: () =>

@@ -326,8 +326,9 @@ export let mockWindows: Array<{
   isMinimized?: boolean;
 }> = [];
 
-vi.mock('@/contexts/WindowManagerContext', async () => {
-  const actual = await vi.importActual('@/contexts/WindowManagerContext');
+vi.mock('@/contexts/WindowManagerContext', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/contexts/WindowManagerContext')>();
   return {
     ...actual,
     useWindowManager: () => ({

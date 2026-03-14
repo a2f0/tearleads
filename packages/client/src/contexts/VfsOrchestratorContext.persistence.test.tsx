@@ -60,10 +60,9 @@ async function getMockVfsWriteOrchestratorClass(): Promise<MockVfsWriteOrchestra
   return apiClientModule.VfsWriteOrchestrator as MockVfsWriteOrchestratorClass;
 }
 
-vi.mock('@tearleads/api-client/clientEntry', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/api-client/clientEntry')
-  >('@tearleads/api-client/clientEntry');
+vi.mock('@tearleads/api-client/clientEntry', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/api-client/clientEntry')>();
   class MockVfsWriteOrchestrator {
     static lastOptions: unknown;
     static lastInstance: MockVfsWriteOrchestrator | null = null;

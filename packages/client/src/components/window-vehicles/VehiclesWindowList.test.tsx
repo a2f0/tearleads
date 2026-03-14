@@ -16,10 +16,9 @@ let instanceChangeCallback:
   | ((newInstanceId: string | null, previousInstanceId: string | null) => void)
   | null = null;
 
-vi.mock('@tearleads/app-vehicles', async () => {
-  const actual = await vi.importActual<
-    typeof import('@tearleads/app-vehicles')
-  >('@tearleads/app-vehicles');
+vi.mock('@tearleads/app-vehicles', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/app-vehicles')>();
 
   return {
     ...actual,

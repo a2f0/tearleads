@@ -15,8 +15,8 @@ import { STORAGE_KEY } from './Home.testUtils';
 import { GAP, ICON_SIZE, ITEM_HEIGHT } from './homeIconUtils';
 
 const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => mockNavigate

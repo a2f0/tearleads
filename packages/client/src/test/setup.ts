@@ -166,9 +166,8 @@ vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   })
 }));
 
-vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
+vi.mock('@tearleads/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/ui')>();
 
   return {
     ...actual,
@@ -284,10 +283,10 @@ function createMockWindow(
     );
 }
 
-vi.mock('@tearleads/app-keychain/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-keychain/clientEntry'
-  )),
+vi.mock('@tearleads/app-keychain/clientEntry', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@tearleads/app-keychain/clientEntry')
+  >()),
   KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
 }));
 
@@ -295,10 +294,10 @@ vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 
-vi.mock('@tearleads/app-admin/clientEntry', async () => ({
-  ...(await vi.importActual<Record<string, unknown>>(
-    '@tearleads/app-admin/clientEntry'
-  )),
+vi.mock('@tearleads/app-admin/clientEntry', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@tearleads/app-admin/clientEntry')
+  >()),
   AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
   AdminRedisWindow: createMockWindow('admin-redis', {
     width: 700,
