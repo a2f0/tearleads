@@ -4,6 +4,10 @@ import {
   verifyAclOperationSignature
 } from '@tearleads/shared';
 import type { QueryResultRow } from 'pg';
+import {
+  isAccessLevel,
+  isPrincipalType
+} from '../../lib/vfsCrdtSnapshotCommon.js';
 import { normalizeRequiredString } from './vfsDirectBlobShared.js';
 import { isAclOperation } from './vfsDirectCrdtPushAclGuardrails.js';
 import type { TimedQueryRunner } from './vfsDirectCrdtPushApplyHelpers.js';
@@ -31,7 +35,9 @@ function toAclSigningFields(operation: VfsCrdtPushOperation): {
     return null;
   }
 
-  const principalType = normalizeRequiredString(operation.principalType);
+  const principalType = isPrincipalType(operation.principalType)
+    ? operation.principalType
+    : null;
   const principalId = normalizeRequiredString(operation.principalId);
 
   if (!principalType || !principalId) {
@@ -39,7 +45,9 @@ function toAclSigningFields(operation: VfsCrdtPushOperation): {
   }
 
   if (operation.opType === 'acl_add') {
-    const accessLevel = normalizeRequiredString(operation.accessLevel);
+    const accessLevel = isAccessLevel(operation.accessLevel)
+      ? operation.accessLevel
+      : null;
     if (!accessLevel) {
       return null;
     }
