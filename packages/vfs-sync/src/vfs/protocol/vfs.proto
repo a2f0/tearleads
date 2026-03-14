@@ -64,6 +64,7 @@ message CrdtOperation {
   bytes encryptionNonceBytes = 21;
   bytes encryptionAadBytes = 22;
   bytes encryptionSignatureBytes = 23;
+  bytes operationSignatureBytes = 24;
 }
 
 message PushRequest {

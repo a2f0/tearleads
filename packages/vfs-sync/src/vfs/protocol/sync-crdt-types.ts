@@ -31,6 +31,8 @@ export interface VfsCrdtOperation {
   encryptionAad?: string;
   /** Operation signature for integrity verification (base64-encoded) */
   encryptionSignature?: string;
+  /** Ed25519 signature over canonical ACL operation fields (base64-encoded) */
+  operationSignature?: string;
 }
 
 export type VfsCrdtApplyStatus =
