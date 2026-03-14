@@ -11,8 +11,13 @@ import { createServerBackedFetch } from './sync-http-transport.integration-harne
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
+const REMOTE_SEED_OP_ID = '00000000-0000-0000-0000-000000000901';
 type HttpFetchImpl = ReturnType<typeof createServerBackedFetch>;
 type SyncServerSnapshot = ReturnType<InMemoryVfsCrdtSyncServer['snapshot']>;
+
+function createTestOpId(sequence: number): string {
+  return `00000000-0000-0000-0000-${sequence.toString().padStart(12, '0')}`;
+}
 
 function createClient(input: {
   fetchImpl: HttpFetchImpl;
@@ -61,6 +66,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     desktop.queueLocalOperation({
+      opId: createTestOpId(1),
       opType: 'link_add',
       itemId: 'reading-1',
       parentId: 'contact-1',
@@ -71,6 +77,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await Promise.all([desktop.sync(), mobile.sync()]);
 
     desktop.queueLocalOperation({
+      opId: createTestOpId(2),
       opType: 'link_reassign',
       itemId: 'reading-1',
       parentId: 'contact-2',
@@ -115,6 +122,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     desktop.queueLocalOperation({
+      opId: createTestOpId(3),
       opType: 'acl_add',
       itemId: 'item-1',
       principalType: 'group',
@@ -123,6 +131,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T22:00:00.000Z'
     });
     desktop.queueLocalOperation({
+      opId: createTestOpId(4),
       opType: 'link_add',
       itemId: 'item-1',
       parentId: 'root',
@@ -130,6 +139,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T22:00:02.000Z'
     });
     mobile.queueLocalOperation({
+      opId: createTestOpId(5),
       opType: 'acl_add',
       itemId: 'item-1',
       principalType: 'group',
@@ -138,6 +148,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T22:00:01.000Z'
     });
     mobile.queueLocalOperation({
+      opId: createTestOpId(6),
       opType: 'link_remove',
       itemId: 'item-1',
       parentId: 'root',
@@ -145,6 +156,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T22:00:03.000Z'
     });
     mobile.queueLocalOperation({
+      opId: createTestOpId(7),
       opType: 'link_add',
       itemId: 'item-1',
       parentId: 'root',
@@ -189,6 +201,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     desktop.queueLocalOperation({
+      opId: createTestOpId(8),
       opType: 'link_add',
       itemId: 'folder-22',
       parentId: 'root',
@@ -196,6 +209,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T23:00:00.000Z'
     });
     desktop.queueLocalOperation({
+      opId: createTestOpId(9),
       opType: 'link_add',
       itemId: 'item-old',
       parentId: 'folder-22',
@@ -204,6 +218,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     mobile.queueLocalOperation({
+      opId: createTestOpId(10),
       opType: 'link_remove',
       itemId: 'folder-22',
       parentId: 'root',
@@ -211,6 +226,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T23:00:02.000Z'
     });
     mobile.queueLocalOperation({
+      opId: createTestOpId(11),
       opType: 'link_remove',
       itemId: 'item-old',
       parentId: 'folder-22',
@@ -218,6 +234,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-14T23:00:04.000Z'
     });
     mobile.queueLocalOperation({
+      opId: createTestOpId(12),
       opType: 'link_remove',
       itemId: 'item-new',
       parentId: 'folder-22',
@@ -226,6 +243,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     });
 
     tablet.queueLocalOperation({
+      opId: createTestOpId(13),
       opType: 'link_add',
       itemId: 'item-new',
       parentId: 'folder-22',
@@ -277,7 +295,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await server.pushOperations({
       operations: [
         {
-          opId: 'remote-1',
+          opId: REMOTE_SEED_OP_ID,
           opType: 'acl_add',
           itemId: 'item-hydrate',
           replicaId: 'remote',
@@ -299,6 +317,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
 
     await seedClient.sync();
     seedClient.queueLocalOperation({
+      opId: createTestOpId(14),
       opType: 'link_add',
       itemId: 'item-hydrate',
       parentId: 'root',
@@ -306,6 +325,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       occurredAt: '2026-02-16T00:00:01.000Z'
     });
     seedClient.queueLocalOperation({
+      opId: createTestOpId(15),
       opType: 'acl_add',
       itemId: 'item-hydrate',
       principalType: 'group',
@@ -363,7 +383,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     await server.pushOperations({
       operations: [
         {
-          opId: 'remote-1',
+          opId: REMOTE_SEED_OP_ID,
           opType: 'acl_add',
           itemId: 'item-checkpoint',
           replicaId: 'remote',
@@ -400,6 +420,7 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
 
     await seedClient.sync();
     seedClient.queueLocalOperation({
+      opId: createTestOpId(16),
       opType: 'link_add',
       itemId: 'item-checkpoint',
       parentId: 'root',

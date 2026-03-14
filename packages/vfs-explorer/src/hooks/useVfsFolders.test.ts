@@ -68,7 +68,7 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[1]?.name).toBe('Folder 2');
   });
 
-  it('includes top-level and nested playlist containers in the tree', async () => {
+  it('includes top-level and nested album containers in the tree', async () => {
     const mockFolderRows = [
       {
         id: 'folder-1',
@@ -77,21 +77,21 @@ describe('useVfsFolders', () => {
         createdAt: Date.now()
       },
       {
-        id: 'playlist-1',
-        objectType: 'playlist',
-        name: 'Road Trip',
+        id: 'album-1',
+        objectType: 'album',
+        name: 'Road Trip Album',
         createdAt: Date.now()
       },
       {
-        id: 'playlist-root',
-        objectType: 'playlist',
-        name: 'Top Level Playlist',
+        id: 'album-root',
+        objectType: 'album',
+        name: 'Top Level Album',
         createdAt: Date.now()
       }
     ];
     const mockLinkRows = [
-      { childId: 'playlist-1', parentId: 'folder-1' },
-      { childId: 'playlist-root', parentId: VFS_ROOT_ID }
+      { childId: 'album-1', parentId: 'folder-1' },
+      { childId: 'album-root', parentId: VFS_ROOT_ID }
     ];
     const mockChildCountRows = [
       { parentId: 'folder-1' },
@@ -114,17 +114,17 @@ describe('useVfsFolders', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    const nestedPlaylistParent = result.current.folders.find(
+    const nestedAlbumParent = result.current.folders.find(
       (node) => node.id === 'folder-1'
     );
-    expect(nestedPlaylistParent?.children).toHaveLength(1);
-    expect(nestedPlaylistParent?.children?.[0]?.id).toBe('playlist-1');
-    expect(nestedPlaylistParent?.children?.[0]?.objectType).toBe('playlist');
+    expect(nestedAlbumParent?.children).toHaveLength(1);
+    expect(nestedAlbumParent?.children?.[0]?.id).toBe('album-1');
+    expect(nestedAlbumParent?.children?.[0]?.objectType).toBe('album');
 
-    const topLevelPlaylist = result.current.folders.find(
-      (node) => node.id === 'playlist-root'
+    const topLevelAlbum = result.current.folders.find(
+      (node) => node.id === 'album-root'
     );
-    expect(topLevelPlaylist?.objectType).toBe('playlist');
+    expect(topLevelAlbum?.objectType).toBe('album');
   });
 
   it('includes top-level and nested email folders in the tree', async () => {
@@ -183,7 +183,7 @@ describe('useVfsFolders', () => {
     expect(rootNode?.children?.[0]?.children?.[0]?.id).toBe('email-projects');
   });
 
-  it('includes contact containers as top-level roots and nested children', async () => {
+  it('includes contact group containers as top-level roots and nested children', async () => {
     const mockFolderRows = [
       {
         id: 'folder-1',
@@ -192,19 +192,19 @@ describe('useVfsFolders', () => {
         createdAt: Date.now()
       },
       {
-        id: 'contact-root',
-        objectType: 'contact',
-        name: 'Alice',
+        id: 'group-root',
+        objectType: 'contactGroup',
+        name: 'Friends',
         createdAt: Date.now()
       },
       {
-        id: 'contact-nested',
-        objectType: 'contact',
-        name: 'Bob',
+        id: 'group-nested',
+        objectType: 'contactGroup',
+        name: 'Family',
         createdAt: Date.now()
       }
     ];
-    const mockLinkRows = [{ childId: 'contact-nested', parentId: 'folder-1' }];
+    const mockLinkRows = [{ childId: 'group-nested', parentId: 'folder-1' }];
     const mockChildCountRows = [{ parentId: 'folder-1' }];
 
     mockDb.where
@@ -223,16 +223,16 @@ describe('useVfsFolders', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    const topLevelContact = result.current.folders.find(
-      (node) => node.id === 'contact-root'
+    const topLevelGroup = result.current.folders.find(
+      (node) => node.id === 'group-root'
     );
-    expect(topLevelContact?.objectType).toBe('contact');
+    expect(topLevelGroup?.objectType).toBe('contactGroup');
 
     const folderNode = result.current.folders.find(
       (node) => node.id === 'folder-1'
     );
-    expect(folderNode?.children?.[0]?.id).toBe('contact-nested');
-    expect(folderNode?.children?.[0]?.objectType).toBe('contact');
+    expect(folderNode?.children?.[0]?.id).toBe('group-nested');
+    expect(folderNode?.children?.[0]?.objectType).toBe('contactGroup');
   });
 
   it('includes unlinked email folders as top-level roots', async () => {
@@ -359,12 +359,12 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.name).toBe('Unnamed Folder');
   });
 
-  it('accepts SQL-resolved unnamed contact labels', async () => {
+  it('accepts SQL-resolved unnamed group labels', async () => {
     const mockFolderRows = [
       {
-        id: 'contact-1',
-        objectType: 'contact',
-        name: 'Unnamed Contact',
+        id: 'group-1',
+        objectType: 'contactGroup',
+        name: 'Unnamed Group',
         createdAt: Date.now()
       }
     ];
@@ -388,8 +388,8 @@ describe('useVfsFolders', () => {
     });
 
     expect(result.current.folders).toHaveLength(1);
-    expect(result.current.folders[0]?.name).toBe('Unnamed Contact');
-    expect(result.current.folders[0]?.objectType).toBe('contact');
+    expect(result.current.folders[0]?.name).toBe('Unnamed Group');
+    expect(result.current.folders[0]?.objectType).toBe('contactGroup');
   });
 
   it('handles fetch errors', async () => {

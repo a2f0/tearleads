@@ -7,6 +7,10 @@ import {
   type VfsSyncDbRow
 } from './sync-engine.js';
 
+const CURSOR_CHANGE_ID_1 = '00000000-0000-0000-0000-000000000001';
+const CURSOR_CHANGE_ID_2 = '00000000-0000-0000-0000-000000000002';
+const CURSOR_CHANGE_ID_3 = '00000000-0000-0000-0000-000000000003';
+
 describe('parseVfsSyncQuery', () => {
   it('uses defaults when query is empty', () => {
     const result = parseVfsSyncQuery({});
@@ -62,7 +66,7 @@ describe('buildVfsSyncQuery', () => {
       limit: 25,
       cursor: {
         changedAt: '2025-01-01T00:00:00.000Z',
-        changeId: 'change-1'
+        changeId: CURSOR_CHANGE_ID_1
       },
       rootId: 'root-1'
     });
@@ -70,7 +74,7 @@ describe('buildVfsSyncQuery', () => {
     expect(query.values).toEqual([
       'user-1',
       '2025-01-01T00:00:00.000Z',
-      'change-1',
+      CURSOR_CHANGE_ID_1,
       26,
       'root-1'
     ]);
@@ -98,7 +102,7 @@ describe('mapVfsSyncRows', () => {
   it('paginates rows and emits nextCursor from the last returned row', () => {
     const rows: VfsSyncDbRow[] = [
       {
-        change_id: 'change-1',
+        change_id: CURSOR_CHANGE_ID_1,
         item_id: 'item-1',
         change_type: 'upsert',
         changed_at: new Date('2025-01-01T00:00:00.000Z'),
@@ -108,7 +112,7 @@ describe('mapVfsSyncRows', () => {
         access_level: 'admin'
       },
       {
-        change_id: 'change-2',
+        change_id: CURSOR_CHANGE_ID_2,
         item_id: 'item-2',
         change_type: 'acl',
         changed_at: new Date('2025-01-01T00:00:00.000Z'),
@@ -118,7 +122,7 @@ describe('mapVfsSyncRows', () => {
         access_level: 'write'
       },
       {
-        change_id: 'change-3',
+        change_id: CURSOR_CHANGE_ID_3,
         item_id: 'item-3',
         change_type: 'delete',
         changed_at: new Date('2025-01-01T00:00:01.000Z'),
@@ -140,7 +144,7 @@ describe('mapVfsSyncRows', () => {
 
     expect(decodeVfsSyncCursor(result.nextCursor)).toEqual({
       changedAt: '2025-01-01T00:00:00.000Z',
-      changeId: 'change-2'
+      changeId: CURSOR_CHANGE_ID_2
     });
   });
 
@@ -166,6 +170,7 @@ describe('mapVfsSyncRows', () => {
       changeType: 'upsert',
       changedAt: '2025-01-01T00:00:00.000Z',
       objectType: null,
+      encryptedName: null,
       ownerId: 'user-1',
       createdAt: '2024-01-01T00:00:00.000Z',
       accessLevel: 'read'
@@ -196,6 +201,7 @@ describe('mapVfsSyncRows', () => {
           changeType: 'upsert',
           changedAt: '2026-02-14T11:30:00.000Z',
           objectType: 'email',
+          encryptedName: null,
           ownerId: 'user-1',
           createdAt: '2026-02-14T11:00:00.000Z',
           accessLevel: 'write'
@@ -230,6 +236,7 @@ describe('mapVfsSyncRows', () => {
           changeType: 'upsert',
           changedAt: '2026-02-14T11:30:00.000Z',
           objectType: 'emailFolder',
+          encryptedName: null,
           ownerId: 'user-1',
           createdAt: '2026-02-14T11:00:00.000Z',
           accessLevel: 'write'

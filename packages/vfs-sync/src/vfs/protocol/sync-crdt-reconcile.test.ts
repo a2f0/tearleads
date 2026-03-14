@@ -8,6 +8,13 @@ import {
 } from './sync-crdt-reconcile.js';
 import { encodeVfsSyncCursor } from './sync-cursor.js';
 
+const CHANGE_ID_09 = '00000000-0000-0000-0000-000000000009';
+const CHANGE_ID_10 = '00000000-0000-0000-0000-000000000010';
+const CHANGE_ID_20 = '00000000-0000-0000-0000-000000000020';
+const CHANGE_ID_30 = '00000000-0000-0000-0000-000000000030';
+const DESKTOP_CHANGE_ID_100 = '00000000-0000-0000-0000-000000000100';
+const MOBILE_CHANGE_ID_090 = '00000000-0000-0000-0000-000000000090';
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -97,7 +104,7 @@ describe('parseVfsCrdtReconcilePayload', () => {
   it('parses reconcile payload with cursor and replica write ids', () => {
     const cursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T06:00:00.000Z',
-      changeId: 'change-10'
+      changeId: CHANGE_ID_10
     });
 
     const result = parseVfsCrdtReconcilePayload({
@@ -115,7 +122,7 @@ describe('parseVfsCrdtReconcilePayload', () => {
         clientId: 'desktop',
         cursor: {
           changedAt: '2026-02-14T06:00:00.000Z',
-          changeId: 'change-10'
+          changeId: CHANGE_ID_10
         },
         lastReconciledWriteIds: {
           desktop: 10,
@@ -151,7 +158,7 @@ describe('CRDT last write id reconciliation', () => {
       {
         cursor: {
           changedAt: '2026-02-14T06:00:03.000Z',
-          changeId: 'change-30'
+          changeId: CHANGE_ID_30
         },
         lastReconciledWriteIds: {
           desktop: 3,
@@ -160,7 +167,7 @@ describe('CRDT last write id reconciliation', () => {
       },
       {
         changedAt: '2026-02-14T06:00:02.000Z',
-        changeId: 'change-20'
+        changeId: CHANGE_ID_20
       },
       {
         desktop: 2,
@@ -173,7 +180,7 @@ describe('CRDT last write id reconciliation', () => {
       state: {
         cursor: {
           changedAt: '2026-02-14T06:00:03.000Z',
-          changeId: 'change-30'
+          changeId: CHANGE_ID_30
         },
         lastReconciledWriteIds: {
           desktop: 3,
@@ -198,7 +205,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
         delayMs: 20,
         cursor: {
           changedAt: '2026-02-14T06:00:01.000Z',
-          changeId: 'change-10'
+          changeId: CHANGE_ID_10
         },
         lastReconciledWriteIds: {
           desktop: 10
@@ -208,7 +215,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
         delayMs: 10,
         cursor: {
           changedAt: '2026-02-14T06:00:02.000Z',
-          changeId: 'change-20'
+          changeId: CHANGE_ID_20
         },
         lastReconciledWriteIds: {
           desktop: 11,
@@ -219,7 +226,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
         delayMs: 30,
         cursor: {
           changedAt: '2026-02-14T06:00:01.000Z',
-          changeId: 'change-09'
+          changeId: CHANGE_ID_09
         },
         lastReconciledWriteIds: {
           mobile: 4
@@ -242,7 +249,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
     expect(store.get(userId, clientId)).toEqual({
       cursor: {
         changedAt: '2026-02-14T06:00:02.000Z',
-        changeId: 'change-20'
+        changeId: CHANGE_ID_20
       },
       lastReconciledWriteIds: {
         desktop: 11,
@@ -263,7 +270,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
           'desktop',
           {
             changedAt: '2026-02-14T06:10:00.000Z',
-            changeId: 'desktop-100'
+            changeId: DESKTOP_CHANGE_ID_100
           },
           {
             desktop: 100
@@ -277,7 +284,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
           'mobile',
           {
             changedAt: '2026-02-14T06:11:00.000Z',
-            changeId: 'mobile-90'
+            changeId: MOBILE_CHANGE_ID_090
           },
           {
             mobile: 90
@@ -289,7 +296,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
     expect(store.get(userId, 'desktop')).toEqual({
       cursor: {
         changedAt: '2026-02-14T06:10:00.000Z',
-        changeId: 'desktop-100'
+        changeId: DESKTOP_CHANGE_ID_100
       },
       lastReconciledWriteIds: {
         desktop: 100
@@ -298,7 +305,7 @@ describe('InMemoryVfsCrdtClientStateStore', () => {
     expect(store.get(userId, 'mobile')).toEqual({
       cursor: {
         changedAt: '2026-02-14T06:11:00.000Z',
-        changeId: 'mobile-90'
+        changeId: MOBILE_CHANGE_ID_090
       },
       lastReconciledWriteIds: {
         mobile: 90
