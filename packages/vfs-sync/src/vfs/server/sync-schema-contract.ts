@@ -115,6 +115,7 @@ function normalizeSqlTableReference(rawReference: string): string {
 export function extractSqlTableReferences(sql: string): string[] {
   const cteNames = extractCteNames(sql);
   const tableNames = new Set<string>();
+  const ignoredReferences = new Set(['lateral']);
   const pattern =
     /\b(?:FROM|JOIN|INTO|UPDATE|DELETE\s+FROM)\s+(?!SET\b)([a-zA-Z_"][a-zA-Z0-9_."-]*)/gim;
   let match: RegExpExecArray | null = pattern.exec(sql);
@@ -127,7 +128,10 @@ export function extractSqlTableReferences(sql: string): string[] {
 
     const normalizedName =
       normalizeSqlTableReference(rawReference).toLowerCase();
-    if (cteNames.has(normalizedName)) {
+    if (
+      cteNames.has(normalizedName) ||
+      ignoredReferences.has(normalizedName)
+    ) {
       match = pattern.exec(sql);
       continue;
     }
