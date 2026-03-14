@@ -23,6 +23,9 @@ function connectJsonEnvelope(payload: unknown): string {
   return JSON.stringify({ json: JSON.stringify(payload) });
 }
 
+const REMATERIALIZED_OLDER_CHANGE_ID = '00000000-0000-0000-0000-000000000009';
+const REMATERIALIZED_NEWER_CHANGE_ID = '00000000-0000-0000-0000-000000000010';
+
 describe('vfsNetworkFlusher', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
@@ -357,7 +360,7 @@ describe('vfsNetworkFlusher', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-24T12:10:00.000Z',
-                changeId: 'desktop-10'
+                changeId: REMATERIALIZED_NEWER_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 10 }
             }),
@@ -391,7 +394,7 @@ describe('vfsNetworkFlusher', () => {
               reconcileState: {
                 cursor: {
                   changedAt: '2026-02-24T12:09:59.000Z',
-                  changeId: 'desktop-9'
+                  changeId: REMATERIALIZED_OLDER_CHANGE_ID
                 },
                 lastReconciledWriteIds: {
                   desktop: '9'

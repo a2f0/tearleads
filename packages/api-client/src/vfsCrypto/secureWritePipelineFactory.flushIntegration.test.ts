@@ -13,6 +13,8 @@ import type {
 } from './keyManagerRuntime';
 import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 
+const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
+
 function createMockUserKeyProvider(keyPair: VfsKeyPair): UserKeyProvider {
   return {
     getUserKeyPair: vi.fn(async () => keyPair),
@@ -151,7 +153,7 @@ describe('secureWritePipelineFactory flush integration', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
-                changeId: 'desktop-1'
+                changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
@@ -299,7 +301,7 @@ describe('secureWritePipelineFactory flush integration', () => {
               clientId: 'desktop',
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
-                changeId: 'desktop-1'
+                changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
               lastReconciledWriteIds: { desktop: 1 }
             }),
