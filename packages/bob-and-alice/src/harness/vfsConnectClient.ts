@@ -53,13 +53,11 @@ export async function fetchVfsConnectJson(input: {
   methodName: 'GetCrdtSync';
   requestBody?: Record<string, unknown>;
 }): Promise<VfsCrdtSyncResponse>;
-export async function fetchVfsConnectJson<TResponse>(
-  input: {
-    actor: ConnectJsonApiActor;
-    methodName: string;
-    requestBody?: Record<string, unknown>;
-  }
-): Promise<TResponse>;
+export async function fetchVfsConnectJson<TResponse>(input: {
+  actor: ConnectJsonApiActor;
+  methodName: string;
+  requestBody?: Record<string, unknown>;
+}): Promise<TResponse>;
 export async function fetchVfsConnectJson(input: {
   actor: ConnectJsonApiActor;
   methodName: string;
