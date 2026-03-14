@@ -263,7 +263,6 @@ export async function commitBlobDirect(
 
     const decodedChunks: Uint8Array[] = [];
     let totalCiphertextBytes = 0;
-    let totalPlaintextBytes = 0;
 
     for (const [index, chunk] of chunks.entries()) {
       if (chunk.chunkIndex !== index) {
@@ -297,7 +296,6 @@ export async function commitBlobDirect(
 
       decodedChunks.push(decoded);
       totalCiphertextBytes += chunk.ciphertextLength;
-      totalPlaintextBytes += chunk.plaintextLength;
     }
 
     const mergedCiphertext = new Uint8Array(totalCiphertextBytes);
