@@ -22,7 +22,9 @@ import {
 } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import {
+  parseIdentifier
+} from './vfsDirectCrdtCompactDecoding.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import {
   type ParsedPushOperation,
@@ -46,21 +48,17 @@ import { isRecord } from './vfsDirectJson.js';
 
 interface RunCrdtSessionRequest {
   organizationId?: string;
-  organizationIdBytes?: unknown;
   clientId?: string;
-  clientIdBytes?: unknown;
   operations: unknown[];
   cursor: string;
   limit: number;
   rootId?: string | null;
-  rootIdBytes?: unknown;
   lastReconciledWriteIds?: Record<string, number>;
   bloomFilter?: {
     data: string;
     capacity: number;
     errorRate: number;
   } | null;
-  version?: number;
 }
 
 interface ReconcileRow {
@@ -106,7 +104,6 @@ function parseSessionPayload(
     : [];
   const parsedPushPayload = parsePushPayload({
     clientId: body['clientId'],
-    clientIdBytes: body['clientIdBytes'],
     operations
   });
   if (!parsedPushPayload.ok) {
@@ -166,11 +163,11 @@ function parseSessionPayload(
       parsedOperations: parsedPushPayload.value.operations,
       cursor: decodedCursor,
       limit,
-      rootId: parseOptionalRootId(body['rootId'], body['rootIdBytes']),
+      rootId: parseOptionalRootId(body['rootId']),
       lastReconciledWriteIds: parsedLastWriteIds.value,
       bloomFilter: parsedBloomFilter.value,
       runtimeBloomFilter,
-      version: typeof body['version'] === 'number' ? body['version'] : 1
+      version: 1
     }
   };
 }
@@ -191,10 +188,7 @@ export async function runCrdtSessionDirect(
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
-  const declaredOrganizationId = parseIdentifierWithCompactFallback(
-    request.organizationId,
-    request.organizationIdBytes
-  );
+  const declaredOrganizationId = parseIdentifier(request.organizationId);
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('RunCrdtSession'),

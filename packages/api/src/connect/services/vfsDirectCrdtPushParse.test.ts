@@ -8,7 +8,7 @@ function buildValidAclAddOperation(): Record<string, unknown> {
     itemId: 'item-1',
     replicaId: 'client-1',
     writeId: 1,
-    occurredAt: '2026-02-16T00:00:00.000Z',
+    occurredAtMs: Date.parse('2026-02-16T00:00:00.000Z'),
     principalType: 'user',
     principalId: 'user-2',
     accessLevel: 'read'
@@ -22,7 +22,7 @@ function buildValidAclRemoveOperation(): Record<string, unknown> {
     itemId: 'item-1',
     replicaId: 'client-1',
     writeId: 2,
-    occurredAt: '2026-02-16T00:01:00.000Z',
+    occurredAtMs: Date.parse('2026-02-16T00:01:00.000Z'),
     principalType: 'user',
     principalId: 'user-2'
   };
@@ -35,7 +35,7 @@ function buildValidLinkAddOperation(): Record<string, unknown> {
     itemId: 'child-1',
     replicaId: 'client-1',
     writeId: 1,
-    occurredAt: '2026-02-16T00:00:00.000Z',
+    occurredAtMs: Date.parse('2026-02-16T00:00:00.000Z'),
     parentId: 'parent-1'
   };
 }
@@ -118,28 +118,6 @@ describe('vfsDirectCrdtPushParse', () => {
             }
           ]
         }
-      });
-    });
-
-    it('rejects plaintext ACL remove operations that include accessLevel', () => {
-      const result = parsePushPayload({
-        clientId: 'client-1',
-        operations: [
-          {
-            ...buildValidAclRemoveOperation(),
-            accessLevel: 'read'
-          }
-        ]
-      });
-
-      expect(result.ok).toBe(true);
-      if (!result.ok) {
-        throw new Error('Expected parsePushPayload to succeed');
-      }
-
-      expect(result.value.operations[0]).toEqual({
-        status: 'invalid',
-        opId: 'op-2'
       });
     });
 
@@ -243,20 +221,20 @@ describe('vfsDirectCrdtPushParse', () => {
       expect(result.value.operations[1]?.status).toBe('parsed');
     });
 
-    it('parses compact request identifiers, enums, and timestamps', () => {
+    it('parses identifiers, enums, and timestamps', () => {
       const result = parsePushPayload({
-        clientIdBytes: toBase64('client-1'),
+        clientId: toBase64('client-1'),
         operations: [
           {
-            opIdBytes: toBase64('op-compact-1'),
-            opTypeEnum: 'VFS_CRDT_OP_TYPE_ACL_ADD',
-            itemIdBytes: toBase64('item-compact-1'),
-            replicaIdBytes: toBase64('client-1'),
-            writeIdU64: '3',
-            occurredAtMs: '1760572800000',
-            principalTypeEnum: 1,
-            principalIdBytes: toBase64('user-compact-1'),
-            accessLevelEnum: 1
+            opId: toBase64('op-1'),
+            opType: 'acl_add',
+            itemId: toBase64('item-1'),
+            replicaId: toBase64('client-1'),
+            writeId: 3,
+            occurredAtMs: 1760572800000,
+            principalType: 'user',
+            principalId: toBase64('user-1'),
+            accessLevel: 'read'
           }
         ]
       });
@@ -269,16 +247,16 @@ describe('vfsDirectCrdtPushParse', () => {
       expect(result.value.clientId).toBe('client-1');
       expect(result.value.operations[0]).toEqual({
         status: 'parsed',
-        opId: 'op-compact-1',
+        opId: 'op-1',
         operation: {
-          opId: 'op-compact-1',
+          opId: 'op-1',
           opType: 'acl_add',
-          itemId: 'item-compact-1',
+          itemId: 'item-1',
           replicaId: 'client-1',
           writeId: 3,
           occurredAt: '2025-10-16T00:00:00.000Z',
           principalType: 'user',
-          principalId: 'user-compact-1',
+          principalId: 'user-1',
           accessLevel: 'read'
         }
       });

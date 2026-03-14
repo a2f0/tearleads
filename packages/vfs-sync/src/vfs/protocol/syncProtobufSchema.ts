@@ -57,7 +57,8 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
                 OUTDATED_OP: 3,
                 INVALID_OP: 4,
                 ALREADY_APPLIED: 5,
-                ENCRYPTED_ENVELOPE_UNSUPPORTED: 6
+                ENCRYPTED_ENVELOPE_UNSUPPORTED: 6,
+                ACL_DENIED: 7
               }
             },
             SyncBloomFilter: {
@@ -69,43 +70,43 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
             },
             CrdtOperation: {
               fields: {
-                opId: { type: 'bytes', id: 1 },
-                opType: { type: 'OpType', id: 2 },
-                itemId: { type: 'bytes', id: 3 },
-                replicaId: { type: 'bytes', id: 4 },
-                writeId: { type: 'uint64', id: 5 },
-                occurredAtMs: { type: 'uint64', id: 6 },
-                principalId: { type: 'bytes', id: 7 },
-                principalType: { type: 'PrincipalType', id: 8 },
-                accessLevel: { type: 'AccessLevel', id: 9 },
-                parentId: { type: 'bytes', id: 10 },
-                childId: { type: 'bytes', id: 11 },
-                actorId: { type: 'bytes', id: 12 },
-                sourceTable: { type: 'string', id: 13 },
-                sourceId: { type: 'bytes', id: 14 },
-                keyEpoch: { type: 'uint32', id: 16 },
-                encryptedPayloadBytes: { type: 'bytes', id: 20 },
-                encryptionNonceBytes: { type: 'bytes', id: 21 },
-                encryptionAadBytes: { type: 'bytes', id: 22 },
-                encryptionSignatureBytes: { type: 'bytes', id: 23 }
+                opId: { type: 'bytes', id: 17 },
+                opType: { type: 'OpType', id: 18 },
+                itemId: { type: 'bytes', id: 19 },
+                replicaId: { type: 'bytes', id: 20 },
+                writeId: { type: 'uint64', id: 21 },
+                occurredAtMs: { type: 'uint64', id: 22 },
+                principalType: { type: 'PrincipalType', id: 23 },
+                principalId: { type: 'bytes', id: 24 },
+                accessLevel: { type: 'AccessLevel', id: 25 },
+                parentId: { type: 'bytes', id: 26 },
+                childId: { type: 'bytes', id: 27 },
+                encryptedPayload: { type: 'string', id: 12 },
+                keyEpoch: { type: 'uint32', id: 13 },
+                encryptionNonce: { type: 'string', id: 14 },
+                encryptionAad: { type: 'string', id: 15 },
+                encryptionSignature: { type: 'string', id: 16 },
+                operationSignature: { type: 'bytes', id: 29 },
+                sourceTable: { type: 'string', id: 10 },
+                sourceId: { type: 'bytes', id: 30 }
               }
             },
             PushRequest: {
               fields: {
-                clientId: { type: 'bytes', id: 1 },
-                operations: { rule: 'repeated', type: 'CrdtOperation', id: 2 },
-                version: { type: 'uint32', id: 3 }
+                organizationId: { type: 'bytes', id: 4 },
+                clientId: { type: 'bytes', id: 5 },
+                operations: { rule: 'repeated', type: 'CrdtOperation', id: 3 }
               }
             },
             PushResult: {
               fields: {
-                opId: { type: 'bytes', id: 1 },
-                status: { type: 'PushStatus', id: 2 }
+                opId: { type: 'bytes', id: 3 },
+                status: { type: 'PushStatus', id: 4 }
               }
             },
             PushResponse: {
               fields: {
-                clientId: { type: 'bytes', id: 1 },
+                clientId: { type: 'bytes', id: 3 },
                 results: { rule: 'repeated', type: 'PushResult', id: 2 }
               }
             },
@@ -113,36 +114,35 @@ const MESSAGE_ROOT = protobuf.Root.fromJSON({
               fields: {
                 items: { rule: 'repeated', type: 'CrdtOperation', id: 1 },
                 hasMore: { type: 'bool', id: 2 },
-                nextCursor: { type: 'bytes', id: 3 },
+                nextCursor: { type: 'string', id: 3 },
                 lastReconciledWriteIds: createUint64MapField(4),
-                version: { type: 'uint32', id: 5 },
-                bloomFilter: { type: 'SyncBloomFilter', id: 6 }
+                bloomFilter: { type: 'SyncBloomFilter', id: 5 }
               }
             },
             ReconcileRequest: {
               fields: {
-                clientId: { type: 'bytes', id: 1 },
-                cursor: { type: 'bytes', id: 2 },
-                lastReconciledWriteIds: createUint64MapField(3),
-                version: { type: 'uint32', id: 4 }
+                organizationId: { type: 'bytes', id: 5 },
+                clientId: { type: 'bytes', id: 6 },
+                cursor: { type: 'string', id: 3 },
+                lastReconciledWriteIds: createUint64MapField(4)
               }
             },
             ReconcileResponse: {
               fields: {
-                clientId: { type: 'bytes', id: 1 },
-                cursor: { type: 'bytes', id: 2 },
+                clientId: { type: 'bytes', id: 4 },
+                cursor: { type: 'string', id: 2 },
                 lastReconciledWriteIds: createUint64MapField(3)
               }
             },
             SyncSessionRequest: {
               fields: {
-                clientId: { type: 'bytes', id: 1 },
-                cursor: { type: 'bytes', id: 2 },
-                limit: { type: 'uint32', id: 3 },
-                operations: { rule: 'repeated', type: 'CrdtOperation', id: 4 },
-                lastReconciledWriteIds: createUint64MapField(5),
-                rootId: { type: 'bytes', id: 6 },
-                version: { type: 'uint32', id: 7 },
+                organizationId: { type: 'bytes', id: 9 },
+                clientId: { type: 'bytes', id: 10 },
+                cursor: { type: 'string', id: 3 },
+                limit: { type: 'uint32', id: 4 },
+                operations: { rule: 'repeated', type: 'CrdtOperation', id: 5 },
+                lastReconciledWriteIds: createUint64MapField(6),
+                rootId: { type: 'bytes', id: 11 },
                 bloomFilter: { type: 'SyncBloomFilter', id: 8 }
               }
             },

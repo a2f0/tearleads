@@ -8,15 +8,15 @@ import { getPostgresPool } from '../../lib/postgres.js';
 import { invalidateReplicaWriteIdRowsForUser } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { publishVfsContainerCursorBump } from '../../lib/vfsSyncChannels.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import {
+  parseIdentifier
+} from './vfsDirectCrdtCompactDecoding.js';
 import { applyCrdtPushOperations } from './vfsDirectCrdtPushApply.js';
 import { parsePushPayload } from './vfsDirectCrdtPushParse.js';
 
 interface PushCrdtOpsRequest {
   organizationId?: string;
-  organizationIdBytes?: unknown;
   clientId?: string;
-  clientIdBytes?: unknown;
   operations: unknown[];
 }
 
@@ -36,10 +36,7 @@ export async function pushCrdtOpsDirect(
   if (!parsedPayload.ok) {
     throw new ConnectError(parsedPayload.error, Code.InvalidArgument);
   }
-  const declaredOrganizationId = parseIdentifierWithCompactFallback(
-    request.organizationId,
-    request.organizationIdBytes
-  );
+  const declaredOrganizationId = parseIdentifier(request.organizationId);
 
   const claims = await requireVfsClaims(
     buildVfsV2ConnectMethodPath('PushCrdtOps'),

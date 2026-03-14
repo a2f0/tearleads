@@ -27,7 +27,7 @@ import {
 import { loadReplicaWriteIdRows } from '../../lib/vfsCrdtReplicaWriteIds.js';
 import { loadVfsCrdtRematerializationSnapshot } from '../../lib/vfsCrdtSnapshots.js';
 import { requireVfsClaims } from './vfsDirectAuth.js';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import {
   toIsoString,
   toLastReconciledWriteIds,
@@ -44,7 +44,6 @@ type GetSyncRequest = {
   cursor?: string;
   limit?: number;
   rootId?: string;
-  rootIdBytes?: unknown;
   bloomFilter?: {
     data: string;
     capacity: number;
@@ -144,7 +143,7 @@ function normalizeSyncQueryRequest(request: GetSyncRequest): {
   const normalizedCursor =
     typeof request.cursor === 'string' ? request.cursor.trim() : '';
   const normalizedRootId =
-    parseIdentifierWithCompactFallback(request.rootId, request.rootIdBytes) ??
+    parseIdentifier(request.rootId) ??
     '';
   const normalizedLimit =
     typeof request.limit === 'number' &&

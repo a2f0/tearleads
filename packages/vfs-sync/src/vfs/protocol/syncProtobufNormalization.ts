@@ -114,42 +114,22 @@ export function toOperationPayload(
     payload['sourceId'] = packUuidToBytes(operation.sourceId);
   }
   if (typeof operation.encryptedPayload === 'string') {
-    writeEnvelopeField(payload, {
-      bytesKey: 'encryptedPayloadBytes',
-      value: operation.encryptedPayload,
-      fieldName: 'encryptedPayload'
-    });
+    payload['encryptedPayload'] = operation.encryptedPayload;
   }
   if (typeof operation.keyEpoch === 'number') {
     payload['keyEpoch'] = operation.keyEpoch;
   }
   if (typeof operation.encryptionNonce === 'string') {
-    writeEnvelopeField(payload, {
-      bytesKey: 'encryptionNonceBytes',
-      value: operation.encryptionNonce,
-      fieldName: 'encryptionNonce'
-    });
+    payload['encryptionNonce'] = operation.encryptionNonce;
   }
   if (typeof operation.encryptionAad === 'string') {
-    writeEnvelopeField(payload, {
-      bytesKey: 'encryptionAadBytes',
-      value: operation.encryptionAad,
-      fieldName: 'encryptionAad'
-    });
+    payload['encryptionAad'] = operation.encryptionAad;
   }
   if (typeof operation.encryptionSignature === 'string') {
-    writeEnvelopeField(payload, {
-      bytesKey: 'encryptionSignatureBytes',
-      value: operation.encryptionSignature,
-      fieldName: 'encryptionSignature'
-    });
+    payload['encryptionSignature'] = operation.encryptionSignature;
   }
   if (typeof operation.operationSignature === 'string') {
-    writeEnvelopeField(payload, {
-      bytesKey: 'operationSignatureBytes',
-      value: operation.operationSignature,
-      fieldName: 'operationSignature'
-    });
+    payload['operationSignature'] = packUuidToBytes(operation.operationSignature);
   }
   return payload;
 }
@@ -192,33 +172,23 @@ export function decodePushOperation(value: unknown): Record<string, unknown> {
   if (childId !== undefined) {
     decoded['childId'] = childId;
   }
-  const encryptedPayload = readEnvelopeField(
-    operation['encryptedPayloadBytes']
-  );
-  if (encryptedPayload !== undefined) {
-    decoded['encryptedPayload'] = encryptedPayload;
+  if (typeof operation['encryptedPayload'] === 'string') {
+    decoded['encryptedPayload'] = operation['encryptedPayload'];
   }
   const keyEpoch = normalizePositiveSafeIntegerOrNull(operation['keyEpoch']);
   if (keyEpoch !== null) {
     decoded['keyEpoch'] = keyEpoch;
   }
-  const encryptionNonce = readEnvelopeField(operation['encryptionNonceBytes']);
-  if (encryptionNonce !== undefined) {
-    decoded['encryptionNonce'] = encryptionNonce;
+  if (typeof operation['encryptionNonce'] === 'string') {
+    decoded['encryptionNonce'] = operation['encryptionNonce'];
   }
-  const encryptionAad = readEnvelopeField(operation['encryptionAadBytes']);
-  if (encryptionAad !== undefined) {
-    decoded['encryptionAad'] = encryptionAad;
+  if (typeof operation['encryptionAad'] === 'string') {
+    decoded['encryptionAad'] = operation['encryptionAad'];
   }
-  const encryptionSignature = readEnvelopeField(
-    operation['encryptionSignatureBytes']
-  );
-  if (encryptionSignature !== undefined) {
-    decoded['encryptionSignature'] = encryptionSignature;
+  if (typeof operation['encryptionSignature'] === 'string') {
+    decoded['encryptionSignature'] = operation['encryptionSignature'];
   }
-  const operationSignature = readEnvelopeField(
-    operation['operationSignatureBytes']
-  );
+  const operationSignature = normalizeOptionalBytesString(operation['operationSignature']);
   if (operationSignature !== undefined) {
     decoded['operationSignature'] = operationSignature;
   }
@@ -251,33 +221,23 @@ export function decodeSyncItem(value: unknown): Record<string, unknown> {
         ? new Date(occurredAtMs).toISOString()
         : '1970-01-01T00:00:00.000Z'
   };
-  const encryptedPayload = readEnvelopeField(
-    operation['encryptedPayloadBytes']
-  );
-  if (encryptedPayload !== undefined) {
-    decoded['encryptedPayload'] = encryptedPayload;
+  if (typeof operation['encryptedPayload'] === 'string') {
+    decoded['encryptedPayload'] = operation['encryptedPayload'];
   }
   const keyEpoch = normalizePositiveSafeIntegerOrNull(operation['keyEpoch']);
   if (keyEpoch !== null) {
     decoded['keyEpoch'] = keyEpoch;
   }
-  const encryptionNonce = readEnvelopeField(operation['encryptionNonceBytes']);
-  if (encryptionNonce !== undefined) {
-    decoded['encryptionNonce'] = encryptionNonce;
+  if (typeof operation['encryptionNonce'] === 'string') {
+    decoded['encryptionNonce'] = operation['encryptionNonce'];
   }
-  const encryptionAad = readEnvelopeField(operation['encryptionAadBytes']);
-  if (encryptionAad !== undefined) {
-    decoded['encryptionAad'] = encryptionAad;
+  if (typeof operation['encryptionAad'] === 'string') {
+    decoded['encryptionAad'] = operation['encryptionAad'];
   }
-  const encryptionSignature = readEnvelopeField(
-    operation['encryptionSignatureBytes']
-  );
-  if (encryptionSignature !== undefined) {
-    decoded['encryptionSignature'] = encryptionSignature;
+  if (typeof operation['encryptionSignature'] === 'string') {
+    decoded['encryptionSignature'] = operation['encryptionSignature'];
   }
-  const operationSignature = readEnvelopeField(
-    operation['operationSignatureBytes']
-  );
+  const operationSignature = normalizeOptionalBytesString(operation['operationSignature']);
   if (operationSignature !== undefined) {
     decoded['operationSignature'] = operationSignature;
   }

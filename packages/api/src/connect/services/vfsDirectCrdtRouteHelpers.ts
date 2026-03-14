@@ -24,7 +24,7 @@ export interface VfsCrdtSyncProtoItem {
   actorId?: string;
   sourceTable: string;
   sourceId: string;
-  occurredAt: string;
+  occurredAtMs: number;
   encryptedPayload?: string;
   keyEpoch?: number;
   encryptionNonce?: string;
@@ -48,11 +48,11 @@ export interface VfsSyncProtoItem {
   changeId: string;
   itemId: string;
   changeType: string;
-  changedAt: string;
+  changedAtMs: number;
   objectType?: string;
   encryptedName?: string;
   ownerId?: string;
-  createdAt?: string;
+  createdAtMs?: number;
   accessLevel: string;
 }
 
@@ -131,12 +131,6 @@ function parseWriteId(value: unknown): number | null {
 export function toLastReconciledWriteIds(
   rows: VfsCrdtReplicaWriteIdRow[]
 ): Record<string, number> {
-  /**
-   * Guardrail: return a deterministic, sanitized replica clock map.
-   * - drop malformed rows (blank replica, non-numeric write ids)
-   * - keep only positive integers
-   * - sort keys to keep payload stable for downstream snapshot comparisons
-   */
   const entries: Array<[string, number]> = [];
   for (const row of rows) {
     const replicaId = normalizeRequiredString(row.replica_id);
@@ -177,13 +171,14 @@ function toOptionalString(
 }
 
 function toProtoCrdtSyncItem(item: VfsCrdtSyncItem): VfsCrdtSyncProtoItem {
+  const occurredAtMs = Date.parse(item.occurredAt);
   const parsed: VfsCrdtSyncProtoItem = {
     opId: item.opId,
     itemId: item.itemId,
     opType: item.opType,
     sourceTable: item.sourceTable,
     sourceId: item.sourceId,
-    occurredAt: item.occurredAt
+    occurredAtMs: Number.isFinite(occurredAtMs) ? occurredAtMs : 0
   };
 
   const principalType = toOptionalString(item.principalType);
@@ -265,11 +260,12 @@ export function toProtoVfsCrdtSyncResponse(
 }
 
 function toProtoVfsSyncItem(item: VfsSyncItem): VfsSyncProtoItem {
+  const changedAtMs = Date.parse(item.changedAt);
   const parsed: VfsSyncProtoItem = {
     changeId: item.changeId,
     itemId: item.itemId,
     changeType: item.changeType,
-    changedAt: item.changedAt,
+    changedAtMs: Number.isFinite(changedAtMs) ? changedAtMs : 0,
     accessLevel: item.accessLevel
   };
 
@@ -290,7 +286,10 @@ function toProtoVfsSyncItem(item: VfsSyncItem): VfsSyncProtoItem {
 
   const createdAt = toOptionalString(item.createdAt);
   if (createdAt) {
-    parsed.createdAt = createdAt;
+    const createdAtMs = Date.parse(createdAt);
+    if (Number.isFinite(createdAtMs)) {
+      parsed.createdAtMs = createdAtMs;
+    }
   }
 
   return parsed;

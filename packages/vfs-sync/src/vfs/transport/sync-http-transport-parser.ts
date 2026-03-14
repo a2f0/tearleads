@@ -12,10 +12,9 @@ import type {
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
-  normalizePushResponseRecord,
-  normalizeReconcileResponseRecord,
-  normalizeSyncItemRecord
-} from './syncHttpTransportCompactNormalization.js';
+  unpackBytesToUuid,
+  decodeBase64ToBytes
+} from '../protocol/syncProtobufNormalization.js';
 
 export { parseApiErrorResponse } from './syncHttpTransportApiError.js';
 
@@ -61,6 +60,22 @@ function parseRequiredString(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
+function parseIdentifier(value: unknown, fieldName: string): string {
+  if (typeof value === 'string') {
+    const bytes = decodeBase64ToBytes(value);
+    if (bytes && bytes.length === 16) {
+      return unpackBytesToUuid(bytes);
+    }
+    return value;
+  }
+  throw new Error(`transport returned invalid ${fieldName}`);
+}
+
+function parseOptionalIdentifier(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  return parseIdentifier(value, fieldName);
+}
+
 function parseNullableString(value: unknown, fieldName: string): string | null {
   if (value === null || value === undefined) {
     return null;
@@ -80,16 +95,6 @@ function parseOptionalNullableString(
     return undefined;
   }
   return parseNullableString(value, fieldName);
-}
-
-function parseIsoString(value: unknown, fieldName: string): string {
-  const normalized = parseRequiredString(value, fieldName);
-  const parsedMs = Date.parse(normalized);
-  if (!Number.isFinite(parsedMs)) {
-    throw new Error(`transport returned invalid ${fieldName}`);
-  }
-
-  return new Date(parsedMs).toISOString();
 }
 
 function isOpType(value: unknown): value is VfsCrdtOpType {
@@ -179,17 +184,12 @@ function parseBloomFilter(value: unknown): VfsSyncBloomFilter | null {
 }
 
 export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
-  /**
-   * Guardrail: push acknowledgements are authoritative for queue advancement.
-   * We therefore parse every field explicitly and fail closed on any shape drift.
-   */
-  const normalizedBody = normalizePushResponseRecord(body);
-  if (!isRecord(normalizedBody)) {
+  if (!isRecord(body)) {
     throw new Error('transport returned invalid push response payload');
   }
 
-  const clientId = parseRequiredString(normalizedBody['clientId'], 'clientId');
-  const rawResults = normalizedBody['results'];
+  const clientId = parseIdentifier(body['clientId'], 'clientId');
+  const rawResults = body['results'];
   if (!Array.isArray(rawResults)) {
     throw new Error('transport returned invalid push response results');
   }
@@ -203,7 +203,7 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
       );
     }
 
-    const opId = parseRequiredString(
+    const opId = parseIdentifier(
       rawResult['opId'],
       `results[${index}].opId`
     );
@@ -225,61 +225,57 @@ export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
 }
 
 function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
-  const normalizedValue = normalizeSyncItemRecord(value, index);
-  if (!isRecord(normalizedValue)) {
+  if (!isRecord(value)) {
     throw new Error(`transport returned invalid items[${index}]`);
   }
 
   const parsedItem: VfsCrdtSyncItem = {
-    opId: parseRequiredString(normalizedValue['opId'], `items[${index}].opId`),
-    itemId: parseRequiredString(
-      normalizedValue['itemId'],
+    opId: parseIdentifier(value['opId'], `items[${index}].opId`),
+    itemId: parseIdentifier(
+      value['itemId'],
       `items[${index}].itemId`
     ),
-    opType: parseOpType(normalizedValue['opType'], `items[${index}].opType`),
+    opType: parseOpType(value['opType'], `items[${index}].opType`),
     principalType: parseNullablePrincipalType(
-      normalizedValue['principalType'],
+      value['principalType'],
       `items[${index}].principalType`
     ),
-    principalId: parseNullableString(
-      normalizedValue['principalId'],
+    principalId: parseOptionalIdentifier(
+      value['principalId'],
       `items[${index}].principalId`
     ),
     accessLevel: parseNullableAccessLevel(
-      normalizedValue['accessLevel'],
+      value['accessLevel'],
       `items[${index}].accessLevel`
     ),
-    parentId: parseNullableString(
-      normalizedValue['parentId'],
+    parentId: parseOptionalIdentifier(
+      value['parentId'],
       `items[${index}].parentId`
     ),
-    childId: parseNullableString(
-      normalizedValue['childId'],
+    childId: parseOptionalIdentifier(
+      value['childId'],
       `items[${index}].childId`
     ),
-    actorId: parseNullableString(
-      normalizedValue['actorId'],
+    actorId: parseOptionalIdentifier(
+      value['actorId'],
       `items[${index}].actorId`
     ),
     sourceTable: parseRequiredString(
-      normalizedValue['sourceTable'],
+      value['sourceTable'],
       `items[${index}].sourceTable`
     ),
-    sourceId: parseRequiredString(
-      normalizedValue['sourceId'],
+    sourceId: parseIdentifier(
+      value['sourceId'],
       `items[${index}].sourceId`
     ),
-    occurredAt: parseIsoString(
-      normalizedValue['occurredAt'],
-      `items[${index}].occurredAt`
-    )
+    occurredAt: new Date(Number(value['occurredAtMs'])).toISOString()
   };
 
   const encryptedPayload = parseOptionalNullableString(
-    normalizedValue['encryptedPayload'],
+    value['encryptedPayload'],
     `items[${index}].encryptedPayload`
   );
-  const keyEpochValue = normalizedValue['keyEpoch'];
+  const keyEpochValue = value['keyEpoch'];
   if (encryptedPayload !== undefined && encryptedPayload !== null) {
     if (
       typeof keyEpochValue !== 'number' ||
@@ -297,7 +293,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionNonce = parseOptionalNullableString(
-    normalizedValue['encryptionNonce'],
+    value['encryptionNonce'],
     `items[${index}].encryptionNonce`
   );
   if (encryptionNonce !== undefined && encryptionNonce !== null) {
@@ -305,7 +301,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionAad = parseOptionalNullableString(
-    normalizedValue['encryptionAad'],
+    value['encryptionAad'],
     `items[${index}].encryptionAad`
   );
   if (encryptionAad !== undefined && encryptionAad !== null) {
@@ -313,7 +309,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
   }
 
   const encryptionSignature = parseOptionalNullableString(
-    normalizedValue['encryptionSignature'],
+    value['encryptionSignature'],
     `items[${index}].encryptionSignature`
   );
   if (encryptionSignature !== undefined && encryptionSignature !== null) {
@@ -353,11 +349,6 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
 }
 
 export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
-  /**
-   * Guardrail: pull pages are replayed into deterministic CRDT reducers.
-   * Any invalid enum, timestamp, or cursor metadata must abort immediately so
-   * we never commit partially-trusted feed state into local reconcile stores.
-   */
   if (!isRecord(body)) {
     throw new Error('transport returned invalid pull response payload');
   }
@@ -411,25 +402,19 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
 export function parseApiReconcileResponse(
   body: unknown
 ): VfsCrdtReconcileResponse {
-  /**
-   * Guardrail: reconcile responses are the durable checkpoint handshake between
-   * local state and server state. Cursor or replica-clock corruption here would
-   * poison stale-write recovery and future flush ordering.
-   */
-  const normalizedBody = normalizeReconcileResponseRecord(body);
-  if (!isRecord(normalizedBody)) {
+  if (!isRecord(body)) {
     throw new Error('transport returned invalid reconcile response payload');
   }
 
-  const clientId = parseRequiredString(normalizedBody['clientId'], 'clientId');
-  const rawCursor = parseRequiredString(normalizedBody['cursor'], 'cursor');
+  const clientId = parseIdentifier(body['clientId'], 'clientId');
+  const rawCursor = parseRequiredString(body['cursor'], 'cursor');
   const parsedCursor = decodeVfsSyncCursor(rawCursor);
   if (!parsedCursor) {
     throw new Error('transport returned invalid reconcile cursor');
   }
 
   const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    normalizedBody['lastReconciledWriteIds']
+    body['lastReconciledWriteIds']
   );
   if (!parsedWriteIds.ok) {
     throw new Error(parsedWriteIds.error);

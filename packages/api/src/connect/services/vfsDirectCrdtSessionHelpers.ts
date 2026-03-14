@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import type { VfsSyncBloomFilter } from '@tearleads/shared';
 import { VfsBloomFilter, type VfsCrdtSyncDbRow } from '@tearleads/vfs-sync/vfs';
-import { parseIdentifierWithCompactFallback } from './vfsDirectCrdtCompactDecoding.js';
+import { parseIdentifier } from './vfsDirectCrdtCompactDecoding.js';
 import { isRecord } from './vfsDirectJson.js';
 
 export function parseLimit(value: unknown): number | null {
@@ -23,10 +23,9 @@ export function parseLimit(value: unknown): number | null {
 }
 
 export function parseOptionalRootId(
-  value: unknown,
-  bytesValue: unknown
+  value: unknown
 ): string | null {
-  return parseIdentifierWithCompactFallback(value, bytesValue);
+  return parseIdentifier(value);
 }
 
 export function parseBloomFilter(
