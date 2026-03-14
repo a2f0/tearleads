@@ -49,6 +49,58 @@ export const healthWeightReadingsTable: TableDefinition = {
 };
 
 /**
+ * Health height readings table for storing body height measurements.
+ * Values are stored as centi-units to preserve decimal precision.
+ */
+export const healthHeightReadingsTable: TableDefinition = {
+  name: 'health_height_readings',
+  propertyName: 'healthHeightReadings',
+  comment:
+    'Health height readings table for storing body height measurements.\nValues are stored as centi-units to preserve decimal precision.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    recordedAt: {
+      type: 'timestamp',
+      sqlName: 'recorded_at',
+      notNull: true
+    },
+    valueCenti: {
+      type: 'integer',
+      sqlName: 'value_centi',
+      notNull: true
+    },
+    unit: {
+      type: 'text',
+      sqlName: 'unit',
+      notNull: true,
+      defaultValue: 'in',
+      enumValues: ['in', 'cm']
+    },
+    note: {
+      type: 'text',
+      sqlName: 'note'
+    },
+    contactId: {
+      type: 'text',
+      sqlName: 'contact_id'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'health_height_readings_recorded_at_idx', columns: ['recordedAt'] },
+    { name: 'health_height_readings_contact_idx', columns: ['contactId'] }
+  ]
+};
+
+/**
  * Health blood pressure readings table for systolic/diastolic tracking.
  */
 export const healthBloodPressureReadingsTable: TableDefinition = {
@@ -177,6 +229,7 @@ export const healthWorkoutEntriesTable: TableDefinition = {
 
 export const collabHealthTables: TableDefinition[] = [
   healthWeightReadingsTable,
+  healthHeightReadingsTable,
   healthBloodPressureReadingsTable,
   healthWorkoutEntriesTable
 ];

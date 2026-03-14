@@ -3,13 +3,15 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BloodPressureDetail } from './BloodPressureDetail';
+import type { BloodPressureDetail as BloodPressureDetailComponent } from './BloodPressureDetail';
 
 const mockAddReading = vi.fn();
 const mockUseBloodPressureData = vi.fn();
 const mockRegisterReadingInVfs = vi.fn().mockResolvedValue(undefined);
 const mockLinkReadingToContact = vi.fn().mockResolvedValue(undefined);
 let mockAvailableContacts: Array<{ id: string; name: string }> = [];
+let BloodPressureDetail: typeof BloodPressureDetailComponent;
+let componentVersion = 0;
 
 vi.mock('./useBloodPressureData', () => ({
   useBloodPressureData: () => mockUseBloodPressureData()
@@ -43,7 +45,7 @@ const mockReadings = [
 ];
 
 describe('BloodPressureDetail', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockAvailableContacts = [];
     mockAddReading.mockResolvedValue({
@@ -53,6 +55,11 @@ describe('BloodPressureDetail', () => {
       diastolic: 78,
       contactId: null
     });
+    componentVersion += 1;
+    const module = await import(
+      `./BloodPressureDetail.tsx?test=${componentVersion}`
+    );
+    BloodPressureDetail = module.BloodPressureDetail;
   });
 
   it('shows unlock prompt when database is locked', () => {
@@ -62,7 +69,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: false,
       isUnlocked: false,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });
@@ -80,7 +88,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: false,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     const { container } = render(<BloodPressureDetail />, { wrapper });
@@ -95,7 +104,8 @@ describe('BloodPressureDetail', () => {
       error: 'Database error',
       hasFetched: true,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });
@@ -113,7 +123,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: true,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });
@@ -133,7 +144,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: true,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });
@@ -163,7 +175,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: true,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });
@@ -189,7 +202,8 @@ describe('BloodPressureDetail', () => {
       error: null,
       hasFetched: true,
       isUnlocked: true,
-      addReading: mockAddReading
+      addReading: mockAddReading,
+      refresh: vi.fn()
     });
 
     render(<BloodPressureDetail />, { wrapper });

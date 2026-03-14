@@ -13,6 +13,17 @@ export const healthTestMigrations: Migration[] = [
       `);
 
       await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS health_height_readings (
+          id TEXT PRIMARY KEY,
+          recorded_at INTEGER NOT NULL,
+          value_centi INTEGER NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'in',
+          note TEXT,
+          created_at INTEGER NOT NULL
+        )
+      `);
+
+      await adapter.execute(`
         CREATE TABLE IF NOT EXISTS health_weight_readings (
           id TEXT PRIMARY KEY,
           recorded_at INTEGER NOT NULL,
@@ -68,6 +79,11 @@ export const healthTestMigrations: Migration[] = [
   {
     version: 3,
     up: async (adapter) => {
+      await adapter.execute(`
+        ALTER TABLE health_height_readings
+        ADD COLUMN contact_id TEXT
+      `);
+
       await adapter.execute(`
         ALTER TABLE health_weight_readings
         ADD COLUMN contact_id TEXT

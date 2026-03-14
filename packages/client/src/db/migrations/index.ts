@@ -28,7 +28,9 @@ import {
   v026,
   v027,
   v028,
-  v029
+  v029,
+  v030,
+  v031
 } from '@tearleads/db/sqlite-migrations';
 import { isRecord } from '@tearleads/shared';
 import { logStore } from '@/stores/logStore';
@@ -67,7 +69,9 @@ export const migrations: Migration[] = [
   v026,
   v027,
   v028,
-  v029
+  v029,
+  v030,
+  v031
 ];
 
 /**
