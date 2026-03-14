@@ -126,6 +126,10 @@ This is opt-in per operation, not per object type. Callers use `link_reassign`
 instead of `link_add` when single-parent enforcement is needed. See
 `packages/vfs-sync/src/vfs/protocol/README.md` for merge semantics.
 
+For container clock tracking, a `link_reassign` is scoped to the destination
+parent container named by `parentId`. Parents that lose the child are not given
+an additional container clock entry by the same operation.
+
 ## Encryption Direction
 
 Current design direction:
