@@ -44,6 +44,7 @@ const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
   'staleWriteId',
   'outdatedOp',
   'invalidOp',
+  'aclDenied',
   'encryptedEnvelopeUnsupported'
 ];
 

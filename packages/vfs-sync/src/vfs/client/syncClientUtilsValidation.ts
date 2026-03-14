@@ -13,6 +13,7 @@ function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
     value === 'staleWriteId' ||
     value === 'outdatedOp' ||
     value === 'invalidOp' ||
+    value === 'aclDenied' ||
     value === 'encryptedEnvelopeUnsupported'
   );
 }

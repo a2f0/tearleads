@@ -347,6 +347,7 @@ export async function runFlushLoop(
       (result) =>
         result.status === 'staleWriteId' ||
         result.status === 'invalidOp' ||
+        result.status === 'aclDenied' ||
         result.status === 'encryptedEnvelopeUnsupported'
     );
 
@@ -373,6 +374,7 @@ export async function runFlushLoop(
     for (const result of rejectedResults) {
       if (
         result.status === 'invalidOp' ||
+        result.status === 'aclDenied' ||
         result.status === 'encryptedEnvelopeUnsupported'
       ) {
         invalidResults.push(result);
