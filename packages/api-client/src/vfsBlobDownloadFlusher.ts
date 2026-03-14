@@ -260,17 +260,19 @@ export class VfsBlobDownloadFlusher {
   ): Promise<void> {
     const manifestResponse = await this.getBlobManifest(operation.blobId);
 
-    const chunks: UploadEncryptedBlobChunk[] = [];
+    const chunkPromises = [];
     for (
       let chunkIndex = 0;
       chunkIndex < manifestResponse.chunkCount;
       chunkIndex++
     ) {
-      const chunkResponse = await this.getBlobChunk(
-        operation.blobId,
-        chunkIndex
-      );
-      chunks.push({
+      chunkPromises.push(this.getBlobChunk(operation.blobId, chunkIndex));
+    }
+
+    const chunkResponses = await Promise.all(chunkPromises);
+    const chunks: UploadEncryptedBlobChunk[] = chunkResponses
+      .sort((a, b) => a.chunkIndex - b.chunkIndex)
+      .map((chunkResponse) => ({
         chunkIndex: chunkResponse.chunkIndex,
         isFinal: chunkResponse.isFinal,
         nonce: chunkResponse.nonce,
@@ -278,8 +280,7 @@ export class VfsBlobDownloadFlusher {
         ciphertextBase64: toBase64(chunkResponse.data),
         plaintextLength: chunkResponse.plaintextLength,
         ciphertextLength: chunkResponse.ciphertextLength
-      });
-    }
+      }));
 
     const manifest: EncryptedManifest = {
       itemId: operation.itemId,

@@ -23,8 +23,8 @@ interface BlobManifestRow {
   manifest_signature: string;
 }
 
-interface BlobOwnerRow {
-  owner_id: string | null;
+interface BlobVisibilityRow {
+  user_id: string | null;
 }
 
 export interface GetBlobManifestResponse {
@@ -49,19 +49,21 @@ export interface GetBlobChunkResponse {
   aadHash: string;
 }
 
-async function requireBlobOwnership(
+async function requireBlobReadAccess(
   blobId: string,
   claims: { sub: string }
 ): Promise<void> {
   const pool = await getPool('read');
-  const result = await pool.query<BlobOwnerRow>(
+  const result = await pool.query<BlobVisibilityRow>(
     `
-    SELECT owner_id
-    FROM vfs_registry
-    WHERE id = $1::uuid
+    SELECT vev.user_id
+    FROM vfs_registry vr
+    LEFT JOIN vfs_effective_visibility vev
+      ON vev.item_id = vr.id AND vev.user_id = $2::uuid
+    WHERE vr.id = $1::uuid
     LIMIT 1
     `,
-    [blobId]
+    [blobId, claims.sub]
   );
 
   const row = result.rows[0];
@@ -69,7 +71,7 @@ async function requireBlobOwnership(
     throw new ConnectError('Blob not found', Code.NotFound);
   }
 
-  if (row.owner_id !== claims.sub) {
+  if (!row.user_id) {
     throw new ConnectError('Forbidden', Code.PermissionDenied);
   }
 }
@@ -88,7 +90,7 @@ export async function getBlobManifestDirect(
     context.requestHeader
   );
 
-  await requireBlobOwnership(blobId, claims);
+  await requireBlobReadAccess(blobId, claims);
 
   const pool = await getPool('read');
   const result = await pool.query<BlobManifestRow>(
@@ -153,7 +155,7 @@ export async function getBlobChunkDirect(
     context.requestHeader
   );
 
-  await requireBlobOwnership(blobId, claims);
+  await requireBlobReadAccess(blobId, claims);
 
   const pool = await getPool('read');
   const manifestResult = await pool.query<BlobManifestRow>(

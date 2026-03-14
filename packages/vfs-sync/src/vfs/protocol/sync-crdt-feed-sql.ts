@@ -59,7 +59,13 @@ export const VFS_CRDT_SYNC_SQL = `
         bo.size_bytes AS blob_size_bytes,
         br.relation_kind AS blob_relation_kind
       FROM visible_ops v
-      LEFT JOIN vfs_blob_refs br ON br.item_id = v.item_id
+      LEFT JOIN LATERAL (
+        SELECT blob_id, relation_kind
+        FROM vfs_blob_refs
+        WHERE item_id = v.item_id
+        ORDER BY attached_at DESC
+        LIMIT 1
+      ) br ON true
       LEFT JOIN vfs_blob_objects bo ON bo.id = br.blob_id
       ORDER BY v.occurred_at ASC, v.op_id ASC
       `;

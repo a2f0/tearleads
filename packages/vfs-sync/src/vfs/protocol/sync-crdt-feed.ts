@@ -233,6 +233,13 @@ function normalizePositiveInteger(value: unknown): number | null {
   return null;
 }
 
+function normalizeBlobSizeBytes(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = Number.parseInt(String(value), 10);
+  return !Number.isNaN(parsed) ? parsed : null;
+}
+
 function normalizeOpType(value: unknown): VfsCrdtOpType {
   if (typeof value === 'string') {
     for (const opType of VALID_OP_TYPES) {
@@ -439,12 +446,7 @@ export function mapVfsCrdtSyncRows(
     }
 
     const blobId = normalizeNonEmptyString(row.blob_id);
-    const blobSizeBytes =
-      row.blob_size_bytes !== undefined && row.blob_size_bytes !== null
-        ? typeof row.blob_size_bytes === 'number'
-          ? row.blob_size_bytes
-          : Number.parseInt(String(row.blob_size_bytes), 10) || null
-        : null;
+    const blobSizeBytes = normalizeBlobSizeBytes(row.blob_size_bytes);
     const blobRelationKind = normalizeNonEmptyString(row.blob_relation_kind);
 
     items.push({
