@@ -47,6 +47,14 @@ two effects:
 - `link_reassign` is opt-in per operation — callers choose when single-parent
   semantics apply. Existing `link_add` behavior (multi-parent) is unchanged.
 
+**Container clock behavior:**
+
+- Container clock feeds scope a `link_reassign` to the destination parent
+  container carried in `parentId`.
+- Parents that lose the child are not given an additional container clock entry by
+  the same operation. Snapshot refresh, rematerialization, and client-side
+  container clock tracking all follow that destination-parent-only contract.
+
 **State tracking:**
 
 `InMemoryVfsCrdtStateStore` maintains a `childReassignInfo` map
