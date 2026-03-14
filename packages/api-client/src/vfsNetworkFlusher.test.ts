@@ -437,4 +437,61 @@ describe('vfsNetworkFlusher', () => {
       );
     expect(snapshotCalls).toHaveLength(1);
   });
+
+  it('passes ACL signing through to pushed operations', async () => {
+    const pushOperations = vi.fn(
+      async ({ operations }: { operations: VfsCrdtOperation[] }) => ({
+        results: operations.map((operation) => ({
+          opId: operation.opId,
+          status: 'applied' as const
+        }))
+      })
+    );
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations,
+      pullOperations: async () => ({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      })
+    };
+    const signAclOperation = vi.fn(
+      async (operation: { opId: string; writeId: number }) =>
+        `sig:${operation.opId}:${operation.writeId}`
+    );
+
+    const { VfsApiNetworkFlusher } = await import('./vfsNetworkFlusher');
+    const flusher = new VfsApiNetworkFlusher('user-1', 'desktop', {
+      transport,
+      signAclOperation
+    });
+    flusher.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read'
+    });
+
+    await flusher.flush();
+
+    expect(signAclOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opId: 'desktop-1',
+        opType: 'acl_add',
+        accessLevel: 'read'
+      })
+    );
+    expect(pushOperations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operations: [
+          expect.objectContaining({
+            opId: 'desktop-1',
+            operationSignature: 'sig:desktop-1:1'
+          })
+        ]
+      })
+    );
+  });
 });

@@ -30,6 +30,11 @@ interface MockVfsWriteOrchestratorClass {
     loadState?: () => Promise<unknown>;
     saveState?: (state: { crdt: null; blob: null }) => Promise<void>;
     crdt?: {
+      signAclOperation?: (input: {
+        opId: string;
+        opType: 'acl_add' | 'acl_remove';
+        accessLevel: string;
+      }) => Promise<string>;
       onRematerializationRequired?: (input: {
         userId: string;
         clientId: string;
@@ -430,5 +435,22 @@ describe('VfsOrchestratorContext persistence', () => {
       })
     ).resolves.toBeNull();
     expect(mockRematerializeRemoteVfsStateIfNeeded).toHaveBeenCalledTimes(1);
+  });
+
+  it('configures CRDT ACL signing on the orchestrator', async () => {
+    render(
+      <VfsOrchestratorProvider>
+        <div>Test</div>
+      </VfsOrchestratorProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockCreateFacade).toHaveBeenCalled();
+    });
+
+    const mockVfsWriteOrchestrator = await getMockVfsWriteOrchestratorClass();
+    expect(
+      typeof mockVfsWriteOrchestrator.lastOptions?.crdt?.signAclOperation
+    ).toBe('function');
   });
 });

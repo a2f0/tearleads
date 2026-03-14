@@ -1,3 +1,4 @@
+import { SettingsProvider } from '@tearleads/app-settings';
 import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -14,7 +15,9 @@ describe('SettingsSheet', () => {
   function renderSettingsSheet(open: boolean, onOpenChange = vi.fn()) {
     return render(
       <ThemeProvider defaultTheme="light">
-        <SettingsSheet open={open} onOpenChange={onOpenChange} />
+        <SettingsProvider>
+          <SettingsSheet open={open} onOpenChange={onOpenChange} />
+        </SettingsProvider>
       </ThemeProvider>
     );
   }

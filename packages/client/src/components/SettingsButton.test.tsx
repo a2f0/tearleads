@@ -1,3 +1,4 @@
+import { SettingsProvider } from '@tearleads/app-settings';
 import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -39,7 +40,9 @@ describe('SettingsButton', () => {
   function renderSettingsButton() {
     return render(
       <ThemeProvider defaultTheme="light">
-        <SettingsButton />
+        <SettingsProvider>
+          <SettingsButton />
+        </SettingsProvider>
       </ThemeProvider>
     );
   }
