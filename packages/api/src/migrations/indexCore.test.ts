@@ -342,6 +342,7 @@ describe('migrations (core through v008)', () => {
 
       const queries = pool.queries.join('\n');
 
+<<<<<<< HEAD
       expect(queries).toContain('ALTER TABLE "vfs_crdt_ops"');
       expect(queries).toContain(
         'ADD COLUMN IF NOT EXISTS "actor_signing_public_key" TEXT'
@@ -368,6 +369,11 @@ describe('migrations (core through v008)', () => {
       const queries = pool.queries.join('\n');
 
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_objects"');
+=======
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_blob_objects"'
+      );
+>>>>>>> 54d79fd7a (style(vfs): format blob sync coverage tests)
       expect(queries).toContain(
         'CREATE TABLE IF NOT EXISTS "vfs_blob_manifests"'
       );

@@ -106,7 +106,9 @@ describe('vfsBlobDownloadState', () => {
 
   it('swallows database transition errors and rethrows unexpected load failures', async () => {
     mockLimit
-      .mockRejectedValueOnce(new Error('Database not initialized during switch'))
+      .mockRejectedValueOnce(
+        new Error('Database not initialized during switch')
+      )
       .mockRejectedValueOnce(new Error('boom'));
 
     await expect(

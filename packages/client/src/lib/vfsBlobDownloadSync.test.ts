@@ -1,5 +1,5 @@
-import { act } from '@testing-library/react';
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateVfsBlobDownloadFlusher = vi.fn();
@@ -398,11 +398,9 @@ describe('vfsBlobDownloadSync', () => {
 
     const data = new Uint8Array([1, 2, 3]);
     await options.storeLocal('blob-1', data);
-    expect(storage.measureStore).toHaveBeenCalledWith(
-      'blob-1',
-      data,
-      { logger: true }
-    );
+    expect(storage.measureStore).toHaveBeenCalledWith('blob-1', data, {
+      logger: true
+    });
   });
 
   it('throws from file storage callbacks when the database is locked', async () => {
@@ -423,9 +421,9 @@ describe('vfsBlobDownloadSync', () => {
     await expect(options.existsLocal('blob-1')).rejects.toThrow(
       'Database not unlocked'
     );
-    await expect(options.storeLocal('blob-1', new Uint8Array([1]))).rejects.toThrow(
-      'Database not unlocked'
-    );
+    await expect(
+      options.storeLocal('blob-1', new Uint8Array([1]))
+    ).rejects.toThrow('Database not unlocked');
   });
 
   it('deduplicates concurrent sync calls and updates the store after flush', async () => {

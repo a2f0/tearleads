@@ -195,7 +195,13 @@ describe('vfsDirectBlobFinalize', () => {
     });
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_blob_objects'),
-      ['blob-1', 'Om6weQ85rIfJTzhWst0sXREOaBFgImGpqSPTuyOtyLc=', 4, 'blob-1', 'user-1']
+      [
+        'blob-1',
+        'Om6weQ85rIfJTzhWst0sXREOaBFgImGpqSPTuyOtyLc=',
+        4,
+        'blob-1',
+        'user-1'
+      ]
     );
     expect(clientQueryMock).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO vfs_blob_manifests'),
