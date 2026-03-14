@@ -34,9 +34,11 @@ describe('vfsSharesConnectService parse errors', () => {
 
   it('rejects invalid mutation payloads at the service boundary', async () => {
     const context = { requestHeader: new Headers() };
+    const createShare = getMutationMethod('createShare');
+    const updateShare = getMutationMethod('updateShare');
 
     await expect(
-      vfsSharesConnectService.createShare(
+      createShare(
         {
           itemId: 'item-1',
           shareType: 'invalid',
@@ -49,7 +51,7 @@ describe('vfsSharesConnectService parse errors', () => {
       code: Code.InvalidArgument
     });
     await expect(
-      vfsSharesConnectService.updateShare(
+      updateShare(
         {
           shareId: 'share-1',
           permissionLevel: 'owner',
@@ -61,7 +63,7 @@ describe('vfsSharesConnectService parse errors', () => {
       code: Code.InvalidArgument
     });
     await expect(
-      vfsSharesConnectService.updateShare(
+      updateShare(
         {
           shareId: 'share-1',
           expiresAt: '2026-03-01T00:00:00Z',

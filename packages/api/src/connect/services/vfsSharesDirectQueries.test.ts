@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadOrgShares, loadUserShares } from './vfsSharesDirectQueries.js';
 
 const queryMock =
-  vi.fn<<T>(text: string, values?: unknown[]) => Promise<{ rows: T[] }>>();
+  vi.fn<(text: string, values?: unknown[]) => Promise<{ rows: unknown[] }>>();
 
 const pool = {
-  query: <T>(text: string, values?: unknown[]) => queryMock<T>(text, values)
+  query: (text: string, values?: unknown[]) => queryMock(text, values)
 };
 
 describe('vfsSharesDirectQueries', () => {
@@ -53,8 +53,14 @@ describe('vfsSharesDirectQueries', () => {
     });
 
     const shares = await loadUserShares(pool, 'item-1');
+    expect(shares).toHaveLength(2);
+    const [firstShare, secondShare] = shares;
 
-    expect(shares[0]).toMatchObject({
+    if (!firstShare || !secondShare) {
+      throw new Error('Expected two user shares');
+    }
+
+    expect(firstShare).toMatchObject({
       id: 'share-1',
       itemId: 'item-1',
       shareType: 'user',
@@ -73,7 +79,7 @@ describe('vfsSharesDirectQueries', () => {
         senderSignature: 'sig-1'
       }
     });
-    expect(shares[1]).toMatchObject({
+    expect(secondShare).toMatchObject({
       id: 'share-2',
       targetName: 'Unknown',
       permissionLevel: 'edit',
@@ -81,7 +87,7 @@ describe('vfsSharesDirectQueries', () => {
       createdByEmail: 'Unknown',
       expiresAt: createdAt.toISOString()
     });
-    expect('wrappedKey' in shares[1]).toBe(false);
+    expect('wrappedKey' in secondShare).toBe(false);
   });
 
   it('maps org shares with canonical share ids', async () => {
@@ -109,8 +115,14 @@ describe('vfsSharesDirectQueries', () => {
     });
 
     const orgShares = await loadOrgShares(pool, 'item-1');
+    expect(orgShares).toHaveLength(1);
+    const [firstOrgShare] = orgShares;
 
-    expect(orgShares[0]).toMatchObject({
+    if (!firstOrgShare) {
+      throw new Error('Expected one org share');
+    }
+
+    expect(firstOrgShare).toMatchObject({
       id: 'org-share-1',
       sourceOrgId: 'source-org',
       sourceOrgName: 'Source Org',
@@ -178,15 +190,24 @@ describe('vfsSharesDirectQueries', () => {
 
     const shares = await loadUserShares(pool, 'item-1');
     const orgShares = await loadOrgShares(pool, 'item-1');
+    expect(shares).toHaveLength(1);
+    expect(orgShares).toHaveLength(1);
 
-    expect('wrappedKey' in shares[0]).toBe(false);
-    expect(orgShares[0]).toMatchObject({
+    const [firstShare] = shares;
+    const [firstOrgShare] = orgShares;
+
+    if (!firstShare || !firstOrgShare) {
+      throw new Error('Expected wrapped-key fallback rows');
+    }
+
+    expect('wrappedKey' in firstShare).toBe(false);
+    expect(firstOrgShare).toMatchObject({
       id: 'org-share-1',
       sourceOrgName: 'Unknown',
       targetOrgName: 'Unknown',
       createdBy: 'unknown',
       createdByEmail: 'Unknown'
     });
-    expect('wrappedKey' in orgShares[0]).toBe(false);
+    expect('wrappedKey' in firstOrgShare).toBe(false);
   });
 });

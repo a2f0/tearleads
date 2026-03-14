@@ -2,7 +2,6 @@ import type {
   VfsAclAccessLevel,
   VfsAclPrincipalType,
   VfsCrdtSyncItem,
-  VfsObjectType,
   VfsSyncItem
 } from '@tearleads/shared';
 import { ne, sql } from 'drizzle-orm';
@@ -28,6 +27,10 @@ import {
 import { VFS_REMATERIALIZATION_COMPLETE_EVENT } from './vfsRematerializationEvents';
 import { materializeFilePayloadsToStorage } from './vfsRematerializationFilePayloads';
 import {
+  applySyncItemToRegistryState,
+  type RegistryRowState
+} from './vfsRematerializationRegistryState';
+import {
   resolveMaterializedNoteContent,
   resolveMaterializedNoteTitle
 } from './vfsRematerializationScrub';
@@ -39,14 +42,6 @@ import {
 
 const SYNC_PAGE_LIMIT = 500;
 const INSERT_BATCH_SIZE = 200;
-
-interface RegistryRowState {
-  id: string;
-  objectType: VfsObjectType;
-  encryptedName: string | null;
-  ownerId: string | null;
-  createdAtMs: number;
-}
 
 interface ItemStateRowState {
   itemId: string;
@@ -118,32 +113,6 @@ async function forEachCrdtItem(
     }
     cursor = page.nextCursor;
   }
-}
-
-function applySyncItemToRegistryState(
-  registryById: Map<string, RegistryRowState>,
-  item: VfsSyncItem
-): void {
-  if (item.changeType === 'delete') {
-    registryById.delete(item.itemId);
-    return;
-  }
-  if (!item.objectType) {
-    return;
-  }
-
-  const createdAtMs = parseTimestampMs(
-    item.createdAt,
-    parseTimestampMs(item.changedAt, Date.now())
-  );
-  registryById.set(item.itemId, {
-    id: item.itemId,
-    objectType: item.objectType,
-    encryptedName:
-      typeof item.encryptedName === 'string' ? item.encryptedName : null,
-    ownerId: item.ownerId,
-    createdAtMs
-  });
 }
 
 function applyCrdtItemToDerivedState(

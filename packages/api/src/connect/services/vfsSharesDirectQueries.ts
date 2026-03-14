@@ -19,8 +19,106 @@ interface WrappedKeyMetadata {
   senderSignature: string;
 }
 
+interface UserShareRow {
+  acl_id: string;
+  item_id: string;
+  share_type: VfsShareType;
+  target_id: string;
+  access_level: VfsAclAccessLevel;
+  created_by: string | null;
+  created_at: Date;
+  expires_at: Date | null;
+  target_name: string | null;
+  created_by_email: string | null;
+  wrapped_session_key: string | null;
+  wrapped_hierarchical_key: string | null;
+  key_epoch: number | null;
+}
+
+interface OrgShareRow {
+  acl_id: string;
+  source_org_id: string;
+  target_org_id: string;
+  item_id: string;
+  access_level: VfsAclAccessLevel;
+  created_by: string | null;
+  created_at: Date;
+  expires_at: Date | null;
+  source_org_name: string | null;
+  target_org_name: string | null;
+  created_by_email: string | null;
+  wrapped_session_key: string | null;
+  wrapped_hierarchical_key: string | null;
+  key_epoch: number | null;
+}
+
 interface Queryable {
-  query<T>(text: string, values?: unknown[]): Promise<{ rows: T[] }>;
+  query(text: string, values?: unknown[]): Promise<{ rows: unknown[] }>;
+}
+
+function isVfsAclAccessLevel(value: unknown): value is VfsAclAccessLevel {
+  return value === 'read' || value === 'write' || value === 'admin';
+}
+
+function isVfsShareType(value: unknown): value is VfsShareType {
+  return value === 'user' || value === 'group';
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function isNullableDate(value: unknown): value is Date | null {
+  return value === null || value instanceof Date;
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || typeof value === 'number';
+}
+
+function isUserShareRow(value: unknown): value is UserShareRow {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value['acl_id'] === 'string' &&
+    typeof value['item_id'] === 'string' &&
+    isVfsShareType(value['share_type']) &&
+    typeof value['target_id'] === 'string' &&
+    isVfsAclAccessLevel(value['access_level']) &&
+    isNullableString(value['created_by']) &&
+    value['created_at'] instanceof Date &&
+    isNullableDate(value['expires_at']) &&
+    isNullableString(value['target_name']) &&
+    isNullableString(value['created_by_email']) &&
+    isNullableString(value['wrapped_session_key']) &&
+    isNullableString(value['wrapped_hierarchical_key']) &&
+    isNullableNumber(value['key_epoch'])
+  );
+}
+
+function isOrgShareRow(value: unknown): value is OrgShareRow {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value['acl_id'] === 'string' &&
+    typeof value['source_org_id'] === 'string' &&
+    typeof value['target_org_id'] === 'string' &&
+    typeof value['item_id'] === 'string' &&
+    isVfsAclAccessLevel(value['access_level']) &&
+    isNullableString(value['created_by']) &&
+    value['created_at'] instanceof Date &&
+    isNullableDate(value['expires_at']) &&
+    isNullableString(value['source_org_name']) &&
+    isNullableString(value['target_org_name']) &&
+    isNullableString(value['created_by_email']) &&
+    isNullableString(value['wrapped_session_key']) &&
+    isNullableString(value['wrapped_hierarchical_key']) &&
+    isNullableNumber(value['key_epoch'])
+  );
 }
 
 function parseWrappedKeyMetadata(
@@ -121,21 +219,7 @@ export async function loadUserShares(
   pool: Queryable,
   itemId: string
 ): Promise<VfsShare[]> {
-  const result = await pool.query<{
-    acl_id: string;
-    item_id: string;
-    share_type: VfsShareType;
-    target_id: string;
-    access_level: VfsAclAccessLevel;
-    created_by: string | null;
-    created_at: Date;
-    expires_at: Date | null;
-    target_name: string | null;
-    created_by_email: string | null;
-    wrapped_session_key: string | null;
-    wrapped_hierarchical_key: string | null;
-    key_epoch: number | null;
-  }>(
+  const result = await pool.query(
     `SELECT
         acl.id AS acl_id,
         acl.item_id,
@@ -161,7 +245,7 @@ export async function loadUserShares(
     [itemId]
   );
 
-  return result.rows.map((row) => {
+  return result.rows.filter(isUserShareRow).map((row) => {
     const wrappedKey = buildWrappedKeyForShare({
       shareType: row.share_type,
       targetId: row.target_id,
@@ -192,22 +276,7 @@ export async function loadOrgShares(
   pool: Queryable,
   itemId: string
 ): Promise<VfsOrgShare[]> {
-  const result = await pool.query<{
-    acl_id: string;
-    source_org_id: string;
-    target_org_id: string;
-    item_id: string;
-    access_level: VfsAclAccessLevel;
-    created_by: string | null;
-    created_at: Date;
-    expires_at: Date | null;
-    source_org_name: string | null;
-    target_org_name: string | null;
-    created_by_email: string | null;
-    wrapped_session_key: string | null;
-    wrapped_hierarchical_key: string | null;
-    key_epoch: number | null;
-  }>(
+  const result = await pool.query(
     `SELECT
         acl.id AS acl_id,
         r.organization_id AS source_org_id,
@@ -235,7 +304,7 @@ export async function loadOrgShares(
     [itemId]
   );
 
-  return result.rows.map((row) => {
+  return result.rows.filter(isOrgShareRow).map((row) => {
     const wrappedKey = buildWrappedKeyForOrgShare({
       targetOrgId: row.target_org_id,
       wrappedSessionKey: row.wrapped_session_key,
