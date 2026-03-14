@@ -28,10 +28,12 @@ assigned to a single contact).
 
 **Semantics:**
 
-1. Tombstone all existing parent links for the given `childId` that have older
-   stamps than the reassign operation.
-2. Add the new `(parentId, childId)` link.
-3. Both steps share the same stamp (`occurredAtMs` + `replicaId` + `writeId`).
+A `link_reassign` is an atomic operation with a single CRDT stamp that produces
+two effects:
+
+1. It tombstones all existing parent links for the given `childId` that have
+   older stamps than the reassign operation.
+2. It adds the new `(parentId, childId)` link.
 
 **Merge rules:**
 
