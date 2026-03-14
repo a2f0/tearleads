@@ -327,7 +327,7 @@ export let mockWindows: Array<{
 }> = [];
 
 vi.mock('@/contexts/WindowManagerContext', async () => {
-  const actual = await vi.importActual('@/contexts/WindowManagerContext');
+  const actual = await import('@/contexts/WindowManagerContext');
   return {
     ...actual,
     useWindowManager: () => ({

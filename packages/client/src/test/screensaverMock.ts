@@ -4,9 +4,7 @@ export const mockActivateScreensaver = vi.fn();
 
 export const setupScreensaverMock = () => {
   vi.mock('@/components/screensaver', async () => {
-    const actual = await vi.importActual<
-      typeof import('@/components/screensaver')
-    >('@/components/screensaver');
+    const actual = await import('@/components/screensaver');
     return {
       ...actual,
       useScreensaver: () => ({
