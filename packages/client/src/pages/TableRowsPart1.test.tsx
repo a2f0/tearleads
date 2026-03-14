@@ -15,8 +15,7 @@ import { TableRows } from './TableRows';
 
 // Mock lucide-react icons to add testids
 vi.mock('lucide-react', async () => {
-  const actual =
-    await import('lucide-react');
+  const actual = await import('lucide-react');
   const MockIcon =
     (testId: string): FC<ComponentProps<'svg'>> =>
     (props) => <svg {...props} data-testid={testId} />;

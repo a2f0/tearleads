@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tearleads/shared', async () => {
-  const actual =
-    await import(
-      '@tearleads/shared'
-    );
+  const actual = await import('@tearleads/shared');
   return {
     ...actual,
     OPENROUTER_CHAT_MODELS: [

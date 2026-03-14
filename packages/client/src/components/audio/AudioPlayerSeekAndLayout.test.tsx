@@ -13,9 +13,7 @@ const mockUseAudio = vi.fn();
 const mockUseAudioAnalyser = vi.fn();
 
 vi.mock('@tearleads/app-audio', async () => ({
-  ...(await import(
-    '@tearleads/app-audio'
-  )),
+  ...(await import('@tearleads/app-audio')),
   useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => mockUseAudioAnalyser()
 }));

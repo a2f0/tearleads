@@ -8,10 +8,7 @@ import { AudioDetail } from './AudioDetail';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
-  const actual =
-    await import(
-      'react-router-dom'
-    );
+  const actual = await import('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate
@@ -26,9 +23,7 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock @tearleads/app-audio: use real exports but stub components needing providers
 vi.mock('@tearleads/app-audio', async () => ({
-  ...(await import(
-    '@tearleads/app-audio'
-  )),
+  ...(await import('@tearleads/app-audio')),
   useAudio: () => mockUseAudio(),
   ALL_AUDIO_ID: '__all__',
   AudioPlaylistsSidebar: () => (

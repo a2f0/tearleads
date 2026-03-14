@@ -29,9 +29,7 @@ vi.mock('@/lib/vfsRematerializationEvents', () => ({
 }));
 
 vi.mock('@tearleads/app-search', async () => {
-  const actual = await import(
-    '@tearleads/app-search'
-  );
+  const actual = await import('@tearleads/app-search');
 
   return {
     ...actual,

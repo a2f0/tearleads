@@ -7,8 +7,7 @@ let mockResolvedLanguage = 'en';
 let mockLanguage = 'en';
 
 vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await import('@tearleads/ui');
+  const actual = await import('@tearleads/ui');
   return {
     ...actual,
     useTheme: () => ({ resolvedTheme: mockResolvedTheme })

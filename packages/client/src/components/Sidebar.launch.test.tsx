@@ -23,10 +23,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 }));
 
 vi.mock('react-router-dom', async () => {
-  const actual =
-    await import(
-      'react-router-dom'
-    );
+  const actual = await import('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate

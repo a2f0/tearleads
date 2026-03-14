@@ -12,8 +12,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 }));
 
 vi.mock('@tearleads/ui', async () => {
-  const actual =
-    await import('@tearleads/ui');
+  const actual = await import('@tearleads/ui');
   return {
     ...actual,
     ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (

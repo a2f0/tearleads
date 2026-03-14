@@ -15,8 +15,7 @@ vi.mock('@/db/crypto/keyManager', () => ({
 }));
 
 vi.mock('@/lib/utils', async () => {
-  const actual =
-    await import('@/lib/utils');
+  const actual = await import('@/lib/utils');
   return {
     ...actual,
     detectPlatform: () => 'ios'

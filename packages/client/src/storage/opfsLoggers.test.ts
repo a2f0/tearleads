@@ -14,10 +14,7 @@ const mockEncrypt = vi.fn();
 const mockDecrypt = vi.fn();
 
 vi.mock('@tearleads/shared', async () => {
-  const original =
-    await import(
-      '@tearleads/shared'
-    );
+  const original = await import('@tearleads/shared');
   return {
     ...original,
     importKey: (keyData: Uint8Array) => mockImportKey(keyData),
