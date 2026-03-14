@@ -1,18 +1,18 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import '@testing-library/jest-dom/vitest';
 import {
   installBrowserGlobalsForBun,
   installVitestPolyfills
 } from '@tearleads/bun-dom-compat';
-import { cleanup } from '@testing-library/react';
 import { createElement } from 'react';
 import { afterEach, beforeAll, vi } from 'vitest';
 import { installBunPolyfills } from './bunPolyfills';
 
 // Install jsdom globals before anything else
 installBrowserGlobalsForBun();
+await import('@testing-library/jest-dom/vitest');
+const { cleanup } = await import('@testing-library/react');
 
 // Preload compliance markdown modules for Bun (replaces Vite import.meta.glob)
 const COMPLIANCE_MARKDOWN_MODULES_GLOBAL =

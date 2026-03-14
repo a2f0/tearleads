@@ -2,12 +2,12 @@ import { SettingsProvider } from '@tearleads/app-settings';
 import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/device';
 import { setupThemeMocks } from '@/test/themeTestUtils';
 import { SettingsButton } from './SettingsButton';
-import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: vi.fn()
@@ -16,6 +16,46 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 vi.mock('@/hooks/device', () => ({
   useIsMobile: vi.fn()
 }));
+
+vi.mock('./settings/SettingsSheet', () => {
+  return {
+    SettingsSheet: ({
+      open,
+      onOpenChange
+    }: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    }) => {
+      if (!open) {
+        return null;
+      }
+
+      return createElement(
+        'div',
+        {
+          role: 'dialog',
+          tabIndex: -1,
+          'data-testid': 'settings-sheet',
+          onKeyDown: (event) => {
+            if (event.key === 'Escape') {
+              onOpenChange(false);
+            }
+          }
+        },
+        createElement(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'settings-sheet-backdrop',
+            onClick: () => onOpenChange(false)
+          },
+          'Backdrop'
+        ),
+        createElement('div', null, 'Settings')
+      );
+    }
+  };
+});
 
 describe('SettingsButton', () => {
   const openWindow = vi.fn();
@@ -39,11 +79,11 @@ describe('SettingsButton', () => {
 
   function renderSettingsButton() {
     return render(
-      <ThemeProvider defaultTheme="light">
-        <SettingsProvider>
-          <SettingsButton />
-        </SettingsProvider>
-      </ThemeProvider>
+      createElement(
+        ThemeProvider,
+        { defaultTheme: 'light' },
+        createElement(SettingsProvider, null, createElement(SettingsButton))
+      )
     );
   }
 
@@ -100,12 +140,9 @@ describe('SettingsButton', () => {
 
     await user.click(screen.getByTestId('settings-sheet-backdrop'));
 
-    await waitFor(
-      () => {
-        expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
-      },
-      { timeout: ANIMATION_DURATION_MS + 500 }
-    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
+    });
   });
 
   it('closes settings sheet when Escape pressed', async () => {
@@ -116,13 +153,10 @@ describe('SettingsButton', () => {
     await user.click(screen.getByTestId('settings-button'));
     expect(screen.getByTestId('settings-sheet')).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByTestId('settings-sheet'), { key: 'Escape' });
 
-    await waitFor(
-      () => {
-        expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
-      },
-      { timeout: ANIMATION_DURATION_MS + 500 }
-    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
+    });
   });
 });

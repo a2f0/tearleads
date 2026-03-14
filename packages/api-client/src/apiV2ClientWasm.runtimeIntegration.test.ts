@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isRecord } from '@tearleads/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -60,12 +60,35 @@ function installRealWasmImporter(bindings: ApiV2GeneratedWasmBindings): void {
   Reflect.set(globalThis, GLOBAL_API_V2_WASM_IMPORTER_KEY, async () => {
     if (pendingInitialization === null) {
       pendingInitialization = (async () => {
-        const wasmModulePath = join(
-          process.cwd(),
-          '.generated',
-          'apiClientWasm',
-          'tearleads_api_client_wasm_bg.wasm'
-        );
+        const candidatePaths = [
+          join(
+            process.cwd(),
+            '.generated',
+            'apiClientWasm',
+            'tearleads_api_client_wasm_bg.wasm'
+          ),
+          join(
+            process.cwd(),
+            'packages',
+            'api-client',
+            '.generated',
+            'apiClientWasm',
+            'tearleads_api_client_wasm_bg.wasm'
+          )
+        ];
+        const wasmModulePath = await Promise.any(
+          candidatePaths.map(async (candidatePath) => {
+            await access(candidatePath);
+            return candidatePath;
+          })
+        ).catch(() => null);
+
+        if (wasmModulePath === null) {
+          throw new Error(
+            `Could not locate generated api-client WASM binary. Checked: ${candidatePaths.join(', ')}`
+          );
+        }
+
         const wasmBytes = new Uint8Array(await readFile(wasmModulePath));
         await bindings.default({ module_or_path: wasmBytes });
       })();
