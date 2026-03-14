@@ -1,46 +1,64 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import type { HealthTracker } from '../lib/healthTracker';
+import { HealthRuntimeProvider } from '../runtime';
+import type { HealthDrilldownRoute } from './Health';
 import { Health } from './Health';
 
-// Mock detail components that require DatabaseProvider
-vi.mock('../components/health/weight', () => ({
-  WeightDetail: ({ refreshToken }: { refreshToken?: number }) => (
-    <div data-testid="weight-detail-mock" data-refresh-token={refreshToken}>
-      Weight Detail Mock
-    </div>
-  )
-}));
-
-vi.mock('../components/health/workouts', () => ({
-  WorkoutDetail: ({ refreshToken }: { refreshToken?: number }) => (
-    <div data-testid="workout-detail-mock" data-refresh-token={refreshToken}>
-      Workout Detail Mock
-    </div>
-  )
-}));
-
-vi.mock('../components/health/blood-pressure', () => ({
-  BloodPressureDetail: ({ refreshToken }: { refreshToken?: number }) => (
-    <div
-      data-testid="blood-pressure-detail-mock"
-      data-refresh-token={refreshToken}
-    >
-      Blood Pressure Detail Mock
-    </div>
-  )
-}));
-
-vi.mock('../components/health/exercises', () => ({
-  ExerciseDetail: ({ refreshToken }: { refreshToken?: number }) => (
-    <div data-testid="exercise-detail-mock" data-refresh-token={refreshToken}>
-      Exercise Detail Mock
-    </div>
-  )
-}));
-
-import type { HealthDrilldownRoute } from './Health';
+const mockTracker: HealthTracker = {
+  listExercises: vi.fn(async () => []),
+  listParentExercises: vi.fn(async () => []),
+  listChildExercises: vi.fn(async () => []),
+  getExerciseHierarchy: vi.fn(async () => new Map()),
+  addExercise: vi.fn(async (input) => ({
+    id: input.id ?? 'exercise_1',
+    name: input.name,
+    ...(input.parentId ? { parentId: input.parentId } : {})
+  })),
+  listHeightReadings: vi.fn(async () => []),
+  addHeightReading: vi.fn(async (input) => ({
+    id: 'height_1',
+    recordedAt: new Date(input.recordedAt).toISOString(),
+    value: input.value,
+    unit: input.unit ?? 'in',
+    contactId: input.contactId ?? null,
+    ...(input.note ? { note: input.note } : {})
+  })),
+  listWeightReadings: vi.fn(async () => []),
+  addWeightReading: vi.fn(async (input) => ({
+    id: 'weight_1',
+    recordedAt: new Date(input.recordedAt).toISOString(),
+    value: input.value,
+    unit: input.unit ?? 'lb',
+    contactId: input.contactId ?? null,
+    ...(input.note ? { note: input.note } : {})
+  })),
+  listBloodPressureReadings: vi.fn(async () => []),
+  addBloodPressureReading: vi.fn(async (input) => ({
+    id: 'bp_1',
+    recordedAt: new Date(input.recordedAt).toISOString(),
+    systolic: input.systolic,
+    diastolic: input.diastolic,
+    contactId: input.contactId ?? null,
+    ...(input.pulse ? { pulse: input.pulse } : {}),
+    ...(input.note ? { note: input.note } : {})
+  })),
+  listWorkoutEntries: vi.fn(async () => []),
+  addWorkoutEntry: vi.fn(async (input) => ({
+    id: 'workout_1',
+    performedAt: new Date(input.performedAt).toISOString(),
+    exerciseId: input.exerciseId,
+    exerciseName: input.exerciseId,
+    reps: input.reps,
+    weight: input.weight,
+    weightUnit: input.weightUnit ?? 'lb',
+    contactId: input.contactId ?? null,
+    ...(input.note ? { note: input.note } : {})
+  })),
+  updateContactId: vi.fn(async () => {})
+};
 
 function renderHealth({
   showBackLink,
@@ -55,11 +73,21 @@ function renderHealth({
 } = {}) {
   return render(
     <MemoryRouter initialEntries={initialEntries ?? ['/health']}>
-      <Health
-        {...(showBackLink !== undefined ? { showBackLink } : {})}
-        {...(activeRoute !== undefined ? { activeRoute } : {})}
-        {...(onRouteChange !== undefined ? { onRouteChange } : {})}
-      />
+      <HealthRuntimeProvider
+        databaseState={{
+          isUnlocked: true,
+          isLoading: false,
+          currentInstanceId: 'test-instance'
+        }}
+        createTracker={() => mockTracker}
+        availableContacts={[]}
+      >
+        <Health
+          {...(showBackLink !== undefined ? { showBackLink } : {})}
+          {...(activeRoute !== undefined ? { activeRoute } : {})}
+          {...(onRouteChange !== undefined ? { onRouteChange } : {})}
+        />
+      </HealthRuntimeProvider>
     </MemoryRouter>
   );
 }
@@ -82,19 +110,18 @@ describe('Health', () => {
 
     await user.click(screen.getByTestId('health-card-link-height'));
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Coming soon — Track height measurements over time for each child.'
-      )
-    ).toBeTruthy();
+    expect(screen.getByText('No height readings yet')).toBeTruthy();
 
     await user.click(screen.getByRole('link', { name: 'Overview' }));
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
-  it('renders activeRoute when provided in window mode', () => {
+  it('renders activeRoute when provided in window mode', async () => {
     renderHealth({ showBackLink: false, activeRoute: 'height' });
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('No height readings yet')).toBeTruthy();
+    });
   });
 
   it('calls onRouteChange when card link is clicked in window mode', async () => {
@@ -125,10 +152,12 @@ describe('Health', () => {
     });
   });
 
-  it('renders workout route detail directly', () => {
+  it('renders workout route detail directly', async () => {
     renderHealth({ initialEntries: ['/health/height'] });
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
-    expect(screen.getByTestId('height-detail-placeholder')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('No height readings yet')).toBeTruthy();
+    });
   });
 
   it('shows overview for invalid route segment', () => {

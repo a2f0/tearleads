@@ -21,6 +21,7 @@ export {
   filesTable,
   healthBloodPressureReadingsTable,
   healthExercisesTable,
+  healthHeightReadingsTable,
   healthWeightReadingsTable,
   healthWorkoutEntriesTable,
   isColumnDefinition,

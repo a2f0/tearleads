@@ -12,6 +12,7 @@ import {
   groupsTable,
   healthBloodPressureReadingsTable,
   healthExercisesTable,
+  healthHeightReadingsTable,
   healthWeightReadingsTable,
   healthWorkoutEntriesTable,
   migrationsTable,
@@ -86,6 +87,25 @@ describe('healthWeightReadingsTable', () => {
     expect(healthWeightReadingsTable.columns['valueCenti']).toBeDefined();
     expect(healthWeightReadingsTable.columns['unit']).toBeDefined();
     expect(healthWeightReadingsTable.columns['createdAt']).toBeDefined();
+  });
+});
+
+describe('healthHeightReadingsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(healthHeightReadingsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(healthHeightReadingsTable.name).toBe('health_height_readings');
+    expect(healthHeightReadingsTable.propertyName).toBe('healthHeightReadings');
+  });
+
+  it('has required columns', () => {
+    expect(healthHeightReadingsTable.columns['id']).toBeDefined();
+    expect(healthHeightReadingsTable.columns['recordedAt']).toBeDefined();
+    expect(healthHeightReadingsTable.columns['valueCenti']).toBeDefined();
+    expect(healthHeightReadingsTable.columns['unit']).toBeDefined();
+    expect(healthHeightReadingsTable.columns['createdAt']).toBeDefined();
   });
 });
 
@@ -261,7 +281,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(52);
+    expect(allTables).toHaveLength(53);
   });
 
   it('contains all table definitions', () => {
@@ -284,6 +304,7 @@ describe('allTables', () => {
     expect(allTables).toContain(vehiclesTable);
     expect(allTables).toContain(healthExercisesTable);
     expect(allTables).toContain(healthWeightReadingsTable);
+    expect(allTables).toContain(healthHeightReadingsTable);
     expect(allTables).toContain(healthBloodPressureReadingsTable);
     expect(allTables).toContain(healthWorkoutEntriesTable);
     expect(allTables).toContain(groupsTable);

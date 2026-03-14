@@ -11,9 +11,11 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';
 import { useHostRuntimeDatabaseState } from '@/db/hooks/useHostRuntimeDatabaseState';
 import { registerVfsItemWithCurrentKeys } from '@/hooks/vfs/useVfsKeys';
+import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { queueLinkReassignAndFlush } from '@/lib/vfsItemSyncWriter';
+import { isVfsAlreadyRegisteredError } from '@/lib/vfsRegistrationErrors';
 
 interface ClientHealthProviderProps {
   children: ReactNode;
@@ -75,13 +77,16 @@ export function ClientHealthProvider({ children }: ClientHealthProviderProps) {
         return;
       }
 
+      const loggedIn = isLoggedIn();
+      const shouldRegisterOnServer =
+        loggedIn && getFeatureFlagValue('vfsServerRegistration');
       let encryptedSessionKey: string | null = null;
-      if (isLoggedIn()) {
+      if (loggedIn) {
         try {
           const result = await registerVfsItemWithCurrentKeys({
             id: readingId,
             objectType: 'healthReading',
-            registerOnServer: getFeatureFlagValue('vfsServerRegistration')
+            registerOnServer: false
           });
           encryptedSessionKey = result.encryptedSessionKey;
         } catch (err) {
@@ -97,6 +102,21 @@ export function ClientHealthProvider({ children }: ClientHealthProviderProps) {
         encryptedSessionKey,
         createdAt: new Date(createdAt)
       });
+
+      if (shouldRegisterOnServer && encryptedSessionKey) {
+        void api.vfs
+          .register({
+            id: readingId,
+            objectType: 'healthReading',
+            encryptedSessionKey
+          })
+          .catch((err: unknown) => {
+            if (isVfsAlreadyRegisteredError(err)) {
+              return;
+            }
+            console.warn('Failed to register health reading on server:', err);
+          });
+      }
     },
     [db]
   );

@@ -3,6 +3,24 @@
  */
 
 export type WeightUnit = 'lb' | 'kg';
+export type HeightUnit = 'in' | 'cm';
+
+export interface HeightReading {
+  id: string;
+  recordedAt: string;
+  value: number;
+  unit: HeightUnit;
+  note?: string;
+  contactId: string | null;
+}
+
+export interface CreateHeightReadingInput {
+  recordedAt: string | Date;
+  value: number;
+  unit?: HeightUnit;
+  note?: string;
+  contactId?: string | null;
+}
 
 export interface WeightReading {
   id: string;
@@ -76,6 +94,7 @@ export interface CreateWorkoutEntryInput {
 }
 
 export type HealthReadingTable =
+  | 'health_height_readings'
   | 'health_weight_readings'
   | 'health_blood_pressure_readings'
   | 'health_workout_entries';
@@ -86,6 +105,8 @@ export interface HealthTracker {
   listChildExercises: (parentId: string) => Promise<Exercise[]>;
   getExerciseHierarchy: () => Promise<Map<string, Exercise[]>>;
   addExercise: (input: CreateExerciseInput) => Promise<Exercise>;
+  listHeightReadings: () => Promise<HeightReading[]>;
+  addHeightReading: (input: CreateHeightReadingInput) => Promise<HeightReading>;
   listWeightReadings: () => Promise<WeightReading[]>;
   addWeightReading: (input: CreateWeightReadingInput) => Promise<WeightReading>;
   listBloodPressureReadings: () => Promise<BloodPressureReading[]>;

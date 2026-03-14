@@ -2,12 +2,14 @@ import {
   type Database,
   healthBloodPressureReadings,
   healthExercises,
+  healthHeightReadings,
   healthWeightReadings,
   healthWorkoutEntries
 } from '@tearleads/db/sqlite';
 import { asc, desc, eq } from 'drizzle-orm';
 
 import { DEFAULT_EXERCISES } from './defaultExercises.js';
+import { createHeightOperations } from './healthTrackerHeight.js';
 import type {
   BloodPressureReading,
   CreateHealthTrackerOptions,
@@ -37,11 +39,14 @@ export type {
   CreateBloodPressureReadingInput,
   CreateExerciseInput,
   CreateHealthTrackerOptions,
+  CreateHeightReadingInput,
   CreateWeightReadingInput,
   CreateWorkoutEntryInput,
   Exercise,
   HealthReadingTable,
   HealthTracker,
+  HeightReading,
+  HeightUnit,
   WeightReading,
   WeightUnit,
   WorkoutEntry
@@ -58,6 +63,7 @@ export const createHealthTracker = (
 
   const createId = (prefix: string): string =>
     normalizeRequiredText(generateId(prefix), `${prefix} id`);
+  const heightOperations = createHeightOperations({ db, now, createId });
 
   let defaultsSeeded = false;
 
@@ -211,6 +217,7 @@ export const createHealthTracker = (
       }
       return exercise;
     },
+    ...heightOperations,
     listWeightReadings: async () => {
       const rows = await db
         .select({
@@ -461,6 +468,7 @@ export const createHealthTracker = (
     ) => {
       const normalizedId = normalizeRequiredText(id, 'id');
       const tableMap = {
+        health_height_readings: healthHeightReadings,
         health_weight_readings: healthWeightReadings,
         health_blood_pressure_readings: healthBloodPressureReadings,
         health_workout_entries: healthWorkoutEntries

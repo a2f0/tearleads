@@ -159,7 +159,9 @@ export function Health({
           className="min-h-0 flex-1 overflow-hidden"
           data-testid={`health-detail-${activeRoute}`}
         >
-          {activeRoute === 'height' && <HeightDetail />}
+          {activeRoute === 'height' && (
+            <HeightDetail refreshToken={refreshToken} />
+          )}
           {activeRoute === 'weight' && (
             <WeightDetail refreshToken={refreshToken} />
           )}

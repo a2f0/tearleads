@@ -2,8 +2,9 @@
  * Utility functions for health tracker.
  */
 
-import type { WeightUnit } from './healthTrackerTypes.js';
+import type { HeightUnit, WeightUnit } from './healthTrackerTypes.js';
 
+const HEIGHT_SCALE = 100;
 const WEIGHT_SCALE = 100;
 
 export const normalizeRequiredText = (
@@ -100,6 +101,18 @@ export const normalizeWeightUnit = (
   return normalized;
 };
 
+export const normalizeHeightUnit = (
+  value: HeightUnit | undefined,
+  fieldName: string
+): HeightUnit => {
+  const normalized = value ?? 'in';
+  if (normalized !== 'in' && normalized !== 'cm') {
+    throw new Error(`${fieldName} must be either "in" or "cm"`);
+  }
+
+  return normalized;
+};
+
 function isAsciiLowerAlphaNumeric(char: string): boolean {
   const code = char.charCodeAt(0);
   return (
@@ -155,5 +168,10 @@ export const toCentiWeightAllowZero = (
   fieldName: string
 ): number =>
   Math.round(normalizeNonNegativeNumber(value, fieldName) * WEIGHT_SCALE);
+
+export const toCentiHeight = (value: number, fieldName: string): number =>
+  Math.round(normalizePositiveNumber(value, fieldName) * HEIGHT_SCALE);
+
+export const fromCentiHeight = (value: number): number => value / HEIGHT_SCALE;
 
 export const fromCentiWeight = (value: number): number => value / WEIGHT_SCALE;

@@ -9,6 +9,10 @@ import {
 import { vfsRegistry } from './schema-content.js';
 import { users } from './schema-foundation.js';
 
+/**
+ * Policy headers for container-scoped sharing rules.
+ * Defines root scope and lifecycle metadata for share-policy compilation.
+ */
 export const vfsSharePolicies = sqliteTable(
   'vfs_share_policies',
   {
@@ -283,8 +287,3 @@ export const vfsSyncClientState = sqliteTable(
     index('vfs_sync_client_state_user_idx').on(table.userId)
   ]
 );
-
-/**
- * CRDT-style operation log for ACL and link mutations.
- * Ensures deterministic convergence for concurrent multi-client updates.
- */

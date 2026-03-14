@@ -1,11 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useHeightData } from './useHeightData';
 
-const mockListBloodPressureReadings = vi.fn();
-const mockAddBloodPressureReading = vi.fn();
+const mockListHeightReadings = vi.fn();
+const mockAddHeightReading = vi.fn();
 const mockHealthTracker = {
-  listBloodPressureReadings: mockListBloodPressureReadings,
-  addBloodPressureReading: mockAddBloodPressureReading
+  listHeightReadings: mockListHeightReadings,
+  addHeightReading: mockAddHeightReading
 };
 
 let mockIsUnlocked = true;
@@ -22,49 +23,40 @@ vi.mock('../../../runtime', () => ({
   })
 }));
 
-const mockReadings = [
+const mockHeightReadings = [
   {
-    id: 'bp_1',
+    id: 'height_1',
     recordedAt: '2024-01-15T10:00:00.000Z',
-    systolic: 120,
-    diastolic: 80,
-    pulse: 72,
-    note: 'Morning reading',
+    value: 42.5,
+    unit: 'in' as const,
+    note: 'Annual checkup',
     contactId: null
   },
   {
-    id: 'bp_2',
+    id: 'height_2',
     recordedAt: '2024-01-14T10:00:00.000Z',
-    systolic: 125,
-    diastolic: 82,
+    value: 108,
+    unit: 'cm' as const,
     contactId: null
   }
 ];
 
-let useBloodPressureData: typeof import('./useBloodPressureData').useBloodPressureData;
-let moduleVersion = 0;
-
-describe('useBloodPressureData', () => {
-  beforeEach(async () => {
+describe('useHeightData', () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     mockIsUnlocked = true;
     mockTracker = mockHealthTracker;
-    mockListBloodPressureReadings.mockResolvedValue(mockReadings);
-    moduleVersion += 1;
-    const module = await import(
-      `./useBloodPressureData.ts?test=${moduleVersion}`
-    );
-    useBloodPressureData = module.useBloodPressureData;
+    mockListHeightReadings.mockResolvedValue(mockHeightReadings);
   });
 
   it('fetches readings when unlocked', async () => {
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    expect(result.current.readings).toEqual(mockReadings);
+    expect(result.current.readings).toEqual(mockHeightReadings);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -73,9 +65,9 @@ describe('useBloodPressureData', () => {
     mockIsUnlocked = false;
     mockTracker = null;
 
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
-    expect(mockListBloodPressureReadings).not.toHaveBeenCalled();
+    expect(mockListHeightReadings).not.toHaveBeenCalled();
     expect(result.current.isUnlocked).toBe(false);
     expect(result.current.hasFetched).toBe(false);
   });
@@ -84,12 +76,12 @@ describe('useBloodPressureData', () => {
     mockIsUnlocked = false;
     mockTracker = null;
 
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
     const input = {
       recordedAt: '2024-01-16T10:00:00.000Z',
-      systolic: 120,
-      diastolic: 80
+      value: 42,
+      unit: 'in' as const
     };
 
     await expect(result.current.addReading(input)).rejects.toThrow(
@@ -99,15 +91,15 @@ describe('useBloodPressureData', () => {
 
   it('adds a reading and refreshes', async () => {
     const newReading = {
-      id: 'bp_3',
+      id: 'height_3',
       recordedAt: '2024-01-16T10:00:00.000Z',
-      systolic: 118,
-      diastolic: 78,
+      value: 43,
+      unit: 'in' as const,
       contactId: null
     };
-    mockAddBloodPressureReading.mockResolvedValue(newReading);
+    mockAddHeightReading.mockResolvedValue(newReading);
 
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -115,37 +107,35 @@ describe('useBloodPressureData', () => {
 
     const input = {
       recordedAt: '2024-01-16T10:00:00.000Z',
-      systolic: 118,
-      diastolic: 78
+      value: 43,
+      unit: 'in' as const
     };
 
     await act(async () => {
       await result.current.addReading(input);
     });
 
-    expect(mockAddBloodPressureReading).toHaveBeenCalledWith(input);
-    expect(mockListBloodPressureReadings).toHaveBeenCalledTimes(2);
+    expect(mockAddHeightReading).toHaveBeenCalledWith(input);
+    expect(mockListHeightReadings).toHaveBeenCalledTimes(2);
   });
 
   it('handles fetch error', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockListBloodPressureReadings.mockRejectedValue(
-      new Error('Database error')
-    );
+    mockListHeightReadings.mockRejectedValue(new Error('Database error'));
 
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Database error');
+      expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe('Database error');
     expect(result.current.readings).toEqual([]);
   });
 
   it('re-fetches when refreshToken changes', async () => {
     const { result, rerender } = renderHook(
-      ({ refreshToken }) => useBloodPressureData({ refreshToken }),
+      ({ refreshToken }) => useHeightData({ refreshToken }),
       { initialProps: { refreshToken: 0 } }
     );
 
@@ -153,28 +143,28 @@ describe('useBloodPressureData', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    expect(mockListBloodPressureReadings).toHaveBeenCalledTimes(1);
+    expect(mockListHeightReadings).toHaveBeenCalledTimes(1);
 
     rerender({ refreshToken: 1 });
 
     await waitFor(() => {
-      expect(mockListBloodPressureReadings).toHaveBeenCalledTimes(2);
+      expect(mockListHeightReadings).toHaveBeenCalledTimes(2);
     });
   });
 
   it('refresh function triggers re-fetch', async () => {
-    const { result } = renderHook(() => useBloodPressureData());
+    const { result } = renderHook(() => useHeightData());
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    expect(mockListBloodPressureReadings).toHaveBeenCalledTimes(1);
+    expect(mockListHeightReadings).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await result.current.refresh();
     });
 
-    expect(mockListBloodPressureReadings).toHaveBeenCalledTimes(2);
+    expect(mockListHeightReadings).toHaveBeenCalledTimes(2);
   });
 });
