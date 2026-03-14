@@ -19,7 +19,10 @@ import {
   parseAccessRank,
   prepareAclOperation
 } from './vfsDirectCrdtPushAclPreflight.js';
-import { verifyAclPushOperationSignature } from './vfsDirectCrdtPushAclSignatures.js';
+import {
+  type ActorSigningKeyCacheValue,
+  verifyAclPushOperationSignature
+} from './vfsDirectCrdtPushAclSignatures.js';
 import { buildAclAuditEntry } from './vfsDirectCrdtPushAclValidation.js';
 import {
   applyCanonicalItemOperation,
@@ -88,7 +91,7 @@ export async function applyCrdtPushOperations(input: {
   const authorizedItemIds = new Set<string>();
   const itemOwnersById = new Map<string, ItemOwnerRow>();
   const actorAccessRanksByItemId = new Map<string, number>();
-  const actorPublicSigningKeys = new Map<string, Uint8Array | null>();
+  const actorPublicSigningKeys = new Map<string, ActorSigningKeyCacheValue>();
   const aclTargetStateCache = new Map<string, AclTargetState>();
   const validOperations: VfsCrdtPushOperation[] = [];
   for (const entry of input.parsedOperations) {
@@ -220,6 +223,7 @@ export async function applyCrdtPushOperations(input: {
     const operation = entry.operation;
     const authInfo = itemAuthInfo.get(operation.itemId);
     let operationToPersist = operation;
+    let actorSigningPublicKey: string | null = null;
     const recordAclAudit = (
       status: VfsCrdtPushResult['status'],
       reason?: string
@@ -294,6 +298,7 @@ export async function applyCrdtPushOperations(input: {
         continue;
       }
 
+      actorSigningPublicKey = signatureVerification.verifiedPublicSigningKey;
       operationToPersist = preparedAclOperation.operationToPersist;
     }
 
@@ -352,6 +357,7 @@ export async function applyCrdtPushOperations(input: {
     );
     const insertResult = await insertCrdtOperation({
       actorId: input.userId,
+      actorSigningPublicKey,
       canonicalOccurredAt,
       operation: operationToPersist,
       runQuery,

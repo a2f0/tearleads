@@ -13,6 +13,7 @@ export interface InsertedCrdtOpRow {
 
 export async function insertCrdtOperation(input: {
   actorId: string;
+  actorSigningPublicKey: string | null;
   canonicalOccurredAt: string;
   operation: VfsCrdtPushOperation;
   runQuery: TimedQueryRunner;
@@ -48,6 +49,7 @@ export async function insertCrdtOperation(input: {
       parent_id,
       child_id,
       actor_id,
+      actor_signing_public_key,
       source_table,
       source_id,
       occurred_at,
@@ -75,19 +77,20 @@ export async function insertCrdtOperation(input: {
       $8::uuid,
       $9::text,
       $10::text,
-      $11::timestamptz,
-      $12::text,
-      $13::integer,
-      $14::text,
+      $11::text,
+      $12::timestamptz,
+      $13::text,
+      $14::integer,
       $15::text,
       $16::text,
       $17::text,
-      $18::bytea,
+      $18::text,
       $19::bytea,
       $20::bytea,
       $21::bytea,
       $22::bytea,
-      $23::uuid
+      $23::bytea,
+      $24::uuid
     )
     RETURNING id, occurred_at
     `,
@@ -100,6 +103,7 @@ export async function insertCrdtOperation(input: {
       input.operation.parentId ?? null,
       input.operation.childId ?? null,
       input.actorId,
+      input.actorSigningPublicKey,
       CRDT_CLIENT_PUSH_SOURCE_TABLE,
       input.sourceId,
       input.canonicalOccurredAt,

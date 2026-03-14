@@ -78,6 +78,10 @@ export const vfsCrdtOpsTable: TableDefinition = {
         onDelete: 'set null'
       }
     },
+    actorSigningPublicKey: {
+      type: 'text',
+      sqlName: 'actor_signing_public_key'
+    },
     sourceTable: {
       type: 'text',
       sqlName: 'source_table',

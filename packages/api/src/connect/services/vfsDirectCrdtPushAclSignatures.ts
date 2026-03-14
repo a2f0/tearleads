@@ -16,8 +16,15 @@ interface ActorSigningKeyRow extends QueryResultRow {
   public_signing_key: string | null;
 }
 
+export interface ActorSigningKeyCacheEntry {
+  publicSigningKey: string;
+  decodedPublicSigningKey: Uint8Array;
+}
+
+export type ActorSigningKeyCacheValue = ActorSigningKeyCacheEntry | null;
+
 export type VerifyAclPushOperationSignatureResult =
-  | { ok: true }
+  | { ok: true; verifiedPublicSigningKey: string }
   | { ok: false; reason: string };
 
 function toAclSigningFields(operation: VfsCrdtPushOperation): {
@@ -80,9 +87,9 @@ function toAclSigningFields(operation: VfsCrdtPushOperation): {
 
 async function loadActorPublicSigningKey(input: {
   actorId: string;
-  cachedPublicSigningKeys: Map<string, Uint8Array | null>;
+  cachedPublicSigningKeys: Map<string, ActorSigningKeyCacheValue>;
   runQuery: TimedQueryRunner;
-}): Promise<Uint8Array | null> {
+}): Promise<ActorSigningKeyCacheValue> {
   if (input.cachedPublicSigningKeys.has(input.actorId)) {
     return input.cachedPublicSigningKeys.get(input.actorId) ?? null;
   }
@@ -105,8 +112,13 @@ async function loadActorPublicSigningKey(input: {
     ? base64ToBytes(publicSigningKey)
     : null;
   const normalizedPublicSigningKey =
-    decodedPublicSigningKey && decodedPublicSigningKey.length > 0
-      ? decodedPublicSigningKey
+    publicSigningKey &&
+    decodedPublicSigningKey &&
+    decodedPublicSigningKey.length > 0
+      ? {
+          publicSigningKey,
+          decodedPublicSigningKey
+        }
       : null;
 
   input.cachedPublicSigningKeys.set(input.actorId, normalizedPublicSigningKey);
@@ -115,12 +127,12 @@ async function loadActorPublicSigningKey(input: {
 
 export async function verifyAclPushOperationSignature(input: {
   actorId: string;
-  cachedPublicSigningKeys: Map<string, Uint8Array | null>;
+  cachedPublicSigningKeys: Map<string, ActorSigningKeyCacheValue>;
   operation: VfsCrdtPushOperation;
   runQuery: TimedQueryRunner;
 }): Promise<VerifyAclPushOperationSignatureResult> {
   if (!isAclOperation(input.operation)) {
-    return { ok: true };
+    return { ok: true, verifiedPublicSigningKey: '' };
   }
 
   const operationSignature = normalizeRequiredString(
@@ -143,11 +155,14 @@ export async function verifyAclPushOperationSignature(input: {
   const signatureValid = verifyAclOperationSignature(
     signingFields,
     operationSignature,
-    actorPublicSigningKey
+    actorPublicSigningKey.decodedPublicSigningKey
   );
   if (!signatureValid) {
     return { ok: false, reason: 'acl_signature_invalid' };
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    verifiedPublicSigningKey: actorPublicSigningKey.publicSigningKey
+  };
 }
