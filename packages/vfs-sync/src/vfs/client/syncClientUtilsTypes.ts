@@ -39,6 +39,22 @@ export const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'item_delete'
 ];
 
+export interface VfsAclOperationSigningInput {
+  opId: string;
+  opType: 'acl_add' | 'acl_remove';
+  itemId: string;
+  replicaId: string;
+  writeId: number;
+  occurredAt: string;
+  principalType: VfsAclPrincipalType;
+  principalId: string;
+  accessLevel: string;
+}
+
+export type VfsAclOperationSigner = (
+  operation: VfsAclOperationSigningInput
+) => Promise<string | null | undefined> | string | null | undefined;
+
 export interface VfsCrdtSyncPullResponse {
   items: VfsCrdtSyncItem[];
   hasMore: boolean;
@@ -149,6 +165,7 @@ export interface QueueVfsCrdtLocalOperationInput {
 export interface VfsBackgroundSyncClientOptions {
   pullLimit?: number;
   now?: () => Date;
+  signAclOperation?: VfsAclOperationSigner;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
   maxRematerializationAttempts?: number;

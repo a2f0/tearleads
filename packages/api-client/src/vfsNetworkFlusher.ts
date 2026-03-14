@@ -387,6 +387,9 @@ class VfsApiNetworkFlusherImpl {
         pullLimit: options.pullLimit
       }),
       ...(options.now !== undefined && { now: options.now }),
+      ...(options.signAclOperation !== undefined && {
+        signAclOperation: options.signAclOperation
+      }),
       ...(options.maxRematerializationAttempts !== undefined && {
         maxRematerializationAttempts: options.maxRematerializationAttempts
       }),

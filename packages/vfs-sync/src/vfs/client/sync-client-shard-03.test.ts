@@ -1,4 +1,10 @@
+import {
+  generateKeyPair,
+  signAclOperation,
+  verifyAclOperationSignature
+} from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
+import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import type { VfsCrdtSyncTransport } from './sync-client-test-support.js';
 import {
   InMemoryVfsCrdtSyncServer,
@@ -212,6 +218,75 @@ describe('VfsBackgroundSyncClient', () => {
       VfsCrdtSyncPushRejectedError
     );
     expect(client.snapshot().pendingOperations).toBe(1);
+  });
+
+  it('signs ACL operations on each push attempt after stale-write rebases', async () => {
+    const keyPair = generateKeyPair();
+    const pushedOperations: VfsCrdtOperation[][] = [];
+    let pushAttempt = 0;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async ({ operations }) => {
+        pushAttempt += 1;
+        pushedOperations.push(
+          operations.map((operation) => ({ ...operation }))
+        );
+        return {
+          results: operations.map((operation) => ({
+            opId: operation.opId,
+            status: pushAttempt === 1 ? 'staleWriteId' : 'applied'
+          }))
+        };
+      },
+      pullOperations: async () => ({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      signAclOperation: (operation) =>
+        signAclOperation(operation, keyPair.ed25519PrivateKey)
+    });
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:10:01.000Z'
+    });
+
+    const flushResult = await client.flush();
+    expect(flushResult.pushedOperations).toBe(1);
+    expect(pushAttempt).toBe(2);
+
+    const firstAttempt = pushedOperations[0]?.[0];
+    const secondAttempt = pushedOperations[1]?.[0];
+    expect(firstAttempt?.operationSignature).toBeDefined();
+    expect(secondAttempt?.operationSignature).toBeDefined();
+    expect(secondAttempt?.operationSignature).not.toBe(
+      firstAttempt?.operationSignature
+    );
+    expect(secondAttempt?.writeId).toBeGreaterThan(firstAttempt?.writeId ?? 0);
+    expect(
+      verifyAclOperationSignature(
+        {
+          opId: secondAttempt?.opId ?? '',
+          opType: secondAttempt?.opType ?? 'acl_add',
+          itemId: secondAttempt?.itemId ?? '',
+          replicaId: secondAttempt?.replicaId ?? '',
+          writeId: secondAttempt?.writeId ?? 0,
+          occurredAt: secondAttempt?.occurredAt ?? '',
+          principalType: secondAttempt?.principalType ?? 'group',
+          principalId: secondAttempt?.principalId ?? '',
+          accessLevel: secondAttempt?.accessLevel ?? ''
+        },
+        secondAttempt?.operationSignature ?? '',
+        keyPair.ed25519PublicKey
+      )
+    ).toBe(true);
   });
 
   it('converges concurrent clients when one client requires stale-write recovery', async () => {

@@ -15,6 +15,7 @@ import {
   removePendingOperationById
 } from './sync-client-pending-operations.js';
 import type {
+  VfsAclOperationSigner,
   VfsBackgroundSyncClientFlushResult,
   VfsBackgroundSyncClientSyncResult,
   VfsCrdtSyncTransport,
@@ -30,6 +31,7 @@ import {
   VfsCrdtSyncPushRejectedError,
   validatePushResponse
 } from './sync-client-utils.js';
+import { signPushOperations } from './syncClientAclSigning.js';
 import {
   bumpLocalWriteId,
   filterPullItemsNewerThanCursor,
@@ -48,6 +50,7 @@ interface VfsSyncClientLoopDependencies {
   containerClockStore: InMemoryVfsContainerClockStore;
   readNextLocalWriteId: () => number;
   writeNextLocalWriteId: (value: number) => void;
+  signAclOperation: VfsAclOperationSigner | null;
   emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => void;
 }
 
@@ -335,7 +338,10 @@ export async function runFlushLoop(
         replayCursor: dependencies.replayStore.snapshot().cursor
       })
     });
-    const currentBatch = dependencies.pendingOperations.slice();
+    const currentBatch = await signPushOperations({
+      operations: dependencies.pendingOperations.slice(),
+      signAclOperation: dependencies.signAclOperation
+    });
     const pushResponse = await dependencies.transport.pushOperations({
       userId: dependencies.userId,
       clientId: dependencies.clientId,

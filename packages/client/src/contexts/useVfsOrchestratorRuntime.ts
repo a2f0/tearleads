@@ -4,6 +4,7 @@ import {
   type VfsSecureOrchestratorFacade,
   VfsWriteOrchestrator
 } from '@tearleads/api-client/clientEntry';
+import { signAclOperation as signVfsAclOperation } from '@tearleads/shared';
 import {
   useCallback,
   useContext,
@@ -216,12 +217,19 @@ export function useVfsOrchestratorRuntime(
     setError(null);
 
     try {
+      const itemKeyStore = createItemKeyStore();
+      const userKeyProvider = createUserKeyProvider(() => user);
+      const recipientPublicKeyResolver = createRecipientPublicKeyResolver();
       const nextOrchestrator = new VfsWriteOrchestrator(user.id, 'client', {
         crdt: {
           transportOptions: {
             baseUrl: effectiveBaseUrl,
             apiPrefix: effectiveApiPrefix,
             getOrganizationId: getActiveOrganizationId
+          },
+          signAclOperation: async (operation) => {
+            const keyPair = await userKeyProvider.getUserKeyPair();
+            return signVfsAclOperation(operation, keyPair.ed25519PrivateKey);
           },
           onRematerializationRequired: async () => {
             const rematerializationSnapshot = getInstanceChangeSnapshot();
@@ -268,10 +276,6 @@ export function useVfsOrchestratorRuntime(
       if (initializeRunIdRef.current !== runId) {
         return;
       }
-
-      const itemKeyStore = createItemKeyStore();
-      const userKeyProvider = createUserKeyProvider(() => user);
-      const recipientPublicKeyResolver = createRecipientPublicKeyResolver();
 
       const bundle = createVfsSecurePipelineBundle({
         userKeyProvider,

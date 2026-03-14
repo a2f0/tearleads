@@ -18,6 +18,7 @@ import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.j
 import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
 import type {
   QueueVfsCrdtLocalOperationInput,
+  VfsAclOperationSigner,
   VfsBackgroundSyncClientFlushResult,
   VfsBackgroundSyncClientOptions,
   VfsBackgroundSyncClientPersistedState,
@@ -60,11 +61,10 @@ export class VfsBackgroundSyncClient {
     | null;
   private readonly maxRematerializationAttempts: number;
   private readonly onRematerializationRequired: VfsRematerializationRequiredHandler | null;
-
+  private readonly signAclOperation: VfsAclOperationSigner | null;
   private readonly pendingOperations: VfsCrdtOperation[] = [];
   private readonly pendingOpIds: Set<string> = new Set();
   private nextLocalWriteId = 1;
-
   private readonly replayStore = new InMemoryVfsCrdtFeedReplayStore();
   private readonly reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
   private readonly containerClockStore = new InMemoryVfsContainerClockStore();
@@ -94,6 +94,7 @@ export class VfsBackgroundSyncClient {
     this.transport = transport;
     this.pullLimit = parsePullLimit(options.pullLimit);
     this.now = options.now ?? (() => new Date());
+    this.signAclOperation = options.signAclOperation ?? null;
     this.onBackgroundError = options.onBackgroundError ?? null;
     this.onGuardrailViolation = options.onGuardrailViolation ?? null;
     this.maxRematerializationAttempts = parseRematerializationAttempts(
@@ -469,6 +470,7 @@ export class VfsBackgroundSyncClient {
       writeNextLocalWriteId: (value: number) => {
         this.nextLocalWriteId = value;
       },
+      signAclOperation: this.signAclOperation,
       emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => {
         this.emitGuardrailViolation(violation);
       }
