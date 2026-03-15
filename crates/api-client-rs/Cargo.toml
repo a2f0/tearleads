@@ -10,7 +10,7 @@ transport = ["dep:tonic"]
 
 [dependencies]
 tearleads-api-v2-contracts = { version = "0.1.0", path = "../api-v2-contracts" }
-tonic = { version = "0.14.5", default-features = false, features = ["transport"], optional = true }
+tonic = { workspace = true, features = ["transport"], optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.50.0", features = ["macros", "rt"] }
