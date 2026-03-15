@@ -32,10 +32,19 @@ describe('NotificationsTab', () => {
       notificationStore.add('info', 'Test Title', 'Test message');
     });
 
-    render(<NotificationsTab />);
+    const { container } = render(<NotificationsTab />);
 
     expect(screen.getByText('Test Title')).toBeInTheDocument();
     expect(screen.getByText('Test message')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass(
+      'flex',
+      'h-full',
+      'min-h-0',
+      'flex-col'
+    );
+    const scrollRegion = container.querySelector('.overflow-y-auto');
+    expect(scrollRegion).toHaveClass('min-h-0', 'flex-1');
+    expect(scrollRegion).not.toHaveClass('max-h-64');
   });
 
   it('displays notification count', () => {
@@ -73,6 +82,25 @@ describe('NotificationsTab', () => {
     await act(async () => {
       fireEvent.click(notification);
     });
+
+    expect(notificationStore.getUnreadCount()).toBe(0);
+  });
+
+  it('marks notification as read with keyboard activation', async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      notificationStore.add('info', 'Keyboard Title', 'Keyboard message');
+    });
+
+    render(<NotificationsTab />);
+
+    const notification = screen.getByRole('button', {
+      name: /keyboard title/i
+    });
+
+    notification.focus();
+    await user.keyboard('{Enter}');
 
     expect(notificationStore.getUnreadCount()).toBe(0);
   });

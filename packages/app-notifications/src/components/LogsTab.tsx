@@ -57,14 +57,14 @@ export function LogsTab() {
 
   if (logs.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+      <div className="flex h-full min-h-32 items-center justify-center text-muted-foreground text-sm">
         {t('noLogsYet')}
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="font-medium text-muted-foreground text-xs">
           {logs.length === 1
@@ -93,7 +93,7 @@ export function LogsTab() {
         </div>
       </div>
 
-      <div className="max-h-64 space-y-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {logs.map((log) => (
           <div
             key={log.id}

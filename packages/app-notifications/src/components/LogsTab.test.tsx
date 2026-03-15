@@ -29,12 +29,22 @@ describe('LogsTab', () => {
     await act(async () => {
       logStore.info('Test message');
     });
+    let container: HTMLElement;
     await act(async () => {
-      render(<LogsTab />);
+      ({ container } = render(<LogsTab />));
     });
 
     expect(screen.getByText('Test message')).toBeInTheDocument();
     expect(screen.getByText('info')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass(
+      'flex',
+      'h-full',
+      'min-h-0',
+      'flex-col'
+    );
+    const scrollRegion = container.querySelector('.overflow-y-auto');
+    expect(scrollRegion).toHaveClass('min-h-0', 'flex-1');
+    expect(scrollRegion).not.toHaveClass('max-h-64');
   });
 
   it('shows log count', async () => {
