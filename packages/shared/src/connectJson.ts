@@ -338,7 +338,8 @@ function normalizeLastReconciledWriteIds(
   const normalized: Record<string, number> = {};
   for (const [replicaId, writeId] of Object.entries(value)) {
     const trimmedReplicaId = replicaId.trim();
-    const normalizedWriteId = readSafeInteger(writeId);
+    const normalizedWriteId =
+      readSafeInteger(writeId) ?? readSafeIntegerString(writeId);
     if (
       trimmedReplicaId.length === 0 ||
       normalizedWriteId === null ||
