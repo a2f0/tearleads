@@ -7,6 +7,7 @@ import type {
 import type { VfsContainerClockEntry } from '../protocol/sync-container-clocks.js';
 import type { VfsCrdtOperation, VfsCrdtOpType } from '../protocol/sync-crdt.js';
 import type { VfsCrdtFeedReplaySnapshot } from '../protocol/sync-crdt-feed-replay.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 import type {
   VfsCrdtClientReconcileState,
   VfsCrdtLastReconciledWriteIds
@@ -98,6 +99,7 @@ export type VfsSyncGuardrailViolationCode =
   | 'pullDuplicateOpReplay'
   | 'pullCursorRegression'
   | 'pullRematerializationRequired'
+  | 'pullAclSignatureVerificationFailure'
   | 'reconcileCursorRegression'
   | 'lastWriteIdRegression'
   | 'hydrateGuardrailViolation';
@@ -166,6 +168,8 @@ export interface VfsBackgroundSyncClientOptions {
   pullLimit?: number;
   now?: () => Date;
   signAclOperation?: VfsAclOperationSigner;
+  verifyAclSignaturesOnPull?: boolean;
+  onAclVerificationFailure?: VfsAclVerificationHandler;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
   maxRematerializationAttempts?: number;

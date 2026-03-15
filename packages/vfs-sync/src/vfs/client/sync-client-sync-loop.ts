@@ -32,6 +32,9 @@ import {
   validatePushResponse
 } from './sync-client-utils.js';
 import { signPushOperations } from './syncClientAclSigning.js';
+import type { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
+import { verifyPullAclSignatures } from './syncClientAclVerification.js';
 import {
   bumpLocalWriteId,
   filterPullItemsNewerThanCursor,
@@ -51,6 +54,9 @@ interface VfsSyncClientLoopDependencies {
   readNextLocalWriteId: () => number;
   writeNextLocalWriteId: (value: number) => void;
   signAclOperation: VfsAclOperationSigner | null;
+  verifyAclSignaturesOnPull: boolean;
+  tofuKeyStore: VfsAclTofuKeyStore | null;
+  onAclVerificationFailure: VfsAclVerificationHandler | null;
   emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => void;
 }
 
@@ -147,6 +153,24 @@ export async function pullUntilSettledLoop(
       throw new Error(
         'transport returned hasMore=true with an empty pull page'
       );
+    }
+
+    if (dependencies.verifyAclSignaturesOnPull && forwardItems.length > 0) {
+      const failureCount = verifyPullAclSignatures({
+        items: forwardItems,
+        tofuKeyStore: dependencies.tofuKeyStore,
+        onVerificationFailure: dependencies.onAclVerificationFailure
+      });
+      if (failureCount > 0) {
+        dependencies.emitGuardrailViolation({
+          code: 'pullAclSignatureVerificationFailure',
+          stage: 'pull',
+          message: `${failureCount} ACL operation(s) failed client-side signature verification`,
+          details: {
+            failureCount
+          }
+        });
+      }
     }
 
     const pullItemsApplied = forwardItems.length > 0;
