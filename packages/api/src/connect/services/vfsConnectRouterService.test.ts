@@ -54,7 +54,7 @@ describe('vfsConnectRouterService', () => {
     });
     setupKeysDirectMock.mockResolvedValue({ created: true });
     getUserSigningKeyDirectMock.mockResolvedValue({
-      userId: 'user-2',
+      userId: '00000000-0000-0000-0000-000000000002',
       publicSigningKey: 'ed25519-pub'
     });
   });
@@ -102,16 +102,18 @@ describe('vfsConnectRouterService', () => {
     };
 
     const response = await vfsConnectRouterService.getUserSigningKey(
-      create(VfsGetUserSigningKeyRequestSchema, { userId: 'user-2' }),
+      create(VfsGetUserSigningKeyRequestSchema, {
+        userId: '00000000-0000-0000-0000-000000000002'
+      }),
       context
     );
 
     expect(response).toEqual({
-      userId: 'user-2',
+      userId: '00000000-0000-0000-0000-000000000002',
       publicSigningKey: 'ed25519-pub'
     });
     expect(getUserSigningKeyDirectMock).toHaveBeenCalledWith(
-      { userId: 'user-2' },
+      { userId: '00000000-0000-0000-0000-000000000002' },
       context
     );
   });

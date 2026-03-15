@@ -343,19 +343,21 @@ describe('vfsRoutes', () => {
 
   it('sends GetUserSigningKey request and returns signing key', async () => {
     requestMock.mockResolvedValueOnce({
-      userId: 'user-2',
+      userId: '00000000-0000-0000-0000-000000000002',
       publicSigningKey: 'ed25519-pub'
     });
 
-    await expect(vfsRoutes.getUserSigningKey('user-2')).resolves.toEqual({
-      userId: 'user-2',
+    await expect(
+      vfsRoutes.getUserSigningKey('00000000-0000-0000-0000-000000000002')
+    ).resolves.toEqual({
+      userId: '00000000-0000-0000-0000-000000000002',
       publicSigningKey: 'ed25519-pub'
     });
 
     const [path, params] = requestMock.mock.calls[0] ?? [];
     expect(path).toBe(buildVfsV2ConnectMethodPath('GetUserSigningKey'));
     expect(params?.fetchOptions?.body).toBe(
-      JSON.stringify({ userId: 'user-2' })
+      JSON.stringify({ userId: '00000000-0000-0000-0000-000000000002' })
     );
   });
 

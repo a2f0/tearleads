@@ -151,7 +151,7 @@ describe('vfsDirectKeys', () => {
 
       await expect(
         getUserSigningKeyDirect(
-          { userId: 'user-2' },
+          { userId: '00000000-0000-0000-0000-000000000002' },
           { requestHeader: new Headers() }
         )
       ).rejects.toMatchObject({ code: Code.NotFound });
@@ -163,12 +163,12 @@ describe('vfsDirectKeys', () => {
       });
 
       const response = await getUserSigningKeyDirect(
-        { userId: 'user-2' },
+        { userId: '00000000-0000-0000-0000-000000000002' },
         { requestHeader: new Headers() }
       );
 
       expect(response).toEqual({
-        userId: 'user-2',
+        userId: '00000000-0000-0000-0000-000000000002',
         publicSigningKey: 'ed25519-pub-key'
       });
     });
