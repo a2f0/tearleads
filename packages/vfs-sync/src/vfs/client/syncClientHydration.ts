@@ -121,14 +121,10 @@ export function validateAndNormalizeHydrationState(
 
   const persistedBoundaryChangeIds: Set<string> = new Set();
   if (normalizedReplaySnapshot.cursor) {
-    persistedBoundaryChangeIds.add(
-      normalizedReplaySnapshot.cursor.changeId
-    );
+    persistedBoundaryChangeIds.add(normalizedReplaySnapshot.cursor.changeId);
   }
   if (normalizedReconcileState) {
-    persistedBoundaryChangeIds.add(
-      normalizedReconcileState.cursor.changeId
-    );
+    persistedBoundaryChangeIds.add(normalizedReconcileState.cursor.changeId);
   }
   for (const operation of normalizedPendingOperations) {
     if (persistedBoundaryChangeIds.has(operation.opId)) {

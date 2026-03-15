@@ -1,10 +1,10 @@
+import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import {
   bytesToBase64,
   generateKeyPair,
   signAclOperation
 } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
-import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
 import type { VfsAclVerificationFailure } from './syncClientAclVerification.js';
 import { verifyPullAclSignatures } from './syncClientAclVerification.js';
@@ -35,7 +35,8 @@ function buildSignedAclItem(params: {
       occurredAt: params.occurredAt,
       principalType: params.principalType,
       principalId: params.principalId,
-      accessLevel: params.opType === 'acl_remove' ? '' : (params.accessLevel ?? '')
+      accessLevel:
+        params.opType === 'acl_remove' ? '' : (params.accessLevel ?? '')
     },
     params.privateKey
   );

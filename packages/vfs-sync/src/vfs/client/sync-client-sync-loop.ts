@@ -31,8 +31,8 @@ import {
   VfsCrdtSyncPushRejectedError,
   validatePushResponse
 } from './sync-client-utils.js';
-import { signPushOperations } from './syncClientAclSigning.js';
 import type { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
+import { signPushOperations } from './syncClientAclSigning.js';
 import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 import { verifyPullAclSignatures } from './syncClientAclVerification.js';
 import {

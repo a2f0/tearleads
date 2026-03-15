@@ -7,12 +7,12 @@ import type {
 import type { VfsContainerClockEntry } from '../protocol/sync-container-clocks.js';
 import type { VfsCrdtOperation, VfsCrdtOpType } from '../protocol/sync-crdt.js';
 import type { VfsCrdtFeedReplaySnapshot } from '../protocol/sync-crdt-feed-replay.js';
-import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 import type {
   VfsCrdtClientReconcileState,
   VfsCrdtLastReconciledWriteIds
 } from '../protocol/sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 
 export const DEFAULT_PULL_LIMIT = 100;
 export const MAX_PULL_LIMIT = 500;

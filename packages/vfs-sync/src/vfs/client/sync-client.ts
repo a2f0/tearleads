@@ -8,10 +8,7 @@ import { InMemoryVfsCrdtClientStateStore } from '../protocol/sync-crdt-reconcile
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
 import { bumpLocalWriteIdFromReconcileState } from './sync-client-pending-operations.js';
 import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.js';
-import { validateAndNormalizeHydrationState } from './syncClientHydration.js';
 import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
-import { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
-import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 import type {
   QueueVfsCrdtLocalOperationInput,
   VfsAclOperationSigner,
@@ -33,6 +30,9 @@ import {
   parseRematerializationAttempts,
   validateClientId
 } from './sync-client-utils.js';
+import { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
+import { validateAndNormalizeHydrationState } from './syncClientHydration.js';
 import {
   rematerializeClientState,
   runWithRematerializationRecovery
@@ -104,8 +104,7 @@ export class VfsBackgroundSyncClient {
     this.tofuKeyStore = this.verifyAclSignaturesOnPull
       ? new VfsAclTofuKeyStore()
       : null;
-    this.onAclVerificationFailure =
-      options.onAclVerificationFailure ?? null;
+    this.onAclVerificationFailure = options.onAclVerificationFailure ?? null;
     this.onBackgroundError = options.onBackgroundError ?? null;
     this.onGuardrailViolation = options.onGuardrailViolation ?? null;
     this.maxRematerializationAttempts = parseRematerializationAttempts(

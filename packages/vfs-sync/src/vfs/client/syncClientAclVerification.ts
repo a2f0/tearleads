@@ -171,8 +171,7 @@ function verifySingleAclItem(
       occurredAt: item.occurredAt,
       principalType: item.principalType ?? '',
       principalId: item.principalId ?? '',
-      accessLevel:
-        item.opType === 'acl_remove' ? '' : (item.accessLevel ?? '')
+      accessLevel: item.opType === 'acl_remove' ? '' : (item.accessLevel ?? '')
     },
     signature,
     publicKeyBytes
