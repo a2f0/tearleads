@@ -41,16 +41,24 @@ export function NotificationItem({
     onContextMenu(notification.id, e.clientX, e.clientY);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Click handler marks as read, keyboard users can use dismiss button
-    // biome-ignore lint/a11y/noStaticElementInteractions: Click handler marks as read, keyboard users can use dismiss button
     <div
+      role="button"
+      tabIndex={0}
       className={cn(
         'w-full cursor-pointer rounded border border-l-4 bg-muted/30 px-2 py-1.5 text-left [border-color:var(--soft-border)]',
         LEVEL_BORDER_COLORS[notification.level],
         !notification.read && 'bg-muted/50'
       )}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
     >
       <div className="flex items-start justify-between gap-2">

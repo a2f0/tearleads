@@ -86,6 +86,24 @@ describe('NotificationsTab', () => {
     expect(notificationStore.getUnreadCount()).toBe(0);
   });
 
+  it('marks notification as read with keyboard activation', async () => {
+    act(() => {
+      notificationStore.add('info', 'Keyboard Title', 'Keyboard message');
+    });
+
+    render(<NotificationsTab />);
+
+    const notification = screen.getByRole('button', {
+      name: /keyboard title/i
+    });
+
+    await act(async () => {
+      fireEvent.keyDown(notification, { key: 'Enter' });
+    });
+
+    expect(notificationStore.getUnreadCount()).toBe(0);
+  });
+
   it('dismisses notification when dismiss button is clicked', async () => {
     act(() => {
       notificationStore.add('info', 'Test Title', 'Test message');
