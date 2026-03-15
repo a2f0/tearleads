@@ -1,9 +1,9 @@
 import { cn } from '@tearleads/ui';
 import { X } from 'lucide-react';
 import type React from 'react';
-import {
-  type Notification,
-  type NotificationLevel
+import type {
+  Notification,
+  NotificationLevel
 } from '../stores/notificationStore';
 
 const LEVEL_BORDER_COLORS: Record<NotificationLevel, string> = {

@@ -5,11 +5,11 @@ import {
 import { CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NotificationItem } from './NotificationItem';
 import {
   type Notification,
   notificationStore
 } from '../stores/notificationStore';
+import { NotificationItem } from './NotificationItem';
 
 function formatRelativeTime(date: Date): string {
   const now = new Date();
