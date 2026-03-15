@@ -52,14 +52,14 @@ if [[ "$SKIP_SMOKE" == "true" ]]; then
 else
   echo ""
   echo "Running API smoke test..."
-  "$SCRIPT_DIR/smoke-api.sh"
+  "$SCRIPT_DIR/smoke05-api.sh"
 
   if [[ "$SKIP_POSTGRES_SMOKE" == "true" ]]; then
     echo "Skipping Postgres smoke test (SKIP_POSTGRES_SMOKE=true)."
   else
     echo ""
     echo "Running Postgres smoke test..."
-    "$SCRIPT_DIR/smoke-postgres.sh"
+    "$SCRIPT_DIR/smoke01-postgres.sh"
   fi
 
   if [[ "$SKIP_SMTP_SMOKE" == "true" ]]; then
@@ -67,6 +67,6 @@ else
   else
     echo ""
     echo "Running SMTP smoke test..."
-    "$SCRIPT_DIR/smoke-smtp.sh"
+    "$SCRIPT_DIR/smoke04-smtp.sh"
   fi
 fi

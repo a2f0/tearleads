@@ -17,6 +17,8 @@ CURL_TIMEOUT="${CURL_TIMEOUT:-10}"
 CURL_RETRIES="${CURL_RETRIES:-5}"
 CURL_RETRY_DELAY="${CURL_RETRY_DELAY:-5}"
 
+# --- helpers ----------------------------------------------------------------
+
 require_kubeconfig_and_kubectl() {
   if [[ ! -f "$KUBECONFIG_FILE" ]]; then
     echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -51,9 +53,59 @@ resolve_prod_domain() {
 pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; return 1; }
 
+wait_for_external_endpoint() {
+  local url="$1"
+  local attempt=1
+
+  while (( attempt <= CURL_RETRIES )); do
+    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
+      pass "$url reachable (attempt $attempt)"
+      return 0
+    fi
+    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
+    sleep "$CURL_RETRY_DELAY"
+    ((attempt++))
+  done
+
+  fail "$url unreachable after $CURL_RETRIES attempts"
+}
+
+# --- phases -----------------------------------------------------------------
+
+phase_dns() {
+  echo ""
+  echo "Phase 1: DNS resolution"
+
+  local api_host="api.$PROD_DOMAIN"
+  local app_host="app.$PROD_DOMAIN"
+
+  if ! command -v dig >/dev/null 2>&1 && ! command -v host >/dev/null 2>&1; then
+    echo "  SKIP: neither dig nor host found; skipping DNS check."
+    return 0
+  fi
+
+  local ok=true
+  for h in "$api_host" "$app_host"; do
+    local resolved=""
+    if command -v dig >/dev/null 2>&1; then
+      resolved="$(dig +short "$h" 2>/dev/null | head -1)"
+    else
+      resolved="$(host "$h" 2>/dev/null | awk '/has address/ { print $NF; exit }')"
+    fi
+
+    if [[ -n "$resolved" ]]; then
+      pass "$h resolves to $resolved"
+    else
+      fail "$h does not resolve" || ok=false
+    fi
+  done
+
+  $ok
+}
+
 phase_in_cluster_api() {
   echo ""
-  echo "Phase 1: In-cluster API health check"
+  echo "Phase 2: In-cluster API health check"
 
   local api_pod
   api_pod="$(kubectl -n "$NAMESPACE" get pods -l app=api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
@@ -63,6 +115,8 @@ phase_in_cluster_api() {
     return 1
   fi
 
+  # The API container is a minimal Node.js image without wget/curl,
+  # so use node to make the HTTP request.
   local response
   response="$(kubectl -n "$NAMESPACE" exec "$api_pod" -c api -- \
     node -e "
@@ -82,50 +136,16 @@ phase_in_cluster_api() {
 
   if [[ -n "$response" ]]; then
     pass "API pod $api_pod responded to /healthz ($response)"
-    return 0
+  else
+    fail "API pod $api_pod did not respond to /healthz"
   fi
-
-  fail "API pod $api_pod did not respond to /healthz"
 }
 
 phase_external_api() {
   echo ""
-  echo "Phase 2: External API health check"
+  echo "Phase 3: External API health check"
 
-  local url="https://api.$PROD_DOMAIN/healthz"
-  local attempt=1
-
-  while (( attempt <= CURL_RETRIES )); do
-    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
-      pass "$url reachable (attempt $attempt)"
-      return 0
-    fi
-    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
-    sleep "$CURL_RETRY_DELAY"
-    ((attempt++))
-  done
-
-  fail "$url unreachable after $CURL_RETRIES attempts"
-}
-
-phase_external_client() {
-  echo ""
-  echo "Phase 3: External client reachability"
-
-  local url="https://app.$PROD_DOMAIN/"
-  local attempt=1
-
-  while (( attempt <= CURL_RETRIES )); do
-    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
-      pass "$url reachable (attempt $attempt)"
-      return 0
-    fi
-    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
-    sleep "$CURL_RETRY_DELAY"
-    ((attempt++))
-  done
-
-  fail "$url unreachable after $CURL_RETRIES attempts"
+  wait_for_external_endpoint "https://api.$PROD_DOMAIN/healthz"
 }
 
 phase_in_cluster_api_v2() {
@@ -191,21 +211,50 @@ phase_external_api_v2() {
   echo ""
   echo "Phase 5: External API v2 health check"
 
-  local url="https://api.$PROD_DOMAIN/v2/ping"
-  local attempt=1
-
-  while (( attempt <= CURL_RETRIES )); do
-    if curl -sf --max-time "$CURL_TIMEOUT" "$url" >/dev/null 2>&1; then
-      pass "$url reachable (attempt $attempt)"
-      return 0
-    fi
-    echo "  attempt $attempt/$CURL_RETRIES failed, retrying in ${CURL_RETRY_DELAY}s..."
-    sleep "$CURL_RETRY_DELAY"
-    ((attempt++))
-  done
-
-  fail "$url unreachable after $CURL_RETRIES attempts"
+  wait_for_external_endpoint "https://api.$PROD_DOMAIN/v2/ping"
 }
+
+phase_client_api_url() {
+  echo ""
+  echo "Phase 6: Client baked-in API URL verification"
+
+  local client_pod
+  client_pod="$(kubectl -n "$NAMESPACE" get pods -l app=client --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "$client_pod" ]]; then
+    fail "no running client pod found (label app=client)"
+    return 1
+  fi
+
+  local expected_api_url_root="https://api.$PROD_DOMAIN"
+  local expected_api_url_v1="https://api.$PROD_DOMAIN/v1"
+
+  # Search broadly for any https://api.<something> URL baked into JS assets.
+  # Accept either:
+  # - root API URL (preferred as routes migrate away from hardcoded /v1 base)
+  # - legacy /v1 API URL (still valid during staged transition)
+  local baked_url
+  baked_url="$(kubectl -n "$NAMESPACE" exec "$client_pod" -c client -- \
+    grep -roh 'https\?://api\.[a-zA-Z0-9._/-]*' /usr/share/nginx/html/assets/ 2>/dev/null \
+    | sort -u | head -1 || true)"
+
+  if [[ -z "$baked_url" ]]; then
+    fail "could not find any API URL in client JS assets"
+  elif [[ "$baked_url" == "$expected_api_url_root"* || "$baked_url" == "$expected_api_url_v1"* ]]; then
+    pass "client JS contains accepted API URL: $baked_url"
+  else
+    fail "client JS contains wrong API URL: $baked_url (expected $expected_api_url_root or $expected_api_url_v1)"
+  fi
+}
+
+phase_external_client() {
+  echo ""
+  echo "Phase 7: External client reachability"
+
+  wait_for_external_endpoint "https://app.$PROD_DOMAIN/"
+}
+
+# --- main -------------------------------------------------------------------
 
 require_kubeconfig_and_kubectl
 resolve_prod_domain
@@ -219,11 +268,13 @@ echo "  Kubeconfig: $KUBECONFIG"
 
 failures=0
 
-phase_in_cluster_api    || failures=$((failures + 1))
-phase_external_api      || failures=$((failures + 1))
-phase_external_client   || failures=$((failures + 1))
+phase_dns              || failures=$((failures + 1))
+phase_in_cluster_api   || failures=$((failures + 1))
+phase_external_api     || failures=$((failures + 1))
 phase_in_cluster_api_v2 || failures=$((failures + 1))
-phase_external_api_v2   || failures=$((failures + 1))
+phase_external_api_v2  || failures=$((failures + 1))
+phase_client_api_url   || failures=$((failures + 1))
+phase_external_client  || failures=$((failures + 1))
 
 echo ""
 if (( failures == 0 )); then

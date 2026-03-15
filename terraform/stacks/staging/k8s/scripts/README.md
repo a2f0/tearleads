@@ -41,13 +41,16 @@ These scripts run the full cluster provisioning in four ordered steps. Run them 
 
 ## Smoke Tests
 
-| Script | Description |
-|--------|-------------|
-| `smoke-api.sh` | DNS resolution, in-cluster and external API/v2 health, client baked-in URL check |
-| `smoke-postgres.sh` | Postgres local query and API-to-Postgres TCP connectivity |
-| `smoke-replica.sh` | Postgres replica query, replication status, and API-to-replica TCP connectivity |
-| `smoke-s3.sh` | Garage S3 put/get/delete round-trip (in-cluster with local fallback) |
-| `smoke-smtp.sh` | SMTP TCP connectivity and end-to-end send/verify via VFS storage |
+These scripts run smoke tests against the staging cluster. Run them individually or use `smoke.sh` to execute all five in sequence.
+
+| Script | Step | Description |
+|--------|------|-------------|
+| `smoke01-postgres.sh` | 1 | Postgres local query and API-to-Postgres TCP connectivity |
+| `smoke02-replica.sh` | 2 | Postgres replica query, replication status, and API-to-replica TCP connectivity |
+| `smoke03-s3.sh` | 3 | Garage S3 put/get/delete round-trip (in-cluster with local fallback) |
+| `smoke04-smtp.sh` | 4 | SMTP TCP connectivity and end-to-end send/verify via VFS storage |
+| `smoke05-api.sh` | 5 | DNS resolution, in-cluster and external API/v2 health, client baked-in URL check |
+| `smoke.sh` | 1-5 | Orchestrates all five smoke tests in sequence with timing |
 
 ## Test Data and Debugging
 

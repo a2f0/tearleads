@@ -16,6 +16,7 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 ECR_REPOSITORIES=(
   "tearleads-prod/api"
+  "tearleads-prod/api-v2"
   "tearleads-prod/client"
   "tearleads-prod/website"
 )
