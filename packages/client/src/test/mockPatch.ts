@@ -3,16 +3,14 @@ import { vi } from 'vitest';
 /**
  * Bun 1.3 vi.mock importOriginal polyfill.
  *
- * Problem: Bun doesn't pass `importOriginal` to vi.mock factory functions.
- * When tests use `async (importOriginal) => { const actual = await importOriginal(); ... }`,
- * `importOriginal` is undefined under Bun.
+ * Problem: Bun doesn't pass `importOriginal` to vi.mock factory functions
+ * and deadlocks when async mock factories are used during module init.
  *
  * Solution: Pre-load commonly mocked modules during preload (before any test
- * file runs). Then wrap vi.mock so that factories expecting importOriginal
- * (factory.length > 0) receive a sync function returning the cached module.
- * The async factory's Promise resolves synchronously (since importOriginal
- * returns a plain object), letting us extract the result via `.then()` in
- * the same microtick and register a sync factory with originalMock.
+ * file runs). Wrap vi.mock so that factories expecting importOriginal
+ * (factory.length > 0) are called with a sync importOriginal returning
+ * cached exports. A stub mock is registered immediately, then the real
+ * factory result replaces it after the microtask settles.
  */
 const isBun =
   typeof (globalThis as Record<string, unknown>)['Bun'] !== 'undefined';
@@ -103,27 +101,42 @@ if (isBun) {
     if (typeof factoryOrOpts === 'function') {
       const factory = factoryOrOpts as (...args: unknown[]) => unknown;
       if (factory.length > 0) {
-        // Factory expects importOriginal — provide cached module
+        // Factory expects importOriginal. Bun deadlocks on async mock
+        // factories, so we use a two-phase approach:
+        // 1. Register a stub mock immediately (all functions → no-ops)
+        // 2. Call factory with sync importOriginal, get Promise
+        // 3. Re-register with real result after microtask settles
         const cached = moduleCache.get(path) ?? {};
+
+        // Build stub: same keys as cached but functions replaced with
+        // safe no-ops. Prevents "must be used within Provider" errors
+        // from real hooks/components in the cached module.
+        const stub: Record<string, unknown> = Object.create(null);
+        for (const key of Object.keys(cached)) {
+          const val = cached[key];
+          stub[key] = typeof val === 'function' ? () => null : val;
+        }
+
+        // Phase 1: Register stub immediately (sync, no deadlock)
+        originalMock(path, () => stub);
+
+        // Phase 2: Call factory with sync importOriginal
         const importOriginal = () => cached;
-        const promise = factory(importOriginal) as Promise<
+        const resultPromise = factory(importOriginal) as Promise<
           Record<string, unknown>
         >;
 
-        // The async factory's only await is on importOriginal() which
-        // returns synchronously, so the Promise settles in the same
-        // microtick. Extract the result via .then() callback.
-        let syncResult: Record<string, unknown> | null = null;
-        promise.then((r) => {
-          syncResult = r as Record<string, unknown>;
-        });
-
-        if (syncResult !== null) {
-          originalMock(path, () => syncResult);
-        } else {
-          // Promise didn't resolve synchronously — register empty mock
-          originalMock(path, () => ({}));
-        }
+        // Phase 3: Re-register with real result after microtask
+        resultPromise
+          .then((resolved) => {
+            originalMock(path, () => resolved);
+          })
+          .catch((error) => {
+            console.error(
+              `[mockPatch] Mock factory for "${path}" rejected:`,
+              error
+            );
+          });
         return;
       }
     }
