@@ -112,14 +112,22 @@ export class KeyManager {
     }
     if (!this.storage) await this.initialize();
 
+    // Capture key before async work — an instance switch can clear
+    // this.currentKey via clearKey() while we await deriveKeyFromPassword.
+    const keySnapshot = new Uint8Array(this.currentKey);
+
     const salt = generateSalt();
     const passwordKey = await deriveKeyFromPassword(password, salt);
-    const wrappedKey = await encrypt(this.currentKey, passwordKey);
-    const kcv = await this.createKeyCheckValue(this.currentKey);
+    try {
+      const wrappedKey = await encrypt(keySnapshot, passwordKey);
+      const kcv = await this.createKeyCheckValue(keySnapshot);
 
-    await this.storage?.setSalt(salt);
-    await this.storage?.setKeyCheckValue(kcv);
-    await this.storage?.setPasswordWrappedKey(wrappedKey);
+      await this.storage?.setSalt(salt);
+      await this.storage?.setKeyCheckValue(kcv);
+      await this.storage?.setPasswordWrappedKey(wrappedKey);
+    } finally {
+      secureZero(keySnapshot);
+    }
   }
 
   /**
