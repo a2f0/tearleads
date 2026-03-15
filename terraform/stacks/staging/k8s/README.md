@@ -226,7 +226,7 @@ Run the end-to-end S3 smoke test against staging (uses live in-cluster secret
 credentials and performs put/get/delete):
 
 ```bash
-./scripts/smoke-s3.sh
+./scripts/smoke03-s3.sh
 ```
 
 Optional overrides:
@@ -235,7 +235,7 @@ Optional overrides:
 NAMESPACE=tearleads \
 S3_BUCKET=vfs-blobs \
 S3_ENDPOINT=http://garage:3900 \
-./scripts/smoke-s3.sh
+./scripts/smoke03-s3.sh
 ```
 
 Notes:
