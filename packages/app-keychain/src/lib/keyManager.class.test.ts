@@ -414,6 +414,59 @@ describe('KeyManager', () => {
     });
   });
 
+  describe('setPasswordForCurrentKey race condition', () => {
+    it('completes when clearKey is called during deriveKeyFromPassword await', async () => {
+      const shared = await import('@tearleads/shared');
+
+      await keyManager.setupAutoKey();
+      expect(keyManager.getCurrentKey()).not.toBeNull();
+
+      // Make deriveKeyFromPassword yield and allow clearKey() to run mid-await
+      let resolveDerive: ((key: object) => void) | null = null;
+      vi.spyOn(shared, 'deriveKeyFromPassword').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveDerive = resolve;
+          })
+      );
+
+      const passwordPromise = keyManager.setPasswordForCurrentKey('password');
+
+      // Yield to let the promise reach deriveKeyFromPassword
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Simulate an instance switch clearing the key while deriving
+      keyManager.clearKey();
+      expect(keyManager.getCurrentKey()).toBeNull();
+
+      // Resolve the derive — encrypt should use the snapshot, not this.currentKey
+      resolveDerive?.({
+        type: 'secret',
+        extractable: true,
+        algorithm: { name: 'AES-GCM' },
+        usages: ['encrypt', 'decrypt']
+      });
+
+      await expect(passwordPromise).resolves.toBeUndefined();
+
+      // Verify encrypt was called with a valid Uint8Array, not null
+      expect(shared.encrypt).toHaveBeenCalledWith(
+        expect.any(Uint8Array),
+        expect.any(Object)
+      );
+    });
+
+    it('securely zeros the key snapshot after completion', async () => {
+      const shared = await import('@tearleads/shared');
+
+      await keyManager.setupAutoKey();
+      await keyManager.setPasswordForCurrentKey('password');
+
+      // secureZero should have been called for the snapshot
+      expect(shared.secureZero).toHaveBeenCalledWith(expect.any(Uint8Array));
+    });
+  });
+
   describe('initialize behavior', () => {
     it('auto-initializes storage on hasExistingKey', async () => {
       const freshKeyManager = new KeyManager('fresh-instance');

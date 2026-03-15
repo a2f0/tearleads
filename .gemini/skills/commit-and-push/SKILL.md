@@ -46,6 +46,7 @@ Track these state flags during execution:
    - Do not bump versions here.
 
 4. Push:
+   - Run `./scripts/agents/tooling/agentTool.ts ensureDeps` before pushing to avoid pre-push hook failures caused by stale or missing dependencies.
    - Push the current branch to the remote after the commit.
    - The pre-push hook runs full builds and tests; set a long timeout and do not assume timeouts mean failure.
 

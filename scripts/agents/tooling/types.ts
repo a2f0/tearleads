@@ -55,7 +55,8 @@ export type ActionName =
   | 'verifyBranchPush'
   | 'sanitizePrBody'
   | 'createDeferredFixIssue'
-  | 'updatePrBody';
+  | 'updatePrBody'
+  | 'ensureDeps';
 
 export interface GlobalOptions {
   keyFile?: string;
