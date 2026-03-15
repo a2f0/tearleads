@@ -11,6 +11,15 @@ describe('isValidSyncIdentifier', () => {
     );
   });
 
+  it('accepts uppercase and mixed-case UUIDs', () => {
+    expect(isValidSyncIdentifier('00000000-0000-0000-0000-00000000000A')).toBe(
+      true
+    );
+    expect(isValidSyncIdentifier('A1B2C3D4-e5f6-7890-abcd-EF1234567890')).toBe(
+      true
+    );
+  });
+
   it('accepts colon-separated opaque identifiers', () => {
     expect(isValidSyncIdentifier('source-1')).toBe(true);
     expect(isValidSyncIdentifier('vfs-item-state:abc123')).toBe(true);
@@ -21,7 +30,7 @@ describe('isValidSyncIdentifier', () => {
     expect(isValidSyncIdentifier('vfs_item_state:abc123')).toBe(false);
   });
 
-  it('rejects identifiers with uppercase letters', () => {
+  it('rejects opaque identifiers with uppercase letters', () => {
     expect(isValidSyncIdentifier('Source-1')).toBe(false);
   });
 
