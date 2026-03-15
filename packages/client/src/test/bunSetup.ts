@@ -151,6 +151,26 @@ vi.mock('virtual:app-config', () => ({
   }
 }));
 
+// Mock useWindowManager to avoid WindowManagerProvider requirement
+vi.mock('@tearleads/window-manager', () => {
+  const cache = (globalThis as Record<string, unknown>).__bunMockModuleCache as
+    | Map<string, Record<string, unknown>>
+    | undefined;
+  const actual = cache?.get('@tearleads/window-manager') ?? {};
+  return {
+    ...actual,
+    useWindowManager: () => ({
+      windows: [],
+      openWindow: () => {},
+      closeWindow: () => {},
+      focusWindow: () => {},
+      requestWindowOpen: () => {},
+      windowOpenRequests: {}
+    }),
+    WindowManagerProvider: ({ children }: { children: ReactNode }) => children
+  };
+});
+
 vi.mock('@/db/hooks/useHostRuntimeDatabaseState', () => ({
   useHostRuntimeDatabaseState: () => ({
     isUnlocked: true,

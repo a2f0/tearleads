@@ -201,6 +201,13 @@ export function installBrowserGlobalsForBun(): void {
     defineGlobalIfMissing('btoa', btoaFn.bind(windowObject));
   }
 
+  // Stub URL.createObjectURL / revokeObjectURL if missing
+  if (typeof URL.createObjectURL !== 'function') {
+    let blobCounter = 0;
+    URL.createObjectURL = () => `blob:test-url-${blobCounter++}`;
+    URL.revokeObjectURL = () => {};
+  }
+
   const timingWindow = globalThis.window;
   const requestAnimationFrameImpl =
     timingWindow.requestAnimationFrame?.bind(timingWindow) ??
