@@ -119,17 +119,13 @@ export function handleRunAnsibleBootstrap(
   const output = result.stdout + result.stderr;
   if (result.exitCode !== 0) {
     throw new Error(
-      output ||
-        `runAnsibleBootstrap failed with exit code ${result.exitCode}`
+      output || `runAnsibleBootstrap failed with exit code ${result.exitCode}`
     );
   }
   return output;
 }
 
-export function handleEnsureDeps(
-  timeoutMs: number,
-  repoRoot: string
-): string {
+export function handleEnsureDeps(timeoutMs: number, repoRoot: string): string {
   const result = runWithTimeout('pnpm', ['install'], timeoutMs, repoRoot);
   if (result.exitCode !== 0) {
     throw new Error(

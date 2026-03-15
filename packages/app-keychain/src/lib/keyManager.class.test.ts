@@ -440,7 +440,7 @@ describe('KeyManager', () => {
       expect(keyManager.getCurrentKey()).toBeNull();
 
       // Resolve the derive — encrypt should use the snapshot, not this.currentKey
-      resolveDerive!({
+      resolveDerive?.({
         type: 'secret',
         extractable: true,
         algorithm: { name: 'AES-GCM' },
