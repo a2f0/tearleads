@@ -5,8 +5,9 @@ import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { createGitHubClientContext } from './githubClient.ts';
 import { getGitContext, requireDefined } from './helpers.ts';
 import {
-  resolveAnsibleBootstrapScriptPath,
-  resolveTerraformScriptPath
+  handleEnsureDeps,
+  handleRunAnsibleBootstrap,
+  handleRunTerraformStackScript
 } from './infraActions.ts';
 import { buildIssueTemplate } from './issueHelpers.ts';
 import {
@@ -394,35 +395,14 @@ export async function runInlineAction(
       return createPrWithOctokit(context, createPrOptions);
     }
 
-    case 'runTerraformStackScript': {
-      const stack = requireDefined(options.stack, '--stack');
-      const script = requireDefined(options.script, '--script');
-      const scriptPath = resolveTerraformScriptPath(repoRoot, stack, script);
-      const args = options.yes ? ['-auto-approve'] : [];
-      const result = runWithTimeout(scriptPath, args, timeoutMs, repoRoot);
-      const output = result.stdout + result.stderr;
-      if (result.exitCode !== 0) {
-        throw new Error(
-          output ||
-            `runTerraformStackScript failed with exit code ${result.exitCode}`
-        );
-      }
-      return output;
-    }
+    case 'runTerraformStackScript':
+      return handleRunTerraformStackScript(options, timeoutMs, repoRoot);
 
-    case 'runAnsibleBootstrap': {
-      const target = requireDefined(options.target, '--target');
-      const scriptPath = resolveAnsibleBootstrapScriptPath(repoRoot, target);
-      const result = runWithTimeout(scriptPath, [], timeoutMs, repoRoot);
-      const output = result.stdout + result.stderr;
-      if (result.exitCode !== 0) {
-        throw new Error(
-          output ||
-            `runAnsibleBootstrap failed with exit code ${result.exitCode}`
-        );
-      }
-      return output;
-    }
+    case 'runAnsibleBootstrap':
+      return handleRunAnsibleBootstrap(options, timeoutMs, repoRoot);
+
+    case 'ensureDeps':
+      return handleEnsureDeps(timeoutMs, repoRoot);
 
     default:
       throw new Error(`Unknown inline action: ${action}`);

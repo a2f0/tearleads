@@ -46,11 +46,14 @@ Track these state flags during execution:
      - Use a broader verb: `feat(scripts): add stack reset tooling`
    - Do not bump versions here.
 
-4. Push:
+4. Ensure dependencies are installed:
+   - Run `./scripts/agents/tooling/agentTool.ts ensureDeps` before pushing to avoid pre-push hook failures caused by stale or missing dependencies.
+
+5. Push:
    - Push the current branch to the remote after the commit.
    - The pre-push hook runs full builds and tests; set a long timeout and do not assume timeouts mean failure.
 
-5. Verify push completed:
+6. Verify push completed:
    - Before proceeding to PR creation or Gemini follow-up, verify the push actually completed:
 
    ```bash
@@ -59,9 +62,9 @@ Track these state flags during execution:
    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
    ```
 
-   - **Do NOT proceed to step 6 or 7 until verification passes.** Replying to Gemini with "Fixed in commit X" when X is not visible on remote creates confusion.
+   - **Do NOT proceed to step 7 or 8 until verification passes.** Replying to Gemini with "Fixed in commit X" when X is not visible on remote creates confusion.
 
-6. Open PR:
+7. Open PR:
    - If no PR exists, create one with `gh pr create`.
    - Do not include auto-close keywords (`Closes`, `Fixes`, `Resolves`).
    - Use the Claude-style PR body format and include the evaluated agent id.
@@ -106,10 +109,10 @@ Track these state flags during execution:
      - `./scripts/agents/tooling/agentTool.ts setVscodeTitle`
      - `./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance`
 
-7. Wait for Gemini:
+8. Wait for Gemini:
    - Wait 60 seconds for Gemini Code Assist to review.
 
-8. Check for quota exhaustion:
+9. Check for quota exhaustion:
    - Gemini quota exhaustion can happen during the initial wait OR later follow-up interactions.
    - Check all Gemini response surfaces for the quota message:
 
@@ -137,7 +140,7 @@ Track these state flags during execution:
    - When replying to Gemini, **always tag `@gemini-code-assist`** to ensure it receives a notification.
    - Reply to Gemini with `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr> --comment-id <id> --commit <sha>` (not `gh pr review`).
    - Use `replyToComment` only for custom non-fix responses.
-   - Re-run step 8 after each Gemini interaction. If quota appears later, switch to fallback immediately.
+   - Re-run step 9 after each Gemini interaction. If quota appears later, switch to fallback immediately.
    - `$address-gemini-feedback` may populate `deferred_items` if any feedback is deferred rather than fixed on-the-fly.
 
 10. Report state for downstream skills:

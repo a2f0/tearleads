@@ -1,4 +1,7 @@
 import path from 'node:path';
+import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
+import type { GlobalOptions } from '../types.ts';
+import { requireDefined } from './helpers.ts';
 
 const TERRAFORM_STACK_SCRIPTS: Record<string, ReadonlyArray<string>> = {
   'staging/k8s': ['apply', 'apply01', 'apply02', 'apply03', 'destroy'],
@@ -83,4 +86,55 @@ export function resolveAnsibleBootstrapScriptPath(
     );
   }
   return path.join(repoRoot, relativePath);
+}
+
+export function handleRunTerraformStackScript(
+  options: GlobalOptions,
+  timeoutMs: number,
+  repoRoot: string
+): string {
+  const stack = requireDefined(options.stack, '--stack');
+  const script = requireDefined(options.script, '--script');
+  const scriptPath = resolveTerraformScriptPath(repoRoot, stack, script);
+  const args = options.yes ? ['-auto-approve'] : [];
+  const result = runWithTimeout(scriptPath, args, timeoutMs, repoRoot);
+  const output = result.stdout + result.stderr;
+  if (result.exitCode !== 0) {
+    throw new Error(
+      output ||
+        `runTerraformStackScript failed with exit code ${result.exitCode}`
+    );
+  }
+  return output;
+}
+
+export function handleRunAnsibleBootstrap(
+  options: GlobalOptions,
+  timeoutMs: number,
+  repoRoot: string
+): string {
+  const target = requireDefined(options.target, '--target');
+  const scriptPath = resolveAnsibleBootstrapScriptPath(repoRoot, target);
+  const result = runWithTimeout(scriptPath, [], timeoutMs, repoRoot);
+  const output = result.stdout + result.stderr;
+  if (result.exitCode !== 0) {
+    throw new Error(
+      output ||
+        `runAnsibleBootstrap failed with exit code ${result.exitCode}`
+    );
+  }
+  return output;
+}
+
+export function handleEnsureDeps(
+  timeoutMs: number,
+  repoRoot: string
+): string {
+  const result = runWithTimeout('pnpm', ['install'], timeoutMs, repoRoot);
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.stderr || `pnpm install failed with exit code ${result.exitCode}`
+    );
+  }
+  return 'Dependencies installed successfully.';
 }

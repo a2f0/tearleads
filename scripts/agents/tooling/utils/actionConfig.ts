@@ -271,6 +271,11 @@ export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: true
+  },
+  ensureDeps: {
+    safetyClass: 'safe_write_local',
+    retrySafe: true,
+    isInline: true
   }
 };
 

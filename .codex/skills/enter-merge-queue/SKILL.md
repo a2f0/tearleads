@@ -206,6 +206,12 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Do not run `bumpVersion.sh` on PR branches. Version bumping is handled by CI on `main` after merge.
 
+   Ensure dependencies are up to date after rebase:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts ensureDeps
+   ```
+
    Force push (required after rebase):
 
    ```bash

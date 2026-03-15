@@ -50,7 +50,13 @@ Always pass `-R "$REPO"` to `gh` commands.
 
    - Repeat until rebase completes
 
-4. Force push the rebased branch:
+4. Ensure dependencies are up to date after rebase:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts ensureDeps
+   ```
+
+5. Force push the rebased branch:
 
    ```bash
    git push --force-with-lease >/dev/null
