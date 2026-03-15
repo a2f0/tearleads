@@ -271,9 +271,12 @@ export async function pullUntilSettledLoop(
     }
 
     if (pullItemsApplied) {
-      dependencies.replayStore.applyPage(forwardItems, {
-        verifyAclItem: dependencies.verifyAclOperationSignature ?? undefined
-      });
+      dependencies.replayStore.applyPage(
+        forwardItems,
+        dependencies.verifyAclOperationSignature
+          ? { verifyAclItem: dependencies.verifyAclOperationSignature }
+          : undefined
+      );
       dependencies.containerClockStore.applyFeedItems(forwardItems);
       pulledOperations += forwardItems.length;
     }
