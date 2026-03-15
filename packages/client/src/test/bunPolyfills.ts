@@ -49,13 +49,9 @@ export function installBunPolyfills(): void {
   if (typeof Reflect.get(vi, 'doMock') !== 'function') {
     // vi.doMock is a non-hoisted version of vi.mock. Under Bun, delegate
     // to vi.mock since Bun doesn't hoist vi.mock calls anyway.
-    Reflect.set(
-      vi,
-      'doMock',
-      (path: string, factory?: () => unknown) => {
-        vi.mock(path, factory);
-      }
-    );
+    Reflect.set(vi, 'doMock', (path: string, factory?: () => unknown) => {
+      vi.mock(path, factory);
+    });
   }
   if (typeof Reflect.get(vi, 'doUnmock') !== 'function') {
     Reflect.set(vi, 'doUnmock', (_path: string) => {
