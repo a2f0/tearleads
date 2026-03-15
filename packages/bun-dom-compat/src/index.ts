@@ -40,7 +40,18 @@ const WINDOW_GLOBAL_NAMES: ReadonlyArray<string> = [
   'InputEvent',
   'MutationObserver',
   'ResizeObserver',
-  'DOMRect'
+  'DOMRect',
+  'FileReader',
+  'Blob',
+  'File',
+  'FormData',
+  'XMLHttpRequest',
+  'StorageEvent',
+  'Range',
+  'Selection',
+  'DOMParser',
+  'URL',
+  'URLSearchParams'
 ];
 
 function defineGlobal(name: string, value: unknown): void {
@@ -163,6 +174,17 @@ export function installBrowserGlobalsForBun(): void {
     defineGlobalFromWindow(windowObject, name);
   }
   installTouchEventPolyfill(windowObject);
+
+  // Stub indexedDB if not available (jsdom doesn't implement it)
+  defineGlobalIfMissing('indexedDB', {
+    open: () => ({ onupgradeneeded: null, onsuccess: null, onerror: null }),
+    deleteDatabase: () => ({
+      onsuccess: null,
+      onerror: null,
+      onblocked: null
+    }),
+    databases: () => Promise.resolve([])
+  });
 
   const getComputedStyleFn = Reflect.get(windowObject, 'getComputedStyle');
   if (typeof getComputedStyleFn === 'function') {
