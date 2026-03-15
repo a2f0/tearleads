@@ -5,7 +5,7 @@ import {
   installBrowserGlobalsForBun,
   installVitestPolyfills
 } from '@tearleads/bun-dom-compat';
-import { createElement } from 'react';
+import { createElement, Fragment, type ReactNode } from 'react';
 import { afterEach, beforeAll, vi } from 'vitest';
 import './mockPatch';
 import { installBunPolyfills } from './bunPolyfills';
@@ -265,6 +265,57 @@ function createMockWindow(
 vi.mock('@/components/window-sync', () => ({
   SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
+
+// Mock @tearleads/ui Tooltip components to avoid TooltipProvider requirement.
+// Uses a sync factory (no importOriginal) because Bun's deferred
+// re-registration may not settle before test files load.
+vi.mock('@tearleads/ui', () => {
+  // Re-export everything from the pre-loaded cache, overriding Tooltips
+  const cache = (globalThis as Record<string, unknown>).__bunMockModuleCache as
+    | Map<string, Record<string, unknown>>
+    | undefined;
+  const actual = cache?.get('@tearleads/ui') ?? {};
+  return {
+    ...actual,
+    Tooltip: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipTrigger: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
+      createElement('span', props, children)
+  };
+});
+
+// Mock window entry points using sync factory with cached modules
+vi.mock('@tearleads/app-keychain/clientEntry', () => {
+  const cache = (globalThis as Record<string, unknown>).__bunMockModuleCache as
+    | Map<string, Record<string, unknown>>
+    | undefined;
+  const actual = cache?.get('@tearleads/app-keychain/clientEntry') ?? {};
+  return {
+    ...actual,
+    KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
+  };
+});
+
+vi.mock('@tearleads/app-admin/clientEntry', () => {
+  const cache = (globalThis as Record<string, unknown>).__bunMockModuleCache as
+    | Map<string, Record<string, unknown>>
+    | undefined;
+  const actual = cache?.get('@tearleads/app-admin/clientEntry') ?? {};
+  return {
+    ...actual,
+    AdminWindow: createMockWindow('admin', { width: 700, height: 600 }),
+    AdminRedisWindow: createMockWindow('admin-redis', {
+      width: 700,
+      height: 600
+    }),
+    AdminPostgresWindow: createMockWindow('admin-postgres', {
+      width: 700,
+      height: 600
+    })
+  };
+});
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({

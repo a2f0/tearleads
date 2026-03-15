@@ -92,6 +92,9 @@ if (isBun) {
     }
   }
 
+  // Expose cache so bunSetup.ts can build sync mocks from it
+  Reflect.set(globalThis, '__bunMockModuleCache', moduleCache);
+
   const originalMock = vi.mock as (
     path: string,
     factory?: (() => unknown) | undefined
