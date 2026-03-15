@@ -11,7 +11,7 @@ import {
 } from './sync-client-persistence-normalizers.js';
 import type { VfsBackgroundSyncClientPersistedState } from './sync-client-utils.js';
 
-export interface ValidatedHydrationState {
+interface ValidatedHydrationState {
   replaySnapshot: VfsCrdtFeedReplaySnapshot;
   reconcileState: VfsCrdtClientReconcileState | null;
   containerClocks: VfsContainerClockEntry[];

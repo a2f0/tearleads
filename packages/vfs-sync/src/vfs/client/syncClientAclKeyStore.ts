@@ -4,7 +4,7 @@
  * and raises an error if a subsequent operation arrives with a different key.
  */
 
-export interface VfsAclKeyStoreEntry {
+interface VfsAclKeyStoreEntry {
   publicSigningKey: string;
   firstSeenAt: string;
 }
@@ -31,11 +31,5 @@ export class VfsAclTofuKeyStore {
     return existing.publicSigningKey === publicSigningKey;
   }
 
-  get(actorId: string): VfsAclKeyStoreEntry | null {
-    return this.keys.get(actorId) ?? null;
-  }
-
-  clear(): void {
-    this.keys.clear();
-  }
+}
 }
