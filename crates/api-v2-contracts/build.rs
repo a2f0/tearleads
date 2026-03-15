@@ -32,12 +32,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let protos = collect_proto_files(&proto_v2_directory)?;
 
     let protoc_path = protoc_bin_vendored::protoc_bin_path()?;
-    let mut prost_config = tonic_build::Config::new();
+    let mut prost_config = prost_build::Config::new();
     prost_config.protoc_executable(protoc_path);
 
-    tonic_build::configure()
+    tonic_prost_build::configure()
         .build_transport(false)
-        .compile_protos_with_config(prost_config, &protos, &[proto_root])?;
+        .compile_with_config(prost_config, &protos, &[proto_root])?;
 
     Ok(())
 }

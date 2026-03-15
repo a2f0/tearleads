@@ -5,17 +5,18 @@ edition = "2024"
 publish = false
 
 [dependencies]
-prost = "0.13.5"
-prost-types = "0.13.5"
-tonic = { version = "0.13.1", default-features = false, features = ["codegen", "prost"] }
+prost = "0.14.3"
+prost-types = "0.14.3"
+tonic = { version = "0.14.5", default-features = false, features = ["codegen"] }
+tonic-prost = "0.14.5"
 
 [build-dependencies]
 prost-build = "0.14.3"
 protoc-bin-vendored = "3.2.0"
-tonic-build = { version = "0.13.1", default-features = false, features = ["prost"] }
+tonic-prost-build = "0.14.5"
 
 [lints]
 workspace = true
 
 [package.metadata.cargo-machete]
-ignored = ["prost", "prost-types"]
+ignored = ["prost", "prost-types", "tonic-prost"]
