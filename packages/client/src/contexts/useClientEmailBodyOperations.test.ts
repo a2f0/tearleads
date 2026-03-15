@@ -52,7 +52,9 @@ describe('useClientEmailBodyOperations', () => {
     mockGetAuthHeaderValue.mockReturnValue('Bearer token');
     globalThis.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ json: JSON.stringify({ encryptedBodyPath: 'blobs/email-body-123' }) })
+      json: async () => ({
+        json: JSON.stringify({ encryptedBodyPath: 'blobs/email-body-123' })
+      })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array([1, 2, 3]) });
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
@@ -98,7 +100,9 @@ describe('useClientEmailBodyOperations', () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     globalThis.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ json: JSON.stringify({ encryptedBodyPath: 'blobs/path' }) })
+      json: async () => ({
+        json: JSON.stringify({ encryptedBodyPath: 'blobs/path' })
+      })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array() });
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
@@ -172,7 +176,9 @@ describe('useClientEmailBodyOperations', () => {
     mockGetAuthHeaderValue.mockReturnValue(null);
     globalThis.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ json: JSON.stringify({ encryptedBodyPath: 'blobs/x' }) })
+      json: async () => ({
+        json: JSON.stringify({ encryptedBodyPath: 'blobs/x' })
+      })
     } as Response);
     mockGetBlob.mockResolvedValue({ data: new Uint8Array() });
     mockGetCurrentKey.mockReturnValue(null);
