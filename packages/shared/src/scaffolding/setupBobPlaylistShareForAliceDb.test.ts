@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { isValidSyncIdentifier } from '../vfsSyncIdentifiers.js';
 import {
   SCAFFOLD_SYNTHETIC_WAV_BASE64,
   setupBobPlaylistShareForAliceDb
@@ -137,6 +138,10 @@ describe('setupBobPlaylistShareForAliceDb', () => {
     expect(crdtUpsertCall?.params?.[9]).toBe(
       '00000000-0000-0000-0000-000000000010'
     ); // root_id (playlistId)
+
+    const audioSourceId = crdtUpsertCall?.params?.[3];
+    expect(typeof audioSourceId).toBe('string');
+    expect(isValidSyncIdentifier(String(audioSourceId))).toBe(true);
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')

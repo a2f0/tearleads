@@ -5,6 +5,10 @@ import type {
   VfsCrdtSyncResponse,
   VfsSyncBloomFilter
 } from '@tearleads/shared';
+import {
+  OPAQUE_IDENTIFIER_PATTERN,
+  UUID_PATTERN
+} from '@tearleads/shared';
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
@@ -19,10 +23,6 @@ import {
 } from './syncHttpTransportEnumParsing.js';
 
 export { parseApiErrorResponse } from './syncHttpTransportApiError.js';
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
-const OPAQUE_IDENTIFIER_PATTERN = /^[a-z0-9:-]+$/u;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

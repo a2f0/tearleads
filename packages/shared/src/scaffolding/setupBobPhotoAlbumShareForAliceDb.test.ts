@@ -4,6 +4,7 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
+import { isValidSyncIdentifier } from '../vfsSyncIdentifiers.js';
 import { setupBobPhotoAlbumShareForAliceDb } from './setupBobPhotoAlbumShareForAliceDb.js';
 import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
@@ -132,6 +133,10 @@ describe('setupBobPhotoAlbumShareForAliceDb', () => {
     expect(crdtUpsertCall?.params?.[9]).toBe(
       '00000000-0000-0000-0000-000000000010'
     ); // root_id (albumId)
+
+    const photoSourceId = crdtUpsertCall?.params?.[3];
+    expect(typeof photoSourceId).toBe('string');
+    expect(isValidSyncIdentifier(String(photoSourceId))).toBe(true);
 
     const linkInserts = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_links')

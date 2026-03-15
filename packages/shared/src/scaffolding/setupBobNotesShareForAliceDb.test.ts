@@ -4,6 +4,7 @@ import {
   generateKeyPair,
   serializePublicKey
 } from '../crypto/asymmetric.js';
+import { isValidSyncIdentifier } from '../vfsSyncIdentifiers.js';
 import { setupBobNotesShareForAliceDb } from './setupBobNotesShareForAliceDb.js';
 import type { DbQueryClient } from './vfsScaffoldHelpers.js';
 
@@ -142,6 +143,10 @@ describe('setupBobNotesShareForAliceDb', () => {
     expect(noteCrdtUpsertCall?.params?.[9]).toBe(
       '00000000-0000-0000-0000-000000000010'
     ); // root_id (folderId)
+
+    const noteSourceId = noteCrdtUpsertCall?.params?.[3];
+    expect(typeof noteSourceId).toBe('string');
+    expect(isValidSyncIdentifier(String(noteSourceId))).toBe(true);
 
     const shareCalls = calls.filter((call) =>
       call.text.includes('INSERT INTO vfs_acl_entries')
