@@ -15,6 +15,10 @@ import { createVfsSecurePipelineBundle } from './secureWritePipelineFactory';
 
 const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
 
+function encodeTextToBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 function createMockUserKeyProvider(keyPair: VfsKeyPair): UserKeyProvider {
   return {
     getUserKeyPair: vi.fn(async () => keyPair),
@@ -122,7 +126,7 @@ describe('secureWritePipelineFactory flush integration', () => {
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
+              clientId: encodeTextToBase64('desktop'),
               results: []
             }),
             {
@@ -150,12 +154,12 @@ describe('secureWritePipelineFactory flush integration', () => {
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
+              clientId: encodeTextToBase64('desktop'),
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
                 changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
-              lastReconciledWriteIds: { desktop: 1 }
+              lastReconciledWriteIds: { desktop: '1' }
             }),
             {
               status: 200,
@@ -270,7 +274,7 @@ describe('secureWritePipelineFactory flush integration', () => {
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/PushCrdtOps`)) {
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
+              clientId: encodeTextToBase64('desktop'),
               results: []
             }),
             {
@@ -298,12 +302,12 @@ describe('secureWritePipelineFactory flush integration', () => {
         if (url.endsWith(`${VFS_V2_CONNECT_BASE_PATH}/ReconcileCrdt`)) {
           return new Response(
             connectJsonEnvelope({
-              clientId: 'desktop',
+              clientId: encodeTextToBase64('desktop'),
               cursor: encodeVfsSyncCursor({
                 changedAt: '2026-02-20T00:00:00.000Z',
                 changeId: RECONCILE_CURSOR_CHANGE_ID
               }),
-              lastReconciledWriteIds: { desktop: 1 }
+              lastReconciledWriteIds: { desktop: '1' }
             }),
             {
               status: 200,

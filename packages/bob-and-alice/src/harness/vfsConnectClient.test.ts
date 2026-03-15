@@ -155,7 +155,7 @@ describe('fetchVfsConnectJson', () => {
     expect(response).toEqual(createCrdtResponse());
   });
 
-  it('normalizes lastReconciledWriteIds values for direct payloads', async () => {
+  it('normalizes canonical numeric lastReconciledWriteIds values', async () => {
     const actor = {
       fetchJson: vi.fn().mockResolvedValue({
         lastReconciledWriteIds: {

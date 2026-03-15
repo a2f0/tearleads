@@ -176,3 +176,10 @@ export {
   VfsHttpCrdtSyncTransport,
   type VfsHttpCrdtSyncTransportOptions
 } from './transport/sync-http-transport.js';
+export {
+  encodeConnectJsonAccessLevel,
+  encodeConnectJsonOpType,
+  encodeConnectJsonPrincipalType,
+  encodeConnectJsonPushStatus,
+  parsePushStatus
+} from './transport/syncHttpTransportEnumParsing.js';

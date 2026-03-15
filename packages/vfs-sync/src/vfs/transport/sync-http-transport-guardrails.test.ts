@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { encodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
+import { encodeUtf8ToBase64 } from './syncHttpTransportTestHelpers.js';
 
 const TEST_ORGANIZATION_ID = 'org-1';
 const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
@@ -39,7 +40,7 @@ describe('VfsHttpCrdtSyncTransport guardrails', () => {
       async () =>
         new Response(
           connectJsonEnvelope({
-            clientId: 'wrong-client',
+            clientId: encodeUtf8ToBase64('wrong-client'),
             cursor: encodeVfsSyncCursor({
               changedAt: '2026-02-14T20:00:00.000Z',
               changeId: RECONCILE_CURSOR_CHANGE_ID

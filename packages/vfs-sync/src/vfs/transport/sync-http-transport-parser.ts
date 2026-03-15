@@ -55,14 +55,18 @@ function decodeIdentifier(value: string): string | null {
     return unpackBytesToUuid(bytes);
   }
 
-  const decoded = new TextDecoder().decode(bytes);
-  if (decoded.length === 0) {
+  try {
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    if (decoded.length === 0) {
+      return null;
+    }
+
+    return UUID_PATTERN.test(decoded) || isOpaqueIdentifier(decoded)
+      ? decoded
+      : null;
+  } catch {
     return null;
   }
-
-  return UUID_PATTERN.test(decoded) || isOpaqueIdentifier(decoded)
-    ? decoded
-    : null;
 }
 
 function parseIdentifier(value: unknown, fieldName: string): string {
@@ -74,11 +78,12 @@ function parseIdentifier(value: unknown, fieldName: string): string {
     throw new Error(`transport returned invalid ${fieldName}`);
   }
 
-  if (UUID_PATTERN.test(trimmed) || isOpaqueIdentifier(trimmed)) {
-    return trimmed;
+  const decoded = decodeIdentifier(trimmed);
+  if (!decoded) {
+    throw new Error(`transport returned invalid ${fieldName}`);
   }
 
-  return decodeIdentifier(trimmed) ?? trimmed;
+  return decoded;
 }
 
 function parseOptionalIdentifier(
@@ -117,12 +122,11 @@ function parseOptionalNullableString(
 }
 
 function parseOccurredAtMs(value: unknown, fieldName: string): string {
-  const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : NaN;
+  if (typeof value !== 'string' || !/^[0-9]+$/u.test(value)) {
+    throw new Error(`transport returned invalid ${fieldName}`);
+  }
+
+  const parsed = Number(value);
   if (!Number.isFinite(parsed) || !Number.isSafeInteger(parsed) || parsed < 0) {
     throw new Error(`transport returned invalid ${fieldName}`);
   }
@@ -135,11 +139,65 @@ function parseBloomFilter(value: unknown): VfsSyncBloomFilter | null {
     return null;
   }
 
+  const data = parseRequiredString(value['data'], 'bloomFilter.data');
+  if (!decodeBase64ToBytes(data)) {
+    throw new Error('transport returned invalid bloomFilter.data');
+  }
+
+  const capacity = value['capacity'];
+  const errorRate = value['errorRate'];
+  if (
+    typeof capacity !== 'number' ||
+    !Number.isFinite(capacity) ||
+    !Number.isInteger(capacity) ||
+    capacity < 1
+  ) {
+    throw new Error('transport returned invalid bloomFilter.capacity');
+  }
+  if (typeof errorRate !== 'number' || !Number.isFinite(errorRate)) {
+    throw new Error('transport returned invalid bloomFilter.errorRate');
+  }
+
   return {
-    data: parseRequiredString(value['data'], 'bloomFilter.data'),
-    capacity: Number(value['capacity']),
-    errorRate: Number(value['errorRate'])
+    data,
+    capacity,
+    errorRate
   };
+}
+
+function parseLastReconciledWriteIds(value: unknown): Record<string, number> {
+  if (value === undefined || value === null) {
+    return {};
+  }
+  if (!isRecord(value)) {
+    throw new Error(
+      'lastReconciledWriteIds must be an object map of replicaId -> writeId'
+    );
+  }
+
+  const normalized: Record<string, number> = {};
+  for (const [replicaId, rawWriteId] of Object.entries(value)) {
+    if (
+      typeof rawWriteId !== 'number' ||
+      !Number.isFinite(rawWriteId) ||
+      !Number.isInteger(rawWriteId) ||
+      !Number.isSafeInteger(rawWriteId) ||
+      rawWriteId < 1
+    ) {
+      throw new Error(
+        'lastReconciledWriteIds contains invalid writeId (must be a positive integer)'
+      );
+    }
+
+    normalized[replicaId] = rawWriteId;
+  }
+
+  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(normalized);
+  if (!parsedWriteIds.ok) {
+    throw new Error(parsedWriteIds.error);
+  }
+
+  return parsedWriteIds.value;
 }
 
 export function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
@@ -328,13 +386,6 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
   }
   const normalizedHasMore = hasMoreValue === true;
 
-  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    body['lastReconciledWriteIds']
-  );
-  if (!parsedWriteIds.ok) {
-    throw new Error(parsedWriteIds.error);
-  }
-
   const items = normalizedRawItems.map((item, index) =>
     parseSyncItem(item, index)
   );
@@ -342,7 +393,9 @@ export function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     items,
     nextCursor: nextCursorValue,
     hasMore: normalizedHasMore,
-    lastReconciledWriteIds: parsedWriteIds.value,
+    lastReconciledWriteIds: parseLastReconciledWriteIds(
+      body['lastReconciledWriteIds']
+    ),
     bloomFilter: parseBloomFilter(body['bloomFilter'])
   };
 }
@@ -361,16 +414,11 @@ export function parseApiReconcileResponse(
     throw new Error('transport returned invalid reconcile cursor');
   }
 
-  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    body['lastReconciledWriteIds']
-  );
-  if (!parsedWriteIds.ok) {
-    throw new Error(parsedWriteIds.error);
-  }
-
   return {
     clientId,
     cursor: rawCursor,
-    lastReconciledWriteIds: parsedWriteIds.value
+    lastReconciledWriteIds: parseLastReconciledWriteIds(
+      body['lastReconciledWriteIds']
+    )
   };
 }

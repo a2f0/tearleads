@@ -6,6 +6,10 @@ import type { VfsWriteOrchestratorPersistedState } from './vfsWriteOrchestrator'
 
 const RECONCILE_CURSOR_CHANGE_ID = '00000000-0000-0000-0000-000000000001';
 
+function encodeTextToBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
 describe('vfsWriteOrchestrator', () => {
   const originalFetch = global.fetch;
   let fetchMock = vi.fn();
@@ -155,8 +159,13 @@ describe('vfsWriteOrchestrator', () => {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
-                clientId: 'desktop',
-                results: [{ opId: 'desktop-1', status: 'applied' }]
+                clientId: encodeTextToBase64('desktop'),
+                results: [
+                  {
+                    opId: encodeTextToBase64('desktop-1'),
+                    status: 'VFS_CRDT_PUSH_STATUS_APPLIED'
+                  }
+                ]
               })
             }),
             {
@@ -185,12 +194,12 @@ describe('vfsWriteOrchestrator', () => {
           return new Response(
             JSON.stringify({
               json: JSON.stringify({
-                clientId: 'desktop',
+                clientId: encodeTextToBase64('desktop'),
                 cursor: encodeVfsSyncCursor({
                   changedAt: '2026-02-18T00:00:00.000Z',
                   changeId: RECONCILE_CURSOR_CHANGE_ID
                 }),
-                lastReconciledWriteIds: { desktop: 1 }
+                lastReconciledWriteIds: { desktop: '1' }
               })
             }),
             {

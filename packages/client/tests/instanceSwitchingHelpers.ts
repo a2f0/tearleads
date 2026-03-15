@@ -5,6 +5,42 @@ import { MINIMAL_PNG } from './testUtils';
 export const TEST_PASSWORD = 'testpassword123';
 export const DB_OPERATION_TIMEOUT = 15000;
 
+const INSTANCE_ITEM_SELECTOR =
+  '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])';
+
+async function getSelectedInstanceId(page: Page): Promise<string | null> {
+  await page.getByTestId('account-switcher-button').click();
+
+  const selectedInstance = page
+    .locator(INSTANCE_ITEM_SELECTOR)
+    .filter({ has: page.locator('svg.lucide-check') })
+    .first();
+  await expect(selectedInstance).toBeVisible();
+
+  const testId = await selectedInstance.getAttribute('data-testid');
+  await page.keyboard.press('Escape');
+
+  if (typeof testId !== 'string' || !testId.startsWith('instance-')) {
+    return null;
+  }
+
+  return testId.slice('instance-'.length);
+}
+
+async function switchToInstanceById(page: Page, instanceId: string): Promise<void> {
+  await page.getByTestId('account-switcher-button').click();
+  const targetInstance = page.getByTestId(`instance-${instanceId}`);
+  await expect(targetInstance).toBeVisible();
+  await targetInstance.click();
+
+  // Wait for the account switcher dropdown to close (indicates click was handled)
+  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+
+  await expect
+    .poll(() => getSelectedInstanceId(page), { timeout: DB_OPERATION_TIMEOUT })
+    .toBe(instanceId);
+}
+
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 const isMobileViewport = (page: Page): boolean => {
   const viewport = page.viewportSize();
@@ -108,16 +144,17 @@ export const setupDatabaseOnSqlitePage = async (
   }
 
   if (status === 'Locked') {
-    // Database is locked, reset it first to get to "Not Set Up" state
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
-    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
+    const unlockButton = page.getByTestId('db-unlock-button');
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+
+    if (await unlockButton.isVisible().catch(() => false)) {
+      await unlockButton.click();
+    }
+
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
     });
+    return;
   }
 
   // Now set up the database
@@ -146,12 +183,24 @@ export const setupDatabaseOnSqlitePage = async (
 // Helper to create a new instance while on any page
 export const createNewInstanceFromAnyPage = async (page: Page) => {
   await page.getByTestId('account-switcher-button').click();
+  const previousInstance = page
+    .locator(INSTANCE_ITEM_SELECTOR)
+    .filter({ has: page.locator('svg.lucide-check') })
+    .first();
+  const previousTestId = await previousInstance.getAttribute('data-testid');
+  const previousInstanceId =
+    typeof previousTestId === 'string' && previousTestId.startsWith('instance-')
+      ? previousTestId.slice('instance-'.length)
+      : null;
   await expect(page.getByTestId('create-instance-button')).toBeVisible();
   await page.getByTestId('create-instance-button').click();
 
-  // Wait for instance creation and OPFS registry write to complete
-  // This is important because page.goto() will reload and read the registry
-  await page.waitForTimeout(1000);
+  await expect
+    .poll(() => getSelectedInstanceId(page), { timeout: DB_OPERATION_TIMEOUT })
+    .not.toBeNull();
+  await expect
+    .poll(() => getSelectedInstanceId(page), { timeout: DB_OPERATION_TIMEOUT })
+    .not.toBe(previousInstanceId);
 };
 
 // Helper to switch to instance while on any page
@@ -160,15 +209,25 @@ export const switchToInstanceFromAnyPage = async (
   instanceIndex: number
 ) => {
   await page.getByTestId('account-switcher-button').click();
-  const instanceItems = page.locator(
-    '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
-  );
-  await expect(instanceItems.nth(instanceIndex)).toBeVisible();
-  await instanceItems.nth(instanceIndex).click();
+  const instanceItems = page.locator(INSTANCE_ITEM_SELECTOR);
+  const targetInstance = instanceItems.nth(instanceIndex);
+  await expect(targetInstance).toBeVisible();
+  const targetTestId = await targetInstance.getAttribute('data-testid');
+  if (
+    typeof targetTestId !== 'string' ||
+    !targetTestId.startsWith('instance-')
+  ) {
+    throw new Error('Expected account switcher item test id');
+  }
 
-  // Wait for the account switcher dropdown to close (indicates click was handled)
-  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+  const targetInstanceId = targetTestId.slice('instance-'.length);
+  await page.keyboard.press('Escape');
+  await switchToInstanceById(page, targetInstanceId);
+};
 
-  // Wait for the instance switch to complete (loading state to settle)
-  await page.waitForTimeout(500);
+export const switchToInstanceByIdFromAnyPage = async (
+  page: Page,
+  instanceId: string
+) => {
+  await switchToInstanceById(page, instanceId);
 };

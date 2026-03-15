@@ -5,231 +5,119 @@ import type {
   VfsCrdtPushStatus
 } from '@tearleads/shared';
 
-const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'link_reassign',
-  'item_upsert',
-  'item_delete'
-];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
-const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
-const VALID_PUSH_STATUSES: VfsCrdtPushStatus[] = [
-  'applied',
-  'alreadyApplied',
-  'staleWriteId',
-  'outdatedOp',
-  'invalidOp',
-  'aclDenied',
-  'encryptedEnvelopeUnsupported'
-];
+const CONNECT_JSON_OP_TYPE_MAP: Record<string, VfsCrdtOpType> = {
+  VFS_CRDT_OP_TYPE_ACL_ADD: 'acl_add',
+  VFS_CRDT_OP_TYPE_ACL_REMOVE: 'acl_remove',
+  VFS_CRDT_OP_TYPE_LINK_ADD: 'link_add',
+  VFS_CRDT_OP_TYPE_LINK_REMOVE: 'link_remove',
+  VFS_CRDT_OP_TYPE_LINK_REASSIGN: 'link_reassign',
+  VFS_CRDT_OP_TYPE_ITEM_UPSERT: 'item_upsert',
+  VFS_CRDT_OP_TYPE_ITEM_DELETE: 'item_delete'
+};
+
+const CONNECT_JSON_PRINCIPAL_TYPE_MAP: Record<string, VfsAclPrincipalType> = {
+  VFS_ACL_PRINCIPAL_TYPE_USER: 'user',
+  VFS_ACL_PRINCIPAL_TYPE_GROUP: 'group',
+  VFS_ACL_PRINCIPAL_TYPE_ORGANIZATION: 'organization'
+};
+
+const CONNECT_JSON_ACCESS_LEVEL_MAP: Record<string, VfsAclAccessLevel> = {
+  VFS_ACL_ACCESS_LEVEL_READ: 'read',
+  VFS_ACL_ACCESS_LEVEL_WRITE: 'write',
+  VFS_ACL_ACCESS_LEVEL_ADMIN: 'admin'
+};
+
+const CONNECT_JSON_PUSH_STATUS_MAP: Record<string, VfsCrdtPushStatus> = {
+  VFS_CRDT_PUSH_STATUS_APPLIED: 'applied',
+  VFS_CRDT_PUSH_STATUS_ALREADY_APPLIED: 'alreadyApplied',
+  VFS_CRDT_PUSH_STATUS_STALE_WRITE_ID: 'staleWriteId',
+  VFS_CRDT_PUSH_STATUS_OUTDATED_OP: 'outdatedOp',
+  VFS_CRDT_PUSH_STATUS_INVALID_OP: 'invalidOp',
+  VFS_CRDT_PUSH_STATUS_ACL_DENIED: 'aclDenied',
+  VFS_CRDT_PUSH_STATUS_ENCRYPTED_ENVELOPE_UNSUPPORTED:
+    'encryptedEnvelopeUnsupported'
+};
+
+const CONNECT_JSON_OP_TYPE_BY_DOMAIN: Record<VfsCrdtOpType, string> = {
+  acl_add: 'VFS_CRDT_OP_TYPE_ACL_ADD',
+  acl_remove: 'VFS_CRDT_OP_TYPE_ACL_REMOVE',
+  link_add: 'VFS_CRDT_OP_TYPE_LINK_ADD',
+  link_remove: 'VFS_CRDT_OP_TYPE_LINK_REMOVE',
+  link_reassign: 'VFS_CRDT_OP_TYPE_LINK_REASSIGN',
+  item_upsert: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
+  item_delete: 'VFS_CRDT_OP_TYPE_ITEM_DELETE'
+};
+
+const CONNECT_JSON_PRINCIPAL_TYPE_BY_DOMAIN: Record<
+  VfsAclPrincipalType,
+  string
+> = {
+  user: 'VFS_ACL_PRINCIPAL_TYPE_USER',
+  group: 'VFS_ACL_PRINCIPAL_TYPE_GROUP',
+  organization: 'VFS_ACL_PRINCIPAL_TYPE_ORGANIZATION'
+};
+
+const CONNECT_JSON_ACCESS_LEVEL_BY_DOMAIN: Record<VfsAclAccessLevel, string> = {
+  read: 'VFS_ACL_ACCESS_LEVEL_READ',
+  write: 'VFS_ACL_ACCESS_LEVEL_WRITE',
+  admin: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
+};
+
+const CONNECT_JSON_PUSH_STATUS_BY_DOMAIN: Record<VfsCrdtPushStatus, string> = {
+  applied: 'VFS_CRDT_PUSH_STATUS_APPLIED',
+  alreadyApplied: 'VFS_CRDT_PUSH_STATUS_ALREADY_APPLIED',
+  staleWriteId: 'VFS_CRDT_PUSH_STATUS_STALE_WRITE_ID',
+  outdatedOp: 'VFS_CRDT_PUSH_STATUS_OUTDATED_OP',
+  invalidOp: 'VFS_CRDT_PUSH_STATUS_INVALID_OP',
+  aclDenied: 'VFS_CRDT_PUSH_STATUS_ACL_DENIED',
+  encryptedEnvelopeUnsupported:
+    'VFS_CRDT_PUSH_STATUS_ENCRYPTED_ENVELOPE_UNSUPPORTED'
+};
 
 function normalizeOpType(value: unknown): VfsCrdtOpType | null {
-  if (typeof value === 'number') {
-    switch (value) {
-      case 1:
-        return 'acl_add';
-      case 2:
-        return 'acl_remove';
-      case 3:
-        return 'link_add';
-      case 4:
-        return 'link_remove';
-      case 5:
-        return 'item_upsert';
-      case 6:
-        return 'item_delete';
-      case 7:
-        return 'link_reassign';
-      default:
-        return null;
-    }
-  }
-
   if (typeof value !== 'string') {
     return null;
   }
-
-  for (const candidate of VALID_OP_TYPES) {
-    if (candidate === value) {
-      return candidate;
-    }
-  }
-
-  switch (value.trim().toUpperCase()) {
-    case 'ACL_ADD':
-    case 'VFS_CRDT_OP_TYPE_ACL_ADD':
-      return 'acl_add';
-    case 'ACL_REMOVE':
-    case 'VFS_CRDT_OP_TYPE_ACL_REMOVE':
-      return 'acl_remove';
-    case 'LINK_ADD':
-    case 'VFS_CRDT_OP_TYPE_LINK_ADD':
-      return 'link_add';
-    case 'LINK_REMOVE':
-    case 'VFS_CRDT_OP_TYPE_LINK_REMOVE':
-      return 'link_remove';
-    case 'ITEM_UPSERT':
-    case 'VFS_CRDT_OP_TYPE_ITEM_UPSERT':
-      return 'item_upsert';
-    case 'ITEM_DELETE':
-    case 'VFS_CRDT_OP_TYPE_ITEM_DELETE':
-      return 'item_delete';
-    case 'LINK_REASSIGN':
-    case 'VFS_CRDT_OP_TYPE_LINK_REASSIGN':
-      return 'link_reassign';
-    default:
-      return null;
-  }
+  return CONNECT_JSON_OP_TYPE_MAP[value.trim()] ?? null;
 }
 
 function normalizePrincipalType(value: unknown): VfsAclPrincipalType | null {
-  if (typeof value === 'number') {
-    switch (value) {
-      case 1:
-        return 'user';
-      case 2:
-        return 'group';
-      case 3:
-        return 'organization';
-      default:
-        return null;
-    }
-  }
-
   if (typeof value !== 'string') {
     return null;
   }
-
-  for (const candidate of VALID_PRINCIPAL_TYPES) {
-    if (candidate === value) {
-      return candidate;
-    }
-  }
-
-  switch (value.trim().toUpperCase()) {
-    case 'USER':
-    case 'VFS_ACL_PRINCIPAL_TYPE_USER':
-      return 'user';
-    case 'GROUP':
-    case 'VFS_ACL_PRINCIPAL_TYPE_GROUP':
-      return 'group';
-    case 'ORGANIZATION':
-    case 'VFS_ACL_PRINCIPAL_TYPE_ORGANIZATION':
-      return 'organization';
-    default:
-      return null;
-  }
+  return CONNECT_JSON_PRINCIPAL_TYPE_MAP[value.trim()] ?? null;
 }
 
 function normalizeAccessLevel(value: unknown): VfsAclAccessLevel | null {
-  if (typeof value === 'number') {
-    switch (value) {
-      case 1:
-        return 'read';
-      case 2:
-        return 'write';
-      case 3:
-        return 'admin';
-      default:
-        return null;
-    }
-  }
-
   if (typeof value !== 'string') {
     return null;
   }
-
-  for (const candidate of VALID_ACCESS_LEVELS) {
-    if (candidate === value) {
-      return candidate;
-    }
-  }
-
-  switch (value.trim().toUpperCase()) {
-    case 'READ':
-    case 'VFS_ACL_ACCESS_LEVEL_READ':
-      return 'read';
-    case 'WRITE':
-    case 'VFS_ACL_ACCESS_LEVEL_WRITE':
-      return 'write';
-    case 'ADMIN':
-    case 'VFS_ACL_ACCESS_LEVEL_ADMIN':
-      return 'admin';
-    default:
-      return null;
-  }
+  return CONNECT_JSON_ACCESS_LEVEL_MAP[value.trim()] ?? null;
 }
 
 function normalizePushStatus(value: unknown): VfsCrdtPushStatus | null {
-  if (typeof value === 'number') {
-    switch (value) {
-      case 1:
-        return 'applied';
-      case 2:
-        return 'alreadyApplied';
-      case 3:
-        return 'staleWriteId';
-      case 4:
-        return 'outdatedOp';
-      case 5:
-        return 'invalidOp';
-      case 6:
-        return 'aclDenied';
-      case 7:
-        return 'encryptedEnvelopeUnsupported';
-      default:
-        return null;
-    }
-  }
-
   if (typeof value !== 'string') {
     return null;
   }
+  return CONNECT_JSON_PUSH_STATUS_MAP[value.trim()] ?? null;
+}
 
-  for (const candidate of VALID_PUSH_STATUSES) {
-    if (candidate === value) {
-      return candidate;
-    }
-  }
+export function encodeConnectJsonOpType(value: VfsCrdtOpType): string {
+  return CONNECT_JSON_OP_TYPE_BY_DOMAIN[value];
+}
 
-  switch (value.trim().toUpperCase()) {
-    case 'APPLIED':
-    case 'VFS_CRDT_PUSH_STATUS_APPLIED':
-      return 'applied';
-    case 'ALREADYAPPLIED':
-    case 'ALREADY_APPLIED':
-    case 'VFS_CRDT_PUSH_STATUS_ALREADY_APPLIED':
-      return 'alreadyApplied';
-    case 'STALEWRITEID':
-    case 'STALE_WRITE_ID':
-    case 'VFS_CRDT_PUSH_STATUS_STALE_WRITE_ID':
-      return 'staleWriteId';
-    case 'OUTDATEDOP':
-    case 'OUTDATED_OP':
-    case 'VFS_CRDT_PUSH_STATUS_OUTDATED_OP':
-      return 'outdatedOp';
-    case 'INVALIDOP':
-    case 'INVALID_OP':
-    case 'VFS_CRDT_PUSH_STATUS_INVALID_OP':
-      return 'invalidOp';
-    case 'ACLDENIED':
-    case 'ACL_DENIED':
-    case 'VFS_CRDT_PUSH_STATUS_ACL_DENIED':
-      return 'aclDenied';
-    case 'ENCRYPTEDENVELOPEUNSUPPORTED':
-    case 'ENCRYPTED_ENVELOPE_UNSUPPORTED':
-    case 'VFS_CRDT_PUSH_STATUS_ENCRYPTED_ENVELOPE_UNSUPPORTED':
-      return 'encryptedEnvelopeUnsupported';
-    default:
-      return null;
-  }
+export function encodeConnectJsonPrincipalType(
+  value: VfsAclPrincipalType
+): string {
+  return CONNECT_JSON_PRINCIPAL_TYPE_BY_DOMAIN[value];
+}
+
+export function encodeConnectJsonAccessLevel(value: VfsAclAccessLevel): string {
+  return CONNECT_JSON_ACCESS_LEVEL_BY_DOMAIN[value];
+}
+
+export function encodeConnectJsonPushStatus(value: VfsCrdtPushStatus): string {
+  return CONNECT_JSON_PUSH_STATUS_BY_DOMAIN[value];
 }
 
 export function parseOpType(value: unknown, fieldName: string): VfsCrdtOpType {

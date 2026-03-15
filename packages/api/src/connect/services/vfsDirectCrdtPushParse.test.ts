@@ -8,7 +8,7 @@ function buildValidAclAddOperation(): Record<string, unknown> {
     itemId: 'item-1',
     replicaId: 'client-1',
     writeId: 1,
-    occurredAtMs: Date.parse('2026-02-16T00:00:00.000Z'),
+    occurredAt: '2026-02-16T00:00:00.000Z',
     principalType: 'user',
     principalId: 'user-2',
     accessLevel: 'read'
@@ -22,13 +22,9 @@ function buildValidLinkAddOperation(): Record<string, unknown> {
     itemId: 'child-1',
     replicaId: 'client-1',
     writeId: 1,
-    occurredAtMs: Date.parse('2026-02-16T00:00:00.000Z'),
+    occurredAt: '2026-02-16T00:00:00.000Z',
     parentId: 'parent-1'
   };
-}
-
-function toBase64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
 }
 
 describe('vfsDirectCrdtPushParse', () => {
@@ -214,48 +210,32 @@ describe('vfsDirectCrdtPushParse', () => {
       expect(result.value.operations[1]?.status).toBe('parsed');
     });
 
-    it('parses identifiers, enums, and timestamps', () => {
+    it('rejects compact identifier and occurredAtMs compat payloads', () => {
       const result = parsePushPayload({
-        clientId: toBase64('client-1'),
+        clientId: 'Y2xpZW50LTE=',
         operations: [
           {
-            opId: toBase64('op-1'),
+            opId: 'b3AtMQ==',
             opType: 'acl_add',
-            itemId: toBase64('item-1'),
-            replicaId: toBase64('client-1'),
+            itemId: 'aXRlbS0x',
+            replicaId: 'Y2xpZW50LTE=',
             writeId: 3,
             occurredAtMs: 1760572800000,
             principalType: 'user',
-            principalId: toBase64('user-1'),
+            principalId: 'dXNlci0x',
             accessLevel: 'read'
           }
         ]
       });
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) {
-        throw new Error('Expected parsePushPayload to succeed');
-      }
-
-      expect(result.value.clientId).toBe('client-1');
-      expect(result.value.operations[0]).toEqual({
-        status: 'parsed',
-        opId: 'op-1',
-        operation: {
-          opId: 'op-1',
-          opType: 'acl_add',
-          itemId: 'item-1',
-          replicaId: 'client-1',
-          writeId: 3,
-          occurredAt: '2025-10-16T00:00:00.000Z',
-          principalType: 'user',
-          principalId: 'user-1',
-          accessLevel: 'read'
-        }
+      expect(result).toEqual({
+        ok: false,
+        error:
+          'clientId must be non-empty, <=128 chars, and must not contain ":"'
       });
     });
 
-    it('accepts ISO occurredAt values from connect router adapters', () => {
+    it('parses canonical ISO occurredAt values', () => {
       const result = parsePushPayload({
         clientId: 'client-1',
         operations: [

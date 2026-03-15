@@ -4,26 +4,16 @@ import {
   decodeBase64ToBytes,
   encodeBytesToBase64,
   packUuidToBytes,
-  REV_ACCESS_LEVEL_MAP,
-  REV_OP_TYPE_MAP,
-  REV_PRINCIPAL_TYPE_MAP,
   unpackBytesToUuid
 } from '../protocol/syncProtobufNormalization.js';
-
-const VALID_OP_TYPES: VfsCrdtOperation['opType'][] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove',
-  'link_reassign',
-  'item_upsert',
-  'item_delete'
-];
-const VALID_PRINCIPAL_TYPES: Array<
-  NonNullable<VfsCrdtOperation['principalType']>
-> = ['user', 'group', 'organization'];
-const VALID_ACCESS_LEVELS: Array<NonNullable<VfsCrdtOperation['accessLevel']>> =
-  ['read', 'write', 'admin'];
+import {
+  encodeConnectJsonAccessLevel,
+  encodeConnectJsonOpType,
+  encodeConnectJsonPrincipalType,
+  parseNullableAccessLevel,
+  parseNullablePrincipalType,
+  parseOpType
+} from './syncHttpTransportEnumParsing.js';
 
 function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -39,15 +29,15 @@ function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
 
 function parseWriteId(value: unknown, fieldName: string): number {
   if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    !Number.isInteger(value) ||
-    value < 1
+    typeof value !== 'string' ||
+    !/^[0-9]+$/u.test(value) ||
+    !Number.isSafeInteger(Number(value)) ||
+    Number(value) < 1
   ) {
     throw new Error(`Integration harness failed to parse ${fieldName}`);
   }
 
-  return value;
+  return Number(value);
 }
 
 function parseOptionalString(value: unknown): string | undefined {
@@ -76,12 +66,11 @@ export function decodeCompactClientId(value: unknown): string {
 }
 
 function parseOccurredAt(value: unknown, fieldName: string): string {
-  const occurredAtMs =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : NaN;
+  if (typeof value !== 'string' || !/^[0-9]+$/u.test(value)) {
+    throw new Error(`Integration harness failed to parse ${fieldName}`);
+  }
+
+  const occurredAtMs = Number(value);
   if (
     !Number.isFinite(occurredAtMs) ||
     !Number.isSafeInteger(occurredAtMs) ||
@@ -102,40 +91,13 @@ function toOccurredAtMs(value: string, fieldName: string): number {
   return occurredAtMs;
 }
 
-function parseOpType(value: unknown): VfsCrdtOperation['opType'] {
-  if (typeof value === 'number' || typeof value === 'string') {
-    const decoded = REV_OP_TYPE_MAP[Number(value)];
-    if (typeof decoded === 'string') {
-      for (const candidate of VALID_OP_TYPES) {
-        if (candidate === decoded) {
-          return candidate;
-        }
-      }
-    }
-  }
-
-  throw new Error('Integration harness failed to parse opType');
-}
-
 function parsePrincipalType(
   value: unknown
 ): VfsCrdtOperation['principalType'] | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
-
-  if (typeof value === 'number' || typeof value === 'string') {
-    const decoded = REV_PRINCIPAL_TYPE_MAP[Number(value)];
-    if (typeof decoded === 'string') {
-      for (const candidate of VALID_PRINCIPAL_TYPES) {
-        if (candidate === decoded) {
-          return candidate;
-        }
-      }
-    }
-  }
-
-  throw new Error('Integration harness failed to parse principalType');
+  return parseNullablePrincipalType(value, 'principalType') ?? undefined;
 }
 
 function parseAccessLevel(
@@ -144,19 +106,7 @@ function parseAccessLevel(
   if (value === undefined || value === null) {
     return undefined;
   }
-
-  if (typeof value === 'number' || typeof value === 'string') {
-    const decoded = REV_ACCESS_LEVEL_MAP[Number(value)];
-    if (typeof decoded === 'string') {
-      for (const candidate of VALID_ACCESS_LEVELS) {
-        if (candidate === decoded) {
-          return candidate;
-        }
-      }
-    }
-  }
-
-  throw new Error('Integration harness failed to parse accessLevel');
+  return parseNullableAccessLevel(value, 'accessLevel') ?? undefined;
 }
 
 function parseOptionalIdentifier(
@@ -174,7 +124,7 @@ function parsePushOperation(value: unknown): VfsCrdtOperation {
   const operation = asRecord(value, 'push operation');
   const parsed: VfsCrdtOperation = {
     opId: decodeIdentifier(operation['opId'], 'opId'),
-    opType: parseOpType(operation['opType']),
+    opType: parseOpType(operation['opType'], 'opType'),
     itemId: decodeIdentifier(operation['itemId'], 'itemId'),
     replicaId: decodeIdentifier(operation['replicaId'], 'replicaId'),
     writeId: parseWriteId(operation['writeId'], 'writeId'),
@@ -246,19 +196,25 @@ export function encodePullItem(item: VfsCrdtSyncItem): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     opId: encodeCompactIdentifier(item.opId),
     itemId: encodeCompactIdentifier(item.itemId),
-    opType: item.opType,
-    principalType: item.principalType,
+    opType: encodeConnectJsonOpType(item.opType),
     principalId: item.principalId
       ? encodeCompactIdentifier(item.principalId)
       : null,
-    accessLevel: item.accessLevel,
     parentId: item.parentId ? encodeCompactIdentifier(item.parentId) : null,
     childId: item.childId ? encodeCompactIdentifier(item.childId) : null,
     actorId: item.actorId ? encodeCompactIdentifier(item.actorId) : null,
     sourceTable: item.sourceTable,
     sourceId: encodeCompactIdentifier(item.sourceId),
-    occurredAtMs: toOccurredAtMs(item.occurredAt, 'occurredAt')
+    occurredAtMs: String(toOccurredAtMs(item.occurredAt, 'occurredAt'))
   };
+  if (item.principalType) {
+    payload['principalType'] = encodeConnectJsonPrincipalType(
+      item.principalType
+    );
+  }
+  if (item.accessLevel) {
+    payload['accessLevel'] = encodeConnectJsonAccessLevel(item.accessLevel);
+  }
 
   if (typeof item.encryptedPayload === 'string') {
     payload['encryptedPayload'] = item.encryptedPayload;

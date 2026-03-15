@@ -7,6 +7,7 @@ import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor
 } from '../protocol/sync-cursor.js';
+import { encodeConnectJsonPushStatus } from './syncHttpTransportEnumParsing.js';
 import {
   decodeCompactClientId,
   encodeCompactIdentifier,
@@ -57,13 +58,21 @@ function toWriteIdRecord(value: unknown): Record<string, number> {
     if (
       typeof candidate === 'number' &&
       Number.isFinite(candidate) &&
-      Number.isInteger(candidate)
+      Number.isInteger(candidate) &&
+      Number.isSafeInteger(candidate) &&
+      candidate >= 1
     ) {
       output[key] = candidate;
     }
   }
 
   return output;
+}
+
+function encodeWriteIdRecord(
+  value: Record<string, number>
+): Record<string, number> {
+  return toWriteIdRecord(value);
 }
 
 interface HttpHarnessDelayConfig {
@@ -200,8 +209,8 @@ export function createServerBackedFetch(
       return connectJsonResponse({
         clientId: encodeCompactIdentifier(clientId),
         results: pushResult.results.map((result) => ({
-          ...result,
-          opId: encodeCompactIdentifier(result.opId)
+          opId: encodeCompactIdentifier(result.opId),
+          status: encodeConnectJsonPushStatus(result.status)
         }))
       });
     }
@@ -236,7 +245,9 @@ export function createServerBackedFetch(
             nextCursor: pullResult.nextCursor
               ? encodeVfsSyncCursor(pullResult.nextCursor)
               : null,
-            lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+            lastReconciledWriteIds: encodeWriteIdRecord(
+              pullResult.lastReconciledWriteIds
+            )
           })
         : {
             items: pullResult.items.map((item) => encodePullItem(item)),
@@ -244,7 +255,9 @@ export function createServerBackedFetch(
             nextCursor: pullResult.nextCursor
               ? encodeVfsSyncCursor(pullResult.nextCursor)
               : null,
-            lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+            lastReconciledWriteIds: encodeWriteIdRecord(
+              pullResult.lastReconciledWriteIds
+            )
           };
 
       return connectJsonResponse(pullPayload);
@@ -285,8 +298,9 @@ export function createServerBackedFetch(
             {
               clientId: encodeCompactIdentifier(decodedClientId),
               cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
-              lastReconciledWriteIds:
+              lastReconciledWriteIds: encodeWriteIdRecord(
                 reconcileResult.state.lastReconciledWriteIds
+              )
             },
             {
               body: {
@@ -299,7 +313,9 @@ export function createServerBackedFetch(
         : {
             clientId: encodeCompactIdentifier(decodedClientId),
             cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
-            lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
+            lastReconciledWriteIds: encodeWriteIdRecord(
+              reconcileResult.state.lastReconciledWriteIds
+            )
           };
 
       return connectJsonResponse(reconcilePayload);

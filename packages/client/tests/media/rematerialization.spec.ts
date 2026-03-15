@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures';
 import {
+  DB_OPERATION_TIMEOUT,
   createNewInstanceFromAnyPage,
   setupDatabaseOnSqlitePage,
-  switchToInstanceFromAnyPage
+  switchToInstanceByIdFromAnyPage
 } from '../instanceSwitchingHelpers';
 import { clearOriginStorage } from '../testUtils';
 
@@ -13,10 +14,21 @@ const REMATERIALIZED_AUDIO_NAME = 'The Blessing.mp3';
 const VFS_SERVICE_CONNECT_PATH = '/connect/tearleads.v2.VfsService';
 const TEST_USER_ID = 'user-remat-test';
 
+function toBase64(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
+
+function toMs(isoTimestamp: string): string {
+  return String(Date.parse(isoTimestamp));
+}
+
 declare global {
   interface Window {
     __TEARLEADS_E2E__?: {
       rematerializeRemoteVfsStateIfNeeded: () => Promise<boolean>;
+      getCurrentDatabaseInstanceId: () => string | null;
+      getPersistedActiveInstanceId: () => Promise<string | null>;
+      getVfsRegistryItemCount: () => Promise<number>;
     };
   }
 }
@@ -35,59 +47,59 @@ function createSyncResponse() {
   return {
     items: [
       {
-        changeId: 'change-root',
-        itemId: 'root-item',
+        changeId: toBase64('change-root'),
+        itemId: toBase64('root-item'),
         changeType: 'upsert',
-        changedAt: '2026-01-01T02:00:01.000Z',
+        changedAtMs: toMs('2026-01-01T02:00:01.000Z'),
         objectType: 'folder',
         encryptedName: 'Root Item',
-        ownerId: TEST_USER_ID,
-        createdAt: '2026-01-01T02:00:00.000Z',
-        accessLevel: 'admin'
+        ownerId: toBase64(TEST_USER_ID),
+        createdAtMs: toMs('2026-01-01T02:00:00.000Z'),
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
       },
       {
-        changeId: 'change-album',
-        itemId: 'album-item',
+        changeId: toBase64('change-album'),
+        itemId: toBase64('album-item'),
         changeType: 'upsert',
-        changedAt: '2026-01-01T02:00:02.000Z',
+        changedAtMs: toMs('2026-01-01T02:00:02.000Z'),
         objectType: 'album',
         encryptedName: 'Photos shared with Alice',
-        ownerId: TEST_USER_ID,
-        createdAt: '2026-01-01T02:00:02.000Z',
-        accessLevel: 'admin'
+        ownerId: toBase64(TEST_USER_ID),
+        createdAtMs: toMs('2026-01-01T02:00:02.000Z'),
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
       },
       {
-        changeId: 'change-photo',
-        itemId: 'photo-item',
+        changeId: toBase64('change-photo'),
+        itemId: toBase64('photo-item'),
         changeType: 'upsert',
-        changedAt: '2026-01-01T02:00:03.000Z',
+        changedAtMs: toMs('2026-01-01T02:00:03.000Z'),
         objectType: 'photo',
         encryptedName: REMATERIALIZED_PHOTO_NAME,
-        ownerId: TEST_USER_ID,
-        createdAt: '2026-01-01T02:00:03.000Z',
-        accessLevel: 'admin'
+        ownerId: toBase64(TEST_USER_ID),
+        createdAtMs: toMs('2026-01-01T02:00:03.000Z'),
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
       },
       {
-        changeId: 'change-playlist',
-        itemId: 'playlist-item',
+        changeId: toBase64('change-playlist'),
+        itemId: toBase64('playlist-item'),
         changeType: 'upsert',
-        changedAt: '2026-01-01T02:00:04.000Z',
+        changedAtMs: toMs('2026-01-01T02:00:04.000Z'),
         objectType: 'playlist',
         encryptedName: 'Music shared with Alice',
-        ownerId: TEST_USER_ID,
-        createdAt: '2026-01-01T02:00:04.000Z',
-        accessLevel: 'admin'
+        ownerId: toBase64(TEST_USER_ID),
+        createdAtMs: toMs('2026-01-01T02:00:04.000Z'),
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
       },
       {
-        changeId: 'change-audio',
-        itemId: 'audio-item',
+        changeId: toBase64('change-audio'),
+        itemId: toBase64('audio-item'),
         changeType: 'upsert',
-        changedAt: '2026-01-01T02:00:05.000Z',
+        changedAtMs: toMs('2026-01-01T02:00:05.000Z'),
         objectType: 'audio',
         encryptedName: REMATERIALIZED_AUDIO_NAME,
-        ownerId: TEST_USER_ID,
-        createdAt: '2026-01-01T02:00:05.000Z',
-        accessLevel: 'admin'
+        ownerId: toBase64(TEST_USER_ID),
+        createdAtMs: toMs('2026-01-01T02:00:05.000Z'),
+        accessLevel: 'VFS_ACL_ACCESS_LEVEL_ADMIN'
       }
     ],
     nextCursor: null,
@@ -105,92 +117,92 @@ function createCrdtSyncResponse() {
   return {
     items: [
       {
-        opId: 'op-photo-state',
-        itemId: 'photo-item',
-        opType: 'item_upsert',
+        opId: toBase64('op-photo-state'),
+        itemId: toBase64('photo-item'),
+        opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
         principalType: null,
         principalId: null,
         accessLevel: null,
         parentId: null,
         childId: null,
-        actorId: TEST_USER_ID,
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_crdt_client_push',
-        sourceId: 'source-photo-state',
-        occurredAt: '2026-01-01T02:00:03.100Z',
+        sourceId: toBase64('source-photo-state'),
+        occurredAtMs: toMs('2026-01-01T02:00:03.100Z'),
         encryptedPayload: photoPayload,
         keyEpoch: 1
       },
       {
-        opId: 'op-root-album-link',
-        itemId: 'album-item',
-        opType: 'link_add',
+        opId: toBase64('op-root-album-link'),
+        itemId: toBase64('album-item'),
+        opType: 'VFS_CRDT_OP_TYPE_LINK_ADD',
         principalType: null,
         principalId: null,
         accessLevel: null,
-        parentId: 'root-item',
-        childId: 'album-item',
-        actorId: TEST_USER_ID,
+        parentId: toBase64('root-item'),
+        childId: toBase64('album-item'),
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_links',
-        sourceId: 'source-root-album-link',
-        occurredAt: '2026-01-01T02:00:03.200Z'
+        sourceId: toBase64('source-root-album-link'),
+        occurredAtMs: toMs('2026-01-01T02:00:03.200Z')
       },
       {
-        opId: 'op-album-photo-link',
-        itemId: 'photo-item',
-        opType: 'link_add',
+        opId: toBase64('op-album-photo-link'),
+        itemId: toBase64('photo-item'),
+        opType: 'VFS_CRDT_OP_TYPE_LINK_ADD',
         principalType: null,
         principalId: null,
         accessLevel: null,
-        parentId: 'album-item',
-        childId: 'photo-item',
-        actorId: TEST_USER_ID,
+        parentId: toBase64('album-item'),
+        childId: toBase64('photo-item'),
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_links',
-        sourceId: 'source-album-photo-link',
-        occurredAt: '2026-01-01T02:00:03.300Z'
+        sourceId: toBase64('source-album-photo-link'),
+        occurredAtMs: toMs('2026-01-01T02:00:03.300Z')
       },
       {
-        opId: 'op-audio-state',
-        itemId: 'audio-item',
-        opType: 'item_upsert',
+        opId: toBase64('op-audio-state'),
+        itemId: toBase64('audio-item'),
+        opType: 'VFS_CRDT_OP_TYPE_ITEM_UPSERT',
         principalType: null,
         principalId: null,
         accessLevel: null,
         parentId: null,
         childId: null,
-        actorId: TEST_USER_ID,
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_crdt_client_push',
-        sourceId: 'source-audio-state',
-        occurredAt: '2026-01-01T02:00:05.100Z',
+        sourceId: toBase64('source-audio-state'),
+        occurredAtMs: toMs('2026-01-01T02:00:05.100Z'),
         encryptedPayload: audioPayload,
         keyEpoch: 1
       },
       {
-        opId: 'op-root-playlist-link',
-        itemId: 'playlist-item',
-        opType: 'link_add',
+        opId: toBase64('op-root-playlist-link'),
+        itemId: toBase64('playlist-item'),
+        opType: 'VFS_CRDT_OP_TYPE_LINK_ADD',
         principalType: null,
         principalId: null,
         accessLevel: null,
-        parentId: 'root-item',
-        childId: 'playlist-item',
-        actorId: TEST_USER_ID,
+        parentId: toBase64('root-item'),
+        childId: toBase64('playlist-item'),
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_links',
-        sourceId: 'source-root-playlist-link',
-        occurredAt: '2026-01-01T02:00:05.200Z'
+        sourceId: toBase64('source-root-playlist-link'),
+        occurredAtMs: toMs('2026-01-01T02:00:05.200Z')
       },
       {
-        opId: 'op-playlist-audio-link',
-        itemId: 'audio-item',
-        opType: 'link_add',
+        opId: toBase64('op-playlist-audio-link'),
+        itemId: toBase64('audio-item'),
+        opType: 'VFS_CRDT_OP_TYPE_LINK_ADD',
         principalType: null,
         principalId: null,
         accessLevel: null,
-        parentId: 'playlist-item',
-        childId: 'audio-item',
-        actorId: TEST_USER_ID,
+        parentId: toBase64('playlist-item'),
+        childId: toBase64('audio-item'),
+        actorId: toBase64(TEST_USER_ID),
         sourceTable: 'vfs_links',
-        sourceId: 'source-playlist-audio-link',
-        occurredAt: '2026-01-01T02:00:05.300Z'
+        sourceId: toBase64('source-playlist-audio-link'),
+        occurredAtMs: toMs('2026-01-01T02:00:05.300Z')
       }
     ],
     nextCursor: null,
@@ -236,6 +248,44 @@ async function triggerRematerialization(page: Page): Promise<void> {
   });
 
   expect(didRematerialize).toBe(true);
+}
+
+async function getCurrentDatabaseInstanceId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    return window.__TEARLEADS_E2E__?.getCurrentDatabaseInstanceId() ?? null;
+  });
+}
+
+async function waitForActiveInstanceVfsRegistryItems(
+  page: Page,
+  instanceId: string
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        return page.evaluate(async () => {
+          const helpers = window.__TEARLEADS_E2E__;
+          if (!helpers) {
+            throw new Error('E2E rematerialization helper is unavailable');
+          }
+
+          return {
+            currentInstanceId: helpers.getCurrentDatabaseInstanceId(),
+            persistedActiveInstanceId:
+              await helpers.getPersistedActiveInstanceId(),
+            itemCount: await helpers.getVfsRegistryItemCount()
+          };
+        });
+      },
+      {
+        timeout: DB_OPERATION_TIMEOUT
+      }
+    )
+    .toEqual({
+      currentInstanceId: instanceId,
+      persistedActiveInstanceId: instanceId,
+      itemCount: 6
+    });
 }
 
 async function resolveAudioDropzoneState(
@@ -340,6 +390,10 @@ test.describe('VFS rematerialization media visibility', () => {
     await mockRematerializationApi(page);
     await setupDatabaseOnSqlitePage(page);
     await triggerRematerialization(page);
+    const originalInstanceId = await getCurrentDatabaseInstanceId(page);
+    if (!originalInstanceId) {
+      throw new Error('Expected original database instance id');
+    }
 
     await assertVfsExplorerShowsRematerializedItems(page);
     await assertPhotosAppShowsRematerializedPhoto(page);
@@ -353,8 +407,9 @@ test.describe('VFS rematerialization media visibility', () => {
 
     // Switch back to the original instance and verify rematerialized assets
     // are still retrievable in app-specific views.
-    await switchToInstanceFromAnyPage(page, 0);
+    await switchToInstanceByIdFromAnyPage(page, originalInstanceId);
     await setupDatabaseOnSqlitePage(page, true);
+    await waitForActiveInstanceVfsRegistryItems(page, originalInstanceId);
 
     await assertVfsExplorerShowsRematerializedItems(page);
     await assertPhotosAppShowsRematerializedPhoto(page);

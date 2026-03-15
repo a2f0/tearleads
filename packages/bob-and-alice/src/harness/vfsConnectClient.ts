@@ -2,7 +2,6 @@ import type {
   VfsCrdtPushOperation,
   VfsCrdtPushRequest,
   VfsCrdtPushResponse,
-  VfsCrdtPushStatus,
   VfsCrdtSyncResponse,
   VfsSyncResponse
 } from '@tearleads/shared';
@@ -14,32 +13,37 @@ import {
   parseConnectJsonEnvelopeBody,
   VFS_V2_CONNECT_BASE_PATH
 } from '@tearleads/shared';
+import {
+  encodeConnectJsonAccessLevel,
+  encodeConnectJsonOpType,
+  encodeConnectJsonPrincipalType,
+  parsePushStatus
+} from '@tearleads/vfs-sync/vfs';
 
 interface ConnectJsonApiActor {
   fetchJson<T = unknown>(path: string, init?: RequestInit): Promise<T>;
 }
 
-const PUSH_OP_TYPE_ENUMS: Record<string, number> = {
-  acl_add: 1,
-  acl_remove: 2,
-  link_add: 3,
-  link_remove: 4,
-  item_upsert: 5,
-  item_delete: 6,
-  link_reassign: 7
-};
+function hasActorOrganizationId(
+  value: unknown
+): value is { user: { organizationId: string } } {
+  return (
+    isPlainRecord(value) &&
+    isPlainRecord(value['user']) &&
+    typeof value['user']['organizationId'] === 'string'
+  );
+}
 
-const PUSH_PRINCIPAL_TYPE_ENUMS: Record<string, number> = {
-  user: 1,
-  group: 2,
-  organization: 3
-};
+function resolveActorOrganizationId(
+  actor: ConnectJsonApiActor
+): string | undefined {
+  if (!hasActorOrganizationId(actor)) {
+    return undefined;
+  }
 
-const PUSH_ACCESS_LEVEL_ENUMS: Record<string, number> = {
-  read: 1,
-  write: 2,
-  admin: 3
-};
+  const organizationId = actor.user.organizationId.trim();
+  return organizationId.length > 0 ? organizationId : undefined;
+}
 
 function packIdentifierToBytes(value: string): Uint8Array {
   const hex = value.replace(/-/gu, '');
@@ -100,76 +104,18 @@ function decodeConnectIdentifier(value: unknown, fieldName: string): string {
 
   const decoded = decodeBase64Strict(trimmed);
   if (!decoded) {
-    return trimmed;
+    throw new Error(`transport returned invalid ${fieldName}`);
   }
 
   if (decoded.length === 16) {
     return bytesToUuid(decoded);
   }
 
-  return new TextDecoder().decode(decoded);
-}
-
-function normalizePushStatus(
-  value: unknown,
-  fieldName: string
-): VfsCrdtPushStatus {
-  if (typeof value === 'number') {
-    switch (value) {
-      case 1:
-        return 'applied';
-      case 2:
-        return 'alreadyApplied';
-      case 3:
-        return 'staleWriteId';
-      case 4:
-        return 'outdatedOp';
-      case 5:
-        return 'invalidOp';
-      case 6:
-        return 'aclDenied';
-      case 7:
-        return 'encryptedEnvelopeUnsupported';
-      default:
-        break;
-    }
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(decoded);
+  if (!/^[\u0020-\u007E]+$/u.test(text)) {
+    throw new Error(`transport returned invalid ${fieldName}`);
   }
-
-  if (typeof value === 'string') {
-    switch (value.trim().toUpperCase()) {
-      case 'APPLIED':
-      case 'VFS_CRDT_PUSH_STATUS_APPLIED':
-        return 'applied';
-      case 'ALREADYAPPLIED':
-      case 'ALREADY_APPLIED':
-      case 'VFS_CRDT_PUSH_STATUS_ALREADY_APPLIED':
-        return 'alreadyApplied';
-      case 'STALEWRITEID':
-      case 'STALE_WRITE_ID':
-      case 'VFS_CRDT_PUSH_STATUS_STALE_WRITE_ID':
-        return 'staleWriteId';
-      case 'OUTDATEDOP':
-      case 'OUTDATED_OP':
-      case 'VFS_CRDT_PUSH_STATUS_OUTDATED_OP':
-        return 'outdatedOp';
-      case 'INVALIDOP':
-      case 'INVALID_OP':
-      case 'VFS_CRDT_PUSH_STATUS_INVALID_OP':
-        return 'invalidOp';
-      case 'ACLDENIED':
-      case 'ACL_DENIED':
-      case 'VFS_CRDT_PUSH_STATUS_ACL_DENIED':
-        return 'aclDenied';
-      case 'ENCRYPTEDENVELOPEUNSUPPORTED':
-      case 'ENCRYPTED_ENVELOPE_UNSUPPORTED':
-      case 'VFS_CRDT_PUSH_STATUS_ENCRYPTED_ENVELOPE_UNSUPPORTED':
-        return 'encryptedEnvelopeUnsupported';
-      default:
-        break;
-    }
-  }
-
-  throw new Error(`transport returned invalid ${fieldName}`);
+  return text;
 }
 
 function isVfsCrdtPushRequest(value: unknown): value is VfsCrdtPushRequest {
@@ -190,7 +136,7 @@ function encodePushOperation(
 
   const payload: Record<string, unknown> = {
     opId: encodeIdentifierToBase64(operation.opId),
-    opType: PUSH_OP_TYPE_ENUMS[operation.opType] ?? 0,
+    opType: encodeConnectJsonOpType(operation.opType),
     itemId: encodeIdentifierToBase64(operation.itemId),
     replicaId: encodeIdentifierToBase64(operation.replicaId),
     writeId: String(operation.writeId),
@@ -198,15 +144,17 @@ function encodePushOperation(
   };
 
   if (operation.principalType) {
-    payload['principalType'] =
-      PUSH_PRINCIPAL_TYPE_ENUMS[operation.principalType] ?? 0;
+    payload['principalType'] = encodeConnectJsonPrincipalType(
+      operation.principalType
+    );
   }
   if (operation.principalId) {
     payload['principalId'] = encodeIdentifierToBase64(operation.principalId);
   }
   if (operation.accessLevel) {
-    payload['accessLevel'] =
-      PUSH_ACCESS_LEVEL_ENUMS[operation.accessLevel] ?? 0;
+    payload['accessLevel'] = encodeConnectJsonAccessLevel(
+      operation.accessLevel
+    );
   }
   if (operation.parentId) {
     payload['parentId'] = encodeIdentifierToBase64(operation.parentId);
@@ -276,10 +224,7 @@ function normalizePushPayload(payload: unknown): VfsCrdtPushResponse {
 
       return {
         opId: decodeConnectIdentifier(result['opId'], `results[${index}].opId`),
-        status: normalizePushStatus(
-          result['status'],
-          `results[${index}].status`
-        )
+        status: parsePushStatus(result['status'], `results[${index}].status`)
       };
     })
   };
@@ -351,7 +296,13 @@ export async function fetchVfsConnectJson(input: {
     if (!isVfsCrdtPushRequest(input.requestBody)) {
       throw new Error('transport received invalid push request payload');
     }
-    requestBody = encodePushRequest(input.requestBody);
+    const organizationId =
+      input.requestBody.organizationId ??
+      resolveActorOrganizationId(input.actor);
+    requestBody = encodePushRequest({
+      ...input.requestBody,
+      ...(organizationId !== undefined ? { organizationId } : {})
+    });
   } else {
     requestBody = isPlainRecord(input.requestBody) ? input.requestBody : {};
   }
