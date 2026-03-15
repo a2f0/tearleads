@@ -64,7 +64,10 @@ export function verifyPulledAclItemSignature(
   }
 
   const publicKey = base64ToBytes(item.actorSigningPublicKey);
-  if (!publicKey || publicKey.length !== 32) {
+  if (!publicKey) {
+    return { verified: false, reason: 'invalid public key encoding' };
+  }
+  if (publicKey.length !== 32) {
     return { verified: false, reason: 'invalid public key length' };
   }
 

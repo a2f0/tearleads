@@ -159,10 +159,10 @@ export class InMemoryVfsCrdtFeedReplayStore {
   applyPage(
     items: VfsCrdtSyncItem[],
     options?: {
-      verifyAclItem?: (
-        item: VfsCrdtSyncItem,
-        index: number
-      ) => { verified: boolean; reason?: string };
+      verifyAclItem?: (item: VfsCrdtSyncItem) => {
+        verified: boolean;
+        reason?: string;
+      };
     }
   ): VfsSyncCursor | null {
     for (let index = 0; index < items.length; index++) {
@@ -190,7 +190,7 @@ export class InMemoryVfsCrdtFeedReplayStore {
 
       if (item.opType === 'acl_add' || item.opType === 'acl_remove') {
         if (options?.verifyAclItem) {
-          const result = options.verifyAclItem(item, index);
+          const result = options.verifyAclItem(item);
           if (!result.verified) {
             throw new VfsCrdtFeedReplayError(
               'invalidAclSignature',
