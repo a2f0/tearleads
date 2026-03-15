@@ -6,11 +6,10 @@ import { vi } from 'vitest';
  * Problem: Bun doesn't pass `importOriginal` to vi.mock factory functions
  * and deadlocks when async mock factories are used during module init.
  *
- * Solution: Pre-load commonly mocked modules during preload (before any test
- * file runs). Wrap vi.mock so that factories expecting importOriginal
- * (factory.length > 0) are called with a sync importOriginal returning
- * cached exports. A stub mock is registered immediately, then the real
- * factory result replaces it after the microtask settles.
+ * Solution: Pre-load commonly mocked modules during preload. Wrap vi.mock
+ * so that factories expecting importOriginal (factory.length > 0) are
+ * handled via deferred re-registration. For all factories, delegate to
+ * Bun's native mock.module to ensure proper mock registration.
  */
 const isBun =
   typeof (globalThis as Record<string, unknown>)['Bun'] !== 'undefined';
@@ -92,7 +91,22 @@ if (isBun) {
     }
   }
 
-  const originalMock = vi.mock as (
+  // Expose cache so bunSetup.ts can build sync mocks from it
+  Reflect.set(globalThis, '__bunMockModuleCache', moduleCache);
+
+  // Use bun:test's mock.module for proper mock registration.
+  // vi.mock wrapper calls don't properly register with Bun's internal
+  // mock system, so we delegate to the native API.
+  // biome-ignore lint/suspicious/noExplicitAny: bun:test internal
+  const bunMock = (require('bun:test') as any).mock;
+  const mockModule = bunMock.module.bind(bunMock) as (
+    path: string,
+    factory: () => unknown
+  ) => void;
+
+  // Keep original vi.mock for the virtual:app-config mock above
+  // (which was already registered before this point)
+  const originalViMock = vi.mock as (
     path: string,
     factory?: (() => unknown) | undefined
   ) => void;
@@ -109,8 +123,7 @@ if (isBun) {
         const cached = moduleCache.get(path) ?? {};
 
         // Build stub: same keys as cached but functions replaced with
-        // safe no-ops. Prevents "must be used within Provider" errors
-        // from real hooks/components in the cached module.
+        // safe no-ops. Prevents "must be used within Provider" errors.
         const stub: Record<string, unknown> = Object.create(null);
         for (const key of Object.keys(cached)) {
           const val = cached[key];
@@ -118,7 +131,7 @@ if (isBun) {
         }
 
         // Phase 1: Register stub immediately (sync, no deadlock)
-        originalMock(path, () => stub);
+        mockModule(path, () => stub);
 
         // Phase 2: Call factory with sync importOriginal
         const importOriginal = () => cached;
@@ -129,7 +142,7 @@ if (isBun) {
         // Phase 3: Re-register with real result after microtask
         resultPromise
           .then((resolved) => {
-            originalMock(path, () => resolved);
+            mockModule(path, () => resolved);
           })
           .catch((error) => {
             console.error(
@@ -139,7 +152,11 @@ if (isBun) {
           });
         return;
       }
+      // Non-importOriginal factory — delegate to native mock.module
+      mockModule(path, factory as () => unknown);
+      return;
     }
-    originalMock(path, factoryOrOpts as (() => unknown) | undefined);
+    // No factory or non-function options — pass through to vi.mock
+    originalViMock(path, factoryOrOpts as (() => unknown) | undefined);
   }) as typeof vi.mock;
 }

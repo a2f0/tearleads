@@ -40,7 +40,18 @@ const WINDOW_GLOBAL_NAMES: ReadonlyArray<string> = [
   'InputEvent',
   'MutationObserver',
   'ResizeObserver',
-  'DOMRect'
+  'DOMRect',
+  'FileReader',
+  'Blob',
+  'File',
+  'FormData',
+  'XMLHttpRequest',
+  'StorageEvent',
+  'Range',
+  'Selection',
+  'DOMParser',
+  'URL',
+  'URLSearchParams'
 ];
 
 function defineGlobal(name: string, value: unknown): void {
@@ -164,6 +175,17 @@ export function installBrowserGlobalsForBun(): void {
   }
   installTouchEventPolyfill(windowObject);
 
+  // Stub indexedDB if not available (jsdom doesn't implement it)
+  defineGlobalIfMissing('indexedDB', {
+    open: () => ({ onupgradeneeded: null, onsuccess: null, onerror: null }),
+    deleteDatabase: () => ({
+      onsuccess: null,
+      onerror: null,
+      onblocked: null
+    }),
+    databases: () => Promise.resolve([])
+  });
+
   const getComputedStyleFn = Reflect.get(windowObject, 'getComputedStyle');
   if (typeof getComputedStyleFn === 'function') {
     defineGlobal('getComputedStyle', getComputedStyleFn.bind(windowObject));
@@ -177,6 +199,13 @@ export function installBrowserGlobalsForBun(): void {
   const btoaFn = Reflect.get(windowObject, 'btoa');
   if (typeof btoaFn === 'function') {
     defineGlobalIfMissing('btoa', btoaFn.bind(windowObject));
+  }
+
+  // Stub URL.createObjectURL / revokeObjectURL if missing
+  if (typeof URL.createObjectURL !== 'function') {
+    let blobCounter = 0;
+    URL.createObjectURL = () => `blob:test-url-${blobCounter++}`;
+    URL.revokeObjectURL = () => {};
   }
 
   const timingWindow = globalThis.window;
