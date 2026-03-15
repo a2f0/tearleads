@@ -128,8 +128,9 @@ export function handleRunAnsibleBootstrap(
 export function handleEnsureDeps(timeoutMs: number, repoRoot: string): string {
   const result = runWithTimeout('pnpm', ['install'], timeoutMs, repoRoot);
   if (result.exitCode !== 0) {
+    const output = result.stdout + result.stderr;
     throw new Error(
-      result.stderr || `pnpm install failed with exit code ${result.exitCode}`
+      output || `pnpm install failed with exit code ${result.exitCode}`
     );
   }
   return 'Dependencies installed successfully.';
