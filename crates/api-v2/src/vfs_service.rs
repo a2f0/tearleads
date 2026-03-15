@@ -51,6 +51,13 @@ impl VfsService for VfsServiceHandler {
         forward_unary!(self, request, get_my_keys)
     }
 
+    async fn get_user_signing_key(
+        &self,
+        request: Request<v2::VfsGetUserSigningKeyRequest>,
+    ) -> Result<Response<v2::VfsGetUserSigningKeyResponse>, Status> {
+        forward_unary!(self, request, get_user_signing_key)
+    }
+
     async fn setup_keys(
         &self,
         request: Request<v2::VfsSetupKeysRequest>,
@@ -241,6 +248,12 @@ mod tests {
         let handler = invalid_handler();
 
         assert_internal(handler.get_my_keys(Request::new(Default::default())).await).await;
+        assert_internal(
+            handler
+                .get_user_signing_key(Request::new(Default::default()))
+                .await,
+        )
+        .await;
         assert_internal(handler.setup_keys(Request::new(Default::default())).await).await;
         assert_internal(handler.register(Request::new(Default::default())).await).await;
         assert_internal(handler.get_blob(Request::new(Default::default())).await).await;
