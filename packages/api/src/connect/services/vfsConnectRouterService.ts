@@ -14,7 +14,6 @@ import type {
   VfsGetEmailsRequest,
   VfsGetMyKeysRequest,
   VfsGetSyncRequest,
-  VfsGetUserSigningKeyRequest,
   VfsPushCrdtOpsRequest,
   VfsReconcileCrdtRequest,
   VfsReconcileSyncRequest,
@@ -117,7 +116,7 @@ export const vfsConnectRouterService = {
     };
   },
   getUserSigningKey: async (
-    request: VfsGetUserSigningKeyRequest,
+    request: { userId?: string | undefined },
     context: { requestHeader: Headers }
   ) => getUserSigningKeyDirect({ userId: request.userId }, context),
   setupKeys: async (

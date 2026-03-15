@@ -4,7 +4,7 @@ import { getCurrentVersion, runMigrations } from './index.js';
 import { createMockPool, migrations } from './index-test-support.js';
 import type { Migration } from './types.js';
 
-describe('migrations (core through v008)', () => {
+describe('migrations (core through v009)', () => {
   describe('getCurrentVersion', () => {
     it('returns 0 when table does not exist', async () => {
       const pool = createMockPool(new Map());
@@ -44,7 +44,7 @@ describe('migrations (core through v008)', () => {
         (migration: Migration) => migration.version
       );
 
-      expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
       expect(migrations[0]?.version).toBe(1);
     });
 
@@ -68,7 +68,7 @@ describe('migrations (core through v008)', () => {
           if (sql.includes('MAX(version)')) {
             versionCallCount += 1;
             return Promise.resolve({
-              rows: [{ version: versionCallCount === 1 ? null : 8 }],
+              rows: [{ version: versionCallCount === 1 ? null : 9 }],
               rowCount: 1
             });
           }
@@ -79,24 +79,24 @@ describe('migrations (core through v008)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-      expect(result.currentVersion).toBe(8);
+      expect(result.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(result.currentVersion).toBe(9);
       expect(
         pool.queries.filter((query) =>
           query.includes('INSERT INTO schema_migrations')
         )
-      ).toHaveLength(8);
+      ).toHaveLength(9);
     });
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 8 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 9 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(8);
+      expect(result.currentVersion).toBe(9);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -108,7 +108,7 @@ describe('migrations (core through v008)', () => {
         if (sql.includes('MAX(version)')) {
           versionCallCount += 1;
           return Promise.resolve({
-            rows: [{ version: versionCallCount === 1 ? 1 : 8 }],
+            rows: [{ version: versionCallCount === 1 ? 1 : 9 }],
             rowCount: 1
           });
         }
@@ -118,8 +118,8 @@ describe('migrations (core through v008)', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([2, 3, 4, 5, 6, 7, 8]);
-      expect(result.currentVersion).toBe(8);
+      expect(result.applied).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(result.currentVersion).toBe(9);
     });
   });
 
@@ -376,6 +376,29 @@ describe('migrations (core through v008)', () => {
       expect(queries).toContain('CREATE OR REPLACE VIEW "vfs_blob_refs"');
       expect(queries).toContain("registry.object_type = 'file'");
       expect(queries).toContain("links.wrapped_session_key LIKE 'blob-link:%'");
+    });
+  });
+
+  describe('v009 migration', () => {
+    it('widens manifest byte columns to bigint', async () => {
+      const pool = createMockPool(new Map());
+
+      const v009 = migrations.find(
+        (migration: Migration) => migration.version === 9
+      );
+      if (!v009) {
+        throw new Error('v009 migration not found');
+      }
+
+      await v009.up(pool);
+
+      const queries = pool.queries.join('\n');
+
+      expect(queries).toContain('ALTER TABLE "vfs_blob_manifests"');
+      expect(queries).toContain('"total_plaintext_bytes" SET DATA TYPE BIGINT');
+      expect(queries).toContain(
+        '"total_ciphertext_bytes" SET DATA TYPE BIGINT'
+      );
     });
   });
 });

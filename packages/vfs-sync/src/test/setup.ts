@@ -33,7 +33,8 @@ vi.mock('react-i18next', () => ({
         nextWriteId: 'Next Write ID',
         crdtOperations: 'CRDT Operations',
         blobOperations: 'Blob Operations',
-        encrypted: 'Encrypted'
+        encrypted: 'Encrypted',
+        inboundBlobDownloads: 'Inbound Blob Downloads'
       };
       let translated = translations[key] ?? key;
       if (options?.time !== undefined) {

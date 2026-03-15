@@ -21,8 +21,8 @@ export type StageBlobEncryptionRequest = {
   manifestHash: string;
   chunkCount: number;
   chunkSizeBytes: number;
-  plaintextSizeBytes: number;
-  ciphertextSizeBytes: number;
+  plaintextSizeBytes: number | bigint;
+  ciphertextSizeBytes: number | bigint;
   checkpoint?: StageBlobUploadCheckpointRequest | null;
 };
 

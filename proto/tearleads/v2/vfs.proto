@@ -112,8 +112,8 @@ message VfsBlobStageEncryption {
   string manifest_hash = 3;
   int32 chunk_count = 4;
   int32 chunk_size_bytes = 5;
-  int32 plaintext_size_bytes = 6;
-  int32 ciphertext_size_bytes = 7;
+  int64 plaintext_size_bytes = 6;
+  int64 ciphertext_size_bytes = 7;
   optional VfsBlobStageUploadCheckpoint checkpoint = 8;
 }
 message VfsStageBlobRequest {
@@ -465,8 +465,8 @@ message VfsGetBlobManifestResponse {
   string blob_id = 1;
   int32 key_epoch = 2;
   int32 chunk_count = 3;
-  int32 total_plaintext_bytes = 4;
-  int32 total_ciphertext_bytes = 5;
+  int64 total_plaintext_bytes = 4;
+  int64 total_ciphertext_bytes = 5;
   repeated string chunk_hashes = 6;
   string manifest_hash = 7;
   string manifest_signature = 8;

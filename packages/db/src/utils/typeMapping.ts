@@ -26,6 +26,7 @@ export interface PostgresTypeInfo {
 export const SQLITE_TYPE_MAP: Record<ColumnType, SqliteTypeInfo> = {
   text: { drizzleType: 'text' },
   integer: { drizzleType: 'integer' },
+  bigint: { drizzleType: 'integer' },
   boolean: { drizzleType: 'integer', mode: 'boolean' },
   timestamp: { drizzleType: 'integer', mode: 'timestamp_ms' },
   json: { drizzleType: 'text' }
@@ -37,6 +38,7 @@ export const SQLITE_TYPE_MAP: Record<ColumnType, SqliteTypeInfo> = {
 export const POSTGRES_TYPE_MAP: Record<ColumnType, PostgresTypeInfo> = {
   text: { drizzleType: 'text' },
   integer: { drizzleType: 'integer' },
+  bigint: { drizzleType: 'bigint' },
   boolean: { drizzleType: 'boolean' },
   timestamp: { drizzleType: 'timestamp', withTimezone: true },
   json: { drizzleType: 'jsonb' }

@@ -112,7 +112,7 @@ export function VfsRealtimeSyncBridge() {
             return;
           }
 
-          await blobDownloadSync.sync();
+          await withDownloadTracking(() => blobDownloadSync.sync());
         },
         {
           scope: BLOB_SYNC_SCOPE,

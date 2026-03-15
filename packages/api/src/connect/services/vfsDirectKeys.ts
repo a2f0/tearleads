@@ -63,7 +63,7 @@ export async function getMyKeysDirect(
 }
 
 export async function getUserSigningKeyDirect(
-  request: { userId?: string },
+  request: { userId?: string | undefined },
   context: { requestHeader: Headers }
 ): Promise<VfsUserSigningKeyResponse> {
   await requireVfsClaims(

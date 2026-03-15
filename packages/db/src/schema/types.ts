@@ -6,11 +6,18 @@ import { isRecord } from '@tearleads/shared';
  * Type mappings:
  * - text: TEXT in both databases
  * - integer: INTEGER in both databases
+ * - bigint: INTEGER in SQLite (already 64-bit), BIGINT in PostgreSQL
  * - boolean: INTEGER (0/1) in SQLite, BOOLEAN in PostgreSQL
  * - timestamp: INTEGER (milliseconds) in SQLite, TIMESTAMP WITH TIME ZONE in PostgreSQL
  * - json: TEXT in SQLite, JSONB in PostgreSQL
  */
-export type ColumnType = 'text' | 'integer' | 'boolean' | 'timestamp' | 'json';
+export type ColumnType =
+  | 'text'
+  | 'integer'
+  | 'bigint'
+  | 'boolean'
+  | 'timestamp'
+  | 'json';
 
 /**
  * Column definition with database-agnostic properties.
@@ -75,7 +82,9 @@ export interface TableDefinition {
 export function isColumnType(value: unknown): value is ColumnType {
   return (
     typeof value === 'string' &&
-    ['text', 'integer', 'boolean', 'timestamp', 'json'].includes(value)
+    ['text', 'integer', 'bigint', 'boolean', 'timestamp', 'json'].includes(
+      value
+    )
   );
 }
 
