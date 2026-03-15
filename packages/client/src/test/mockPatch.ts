@@ -3,16 +3,14 @@ import { vi } from 'vitest';
 /**
  * Bun 1.3 vi.mock importOriginal polyfill.
  *
- * Problem: Bun doesn't pass `importOriginal` to vi.mock factory functions.
- * When tests use `async (importOriginal) => { const actual = await importOriginal(); ... }`,
- * `importOriginal` is undefined under Bun.
+ * Problem: Bun doesn't pass `importOriginal` to vi.mock factory functions
+ * and deadlocks when async mock factories are used during module init.
  *
  * Solution: Pre-load commonly mocked modules during preload (before any test
- * file runs). Then wrap vi.mock so that factories expecting importOriginal
- * (factory.length > 0) receive a sync function returning the cached module.
- * The async factory's Promise resolves synchronously (since importOriginal
- * returns a plain object), letting us extract the result via `.then()` in
- * the same microtick and register a sync factory with originalMock.
+ * file runs). Wrap vi.mock so that factories expecting importOriginal
+ * (factory.length > 0) are called with a sync importOriginal returning
+ * cached exports. A stub mock is registered immediately, then the real
+ * factory result replaces it after the microtask settles.
  */
 const isBun =
   typeof (globalThis as Record<string, unknown>)['Bun'] !== 'undefined';
@@ -103,61 +101,32 @@ if (isBun) {
     if (typeof factoryOrOpts === 'function') {
       const factory = factoryOrOpts as (...args: unknown[]) => unknown;
       if (factory.length > 0) {
-        // Factory expects importOriginal. Bun can't handle async mock
-        // factories reliably (they deadlock during module init), so we
-        // call the factory with a SYNC importOriginal and extract the
-        // result. The factory is async but importOriginal resolves
-        // immediately, so the result Promise settles after one microtask.
-        // We use a sync "unwrap" trick: call the factory, intercept
-        // the spread, and build the mock object synchronously.
+        // Factory expects importOriginal. Bun deadlocks on async mock
+        // factories, so we use a two-phase approach:
+        // 1. Register a stub mock immediately (all functions → no-ops)
+        // 2. Call factory with sync importOriginal, get Promise
+        // 3. Re-register with real result after microtask settles
         const cached = moduleCache.get(path) ?? {};
 
-        // Strategy: provide importOriginal as a sync function.
-        // The factory does `await importOriginal()` which becomes
-        // `await cachedObj` — this resolves on next microtick.
-        // We can't wait for that microtick synchronously.
-        //
-        // Instead: register a SYNC factory that spreads cached + overrides.
-        // To get the overrides, we call the factory with a special
-        // importOriginal that returns a Proxy tracking which keys are read.
-        // Then we compare factory result with cached to find overrides.
-        //
-        // Simplest reliable approach: pass the factory through but
-        // replace the async factory with a sync one that calls it
-        // with sync importOriginal, discards the Promise, and instead
-        // directly builds the result.
-        //
-        // Since we know the pattern is always:
-        //   async (importOriginal) => ({ ...await importOriginal(), overrides })
-        // We can just register: () => ({ ...cached, ...overrides })
-        // But we don't know overrides without calling the factory.
-        //
-        // Final approach: call factory with sync importOriginal, use
-        // Bun's internal microtask processing to resolve before
-        // returning from vi.mock. Use a busy-wait with microtask drain.
+        // Build stub: same keys as cached but functions replaced with
+        // safe no-ops. Prevents "must be used within Provider" errors
+        // from real hooks/components in the cached module.
+        const stub: Record<string, unknown> = Object.create(null);
+        for (const key of Object.keys(cached)) {
+          const val = cached[key];
+          stub[key] = typeof val === 'function' ? () => null : val;
+        }
 
-        // Actually, the simplest fix: make importOriginal return a
-        // Promise but use mock.module from bun:test directly which
-        // DOES support async factories properly.
-        // Call the factory synchronously with a sync importOriginal.
-        // The factory is async so it returns a Promise we can't await here.
-        // Instead, we build the mock object by calling the factory and
-        // using a two-phase approach:
-        // Phase 1: Call factory, let it return a Promise
-        // Phase 2: Register a sync factory with cached exports
-        // Phase 3: After microtask settles, re-register with real result
-        //
-        // For now, use the cached module directly as the mock base
-        // and let the factory's overrides be applied via a deferred update.
+        // Phase 1: Register stub immediately (sync, no deadlock)
+        originalMock(path, () => stub);
+
+        // Phase 2: Call factory with sync importOriginal
         const importOriginal = () => cached;
         const resultPromise = factory(importOriginal) as Promise<
           Record<string, unknown>
         >;
 
-        // Register cached module immediately (sync)
-        originalMock(path, () => ({ ...cached }));
-
-        // Schedule re-registration with the real result after microtask
+        // Phase 3: Re-register with real result after microtask
         resultPromise.then((resolved) => {
           originalMock(path, () => resolved);
         });
