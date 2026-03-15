@@ -12,6 +12,8 @@ load_secrets_env prod
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-prod-k8s}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
+SKIP_SMOKE="${SKIP_SMOKE:-false}"
+SKIP_POSTGRES_SMOKE="${SKIP_POSTGRES_SMOKE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -21,7 +23,7 @@ fi
 
 export KUBECONFIG="$KUBECONFIG_FILE"
 
-deployments=("deployment/api" "deployment/client")
+deployments=("deployment/api" "deployment/api-v2" "deployment/client")
 if [[ "$SKIP_WEBSITE" != "true" ]]; then
   deployments+=("deployment/website")
 fi
@@ -39,3 +41,23 @@ done
 
 echo ""
 echo "Rollout complete. Deployments are running latest images."
+
+echo ""
+echo "Running database migrations..."
+"$SCRIPT_DIR/migrate.sh"
+
+if [[ "$SKIP_SMOKE" == "true" ]]; then
+  echo "Skipping smoke tests (SKIP_SMOKE=true)."
+else
+  echo ""
+  echo "Running API smoke test..."
+  "$SCRIPT_DIR/smoke02-api.sh"
+
+  if [[ "$SKIP_POSTGRES_SMOKE" == "true" ]]; then
+    echo "Skipping Postgres smoke test (SKIP_POSTGRES_SMOKE=true)."
+  else
+    echo ""
+    echo "Running Postgres smoke test..."
+    "$SCRIPT_DIR/smoke01-postgres.sh"
+  fi
+fi
