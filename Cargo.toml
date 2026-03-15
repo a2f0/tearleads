@@ -14,6 +14,14 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+prost = "0.14.3"
+prost-types = "0.14.3"
+tonic = { version = "0.14.5", default-features = false }
+tonic-prost = "0.14.5"
+prost-build = "0.14.3"
+tonic-prost-build = "0.14.5"
+
 [workspace.lints.rust]
 # CRITICAL: Never downgrade or remove. No unsafe code is permitted in this workspace.
 unsafe_code = "forbid"
