@@ -30,5 +30,4 @@ export class VfsAclTofuKeyStore {
 
     return existing.publicSigningKey === publicSigningKey;
   }
-
 }
