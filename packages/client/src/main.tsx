@@ -2,6 +2,7 @@ import { AudioProvider } from '@tearleads/app-audio';
 import { configureBackupsRuntime } from '@tearleads/app-backups';
 import { setKeychainDependencies } from '@tearleads/app-keychain/clientEntry';
 import { ThemeProvider } from '@tearleads/ui';
+import { ne, sql } from 'drizzle-orm';
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -28,12 +29,16 @@ import { OrgProvider } from './contexts/OrgContext';
 import { VfsOrchestratorProvider } from './contexts/VfsOrchestratorContext';
 import { VfsSyncStateProvider } from './contexts/VfsSyncStateContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
+import { getCurrentInstanceId, getDatabase, isDatabaseInitialized } from './db';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
+import { getActiveInstanceId } from './db/instanceRegistry';
+import { vfsRegistry } from './db/schema';
 import { i18n } from './i18n';
 import { clientKeychainDependencies } from './keychain/keychainRuntime';
 import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
 import { isTestMode } from './lib/testInstance';
 import { rematerializeRemoteVfsStateIfNeeded } from './lib/vfsRematerialization';
+import { VFS_ROOT_ID } from './lib/vfsRematerializationUtils';
 import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
@@ -43,15 +48,35 @@ declare global {
   interface Window {
     __TEARLEADS_E2E__?: {
       rematerializeRemoteVfsStateIfNeeded: () => Promise<boolean>;
+      getCurrentDatabaseInstanceId: () => string | null;
+      getPersistedActiveInstanceId: () => Promise<string | null>;
+      getVfsRegistryItemCount: () => Promise<number>;
     };
   }
 }
 
 const isElectronRuntime = typeof window.electron?.sqlite === 'object';
 
+async function getVfsRegistryItemCount(): Promise<number> {
+  if (!isDatabaseInitialized()) {
+    return 0;
+  }
+
+  const db = getDatabase();
+  const rows = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(vfsRegistry)
+    .where(ne(vfsRegistry.id, VFS_ROOT_ID))
+    .limit(1);
+  return rows[0]?.count ?? 0;
+}
+
 if (isTestMode()) {
   window.__TEARLEADS_E2E__ = {
-    rematerializeRemoteVfsStateIfNeeded
+    rematerializeRemoteVfsStateIfNeeded,
+    getCurrentDatabaseInstanceId: getCurrentInstanceId,
+    getPersistedActiveInstanceId: getActiveInstanceId,
+    getVfsRegistryItemCount
   };
 }
 
