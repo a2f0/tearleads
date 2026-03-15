@@ -1,5 +1,8 @@
 import { create } from '@bufbuild/protobuf';
-import { VfsGetMyKeysRequestSchema } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
+import {
+  VfsGetMyKeysRequestSchema,
+  VfsGetUserSigningKeyRequestSchema
+} from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getMyKeysDirectMock =
@@ -14,6 +17,16 @@ const getMyKeysDirectMock =
       argon2Salt?: string;
     }>
   >();
+const getUserSigningKeyDirectMock =
+  vi.fn<
+    (
+      request: unknown,
+      context: unknown
+    ) => Promise<{
+      userId: string;
+      publicSigningKey: string;
+    }>
+  >();
 const setupKeysDirectMock =
   vi.fn<
     (request: unknown, context: unknown) => Promise<{ created: boolean }>
@@ -22,6 +35,8 @@ const setupKeysDirectMock =
 vi.mock('./vfsDirectKeys.js', () => ({
   getMyKeysDirect: (request: unknown, context: unknown) =>
     getMyKeysDirectMock(request, context),
+  getUserSigningKeyDirect: (request: unknown, context: unknown) =>
+    getUserSigningKeyDirectMock(request, context),
   setupKeysDirect: (request: unknown, context: unknown) =>
     setupKeysDirectMock(request, context)
 }));
@@ -38,6 +53,10 @@ describe('vfsConnectRouterService', () => {
       argon2Salt: 'salt-1'
     });
     setupKeysDirectMock.mockResolvedValue({ created: true });
+    getUserSigningKeyDirectMock.mockResolvedValue({
+      userId: 'user-2',
+      publicSigningKey: 'ed25519-pub'
+    });
   });
 
   it('keeps key routes available for connect router callers', async () => {
@@ -75,5 +94,25 @@ describe('vfsConnectRouterService', () => {
       created: true
     });
     expect(setupKeysDirectMock).toHaveBeenCalledWith(setupKeysRequest, context);
+  });
+
+  it('forwards getUserSigningKey to direct handler', async () => {
+    const context = {
+      requestHeader: new Headers({ authorization: 'Bearer token-1' })
+    };
+
+    const response = await vfsConnectRouterService.getUserSigningKey(
+      create(VfsGetUserSigningKeyRequestSchema, { userId: 'user-2' }),
+      context
+    );
+
+    expect(response).toEqual({
+      userId: 'user-2',
+      publicSigningKey: 'ed25519-pub'
+    });
+    expect(getUserSigningKeyDirectMock).toHaveBeenCalledWith(
+      { userId: 'user-2' },
+      context
+    );
   });
 });

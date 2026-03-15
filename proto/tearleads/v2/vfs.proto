@@ -4,6 +4,8 @@ package tearleads.v2;
 
 service VfsService {
   rpc GetMyKeys(VfsGetMyKeysRequest) returns (VfsGetMyKeysResponse);
+  rpc GetUserSigningKey(VfsGetUserSigningKeyRequest)
+      returns (VfsGetUserSigningKeyResponse);
   rpc SetupKeys(VfsSetupKeysRequest) returns (VfsSetupKeysResponse);
   rpc Register(VfsRegisterRequest) returns (VfsRegisterResponse);
   rpc GetBlob(VfsGetBlobRequest) returns (VfsGetBlobResponse);
@@ -40,6 +42,13 @@ message VfsGetMyKeysResponse {
   string public_signing_key = 3;
   optional string encrypted_private_keys = 4;
   optional string argon2_salt = 5;
+}
+message VfsGetUserSigningKeyRequest {
+  string user_id = 1;
+}
+message VfsGetUserSigningKeyResponse {
+  string user_id = 1;
+  string public_signing_key = 2;
 }
 message VfsSetupKeysRequest {
   string public_encryption_key = 1;
@@ -340,6 +349,8 @@ message VfsCrdtSyncItem {
   optional string blob_id = 29;
   optional int64 blob_size_bytes = 30;
   optional string blob_relation_kind = 31;
+  optional string operation_signature = 32;
+  optional string actor_signing_public_key = 33;
 }
 message VfsGetCrdtSyncResponse {
   repeated VfsCrdtSyncItem items = 1;

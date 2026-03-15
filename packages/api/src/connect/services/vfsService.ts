@@ -40,7 +40,11 @@ import {
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
-import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
+import {
+  getMyKeysDirect,
+  getUserSigningKeyDirect,
+  setupKeysDirect
+} from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
   parseKeySetupPayload,
@@ -176,6 +180,10 @@ export function parseSetupKeysDirectRequest(
 export const vfsConnectService = {
   getMyKeys: async (_request: object, context: { requestHeader: Headers }) =>
     getMyKeysDirect({}, context),
+  getUserSigningKey: async (
+    request: { userId?: string },
+    context: { requestHeader: Headers }
+  ) => getUserSigningKeyDirect(request, context),
   setupKeys: async (request: unknown, context: { requestHeader: Headers }) =>
     setupKeysDirect(parseSetupKeysDirectRequest(request), context),
   register: async (

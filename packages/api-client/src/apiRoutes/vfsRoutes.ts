@@ -14,7 +14,8 @@ import type {
   VfsSharePolicyPreviewResponse,
   VfsSharesResponse,
   VfsShareType,
-  VfsUserKeysResponse
+  VfsUserKeysResponse,
+  VfsUserSigningKeyResponse
 } from '@tearleads/shared';
 import {
   createConnectJsonPostInit,
@@ -134,6 +135,12 @@ export const vfsRoutes = {
       fetchOptions: createConnectJsonPostInit({}),
       eventName: 'api_get_vfs_keys'
     }),
+  getUserSigningKey: (userId: string) =>
+    requestVfsTyped<VfsUserSigningKeyResponse>(
+      'GetUserSigningKey',
+      { userId },
+      'api_get_vfs_user_signing_key'
+    ),
   getSync: (cursor?: string, limit = 500) => {
     const requestBody: Record<string, unknown> = { limit };
     if (cursor) {

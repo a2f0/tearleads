@@ -401,6 +401,57 @@ describe('mapVfsCrdtSyncRows', () => {
     );
   });
 
+  it('includes operation signature and actor signing public key when present', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-sig-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z'),
+        operation_signature: 'base64-ed25519-sig',
+        actor_signing_public_key: 'base64-ed25519-pub'
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10);
+    expect(result.items[0]).toMatchObject({
+      opId: 'op-sig-1',
+      operationSignature: 'base64-ed25519-sig',
+      actorSigningPublicKey: 'base64-ed25519-pub'
+    });
+  });
+
+  it('omits operation signature fields when not present', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-nosig-1',
+        item_id: 'item-1',
+        op_type: 'link_add',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: 'parent-1',
+        child_id: 'item-1',
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10);
+    expect(result.items[0]).not.toHaveProperty('operationSignature');
+    expect(result.items[0]).not.toHaveProperty('actorSigningPublicKey');
+  });
+
   it('normalizes unexpected enum values', () => {
     const rows: VfsCrdtSyncDbRow[] = [
       {

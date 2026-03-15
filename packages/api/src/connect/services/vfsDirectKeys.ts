@@ -1,7 +1,8 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import type {
   VfsKeySetupRequest,
-  VfsUserKeysResponse
+  VfsUserKeysResponse,
+  VfsUserSigningKeyResponse
 } from '@tearleads/shared';
 import { buildVfsV2ConnectMethodPath } from '@tearleads/shared';
 import { getPostgresPool } from '../../lib/postgres.js';
@@ -58,6 +59,49 @@ export async function getMyKeysDirect(
 
     console.error('Failed to get VFS keys:', error);
     throw new ConnectError('Failed to get VFS keys', Code.Internal);
+  }
+}
+
+export async function getUserSigningKeyDirect(
+  request: { userId?: string },
+  context: { requestHeader: Headers }
+): Promise<VfsUserSigningKeyResponse> {
+  await requireVfsClaims(
+    buildVfsV2ConnectMethodPath('GetUserSigningKey'),
+    context.requestHeader
+  );
+
+  const userId =
+    typeof request.userId === 'string' ? request.userId.trim() : '';
+  if (!userId) {
+    throw new ConnectError('userId is required', Code.InvalidArgument);
+  }
+
+  try {
+    const pool = await getPostgresPool();
+    const result = await pool.query<{ public_signing_key: string }>(
+      `SELECT public_signing_key
+       FROM user_keys
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const row = result.rows[0];
+    if (!row || !row.public_signing_key) {
+      throw new ConnectError('Signing key not found for user', Code.NotFound);
+    }
+
+    return {
+      userId,
+      publicSigningKey: row.public_signing_key
+    };
+  } catch (error) {
+    if (error instanceof ConnectError) {
+      throw error;
+    }
+
+    console.error('Failed to get user signing key:', error);
+    throw new ConnectError('Failed to get user signing key', Code.Internal);
   }
 }
 

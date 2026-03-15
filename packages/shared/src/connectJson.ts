@@ -322,7 +322,9 @@ function normalizeCrdtSyncItem(value: unknown): VfsCrdtSyncItem | null {
     keyEpoch: readSafeInteger(value['keyEpoch']),
     encryptionNonce: readNonEmptyString(value['encryptionNonce']),
     encryptionAad: readNonEmptyString(value['encryptionAad']),
-    encryptionSignature: readNonEmptyString(value['encryptionSignature'])
+    encryptionSignature: readNonEmptyString(value['encryptionSignature']),
+    operationSignature: readNonEmptyString(value['operationSignature']),
+    actorSigningPublicKey: readNonEmptyString(value['actorSigningPublicKey'])
   };
 }
 
