@@ -73,8 +73,16 @@ export async function getUserSigningKeyDirect(
 
   const userId =
     typeof request.userId === 'string' ? request.userId.trim() : '';
-  if (!userId) {
-    throw new ConnectError('userId is required', Code.InvalidArgument);
+  if (
+    !userId ||
+    !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/u.test(
+      userId
+    )
+  ) {
+    throw new ConnectError(
+      'A valid userId (UUID) is required',
+      Code.InvalidArgument
+    );
   }
 
   try {

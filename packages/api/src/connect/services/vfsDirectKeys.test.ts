@@ -137,6 +137,15 @@ describe('vfsDirectKeys', () => {
       ).rejects.toMatchObject({ code: Code.InvalidArgument });
     });
 
+    it('rejects when userId is not a valid UUID', async () => {
+      await expect(
+        getUserSigningKeyDirect(
+          { userId: 'not-a-uuid' },
+          { requestHeader: new Headers() }
+        )
+      ).rejects.toMatchObject({ code: Code.InvalidArgument });
+    });
+
     it('returns not found when user has no signing key', async () => {
       queryMock.mockResolvedValueOnce({ rows: [] });
 
