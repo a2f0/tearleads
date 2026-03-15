@@ -2,6 +2,7 @@ import type { EmailBodyOperations } from '@tearleads/app-email';
 import {
   decrypt,
   importKey,
+  parseConnectJsonEnvelopeBody,
   VFS_V2_GET_EMAIL_CONNECT_PATH
 } from '@tearleads/shared';
 import { useCallback, useMemo } from 'react';
@@ -35,7 +36,8 @@ export function useClientEmailBodyOperations(): EmailBodyOperations {
         throw new Error(`Failed to fetch email: ${response.statusText}`);
       }
 
-      const emailData: unknown = await response.json();
+      const envelope: unknown = await response.json();
+      const emailData = parseConnectJsonEnvelopeBody(envelope);
       if (!isRecord(emailData)) {
         throw new Error('Invalid email response');
       }
