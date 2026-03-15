@@ -120,7 +120,9 @@ describe('connectJson helpers', () => {
             keyEpoch: 3,
             encryptionNonce: 'nonce',
             encryptionAad: 'aad',
-            encryptionSignature: 'sig'
+            encryptionSignature: 'sig',
+            operationSignature: 'op-sig',
+            actorSigningPublicKey: 'pub-key'
           }
         ],
         nextCursor: 'cursor-2',
@@ -150,7 +152,9 @@ describe('connectJson helpers', () => {
           keyEpoch: 3,
           encryptionNonce: 'nonce',
           encryptionAad: 'aad',
-          encryptionSignature: 'sig'
+          encryptionSignature: 'sig',
+          operationSignature: 'op-sig',
+          actorSigningPublicKey: 'pub-key'
         }
       ],
       nextCursor: 'cursor-2',

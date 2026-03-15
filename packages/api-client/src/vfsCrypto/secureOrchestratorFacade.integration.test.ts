@@ -343,7 +343,6 @@ describe('secureOrchestratorFacade integration', () => {
             childId: ENCODED_CIPHERTEXT_OP_ID,
             replicaId: ENCODED_CLIENT_ID,
             writeId: '1',
-            occurredAt: expect.any(String),
             occurredAtMs: expect.any(String)
           })
         ]
@@ -486,7 +485,6 @@ describe('secureOrchestratorFacade integration', () => {
         itemId: ENCODED_ITEM_ID,
         replicaId: ENCODED_CLIENT_ID,
         writeId: '1',
-        occurredAt: expect.any(String),
         occurredAtMs: expect.any(String),
         encryptedPayload: 'base64-encrypted-payload',
         keyEpoch: 11,

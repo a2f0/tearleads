@@ -96,6 +96,8 @@ vi.mock('./vfsDirectEmails.js', () => ({
 vi.mock('./vfsDirectKeys.js', () => ({
   getMyKeysDirect: (request: unknown, context: unknown) =>
     getMyKeysDirectMock(request, context),
+  getUserSigningKeyDirect: () =>
+    Promise.resolve({ userId: 'user-2', publicSigningKey: 'ed25519-pub' }),
   setupKeysDirect: (request: unknown, context: unknown) =>
     setupKeysDirectMock(request, context)
 }));

@@ -322,7 +322,9 @@ function normalizeCrdtSyncItem(value: unknown): VfsCrdtSyncItem | null {
     keyEpoch: readSafeInteger(value['keyEpoch']),
     encryptionNonce: readNonEmptyString(value['encryptionNonce']),
     encryptionAad: readNonEmptyString(value['encryptionAad']),
-    encryptionSignature: readNonEmptyString(value['encryptionSignature'])
+    encryptionSignature: readNonEmptyString(value['encryptionSignature']),
+    operationSignature: readNonEmptyString(value['operationSignature']),
+    actorSigningPublicKey: readNonEmptyString(value['actorSigningPublicKey'])
   };
 }
 
@@ -336,7 +338,8 @@ function normalizeLastReconciledWriteIds(
   const normalized: Record<string, number> = {};
   for (const [replicaId, writeId] of Object.entries(value)) {
     const trimmedReplicaId = replicaId.trim();
-    const normalizedWriteId = readSafeInteger(writeId);
+    const normalizedWriteId =
+      readSafeInteger(writeId) ?? readSafeIntegerString(writeId);
     if (
       trimmedReplicaId.length === 0 ||
       normalizedWriteId === null ||

@@ -37,6 +37,8 @@ export interface VfsCrdtSyncProtoItem {
   encryptionNonce?: string;
   encryptionAad?: string;
   encryptionSignature?: string;
+  operationSignature?: string;
+  actorSigningPublicKey?: string;
 }
 
 export interface VfsCrdtSyncProtoResponse {
@@ -255,6 +257,16 @@ function toProtoCrdtSyncItem(item: VfsCrdtSyncItem): VfsCrdtSyncProtoItem {
   const encryptionSignature = toOptionalString(item.encryptionSignature);
   if (encryptionSignature) {
     parsed.encryptionSignature = encryptionSignature;
+  }
+
+  const operationSignature = toOptionalString(item.operationSignature);
+  if (operationSignature) {
+    parsed.operationSignature = operationSignature;
+  }
+
+  const actorSigningPublicKey = toOptionalString(item.actorSigningPublicKey);
+  if (actorSigningPublicKey) {
+    parsed.actorSigningPublicKey = actorSigningPublicKey;
   }
 
   return parsed;

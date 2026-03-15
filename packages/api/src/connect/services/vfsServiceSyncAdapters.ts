@@ -134,6 +134,12 @@ export function toProtoCrdtSyncResponse(response: VfsCrdtSyncProtoResponse) {
       ...(item.encryptionAad ? { encryptionAad: item.encryptionAad } : {}),
       ...(item.encryptionSignature
         ? { encryptionSignature: item.encryptionSignature }
+        : {}),
+      ...(item.operationSignature
+        ? { operationSignature: item.operationSignature }
+        : {}),
+      ...(item.actorSigningPublicKey
+        ? { actorSigningPublicKey: item.actorSigningPublicKey }
         : {})
     })),
     hasMore: response.hasMore,

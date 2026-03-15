@@ -271,18 +271,22 @@ describe('sync-http-transport parser encrypted envelope keyEpoch', () => {
     });
   });
 
-  it('rejects legacy stringified reconcile write ids', () => {
+  it('accepts stringified reconcile write ids from proto wire format', () => {
     const cursor = encodeVfsSyncCursor({
       changedAt: '2026-02-14T20:10:05.000Z',
       changeId: '00000000-0000-0000-0000-000000000005'
     });
 
-    expect(() =>
-      parseApiReconcileResponse({
-        clientId: encodeUtf8ToBase64('desktop'),
-        cursor,
-        lastReconciledWriteIds: { desktop: '5' }
-      })
-    ).toThrow(/invalid writeId/);
+    const response = parseApiReconcileResponse({
+      clientId: encodeUtf8ToBase64('desktop'),
+      cursor,
+      lastReconciledWriteIds: { desktop: '5' }
+    });
+
+    expect(response).toEqual({
+      clientId: 'desktop',
+      cursor,
+      lastReconciledWriteIds: { desktop: 5 }
+    });
   });
 });

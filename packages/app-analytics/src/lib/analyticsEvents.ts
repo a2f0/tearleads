@@ -55,6 +55,7 @@ export type AnalyticsEventSlug =
   | 'api_delete_auth_session'
   // VFS operations
   | 'api_get_vfs_keys'
+  | 'api_get_vfs_user_signing_key'
   | 'api_get_vfs_sync'
   | 'api_get_vfs_crdt_sync'
   | 'api_post_vfs_keys'
@@ -256,6 +257,7 @@ export interface ApiDeleteAuthSessionDetail {
 
 // VFS events
 export type ApiGetVfsKeysDetail = { hasKeys?: boolean };
+export type ApiGetVfsUserSigningKeyDetail = { userId?: string };
 export type ApiGetVfsSyncDetail = { pageSize?: number };
 export type ApiGetVfsCrdtSyncDetail = { pageSize?: number };
 export type ApiPostVfsKeysDetail = { created?: boolean };
@@ -390,6 +392,7 @@ export interface EventDetailMap {
   api_get_auth_organizations: ApiGetAuthOrganizationsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;
   api_get_vfs_keys: ApiGetVfsKeysDetail;
+  api_get_vfs_user_signing_key: ApiGetVfsUserSigningKeyDetail;
   api_get_vfs_sync: ApiGetVfsSyncDetail;
   api_get_vfs_crdt_sync: ApiGetVfsCrdtSyncDetail;
   api_post_vfs_keys: ApiPostVfsKeysDetail;

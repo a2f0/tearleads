@@ -142,6 +142,10 @@ export interface VfsCrdtSyncItem {
   blobSizeBytes?: number | null;
   /** Blob relation kind (file, emailAttachment, photo, other) */
   blobRelationKind?: string | null;
+  /** ACL operation signature (base64-encoded Ed25519 signature) */
+  operationSignature?: string | null;
+  /** Public signing key of the actor who signed this ACL operation */
+  actorSigningPublicKey?: string | null;
 }
 
 export interface VfsCrdtSyncResponse {
@@ -295,6 +299,11 @@ export interface VfsUserKeysResponse {
   publicKeyIds?: string[];
   encryptedPrivateKeys?: string;
   argon2Salt?: string;
+}
+
+export interface VfsUserSigningKeyResponse {
+  userId: string;
+  publicSigningKey: string;
 }
 
 export interface VfsRekeyRequest {

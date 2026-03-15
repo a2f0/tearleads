@@ -17,7 +17,9 @@ export const VFS_CRDT_SYNC_SQL = `
           ops.key_epoch,
           encode(ops.encryption_nonce_bytes, 'base64') AS encryption_nonce,
           encode(ops.encryption_aad_bytes, 'base64') AS encryption_aad,
-          encode(ops.encryption_signature_bytes, 'base64') AS encryption_signature
+          encode(ops.encryption_signature_bytes, 'base64') AS encryption_signature,
+          encode(ops.operation_signature_bytes, 'base64') AS operation_signature,
+          ops.actor_signing_public_key
         FROM vfs_crdt_ops ops
         INNER JOIN vfs_effective_visibility access
            ON access.item_id = ops.item_id
@@ -55,6 +57,8 @@ export const VFS_CRDT_SYNC_SQL = `
         v.encryption_nonce,
         v.encryption_aad,
         v.encryption_signature,
+        v.operation_signature,
+        v.actor_signing_public_key,
         br.blob_id,
         bo.size_bytes AS blob_size_bytes,
         br.relation_kind AS blob_relation_kind

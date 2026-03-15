@@ -13,7 +13,11 @@ vi.mock('./vfsDirectAuth.js', () => ({
   requireVfsClaims: (...args: unknown[]) => requireVfsClaimsMock(...args)
 }));
 
-import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
+import {
+  getMyKeysDirect,
+  getUserSigningKeyDirect,
+  setupKeysDirect
+} from './vfsDirectKeys.js';
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -121,6 +125,53 @@ describe('vfsDirectKeys', () => {
     });
 
     expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe('getUserSigningKeyDirect', () => {
+    it('rejects when userId is missing', async () => {
+      await expect(
+        getUserSigningKeyDirect(
+          { userId: '' },
+          { requestHeader: new Headers() }
+        )
+      ).rejects.toMatchObject({ code: Code.InvalidArgument });
+    });
+
+    it('rejects when userId is not a valid UUID', async () => {
+      await expect(
+        getUserSigningKeyDirect(
+          { userId: 'not-a-uuid' },
+          { requestHeader: new Headers() }
+        )
+      ).rejects.toMatchObject({ code: Code.InvalidArgument });
+    });
+
+    it('returns not found when user has no signing key', async () => {
+      queryMock.mockResolvedValueOnce({ rows: [] });
+
+      await expect(
+        getUserSigningKeyDirect(
+          { userId: '00000000-0000-0000-0000-000000000002' },
+          { requestHeader: new Headers() }
+        )
+      ).rejects.toMatchObject({ code: Code.NotFound });
+    });
+
+    it('returns the signing key for a valid user', async () => {
+      queryMock.mockResolvedValueOnce({
+        rows: [{ public_signing_key: 'ed25519-pub-key' }]
+      });
+
+      const response = await getUserSigningKeyDirect(
+        { userId: '00000000-0000-0000-0000-000000000002' },
+        { requestHeader: new Headers() }
+      );
+
+      expect(response).toEqual({
+        userId: '00000000-0000-0000-0000-000000000002',
+        publicSigningKey: 'ed25519-pub-key'
+      });
+    });
   });
 
   it('stores keys when user has none', async () => {

@@ -14,6 +14,7 @@ import type {
   VfsGetEmailsRequest,
   VfsGetMyKeysRequest,
   VfsGetSyncRequest,
+  VfsGetUserSigningKeyRequest,
   VfsPushCrdtOpsRequest,
   VfsReconcileCrdtRequest,
   VfsReconcileSyncRequest,
@@ -49,7 +50,11 @@ import {
   getEmailsDirect,
   sendEmailDirect
 } from './vfsDirectEmails.js';
-import { getMyKeysDirect, setupKeysDirect } from './vfsDirectKeys.js';
+import {
+  getMyKeysDirect,
+  getUserSigningKeyDirect,
+  setupKeysDirect
+} from './vfsDirectKeys.js';
 import { registerDirect, rekeyItemDirect } from './vfsDirectRegistry.js';
 import {
   getCrdtSnapshotDirect,
@@ -111,6 +116,10 @@ export const vfsConnectRouterService = {
       ...(keys.argon2Salt ? { argon2Salt: keys.argon2Salt } : {})
     };
   },
+  getUserSigningKey: async (
+    request: VfsGetUserSigningKeyRequest,
+    context: { requestHeader: Headers }
+  ) => getUserSigningKeyDirect({ userId: request.userId }, context),
   setupKeys: async (
     request: VfsSetupKeysRequest | VfsKeySetupRequest | Record<string, unknown>,
     context: { requestHeader: Headers }
