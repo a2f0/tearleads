@@ -53,7 +53,7 @@ function replaceImportActual(content: string): {
 
     if (result.charAt(pos) === '(') {
       // Replace  vi.importActual<...>(  →  import(
-      result = result.substring(0, idx) + 'import(' + result.substring(pos + 1);
+      result = `${result.substring(0, idx)}import(${result.substring(pos + 1)}`;
       replacements++;
     } else {
       // Unexpected token after vi.importActual — bail on this occurrence

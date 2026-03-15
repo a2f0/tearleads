@@ -154,13 +154,13 @@ jobs:
         run: ./packages/client/scripts/buildIosImageAssets.sh
 
       - name: Sync Capacitor
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync:release
 
       - name: Verify workspace is clean
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             echo "Error: Workspace is dirty after Capacitor sync"
-            echo "Please run 'sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync' locally and commit the changes"
+            echo "Please run 'sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync:release' locally and commit the changes"
             git status
             exit 1
           fi

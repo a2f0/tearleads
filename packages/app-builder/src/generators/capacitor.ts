@@ -8,6 +8,28 @@ export function generateCapacitorConfig(config: AppConfig): string {
 
   return `import type { CapacitorConfig } from '@capacitor/cli';
 
+type CapacitorBuildEnv = Readonly<Record<string, string | undefined>>;
+
+const RELEASE_BUILD_PATTERN = /release/i;
+
+export function getCapacitorBuildConfiguration(
+  env: CapacitorBuildEnv = process.env
+): string {
+  return env['CAPACITOR_BUILD_CONFIGURATION'] ?? 'Debug';
+}
+
+export function isCapacitorReleaseBuild(
+  env: CapacitorBuildEnv = process.env
+): boolean {
+  return RELEASE_BUILD_PATTERN.test(getCapacitorBuildConfiguration(env));
+}
+
+export function isCapacitorHttpEnabled(
+  env: CapacitorBuildEnv = process.env
+): boolean {
+  return !isCapacitorReleaseBuild(env);
+}
+
 const config: CapacitorConfig = {
   appId: '${config.bundleIds.ios}',
   appName: '${config.displayName}',
@@ -17,8 +39,10 @@ const config: CapacitorConfig = {
     iosScheme: 'https'
   },
   plugins: {
+    // Native HTTP is only needed for local device development against the
+    // plain HTTP API server. Release builds should use standard webview fetch.
     CapacitorHttp: {
-      enabled: true
+      enabled: isCapacitorHttpEnabled()
     },
     CapacitorSQLite: {
       // Store database in Library (hidden from Files app) instead of Documents
