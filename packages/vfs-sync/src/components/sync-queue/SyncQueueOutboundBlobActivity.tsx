@@ -39,7 +39,7 @@ export function SyncQueueOutboundBlobActivity({
                 kind={op.success ? 'done' : 'error'}
                 id={op.operationId}
                 detail={detail}
-                timestamp={op.timestamp.slice(11, 19)}
+                timestamp={new Date(op.timestamp).toLocaleTimeString()}
               />
             );
           })}

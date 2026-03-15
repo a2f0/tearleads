@@ -44,8 +44,10 @@ describe('SyncQueueOutboundBlobActivity', () => {
 
   it('shows timestamps', () => {
     render(<SyncQueueOutboundBlobActivity operations={MOCK_OPS} />);
-    expect(screen.getByText('12:00:05')).toBeInTheDocument();
-    expect(screen.getByText('12:00:15')).toBeInTheDocument();
+    const expected1 = new Date('2026-03-15T12:00:05.000Z').toLocaleTimeString();
+    const expected2 = new Date('2026-03-15T12:00:15.000Z').toLocaleTimeString();
+    expect(screen.getByText(expected1)).toBeInTheDocument();
+    expect(screen.getByText(expected2)).toBeInTheDocument();
   });
 
   it('collapses when header is clicked', async () => {

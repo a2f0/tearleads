@@ -23,11 +23,7 @@ function emitChange(): void {
 export function pushVfsBlobUploadActivity(
   entry: VfsBlobUploadActivityEntry
 ): void {
-  const next = [...snapshot, entry];
-  if (next.length > MAX_ENTRIES) {
-    next.splice(0, next.length - MAX_ENTRIES);
-  }
-  snapshot = next;
+  snapshot = [...snapshot, entry].slice(-MAX_ENTRIES);
   emitChange();
 }
 
