@@ -6,14 +6,7 @@ import type { VfsCrdtOperation } from '../protocol/sync-crdt.js';
 import { InMemoryVfsCrdtFeedReplayStore } from '../protocol/sync-crdt-feed-replay.js';
 import { InMemoryVfsCrdtClientStateStore } from '../protocol/sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
-import { compareVfsSyncCursorOrder } from '../protocol/sync-reconcile.js';
 import { bumpLocalWriteIdFromReconcileState } from './sync-client-pending-operations.js';
-import {
-  normalizePersistedContainerClocks,
-  normalizePersistedPendingOperation,
-  normalizePersistedReconcileState,
-  normalizePersistedReplaySnapshot
-} from './sync-client-persistence-normalizers.js';
 import { buildQueuedLocalOperation } from './sync-client-queue-local-operation.js';
 import { pullUntilSettledLoop, runFlushLoop } from './sync-client-sync-loop.js';
 import type {
@@ -37,6 +30,9 @@ import {
   parseRematerializationAttempts,
   validateClientId
 } from './sync-client-utils.js';
+import { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
+import { validateAndNormalizeHydrationState } from './syncClientHydration.js';
 import {
   rematerializeClientState,
   runWithRematerializationRecovery
@@ -48,6 +44,12 @@ export {
   VfsCrdtRematerializationRequiredError,
   VfsCrdtSyncPushRejectedError
 } from './sync-client-utils.js';
+export { VfsAclTofuKeyStore } from './syncClientAclKeyStore.js';
+export type {
+  VfsAclVerificationFailure,
+  VfsAclVerificationFailureReason,
+  VfsAclVerificationHandler
+} from './syncClientAclVerification.js';
 
 export class VfsBackgroundSyncClient {
   private readonly userId: string;
@@ -62,6 +64,9 @@ export class VfsBackgroundSyncClient {
   private readonly maxRematerializationAttempts: number;
   private readonly onRematerializationRequired: VfsRematerializationRequiredHandler | null;
   private readonly signAclOperation: VfsAclOperationSigner | null;
+  private readonly verifyAclSignaturesOnPull: boolean;
+  private readonly tofuKeyStore: VfsAclTofuKeyStore | null;
+  private readonly onAclVerificationFailure: VfsAclVerificationHandler | null;
   private readonly pendingOperations: VfsCrdtOperation[] = [];
   private readonly pendingOpIds: Set<string> = new Set();
   private nextLocalWriteId = 1;
@@ -95,6 +100,11 @@ export class VfsBackgroundSyncClient {
     this.pullLimit = parsePullLimit(options.pullLimit);
     this.now = options.now ?? (() => new Date());
     this.signAclOperation = options.signAclOperation ?? null;
+    this.verifyAclSignaturesOnPull = options.verifyAclSignaturesOnPull ?? false;
+    this.tofuKeyStore = this.verifyAclSignaturesOnPull
+      ? new VfsAclTofuKeyStore()
+      : null;
+    this.onAclVerificationFailure = options.onAclVerificationFailure ?? null;
     this.onBackgroundError = options.onBackgroundError ?? null;
     this.onGuardrailViolation = options.onGuardrailViolation ?? null;
     this.maxRematerializationAttempts = parseRematerializationAttempts(
@@ -182,134 +192,25 @@ export class VfsBackgroundSyncClient {
   hydrateState(state: VfsBackgroundSyncClientPersistedState): void {
     try {
       this.assertHydrationAllowed();
-      if (typeof state !== 'object' || state === null) {
-        throw new Error('state must be a non-null object');
-      }
 
-      if (!Array.isArray(state.pendingOperations)) {
-        throw new Error('state.pendingOperations must be an array');
-      }
-      if (!Array.isArray(state.containerClocks)) {
-        throw new Error('state.containerClocks must be an array');
-      }
-
-      const normalizedReplaySnapshot = normalizePersistedReplaySnapshot(
-        state.replaySnapshot
-      );
-      const normalizedReconcileState = normalizePersistedReconcileState(
-        state.reconcileState
-      );
-      const normalizedContainerClocks = normalizePersistedContainerClocks(
-        state.containerClocks
+      const validated = validateAndNormalizeHydrationState(
+        state,
+        this.clientId
       );
 
-      if (
-        normalizedReplaySnapshot.cursor &&
-        normalizedReconcileState &&
-        compareVfsSyncCursorOrder(
-          normalizedReconcileState.cursor,
-          normalizedReplaySnapshot.cursor
-        ) < 0
-      ) {
-        throw new Error(
-          'persisted reconcile cursor regressed persisted replay cursor'
-        );
-      }
+      this.replayStore.replaceSnapshot(validated.replaySnapshot);
+      this.containerClockStore.replaceSnapshot(validated.containerClocks);
 
-      const effectivePersistedCursor =
-        normalizedReconcileState?.cursor ?? normalizedReplaySnapshot.cursor;
-      if (normalizedContainerClocks.length > 0 && !effectivePersistedCursor) {
-        throw new Error(
-          'state.containerClocks requires persisted replay or reconcile cursor'
-        );
-      }
-      if (effectivePersistedCursor) {
-        for (let index = 0; index < normalizedContainerClocks.length; index++) {
-          const clock = normalizedContainerClocks[index];
-          if (
-            clock &&
-            compareVfsSyncCursorOrder(
-              {
-                changedAt: clock.changedAt,
-                changeId: clock.changeId
-              },
-              effectivePersistedCursor
-            ) > 0
-          ) {
-            throw new Error(
-              `state.containerClocks[${index}] is ahead of persisted sync cursor`
-            );
-          }
-        }
-      }
-
-      const normalizedPendingOperations: VfsCrdtOperation[] = [];
-      const observedPendingOpIds: Set<string> = new Set();
-      let maxPendingWriteId = 0;
-      let previousWriteId = 0;
-      for (let index = 0; index < state.pendingOperations.length; index++) {
-        const operation = state.pendingOperations[index];
-        if (!operation) {
-          throw new Error(`state.pendingOperations[${index}] is invalid`);
-        }
-
-        const normalizedOperation = normalizePersistedPendingOperation({
-          operation,
-          index,
-          clientId: this.clientId
-        });
-        if (observedPendingOpIds.has(normalizedOperation.opId)) {
-          throw new Error(
-            `state.pendingOperations has duplicate opId ${normalizedOperation.opId}`
-          );
-        }
-        if (normalizedOperation.writeId <= previousWriteId) {
-          throw new Error(
-            'state.pendingOperations writeIds must be strictly increasing'
-          );
-        }
-
-        observedPendingOpIds.add(normalizedOperation.opId);
-        normalizedPendingOperations.push(normalizedOperation);
-        maxPendingWriteId = Math.max(
-          maxPendingWriteId,
-          normalizedOperation.writeId
-        );
-        previousWriteId = normalizedOperation.writeId;
-      }
-
-      const persistedBoundaryChangeIds: Set<string> = new Set();
-      if (normalizedReplaySnapshot.cursor) {
-        persistedBoundaryChangeIds.add(
-          normalizedReplaySnapshot.cursor.changeId
-        );
-      }
-      if (normalizedReconcileState) {
-        persistedBoundaryChangeIds.add(
-          normalizedReconcileState.cursor.changeId
-        );
-      }
-      for (const operation of normalizedPendingOperations) {
-        if (persistedBoundaryChangeIds.has(operation.opId)) {
-          throw new Error(
-            `state.pendingOperations contains opId ${operation.opId} that collides with persisted cursor boundary`
-          );
-        }
-      }
-
-      this.replayStore.replaceSnapshot(normalizedReplaySnapshot);
-      this.containerClockStore.replaceSnapshot(normalizedContainerClocks);
-
-      if (normalizedReconcileState) {
+      if (validated.reconcileState) {
         this.reconcileStateStore.reconcile(
           this.userId,
           this.clientId,
-          normalizedReconcileState.cursor,
-          normalizedReconcileState.lastReconciledWriteIds
+          validated.reconcileState.cursor,
+          validated.reconcileState.lastReconciledWriteIds
         );
       }
 
-      for (const operation of normalizedPendingOperations) {
+      for (const operation of validated.pendingOperations) {
         this.pendingOperations.push({ ...operation });
         this.pendingOpIds.add(operation.opId);
       }
@@ -320,7 +221,7 @@ export class VfsBackgroundSyncClient {
       );
       this.nextLocalWriteId = Math.max(
         persistedNextLocalWriteId,
-        maxPendingWriteId + 1
+        validated.maxPendingWriteId + 1
       );
       this.nextLocalWriteId = bumpLocalWriteIdFromReconcileState({
         reconcileState: this.reconcileStateStore.get(
@@ -471,6 +372,9 @@ export class VfsBackgroundSyncClient {
         this.nextLocalWriteId = value;
       },
       signAclOperation: this.signAclOperation,
+      verifyAclSignaturesOnPull: this.verifyAclSignaturesOnPull,
+      tofuKeyStore: this.tofuKeyStore,
+      onAclVerificationFailure: this.onAclVerificationFailure,
       emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => {
         this.emitGuardrailViolation(violation);
       }

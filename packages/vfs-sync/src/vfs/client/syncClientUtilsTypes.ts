@@ -12,6 +12,7 @@ import type {
   VfsCrdtLastReconciledWriteIds
 } from '../protocol/sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from '../protocol/sync-cursor.js';
+import type { VfsAclVerificationHandler } from './syncClientAclVerification.js';
 
 export const DEFAULT_PULL_LIMIT = 100;
 export const MAX_PULL_LIMIT = 500;
@@ -98,6 +99,7 @@ export type VfsSyncGuardrailViolationCode =
   | 'pullDuplicateOpReplay'
   | 'pullCursorRegression'
   | 'pullRematerializationRequired'
+  | 'pullAclSignatureVerificationFailure'
   | 'reconcileCursorRegression'
   | 'lastWriteIdRegression'
   | 'hydrateGuardrailViolation';
@@ -166,6 +168,8 @@ export interface VfsBackgroundSyncClientOptions {
   pullLimit?: number;
   now?: () => Date;
   signAclOperation?: VfsAclOperationSigner;
+  verifyAclSignaturesOnPull?: boolean;
+  onAclVerificationFailure?: VfsAclVerificationHandler;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
   maxRematerializationAttempts?: number;
