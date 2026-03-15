@@ -32,10 +32,19 @@ describe('NotificationsTab', () => {
       notificationStore.add('info', 'Test Title', 'Test message');
     });
 
-    render(<NotificationsTab />);
+    const { container } = render(<NotificationsTab />);
 
     expect(screen.getByText('Test Title')).toBeInTheDocument();
     expect(screen.getByText('Test message')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass(
+      'flex',
+      'h-full',
+      'min-h-0',
+      'flex-col'
+    );
+    const scrollRegion = container.querySelector('.overflow-y-auto');
+    expect(scrollRegion).toHaveClass('min-h-0', 'flex-1');
+    expect(scrollRegion).not.toHaveClass('max-h-64');
   });
 
   it('displays notification count', () => {

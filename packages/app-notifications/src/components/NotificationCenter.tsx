@@ -73,7 +73,7 @@ export function NotificationCenter({
       maxWidthPercent={MAX_WIDTH_PERCENT}
       maxHeightPercent={MAX_HEIGHT_PERCENT}
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full min-h-0 flex-col">
         {/* Menu bar */}
         <WindowMenuBar>
           <DropdownMenu trigger={tMenu('file')}>
@@ -110,7 +110,7 @@ export function NotificationCenter({
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-auto p-3">
+        <div className="min-h-0 flex-1 overflow-auto p-3">
           {activeTab === 'analytics' && <AnalyticsTab />}
           {activeTab === 'logs' && <LogsTab />}
           {activeTab === 'notifications' && <NotificationsTab />}

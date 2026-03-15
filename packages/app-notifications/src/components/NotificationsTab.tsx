@@ -172,7 +172,7 @@ export function NotificationsTab() {
 
   if (notifications.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+      <div className="flex h-full min-h-32 items-center justify-center text-muted-foreground text-sm">
         {t('noNotifications')}
       </div>
     );
@@ -189,7 +189,7 @@ export function NotificationsTab() {
     unreadCount > 0 ? ` (${t('unread', { count: unreadCount })})` : '';
 
   return (
-    <div className="space-y-2">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="font-medium text-muted-foreground text-xs">
           {notificationCountText}
@@ -219,7 +219,7 @@ export function NotificationsTab() {
         </div>
       </div>
 
-      <div className="max-h-64 space-y-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {notifications.map((notification) => (
           <NotificationItem
             key={notification.id}
