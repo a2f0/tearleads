@@ -29,6 +29,7 @@ export type VfsAclVerificationHandler = (
 ) => void;
 
 const CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
+const ED25519_PUBLIC_KEY_LENGTH = 32;
 
 /**
  * Parse replicaId and writeId from the source_id field.
@@ -141,7 +142,7 @@ function verifySingleAclItem(
   }
 
   const publicKeyBytes = base64ToBytes(publicKeyBase64);
-  if (!publicKeyBytes || publicKeyBytes.length !== 32) {
+  if (!publicKeyBytes || publicKeyBytes.length !== ED25519_PUBLIC_KEY_LENGTH) {
     return {
       opId: item.opId,
       actorId: item.actorId,

@@ -4,13 +4,8 @@
  * and raises an error if a subsequent operation arrives with a different key.
  */
 
-interface VfsAclKeyStoreEntry {
-  publicSigningKey: string;
-  firstSeenAt: string;
-}
-
 export class VfsAclTofuKeyStore {
-  private readonly keys = new Map<string, VfsAclKeyStoreEntry>();
+  private readonly keys = new Map<string, string>();
 
   /**
    * Pin or verify an actor's public signing key.
@@ -21,13 +16,10 @@ export class VfsAclTofuKeyStore {
   verifyOrPin(actorId: string, publicSigningKey: string): boolean {
     const existing = this.keys.get(actorId);
     if (!existing) {
-      this.keys.set(actorId, {
-        publicSigningKey,
-        firstSeenAt: new Date().toISOString()
-      });
+      this.keys.set(actorId, publicSigningKey);
       return true;
     }
 
-    return existing.publicSigningKey === publicSigningKey;
+    return existing === publicSigningKey;
   }
 }
