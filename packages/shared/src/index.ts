@@ -82,6 +82,12 @@ export function formatDate(date: Date): string {
 
 export { assertPlainArrayBuffer, isRecord };
 
+export {
+  isValidSyncIdentifier,
+  OPAQUE_IDENTIFIER_PATTERN,
+  UUID_PATTERN
+} from './vfsSyncIdentifiers.js';
+
 /**
  * Safely extract an error code from an unknown error value.
  * Returns undefined if the error doesn't have a string code property.

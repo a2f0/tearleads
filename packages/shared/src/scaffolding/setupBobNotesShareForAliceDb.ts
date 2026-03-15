@@ -216,7 +216,7 @@ export async function setupBobNotesShareForAliceDb(
         idFactory(),
         noteId,
         bobUserId,
-        `vfs_item_state:${noteId}`,
+        `vfs-item-state:${noteId}`,
         noteItemUpsertOccurredAtIso,
         notePayload,
         noteNonce,

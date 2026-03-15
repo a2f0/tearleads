@@ -250,7 +250,7 @@ export async function setupBobPlaylistShareForAliceDb(
         idFactory(),
         audioId,
         bobUserId,
-        `vfs_item_state:${audioId}`,
+        `vfs-item-state:${audioId}`,
         audioItemUpsertOccurredAtIso,
         audioContentBase64,
         audioNonce,

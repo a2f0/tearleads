@@ -232,7 +232,7 @@ export async function setupBobPhotoAlbumShareForAliceDb(
         idFactory(),
         photoId,
         bobUserId,
-        `vfs_item_state:${photoId}`,
+        `vfs-item-state:${photoId}`,
         photoItemUpsertOccurredAtIso,
         photoPayload,
         photoNonce,
