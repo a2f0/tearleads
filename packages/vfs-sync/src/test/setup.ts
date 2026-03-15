@@ -34,7 +34,8 @@ vi.mock('react-i18next', () => ({
         crdtOperations: 'CRDT Operations',
         blobOperations: 'Blob Operations',
         encrypted: 'Encrypted',
-        inboundBlobDownloads: 'Inbound Blob Downloads'
+        inboundBlobDownloads: 'Inbound Blob Downloads',
+        outboundBlobActivity: 'Recent Blob Uploads'
       };
       let translated = translations[key] ?? key;
       if (options?.time !== undefined) {

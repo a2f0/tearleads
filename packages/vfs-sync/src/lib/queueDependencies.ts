@@ -22,10 +22,20 @@ export interface SyncQueueSnapshotInboundBlobOp {
   sizeBytes: number;
 }
 
+export interface SyncQueueSnapshotOutboundBlobActivity {
+  operationId: string;
+  kind: string;
+  success: boolean;
+  timestamp: string;
+  retryCount: number;
+  failureClass?: string | undefined;
+}
+
 export interface SyncQueueSnapshot {
   outbound: {
     crdt: SyncQueueSnapshotCrdtOp[];
     blob: SyncQueueSnapshotBlobOp[];
+    blobActivity: SyncQueueSnapshotOutboundBlobActivity[];
   };
   inbound: {
     cursor: { changedAt: string; changeId: string } | null;

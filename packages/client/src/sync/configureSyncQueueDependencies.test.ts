@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseVfsBlobDownloadOperations = vi.fn(() => []);
+const mockUseVfsBlobUploadActivity = vi.fn(() => []);
 
 describe('configureSyncQueueDependencies', () => {
   beforeEach(() => {
@@ -10,6 +11,8 @@ describe('configureSyncQueueDependencies', () => {
     }
     mockUseVfsBlobDownloadOperations.mockReset();
     mockUseVfsBlobDownloadOperations.mockReturnValue([]);
+    mockUseVfsBlobUploadActivity.mockReset();
+    mockUseVfsBlobUploadActivity.mockReturnValue([]);
   });
   it('configures sync queue dependencies only once', async () => {
     const setSyncQueueDependencies = vi.fn();
@@ -22,6 +25,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
     }));
 
     const { configureSyncQueueDependencies } = await import(
@@ -51,6 +57,9 @@ describe('configureSyncQueueDependencies', () => {
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
     }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
+    }));
 
     const { configureSyncQueueDependencies } = await import(
       './configureSyncQueueDependencies'
@@ -62,7 +71,7 @@ describe('configureSyncQueueDependencies', () => {
     const { result } = renderHook(() => deps.useSnapshot());
 
     expect(result.current).toEqual({
-      outbound: { crdt: [], blob: [] },
+      outbound: { crdt: [], blob: [], blobActivity: [] },
       inbound: {
         cursor: null,
         pendingOperations: 0,
@@ -110,6 +119,9 @@ describe('configureSyncQueueDependencies', () => {
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
     }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
+    }));
 
     const { configureSyncQueueDependencies } = await import(
       './configureSyncQueueDependencies'
@@ -140,7 +152,8 @@ describe('configureSyncQueueDependencies', () => {
             itemId: 'itm-1',
             chunkIndex: 0
           }
-        ]
+        ],
+        blobActivity: []
       },
       inbound: {
         cursor: { changedAt: '2026-01-01', changeId: 'c-1' },
@@ -181,6 +194,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
     }));
 
     const { configureSyncQueueDependencies } = await import(
@@ -223,6 +239,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
     }));
 
     const { configureSyncQueueDependencies } = await import(
@@ -274,6 +293,9 @@ describe('configureSyncQueueDependencies', () => {
     }));
     vi.doMock('@/lib/vfsBlobDownloadStore', () => ({
       useVfsBlobDownloadOperations: () => mockUseVfsBlobDownloadOperations()
+    }));
+    vi.doMock('@/lib/vfsBlobUploadStore', () => ({
+      useVfsBlobUploadActivity: () => mockUseVfsBlobUploadActivity()
     }));
 
     const { configureSyncQueueDependencies } = await import(

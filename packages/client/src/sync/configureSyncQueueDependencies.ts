@@ -5,9 +5,10 @@ import {
 } from '@tearleads/vfs-sync/clientEntry';
 import { useVfsOrchestratorInstance } from '@/contexts/VfsOrchestratorContext';
 import { useVfsBlobDownloadOperations } from '@/lib/vfsBlobDownloadStore';
+import { useVfsBlobUploadActivity } from '@/lib/vfsBlobUploadStore';
 
 const EMPTY_SNAPSHOT: SyncQueueSnapshot = {
-  outbound: { crdt: [], blob: [] },
+  outbound: { crdt: [], blob: [], blobActivity: [] },
   inbound: {
     cursor: null,
     pendingOperations: 0,
@@ -23,9 +24,14 @@ function createDependencies(): SyncQueueDependencies {
     useSnapshot(): SyncQueueSnapshot {
       const orchestrator = useVfsOrchestratorInstance();
       const blobDownloads = useVfsBlobDownloadOperations();
+      const blobActivity = useVfsBlobUploadActivity();
       if (!orchestrator) {
         return {
           ...EMPTY_SNAPSHOT,
+          outbound: {
+            ...EMPTY_SNAPSHOT.outbound,
+            blobActivity: [...blobActivity]
+          },
           inbound: {
             ...EMPTY_SNAPSHOT.inbound,
             blobDownloads: [...blobDownloads]
@@ -62,7 +68,8 @@ function createDependencies(): SyncQueueDependencies {
               'payload' in op && 'chunkIndex' in op.payload
                 ? (op.payload.chunkIndex as number)
                 : undefined
-          }))
+          })),
+          blobActivity: [...blobActivity]
         },
         inbound: {
           cursor: crdtSnapshot.cursor,
