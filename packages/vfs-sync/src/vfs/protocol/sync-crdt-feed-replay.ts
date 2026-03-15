@@ -33,6 +33,7 @@ export type VfsCrdtFeedReplayViolationCode =
   | 'invalidCursor'
   | 'nonMonotonicCursor'
   | 'invalidAclOperation'
+  | 'invalidAclSignature'
   | 'invalidLinkOperation';
 
 export class VfsCrdtFeedReplayError extends Error {
@@ -155,7 +156,15 @@ export class InMemoryVfsCrdtFeedReplayStore {
     new Map();
   private cursor: VfsSyncCursor | null = null;
 
-  applyPage(items: VfsCrdtSyncItem[]): VfsSyncCursor | null {
+  applyPage(
+    items: VfsCrdtSyncItem[],
+    options?: {
+      verifyAclItem?: (
+        item: VfsCrdtSyncItem,
+        index: number
+      ) => { verified: boolean; reason?: string };
+    }
+  ): VfsSyncCursor | null {
     for (let index = 0; index < items.length; index++) {
       const item = items[index];
       if (!item) {
@@ -180,6 +189,16 @@ export class InMemoryVfsCrdtFeedReplayStore {
       }
 
       if (item.opType === 'acl_add' || item.opType === 'acl_remove') {
+        if (options?.verifyAclItem) {
+          const result = options.verifyAclItem(item, index);
+          if (!result.verified) {
+            throw new VfsCrdtFeedReplayError(
+              'invalidAclSignature',
+              index,
+              `CRDT feed item ${index} failed ACL signature verification: ${result.reason ?? 'unknown'}`
+            );
+          }
+        }
         this.applyAclItem(item, index);
       } else if (
         item.opType === 'link_add' ||

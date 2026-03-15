@@ -36,6 +36,7 @@ export {
   delayVfsCrdtSyncTransport,
   type InMemoryVfsCrdtSyncTransportDelayConfig,
   type QueueVfsCrdtLocalOperationInput,
+  type VfsAclOperationVerifier,
   VfsBackgroundSyncClient,
   type VfsBackgroundSyncClientFlushResult,
   type VfsBackgroundSyncClientOptions,
@@ -57,6 +58,10 @@ export {
   type InMemoryVfsCrdtSyncServerSnapshot,
   InMemoryVfsCrdtSyncTransport
 } from './client/sync-client-harness.js';
+export {
+  type AclVerificationResult,
+  verifyPulledAclItemSignature
+} from './client/syncClientAclVerification.js';
 export {
   toGuardrailMetricEvent,
   toRematerializationMetricEvent,

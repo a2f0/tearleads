@@ -55,6 +55,11 @@ export type VfsAclOperationSigner = (
   operation: VfsAclOperationSigningInput
 ) => Promise<string | null | undefined> | string | null | undefined;
 
+export type VfsAclOperationVerifier = (item: VfsCrdtSyncItem) => {
+  verified: boolean;
+  reason?: string;
+};
+
 export interface VfsCrdtSyncPullResponse {
   items: VfsCrdtSyncItem[];
   hasMore: boolean;
@@ -166,6 +171,7 @@ export interface VfsBackgroundSyncClientOptions {
   pullLimit?: number;
   now?: () => Date;
   signAclOperation?: VfsAclOperationSigner;
+  verifyAclOperationSignature?: VfsAclOperationVerifier;
   onBackgroundError?: (error: unknown) => void;
   onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
   maxRematerializationAttempts?: number;

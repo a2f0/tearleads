@@ -16,6 +16,7 @@ import {
 } from './sync-client-pending-operations.js';
 import type {
   VfsAclOperationSigner,
+  VfsAclOperationVerifier,
   VfsBackgroundSyncClientFlushResult,
   VfsBackgroundSyncClientSyncResult,
   VfsCrdtSyncTransport,
@@ -51,6 +52,7 @@ interface VfsSyncClientLoopDependencies {
   readNextLocalWriteId: () => number;
   writeNextLocalWriteId: (value: number) => void;
   signAclOperation: VfsAclOperationSigner | null;
+  verifyAclOperationSignature: VfsAclOperationVerifier | null;
   emitGuardrailViolation: (violation: VfsSyncGuardrailViolation) => void;
 }
 
@@ -269,7 +271,9 @@ export async function pullUntilSettledLoop(
     }
 
     if (pullItemsApplied) {
-      dependencies.replayStore.applyPage(forwardItems);
+      dependencies.replayStore.applyPage(forwardItems, {
+        verifyAclItem: dependencies.verifyAclOperationSignature ?? undefined
+      });
       dependencies.containerClockStore.applyFeedItems(forwardItems);
       pulledOperations += forwardItems.length;
     }
