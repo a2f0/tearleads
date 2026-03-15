@@ -11,6 +11,7 @@ describe('SQLITE_TYPE_MAP', () => {
   it('has correct mappings for all column types', () => {
     expect(SQLITE_TYPE_MAP.text).toEqual({ drizzleType: 'text' });
     expect(SQLITE_TYPE_MAP.integer).toEqual({ drizzleType: 'integer' });
+    expect(SQLITE_TYPE_MAP.bigint).toEqual({ drizzleType: 'integer' });
     expect(SQLITE_TYPE_MAP.boolean).toEqual({
       drizzleType: 'integer',
       mode: 'boolean'
@@ -27,6 +28,7 @@ describe('POSTGRES_TYPE_MAP', () => {
   it('has correct mappings for all column types', () => {
     expect(POSTGRES_TYPE_MAP.text).toEqual({ drizzleType: 'text' });
     expect(POSTGRES_TYPE_MAP.integer).toEqual({ drizzleType: 'integer' });
+    expect(POSTGRES_TYPE_MAP.bigint).toEqual({ drizzleType: 'bigint' });
     expect(POSTGRES_TYPE_MAP.boolean).toEqual({ drizzleType: 'boolean' });
     expect(POSTGRES_TYPE_MAP.timestamp).toEqual({
       drizzleType: 'timestamp',
@@ -40,6 +42,7 @@ describe('getSqliteTypeInfo', () => {
   it('returns correct type info for each column type', () => {
     expect(getSqliteTypeInfo('text')).toEqual({ drizzleType: 'text' });
     expect(getSqliteTypeInfo('integer')).toEqual({ drizzleType: 'integer' });
+    expect(getSqliteTypeInfo('bigint')).toEqual({ drizzleType: 'integer' });
     expect(getSqliteTypeInfo('boolean')).toEqual({
       drizzleType: 'integer',
       mode: 'boolean'
@@ -56,6 +59,7 @@ describe('getPostgresTypeInfo', () => {
   it('returns correct type info for each column type', () => {
     expect(getPostgresTypeInfo('text')).toEqual({ drizzleType: 'text' });
     expect(getPostgresTypeInfo('integer')).toEqual({ drizzleType: 'integer' });
+    expect(getPostgresTypeInfo('bigint')).toEqual({ drizzleType: 'bigint' });
     expect(getPostgresTypeInfo('boolean')).toEqual({ drizzleType: 'boolean' });
     expect(getPostgresTypeInfo('timestamp')).toEqual({
       drizzleType: 'timestamp',

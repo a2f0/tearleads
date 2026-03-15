@@ -10,6 +10,7 @@ describe('isColumnType', () => {
   it('returns true for valid column types', () => {
     expect(isColumnType('text')).toBe(true);
     expect(isColumnType('integer')).toBe(true);
+    expect(isColumnType('bigint')).toBe(true);
     expect(isColumnType('boolean')).toBe(true);
     expect(isColumnType('timestamp')).toBe(true);
     expect(isColumnType('json')).toBe(true);

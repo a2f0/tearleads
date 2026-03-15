@@ -225,12 +225,12 @@ const vfsBlobManifestsTable: TableDefinition = {
       notNull: true
     },
     totalPlaintextBytes: {
-      type: 'integer',
+      type: 'bigint',
       sqlName: 'total_plaintext_bytes',
       notNull: true
     },
     totalCiphertextBytes: {
-      type: 'integer',
+      type: 'bigint',
       sqlName: 'total_ciphertext_bytes',
       notNull: true
     },
