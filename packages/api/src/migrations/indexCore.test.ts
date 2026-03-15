@@ -395,9 +395,7 @@ describe('migrations (core through v009)', () => {
       const queries = pool.queries.join('\n');
 
       expect(queries).toContain('ALTER TABLE "vfs_blob_manifests"');
-      expect(queries).toContain(
-        '"total_plaintext_bytes" SET DATA TYPE BIGINT'
-      );
+      expect(queries).toContain('"total_plaintext_bytes" SET DATA TYPE BIGINT');
       expect(queries).toContain(
         '"total_ciphertext_bytes" SET DATA TYPE BIGINT'
       );
