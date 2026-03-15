@@ -87,6 +87,8 @@ describe('NotificationsTab', () => {
   });
 
   it('marks notification as read with keyboard activation', async () => {
+    const user = userEvent.setup();
+
     act(() => {
       notificationStore.add('info', 'Keyboard Title', 'Keyboard message');
     });
@@ -97,9 +99,8 @@ describe('NotificationsTab', () => {
       name: /keyboard title/i
     });
 
-    await act(async () => {
-      fireEvent.keyDown(notification, { key: 'Enter' });
-    });
+    notification.focus();
+    await user.keyboard('{Enter}');
 
     expect(notificationStore.getUnreadCount()).toBe(0);
   });
