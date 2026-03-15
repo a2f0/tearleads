@@ -28,13 +28,13 @@ import {
   type InstanceChangeSnapshot,
   subscribeToInstanceChange
 } from '@/hooks/app/useInstanceChange';
-import { pushVfsBlobUploadActivity } from '@/lib/vfsBlobUploadStore';
 import { ensureVfsKeys } from '@/hooks/vfs/useVfsKeys';
 import {
   getActiveOrganizationId,
   hasActiveOrganizationId,
   onOrgChange
 } from '@/lib/orgStorage';
+import { pushVfsBlobUploadActivity } from '@/lib/vfsBlobUploadStore';
 import { setVfsItemSyncRuntime } from '@/lib/vfsItemSyncWriter';
 import { rematerializeRemoteVfsStateIfNeeded } from '@/lib/vfsRematerialization';
 import { isVfsRuntimeDatabaseReady } from '@/lib/vfsRuntimeDatabaseGate';
