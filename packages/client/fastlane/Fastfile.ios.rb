@@ -18,7 +18,7 @@ def ensure_release_capacitor_sync!
   UI.user_error!(
     "Release iOS builds require a release Capacitor sync. Run `sh ../../scripts/tooling/pm.sh run cap:sync:release ios` first."
   )
-rescue Errno::ENOENT, JSON::ParserError => e
+rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
   UI.user_error!("Could not load #{config_path}: #{e.message}")
 end
 
