@@ -1,8 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import {
-  VfsGetMyKeysRequestSchema,
-  VfsGetUserSigningKeyRequestSchema
-} from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
+import { VfsGetMyKeysRequestSchema } from '@tearleads/shared/gen/tearleads/v2/vfs_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getMyKeysDirectMock =
@@ -102,9 +99,7 @@ describe('vfsConnectRouterService', () => {
     };
 
     const response = await vfsConnectRouterService.getUserSigningKey(
-      create(VfsGetUserSigningKeyRequestSchema, {
-        userId: '00000000-0000-0000-0000-000000000002'
-      }),
+      { userId: '00000000-0000-0000-0000-000000000002' },
       context
     );
 
