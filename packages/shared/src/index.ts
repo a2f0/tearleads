@@ -83,9 +83,9 @@ export function formatDate(date: Date): string {
 export { assertPlainArrayBuffer, isRecord };
 
 export {
-  UUID_PATTERN,
+  isValidSyncIdentifier,
   OPAQUE_IDENTIFIER_PATTERN,
-  isValidSyncIdentifier
+  UUID_PATTERN
 } from './vfsSyncIdentifiers.js';
 
 /**

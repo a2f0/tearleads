@@ -14,9 +14,7 @@ describe('isValidSyncIdentifier', () => {
   it('accepts colon-separated opaque identifiers', () => {
     expect(isValidSyncIdentifier('source-1')).toBe(true);
     expect(isValidSyncIdentifier('vfs-item-state:abc123')).toBe(true);
-    expect(
-      isValidSyncIdentifier('actor-id:replica-id:123:op-id')
-    ).toBe(true);
+    expect(isValidSyncIdentifier('actor-id:replica-id:123:op-id')).toBe(true);
   });
 
   it('rejects identifiers with underscores', () => {

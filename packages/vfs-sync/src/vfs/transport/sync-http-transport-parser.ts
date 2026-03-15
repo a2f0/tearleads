@@ -5,10 +5,7 @@ import type {
   VfsCrdtSyncResponse,
   VfsSyncBloomFilter
 } from '@tearleads/shared';
-import {
-  OPAQUE_IDENTIFIER_PATTERN,
-  UUID_PATTERN
-} from '@tearleads/shared';
+import { OPAQUE_IDENTIFIER_PATTERN, UUID_PATTERN } from '@tearleads/shared';
 import { parseVfsCrdtLastReconciledWriteIds } from '../protocol/sync-crdt-reconcile.js';
 import { decodeVfsSyncCursor } from '../protocol/sync-cursor.js';
 import {
