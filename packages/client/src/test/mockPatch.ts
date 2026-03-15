@@ -127,9 +127,16 @@ if (isBun) {
         >;
 
         // Phase 3: Re-register with real result after microtask
-        resultPromise.then((resolved) => {
-          originalMock(path, () => resolved);
-        });
+        resultPromise
+          .then((resolved) => {
+            originalMock(path, () => resolved);
+          })
+          .catch((error) => {
+            console.error(
+              `[mockPatch] Mock factory for "${path}" rejected:`,
+              error
+            );
+          });
         return;
       }
     }
