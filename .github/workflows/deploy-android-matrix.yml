@@ -164,7 +164,7 @@ jobs:
         run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync:release
 
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh

@@ -218,7 +218,7 @@ jobs:
 
       - name: Sync Capacitor
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync:release
 
       - name: Build iOS release app for simulator
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}

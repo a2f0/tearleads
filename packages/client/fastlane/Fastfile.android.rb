@@ -1,3 +1,4 @@
+require 'json'
 require 'googleauth'
 require 'google/apis/androidpublisher_v3'
 import 'utils.rb'
@@ -62,6 +63,18 @@ def resolve_android_device_serial
   )
 end
 
+def ensure_release_capacitor_sync!
+  config_path = File.expand_path('../android/app/src/main/assets/capacitor.config.json', __dir__)
+  config = JSON.parse(File.read(config_path))
+  return unless config.dig('plugins', 'CapacitorHttp', 'enabled')
+
+  UI.user_error!(
+    "Release Android builds require a release Capacitor sync. Run `sh ../../scripts/tooling/pm.sh run cap:sync:release android` first."
+  )
+rescue Errno::ENOENT, JSON::ParserError => e
+  UI.user_error!("Could not load #{config_path}: #{e.message}")
+end
+
 platform :android do
   desc 'Build debug APK'
   lane :build_debug do
@@ -70,11 +83,13 @@ platform :android do
 
   desc 'Build release APK'
   lane :build_release do
+    ensure_release_capacitor_sync!
     run_gradle(task: 'assembleRelease')
   end
 
   desc 'Build release AAB for Play Store'
   lane :build_aab do
+    ensure_release_capacitor_sync!
     run_gradle(task: 'bundleRelease')
   end
 
@@ -223,6 +238,7 @@ platform :android do
 
   desc 'Run Android instrumented tests (release build)'
   lane :test_instrumented_release do
+    ensure_release_capacitor_sync!
     # Uses releaseInstrumented build type which includes test-specific ProGuard rules
     # in the main APK. This keeps the production release APK lean. See #750.
     run_gradle(

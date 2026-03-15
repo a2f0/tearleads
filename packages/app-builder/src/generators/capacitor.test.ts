@@ -23,9 +23,14 @@ describe('generateCapacitorConfig', () => {
     }
   };
 
-  it('includes CapacitorHttp plugin in generated config', () => {
+  it('gates CapacitorHttp behind the Capacitor build configuration', () => {
     const result = generateCapacitorConfig(mockConfig);
+
     expect(result).toContain('CapacitorHttp');
-    expect(result).toContain('enabled: true');
+    expect(result).toContain(
+      "env['CAPACITOR_BUILD_CONFIGURATION'] ?? 'Debug'"
+    );
+    expect(result).toContain('const RELEASE_BUILD_PATTERN = /release/i;');
+    expect(result).toContain('enabled: isCapacitorHttpEnabled()');
   });
 });

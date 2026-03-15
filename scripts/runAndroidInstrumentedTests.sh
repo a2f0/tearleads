@@ -141,7 +141,11 @@ fi
 
 # Sync Capacitor
 echo "==> Syncing Capacitor..."
-sh "$PM_SCRIPT" run cap:sync
+if [ "$RELEASE" -eq 1 ]; then
+  sh "$PM_SCRIPT" run cap:sync:release
+else
+  sh "$PM_SCRIPT" run cap:sync
+fi
 
 # Run instrumented tests
 echo "==> Running instrumented tests..."

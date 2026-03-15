@@ -144,7 +144,7 @@ jobs:
         run: ./packages/client/scripts/buildIosImageAssets.sh
 
       - name: Sync Capacitor
-        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync
+        run: sh ./scripts/tooling/pm.sh --filter @tearleads/client run cap:sync:release
 
       - name: Apply CI version from source commit
         id: ci_version

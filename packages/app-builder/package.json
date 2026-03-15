@@ -25,7 +25,7 @@
     "generate": "tsx src/cli.ts generate",
     "validate": "tsx src/cli.ts validate",
     "list": "tsx src/cli.ts list",
-    "test": "bun test src/generators/theme.test.ts src/generators/utils.test.ts",
+    "test": "bun test src/generators/capacitor.test.ts src/generators/theme.test.ts src/generators/utils.test.ts",
     "test:coverage": "sh ./scripts/testCoverage.sh",
     "typecheck": "tsc --noEmit"
   },

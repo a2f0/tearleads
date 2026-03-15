@@ -10,6 +10,18 @@ IOS_METADATA_DIR = File.expand_path('../fastlane/metadata/ios', __dir__).freeze
 # App display name - derived from environment or defaults to bundle ID suffix
 APP_DISPLAY_NAME = ENV['APP_DISPLAY_NAME'] || APP_ID.split('.').last.capitalize
 
+def ensure_release_capacitor_sync!
+  config_path = File.expand_path('../ios/App/App/capacitor.config.json', __dir__)
+  config = JSON.parse(File.read(config_path))
+  return unless config.dig('plugins', 'CapacitorHttp', 'enabled')
+
+  UI.user_error!(
+    "Release iOS builds require a release Capacitor sync. Run `sh ../../scripts/tooling/pm.sh run cap:sync:release ios` first."
+  )
+rescue Errno::ENOENT, JSON::ParserError => e
+  UI.user_error!("Could not load #{config_path}: #{e.message}")
+end
+
 platform :ios do
   desc 'Build debug iOS app'
   lane :build_debug do
@@ -27,6 +39,7 @@ platform :ios do
 
   desc 'Build release iOS app for simulator (no signing required)'
   lane :build_release_simulator do
+    ensure_release_capacitor_sync!
     build_app(
       workspace: './ios/App/App.xcworkspace',
       scheme: 'App',
@@ -41,6 +54,7 @@ platform :ios do
 
   desc 'Build release iOS app'
   lane :build_release do
+    ensure_release_capacitor_sync!
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
 
     update_code_signing_settings(
