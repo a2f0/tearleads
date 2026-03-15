@@ -28,6 +28,7 @@ import {
   type InstanceChangeSnapshot,
   subscribeToInstanceChange
 } from '@/hooks/app/useInstanceChange';
+import { pushVfsBlobUploadActivity } from '@/lib/vfsBlobUploadStore';
 import { ensureVfsKeys } from '@/hooks/vfs/useVfsKeys';
 import {
   getActiveOrganizationId,
@@ -155,6 +156,7 @@ export function useVfsOrchestratorRuntime(
 
   const logBlobFlushOperationTelemetry = useCallback(
     async (event: {
+      operationId: string;
       operationKind: 'stage' | 'attach' | 'abandon' | 'chunk' | 'commit';
       attempts: number;
       retryCount: number;
@@ -163,6 +165,18 @@ export function useVfsOrchestratorRuntime(
       statusCode?: number | undefined;
       retryable?: boolean | undefined;
     }): Promise<void> => {
+      // Push non-chunk operations to the upload activity store for UI visibility.
+      if (event.operationKind !== 'chunk') {
+        pushVfsBlobUploadActivity({
+          operationId: event.operationId,
+          kind: event.operationKind,
+          success: event.success,
+          timestamp: new Date().toISOString(),
+          retryCount: event.retryCount,
+          failureClass: event.failureClass
+        });
+      }
+
       // Keep chunk-volume noise low: log chunks only when they retried or failed.
       if (
         event.operationKind === 'chunk' &&

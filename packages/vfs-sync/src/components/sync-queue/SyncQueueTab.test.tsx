@@ -16,7 +16,7 @@ describe('SyncQueueTab', () => {
   it('renders empty state when no operations are pending', () => {
     vi.spyOn(queueDeps, 'getSyncQueueDependencies').mockReturnValue({
       useSnapshot: () => ({
-        outbound: { crdt: [], blob: [] },
+        outbound: { crdt: [], blob: [], blobActivity: [] },
         inbound: {
           cursor: null,
           pendingOperations: 0,
@@ -45,7 +45,8 @@ describe('SyncQueueTab', () => {
               encrypted: false
             }
           ],
-          blob: []
+          blob: [],
+          blobActivity: []
         },
         inbound: {
           cursor: null,
@@ -72,7 +73,8 @@ describe('SyncQueueTab', () => {
               kind: 'stage',
               stagingId: 'staging-xyz'
             }
-          ]
+          ],
+          blobActivity: []
         },
         inbound: {
           cursor: null,
@@ -90,7 +92,7 @@ describe('SyncQueueTab', () => {
   it('renders inbound status with cursor', () => {
     vi.spyOn(queueDeps, 'getSyncQueueDependencies').mockReturnValue({
       useSnapshot: () => ({
-        outbound: { crdt: [], blob: [] },
+        outbound: { crdt: [], blob: [], blobActivity: [] },
         inbound: {
           cursor: {
             changedAt: '2024-01-15T10:00:00Z',

@@ -9,9 +9,10 @@ import { SyncQueueCrdtSection } from './SyncQueueCrdtSection';
 import { SyncQueueEmptyState } from './SyncQueueEmptyState';
 import { SyncQueueInboundBlobSection } from './SyncQueueInboundBlobSection';
 import { SyncQueueInboundStatus } from './SyncQueueInboundStatus';
+import { SyncQueueOutboundBlobActivity } from './SyncQueueOutboundBlobActivity';
 
 const EMPTY_SNAPSHOT: SyncQueueSnapshot = {
-  outbound: { crdt: [], blob: [] },
+  outbound: { crdt: [], blob: [], blobActivity: [] },
   inbound: {
     cursor: null,
     pendingOperations: 0,
@@ -64,6 +65,12 @@ export function SyncQueueTab() {
       ) : (
         <SyncQueueEmptyState />
       )}
+
+      {snapshot.outbound.blobActivity.length > 0 ? (
+        <SyncQueueOutboundBlobActivity
+          operations={snapshot.outbound.blobActivity}
+        />
+      ) : null}
     </div>
   );
 }
