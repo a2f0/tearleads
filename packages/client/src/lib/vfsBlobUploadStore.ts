@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export interface VfsBlobUploadActivityEntry {
+interface VfsBlobUploadActivityEntry {
   operationId: string;
   kind: string;
   success: boolean;
