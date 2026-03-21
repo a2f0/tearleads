@@ -7,11 +7,12 @@ fn test_client_sends_message() {
     let addr = listener.local_addr().unwrap().to_string();
 
     let handle = std::thread::spawn(move || {
-        client::send_message(&addr, b"integration test").unwrap();
+        let mut client = client::Client::new(&addr).expect("Failed to connect");
+        client.send(b"integration test").expect("Failed to send in integration test");
     });
 
     let (mut stream, _) = listener.accept().unwrap();
-    let mut buf = [0; 1024];
+    let mut buf = [0; protocol::MAX_MESSAGE_SIZE];
     let n = stream.read(&mut buf).unwrap();
     assert_eq!(&buf[..n], b"integration test");
 
