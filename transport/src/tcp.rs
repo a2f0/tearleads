@@ -30,6 +30,13 @@ impl Transport for TcpTransport {
         let mut len_buf = [0u8; 4];
         self.stream.read_exact(&mut len_buf)?;
         let len = u32::from_be_bytes(len_buf) as usize;
+        const MAX_MESSAGE_SIZE: usize = 1_024;
+        if len > MAX_MESSAGE_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "message length exceeds maximum size",
+            ));
+        }
         let mut buf = vec![0u8; len];
         self.stream.read_exact(&mut buf)?;
         Ok(buf)
