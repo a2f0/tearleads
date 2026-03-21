@@ -2,20 +2,17 @@ use std::io::Write;
 use std::net::TcpStream;
 
 pub struct Client {
-    addr: String,
+    stream: TcpStream,
 }
 
 impl Client {
-    pub fn new(addr: &str) -> Self {
-        Client {
-            addr: addr.to_string(),
-        }
+    pub fn new(addr: &str) -> std::io::Result<Self> {
+        let stream = TcpStream::connect(addr)?;
+        Ok(Client { stream })
     }
 
-    pub fn send(&self, msg: &[u8]) -> std::io::Result<()> {
-        let mut stream = TcpStream::connect(&self.addr)?;
-        stream.write_all(msg)?;
-        Ok(())
+    pub fn send(&mut self, msg: &[u8]) -> std::io::Result<()> {
+        self.stream.write_all(msg)
     }
 }
 
@@ -30,13 +27,13 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
 
-        let client = Client::new(&addr);
         let handle = std::thread::spawn(move || {
+            let mut client = Client::new(&addr).expect("Failed to connect");
             client.send(b"hello").expect("Failed to send message in test");
         });
 
         let (mut stream, _) = listener.accept().unwrap();
-        let mut buf = [0; 1024];
+        let mut buf = [0; protocol::MAX_MESSAGE_SIZE];
         let n = stream.read(&mut buf).unwrap();
         assert_eq!(&buf[..n], b"hello");
 
@@ -45,8 +42,7 @@ mod tests {
 
     #[test]
     fn test_send_connection_refused() {
-        let client = Client::new("127.0.0.1:1");
-        let result = client.send(b"hello");
+        let result = Client::new("127.0.0.1:1");
         assert!(result.is_err());
     }
 
@@ -55,20 +51,21 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
 
-        let client1 = Client::new(&addr);
-        let client2 = Client::new(&addr);
-
+        let addr1 = addr.clone();
         let handle1 = std::thread::spawn(move || {
-            client1.send(b"from client 1").expect("client1 failed");
+            let mut client = Client::new(&addr1).expect("client1 connect failed");
+            client.send(b"from client 1").expect("client1 failed");
         });
+        let addr2 = addr.clone();
         let handle2 = std::thread::spawn(move || {
-            client2.send(b"from client 2").expect("client2 failed");
+            let mut client = Client::new(&addr2).expect("client2 connect failed");
+            client.send(b"from client 2").expect("client2 failed");
         });
 
         let mut messages = Vec::new();
         for _ in 0..2 {
             let (mut stream, _) = listener.accept().unwrap();
-            let mut buf = [0; 1024];
+            let mut buf = [0; protocol::MAX_MESSAGE_SIZE];
             let n = stream.read(&mut buf).unwrap();
             messages.push(String::from_utf8_lossy(&buf[..n]).into_owned());
         }
