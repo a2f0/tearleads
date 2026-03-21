@@ -17,9 +17,9 @@ impl Server {
 
     pub fn accept_one(&self) -> std::io::Result<String> {
         let (mut stream, _) = self.listener.accept()?;
-        let mut buf = [0; protocol::MAX_MESSAGE_SIZE];
-        let n = stream.read(&mut buf)?;
-        Ok(String::from_utf8_lossy(&buf[..n]).into_owned())
+        let mut buf = Vec::new();
+        stream.read_to_end(&mut buf)?;
+        Ok(String::from_utf8_lossy(&buf).into_owned())
     }
 }
 

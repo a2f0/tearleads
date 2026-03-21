@@ -19,7 +19,7 @@ mod tests {
         let addr = listener.local_addr().unwrap().to_string();
 
         let handle = std::thread::spawn(move || {
-            send_message(&addr, b"hello").unwrap();
+            send_message(&addr, b"hello").expect("Failed to send message in test");
         });
 
         let (mut stream, _) = listener.accept().unwrap();

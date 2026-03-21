@@ -1,5 +1,5 @@
-fn main() {
-    let server = server::Server::bind(protocol::DEFAULT_ADDR).unwrap();
+fn main() -> std::io::Result<()> {
+    let server = server::Server::bind(protocol::DEFAULT_ADDR)?;
     println!("Listening on {}", protocol::DEFAULT_ADDR);
 
     loop {
