@@ -1,30 +1,62 @@
 use crate::{Store, Tuple};
 use protocol::Namespace;
+use std::collections::{HashMap, HashSet};
 use std::io;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct Key {
+    namespace: Namespace,
+    object: String,
+    relation: String,
+    subject: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ListKey {
+    namespace: Namespace,
+    object: String,
+}
+
+impl Key {
+    fn from_tuple(t: &Tuple) -> Self {
+        Key {
+            namespace: t.namespace.clone(),
+            object: t.object.clone(),
+            relation: t.relation.clone(),
+            subject: t.subject.clone(),
+        }
+    }
+
+    fn list_key(&self) -> ListKey {
+        ListKey {
+            namespace: self.namespace.clone(),
+            object: self.object.clone(),
+        }
+    }
+}
+
 pub struct MemoryStore {
-    tuples: Vec<Tuple>,
+    data: HashMap<Key, Tuple>,
+    list_index: HashMap<ListKey, HashSet<Key>>,
 }
 
 impl MemoryStore {
     pub fn new() -> Self {
-        MemoryStore { tuples: Vec::new() }
+        MemoryStore {
+            data: HashMap::new(),
+            list_index: HashMap::new(),
+        }
     }
 }
 
 impl Store for MemoryStore {
     fn write(&mut self, tuple: Tuple) -> io::Result<()> {
-        // Upsert: replace if same key exists
-        if let Some(existing) = self.tuples.iter_mut().find(|t| {
-            t.namespace == tuple.namespace
-                && t.object == tuple.object
-                && t.relation == tuple.relation
-                && t.subject == tuple.subject
-        }) {
-            *existing = tuple;
-        } else {
-            self.tuples.push(tuple);
-        }
+        let key = Key::from_tuple(&tuple);
+        self.list_index
+            .entry(key.list_key())
+            .or_default()
+            .insert(key.clone());
+        self.data.insert(key, tuple);
         Ok(())
     }
 
@@ -35,20 +67,24 @@ impl Store for MemoryStore {
         relation: &str,
         subject: &str,
     ) -> io::Result<Option<&Tuple>> {
-        Ok(self.tuples.iter().find(|t| {
-            t.namespace == *namespace
-                && t.object == object
-                && t.relation == relation
-                && t.subject == subject
-        }))
+        let key = Key {
+            namespace: namespace.clone(),
+            object: object.to_string(),
+            relation: relation.to_string(),
+            subject: subject.to_string(),
+        };
+        Ok(self.data.get(&key))
     }
 
     fn list(&self, namespace: &Namespace, object: &str) -> io::Result<Vec<&Tuple>> {
-        Ok(self
-            .tuples
-            .iter()
-            .filter(|t| t.namespace == *namespace && t.object == object)
-            .collect())
+        let list_key = ListKey {
+            namespace: namespace.clone(),
+            object: object.to_string(),
+        };
+        Ok(match self.list_index.get(&list_key) {
+            Some(keys) => keys.iter().filter_map(|k| self.data.get(k)).collect(),
+            None => Vec::new(),
+        })
     }
 
     fn delete(
@@ -58,14 +94,23 @@ impl Store for MemoryStore {
         relation: &str,
         subject: &str,
     ) -> io::Result<bool> {
-        let len_before = self.tuples.len();
-        self.tuples.retain(|t| {
-            !(t.namespace == *namespace
-                && t.object == object
-                && t.relation == relation
-                && t.subject == subject)
-        });
-        Ok(self.tuples.len() < len_before)
+        let key = Key {
+            namespace: namespace.clone(),
+            object: object.to_string(),
+            relation: relation.to_string(),
+            subject: subject.to_string(),
+        };
+        if self.data.remove(&key).is_some() {
+            if let Some(keys) = self.list_index.get_mut(&key.list_key()) {
+                keys.remove(&key);
+                if keys.is_empty() {
+                    self.list_index.remove(&key.list_key());
+                }
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

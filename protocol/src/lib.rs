@@ -1,7 +1,7 @@
 pub const DEFAULT_ADDR: &str = "127.0.0.1:7878";
 pub const MAX_MESSAGE_SIZE: usize = 1024;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Namespace {
     Node,
     Edge,
