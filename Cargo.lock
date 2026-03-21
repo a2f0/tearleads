@@ -10,6 +10,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration"
+version = "0.1.0"
+dependencies = [
+ "client",
+ "protocol",
+ "server",
+]
+
+[[package]]
 name = "protocol"
 version = "0.1.0"
 
