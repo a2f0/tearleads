@@ -7,3 +7,4 @@ edition = "2021"
 client = { path = "../client" }
 server = { path = "../server" }
 protocol = { path = "../protocol" }
+transport = { path = "../transport" }

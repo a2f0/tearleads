@@ -7,6 +7,7 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "protocol",
+ "transport",
 ]
 
 [[package]]
@@ -16,6 +17,7 @@ dependencies = [
  "client",
  "protocol",
  "server",
+ "transport",
 ]
 
 [[package]]
@@ -27,4 +29,9 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "protocol",
+ "transport",
 ]
+
+[[package]]
+name = "transport"
+version = "0.1.0"

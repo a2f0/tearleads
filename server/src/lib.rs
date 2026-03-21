@@ -1,51 +1,48 @@
-use std::io::Read;
-use std::net::TcpListener;
+use transport::Listener;
 
-pub struct Server {
-    listener: TcpListener,
+pub struct Server<L: Listener> {
+    listener: L,
 }
 
-impl Server {
-    pub fn bind(addr: &str) -> std::io::Result<Self> {
-        let listener = TcpListener::bind(addr)?;
-        Ok(Server { listener })
+impl<L: Listener> Server<L> {
+    pub fn new(listener: L) -> Self {
+        Server { listener }
     }
 
-    pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
-        self.listener.local_addr()
-    }
-
-    pub fn accept_one(&self) -> std::io::Result<String> {
-        let (mut stream, _) = self.listener.accept()?;
-        let mut buf = Vec::new();
-        stream.read_to_end(&mut buf)?;
-        Ok(String::from_utf8_lossy(&buf).into_owned())
+    pub fn accept(&self) -> std::io::Result<L::Conn> {
+        self.listener.accept()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use std::net::TcpStream;
+    use transport::Transport;
+    use transport::tcp::{TcpListenerTransport, TcpTransport};
 
     #[test]
     fn test_bind() {
-        let server = Server::bind("127.0.0.1:0").unwrap();
-        let addr = server.local_addr().unwrap();
+        let listener = TcpListenerTransport::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
         assert_eq!(addr.ip().to_string(), "127.0.0.1");
+        let _server = Server::new(listener);
     }
 
     #[test]
-    fn test_accept_one() {
-        let server = Server::bind("127.0.0.1:0").unwrap();
-        let addr = server.local_addr().unwrap();
+    fn test_accept() {
+        let listener = TcpListenerTransport::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = Server::new(listener);
 
-        let mut client = TcpStream::connect(addr).unwrap();
-        client.write_all(b"test message").unwrap();
-        drop(client);
+        let handle = std::thread::spawn(move || {
+            let mut client = TcpTransport::connect(&addr.to_string()).unwrap();
+            client.send(b"test message").unwrap();
+        });
 
-        let msg = server.accept_one().unwrap();
-        assert_eq!(msg, "test message");
+        let mut conn = server.accept().unwrap();
+        let msg = conn.recv().unwrap();
+        assert_eq!(msg, b"test message");
+
+        handle.join().unwrap();
     }
 }

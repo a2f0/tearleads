@@ -1,15 +1,20 @@
-use std::io::Write;
-use std::net::TcpStream;
+use transport::Transport;
+use transport::tcp::{TcpListenerTransport, TcpTransport};
 
 #[test]
 fn test_server_receives_message() {
-    let server = server::Server::bind("127.0.0.1:0").unwrap();
-    let addr = server.local_addr().unwrap();
+    let listener = TcpListenerTransport::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = server::Server::new(listener);
 
-    let mut client = TcpStream::connect(addr).unwrap();
-    client.write_all(b"integration test").unwrap();
-    drop(client);
+    let handle = std::thread::spawn(move || {
+        let mut client = TcpTransport::connect(&addr.to_string()).unwrap();
+        client.send(b"integration test").unwrap();
+    });
 
-    let msg = server.accept_one().unwrap();
-    assert_eq!(msg, "integration test");
+    let mut conn = server.accept().unwrap();
+    let msg = conn.recv().unwrap();
+    assert_eq!(msg, b"integration test");
+
+    handle.join().unwrap();
 }
