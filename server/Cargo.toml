@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 protocol = { path = "../protocol" }
+transport = { path = "../transport" }
