@@ -1,6 +1,6 @@
 fn main() {
-    let server = server::Server::bind("127.0.0.1:7878").unwrap();
-    println!("Listening on 127.0.0.1:7878");
+    let server = server::Server::bind(protocol::DEFAULT_ADDR).unwrap();
+    println!("Listening on {}", protocol::DEFAULT_ADDR);
 
     loop {
         match server.accept_one() {
