@@ -1,6 +1,6 @@
 use crate::{Store, Tuple};
 use protocol::Namespace;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -9,12 +9,6 @@ struct Key {
     object: String,
     relation: String,
     subject: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct ListKey {
-    namespace: Namespace,
-    object: String,
 }
 
 impl Key {
@@ -26,25 +20,16 @@ impl Key {
             subject: t.subject.clone(),
         }
     }
-
-    fn list_key(&self) -> ListKey {
-        ListKey {
-            namespace: self.namespace.clone(),
-            object: self.object.clone(),
-        }
-    }
 }
 
 pub struct MemoryStore {
     data: HashMap<Key, Tuple>,
-    list_index: HashMap<ListKey, HashSet<Key>>,
 }
 
 impl MemoryStore {
     pub fn new() -> Self {
         MemoryStore {
             data: HashMap::new(),
-            list_index: HashMap::new(),
         }
     }
 }
@@ -52,10 +37,6 @@ impl MemoryStore {
 impl Store for MemoryStore {
     fn write(&mut self, tuple: Tuple) -> io::Result<()> {
         let key = Key::from_tuple(&tuple);
-        self.list_index
-            .entry(key.list_key())
-            .or_default()
-            .insert(key.clone());
         self.data.insert(key, tuple);
         Ok(())
     }
@@ -76,17 +57,6 @@ impl Store for MemoryStore {
         Ok(self.data.get(&key))
     }
 
-    fn list(&self, namespace: &Namespace, object: &str) -> io::Result<Vec<&Tuple>> {
-        let list_key = ListKey {
-            namespace: namespace.clone(),
-            object: object.to_string(),
-        };
-        Ok(match self.list_index.get(&list_key) {
-            Some(keys) => keys.iter().filter_map(|k| self.data.get(k)).collect(),
-            None => Vec::new(),
-        })
-    }
-
     fn delete(
         &mut self,
         namespace: &Namespace,
@@ -100,17 +70,7 @@ impl Store for MemoryStore {
             relation: relation.to_string(),
             subject: subject.to_string(),
         };
-        if self.data.remove(&key).is_some() {
-            if let Some(keys) = self.list_index.get_mut(&key.list_key()) {
-                keys.remove(&key);
-                if keys.is_empty() {
-                    self.list_index.remove(&key.list_key());
-                }
-            }
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(self.data.remove(&key).is_some())
     }
 }
 
@@ -165,26 +125,6 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(result.payload, b"v2");
-
-        // Should still be one tuple, not two
-        assert_eq!(store.list(&Namespace::Node, "doc1").unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_list() {
-        let mut store = MemoryStore::new();
-        store
-            .write(make_tuple(Namespace::Node, "doc1", "owner", "alice", b""))
-            .unwrap();
-        store
-            .write(make_tuple(Namespace::Node, "doc1", "viewer", "bob", b""))
-            .unwrap();
-        store
-            .write(make_tuple(Namespace::Node, "doc2", "owner", "alice", b""))
-            .unwrap();
-
-        let results = store.list(&Namespace::Node, "doc1").unwrap();
-        assert_eq!(results.len(), 2);
     }
 
     #[test]
@@ -262,14 +202,15 @@ mod tests {
             ))
             .unwrap();
 
-        // List edges from parent1
-        let edges = store.list(&Namespace::Edge, "parent1").unwrap();
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].subject, "child1");
+        // Verify edges by direct lookup
+        let edge1 = store
+            .read(&Namespace::Edge, "parent1", "child", "child1")
+            .unwrap();
+        assert!(edge1.is_some());
 
-        // List edges from parent2
-        let edges = store.list(&Namespace::Edge, "parent2").unwrap();
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].subject, "child1");
+        let edge2 = store
+            .read(&Namespace::Edge, "parent2", "child", "child1")
+            .unwrap();
+        assert!(edge2.is_some());
     }
 }

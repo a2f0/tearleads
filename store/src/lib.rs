@@ -21,7 +21,6 @@ pub trait Store {
         relation: &str,
         subject: &str,
     ) -> io::Result<Option<&Tuple>>;
-    fn list(&self, namespace: &Namespace, object: &str) -> io::Result<Vec<&Tuple>>;
     fn delete(
         &mut self,
         namespace: &Namespace,
