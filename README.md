@@ -2,7 +2,14 @@
 
 ## Getting Started
 
+1. Install `mise` with `brew install mise`
+2. Run `mise install`.
+2. Run `cargo run http-server` to start the API.
+
 ```sh
+# configure git hooks
+./scripts/install-hooks.sh
+
 # Run the server
 cargo run http-server
 ```
@@ -18,7 +25,10 @@ cargo test -p http-server
 cargo test -p http-client
 
 # Run a specific test by name
-cargo test test_accept_one
+cargo test test_read_not_found
+
+# Run WASM tests 
+bun test
 ```
 
 ## Building
