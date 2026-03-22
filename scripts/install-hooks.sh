@@ -10,8 +10,11 @@ cat > "$HOOK_PATH" << 'HOOK'
 
 set -e
 
-echo "Running tests..."
+echo "Running cargo tests..."
 cargo test
+
+echo "Running WASM tests..."
+bun test
 
 echo "Running linter..."
 cargo clippy -- -D warnings
