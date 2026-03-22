@@ -22,6 +22,6 @@ impl Client {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(Error::Request)?;
-        Ok(body["deleted"].as_bool().unwrap_or(false))
+        Ok(body.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false))
     }
 }

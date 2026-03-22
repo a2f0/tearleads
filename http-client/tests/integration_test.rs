@@ -12,6 +12,7 @@ async fn start_server() -> String {
         axum::serve(listener, app).await.unwrap();
     });
 
+    tokio::task::yield_now().await;
     url
 }
 
