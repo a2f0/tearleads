@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{Client, Error};
+use crate::{Client, to_js_err};
 
 #[wasm_bindgen]
 impl Client {
@@ -12,19 +12,9 @@ impl Client {
         subject: &str,
     ) -> Result<bool, JsValue> {
         let namespace = namespace.parse().map_err(|e: String| JsValue::from_str(&e))?;
-
-        let resp = self
-            .http
-            .delete(self.url(&namespace, object, relation, subject))
-            .send()
+        self.inner
+            .delete(&namespace, object, relation, subject)
             .await
-            .map_err(Error::Request)?;
-
-        if !resp.status().is_success() {
-            return Err(Error::Status(resp.status(), resp.text().await.ok()).into());
-        }
-
-        let body: serde_json::Value = resp.json().await.map_err(Error::Request)?;
-        Ok(body.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false))
+            .map_err(to_js_err)
     }
 }

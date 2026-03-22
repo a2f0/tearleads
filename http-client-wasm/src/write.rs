@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{Client, Error};
+use crate::{Client, to_js_err};
 
 #[wasm_bindgen]
 impl Client {
@@ -10,22 +10,12 @@ impl Client {
         object: &str,
         relation: &str,
         subject: &str,
-        payload: &[u8],
+        payload: Vec<u8>,
     ) -> Result<(), JsValue> {
         let namespace = namespace.parse().map_err(|e: String| JsValue::from_str(&e))?;
-
-        let resp = self
-            .http
-            .put(self.url(&namespace, object, relation, subject))
-            .body(payload.to_vec())
-            .send()
+        self.inner
+            .write(&namespace, object, relation, subject, &payload)
             .await
-            .map_err(Error::Request)?;
-
-        if resp.status().is_success() {
-            Ok(())
-        } else {
-            Err(Error::Status(resp.status(), resp.text().await.ok()).into())
-        }
+            .map_err(to_js_err)
     }
 }

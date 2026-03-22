@@ -1,7 +1,7 @@
 use store::Tuple;
 use wasm_bindgen::prelude::*;
 
-use crate::{Client, Error};
+use crate::{Client, to_js_err};
 
 #[wasm_bindgen]
 impl Client {
@@ -13,23 +13,9 @@ impl Client {
         subject: &str,
     ) -> Result<Option<Tuple>, JsValue> {
         let namespace = namespace.parse().map_err(|e: String| JsValue::from_str(&e))?;
-
-        let resp = self
-            .http
-            .get(self.url(&namespace, object, relation, subject))
-            .send()
+        self.inner
+            .read(&namespace, object, relation, subject)
             .await
-            .map_err(Error::Request)?;
-
-        if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-
-        if !resp.status().is_success() {
-            return Err(Error::Status(resp.status(), resp.text().await.ok()).into());
-        }
-
-        let tuple: Tuple = resp.json().await.map_err(Error::Request)?;
-        Ok(Some(tuple))
+            .map_err(to_js_err)
     }
 }
