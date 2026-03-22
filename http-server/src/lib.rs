@@ -21,5 +21,5 @@ pub async fn run<S: Store + Send + 'static>(store: S, addr: &str) -> std::io::Re
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .await
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        .map_err(std::io::Error::other)
 }
