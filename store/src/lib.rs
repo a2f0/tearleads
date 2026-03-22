@@ -1,9 +1,10 @@
 pub mod memory;
 
 use protocol::Namespace;
+use serde::{Deserialize, Serialize};
 use std::io;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tuple {
     pub namespace: Namespace,
     pub object: String,
