@@ -26,6 +26,12 @@ pub struct MemoryStore {
     data: HashMap<Key, Tuple>,
 }
 
+impl Default for MemoryStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStore {
     pub fn new() -> Self {
         MemoryStore {
