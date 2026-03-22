@@ -6,10 +6,9 @@ use std::sync::Arc;
 use store::Store;
 
 use super::parse_namespace;
-use crate::AppState;
 
-pub async fn read_tuple<S: Store + Send + 'static>(
-    State(state): State<Arc<AppState<S>>>,
+pub async fn read_tuple<S: Store + Send + Sync + 'static>(
+    State(store): State<Arc<S>>,
     Path((namespace, object, relation, subject)): Path<(String, String, String, String)>,
 ) -> impl IntoResponse {
     let namespace = match parse_namespace(&namespace) {
@@ -17,7 +16,6 @@ pub async fn read_tuple<S: Store + Send + 'static>(
         Err(e) => return e.into_response(),
     };
 
-    let store = state.store.lock().unwrap();
     match store.read(&namespace, &object, &relation, &subject) {
         Ok(Some(tuple)) => Json(tuple).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),

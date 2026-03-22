@@ -6,10 +6,9 @@ use std::sync::Arc;
 use store::{Store, Tuple};
 
 use super::parse_namespace;
-use crate::AppState;
 
-pub async fn write_tuple<S: Store + Send + 'static>(
-    State(state): State<Arc<AppState<S>>>,
+pub async fn write_tuple<S: Store + Send + Sync + 'static>(
+    State(store): State<Arc<S>>,
     Path((namespace, object, relation, subject)): Path<(String, String, String, String)>,
     body: Bytes,
 ) -> impl IntoResponse {
@@ -26,7 +25,6 @@ pub async fn write_tuple<S: Store + Send + 'static>(
         payload: body.to_vec(),
     };
 
-    let mut store = state.store.lock().unwrap();
     match store.write(tuple) {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

@@ -4,9 +4,8 @@ use std::sync::Arc;
 use store::Store;
 
 use crate::handlers::{delete_tuple, read_tuple, write_tuple};
-use crate::AppState;
 
-pub fn router<S: Store + Send + 'static>(state: Arc<AppState<S>>) -> Router {
+pub fn router<S: Store + Send + Sync + 'static>(state: Arc<S>) -> Router {
     Router::new()
         .route(
             "/v1/{namespace}/{object}/{relation}/{subject}",
