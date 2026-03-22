@@ -1,13 +1,9 @@
-use axum::body::Bytes;
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use axum::routing::put;
-use axum::{Json, Router};
-use protocol::Namespace;
+use axum::Router;
 use std::sync::Arc;
-use store::{Store, Tuple};
+use store::Store;
 
+use crate::handlers::{delete_tuple, read_tuple, write_tuple};
 use crate::AppState;
 
 pub fn router<S: Store + Send + 'static>(state: Arc<AppState<S>>) -> Router {
@@ -21,78 +17,16 @@ pub fn router<S: Store + Send + 'static>(state: Arc<AppState<S>>) -> Router {
         .with_state(state)
 }
 
-fn parse_namespace(s: &str) -> Result<Namespace, (StatusCode, String)> {
-    s.parse::<Namespace>()
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))
-}
-
-async fn write_tuple<S: Store + Send + 'static>(
-    State(state): State<Arc<AppState<S>>>,
-    Path((namespace, object, relation, subject)): Path<(String, String, String, String)>,
-    body: Bytes,
-) -> impl IntoResponse {
-    let namespace = match parse_namespace(&namespace) {
-        Ok(ns) => ns,
-        Err(e) => return e.into_response(),
-    };
-
-    let tuple = Tuple {
-        namespace,
-        object,
-        relation,
-        subject,
-        payload: body.to_vec(),
-    };
-
-    let mut store = state.store.lock().unwrap();
-    match store.write(tuple) {
-        Ok(()) => StatusCode::OK.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
-}
-
-async fn read_tuple<S: Store + Send + 'static>(
-    State(state): State<Arc<AppState<S>>>,
-    Path((namespace, object, relation, subject)): Path<(String, String, String, String)>,
-) -> impl IntoResponse {
-    let namespace = match parse_namespace(&namespace) {
-        Ok(ns) => ns,
-        Err(e) => return e.into_response(),
-    };
-
-    let store = state.store.lock().unwrap();
-    match store.read(&namespace, &object, &relation, &subject) {
-        Ok(Some(tuple)) => Json(tuple).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
-}
-
-async fn delete_tuple<S: Store + Send + 'static>(
-    State(state): State<Arc<AppState<S>>>,
-    Path((namespace, object, relation, subject)): Path<(String, String, String, String)>,
-) -> impl IntoResponse {
-    let namespace = match parse_namespace(&namespace) {
-        Ok(ns) => ns,
-        Err(e) => return e.into_response(),
-    };
-
-    let mut store = state.store.lock().unwrap();
-    match store.delete(&namespace, &object, &relation, &subject) {
-        Ok(deleted) => Json(serde_json::json!({ "deleted": deleted })).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::body::Body;
+    use axum::http::StatusCode;
     use http_body_util::BodyExt;
     use store::memory::MemoryStore;
+    use store::Tuple;
     use tower::ServiceExt;
 
-    fn test_app() -> Router {
+    fn test_app() -> axum::Router {
         crate::app(MemoryStore::new())
     }
 
