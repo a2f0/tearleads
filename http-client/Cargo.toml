@@ -6,11 +6,12 @@ edition = "2024"
 [dependencies]
 protocol = { path = "../protocol" }
 store = { path = "../store" }
-reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-serde = { version = "1", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
 serde_json = "1"
 
 [dev-dependencies]
 http-server = { path = "../http-server" }
+protocol = { path = "../protocol" }
+store = { path = "../store" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 axum = "0.8"
