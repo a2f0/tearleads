@@ -2,8 +2,10 @@
 
 ## Getting Started
 
-1. Run the server with `cargo run -p server`
-2. Run the client with `cargo run -p client`
+```sh
+# Run the server
+cargo run http-server
+```
 
 ## Running Tests
 
