@@ -16,6 +16,9 @@ cargo test
 echo "Running linter..."
 cargo clippy -- -D warnings
 
+echo "Running shellcheck..."
+find "$REPO_ROOT/scripts" -name '*.sh' -exec shellcheck {} +
+
 echo "All checks passed."
 HOOK
 
