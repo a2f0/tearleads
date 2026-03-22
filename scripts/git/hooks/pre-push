@@ -16,4 +16,7 @@ cargo clippy -- -D warnings
 echo "Running shellcheck..."
 find "$REPO_ROOT/scripts" -name '*.sh' -exec shellcheck {} +
 
+echo "Running TypeScript compiler..."
+bun tsc --build
+
 echo "All checks passed."
