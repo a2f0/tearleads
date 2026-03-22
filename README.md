@@ -2,6 +2,8 @@
 
 ## Getting Started
 
+Install `mise` with `brew upgrade mise`
+
 ```sh
 # configure git hooks
 ./scripts/install-hooks.sh
