@@ -26,5 +26,7 @@ cargo test test_accept_one
 ```sh
 # build the wasm client
 # This will create build artifacts in `http-client-wasm/pkg`
-wasm-pack build http-client-wasm --target web
+wasm-pack build http-client-wasm --target web --dev
+
+wasm-pack build http-client-wasm --target web --release
 ```

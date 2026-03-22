@@ -1,3 +1,4 @@
+use store::Tuple;
 use wasm_bindgen::prelude::*;
 
 use crate::{Client, Error};
@@ -10,7 +11,7 @@ impl Client {
         object: &str,
         relation: &str,
         subject: &str,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<Option<Tuple>, JsValue> {
         let namespace = namespace.parse().map_err(|e: String| JsValue::from_str(&e))?;
 
         let resp = self
@@ -21,16 +22,14 @@ impl Client {
             .map_err(Error::Request)?;
 
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            return Ok(JsValue::NULL);
+            return Ok(None);
         }
 
         if !resp.status().is_success() {
             return Err(Error::Status(resp.status(), resp.text().await.ok()).into());
         }
 
-        let tuple: store::Tuple = resp.json().await.map_err(Error::Request)?;
-        let js = serde_wasm_bindgen::to_value(&tuple)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        Ok(js)
+        let tuple: Tuple = resp.json().await.map_err(Error::Request)?;
+        Ok(Some(tuple))
     }
 }
