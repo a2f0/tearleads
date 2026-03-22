@@ -1,5 +1,5 @@
 {
   "name": "jff",
   "private": true,
-  "workspaces": ["http-client-wasm"]
+  "workspaces": ["crates/http-client-wasm"]
 }

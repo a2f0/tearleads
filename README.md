@@ -35,8 +35,8 @@ bun test
 
 ```sh
 # build the wasm client
-# This will create build artifacts in `http-client-wasm/pkg`
-wasm-pack build http-client-wasm --target web --dev
+# This will create build artifacts in `crates/http-client-wasm/pkg`
+wasm-pack build crates/http-client-wasm --target web --dev
 
-wasm-pack build http-client-wasm --target web --release
+wasm-pack build crates/http-client-wasm --target web --release
 ```
