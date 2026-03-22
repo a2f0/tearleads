@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { spawn, type Subprocess } from "bun";
@@ -22,16 +22,24 @@ beforeAll(async () => {
     stderr: "ignore",
   });
 
-  // Read the "listening on <addr>" line from stdout
+  // Read from stdout until we find the "listening on <addr>" line
   const reader = server.stdout.getReader();
-  const { value } = await reader.read();
-  const output = new TextDecoder().decode(value);
-  const match = output.match(/listening on (.+)/);
-  if (!match) {
-    throw new Error(`Unexpected server output: ${output}`);
+  const decoder = new TextDecoder();
+  let output = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    output += decoder.decode(value);
+    const match = output.match(/listening on (.+)/);
+    if (match) {
+      baseUrl = `http://${match[1]}`;
+      break;
+    }
   }
-  baseUrl = `http://${match[1]}`;
   reader.releaseLock();
+  if (!baseUrl) {
+    throw new Error(`Could not find server address in output: ${output}`);
+  }
 });
 
 afterAll(() => {
@@ -39,9 +47,17 @@ afterAll(() => {
 });
 
 describe("wasm client", () => {
-  test("write and read", async () => {
-    const client = new Client(baseUrl);
+  let client: Client;
 
+  beforeEach(() => {
+    client = new Client(baseUrl);
+  });
+
+  afterEach(() => {
+    client.free();
+  });
+
+  test("write and read", async () => {
     await client.write(
       "node",
       "doc1",
@@ -60,22 +76,14 @@ describe("wasm client", () => {
     expect(Buffer.from(tuple!.payload)).toEqual(
       Buffer.from("hello world"),
     );
-
-    client.free();
   });
 
   test("read not found", async () => {
-    const client = new Client(baseUrl);
-
     const tuple = await client.read("node", "missing", "owner", "nobody");
     expect(tuple).toBeUndefined();
-
-    client.free();
   });
 
   test("delete", async () => {
-    const client = new Client(baseUrl);
-
     await client.write(
       "node",
       "doc2",
@@ -89,13 +97,9 @@ describe("wasm client", () => {
 
     const tuple = await client.read("node", "doc2", "editor", "bob");
     expect(tuple).toBeUndefined();
-
-    client.free();
   });
 
   test("delete not found", async () => {
-    const client = new Client(baseUrl);
-
     const deleted = await client.delete(
       "node",
       "nonexistent",
@@ -103,7 +107,5 @@ describe("wasm client", () => {
       "alice",
     );
     expect(deleted).toBe(false);
-
-    client.free();
   });
 });
