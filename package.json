@@ -1,6 +1,9 @@
 {
   "name": "jff",
   "private": true,
+  "scripts": {
+    "test": "bun run --filter '*' --sequential test"
+  },
   "workspaces": ["crates/http-client-wasm", "packages/app"],
   "devDependencies": {
     "@tsconfig/strictest": "2.0.8",

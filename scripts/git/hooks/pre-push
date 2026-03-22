@@ -7,8 +7,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 echo "Running cargo tests..."
 cargo test
 
-echo "Running WASM tests..."
-bun test
+echo "Running bun tests..."
+bun --filter '*' test
 
 echo "Running linter..."
 cargo clippy -- -D warnings

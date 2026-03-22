@@ -17,7 +17,7 @@ cargo run http-server
 ## Running Tests
 
 ```sh
-# Run all tests (unit + integration) across the workspace
+# Run all Rust tests across the workspace
 cargo test
 
 # Run tests for a specific crate
@@ -27,8 +27,8 @@ cargo test -p http-client
 # Run a specific test by name
 cargo test test_read_not_found
 
-# Run WASM tests 
-bun test
+# Run all Bun tests across workspace packages, sequentially
+bun run test
 ```
 
 ## Building
