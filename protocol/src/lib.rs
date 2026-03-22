@@ -1,10 +1,24 @@
 pub const DEFAULT_ADDR: &str = "127.0.0.1:7878";
 pub const MAX_MESSAGE_SIZE: usize = 1024;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Namespace {
     Node,
     Edge,
+}
+
+impl std::str::FromStr for Namespace {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "node" => Ok(Namespace::Node),
+            "edge" => Ok(Namespace::Edge),
+            _ => Err(format!("unknown namespace: {s}")),
+        }
+    }
 }
 
 impl std::fmt::Display for Namespace {

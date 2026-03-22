@@ -2,6 +2,7 @@ use crate::{Store, Tuple};
 use protocol::Namespace;
 use std::collections::HashMap;
 use std::io;
+use std::sync::RwLock;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
@@ -23,7 +24,7 @@ impl Key {
 }
 
 pub struct MemoryStore {
-    data: HashMap<Key, Vec<u8>>,
+    data: RwLock<HashMap<Key, Vec<u8>>>,
 }
 
 impl Default for MemoryStore {
@@ -35,15 +36,16 @@ impl Default for MemoryStore {
 impl MemoryStore {
     pub fn new() -> Self {
         MemoryStore {
-            data: HashMap::new(),
+            data: RwLock::new(HashMap::new()),
         }
     }
 }
 
 impl Store for MemoryStore {
-    fn write(&mut self, tuple: Tuple) -> io::Result<()> {
+    fn write(&self, tuple: Tuple) -> io::Result<()> {
         let key = Key::from_tuple(&tuple);
-        self.data.insert(key, tuple.payload);
+        let mut data = self.data.write().map_err(|e| io::Error::other(e.to_string()))?;
+        data.insert(key, tuple.payload);
         Ok(())
     }
 
@@ -60,7 +62,8 @@ impl Store for MemoryStore {
             relation: relation.to_string(),
             subject: subject.to_string(),
         };
-        Ok(self.data.get(&key).map(|payload| Tuple {
+        let data = self.data.read().map_err(|e| io::Error::other(e.to_string()))?;
+        Ok(data.get(&key).map(|payload| Tuple {
             namespace: key.namespace,
             object: key.object,
             relation: key.relation,
@@ -70,7 +73,7 @@ impl Store for MemoryStore {
     }
 
     fn delete(
-        &mut self,
+        &self,
         namespace: &Namespace,
         object: &str,
         relation: &str,
@@ -82,7 +85,8 @@ impl Store for MemoryStore {
             relation: relation.to_string(),
             subject: subject.to_string(),
         };
-        Ok(self.data.remove(&key).is_some())
+        let mut data = self.data.write().map_err(|e| io::Error::other(e.to_string()))?;
+        Ok(data.remove(&key).is_some())
     }
 }
 
@@ -102,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read() {
-        let mut store = MemoryStore::new();
+        let store = MemoryStore::new();
         let tuple = make_tuple(Namespace::Node, "doc1", "owner", "alice", b"hello world");
         store.write(tuple).unwrap();
 
@@ -124,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_upsert() {
-        let mut store = MemoryStore::new();
+        let store = MemoryStore::new();
         store
             .write(make_tuple(Namespace::Node, "doc1", "owner", "alice", b"v1"))
             .unwrap();
@@ -141,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        let mut store = MemoryStore::new();
+        let store = MemoryStore::new();
         store
             .write(make_tuple(
                 Namespace::Node,
@@ -164,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_delete_not_found() {
-        let mut store = MemoryStore::new();
+        let store = MemoryStore::new();
         let deleted = store
             .delete(&Namespace::Node, "doc1", "owner", "alice")
             .unwrap();
@@ -173,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_edge_tuples() {
-        let mut store = MemoryStore::new();
+        let store = MemoryStore::new();
         // Create two nodes
         store
             .write(make_tuple(

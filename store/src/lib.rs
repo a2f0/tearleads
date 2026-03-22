@@ -1,9 +1,10 @@
 pub mod memory;
 
 use protocol::Namespace;
+use serde::{Deserialize, Serialize};
 use std::io;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tuple {
     pub namespace: Namespace,
     pub object: String,
@@ -13,7 +14,7 @@ pub struct Tuple {
 }
 
 pub trait Store {
-    fn write(&mut self, tuple: Tuple) -> io::Result<()>;
+    fn write(&self, tuple: Tuple) -> io::Result<()>;
     fn read(
         &self,
         namespace: &Namespace,
@@ -22,7 +23,7 @@ pub trait Store {
         subject: &str,
     ) -> io::Result<Option<Tuple>>;
     fn delete(
-        &mut self,
+        &self,
         namespace: &Namespace,
         object: &str,
         relation: &str,
