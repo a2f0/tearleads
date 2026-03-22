@@ -14,9 +14,17 @@ cargo run http-server
 cargo test
 
 # Run tests for a specific crate
-cargo test -p server
-cargo test -p client
+cargo test -p http-server
+cargo test -p http-client
 
 # Run a specific test by name
 cargo test test_accept_one
+```
+
+## Building
+
+```sh
+# build the wasm client
+# This will create build artifacts in `http-client-wasm/pkg`
+wasm-pack build http-client-wasm --target web
 ```
