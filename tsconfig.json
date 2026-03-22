@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "crates/http-client-wasm" },
+    { "path": "packages/app" }
+  ]
+}

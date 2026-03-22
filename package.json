@@ -1,5 +1,9 @@
 {
   "name": "jff",
   "private": true,
-  "workspaces": ["crates/http-client-wasm"]
+  "workspaces": ["crates/http-client-wasm", "packages/app"],
+  "devDependencies": {
+    "@tsconfig/strictest": "2.0.8",
+    "typescript": "5.9.3"
+  }
 }

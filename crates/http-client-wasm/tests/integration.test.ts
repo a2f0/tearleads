@@ -23,7 +23,8 @@ beforeAll(async () => {
   });
 
   // Read from stdout until we find the "listening on <addr>" line
-  const reader = server.stdout.getReader();
+  const stdout = server.stdout as ReadableStream<Uint8Array>;
+  const reader = stdout.getReader();
   const decoder = new TextDecoder();
   let output = "";
   while (true) {
