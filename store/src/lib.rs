@@ -20,7 +20,7 @@ pub trait Store {
         object: &str,
         relation: &str,
         subject: &str,
-    ) -> io::Result<Option<&Tuple>>;
+    ) -> io::Result<Option<Tuple>>;
     fn delete(
         &mut self,
         namespace: &Namespace,

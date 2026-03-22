@@ -23,7 +23,7 @@ impl Key {
 }
 
 pub struct MemoryStore {
-    data: HashMap<Key, Tuple>,
+    data: HashMap<Key, Vec<u8>>,
 }
 
 impl Default for MemoryStore {
@@ -43,7 +43,7 @@ impl MemoryStore {
 impl Store for MemoryStore {
     fn write(&mut self, tuple: Tuple) -> io::Result<()> {
         let key = Key::from_tuple(&tuple);
-        self.data.insert(key, tuple);
+        self.data.insert(key, tuple.payload);
         Ok(())
     }
 
@@ -53,14 +53,20 @@ impl Store for MemoryStore {
         object: &str,
         relation: &str,
         subject: &str,
-    ) -> io::Result<Option<&Tuple>> {
+    ) -> io::Result<Option<Tuple>> {
         let key = Key {
             namespace: namespace.clone(),
             object: object.to_string(),
             relation: relation.to_string(),
             subject: subject.to_string(),
         };
-        Ok(self.data.get(&key))
+        Ok(self.data.get(&key).map(|payload| Tuple {
+            namespace: key.namespace,
+            object: key.object,
+            relation: key.relation,
+            subject: key.subject,
+            payload: payload.clone(),
+        }))
     }
 
     fn delete(
