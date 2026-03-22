@@ -1,0 +1,5 @@
+{
+  "name": "jff",
+  "private": true,
+  "workspaces": ["http-client-wasm"]
+}

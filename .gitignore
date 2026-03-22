@@ -2,3 +2,7 @@
 .DS_Store
 
 target/
+
+# Bun / JS / TS
+node_modules/
+bun.lock
