@@ -5,11 +5,11 @@
     "": {
       "name": "jff",
     },
-    "http-client-wasm": {
+    "crates/http-client-wasm": {
       "name": "http-client-wasm",
       "devDependencies": {
-        "@tsconfig/strictest": "^2.0.8",
-        "bun-types": "^1.3.11",
+        "@tsconfig/strictest": "2.0.8",
+        "bun-types": "1.3.11",
       },
     },
   },
@@ -20,7 +20,7 @@
 
     "bun-types": ["bun-types@1.3.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-1KGPpoxQWl9f6wcZh57LvrPIInQMn2TQ7jsgxqpRzg+l0QPOFvJVH7HmvHo/AiPgwXy+/Thf6Ov3EdVn1vOabg=="],
 
-    "http-client-wasm": ["http-client-wasm@workspace:http-client-wasm"],
+    "http-client-wasm": ["http-client-wasm@workspace:crates/http-client-wasm"],
 
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
   }
