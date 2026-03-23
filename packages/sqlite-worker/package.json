@@ -1,0 +1,18 @@
+{
+  "name": "@tearleads/sqlite-worker",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./types": "./src/types.ts",
+    "./worker": "./src/worker.ts",
+    "./worker-core": "./src/workerCore.ts"
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests --max-concurrency=4"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}
