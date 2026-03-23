@@ -8,8 +8,12 @@ interface AppProps {
   createWorker?: typeof createAppDatabaseWorker;
 }
 
-function AppContent() {
+function Pane({ className }: { className: string }) {
   const { status } = useDatabase();
+  return <section className={className}>worker: {status}</section>;
+}
+
+function AppContent({ createWorker }: Required<AppProps>) {
   const [split, setSplit] = useState(false);
 
   const toggleSplit = useCallback(() => setSplit((s) => !s), []);
@@ -21,17 +25,17 @@ function AppContent() {
           {split ? "Unsplit" : "Split"}
         </button>
       </header>
-      <section className="pane pane-left">worker: {status}</section>
-      <section className="pane pane-right">Main Content</section>
+      <DatabaseProvider createWorker={createWorker}>
+        <Pane className="pane pane-left" />
+      </DatabaseProvider>
+      <DatabaseProvider createWorker={createWorker}>
+        <Pane className="pane pane-right" />
+      </DatabaseProvider>
       <Footer />
     </div>
   );
 }
 
 export function App({ createWorker = createAppDatabaseWorker }: AppProps) {
-  return (
-    <DatabaseProvider createWorker={createWorker}>
-      <AppContent />
-    </DatabaseProvider>
-  );
+  return <AppContent createWorker={createWorker} />;
 }
