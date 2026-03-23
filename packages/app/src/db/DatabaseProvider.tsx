@@ -1,81 +1,81 @@
 import {
-	createContext,
-	type PropsWithChildren,
-	useContext,
-	useEffect,
-	useState,
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 import { createAppDatabaseWorker, type WorkerStatus } from "./sqliteWorker";
 
 export interface DatabaseContextValue {
-	client: ReturnType<typeof createAppDatabaseWorker>["client"] | null;
-	status: WorkerStatus;
+  client: ReturnType<typeof createAppDatabaseWorker>["client"] | null;
+  status: WorkerStatus;
 }
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
 interface DatabaseProviderProps extends PropsWithChildren {
-	createWorker?: typeof createAppDatabaseWorker;
+  createWorker?: typeof createAppDatabaseWorker;
 }
 
 export function DatabaseProvider({
-	children,
-	createWorker = createAppDatabaseWorker,
+  children,
+  createWorker = createAppDatabaseWorker,
 }: DatabaseProviderProps) {
-	const [status, setStatus] = useState<WorkerStatus>("idle");
-	const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
+  const [status, setStatus] = useState<WorkerStatus>("idle");
+  const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
 
-	useEffect(() => {
-		let isMounted = true;
-		let appWorker: ReturnType<typeof createWorker> | undefined;
+  useEffect(() => {
+    let isMounted = true;
+    let appWorker: ReturnType<typeof createWorker> | undefined;
 
-		try {
-			appWorker = createWorker();
-			setClient(appWorker.client);
-		} catch (error) {
-			console.error("Failed to create database worker:", error);
-			setStatus("error");
-			return;
-		}
+    try {
+      appWorker = createWorker();
+      setClient(appWorker.client);
+    } catch (error) {
+      console.error("Failed to create database worker:", error);
+      setStatus("error");
+      return;
+    }
 
-		void appWorker.client
-			.ping()
-			.then(() => {
-				if (isMounted) {
-					setStatus("ready");
-				}
-			})
-			.catch((error) => {
-				if (isMounted) {
-					console.error("Failed to ping worker:", error);
-					setStatus("error");
-				}
-			});
+    void appWorker.client
+      .ping()
+      .then(() => {
+        if (isMounted) {
+          setStatus("ready");
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          console.error("Failed to ping worker:", error);
+          setStatus("error");
+        }
+      });
 
-		return () => {
-			isMounted = false;
-			appWorker.client.destroy();
-			appWorker.worker.terminate();
-		};
-	}, [createWorker]);
+    return () => {
+      isMounted = false;
+      appWorker.client.destroy();
+      appWorker.worker.terminate();
+    };
+  }, [createWorker]);
 
-	return (
-		<DatabaseContext.Provider
-			value={{
-				client,
-				status,
-			}}
-		>
-			{children}
-		</DatabaseContext.Provider>
-	);
+  return (
+    <DatabaseContext.Provider
+      value={{
+        client,
+        status,
+      }}
+    >
+      {children}
+    </DatabaseContext.Provider>
+  );
 }
 
 export function useDatabase(): DatabaseContextValue {
-	const context = useContext(DatabaseContext);
-	if (!context) {
-		throw new Error("useDatabase must be used within a DatabaseProvider.");
-	}
+  const context = useContext(DatabaseContext);
+  if (!context) {
+    throw new Error("useDatabase must be used within a DatabaseProvider.");
+  }
 
-	return context;
+  return context;
 }
