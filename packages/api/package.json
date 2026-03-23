@@ -1,0 +1,17 @@
+{
+  "name": "@tearleads/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "hono": "4.7.11"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}
