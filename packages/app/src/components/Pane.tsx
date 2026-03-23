@@ -1,8 +1,18 @@
+import { useCallback, useState } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
+import { Menu, type MenuPosition } from "../Menu";
 import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
+  const [menu, setMenu] = useState<MenuPosition | null>(null);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    setMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const closeMenu = useCallback(() => setMenu(null), []);
+
   return (
     <section className={className}>
       <div className="pane-content">
@@ -10,7 +20,12 @@ export function Pane({ className }: { className: string }) {
         <br />
         id: {id}
       </div>
-      <div className="pane-footer">Pane Footer</div>
+      <div className="pane-footer">
+        <button type="button" onClick={handleClick}>
+          Menu
+        </button>
+      </div>
+      {menu && <Menu position={menu} onClose={closeMenu} />}
     </section>
   );
 }

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import "./ContextMenu.css";
+import "./Menu.css";
 
 export interface MenuPosition {
   x: number;
   y: number;
 }
 
-export function ContextMenu({
+export function Menu({
   position,
   onClose,
 }: {
@@ -28,7 +28,7 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="context-menu"
+      className="menu"
       style={{
         top: position.y,
         left: position.x,

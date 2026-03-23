@@ -1,11 +1,10 @@
 import { useCallback, useState } from "react";
-import { ContextMenu, type MenuPosition } from "./ContextMenu";
+import { Menu, type MenuPosition } from "./Menu";
 
 export function Footer() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleClick = useCallback((e: React.MouseEvent) => {
     setMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
@@ -14,11 +13,11 @@ export function Footer() {
   return (
     <>
       <footer>
-        <button type="button" onContextMenu={handleContextMenu}>
+        <button type="button" onClick={handleClick}>
           Footer
         </button>
       </footer>
-      {menu && <ContextMenu position={menu} onClose={closeMenu} />}
+      {menu && <Menu position={menu} onClose={closeMenu} />}
     </>
   );
 }
