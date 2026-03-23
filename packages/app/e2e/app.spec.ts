@@ -4,5 +4,5 @@ test("page loads", async ({ page }) => {
   await page.goto("/");
 
   await expect(page).toHaveTitle("App");
-  await expect(page.getByText(/Nav — worker: ready/)).toBeVisible();
+  await expect(page.getByText(/worker: ready/).first()).toBeVisible();
 });

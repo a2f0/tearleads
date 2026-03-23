@@ -14,10 +14,18 @@ body {
   display: grid;
   grid-template:
     "header header" auto
-    "nav    main" 1fr
+    "left   left" 1fr
     "footer footer" auto
-    / 200px 1fr;
+    / 1fr 1fr;
   min-height: 100vh;
+}
+
+.layout--split {
+  grid-template:
+    "header header" auto
+    "left   right" 1fr
+    "footer footer" auto
+    / 1fr 1fr;
 }
 
 .layout > header {
@@ -25,23 +33,6 @@ body {
   padding: var(--padding);
   background: var(--color-dark);
   color: var(--color-light);
-}
-
-.layout > nav {
-  grid-area: nav;
-  padding: var(--padding);
-  background: var(--color-muted);
-}
-
-.layout > main {
-  grid-area: main;
-  padding: var(--padding);
-}
-
-.layout > aside {
-  grid-area: aside;
-  padding: var(--padding);
-  background: var(--color-muted);
 }
 
 .layout > footer {
