@@ -1,52 +1,52 @@
 body {
-	margin: 0;
-	font-family: monospace;
+  margin: 0;
+  font-family: monospace;
 }
 
 :root {
-	--color-muted: #eee;
-	--color-dark: #333;
-	--color-light: #fff;
-	--padding: 1rem;
+  --color-muted: #eee;
+  --color-dark: #333;
+  --color-light: #fff;
+  --padding: 1rem;
 }
 
 .layout {
-	display: grid;
-	grid-template:
-		"header header header" auto
-		"nav    main   aside" 1fr
-		"footer footer footer" auto
-		/ 200px 1fr 200px;
-	min-height: 100vh;
+  display: grid;
+  grid-template:
+    "header header header" auto
+    "nav    main   aside" 1fr
+    "footer footer footer" auto
+    / 200px 1fr 200px;
+  min-height: 100vh;
 }
 
 .layout > header {
-	grid-area: header;
-	padding: var(--padding);
-	background: var(--color-dark);
-	color: var(--color-light);
+  grid-area: header;
+  padding: var(--padding);
+  background: var(--color-dark);
+  color: var(--color-light);
 }
 
 .layout > nav {
-	grid-area: nav;
-	padding: var(--padding);
-	background: var(--color-muted);
+  grid-area: nav;
+  padding: var(--padding);
+  background: var(--color-muted);
 }
 
 .layout > main {
-	grid-area: main;
-	padding: var(--padding);
+  grid-area: main;
+  padding: var(--padding);
 }
 
 .layout > aside {
-	grid-area: aside;
-	padding: var(--padding);
-	background: var(--color-muted);
+  grid-area: aside;
+  padding: var(--padding);
+  background: var(--color-muted);
 }
 
 .layout > footer {
-	grid-area: footer;
-	padding: var(--padding);
-	background: var(--color-dark);
-	color: var(--color-light);
+  grid-area: footer;
+  padding: var(--padding);
+  background: var(--color-dark);
+  color: var(--color-light);
 }

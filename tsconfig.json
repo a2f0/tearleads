@@ -1,8 +1,8 @@
 {
-	"files": [],
-	"references": [
-		{ "path": "crates/http-client-wasm" },
-		{ "path": "packages/app" },
-		{ "path": "packages/sqlite-worker" }
-	]
+  "files": [],
+  "references": [
+    { "path": "crates/http-client-wasm" },
+    { "path": "packages/app" },
+    { "path": "packages/sqlite-worker" }
+  ]
 }
