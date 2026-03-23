@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "crates/http-client-wasm" },
+    { "path": "packages/api" },
     { "path": "packages/app" },
     { "path": "packages/sqlite-worker" }
   ]

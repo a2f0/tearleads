@@ -19,16 +19,17 @@
     }
   },
   "scripts": {
-    "test:bun": "bun run --filter=app --filter=http-client-wasm --filter=@tearleads/sqlite-worker --sequential test",
+    "test:bun": "bun run --filter=app --filter=http-client-wasm --filter=@tearleads/sqlite-worker --filter=@tearleads/api --sequential test",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
-    "test:turbo:bun": "turbo run test --filter=app --filter=http-client-wasm --filter=@tearleads/sqlite-worker",
+    "test:turbo:bun": "turbo run test --filter=app --filter=http-client-wasm --filter=@tearleads/sqlite-worker --filter=@tearleads/api",
     "test:turbo:bun:affected": "turbo run test --affected",
     "test:turbo:e2e": "turbo run e2e --filter=app",
     "test:turbo:e2e:affected": "turbo run e2e --affected"
   },
   "workspaces": [
     "crates/http-client-wasm",
+    "packages/api",
     "packages/app",
     "packages/sqlite-worker"
   ],
