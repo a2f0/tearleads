@@ -7,6 +7,7 @@ body {
 	--color-muted: #eee;
 	--color-dark: #333;
 	--color-light: #fff;
+	--padding: 1.0rem;
 }
 
 .layout {
@@ -21,31 +22,31 @@ body {
 
 .layout > header {
 	grid-area: header;
-	padding: 1rem;
+	padding: var(--padding);
 	background: var(--color-dark);
 	color: var(--color-light);
 }
 
 .layout > nav {
 	grid-area: nav;
-	padding: 1rem;
+	padding: var(--padding);
 	background: var(--color-muted);
 }
 
 .layout > main {
 	grid-area: main;
-	padding: 1rem;
+	padding: var(--padding);
 }
 
 .layout > aside {
 	grid-area: aside;
-	padding: 1rem;
+	padding: var(--padding);
 	background: var(--color-muted);
 }
 
 .layout > footer {
 	grid-area: footer;
-	padding: 1rem;
+	padding: var(--padding);
 	background: var(--color-dark);
 	color: var(--color-light);
 }
