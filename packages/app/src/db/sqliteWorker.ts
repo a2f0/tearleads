@@ -8,6 +8,7 @@ import {
 export type WorkerStatus = "idle" | "ready" | "error";
 
 export interface AppDatabaseWorker {
+  id: string;
   client: ReturnType<typeof createDatabaseWorkerClient>;
   worker: ModuleWorkerLike;
 }
@@ -22,6 +23,7 @@ export function createAppDatabaseWorker(
   const worker = createModuleWorker("/worker.js", WorkerCtor);
 
   return {
+    id: crypto.randomUUID(),
     client: createDatabaseWorkerClient(worker as unknown as Worker),
     worker,
   };
