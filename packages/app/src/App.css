@@ -13,10 +13,10 @@ body {
 .layout {
   display: grid;
   grid-template:
-    "header header header" auto
-    "nav    main   aside" 1fr
-    "footer footer footer" auto
-    / 200px 1fr 200px;
+    "header header" auto
+    "nav    main" 1fr
+    "footer footer" auto
+    / 200px 1fr;
   min-height: 100vh;
 }
 

@@ -1,0 +1,19 @@
+.context-menu {
+  position: fixed;
+  background: var(--color-light);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.context-menu button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: var(--color-muted);
+}
