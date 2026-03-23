@@ -10,7 +10,7 @@ export interface ModuleWorkerConstructor {
 }
 
 export function createModuleWorker(
-	workerUrl: URL,
+	workerUrl: string | URL,
 	WorkerCtor: ModuleWorkerConstructor = globalThis.Worker,
 ): ModuleWorkerLike {
 	return new WorkerCtor(workerUrl, { type: "module" });

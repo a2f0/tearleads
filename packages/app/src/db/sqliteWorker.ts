@@ -19,10 +19,7 @@ export function createAppDatabaseWorker(
 		throw new Error("Worker must be defined.");
 	}
 
-	const worker = createModuleWorker(
-		new URL("./sqliteWorkerThread.ts", import.meta.url),
-		WorkerCtor,
-	);
+	const worker = createModuleWorker("/worker.js", WorkerCtor);
 
 	return {
 		client: createDatabaseWorkerClient(worker as unknown as Worker),
