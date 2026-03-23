@@ -84,6 +84,7 @@ export function DatabaseProvider({
   }, []);
 
   useEffect(() => {
+    spawnWorker();
     return () => {
       if (workerRef.current) {
         workerRef.current.client.destroy();
@@ -91,17 +92,7 @@ export function DatabaseProvider({
         workerRef.current = null;
       }
     };
-  }, []);
-
-  // Spawn on mount only, not after intentional kill
-  if (
-    workerRef.current === null &&
-    status === "idle" &&
-    id === null &&
-    !killedRef.current
-  ) {
-    spawnWorker();
-  }
+  }, [spawnWorker]);
 
   return (
     <DatabaseContext.Provider
