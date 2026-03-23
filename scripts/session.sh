@@ -26,6 +26,7 @@ fi
 prepend_path "$repo_root/packages/app/scripts"
 prepend_path "$repo_root/scripts"
 prepend_path "$repo_root/scripts/git"
+prepend_path "$repo_root/scripts/testing"
 
 export PATH
 

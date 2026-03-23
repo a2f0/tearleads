@@ -46,9 +46,8 @@ export function DatabaseProvider({
 				}
 			})
 			.catch((error) => {
-				console.error("Failed to ping worker:", error);
-
 				if (isMounted) {
+					console.error("Failed to ping worker:", error);
 					setStatus("error");
 				}
 			});
