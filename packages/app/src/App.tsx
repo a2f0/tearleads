@@ -10,7 +10,12 @@ interface AppProps {
 
 function Pane({ className }: { className: string }) {
   const { status } = useDatabase();
-  return <section className={className}>worker: {status}</section>;
+  return (
+    <section className={className}>
+      <div className="pane-content">worker: {status}</div>
+      <div className="pane-footer">Pane Footer</div>
+    </section>
+  );
 }
 
 function AppContent({ createWorker }: Required<AppProps>) {

@@ -36,8 +36,19 @@ body {
 }
 
 .pane {
-  padding: var(--padding);
+  display: flex;
+  flex-direction: column;
   overflow: auto;
+}
+
+.pane-content {
+  flex: 1;
+  padding: var(--padding);
+}
+
+.pane-footer {
+  padding: var(--padding);
+  background: var(--color-muted);
 }
 
 .pane-left {
