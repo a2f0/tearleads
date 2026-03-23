@@ -1,10 +1,8 @@
 import { serve } from "bun";
-import index from "./index.html";
+import { serverConfig } from "../serverConfig";
 
 const server = serve({
-  routes: {
-    "/*": index,
-  },
+  ...serverConfig,
   development: process.env.NODE_ENV !== "production" && {
     hmr: true,
     console: true,

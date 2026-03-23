@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test --max-concurrency=4",
+    "test": "bun test src --max-concurrency=4",
+    "e2e": "playwright test",
+    "test:e2e": "bun run e2e",
     "dev": "bun --hot src/devServer.ts",
     "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='\"production\"' --env='BUN_PUBLIC_*'",
     "start": "NODE_ENV=production bun src/devServer.ts"
@@ -15,6 +17,7 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "catalog:testing",
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@types/bun": "catalog:",

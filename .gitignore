@@ -8,3 +8,5 @@ node_modules/
 dist/
 tsconfig.tsbuildinfo
 .turbo/
+playwright-report/
+test-results/
