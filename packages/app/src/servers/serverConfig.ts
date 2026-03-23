@@ -8,6 +8,10 @@ const workerBuild = await Bun.build({
 	format: "esm",
 });
 
+if (!workerBuild.success || workerBuild.outputs.length === 0) {
+	throw new Error("Worker build failed", { cause: workerBuild.logs });
+}
+
 const workerScript = workerBuild.outputs[0];
 
 export const serverConfig = {

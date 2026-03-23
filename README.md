@@ -4,8 +4,8 @@
 
 1. Install `mise` with `brew install mise`
 2. Run `mise install`.
-3. Run `source scripts/path.sh` to extend the path for scripts. Or, alternatively:
-   - Add `tl() { . ~/github/tearleads/scripts/session.sh; }` to `~/.zshrc`
+3. Run `source scripts/session.sh` to extend the path for scripts. Or, alternatively:
+   - Add `tl() { . /path/to/checkout/session.sh; }` to `~/.zshrc`
 4. Run `install-hooks.sh` to install Git hooks.
 5. Run `cargo run http-server` to start the API.
 6. Run `bun run --filter=app dev` to start the dev server.
