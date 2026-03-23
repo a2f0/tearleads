@@ -12,6 +12,7 @@ export interface DatabaseWorkerClient {
   ): Promise<WorkerRequestMap["init"]["result"]>;
 }
 
+// Runs on the main thread 
 export function createDatabaseWorkerClient(
   worker: Worker,
 ): DatabaseWorkerClient {

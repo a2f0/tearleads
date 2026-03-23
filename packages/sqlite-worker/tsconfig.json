@@ -4,5 +4,5 @@
     "composite": true,
     "lib": ["ESNext", "WebWorker"]
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }
