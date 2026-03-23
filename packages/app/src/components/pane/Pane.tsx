@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
-import { useDatabase } from "../db/DatabaseProvider";
-import { Menu, type MenuPosition } from "../Menu";
+import { useDatabase } from "../../db/DatabaseProvider";
+import type { MenuPosition } from "../shared/Menu";
+import { PaneMenu } from "../shared/PaneMenu";
 import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
@@ -25,7 +26,7 @@ export function Pane({ className }: { className: string }) {
           Menu
         </button>
       </div>
-      {menu && <Menu position={menu} onClose={closeMenu} />}
+      {menu && <PaneMenu position={menu} onClose={closeMenu} />}
     </section>
   );
 }

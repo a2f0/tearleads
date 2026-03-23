@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type PropsWithChildren, useEffect, useRef } from "react";
 import "./Menu.css";
 
 export interface MenuPosition {
@@ -9,10 +9,11 @@ export interface MenuPosition {
 export function Menu({
   position,
   onClose,
-}: {
+  children,
+}: PropsWithChildren<{
   position: MenuPosition;
   onClose: () => void;
-}) {
+}>) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,15 +36,7 @@ export function Menu({
         transform: "translateY(-100%)",
       }}
     >
-      <button type="button" onClick={onClose}>
-        Action 1
-      </button>
-      <button type="button" onClick={onClose}>
-        Action 2
-      </button>
-      <button type="button" onClick={onClose}>
-        Action 3
-      </button>
+      {children}
     </div>
   );
 }
