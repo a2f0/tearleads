@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { Menu, type MenuPosition } from "./Menu";
+import type { MenuPosition } from "./components/shared/Menu";
+import { StartMenu } from "./components/shared/StartMenu";
 
 export function Footer() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
@@ -17,7 +18,7 @@ export function Footer() {
           Footer
         </button>
       </footer>
-      {menu && <Menu position={menu} onClose={closeMenu} />}
+      {menu && <StartMenu position={menu} onClose={closeMenu} />}
     </>
   );
 }

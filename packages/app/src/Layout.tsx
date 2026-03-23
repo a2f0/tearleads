@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { Pane } from "./components/Pane";
+import { Pane } from "./components/pane/Pane";
 import { DatabaseProvider } from "./db/DatabaseProvider";
-import { createAppDatabaseWorker } from "./db/sqliteWorker";
+import type { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { Footer } from "./Footer";
 import "./App.css";
 
