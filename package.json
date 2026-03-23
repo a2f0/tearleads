@@ -1,5 +1,5 @@
 {
-  "name": "jff",
+  "name": "tearleads",
   "private": true,
   "packageManager": "bun@1.3.11",
   "catalog": {
@@ -28,7 +28,11 @@
     "test:turbo:e2e": "turbo run e2e --filter=app",
     "test:turbo:e2e:affected": "turbo run e2e --affected"
   },
-  "workspaces": ["crates/http-client-wasm", "packages/app"],
+  "workspaces": [
+    "crates/http-client-wasm",
+    "packages/app",
+    "packages/sqlite-worker"
+  ],
   "devDependencies": {
     "@tsconfig/strictest": "2.0.8",
     "turbo": "2.8.20",

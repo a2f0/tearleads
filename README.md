@@ -1,11 +1,11 @@
-# JFF
+# Tearleads
 
 ## Getting Started
 
 1. Install `mise` with `brew install mise`
 2. Run `mise install`.
 3. Run `./scripts/install-hooks.sh` to install Git hooks.
-3. Run `cargo run http-server` to start the API.
+4. Run `cargo run http-server` to start the API.
 5. Run `bun run --filter=app dev` to start the dev server.
 
 ## Running Tests
