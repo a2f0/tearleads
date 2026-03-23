@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { serverConfig } from "../serverConfig";
+import { serverConfig } from "./serverConfig";
 
 const server = serve({
   ...serverConfig,

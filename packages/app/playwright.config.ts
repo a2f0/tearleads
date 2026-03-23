@@ -8,7 +8,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "bun e2eServer.ts",
+    command: "bun src/servers/e2eServer.ts",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     stdout: "pipe",
