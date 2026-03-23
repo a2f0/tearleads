@@ -8,6 +8,7 @@ import {
 import { createAppDatabaseWorker, type WorkerStatus } from "./sqliteWorker";
 
 export interface DatabaseContextValue {
+  id: string | null;
   client: ReturnType<typeof createAppDatabaseWorker>["client"] | null;
   status: WorkerStatus;
 }
@@ -23,6 +24,7 @@ export function DatabaseProvider({
   createWorker = createAppDatabaseWorker,
 }: DatabaseProviderProps) {
   const [status, setStatus] = useState<WorkerStatus>("idle");
+  const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export function DatabaseProvider({
 
     try {
       appWorker = createWorker();
+      setId(appWorker.id);
       setClient(appWorker.client);
     } catch (error) {
       console.error("Failed to create database worker:", error);
@@ -62,6 +65,7 @@ export function DatabaseProvider({
   return (
     <DatabaseContext.Provider
       value={{
+        id,
         client,
         status,
       }}
