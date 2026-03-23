@@ -35,34 +35,6 @@ body {
   color: var(--color-light);
 }
 
-.pane {
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-
-.pane-content {
-  flex: 1;
-  padding: var(--padding);
-}
-
-.pane-footer {
-  padding: var(--padding);
-  background: var(--color-muted);
-}
-
-.pane-left {
-  grid-area: left;
-}
-
-.pane-right {
-  grid-area: right;
-}
-
-.layout:not(.layout--split) .pane-right {
-  display: none;
-}
-
 .layout > footer {
   grid-area: footer;
   padding: var(--padding);

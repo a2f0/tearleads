@@ -1,4 +1,5 @@
 import { useDatabase } from "../db/DatabaseProvider";
+import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { status } = useDatabase();
