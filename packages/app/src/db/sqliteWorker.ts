@@ -8,7 +8,7 @@ export function createAppDatabaseWorker() {
   }
 
   // Dedicated Web Worker
-  const worker = new Worker(new URL("./sqliteWorkerThread.ts", import.meta.url), {
+  const worker = new Worker("/src/db/sqliteWorkerThread.ts", {
     type: "module",
   });
 
