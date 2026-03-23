@@ -12,6 +12,7 @@
     "start": "NODE_ENV=production bun src/servers/devServer.ts"
   },
   "dependencies": {
+    "@tearleads/sqlite-worker": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

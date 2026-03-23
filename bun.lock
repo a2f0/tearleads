@@ -20,6 +20,7 @@
       "name": "app",
       "version": "0.1.0",
       "dependencies": {
+        "@tearleads/sqlite-worker": "workspace:*",
         "react": "catalog:react",
         "react-dom": "catalog:react",
       },
