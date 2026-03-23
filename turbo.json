@@ -20,6 +20,18 @@
         "!**/*.tsbuildinfo",
         "!**/.DS_Store"
       ]
+    },
+    "e2e": {
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.turbo/**",
+        "!dist/**",
+        "!playwright-report/**",
+        "!test-results/**",
+        "!**/*.tsbuildinfo",
+        "!**/.DS_Store"
+      ]
     }
   }
 }
