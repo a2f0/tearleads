@@ -20,4 +20,7 @@ find "$REPO_ROOT/scripts" -name '*.sh' -exec shellcheck {} +
 echo "Running TypeScript compiler..."
 bun tsc --build
 
+echo "Running biome check..."
+bun run biome check
+
 echo "All checks passed."
