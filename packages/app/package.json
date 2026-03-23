@@ -18,7 +18,7 @@
 	},
 	"devDependencies": {
 		"@happy-dom/global-registrator": "catalog:testing",
-		"@playwright/test": "^1.58.2",
+		"@playwright/test": "1.58.2",
 		"@testing-library/jest-dom": "catalog:testing",
 		"@testing-library/react": "catalog:testing",
 		"@types/bun": "catalog:",
