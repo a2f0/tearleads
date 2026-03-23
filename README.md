@@ -31,6 +31,13 @@ cargo test test_read_not_found
 bun run test
 ```
 
+## Bun Catalogs
+
+Shared dependency versions for workspace packages live in the root
+[`package.json`](./package.json) under `catalog` and `catalogs`.
+Workspace packages reference those versions with `catalog:` and
+`catalog:<name>` so common versions stay aligned across the monorepo.
+
 ## Building
 
 ```sh
