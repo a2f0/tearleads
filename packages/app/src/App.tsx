@@ -10,7 +10,7 @@ interface AppProps {
 }
 
 function AppContent({ createWorker }: Required<AppProps>) {
-  const [split, setSplit] = useState(false);
+  const [split, setSplit] = useState(true);
 
   const toggleSplit = useCallback(() => setSplit((s) => !s), []);
 
