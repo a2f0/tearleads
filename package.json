@@ -37,5 +37,9 @@
 		"@tsconfig/strictest": "2.0.8",
 		"turbo": "2.8.20",
 		"typescript": "5.9.3"
+	},
+	"dependencies": {
+		"@types/invariant": "^2.2.37",
+		"invariant": "^2.2.4"
 	}
 }

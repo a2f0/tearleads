@@ -7,9 +7,10 @@ import {
 	expect,
 	test,
 } from "bun:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { type Subprocess, spawn } from "bun";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import invariant from "invariant";
 import { Client, initSync } from "../pkg/http_client_wasm.js";
 
 let server: Subprocess;
@@ -76,12 +77,12 @@ describe("wasm client", () => {
 
 		const tuple = await client.read("node", "doc1", "owner", "alice");
 
-		expect(tuple).toBeDefined();
-		expect(tuple!.namespace).toBe("Node");
-		expect(tuple!.object).toBe("doc1");
-		expect(tuple!.relation).toBe("owner");
-		expect(tuple!.subject).toBe("alice");
-		expect(Buffer.from(tuple!.payload)).toEqual(Buffer.from("hello world"));
+		invariant(tuple, "expected tuple to be defined");
+		expect(tuple.namespace).toBe("Node");
+		expect(tuple.object).toBe("doc1");
+		expect(tuple.relation).toBe("owner");
+		expect(tuple.subject).toBe("alice");
+		expect(Buffer.from(tuple.payload)).toEqual(Buffer.from("hello world"));
 	});
 
 	test("read not found", async () => {
