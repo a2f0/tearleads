@@ -29,6 +29,15 @@ cargo test test_read_not_found
 
 # Run all Bun tests across workspace packages, sequentially
 bun run test
+
+# Run Bun workspace tests through Turborepo
+bun run test:turbo:bun
+
+# Run all Turborepo test tasks
+bun run test:turbo
+
+# Run only changed/impacted Bun workspace tests through Turborepo
+bun run test:turbo:affected
 ```
 
 ## Bun Catalogs
@@ -37,6 +46,11 @@ Shared dependency versions for workspace packages live in the root
 [`package.json`](./package.json) under `catalog` and `catalogs`.
 Workspace packages reference those versions with `catalog:` and
 `catalog:<name>` so common versions stay aligned across the monorepo.
+
+## Turborepo
+
+[`turbo.json`](./turbo.json) adds dependency-aware task orchestration and
+local caching on top of the Bun workspace.
 
 ## Building
 

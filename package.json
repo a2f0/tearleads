@@ -1,6 +1,7 @@
 {
   "name": "jff",
   "private": true,
+  "packageManager": "bun@1.3.11",
   "catalog": {
     "@types/bun": "1.3.11"
   },
@@ -18,11 +19,16 @@
     }
   },
   "scripts": {
-    "test": "bun run --filter '*' --sequential test"
+    "test": "bun run test:bun",
+    "test:bun": "bun run --filter=app --filter=http-client-wasm --sequential test",
+    "test:turbo": "turbo run test",
+    "test:turbo:affected": "turbo run test --affected",
+    "test:turbo:bun": "turbo run test --filter=app --filter=http-client-wasm"
   },
   "workspaces": ["crates/http-client-wasm", "packages/app"],
   "devDependencies": {
     "@tsconfig/strictest": "2.0.8",
+    "turbo": "2.8.20",
     "typescript": "5.9.3"
   }
 }
