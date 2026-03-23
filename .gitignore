@@ -5,3 +5,6 @@ target/
 
 # Bun / JS / TS
 node_modules/
+dist/
+tsconfig.tsbuildinfo
+.turbo/

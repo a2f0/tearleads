@@ -1,5 +1,34 @@
 {
   "name": "jff",
   "private": true,
-  "workspaces": ["crates/http-client-wasm"]
+  "packageManager": "bun@1.3.11",
+  "catalog": {
+    "@types/bun": "1.3.11"
+  },
+  "catalogs": {
+    "react": {
+      "react": "19.2.4",
+      "react-dom": "19.2.4",
+      "@types/react": "19.2.14",
+      "@types/react-dom": "19.2.3"
+    },
+    "testing": {
+      "@happy-dom/global-registrator": "20.8.4",
+      "@testing-library/jest-dom": "6.9.1",
+      "@testing-library/react": "16.3.2"
+    }
+  },
+  "scripts": {
+    "test": "bun run test:bun",
+    "test:bun": "bun run --filter=app --filter=http-client-wasm --sequential test",
+    "test:turbo": "turbo run test",
+    "test:turbo:affected": "turbo run test --affected",
+    "test:turbo:bun": "turbo run test --filter=app --filter=http-client-wasm"
+  },
+  "workspaces": ["crates/http-client-wasm", "packages/app"],
+  "devDependencies": {
+    "@tsconfig/strictest": "2.0.8",
+    "turbo": "2.8.20",
+    "typescript": "5.9.3"
+  }
 }

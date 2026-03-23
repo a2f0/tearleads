@@ -23,7 +23,10 @@ beforeAll(async () => {
   });
 
   // Read from stdout until we find the "listening on <addr>" line
-  const reader = server.stdout.getReader();
+  if (!server.stdout) {
+    throw new Error("Server process stdout is null");
+  }
+  const reader = (server.stdout as ReadableStream<Uint8Array>).getReader();
   const decoder = new TextDecoder();
   let output = "";
   while (true) {

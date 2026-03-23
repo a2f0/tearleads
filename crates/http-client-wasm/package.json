@@ -2,10 +2,10 @@
   "name": "http-client-wasm",
   "private": true,
   "scripts": {
-    "test": "bun test"
+    "build": "./build-release.sh",
+    "test": "bun test --max-concurrency=4"
   },
   "devDependencies": {
-    "@tsconfig/strictest": "2.0.8",
-    "bun-types": "1.3.11"
+    "@types/bun": "catalog:"
   }
 }

@@ -1,0 +1,5 @@
+[test]
+preload = ["./happydom.ts"]
+
+[serve.static]
+env = "BUN_PUBLIC_*"

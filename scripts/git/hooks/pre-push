@@ -3,17 +3,21 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
 echo "Running cargo tests..."
 cargo test
 
-echo "Running WASM tests..."
-bun test
+echo "Running bun tests..."
+bun run test:turbo:affected
 
 echo "Running linter..."
 cargo clippy -- -D warnings
 
 echo "Running shellcheck..."
 find "$REPO_ROOT/scripts" -name '*.sh' -exec shellcheck {} +
+
+echo "Running TypeScript compiler..."
+bun tsc --build
 
 echo "All checks passed."

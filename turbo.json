@@ -1,0 +1,25 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "concurrency": "1",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "pkg/**"]
+    },
+    "check": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.turbo/**",
+        "!dist/**",
+        "!pkg/**",
+        "!**/*.tsbuildinfo",
+        "!**/.DS_Store"
+      ]
+    }
+  }
+}
