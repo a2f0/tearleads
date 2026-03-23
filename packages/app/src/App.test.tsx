@@ -18,7 +18,7 @@ test("renders App", async () => {
 	);
 
 	await waitFor(() => {
-		expect(view.getByText("App worker: ready")).toBeDefined();
+		expect(view.getByText(/Nav — worker: ready/)).toBeDefined();
 	});
 
 	view.unmount();
