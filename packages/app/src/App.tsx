@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { DatabaseProvider, useDatabase } from "./db/DatabaseProvider";
 import { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { Footer } from "./Footer";
@@ -9,12 +10,19 @@ interface AppProps {
 
 function AppContent() {
   const { status } = useDatabase();
+  const [split, setSplit] = useState(false);
+
+  const toggleSplit = useCallback(() => setSplit((s) => !s), []);
 
   return (
-    <div className="layout">
-      <header>Header</header>
-      <nav>Nav — worker: {status}</nav>
-      <main>Main Content</main>
+    <div className={split ? "layout layout--split" : "layout"}>
+      <header>
+        <button type="button" onClick={toggleSplit}>
+          {split ? "Unsplit" : "Split"}
+        </button>
+      </header>
+      <section className="pane pane-left">worker: {status}</section>
+      <section className="pane pane-right">Main Content</section>
       <Footer />
     </div>
   );
