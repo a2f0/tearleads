@@ -1,21 +1,12 @@
 import { useCallback, useState } from "react";
-import { DatabaseProvider, useDatabase } from "./db/DatabaseProvider";
+import { Pane } from "./components/Pane";
+import { DatabaseProvider } from "./db/DatabaseProvider";
 import { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { Footer } from "./Footer";
 import "./App.css";
 
 interface AppProps {
   createWorker?: typeof createAppDatabaseWorker;
-}
-
-function Pane({ className }: { className: string }) {
-  const { status } = useDatabase();
-  return (
-    <section className={className}>
-      <div className="pane-content">worker: {status}</div>
-      <div className="pane-footer">Pane Footer</div>
-    </section>
-  );
 }
 
 function AppContent({ createWorker }: Required<AppProps>) {
