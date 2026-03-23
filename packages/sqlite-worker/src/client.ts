@@ -37,8 +37,14 @@ type PendingRequest = {
 };
 
 // Runs on the main thread
+export interface WorkerLike {
+  postMessage(message: unknown): void;
+  addEventListener: Worker["addEventListener"];
+  removeEventListener: Worker["removeEventListener"];
+}
+
 export function createDatabaseWorkerClient(
-  worker: Worker,
+  worker: WorkerLike,
 ): DatabaseWorkerClient {
   let nextId = 1;
   const pending = new Map<number, PendingRequest>();
