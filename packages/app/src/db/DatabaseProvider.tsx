@@ -3,12 +3,13 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import {
-  createAppDatabaseWorker,
   type AppDatabaseWorker,
+  createAppDatabaseWorker,
   type WorkerStatus,
 } from "./sqliteWorker";
 
@@ -82,8 +83,23 @@ export function DatabaseProvider({
     setStatus("terminated");
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.client.destroy();
+        workerRef.current.worker.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, []);
+
   // Spawn on mount only, not after intentional kill
-  if (workerRef.current === null && status === "idle" && id === null && !killedRef.current) {
+  if (
+    workerRef.current === null &&
+    status === "idle" &&
+    id === null &&
+    !killedRef.current
+  ) {
     spawnWorker();
   }
 
