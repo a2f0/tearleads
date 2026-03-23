@@ -13,7 +13,11 @@ export function Footer() {
 
   return (
     <>
-      <footer onContextMenu={handleContextMenu}>Footer</footer>
+      <footer>
+        <button type="button" onContextMenu={handleContextMenu}>
+          Footer
+        </button>
+      </footer>
       {menu && <ContextMenu position={menu} onClose={closeMenu} />}
     </>
   );
