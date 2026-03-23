@@ -1,8 +1,26 @@
-import { test, expect } from "bun:test";
-import { render } from "@testing-library/react";
+import { expect, test } from "bun:test";
+import { render, waitFor } from "@testing-library/react";
 import { App } from "./App";
+import { createAppDatabaseWorker } from "./db/sqliteWorker";
+import { MockWorker } from "../test/helpers/mockWorker";
 
-test("renders App", () => {
-  const view = render(<App />);
-  expect(view.getByText(/App worker:/)).toBeDefined();
+test("renders App", async () => {
+  let worker: MockWorker | undefined;
+
+  const view = render(
+    <App
+      createWorker={() => {
+        const appWorker = createAppDatabaseWorker(MockWorker);
+        worker = appWorker.worker as MockWorker;
+        return appWorker;
+      }}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("App worker: ready")).toBeDefined();
+  });
+
+  view.unmount();
+  expect(worker?.terminated).toBe(true);
 });

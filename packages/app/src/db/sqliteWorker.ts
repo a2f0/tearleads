@@ -1,16 +1,31 @@
 import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
+import {
+  createModuleWorker,
+  type ModuleWorkerConstructor,
+  type ModuleWorkerLike,
+} from "./createModuleWorker";
 
 export type WorkerStatus = "idle" | "ready" | "error";
 
-export function createAppDatabaseWorker() {
-  if (typeof Worker === "undefined") {
+export interface AppDatabaseWorker {
+  client: ReturnType<typeof createDatabaseWorkerClient>;
+  worker: ModuleWorkerLike;
+}
+
+export function createAppDatabaseWorker(
+  WorkerCtor?: ModuleWorkerConstructor,
+): AppDatabaseWorker {
+  if (typeof WorkerCtor === "undefined" && typeof Worker === "undefined") {
     throw new Error("Worker must be defined.");
   }
 
-  // Dedicated Web Worker
-  const worker = new Worker("/src/db/sqliteWorkerThread.ts", {
-    type: "module",
-  });
+  const worker = createModuleWorker(
+    new URL("./sqliteWorkerThread.ts", import.meta.url),
+    WorkerCtor,
+  );
 
-  return createDatabaseWorkerClient(worker);
+  return {
+    client: createDatabaseWorkerClient(worker as unknown as Worker),
+    worker,
+  };
 }

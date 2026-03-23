@@ -17,8 +17,18 @@ export function registerDatabaseWorker(
   options: RegisterDatabaseWorkerOptions = {},
 ): void {
   scope.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
-    const response = await handleRequest(event.data, options);
-    scope.postMessage(response);
+    try {
+      const response = await handleRequest(event.data, options);
+      scope.postMessage(response);
+    } catch (error) {
+      scope.postMessage({
+        id: event.data.id,
+        result: {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
   });
 }
 
