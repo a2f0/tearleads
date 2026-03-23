@@ -24,7 +24,7 @@ export function createAppDatabaseWorker(
 
   return {
     id: crypto.randomUUID(),
-    client: createDatabaseWorkerClient(worker as unknown as Worker),
+    client: createDatabaseWorkerClient(worker),
     worker,
   };
 }

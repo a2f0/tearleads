@@ -36,9 +36,15 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
+export interface WorkerLike {
+  postMessage(message: unknown): void;
+  addEventListener: Worker["addEventListener"];
+  removeEventListener: Worker["removeEventListener"];
+}
+
 // Runs on the main thread
 export function createDatabaseWorkerClient(
-  worker: Worker,
+  worker: WorkerLike,
 ): DatabaseWorkerClient {
   let nextId = 1;
   const pending = new Map<number, PendingRequest>();
