@@ -1,5 +1,6 @@
 import { DatabaseProvider, useDatabase } from "./db/DatabaseProvider";
 import { createAppDatabaseWorker } from "./db/sqliteWorker";
+import { Footer } from "./Footer";
 import "./App.css";
 
 interface AppProps {
@@ -14,8 +15,7 @@ function AppContent() {
       <header>Header</header>
       <nav>Nav — worker: {status}</nav>
       <main>Main Content</main>
-      <aside>Aside</aside>
-      <footer>Footer</footer>
+      <Footer />
     </div>
   );
 }
