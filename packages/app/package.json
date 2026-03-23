@@ -12,6 +12,7 @@
     "start": "bun src/servers/devServer.ts"
   },
   "dependencies": {
+    "@noble/post-quantum": "0.5.4",
     "@tearleads/sqlite-worker": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"
