@@ -1,0 +1,51 @@
+body {
+	margin: 0;
+	font-family: monospace;
+}
+
+:root {
+	--color-muted: #eee;
+	--color-dark: #333;
+	--color-light: #fff;
+}
+
+.layout {
+	display: grid;
+	grid-template:
+		"header header header" auto
+		"nav    main   aside" 1fr
+		"footer footer footer" auto
+		/ 200px 1fr 200px;
+	min-height: 100vh;
+}
+
+.layout > header {
+	grid-area: header;
+	padding: 1rem;
+	background: var(--color-dark);
+	color: var(--color-light);
+}
+
+.layout > nav {
+	grid-area: nav;
+	padding: 1rem;
+	background: var(--color-muted);
+}
+
+.layout > main {
+	grid-area: main;
+	padding: 1rem;
+}
+
+.layout > aside {
+	grid-area: aside;
+	padding: 1rem;
+	background: var(--color-muted);
+}
+
+.layout > footer {
+	grid-area: footer;
+	padding: 1rem;
+	background: var(--color-dark);
+	color: var(--color-light);
+}
