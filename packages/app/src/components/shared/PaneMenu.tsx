@@ -1,3 +1,4 @@
+import { useDatabase } from "../../db/DatabaseProvider";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -8,11 +9,24 @@ export function PaneMenu({
   position: MenuPosition;
   onClose: () => void;
 }) {
+  const { killWorker, spawnWorker } = useDatabase();
+
   return (
     <Menu position={position} onClose={onClose}>
-      <MenuItem label="Action 1" onClick={onClose} />
-      <MenuItem label="Action 2" onClick={onClose} />
-      <MenuItem label="Action 3" onClick={onClose} />
+      <MenuItem
+        label="Kill Worker"
+        onClick={() => {
+          killWorker();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label="Spawn Worker"
+        onClick={() => {
+          spawnWorker();
+          onClose();
+        }}
+      />
     </Menu>
   );
 }

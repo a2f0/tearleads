@@ -5,7 +5,7 @@ import {
   type ModuleWorkerLike,
 } from "./createModuleWorker";
 
-export type WorkerStatus = "idle" | "ready" | "error";
+export type WorkerStatus = "idle" | "ready" | "error" | "terminated";
 
 export interface AppDatabaseWorker {
   id: string;
