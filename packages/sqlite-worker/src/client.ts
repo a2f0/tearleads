@@ -36,13 +36,13 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-// Runs on the main thread
 export interface WorkerLike {
   postMessage(message: unknown): void;
   addEventListener: Worker["addEventListener"];
   removeEventListener: Worker["removeEventListener"];
 }
 
+// Runs on the main thread
 export function createDatabaseWorkerClient(
   worker: WorkerLike,
 ): DatabaseWorkerClient {
