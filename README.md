@@ -50,7 +50,8 @@ Workspace packages reference those versions with `catalog:` and
 ## Turborepo
 
 [`turbo.json`](./turbo.json) adds dependency-aware task orchestration and
-local caching on top of the Bun workspace.
+local caching on top of the Bun workspace. The `test` task depends on each
+package's `build` task, so generated artifacts are refreshed before tests run.
 
 ## Building
 

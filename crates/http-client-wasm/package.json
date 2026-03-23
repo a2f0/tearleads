@@ -2,6 +2,7 @@
   "name": "http-client-wasm",
   "private": true,
   "scripts": {
+    "build": "./build-release.sh",
     "test": "bun test --max-concurrency=4"
   },
   "devDependencies": {

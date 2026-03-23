@@ -3,12 +3,13 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
 echo "Running cargo tests..."
 cargo test
 
 echo "Running bun tests..."
-bun --filter '*' test
+bun run test:turbo:affected
 
 echo "Running linter..."
 cargo clippy -- -D warnings
