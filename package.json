@@ -26,7 +26,7 @@
     "test:turbo:bun": "turbo run test --filter=app --filter=http-client-wasm",
     "test:turbo:bun:affected": "turbo run test --affected",
     "test:turbo:e2e": "turbo run e2e --filter=app",
-    "test:turbo:e2e:affected": "turbo run e2e --affected --filter=app"
+    "test:turbo:e2e:affected": "turbo run e2e --affected"
   },
   "workspaces": ["crates/http-client-wasm", "packages/app"],
   "devDependencies": {
