@@ -9,11 +9,11 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@tearleads/crypto": "workspace:*",
     "hono": "4.7.11",
     "redis": "5.11.0"
   },
   "devDependencies": {
-    "@tearleads/crypto": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

@@ -1,20 +1,23 @@
 import { afterAll, expect, test } from "bun:test";
-import { generateSeedAndKeyPair } from "@tearleads/crypto";
+import { generateSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import invariant from "invariant";
 import { get } from "../adapters/redis";
 import { app } from "../index";
+
+let fingerprint: string;
 
 afterAll(async () => {
   const { createClient } = await import("redis");
   const client = createClient();
   await client.connect();
-  await client.del("publicKey");
+  await client.del(fingerprint);
   await client.quit();
 });
 
-test("POST /publicKey stores the key in redis", async () => {
+test("POST /publicKey stores the key in redis keyed by fingerprint", async () => {
   const { publicKey } = generateSeedAndKeyPair();
   const keyArray = Array.from(publicKey);
+  fingerprint = await toFingerprint(publicKey);
 
   const res = await app.request("/publicKey", {
     method: "POST",
@@ -25,7 +28,7 @@ test("POST /publicKey stores the key in redis", async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ message: "ok" });
 
-  const stored = await get("publicKey");
-  invariant(stored, "expected publicKey to be stored in redis");
+  const stored = await get(fingerprint);
+  invariant(stored, "expected publicKey to be stored in redis by fingerprint");
   expect(JSON.parse(stored)).toEqual(keyArray);
 });
