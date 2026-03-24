@@ -7,8 +7,10 @@ export function postChallenge(fingerprint: string) {
   if (!isChallengeRequest(body)) {
     throw new Error("Invalid ChallengeRequest");
   }
-  return request("/auth/challenge", isChallengeResponse, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return request(
+    "/auth/challenge",
+    isChallengeResponse,
+    "POST",
+    JSON.stringify(body),
+  );
 }

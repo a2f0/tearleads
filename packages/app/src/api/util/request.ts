@@ -10,24 +10,26 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
+export type HttpMethod = "GET" | "POST";
+
+function buildHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  };
+}
+
 export async function request<T>(
   path: string,
   validator: (value: unknown) => value is T,
-  options?: RequestInit,
+  method: HttpMethod,
+  body?: string,
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((options?.headers as Record<string, string>) ?? {}),
-  };
-
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
+  const init: RequestInit = { method, headers: buildHeaders() };
+  if (body) {
+    init.body = body;
   }
-
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(`${BASE_URL}${path}`, init);
 
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
