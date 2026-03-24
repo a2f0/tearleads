@@ -1,22 +1,48 @@
 import { expect, test } from "bun:test";
-import type {
-  ChallengeErrorResponse,
-  ChallengeResponse,
-  HealthResponse,
-  PublicKeyResponse,
-  VerifyResponse,
+import {
+  isChallengeErrorResponse,
+  isChallengeResponse,
+  isHealthResponse,
+  isPublicKeyResponse,
+  isVerifyResponse,
 } from "./index";
 
-test("response types are importable", () => {
-  const health: HealthResponse = { message: "ok" };
-  const publicKey: PublicKeyResponse = { message: "ok" };
-  const challenge: ChallengeResponse = { challenge: "abc" };
-  const challengeError: ChallengeErrorResponse = { error: "not found" };
-  const verify: VerifyResponse = { authenticated: true };
+test("isHealthResponse", () => {
+  expect(isHealthResponse({ message: "ok" })).toBe(true);
+  expect(isHealthResponse({ message: 123 })).toBe(false);
+  expect(isHealthResponse({})).toBe(false);
+  expect(isHealthResponse(null)).toBe(false);
+});
 
-  expect(health).toBeDefined();
-  expect(publicKey).toBeDefined();
-  expect(challenge).toBeDefined();
-  expect(challengeError).toBeDefined();
-  expect(verify).toBeDefined();
+test("isPublicKeyResponse", () => {
+  expect(isPublicKeyResponse({ message: "ok" })).toBe(true);
+  expect(isPublicKeyResponse({ message: 123 })).toBe(false);
+  expect(isPublicKeyResponse({})).toBe(false);
+  expect(isPublicKeyResponse(null)).toBe(false);
+});
+
+test("isChallengeResponse", () => {
+  expect(isChallengeResponse({ challenge: "hex" })).toBe(true);
+  expect(isChallengeResponse({ challenge: 123 })).toBe(false);
+  expect(isChallengeResponse({})).toBe(false);
+  expect(isChallengeResponse(null)).toBe(false);
+});
+
+test("isChallengeErrorResponse", () => {
+  expect(isChallengeErrorResponse({ error: "not found" })).toBe(true);
+  expect(isChallengeErrorResponse({ error: 123 })).toBe(false);
+  expect(isChallengeErrorResponse({})).toBe(false);
+  expect(isChallengeErrorResponse(null)).toBe(false);
+});
+
+test("isVerifyResponse", () => {
+  expect(isVerifyResponse({ authenticated: true })).toBe(true);
+  expect(isVerifyResponse({ authenticated: false, error: "bad sig" })).toBe(
+    true,
+  );
+  expect(isVerifyResponse({ authenticated: false })).toBe(true);
+  expect(isVerifyResponse({ authenticated: "yes" })).toBe(false);
+  expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);
+  expect(isVerifyResponse({})).toBe(false);
+  expect(isVerifyResponse(null)).toBe(false);
 });

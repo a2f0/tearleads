@@ -1,7 +1,10 @@
-export type {
-  ChallengeErrorResponse,
-  ChallengeResponse,
-  VerifyResponse,
+export {
+  type ChallengeErrorResponse,
+  type ChallengeResponse,
+  isChallengeErrorResponse,
+  isChallengeResponse,
+  isVerifyResponse,
+  type VerifyResponse,
 } from "./auth";
-export type { HealthResponse } from "./health";
-export type { PublicKeyResponse } from "./publicKey";
+export { type HealthResponse, isHealthResponse } from "./health";
+export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";

@@ -1,2 +1,2 @@
-export type { ChallengeRequest } from "./challenge";
-export type { VerifyRequest } from "./verify";
+export { type ChallengeRequest, isChallengeRequest } from "./challenge";
+export { isVerifyRequest, type VerifyRequest } from "./verify";
