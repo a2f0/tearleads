@@ -1,0 +1,63 @@
+import { afterAll, expect, test } from "bun:test";
+import {
+  generateSeedAndKeyPair,
+  hexToBytes,
+  sign,
+  toFingerprint,
+} from "@tearleads/crypto";
+import invariant from "invariant";
+import {
+  requestChallenge,
+  submitLogout,
+  submitVerify,
+  uploadKey,
+} from "../../../test/helpers/api";
+import { del } from "../../adapters/redis";
+
+const keys = generateSeedAndKeyPair();
+let fingerprint: string;
+
+afterAll(async () => {
+  await del(fingerprint);
+});
+
+// Note: this does not require storing the key on the server.
+async function authenticate(): Promise<string> {
+  const challengeRes = await requestChallenge(fingerprint);
+  const { challenge } = await challengeRes.json();
+  invariant(typeof challenge === "string", "expected challenge string");
+
+  const signature = sign(hexToBytes(challenge), keys.secretKey);
+  const res = await submitVerify(fingerprint, signature);
+  const setCookie = res.headers.get("set-cookie");
+  invariant(typeof setCookie === "string", "expected set-cookie header");
+  return setCookie;
+}
+
+test("setup: register key", async () => {
+  fingerprint = await toFingerprint(keys.publicKey);
+  await uploadKey(keys.publicKey);
+});
+
+test("returns 401 without a session cookie", async () => {
+  const res = await submitLogout("");
+  expect(res.status).toBe(401);
+});
+
+test("destroys session on logout", async () => {
+  const cookie = await authenticate();
+
+  const res = await submitLogout(cookie);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ message: "ok" });
+});
+
+test("returns 401 when using a destroyed session", async () => {
+  const cookie = await authenticate();
+
+  const first = await submitLogout(cookie);
+  expect(first.status).toBe(200);
+
+  const second = await submitLogout(cookie);
+  expect(second.status).toBe(401);
+});
