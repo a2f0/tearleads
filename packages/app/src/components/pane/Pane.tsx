@@ -1,16 +1,10 @@
+import { toFingerprint } from "@tearleads/crypto";
 import { useCallback, useEffect, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { PaneMenu } from "../shared/PaneMenu";
 import "./Pane.css";
-
-async function toFingerprint(bytes: Uint8Array): Promise<string> {
-  const hash = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)),
-  );
-  return Array.from(hash, (b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
