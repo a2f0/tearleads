@@ -1,17 +1,9 @@
 import { expect, test } from "bun:test";
 import {
   isChallengeRequest,
-  isHealthRequest,
   isPublicKeyRequest,
   isVerifyRequest,
 } from "./index";
-
-test("isHealthRequest", () => {
-  expect(isHealthRequest({})).toBe(true);
-  expect(isHealthRequest({ extra: "field" })).toBe(true);
-  expect(isHealthRequest(null)).toBe(false);
-  expect(isHealthRequest("string")).toBe(false);
-});
 
 test("isPublicKeyRequest", () => {
   expect(isPublicKeyRequest({ publicKey: [1, 2, 3] })).toBe(true);
