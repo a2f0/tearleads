@@ -1,5 +1,5 @@
 import { hexToBytes, verify } from "@tearleads/crypto";
-import type { VerifyRequest } from "@tearleads/validators/request";
+import { isVerifyRequest } from "@tearleads/validators/request";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { del, get } from "../../adapters/redis";
@@ -7,7 +7,11 @@ import { del, get } from "../../adapters/redis";
 export const verifyRoute = new Hono();
 
 verifyRoute.post("/auth/verify", async (c) => {
-  const { fingerprint, signature } = await c.req.json<VerifyRequest>();
+  const body = await c.req.json();
+  if (!isVerifyRequest(body)) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+  const { fingerprint, signature } = body;
 
   const challengeHex = await get(`challenge:${fingerprint}`);
   if (!challengeHex) {

@@ -1,5 +1,5 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
-import type { ChallengeRequest } from "@tearleads/validators/request";
+import { isChallengeRequest } from "@tearleads/validators/request";
 import type {
   ChallengeErrorResponse,
   ChallengeResponse,
@@ -12,7 +12,11 @@ const CHALLENGE_TTL_SECONDS = 60;
 export const challenge = new Hono();
 
 challenge.post("/auth/challenge", async (c) => {
-  const { fingerprint } = await c.req.json<ChallengeRequest>();
+  const body = await c.req.json();
+  if (!isChallengeRequest(body)) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+  const { fingerprint } = body;
 
   const storedKey = await get(fingerprint);
   if (!storedKey) {
