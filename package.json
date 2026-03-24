@@ -3,7 +3,9 @@
   "private": true,
   "packageManager": "bun@1.3.11",
   "catalog": {
-    "@types/bun": "1.3.11"
+    "@types/bun": "1.3.11",
+    "@types/invariant": "2.2.37",
+    "invariant": "2.2.4"
   },
   "catalogs": {
     "react": {
@@ -45,7 +47,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@types/invariant": "^2.2.37",
-    "invariant": "^2.2.4"
+    "@types/invariant": "catalog:",
+    "invariant": "catalog:"
   }
 }

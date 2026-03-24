@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { generateSeedAndKeyPair } from "@tearleads/crypto";
+import invariant from "invariant";
 import { get } from "../adapters/redis";
 import { app } from "../index";
 
@@ -25,6 +26,6 @@ test("POST /publicKey stores the key in redis", async () => {
   expect(await res.json()).toEqual({ message: "ok" });
 
   const stored = await get("publicKey");
-  expect(stored).not.toBeNull();
-  expect(JSON.parse(stored!)).toEqual(keyArray);
+  invariant(stored, "expected publicKey to be stored in redis");
+  expect(JSON.parse(stored)).toEqual(keyArray);
 });
