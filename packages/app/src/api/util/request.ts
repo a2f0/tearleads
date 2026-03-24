@@ -21,7 +21,7 @@ export async function request<T>(
   };
 
   if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
+    headers.Authorization = `Bearer ${authToken}`;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
