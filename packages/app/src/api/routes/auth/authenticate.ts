@@ -5,10 +5,10 @@ import { postVerify } from "./verify";
 export async function authenticate(
   fingerprint: string,
   secretKey: Uint8Array,
-): Promise<boolean> {
+): Promise<string | null> {
   const { challenge } = await postChallenge(fingerprint);
   const challengeBytes = hexToBytes(challenge);
   const signature = sign(challengeBytes, secretKey);
   const result = await postVerify(fingerprint, signature);
-  return result.authenticated;
+  return result.authenticated ? (result.token ?? null) : null;
 }

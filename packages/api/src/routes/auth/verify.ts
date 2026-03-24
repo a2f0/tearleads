@@ -44,11 +44,11 @@ verifyRoute.post(
     const valid = verify(signatureBytes, challengeBytes, publicKey);
 
     if (valid) {
-      await createSession(c, {
+      const token = await createSession({
         fingerprint,
         createdAt: Date.now(),
       });
-      return c.json<VerifyResponse>({ authenticated: true });
+      return c.json<VerifyResponse>({ authenticated: true, token });
     }
     return c.json<VerifyResponse>(
       { authenticated: false, error: "Invalid signature" },

@@ -29,9 +29,9 @@ async function authenticate(): Promise<string> {
 
   const signature = sign(hexToBytes(challenge), keys.secretKey);
   const res = await submitVerify(fingerprint, signature);
-  const setCookie = res.headers.get("set-cookie");
-  invariant(typeof setCookie === "string", "expected set-cookie header");
-  return setCookie;
+  const body = await res.json();
+  invariant(typeof body.token === "string", "expected token string");
+  return body.token;
 }
 
 test("setup: register key", async () => {
@@ -39,25 +39,25 @@ test("setup: register key", async () => {
   await uploadKey(keys.publicKey);
 });
 
-test("returns 401 without a session cookie", async () => {
+test("returns 401 without a token", async () => {
   const res = await submitLogout("");
   expect(res.status).toBe(401);
 });
 
 test("destroys session on logout", async () => {
-  const cookie = await authenticate();
+  const token = await authenticate();
 
-  const res = await submitLogout(cookie);
+  const res = await submitLogout(token);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ message: "ok" });
 });
 
 test("returns 401 when using a destroyed session", async () => {
-  const cookie = await authenticate();
+  const token = await authenticate();
 
-  const first = await submitLogout(cookie);
+  const first = await submitLogout(token);
   expect(first.status).toBe(200);
 
-  const second = await submitLogout(cookie);
+  const second = await submitLogout(token);
   expect(second.status).toBe(401);
 });
