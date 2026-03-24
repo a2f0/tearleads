@@ -34,9 +34,13 @@
     "packages/crypto",
     "packages/sqlite-worker"
   ],
+  "lint-staged": {
+    "*": "biome check --fix --no-errors-on-unmatched"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
     "@tsconfig/strictest": "2.0.8",
+    "lint-staged": "16.4.0",
     "turbo": "2.8.20",
     "typescript": "5.9.3"
   },
