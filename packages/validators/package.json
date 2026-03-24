@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./isPlainObject": "./src/isPlainObject.ts",
     "./request": "./src/request/index.ts",
     "./response": "./src/response/index.ts"
   },

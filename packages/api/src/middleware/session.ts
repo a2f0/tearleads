@@ -3,6 +3,7 @@ import type { Context, Next } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import { del, get, set } from "../adapters/redis";
+import { isSessionData } from "../validators/session";
 
 const SESSION_COOKIE_NAME = "session_id";
 const SESSION_TTL_SECONDS = 86400;
@@ -59,8 +60,13 @@ export const requireAuth = createMiddleware(async (c: Context, next: Next) => {
     return c.json({ error: "Session expired" }, 401);
   }
 
-  const session: SessionData = JSON.parse(sessionRaw);
-  c.set("session", session);
+  const parsed: unknown = JSON.parse(sessionRaw);
+
+  if (!isSessionData(parsed)) {
+    return c.json({ error: "Invalid session data" }, 401);
+  }
+
+  c.set("session", parsed);
 
   return next();
 });
