@@ -1,8 +1,8 @@
 import type { PropsWithChildren } from "react";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import {
-  DatabaseProvider,
   type DatabaseContextValue,
+  DatabaseProvider,
 } from "../../db/DatabaseProvider";
 import type { createAppDatabaseWorker } from "../../db/sqliteWorker";
 

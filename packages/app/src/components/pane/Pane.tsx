@@ -27,7 +27,8 @@ export function Pane({ className }: { className: string }) {
         <br />
         id: {id}
         <br />
-        publicKey: {keyPair ? `${toHex(keyPair.publicKey.slice(0, 16))}...` : "none"}
+        publicKey:{" "}
+        {keyPair ? `${toHex(keyPair.publicKey.slice(0, 16))}...` : "none"}
       </div>
       <div className="pane-footer">
         <button type="button" onClick={handleClick}>
