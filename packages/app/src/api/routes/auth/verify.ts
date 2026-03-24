@@ -1,11 +1,17 @@
+import { isVerifyRequest } from "@tearleads/validators/request";
+import { isVerifyResponse } from "@tearleads/validators/response";
 import { request } from "../../util/request";
 
 export function postVerify(fingerprint: string, signature: Uint8Array) {
-  return request("/auth/verify", {
+  const body = {
+    fingerprint,
+    signature: Array.from(signature),
+  };
+  if (!isVerifyRequest(body)) {
+    throw new Error("Invalid VerifyRequest");
+  }
+  return request("/auth/verify", isVerifyResponse, {
     method: "POST",
-    body: JSON.stringify({
-      fingerprint,
-      signature: Array.from(signature),
-    }),
+    body: JSON.stringify(body),
   });
 }

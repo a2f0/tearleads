@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/validators": "workspace:*",
     "hono": "4.7.11",
     "redis": "5.11.0"
   },

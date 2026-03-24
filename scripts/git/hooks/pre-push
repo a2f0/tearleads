@@ -21,6 +21,6 @@ echo "Running TypeScript compiler..."
 bun tsc --build
 
 echo "Running biome check..."
-bun run biome check
+bun run biome check --error-on-warnings
 
 echo "All checks passed."

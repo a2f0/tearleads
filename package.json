@@ -34,10 +34,11 @@
     "packages/api",
     "packages/app",
     "packages/crypto",
-    "packages/sqlite-worker"
+    "packages/sqlite-worker",
+    "packages/validators"
   ],
   "lint-staged": {
-    "*": "biome check --fix --no-errors-on-unmatched"
+    "*": "biome check --fix --error-on-warnings"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",

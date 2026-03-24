@@ -5,6 +5,7 @@
     { "path": "packages/api" },
     { "path": "packages/app" },
     { "path": "packages/crypto" },
-    { "path": "packages/sqlite-worker" }
+    { "path": "packages/sqlite-worker" },
+    { "path": "packages/validators" }
   ]
 }
