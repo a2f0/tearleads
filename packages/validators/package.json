@@ -1,0 +1,16 @@
+{
+  "name": "@tearleads/validators",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./request": "./src/request/index.ts",
+    "./response": "./src/response/index.ts"
+  },
+  "scripts": {
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}
