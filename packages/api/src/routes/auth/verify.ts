@@ -4,6 +4,7 @@ import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { del, get } from "../../adapters/redis";
+import { createSession } from "../../middleware/session";
 
 export const verifyRoute = new Hono();
 
@@ -43,6 +44,10 @@ verifyRoute.post(
     const valid = verify(signatureBytes, challengeBytes, publicKey);
 
     if (valid) {
+      await createSession(c, {
+        fingerprint,
+        createdAt: Date.now(),
+      });
       return c.json<VerifyResponse>({ authenticated: true });
     }
     return c.json<VerifyResponse>(

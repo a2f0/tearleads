@@ -29,7 +29,7 @@
   // forbids dot access on index signatures.
   "overrides": [
     {
-      "includes": ["packages/validators/**"],
+      "includes": ["packages/validators/**", "packages/api/src/validators/**"],
       "linter": {
         "rules": {
           "complexity": {
