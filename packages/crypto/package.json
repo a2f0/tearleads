@@ -1,17 +1,16 @@
 {
-  "name": "@tearleads/api",
+  "name": "@tearleads/crypto",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "dev": "bun --hot src/index.ts",
-    "start": "bun src/index.ts",
     "test": "bun test src"
   },
   "dependencies": {
-    "@tearleads/crypto": "workspace:*",
-    "hono": "4.7.11",
-    "redis": "5.11.0"
+    "@noble/post-quantum": "0.5.4"
   },
   "devDependencies": {
     "@types/bun": "catalog:"
