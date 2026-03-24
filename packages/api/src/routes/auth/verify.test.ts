@@ -33,7 +33,9 @@ test("authenticates with a valid signature", async () => {
 
   const res = await submitVerify(fingerprint, signature);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ authenticated: true });
+  const body = await res.json();
+  expect(body.authenticated).toBe(true);
+  expect(typeof body.token).toBe("string");
 });
 
 test("returns 401 when no challenge exists", async () => {

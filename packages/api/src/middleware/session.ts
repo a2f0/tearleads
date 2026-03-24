@@ -1,11 +1,9 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
 import type { Context, Next } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import { del, get, set } from "../adapters/redis";
 import { isSessionData } from "../validators/session";
 
-const SESSION_COOKIE_NAME = "session_id";
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_PREFIX = "session:";
 
@@ -18,43 +16,39 @@ function sessionKey(sessionId: string): string {
   return `${SESSION_PREFIX}${sessionId}`;
 }
 
-export async function createSession(
-  c: Context,
-  data: SessionData,
-): Promise<string> {
-  const sessionId = bytesToHex(generateChallenge(32));
+function extractToken(c: Context): string | null {
+  // Authorization is canonical way to send credentials to a server (RFC 7235).
+  const header = c.req.header("Authorization");
+  // Bearer is the standard token scheme (RFC 7235).
+  if (!header?.startsWith("Bearer ")) {
+    return null;
+  }
+  return header.slice(7);
+}
 
-  await set(sessionKey(sessionId), JSON.stringify(data), SESSION_TTL_SECONDS);
+export async function createSession(data: SessionData): Promise<string> {
+  const token = bytesToHex(generateChallenge(32));
 
-  setCookie(c, SESSION_COOKIE_NAME, sessionId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
-    path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-  });
+  await set(sessionKey(token), JSON.stringify(data), SESSION_TTL_SECONDS);
 
-  return sessionId;
+  return token;
 }
 
 export async function destroySession(c: Context): Promise<void> {
-  const sessionId = getCookie(c, SESSION_COOKIE_NAME);
-  if (sessionId) {
-    await del(sessionKey(sessionId));
+  const token = extractToken(c);
+  if (token) {
+    await del(sessionKey(token));
   }
-  deleteCookie(c, SESSION_COOKIE_NAME, {
-    path: "/",
-  });
 }
 
 export const requireAuth = createMiddleware(async (c: Context, next: Next) => {
-  const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+  const token = extractToken(c);
 
-  if (!sessionId) {
+  if (!token) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const sessionRaw = await get(sessionKey(sessionId));
+  const sessionRaw = await get(sessionKey(token));
 
   if (!sessionRaw) {
     return c.json({ error: "Session expired" }, 401);

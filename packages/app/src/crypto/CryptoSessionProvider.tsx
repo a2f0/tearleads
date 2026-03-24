@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { authenticate } from "../api/routes/auth";
+import { setAuthToken } from "../api/util/request";
 
 interface KeyPair {
   publicKey: Uint8Array;
@@ -19,6 +20,7 @@ interface CryptoSessionContextValue {
   generateKey: () => void;
   destroyKey: () => void;
   login: () => Promise<boolean>;
+  logout: () => void;
 }
 
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
@@ -32,24 +34,43 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const generateKey = useCallback(() => {
     setKeyPair(generateSeedAndKeyPair());
     setIsAuthenticated(false);
+    setAuthToken(null);
   }, []);
 
   const destroyKey = useCallback(() => {
     setKeyPair(null);
     setIsAuthenticated(false);
+    setAuthToken(null);
+  }, []);
+
+  const logout = useCallback(() => {
+    setIsAuthenticated(false);
+    setAuthToken(null);
   }, []);
 
   const login = useCallback(async (): Promise<boolean> => {
     if (!keyPair) return false;
     const fingerprint = await toFingerprint(keyPair.publicKey);
-    const result = await authenticate(fingerprint, keyPair.secretKey);
-    setIsAuthenticated(result);
-    return result;
+    const token = await authenticate(fingerprint, keyPair.secretKey);
+    if (token) {
+      setAuthToken(token);
+      setIsAuthenticated(true);
+      return true;
+    }
+    setIsAuthenticated(false);
+    return false;
   }, [keyPair]);
 
   return (
     <CryptoSessionContext.Provider
-      value={{ keyPair, isAuthenticated, generateKey, destroyKey, login }}
+      value={{
+        keyPair,
+        isAuthenticated,
+        generateKey,
+        destroyKey,
+        login,
+        logout,
+      }}
     >
       {children}
     </CryptoSessionContext.Provider>

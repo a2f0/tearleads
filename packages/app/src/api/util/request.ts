@@ -1,16 +1,32 @@
 const BASE_URL = "http://localhost:3001";
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 export async function request<T>(
   path: string,
   validator: (value: unknown) => value is T,
   options?: RequestInit,
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options?.headers as Record<string, string>) ?? {}),
+  };
+
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
