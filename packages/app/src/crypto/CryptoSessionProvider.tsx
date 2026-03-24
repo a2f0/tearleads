@@ -1,4 +1,4 @@
-import { generateSeedAndKeyPair } from "@tearleads/crypto";
+import { generateSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import {
   createContext,
   type PropsWithChildren,
@@ -6,6 +6,7 @@ import {
   useContext,
   useState,
 } from "react";
+import { authenticate } from "../api/routes/auth";
 
 interface KeyPair {
   publicKey: Uint8Array;
@@ -14,8 +15,10 @@ interface KeyPair {
 
 interface CryptoSessionContextValue {
   keyPair: KeyPair | null;
+  isAuthenticated: boolean;
   generateKey: () => void;
   destroyKey: () => void;
+  login: () => Promise<boolean>;
 }
 
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
@@ -24,17 +27,30 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const generateKey = useCallback(() => {
     setKeyPair(generateSeedAndKeyPair());
+    setIsAuthenticated(false);
   }, []);
 
   const destroyKey = useCallback(() => {
     setKeyPair(null);
+    setIsAuthenticated(false);
   }, []);
 
+  const login = useCallback(async (): Promise<boolean> => {
+    if (!keyPair) return false;
+    const fingerprint = await toFingerprint(keyPair.publicKey);
+    const result = await authenticate(fingerprint, keyPair.secretKey);
+    setIsAuthenticated(result);
+    return result;
+  }, [keyPair]);
+
   return (
-    <CryptoSessionContext.Provider value={{ keyPair, generateKey, destroyKey }}>
+    <CryptoSessionContext.Provider
+      value={{ keyPair, isAuthenticated, generateKey, destroyKey, login }}
+    >
       {children}
     </CryptoSessionContext.Provider>
   );
