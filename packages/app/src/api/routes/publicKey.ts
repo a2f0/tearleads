@@ -1,5 +1,5 @@
 import { isPublicKeyRequest } from "@tearleads/validators/request";
-import type { PublicKeyResponse } from "@tearleads/validators/response";
+import { isPublicKeyResponse } from "@tearleads/validators/response";
 import { request } from "../util/request";
 
 export function postPublicKey(publicKey: Uint8Array) {
@@ -7,7 +7,7 @@ export function postPublicKey(publicKey: Uint8Array) {
   if (!isPublicKeyRequest(body)) {
     throw new Error("Invalid PublicKeyRequest");
   }
-  return request<PublicKeyResponse>("/publicKey", {
+  return request("/publicKey", isPublicKeyResponse, {
     method: "POST",
     body: JSON.stringify(body),
   });

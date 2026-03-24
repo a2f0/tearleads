@@ -1,5 +1,5 @@
 import { isChallengeRequest } from "@tearleads/validators/request";
-import type { ChallengeResponse } from "@tearleads/validators/response";
+import { isChallengeResponse } from "@tearleads/validators/response";
 import { request } from "../../util/request";
 
 export function postChallenge(fingerprint: string) {
@@ -7,7 +7,7 @@ export function postChallenge(fingerprint: string) {
   if (!isChallengeRequest(body)) {
     throw new Error("Invalid ChallengeRequest");
   }
-  return request<ChallengeResponse>("/auth/challenge", {
+  return request("/auth/challenge", isChallengeResponse, {
     method: "POST",
     body: JSON.stringify(body),
   });
