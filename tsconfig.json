@@ -4,6 +4,7 @@
     { "path": "crates/http-client-wasm" },
     { "path": "packages/api" },
     { "path": "packages/app" },
+    { "path": "packages/crypto" },
     { "path": "packages/sqlite-worker" }
   ]
 }

@@ -31,6 +31,7 @@
     "crates/http-client-wasm",
     "packages/api",
     "packages/app",
+    "packages/crypto",
     "packages/sqlite-worker"
   ],
   "devDependencies": {

@@ -5,7 +5,7 @@ import {
   useContext,
   useState,
 } from "react";
-import { generateSeedAndKeyPair } from "./generateKeyPair";
+import { generateSeedAndKeyPair } from "@tearleads/crypto";
 
 interface KeyPair {
   publicKey: Uint8Array;
