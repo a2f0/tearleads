@@ -1,3 +1,4 @@
+import { generateSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContext,
   type PropsWithChildren,
@@ -5,7 +6,6 @@ import {
   useContext,
   useState,
 } from "react";
-import { generateSeedAndKeyPair } from "@tearleads/crypto";
 
 interface KeyPair {
   publicKey: Uint8Array;
