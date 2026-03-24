@@ -7,8 +7,10 @@
 3. Run `source scripts/session.sh` to extend the path for scripts. Or, alternatively:
    - Add `tl() { . /path/to/checkout/session.sh; }` to `~/.zshrc`
 4. Run `install-hooks.sh` to install Git hooks.
-5. Run `cargo run http-server` to start the API.
-6. Run `bun run --filter=app dev` to start the dev server.
+5. Run `brew install authzed/tap/spicedb authzed/tap/zed` to install SpiceDB.
+6. Run `cargo run http-server` to start the API.
+7. Run `bun run --filter=app dev` to start the dev server.
+8. Run `spicedb serve --grpc-preshared-key "in-memory-developer-key"` to start SpiceDB.
 
 ## Running Tests
 

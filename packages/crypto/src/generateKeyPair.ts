@@ -1,6 +1,7 @@
 import { ml_dsa87 } from "@noble/post-quantum/ml-dsa.js";
 import { randomBytes } from "@noble/post-quantum/utils.js";
 
+// ML-DSA-87 provides Level 5 security of NIST's Post-Quantum Cryptography standardization (FIPS 204).
 export function generateKeyPair(seed: Uint8Array) {
   return ml_dsa87.keygen(seed);
 }
