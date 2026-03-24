@@ -1,3 +1,4 @@
+import { postPublicKey } from "../../api/routes/publicKey";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { Menu, type MenuPosition } from "./Menu";
@@ -48,6 +49,15 @@ export function PaneMenu({
           label="Destroy Key Pair"
           onClick={() => {
             destroyKey();
+            onClose();
+          }}
+        />
+      )}
+      {keyPair && (
+        <MenuItem
+          label="Upload Public Key"
+          onClick={() => {
+            postPublicKey(keyPair.publicKey);
             onClose();
           }}
         />
