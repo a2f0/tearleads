@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pane } from "./components/pane/Pane";
-import { DatabaseProvider } from "./db/DatabaseProvider";
+import { PaneProvider } from "./components/pane/PaneProvider";
 import type { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { Footer } from "./Footer";
 import "./App.css";
@@ -21,12 +21,12 @@ export function Layout({ createWorker }: LayoutProps) {
           {split ? "Unsplit" : "Split"}
         </button>
       </header>
-      <DatabaseProvider createWorker={createWorker}>
+      <PaneProvider createWorker={createWorker}>
         <Pane className="pane pane-left" />
-      </DatabaseProvider>
-      <DatabaseProvider createWorker={createWorker}>
+      </PaneProvider>
+      <PaneProvider createWorker={createWorker}>
         <Pane className="pane pane-right" />
-      </DatabaseProvider>
+      </PaneProvider>
       <Footer />
     </div>
   );
