@@ -1,4 +1,4 @@
-import { isRecord } from "../../isRecord";
+import { isPlainObject } from "../../isPlainObject";
 
 export interface VerifyResponse {
   authenticated: boolean;
@@ -7,7 +7,7 @@ export interface VerifyResponse {
 
 export function isVerifyResponse(value: unknown): value is VerifyResponse {
   return (
-    isRecord(value) &&
+    isPlainObject(value) &&
     typeof value["authenticated"] === "boolean" &&
     (value["error"] === undefined || typeof value["error"] === "string")
   );

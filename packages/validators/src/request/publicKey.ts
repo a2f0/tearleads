@@ -1,10 +1,10 @@
 import { isNumberArray } from "../isNumberArray";
-import { isRecord } from "../isRecord";
+import { isPlainObject } from "../isPlainObject";
 
 export interface PublicKeyRequest {
   publicKey: number[];
 }
 
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
-  return isRecord(value) && isNumberArray(value["publicKey"]);
+  return isPlainObject(value) && isNumberArray(value["publicKey"]);
 }

@@ -1,4 +1,4 @@
-import { isRecord } from "../../isRecord";
+import { isPlainObject } from "../../isPlainObject";
 
 export interface ChallengeResponse {
   challenge: string;
@@ -7,7 +7,7 @@ export interface ChallengeResponse {
 export function isChallengeResponse(
   value: unknown,
 ): value is ChallengeResponse {
-  return isRecord(value) && typeof value["challenge"] === "string";
+  return isPlainObject(value) && typeof value["challenge"] === "string";
 }
 
 export interface ChallengeErrorResponse {
@@ -17,5 +17,5 @@ export interface ChallengeErrorResponse {
 export function isChallengeErrorResponse(
   value: unknown,
 ): value is ChallengeErrorResponse {
-  return isRecord(value) && typeof value["error"] === "string";
+  return isPlainObject(value) && typeof value["error"] === "string";
 }

@@ -1,7 +1,7 @@
-import { isRecord } from "../isRecord";
+import { isPlainObject } from "../isPlainObject";
 
-export type HealthRequest = {};
+export type HealthRequest = Record<string, never>;
 
 export function isHealthRequest(value: unknown): value is HealthRequest {
-  return isRecord(value);
+  return isPlainObject(value);
 }

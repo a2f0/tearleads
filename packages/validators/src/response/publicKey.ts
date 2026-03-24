@@ -1,4 +1,4 @@
-import { isRecord } from "../isRecord";
+import { isPlainObject } from "../isPlainObject";
 
 export interface PublicKeyResponse {
   message: string;
@@ -7,5 +7,5 @@ export interface PublicKeyResponse {
 export function isPublicKeyResponse(
   value: unknown,
 ): value is PublicKeyResponse {
-  return isRecord(value) && typeof value["message"] === "string";
+  return isPlainObject(value) && typeof value["message"] === "string";
 }

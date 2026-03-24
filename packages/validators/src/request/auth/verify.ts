@@ -1,5 +1,5 @@
 import { isNumberArray } from "../../isNumberArray";
-import { isRecord } from "../../isRecord";
+import { isPlainObject } from "../../isPlainObject";
 
 export interface VerifyRequest {
   fingerprint: string;
@@ -8,7 +8,7 @@ export interface VerifyRequest {
 
 export function isVerifyRequest(value: unknown): value is VerifyRequest {
   return (
-    isRecord(value) &&
+    isPlainObject(value) &&
     typeof value["fingerprint"] === "string" &&
     isNumberArray(value["signature"])
   );

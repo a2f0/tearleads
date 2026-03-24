@@ -1,9 +1,9 @@
-import { isRecord } from "../isRecord";
+import { isPlainObject } from "../isPlainObject";
 
 export interface HealthResponse {
   message: string;
 }
 
 export function isHealthResponse(value: unknown): value is HealthResponse {
-  return isRecord(value) && typeof value["message"] === "string";
+  return isPlainObject(value) && typeof value["message"] === "string";
 }
