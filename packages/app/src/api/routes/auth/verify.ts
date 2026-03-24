@@ -10,8 +10,10 @@ export function postVerify(fingerprint: string, signature: Uint8Array) {
   if (!isVerifyRequest(body)) {
     throw new Error("Invalid VerifyRequest");
   }
-  return request("/auth/verify", isVerifyResponse, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return request(
+    "/auth/verify",
+    isVerifyResponse,
+    "POST",
+    JSON.stringify(body),
+  );
 }

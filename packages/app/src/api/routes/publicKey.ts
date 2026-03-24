@@ -7,8 +7,10 @@ export function postPublicKey(publicKey: Uint8Array) {
   if (!isPublicKeyRequest(body)) {
     throw new Error("Invalid PublicKeyRequest");
   }
-  return request("/publicKey", isPublicKeyResponse, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return request(
+    "/publicKey",
+    isPublicKeyResponse,
+    "POST",
+    JSON.stringify(body),
+  );
 }
