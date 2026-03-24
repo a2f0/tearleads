@@ -27,6 +27,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "hono": "4.7.11",
         "redis": "5.11.0",
       },
@@ -40,6 +41,7 @@
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "react": "catalog:react",
         "react-dom": "catalog:react",
       },

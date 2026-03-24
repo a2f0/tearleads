@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/validators": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"

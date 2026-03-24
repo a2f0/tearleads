@@ -1,13 +1,15 @@
 import { toFingerprint } from "@tearleads/crypto";
+import type { PublicKeyRequest } from "@tearleads/validators/request";
+import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { set } from "../adapters/redis";
 
-export const publicKey = new Hono();
+export const publicKeyRoute = new Hono();
 
-publicKey.post("/publicKey", async (c) => {
-  const { publicKey: key } = await c.req.json();
-  const keyBytes = new Uint8Array(key);
+publicKeyRoute.post("/publicKey", async (c) => {
+  const { publicKey } = await c.req.json<PublicKeyRequest>();
+  const keyBytes = new Uint8Array(publicKey);
   const fingerprint = await toFingerprint(keyBytes);
-  await set(fingerprint, JSON.stringify(key));
-  return c.json({ message: "ok" });
+  await set(fingerprint, JSON.stringify(publicKey));
+  return c.json<PublicKeyResponse>({ message: "ok" });
 });
