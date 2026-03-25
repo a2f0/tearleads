@@ -15,9 +15,8 @@ await client.exec(`
   );
   CREATE TABLE IF NOT EXISTS items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payload TEXT NOT NULL,
     encrypted_data TEXT NOT NULL,
-    spicedb_zed_token TEXT NOT NULL,
+    spicedb_zed_token TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
 `);
