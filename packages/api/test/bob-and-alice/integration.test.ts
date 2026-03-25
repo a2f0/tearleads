@@ -1,88 +1,18 @@
 import { afterAll, expect, test } from "bun:test";
-import {
-  decryptAsRecipient,
-  encryptForRecipients,
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  hexToBytes,
-  sign,
-  toFingerprint,
-} from "@tearleads/crypto";
-import invariant from "invariant";
+import { decryptAsRecipient, encryptForRecipients } from "@tearleads/crypto";
 import { del } from "../../src/adapters/redis";
-import {
-  createItem,
-  fetchEncapsulationKey,
-  getItem,
-  requestChallenge,
-  submitVerify,
-  uploadKey,
-} from "../helpers/api";
+import { createItem, fetchEncapsulationKey, getItem } from "../helpers/api";
+import { authenticate } from "../helpers/authenticate";
+import { createTestUser } from "../helpers/createTestUser";
+import { registerUser } from "../helpers/registerUser";
 
-const alice = {
-  signing: generateSigningSeedAndKeyPair(),
-  kem: generateKemSeedAndKeyPair(),
-  fingerprint: "",
-  userId: "",
-  token: "",
-};
-
-const bob = {
-  signing: generateSigningSeedAndKeyPair(),
-  kem: generateKemSeedAndKeyPair(),
-  fingerprint: "",
-  userId: "",
-  token: "",
-};
+const alice = createTestUser();
+const bob = createTestUser();
 
 afterAll(async () => {
   await del(alice.fingerprint);
   await del(bob.fingerprint);
 });
-
-async function registerUser(user: typeof alice) {
-  user.fingerprint = await toFingerprint(user.signing.signingPublicKey);
-
-  const res = await uploadKey(
-    user.signing.signingPublicKey,
-    user.kem.publicKey,
-  );
-  expect(res.status).toBe(200);
-
-  const body = await res.json();
-  expect(body.message).toBe("ok");
-  expect(typeof body.userId).toBe("string");
-  user.userId = body.userId;
-
-  return body.challenge as string;
-}
-
-async function authenticateWithChallenge(
-  user: typeof alice,
-  challengeHex: string,
-) {
-  const signature = sign(
-    hexToBytes(challengeHex),
-    user.signing.signingPrivateKey,
-  );
-  const res = await submitVerify(user.fingerprint, signature);
-  expect(res.status).toBe(200);
-
-  const body = await res.json();
-  expect(body.authenticated).toBe(true);
-  invariant(typeof body.token === "string", "expected token string");
-  user.token = body.token;
-}
-
-async function authenticate(user: typeof alice) {
-  const challengeRes = await requestChallenge(user.fingerprint);
-  expect(challengeRes.status).toBe(200);
-
-  const { challenge } = await challengeRes.json();
-  invariant(typeof challenge === "string", "expected challenge string");
-
-  await authenticateWithChallenge(user, challenge);
-}
 
 // --- Registration ---
 
@@ -171,7 +101,7 @@ test("Bob encrypts 'Hi, Alice' for Alice and stores it via setItem", async () =>
   });
 
   // Store via setItem endpoint
-  const itemRes = await createItem(serializedEnvelope, "", "", bob.token);
+  const itemRes = await createItem(serializedEnvelope, bob.token);
   expect(itemRes.status).toBe(200);
 
   const itemBody = await itemRes.json();
@@ -187,8 +117,8 @@ test("Alice retrieves the item and decrypts the message", async () => {
   const body = await res.json();
   expect(body.id).toBe(itemId);
 
-  // Deserialize the envelope from the payload
-  const parsed = JSON.parse(body.payload);
+  // Deserialize the envelope from encryptedData
+  const parsed = JSON.parse(body.encryptedData);
   const envelope = {
     iv: new Uint8Array(parsed.iv),
     ciphertext: new Uint8Array(parsed.ciphertext),

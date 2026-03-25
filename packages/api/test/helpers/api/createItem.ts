@@ -1,9 +1,7 @@
 import { app } from "../../../src/index";
 
 export async function createItem(
-  payload: string,
   encryptedData: string,
-  spicedbZedToken: string,
   token: string,
 ): Promise<Response> {
   return app.request("/items", {
@@ -12,6 +10,6 @@ export async function createItem(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ payload, encryptedData, spicedbZedToken }),
+    body: JSON.stringify({ encryptedData }),
   });
 }

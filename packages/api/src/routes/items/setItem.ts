@@ -17,16 +17,19 @@ setItemRoute.post(
     return value;
   }),
   async (c) => {
-    const { payload, encryptedData, spicedbZedToken } = c.req.valid("json");
+    const { encryptedData } = c.req.valid("json");
 
     const [item] = await db
       .insert(items)
       .values({
-        payload,
         encryptedData,
-        spicedbZedToken,
+        spicedbZedToken: null,
       })
       .returning({ id: items.id });
+
+    if (!item) {
+      return c.json({ error: "Failed to create item" }, 500);
+    }
 
     return c.json({ id: item.id });
   },

@@ -1,3 +1,4 @@
+import type { GetItemResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../../adapters/postgres";
@@ -15,11 +16,9 @@ getItemRoute.get("/items/:itemId", requireAuth, async (c) => {
     return c.json({ error: "Item not found" }, 404);
   }
 
-  return c.json({
+  return c.json<GetItemResponse>({
     id: item.id,
-    payload: item.payload,
     encryptedData: item.encryptedData,
-    spicedbZedToken: item.spicedbZedToken,
-    createdAt: item.createdAt,
+    createdAt: item.createdAt.toISOString(),
   });
 });

@@ -10,8 +10,7 @@ export const users = pgTable("users", {
 
 export const items = pgTable("items", {
   id: uuid("id").defaultRandom().primaryKey(),
-  payload: text("payload").notNull(),
   encryptedData: text("encrypted_data").notNull(),
-  spicedbZedToken: text("spicedb_zed_token").notNull(),
+  spicedbZedToken: text("spicedb_zed_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
