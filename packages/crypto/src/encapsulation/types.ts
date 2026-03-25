@@ -5,6 +5,7 @@ export type EncryptedEnvelope = {
 };
 
 export type RecipientEntry = {
+  keyFingerprint: string;
   kemCipherText: Uint8Array;
   wrappedKey: Uint8Array;
 };
