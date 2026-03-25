@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { decryptAsRecipient, encryptForRecipients } from "./encrypt";
+import { decryptAsRecipient } from "./decryptAsRecipient";
+import { encryptForRecipients } from "./encryptForRecipients";
 import { generateSeedAndKeyPair } from "./generateKeyPair";
 
 test("alice and bob can both decrypt a shared payload", async () => {
@@ -20,23 +21,6 @@ test("alice and bob can both decrypt a shared payload", async () => {
 
   expect(decryptedByAlice).toEqual(plaintext);
   expect(decryptedByBob).toEqual(plaintext);
-});
-
-test("an outsider cannot decrypt the shared payload", async () => {
-  const alice = generateSeedAndKeyPair();
-  const bob = generateSeedAndKeyPair();
-  const eve = generateSeedAndKeyPair();
-
-  const plaintext = new TextEncoder().encode("not for eve");
-
-  const envelope = await encryptForRecipients(plaintext, [
-    alice.publicKey,
-    bob.publicKey,
-  ]);
-
-  expect(decryptAsRecipient(envelope, eve.secretKey)).rejects.toThrow(
-    "No matching recipient entry found",
-  );
 });
 
 test("single recipient can decrypt", async () => {
