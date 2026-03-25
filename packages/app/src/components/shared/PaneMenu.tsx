@@ -13,7 +13,8 @@ export function PaneMenu({
 }) {
   const { killWorker, spawnWorker, status } = useDatabase();
   const {
-    keyPair,
+    signingKeyPair,
+    encapsulationKeyPair,
     userId,
     generateKey,
     destroyKey,
@@ -42,7 +43,7 @@ export function PaneMenu({
           }}
         />
       )}
-      {!keyPair && (
+      {!signingKeyPair && (
         <MenuItem
           label="Generate Key Pair"
           onClick={() => {
@@ -51,7 +52,7 @@ export function PaneMenu({
           }}
         />
       )}
-      {keyPair && (
+      {signingKeyPair && (
         <MenuItem
           label="Destroy Key Pair"
           onClick={() => {
@@ -60,11 +61,14 @@ export function PaneMenu({
           }}
         />
       )}
-      {keyPair && !userId && (
+      {signingKeyPair && encapsulationKeyPair && !userId && (
         <MenuItem
           label="Upload Public Key"
           onClick={async () => {
-            const response = await postPublicKey(keyPair.publicKey);
+            const response = await postPublicKey(
+              signingKeyPair.signingPublicKey,
+              encapsulationKeyPair.publicKey,
+            );
             setUserId(response.userId);
             await loginWithChallenge(response.challenge);
             onClose();

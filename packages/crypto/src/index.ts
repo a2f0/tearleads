@@ -9,8 +9,8 @@ export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 export { toFingerprint } from "./fingerprint";
 export { bytesToHex, hexToBytes } from "./hex";
 export {
-  generateKeyPair,
-  generateSeedAndKeyPair,
+  generateSigningKeyPair,
+  generateSigningSeedAndKeyPair,
 } from "./signing/generateKeyPair";
 export { sign } from "./signing/sign";
 export { verify } from "./signing/verify";

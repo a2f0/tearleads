@@ -8,8 +8,8 @@ import {
 } from "@tearleads/crypto";
 import invariant from "invariant";
 import {
+  fetchEncapsulationKey,
   requestChallenge,
-  submitLogout,
   submitVerify,
   uploadKey,
 } from "../../../test/helpers/api";
@@ -18,12 +18,12 @@ import { del } from "../../adapters/redis";
 const signingKeys = generateSigningSeedAndKeyPair();
 const kemKeys = generateKemSeedAndKeyPair();
 let fingerprint: string;
+let userId: string;
 
 afterAll(async () => {
   await del(fingerprint);
 });
 
-// Note: this does not require storing the key on the server.
 async function authenticate(): Promise<string> {
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
@@ -38,28 +38,37 @@ async function authenticate(): Promise<string> {
 
 test("setup: register key", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  const res = await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  const body = await res.json();
+  invariant(typeof body.userId === "string", "expected userId string");
+  userId = body.userId;
 });
 
 test("returns 401 without a token", async () => {
-  const res = await submitLogout("");
+  const res = await fetchEncapsulationKey(userId, "");
   expect(res.status).toBe(401);
 });
 
-test("destroys session on logout", async () => {
+test("returns encapsulation public key for a valid user", async () => {
   const token = await authenticate();
 
-  const res = await submitLogout(token);
+  const res = await fetchEncapsulationKey(userId, token);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ message: "ok" });
+
+  const body = await res.json();
+  expect(body.userId).toBe(userId);
+  expect(typeof body.encapsulationPublicKey).toBe("string");
+  expect(body.encapsulationPublicKey.length).toBeGreaterThan(0);
 });
 
-test("returns 401 when using a destroyed session", async () => {
+test("returns 404 for a non-existent user", async () => {
   const token = await authenticate();
 
-  const first = await submitLogout(token);
-  expect(first.status).toBe(200);
-
-  const second = await submitLogout(token);
-  expect(second.status).toBe(401);
+  const res = await fetchEncapsulationKey(
+    "00000000-0000-0000-0000-000000000000",
+    token,
+  );
+  expect(res.status).toBe(404);
+  const body = await res.json();
+  expect(body.error).toBe("User not found");
 });

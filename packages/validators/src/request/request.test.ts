@@ -6,10 +6,32 @@ import {
 } from "./index";
 
 test("isPublicKeyRequest", () => {
-  expect(isPublicKeyRequest({ publicKey: [1, 2, 3] })).toBe(true);
-  expect(isPublicKeyRequest({ publicKey: [] })).toBe(true);
-  expect(isPublicKeyRequest({ publicKey: "not-array" })).toBe(false);
-  expect(isPublicKeyRequest({ publicKey: ["a", "b"] })).toBe(false);
+  expect(
+    isPublicKeyRequest({
+      signingPublicKey: [1, 2, 3],
+      encapsulationPublicKey: [4, 5, 6],
+    }),
+  ).toBe(true);
+  expect(
+    isPublicKeyRequest({
+      signingPublicKey: [],
+      encapsulationPublicKey: [],
+    }),
+  ).toBe(true);
+  expect(
+    isPublicKeyRequest({
+      signingPublicKey: "not-array",
+      encapsulationPublicKey: [1],
+    }),
+  ).toBe(false);
+  expect(
+    isPublicKeyRequest({
+      signingPublicKey: [1],
+      encapsulationPublicKey: ["a"],
+    }),
+  ).toBe(false);
+  expect(isPublicKeyRequest({ signingPublicKey: [1] })).toBe(false);
+  expect(isPublicKeyRequest({ encapsulationPublicKey: [1] })).toBe(false);
   expect(isPublicKeyRequest({})).toBe(false);
   expect(isPublicKeyRequest(null)).toBe(false);
 });

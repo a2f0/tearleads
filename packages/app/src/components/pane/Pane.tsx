@@ -8,17 +8,17 @@ import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
-  const { keyPair, userId, authToken } = useCryptoSession();
+  const { signingKeyPair, userId, authToken } = useCryptoSession();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
   useEffect(() => {
-    if (keyPair) {
-      toFingerprint(keyPair.publicKey).then(setFingerprint);
+    if (signingKeyPair) {
+      toFingerprint(signingKeyPair.signingPublicKey).then(setFingerprint);
     } else {
       setFingerprint(null);
     }
-  }, [keyPair]);
+  }, [signingKeyPair]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     setMenu({ x: e.clientX, y: e.clientY });

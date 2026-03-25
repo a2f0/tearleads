@@ -23,15 +23,19 @@ registerRoute.post(
     return value;
   }),
   async (c) => {
-    const { publicKey } = c.req.valid("json");
-    const keyBytes = new Uint8Array(publicKey);
-    const fingerprint = await toFingerprint(keyBytes);
+    const { signingPublicKey, encapsulationPublicKey } = c.req.valid("json");
+    const signingKeyBytes = new Uint8Array(signingPublicKey);
+    const encapsulationKeyBytes = new Uint8Array(encapsulationPublicKey);
+    const fingerprint = await toFingerprint(signingKeyBytes);
 
     const [user] = await db
       .insert(users)
       .values({
         fingerprint,
-        publicKey: Buffer.from(keyBytes).toString("base64"),
+        signingPublicKey: Buffer.from(signingKeyBytes).toString("base64"),
+        encapsulationPublicKey: Buffer.from(encapsulationKeyBytes).toString(
+          "base64",
+        ),
       })
       .onConflictDoNothing({ target: users.fingerprint })
       .returning({ id: users.id });
@@ -40,7 +44,7 @@ registerRoute.post(
       return c.json({ error: "Key already exists" }, 409);
     }
 
-    await set(fingerprint, Buffer.from(keyBytes).toString("base64"));
+    await set(fingerprint, Buffer.from(signingKeyBytes).toString("base64"));
 
     const challengeBytes = generateChallenge();
     const challengeHex = bytesToHex(challengeBytes);
