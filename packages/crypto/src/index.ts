@@ -2,8 +2,8 @@ export { CHALLENGE_TTL_SECONDS, generateChallenge } from "./challenge";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";
 export {
-  generateKeyPair as generateKemKeyPair,
-  generateSeedAndKeyPair as generateKemSeedAndKeyPair,
+  generateKemKeyPair,
+  generateKemSeedAndKeyPair,
 } from "./encapsulation/generateKeyPair";
 export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 export { toFingerprint } from "./fingerprint";

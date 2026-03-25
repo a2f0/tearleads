@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { decryptAsRecipient } from "./decryptAsRecipient";
 import { encryptForRecipients } from "./encryptForRecipients";
-import { generateSeedAndKeyPair } from "./generateKeyPair";
+import { generateKemSeedAndKeyPair } from "./generateKeyPair";
 
 test("alice and bob can both decrypt a shared payload", async () => {
-  const alice = generateSeedAndKeyPair();
-  const bob = generateSeedAndKeyPair();
+  const alice = generateKemSeedAndKeyPair();
+  const bob = generateKemSeedAndKeyPair();
 
   const plaintext = new TextEncoder().encode(
     "shared secret message for both parties",
@@ -24,7 +24,7 @@ test("alice and bob can both decrypt a shared payload", async () => {
 });
 
 test("single recipient can decrypt", async () => {
-  const alice = generateSeedAndKeyPair();
+  const alice = generateKemSeedAndKeyPair();
 
   const plaintext = new TextEncoder().encode("just for alice");
 
@@ -35,9 +35,9 @@ test("single recipient can decrypt", async () => {
 });
 
 test("envelope has one recipient entry per public key", async () => {
-  const alice = generateSeedAndKeyPair();
-  const bob = generateSeedAndKeyPair();
-  const carol = generateSeedAndKeyPair();
+  const alice = generateKemSeedAndKeyPair();
+  const bob = generateKemSeedAndKeyPair();
+  const carol = generateKemSeedAndKeyPair();
 
   const plaintext = new TextEncoder().encode("for three");
 
