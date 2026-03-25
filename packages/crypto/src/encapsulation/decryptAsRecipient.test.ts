@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { decryptAsRecipient } from "./decryptAsRecipient";
 import { encryptForRecipients } from "./encryptForRecipients";
-import { generateSeedAndKeyPair } from "./generateKeyPair";
+import { generateKemSeedAndKeyPair } from "./generateKeyPair";
 
 test("an outsider cannot decrypt the shared payload", async () => {
-  const alice = generateSeedAndKeyPair();
-  const bob = generateSeedAndKeyPair();
-  const eve = generateSeedAndKeyPair();
+  const alice = generateKemSeedAndKeyPair();
+  const bob = generateKemSeedAndKeyPair();
+  const eve = generateKemSeedAndKeyPair();
 
   const plaintext = new TextEncoder().encode("not for eve");
 
