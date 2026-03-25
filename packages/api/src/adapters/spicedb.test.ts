@@ -35,8 +35,7 @@ test("adds a user to SpiceDB", async () => {
       ],
     }),
   );
-
   expect(response).toBeTruthy();
-
+  expect(response.writtenAt).toBeDefined();
   client.close();
 });
