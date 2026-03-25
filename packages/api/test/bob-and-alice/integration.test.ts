@@ -80,7 +80,7 @@ test("Alice and Bob have distinct sessions", () => {
 
 let itemId: string;
 
-test("Bob encrypts 'Hi, Alice' for Alice and stores it via setItem", async () => {
+test("Bob encrypts 'Hi, Alice' for Alice and himself, and stores it via setItem", async () => {
   // Bob fetches Alice's encapsulation public key
   const res = await fetchEncapsulationKey(alice.userId, bob.token);
   expect(res.status).toBe(200);
@@ -89,10 +89,19 @@ test("Bob encrypts 'Hi, Alice' for Alice and stores it via setItem", async () =>
     Buffer.from(aliceKeyBase64, "base64"),
   );
 
-  // Bob encrypts the message for Alice
+  // Bob fetches his own encapsulation public key
+  const bobRes = await fetchEncapsulationKey(bob.userId, bob.token);
+  expect(bobRes.status).toBe(200);
+  const { encapsulationPublicKey: bobKeyBase64 } = await bobRes.json();
+  const bobEncapsulationKey = new Uint8Array(
+    Buffer.from(bobKeyBase64, "base64"),
+  );
+
+  // Bob encrypts the message for both Alice and himself
   const plaintext = new TextEncoder().encode("Hi, Alice");
   const envelope = await encryptForRecipients(plaintext, [
     aliceEncapsulationKey,
+    bobEncapsulationKey,
   ]);
 
   // Serialize the envelope for storage
@@ -139,7 +148,7 @@ test("Alice retrieves the item and decrypts the message", async () => {
       (v: number) => Number.isInteger(v) && v >= 0 && v <= 255,
     ),
   ).toBe(true);
-  expect(parsed.recipients.length).toBe(1);
+  expect(parsed.recipients.length).toBe(2);
 
   const recipient = parsed.recipients[0];
   expect(typeof recipient.keyFingerprint).toBe("string");
@@ -169,6 +178,31 @@ test("Alice retrieves the item and decrypts the message", async () => {
 
   // Alice decrypts with her KEM secret key
   const decrypted = await decryptAsRecipient(envelope, alice.kem.secretKey);
+  const message = new TextDecoder().decode(decrypted);
+  expect(message).toBe("Hi, Alice");
+});
+
+test("Bob retrieves the item and decrypts his own message", async () => {
+  const res = await getItem(itemId, bob.token);
+  expect(res.status).toBe(200);
+
+  const body = await res.json();
+  expect(body.id).toBe(itemId);
+
+  // Deserialize the envelope
+  const parsed = JSON.parse(body.encryptedData);
+  const envelope = {
+    iv: new Uint8Array(parsed.iv),
+    ciphertext: new Uint8Array(parsed.ciphertext),
+    recipients: parsed.recipients.map((r: SerializedRecipient) => ({
+      keyFingerprint: r.keyFingerprint,
+      kemCipherText: new Uint8Array(r.kemCipherText),
+      wrappedKey: new Uint8Array(r.wrappedKey),
+    })),
+  };
+
+  // Bob decrypts with his own KEM secret key
+  const decrypted = await decryptAsRecipient(envelope, bob.kem.secretKey);
   const message = new TextDecoder().decode(decrypted);
   expect(message).toBe("Hi, Alice");
 });
