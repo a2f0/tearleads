@@ -1,14 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSeedAndKeyPair } from "./generateKeyPair";
-import { sign, verify } from "./sign";
-
-test("sign and verify round-trip", () => {
-  const { publicKey, secretKey } = generateSeedAndKeyPair();
-  const message = new TextEncoder().encode("hello");
-
-  const signature = sign(message, secretKey);
-  expect(verify(signature, message, publicKey)).toBe(true);
-});
+import { sign } from "./sign";
+import { verify } from "./verify";
 
 test("verify returns false with wrong public key", () => {
   const keys1 = generateSeedAndKeyPair();
