@@ -8,7 +8,7 @@ import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
-  const { keyPair } = useCryptoSession();
+  const { keyPair, userId } = useCryptoSession();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
@@ -34,6 +34,8 @@ export function Pane({ className }: { className: string }) {
         id: {id}
         <br />
         publicKey: {fingerprint ?? "none"}
+        <br />
+        userId: {userId ?? "none"}
       </div>
       <div className="pane-footer">
         <button type="button" onClick={handleClick}>

@@ -43,7 +43,9 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
     "@tsconfig/strictest": "2.0.8",
+    "app": "workspace:*",
     "lint-staged": "16.4.0",
+    "msw": "2.12.14",
     "turbo": "2.8.20",
     "typescript": "5.9.3"
   },
