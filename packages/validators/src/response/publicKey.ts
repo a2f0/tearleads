@@ -3,6 +3,7 @@ import { isPlainObject } from "../isPlainObject";
 export interface PublicKeyResponse {
   message: string;
   userId: string;
+  challenge: string;
 }
 
 export function isPublicKeyResponse(
@@ -11,6 +12,7 @@ export function isPublicKeyResponse(
   return (
     isPlainObject(value) &&
     typeof value["message"] === "string" &&
-    typeof value["userId"] === "string"
+    typeof value["userId"] === "string" &&
+    typeof value["challenge"] === "string"
   );
 }
