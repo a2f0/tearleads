@@ -12,7 +12,7 @@ export function PaneMenu({
   onClose: () => void;
 }) {
   const { killWorker, spawnWorker, status } = useDatabase();
-  const { keyPair, generateKey, destroyKey } = useCryptoSession();
+  const { keyPair, generateKey, destroyKey, setUserId } = useCryptoSession();
   const isTerminated = status === "terminated";
 
   return (
@@ -56,8 +56,9 @@ export function PaneMenu({
       {keyPair && (
         <MenuItem
           label="Upload Public Key"
-          onClick={() => {
-            postPublicKey(keyPair.publicKey);
+          onClick={async () => {
+            const response = await postPublicKey(keyPair.publicKey);
+            setUserId(response.userId);
             onClose();
           }}
         />

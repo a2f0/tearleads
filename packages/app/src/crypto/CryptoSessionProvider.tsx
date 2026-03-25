@@ -16,9 +16,11 @@ interface KeyPair {
 
 interface CryptoSessionContextValue {
   keyPair: KeyPair | null;
+  userId: string | null;
   isAuthenticated: boolean;
   generateKey: () => void;
   destroyKey: () => void;
+  setUserId: (id: string | null) => void;
   login: () => Promise<boolean>;
   logout: () => void;
 }
@@ -29,6 +31,7 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const generateKey = useCallback(() => {
@@ -39,6 +42,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
 
   const destroyKey = useCallback(() => {
     setKeyPair(null);
+    setUserId(null);
     setIsAuthenticated(false);
     setAuthToken(null);
   }, []);
@@ -65,9 +69,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     <CryptoSessionContext.Provider
       value={{
         keyPair,
+        userId,
         isAuthenticated,
         generateKey,
         destroyKey,
+        setUserId,
         login,
         logout,
       }}
