@@ -21,7 +21,6 @@ registerRoute.post(
     const { publicKey } = c.req.valid("json");
     const keyBytes = new Uint8Array(publicKey);
     const fingerprint = await toFingerprint(keyBytes);
-    await set(fingerprint, JSON.stringify(publicKey));
 
     const [user] = await db
       .insert(users)
@@ -35,6 +34,8 @@ registerRoute.post(
     if (!user) {
       return c.json({ error: "Key already exists" }, 409);
     }
+
+    await set(fingerprint, JSON.stringify(publicKey));
 
     return c.json<PublicKeyResponse>({ message: "ok", userId: user.id });
   },
