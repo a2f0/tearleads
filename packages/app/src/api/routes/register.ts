@@ -8,7 +8,7 @@ export function postPublicKey(publicKey: Uint8Array) {
     throw new Error("Invalid PublicKeyRequest");
   }
   return request(
-    "/publicKey",
+    "/auth/register",
     isPublicKeyResponse,
     "POST",
     JSON.stringify(body),

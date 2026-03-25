@@ -1,2 +1,2 @@
 export { getHealth } from "./routes/health";
-export { postPublicKey } from "./routes/publicKey";
+export { postPublicKey } from "./routes/register";

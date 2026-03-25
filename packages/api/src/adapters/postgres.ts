@@ -1,0 +1,17 @@
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import * as schema from "../schema";
+
+const client = new PGlite({ debug: 0 });
+export const db = drizzle({ client, schema });
+
+await client.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fingerprint TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  )
+`);
+
+export default client;
