@@ -1,4 +1,8 @@
-import { bytesToHex, generateChallenge } from "@tearleads/crypto";
+import {
+  bytesToHex,
+  CHALLENGE_TTL_SECONDS,
+  generateChallenge,
+} from "@tearleads/crypto";
 import { isChallengeRequest } from "@tearleads/validators/request";
 import type {
   ChallengeErrorResponse,
@@ -7,8 +11,6 @@ import type {
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { get, set } from "../../adapters/redis";
-
-const CHALLENGE_TTL_SECONDS = 60;
 
 export const challenge = new Hono();
 

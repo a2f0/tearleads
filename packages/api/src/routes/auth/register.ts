@@ -1,4 +1,9 @@
-import { toFingerprint } from "@tearleads/crypto";
+import {
+  bytesToHex,
+  CHALLENGE_TTL_SECONDS,
+  generateChallenge,
+  toFingerprint,
+} from "@tearleads/crypto";
 import { isPublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
@@ -37,6 +42,14 @@ registerRoute.post(
 
     await set(fingerprint, Buffer.from(keyBytes).toString("base64"));
 
-    return c.json<PublicKeyResponse>({ message: "ok", userId: user.id });
+    const challengeBytes = generateChallenge();
+    const challengeHex = bytesToHex(challengeBytes);
+    await set(`challenge:${fingerprint}`, challengeHex, CHALLENGE_TTL_SECONDS);
+
+    return c.json<PublicKeyResponse>({
+      message: "ok",
+      userId: user.id,
+      challenge: challengeHex,
+    });
   },
 );

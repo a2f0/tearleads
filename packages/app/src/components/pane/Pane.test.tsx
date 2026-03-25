@@ -55,6 +55,9 @@ test("displays userId after uploading public key", async () => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
   });
 
+  fireEvent.click(view.getByText("Menu"));
+  expect(view.queryByText("Upload Public Key")).toBeNull();
+
   spy.mockRestore();
   view.unmount();
 });

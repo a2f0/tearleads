@@ -12,7 +12,14 @@ export function PaneMenu({
   onClose: () => void;
 }) {
   const { killWorker, spawnWorker, status } = useDatabase();
-  const { keyPair, generateKey, destroyKey, setUserId } = useCryptoSession();
+  const {
+    keyPair,
+    userId,
+    generateKey,
+    destroyKey,
+    setUserId,
+    loginWithChallenge,
+  } = useCryptoSession();
   const isTerminated = status === "terminated";
 
   return (
@@ -53,12 +60,13 @@ export function PaneMenu({
           }}
         />
       )}
-      {keyPair && (
+      {keyPair && !userId && (
         <MenuItem
           label="Upload Public Key"
           onClick={async () => {
             const response = await postPublicKey(keyPair.publicKey);
             setUserId(response.userId);
+            await loginWithChallenge(response.challenge);
             onClose();
           }}
         />
