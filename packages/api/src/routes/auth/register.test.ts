@@ -28,7 +28,7 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
 
   const stored = await get(fingerprint);
   invariant(stored, "expected publicKey to be stored in redis by fingerprint");
-  expect(JSON.parse(stored)).toEqual(keyArray);
+  expect(Array.from(Buffer.from(stored, "base64"))).toEqual(keyArray);
 });
 
 test("POST /auth/register creates a user in postgres", async () => {
@@ -44,7 +44,7 @@ test("POST /auth/register creates a user in postgres", async () => {
 
   invariant(user, "expected user to exist in postgres");
   expect(user.fingerprint).toBe(fingerprint);
-  expect(JSON.parse(user.publicKey)).toEqual(keyArray);
+  expect(Array.from(Buffer.from(user.publicKey, "base64"))).toEqual(keyArray);
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

@@ -37,7 +37,7 @@ verifyRoute.post(
       );
     }
 
-    const publicKey = new Uint8Array(JSON.parse(storedKey));
+    const publicKey = new Uint8Array(Buffer.from(storedKey, "base64"));
     const challengeBytes = hexToBytes(challengeHex);
     const signatureBytes = new Uint8Array(signature);
 

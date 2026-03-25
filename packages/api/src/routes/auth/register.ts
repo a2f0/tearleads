@@ -26,7 +26,7 @@ registerRoute.post(
       .insert(users)
       .values({
         fingerprint,
-        publicKey: JSON.stringify(publicKey),
+        publicKey: Buffer.from(keyBytes).toString("base64"),
       })
       .onConflictDoNothing({ target: users.fingerprint })
       .returning({ id: users.id });
@@ -35,7 +35,7 @@ registerRoute.post(
       return c.json({ error: "Key already exists" }, 409);
     }
 
-    await set(fingerprint, JSON.stringify(publicKey));
+    await set(fingerprint, Buffer.from(keyBytes).toString("base64"));
 
     return c.json<PublicKeyResponse>({ message: "ok", userId: user.id });
   },
