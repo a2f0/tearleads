@@ -8,7 +8,7 @@ import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
-  const { keyPair, userId } = useCryptoSession();
+  const { keyPair, userId, authToken } = useCryptoSession();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
@@ -36,6 +36,8 @@ export function Pane({ className }: { className: string }) {
         publicKey: {fingerprint ?? "none"}
         <br />
         userId: {userId ?? "none"}
+        <br />
+        session: {authToken ? authToken.slice(0, 32) : "none"}
       </div>
       <div className="pane-footer">
         <button type="button" onClick={handleClick}>

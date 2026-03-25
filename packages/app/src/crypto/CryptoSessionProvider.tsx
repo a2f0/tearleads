@@ -6,7 +6,7 @@ import {
   useContext,
   useState,
 } from "react";
-import { authenticate } from "../api/routes/auth";
+import { authenticate, authenticateWithChallenge } from "../api/routes/auth";
 import { setAuthToken } from "../api/util/request";
 
 interface KeyPair {
@@ -17,11 +17,13 @@ interface KeyPair {
 interface CryptoSessionContextValue {
   keyPair: KeyPair | null;
   userId: string | null;
+  authToken: string | null;
   isAuthenticated: boolean;
   generateKey: () => void;
   destroyKey: () => void;
   setUserId: (id: string | null) => void;
   login: () => Promise<boolean>;
+  loginWithChallenge: (challengeHex: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -32,6 +34,7 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authToken, setStoredAuthToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const generateKey = useCallback(() => {
@@ -43,11 +46,13 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const destroyKey = useCallback(() => {
     setKeyPair(null);
     setUserId(null);
+    setStoredAuthToken(null);
     setIsAuthenticated(false);
     setAuthToken(null);
   }, []);
 
   const logout = useCallback(() => {
+    setStoredAuthToken(null);
     setIsAuthenticated(false);
     setAuthToken(null);
   }, []);
@@ -58,6 +63,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     const token = await authenticate(fingerprint, keyPair.secretKey);
     if (token) {
       setAuthToken(token);
+      setStoredAuthToken(token);
       setIsAuthenticated(true);
       return true;
     }
@@ -65,16 +71,39 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     return false;
   }, [keyPair]);
 
+  const loginWithChallenge = useCallback(
+    async (challengeHex: string): Promise<boolean> => {
+      if (!keyPair) return false;
+      const fingerprint = await toFingerprint(keyPair.publicKey);
+      const token = await authenticateWithChallenge(
+        fingerprint,
+        keyPair.secretKey,
+        challengeHex,
+      );
+      if (token) {
+        setAuthToken(token);
+        setStoredAuthToken(token);
+        setIsAuthenticated(true);
+        return true;
+      }
+      setIsAuthenticated(false);
+      return false;
+    },
+    [keyPair],
+  );
+
   return (
     <CryptoSessionContext.Provider
       value={{
         keyPair,
         userId,
+        authToken,
         isAuthenticated,
         generateKey,
         destroyKey,
         setUserId,
         login,
+        loginWithChallenge,
         logout,
       }}
     >
