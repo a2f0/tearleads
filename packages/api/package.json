@@ -15,6 +15,7 @@
     "redis": "5.11.0"
   },
   "devDependencies": {
+    "@authzed/authzed-node": "1.6.1",
     "@types/bun": "catalog:"
   }
 }
