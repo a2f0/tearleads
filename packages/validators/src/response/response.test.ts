@@ -15,7 +15,8 @@ test("isHealthResponse", () => {
 });
 
 test("isPublicKeyResponse", () => {
-  expect(isPublicKeyResponse({ message: "ok" })).toBe(true);
+  expect(isPublicKeyResponse({ message: "ok", userId: "abc-123" })).toBe(true);
+  expect(isPublicKeyResponse({ message: "ok" })).toBe(false);
   expect(isPublicKeyResponse({ message: 123 })).toBe(false);
   expect(isPublicKeyResponse({})).toBe(false);
   expect(isPublicKeyResponse(null)).toBe(false);
