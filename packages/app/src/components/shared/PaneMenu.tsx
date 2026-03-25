@@ -66,7 +66,7 @@ export function PaneMenu({
           label="Upload Public Key"
           onClick={async () => {
             const response = await postPublicKey(
-              signingKeyPair.publicKey,
+              signingKeyPair.signingPublicKey,
               encapsulationKeyPair.publicKey,
             );
             setUserId(response.userId);

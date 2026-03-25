@@ -1,10 +1,15 @@
 import { afterAll, expect, test } from "bun:test";
-import { generateSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
 import invariant from "invariant";
 import { requestChallenge, uploadKey } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
-const keys = generateSeedAndKeyPair();
+const signingKeys = generateSigningSeedAndKeyPair();
+const kemKeys = generateKemSeedAndKeyPair();
 let fingerprint: string;
 
 afterAll(async () => {
@@ -13,8 +18,8 @@ afterAll(async () => {
 });
 
 test("returns a challenge for a known fingerprint", async () => {
-  fingerprint = await toFingerprint(keys.publicKey);
-  await uploadKey(keys.publicKey);
+  fingerprint = await toFingerprint(signingKeys.signingPublicKey);
+  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
 
   const res = await requestChallenge(fingerprint);
   expect(res.status).toBe(200);

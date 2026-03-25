@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import {
-  generateSeedAndKeyPair,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
   hexToBytes,
   sign,
   toFingerprint,
@@ -13,7 +14,8 @@ import {
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
-const keys = generateSeedAndKeyPair();
+const signingKeys = generateSigningSeedAndKeyPair();
+const kemKeys = generateKemSeedAndKeyPair();
 let fingerprint: string;
 
 afterAll(async () => {
@@ -22,14 +24,14 @@ afterAll(async () => {
 });
 
 test("authenticates with a valid signature", async () => {
-  fingerprint = await toFingerprint(keys.publicKey);
-  await uploadKey(keys.publicKey);
+  fingerprint = await toFingerprint(signingKeys.signingPublicKey);
+  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
 
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
   invariant(typeof challenge === "string", "expected challenge string");
 
-  const signature = sign(hexToBytes(challenge), keys.secretKey);
+  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
 
   const res = await submitVerify(fingerprint, signature);
   expect(res.status).toBe(200);
@@ -47,8 +49,8 @@ test("returns 401 with wrong secret key", async () => {
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
 
-  const wrongKeys = generateSeedAndKeyPair();
-  const signature = sign(hexToBytes(challenge), wrongKeys.secretKey);
+  const wrongKeys = generateSigningSeedAndKeyPair();
+  const signature = sign(hexToBytes(challenge), wrongKeys.signingPrivateKey);
 
   const res = await submitVerify(fingerprint, signature);
   expect(res.status).toBe(401);
@@ -60,7 +62,7 @@ test("challenge is consumed after use", async () => {
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
 
-  const signature = sign(hexToBytes(challenge), keys.secretKey);
+  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
 
   const first = await submitVerify(fingerprint, signature);
   expect(first.status).toBe(200);

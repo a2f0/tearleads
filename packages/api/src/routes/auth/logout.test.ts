@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import {
-  generateSeedAndKeyPair,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
   hexToBytes,
   sign,
   toFingerprint,
@@ -14,7 +15,8 @@ import {
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
-const keys = generateSeedAndKeyPair();
+const signingKeys = generateSigningSeedAndKeyPair();
+const kemKeys = generateKemSeedAndKeyPair();
 let fingerprint: string;
 
 afterAll(async () => {
@@ -27,7 +29,7 @@ async function authenticate(): Promise<string> {
   const { challenge } = await challengeRes.json();
   invariant(typeof challenge === "string", "expected challenge string");
 
-  const signature = sign(hexToBytes(challenge), keys.secretKey);
+  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
   const res = await submitVerify(fingerprint, signature);
   const body = await res.json();
   invariant(typeof body.token === "string", "expected token string");
@@ -35,8 +37,8 @@ async function authenticate(): Promise<string> {
 }
 
 test("setup: register key", async () => {
-  fingerprint = await toFingerprint(keys.publicKey);
-  await uploadKey(keys.publicKey);
+  fingerprint = await toFingerprint(signingKeys.signingPublicKey);
+  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
 });
 
 test("returns 401 without a token", async () => {

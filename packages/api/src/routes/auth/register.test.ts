@@ -1,5 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
-import { generateSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadKey } from "../../../test/helpers/api";
@@ -14,11 +18,12 @@ afterAll(async () => {
 });
 
 test("POST /auth/register stores the key in redis keyed by fingerprint", async () => {
-  const { publicKey } = generateSeedAndKeyPair();
-  const keyArray = Array.from(publicKey);
-  fingerprint = await toFingerprint(publicKey);
+  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const keyArray = Array.from(signingPublicKey);
+  fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(publicKey);
+  const res = await uploadKey(signingPublicKey, publicKey);
 
   expect(res.status).toBe(200);
   const body = await res.json();
@@ -32,11 +37,12 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
 });
 
 test("POST /auth/register creates a user in postgres", async () => {
-  const { publicKey } = generateSeedAndKeyPair();
-  const keyArray = Array.from(publicKey);
-  fingerprint = await toFingerprint(publicKey);
+  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const keyArray = Array.from(signingPublicKey);
+  fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(publicKey);
+  const res = await uploadKey(signingPublicKey, publicKey);
   expect(res.status).toBe(200);
   const body = await res.json();
 
@@ -50,13 +56,14 @@ test("POST /auth/register creates a user in postgres", async () => {
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {
-  const { publicKey } = generateSeedAndKeyPair();
-  fingerprint = await toFingerprint(publicKey);
+  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
 
-  const first = await uploadKey(publicKey);
+  const first = await uploadKey(signingPublicKey, publicKey);
   expect(first.status).toBe(200);
 
-  const second = await uploadKey(publicKey);
+  const second = await uploadKey(signingPublicKey, publicKey);
   expect(second.status).toBe(409);
   expect(await second.json()).toEqual({ error: "Key already exists" });
 });

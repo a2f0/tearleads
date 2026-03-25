@@ -14,7 +14,7 @@ export function Pane({ className }: { className: string }) {
 
   useEffect(() => {
     if (signingKeyPair) {
-      toFingerprint(signingKeyPair.publicKey).then(setFingerprint);
+      toFingerprint(signingKeyPair.signingPublicKey).then(setFingerprint);
     } else {
       setFingerprint(null);
     }
