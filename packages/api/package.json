@@ -9,6 +9,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.4.1",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "hono": "4.7.11",
