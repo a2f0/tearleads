@@ -1,8 +1,8 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { v1 } from "@authzed/authzed-node";
 import client from "./spicedb";
 
-test("adds a user to SpiceDB", async () => {
+beforeAll(async () => {
   await client.promises.writeSchema(
     v1.WriteSchemaRequest.create({
       schema: `definition tearleads/user {}
@@ -12,7 +12,13 @@ test("adds a user to SpiceDB", async () => {
       }`,
     }),
   );
+});
 
+afterAll(() => {
+  client.close();
+});
+
+test("adds a user to SpiceDB", async () => {
   const response = await client.promises.writeRelationships(
     v1.WriteRelationshipsRequest.create({
       updates: [
@@ -37,5 +43,4 @@ test("adds a user to SpiceDB", async () => {
   );
   expect(response).toBeTruthy();
   expect(response.writtenAt).toBeDefined();
-  client.close();
 });
