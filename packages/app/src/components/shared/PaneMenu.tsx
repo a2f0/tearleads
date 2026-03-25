@@ -1,4 +1,4 @@
-import { postPublicKey } from "../../api/routes/publicKey";
+import { postPublicKey } from "../../api/routes/register";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { Menu, type MenuPosition } from "./Menu";

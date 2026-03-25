@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./routes/auth";
 import { health } from "./routes/health";
-import { publicKeyRoute } from "./routes/publicKey";
 
 export const app = new Hono();
 
@@ -10,7 +9,6 @@ app.use("*", cors());
 
 app.route("/", auth);
 app.route("/", health);
-app.route("/", publicKeyRoute);
 
 export default {
   port: 3001,

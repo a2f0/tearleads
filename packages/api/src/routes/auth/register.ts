@@ -3,12 +3,12 @@ import { isPublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { set } from "../adapters/redis";
+import { set } from "../../adapters/redis";
 
-export const publicKeyRoute = new Hono();
+export const registerRoute = new Hono();
 
-publicKeyRoute.post(
-  "/publicKey",
+registerRoute.post(
+  "/auth/register",
   validator("json", (value, c) => {
     if (!isPublicKeyRequest(value)) {
       return c.json({ error: "Invalid request" }, 400);
