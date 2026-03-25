@@ -44,7 +44,9 @@ test("POST /auth/register creates a user in postgres", async () => {
 
   invariant(user, "expected user to exist in postgres");
   expect(user.fingerprint).toBe(fingerprint);
-  expect(Array.from(Buffer.from(user.publicKey, "base64"))).toEqual(keyArray);
+  expect(Array.from(Buffer.from(user.signingPublicKey, "base64"))).toEqual(
+    keyArray,
+  );
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

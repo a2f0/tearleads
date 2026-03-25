@@ -1,9 +1,16 @@
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { app } from "../../../src/index";
 
-export async function uploadKey(publicKey: Uint8Array): Promise<Response> {
+export async function uploadKey(
+  signingPublicKey: Uint8Array,
+): Promise<Response> {
+  const { publicKey: encapsulationPublicKey } = generateKemSeedAndKeyPair();
   return app.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ publicKey: Array.from(publicKey) }),
+    body: JSON.stringify({
+      signingPublicKey: Array.from(signingPublicKey),
+      encapsulationPublicKey: Array.from(encapsulationPublicKey),
+    }),
   });
 }

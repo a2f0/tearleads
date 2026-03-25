@@ -1,4 +1,8 @@
-import { generateSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
 import {
   createContext,
   type PropsWithChildren,
@@ -15,7 +19,8 @@ interface KeyPair {
 }
 
 interface CryptoSessionContextValue {
-  keyPair: KeyPair | null;
+  signingKeyPair: KeyPair | null;
+  encapsulationKeyPair: KeyPair | null;
   userId: string | null;
   authToken: string | null;
   isAuthenticated: boolean;
@@ -32,19 +37,23 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 );
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
-  const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  const [signingKeyPair, setSigningKeyPair] = useState<KeyPair | null>(null);
+  const [encapsulationKeyPair, setEncapsulationKeyPair] =
+    useState<KeyPair | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [authToken, setStoredAuthToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const generateKey = useCallback(() => {
-    setKeyPair(generateSeedAndKeyPair());
+    setSigningKeyPair(generateSeedAndKeyPair());
+    setEncapsulationKeyPair(generateKemSeedAndKeyPair());
     setIsAuthenticated(false);
     setAuthToken(null);
   }, []);
 
   const destroyKey = useCallback(() => {
-    setKeyPair(null);
+    setSigningKeyPair(null);
+    setEncapsulationKeyPair(null);
     setUserId(null);
     setStoredAuthToken(null);
     setIsAuthenticated(false);
@@ -58,9 +67,9 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   }, []);
 
   const login = useCallback(async (): Promise<boolean> => {
-    if (!keyPair) return false;
-    const fingerprint = await toFingerprint(keyPair.publicKey);
-    const token = await authenticate(fingerprint, keyPair.secretKey);
+    if (!signingKeyPair) return false;
+    const fingerprint = await toFingerprint(signingKeyPair.publicKey);
+    const token = await authenticate(fingerprint, signingKeyPair.secretKey);
     if (token) {
       setAuthToken(token);
       setStoredAuthToken(token);
@@ -69,15 +78,15 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     }
     setIsAuthenticated(false);
     return false;
-  }, [keyPair]);
+  }, [signingKeyPair]);
 
   const loginWithChallenge = useCallback(
     async (challengeHex: string): Promise<boolean> => {
-      if (!keyPair) return false;
-      const fingerprint = await toFingerprint(keyPair.publicKey);
+      if (!signingKeyPair) return false;
+      const fingerprint = await toFingerprint(signingKeyPair.publicKey);
       const token = await authenticateWithChallenge(
         fingerprint,
-        keyPair.secretKey,
+        signingKeyPair.secretKey,
         challengeHex,
       );
       if (token) {
@@ -89,13 +98,14 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
       setIsAuthenticated(false);
       return false;
     },
-    [keyPair],
+    [signingKeyPair],
   );
 
   return (
     <CryptoSessionContext.Provider
       value={{
-        keyPair,
+        signingKeyPair,
+        encapsulationKeyPair,
         userId,
         authToken,
         isAuthenticated,
