@@ -6,6 +6,12 @@ import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
 import { registerUser } from "../helpers/registerUser";
 
+type SerializedRecipient = {
+  keyFingerprint: string;
+  kemCipherText: number[];
+  wrappedKey: number[];
+};
+
 const alice = createTestUser();
 const bob = createTestUser();
 
@@ -119,20 +125,46 @@ test("Alice retrieves the item and decrypts the message", async () => {
 
   // Deserialize the envelope from encryptedData
   const parsed = JSON.parse(body.encryptedData);
+  expect(parsed.iv).toBeInstanceOf(Array);
+  expect(parsed.ciphertext).toBeInstanceOf(Array);
+  expect(parsed.recipients).toBeInstanceOf(Array);
+
+  expect(parsed.iv.length).toBe(12);
+  expect(
+    parsed.iv.every((v: number) => Number.isInteger(v) && v >= 0 && v <= 255),
+  ).toBe(true);
+  expect(parsed.ciphertext.length).toBe(25);
+  expect(
+    parsed.ciphertext.every(
+      (v: number) => Number.isInteger(v) && v >= 0 && v <= 255,
+    ),
+  ).toBe(true);
+  expect(parsed.recipients.length).toBe(1);
+
+  const recipient = parsed.recipients[0];
+  expect(typeof recipient.keyFingerprint).toBe("string");
+  expect(recipient.keyFingerprint.length).toBe(64);
+  expect(recipient.kemCipherText.length).toBe(1568);
+  expect(
+    recipient.kemCipherText.every(
+      (v: number) => Number.isInteger(v) && v >= 0 && v <= 255,
+    ),
+  ).toBe(true);
+  expect(recipient.wrappedKey.length).toBe(48);
+  expect(
+    recipient.wrappedKey.every(
+      (v: number) => Number.isInteger(v) && v >= 0 && v <= 255,
+    ),
+  ).toBe(true);
+
   const envelope = {
     iv: new Uint8Array(parsed.iv),
     ciphertext: new Uint8Array(parsed.ciphertext),
-    recipients: parsed.recipients.map(
-      (r: {
-        keyFingerprint: string;
-        kemCipherText: number[];
-        wrappedKey: number[];
-      }) => ({
-        keyFingerprint: r.keyFingerprint,
-        kemCipherText: new Uint8Array(r.kemCipherText),
-        wrappedKey: new Uint8Array(r.wrappedKey),
-      }),
-    ),
+    recipients: parsed.recipients.map((r: SerializedRecipient) => ({
+      keyFingerprint: r.keyFingerprint,
+      kemCipherText: new Uint8Array(r.kemCipherText),
+      wrappedKey: new Uint8Array(r.wrappedKey),
+    })),
   };
 
   // Alice decrypts with her KEM secret key
