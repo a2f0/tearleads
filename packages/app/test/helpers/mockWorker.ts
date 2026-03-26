@@ -1,5 +1,11 @@
-// Minimal worker test double for App.tsx. It implements only the behavior
-// the component relies on: async ping/init responses and termination tracking.
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "@tearleads/sqlite-worker/types";
+import { handleRequest } from "@tearleads/sqlite-worker/worker-core";
+
+// Minimal worker test double for App.tsx. It uses the shared sqlite worker
+// protocol so test behavior stays aligned with the real worker contract.
 export class MockWorker extends EventTarget {
   terminated = false;
 
@@ -7,27 +13,15 @@ export class MockWorker extends EventTarget {
     this.terminated = true;
   }
 
-  postMessage(message: { id: number; method: string }) {
-    // Mirror just enough of the worker protocol for component tests.
-    if (message.method !== "ping" && message.method !== "init") {
-      return;
-    }
+  postMessage(message: WorkerRequest) {
+    queueMicrotask(async () => {
+      const response = (await handleRequest(message, {
+        onInit: async () => {},
+      })) satisfies WorkerResponse;
 
-    queueMicrotask(() => {
       this.dispatchEvent(
-        new MessageEvent("message", {
-          data: {
-            id: message.id,
-            result:
-              message.method === "ping"
-                ? {
-                    ok: true,
-                    message: "pong",
-                  }
-                : {
-                    ok: true,
-                  },
-          },
+        new MessageEvent<WorkerResponse>("message", {
+          data: response,
         }),
       );
     });
