@@ -4,6 +4,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./jswasm/sqlite3.mjs": {
+      "types": "./src/sqlite3.d.ts",
+      "default": "./dist/jswasm/sqlite3.mjs"
+    },
     "./jswasm/*": "./dist/jswasm/*"
   },
   "scripts": {
