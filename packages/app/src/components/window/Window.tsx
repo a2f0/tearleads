@@ -8,9 +8,11 @@ import {
 } from "react";
 import "./Window.css";
 import { WindowBody } from "./WindowBody";
+import { WindowMenuBar } from "./WindowMenuBar";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
 import { useWindowState } from "./WindowStateProvider";
+import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 
 const MIN_WIDTH = 200;
@@ -123,6 +125,11 @@ export function Window({
     setMaximized((prev) => !prev);
   }, []);
 
+  const [showStatusBar, setShowStatusBar] = useState(true);
+  const toggleStatusBar = useCallback(() => {
+    setShowStatusBar((prev) => !prev);
+  }, []);
+
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       if (resizing.current) {
@@ -212,7 +219,25 @@ export function Window({
         onMaximize={handleMaximize}
         onClose={onClose}
       />
+      <WindowMenuBar
+        menus={[
+          {
+            label: "File",
+            items: [{ label: "Close", onClick: onClose }],
+          },
+          {
+            label: "View",
+            items: [
+              {
+                label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
+                onClick: toggleStatusBar,
+              },
+            ],
+          },
+        ]}
+      />
       <WindowBody>{children}</WindowBody>
+      {showStatusBar && <WindowStatusBar />}
       {!maximized && (
         <>
           <WindowResizeHandle corner="se" onMouseDown={handleResizeMouseDown} />
