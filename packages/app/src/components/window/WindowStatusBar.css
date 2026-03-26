@@ -1,0 +1,8 @@
+.window-statusbar {
+  display: flex;
+  align-items: center;
+  min-height: 1lh;
+  padding: var(--window-bar-padding);
+  background: var(--color-muted);
+  user-select: none;
+}
