@@ -5,4 +5,4 @@ export type RequestFn = <T>(
   validator: (value: unknown) => value is T,
   method: HttpMethod,
   body?: string,
-) => Promise<T>;
+) => Promise<T | null>;

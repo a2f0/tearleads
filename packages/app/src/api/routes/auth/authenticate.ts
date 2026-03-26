@@ -8,8 +8,14 @@ export async function authenticate(
   fingerprint: string,
   secretKey: Uint8Array,
 ): Promise<string | null> {
-  const { challenge } = await postChallenge(request, fingerprint);
-  return authenticateWithChallenge(request, fingerprint, secretKey, challenge);
+  const challengeResponse = await postChallenge(request, fingerprint);
+  if (!challengeResponse) return null;
+  return authenticateWithChallenge(
+    request,
+    fingerprint,
+    secretKey,
+    challengeResponse.challenge,
+  );
 }
 
 export async function authenticateWithChallenge(
@@ -21,5 +27,6 @@ export async function authenticateWithChallenge(
   const challengeBytes = hexToBytes(challengeHex);
   const signature = sign(challengeBytes, secretKey);
   const result = await postVerify(request, fingerprint, signature);
+  if (!result) return null;
   return result.authenticated ? (result.token ?? null) : null;
 }

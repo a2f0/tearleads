@@ -31,6 +31,7 @@ export function AddressBookProvider({ children }: PropsWithChildren) {
     async (userId: string) => {
       log(`Importing peer key for userId: ${userId}`);
       const response = await apiClient.getEncapsulationKey(userId);
+      if (!response) return;
       setEntries((prev) => {
         const existing = prev.findIndex((e) => e.userId === userId);
         const entry: AddressBookEntry = {

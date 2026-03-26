@@ -51,7 +51,7 @@ export class ApiClient {
     validator: (value: unknown) => value is T,
     method: HttpMethod,
     body?: string,
-  ): Promise<T> {
+  ): Promise<T | null> {
     const init: RequestInit = { method, headers: this.buildHeaders() };
     if (body) {
       init.body = body;
@@ -61,27 +61,24 @@ export class ApiClient {
       response = await fetch(`${this.baseUrl}${path}`, init);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      const error = e instanceof Error ? e : new Error(message);
       this.onError?.(`${method} ${path}: ${message}`);
       this.onNetworkError?.();
-      throw error;
+      return null;
     }
 
     this.onNetworkSuccess?.();
 
     if (!response.ok) {
-      const error = new Error(`${response.status} ${response.statusText}`);
       this.onError?.(
         `${method} ${path}: ${response.status} ${response.statusText}`,
       );
-      throw error;
+      return null;
     }
 
     const data: unknown = await response.json();
     if (!validator(data)) {
-      const error = new Error(`Invalid response shape for ${path}`);
-      this.onError?.(error.message);
-      throw error;
+      this.onError?.(`Invalid response shape for ${path}`);
+      return null;
     }
 
     return data;
