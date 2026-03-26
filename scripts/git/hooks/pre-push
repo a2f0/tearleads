@@ -3,6 +3,10 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Source session.sh to get script paths for shellcheck.
+. "$REPO_ROOT/scripts/session.sh" "$REPO_ROOT"
+
 cd "$REPO_ROOT"
 
 echo "Running cargo tests..."
@@ -15,7 +19,19 @@ echo "Running linter..."
 cargo clippy -- -D warnings
 
 echo "Running shellcheck..."
-find "$REPO_ROOT/scripts" -name '*.sh' -exec shellcheck {} +
+old_ifs=$IFS
+IFS='
+'
+
+for path_dir in $repo_script_paths; do
+  [ -d "$path_dir" ] || continue
+  find "$path_dir" -name '*.sh' -exec shellcheck {} +
+done
+
+IFS=$old_ifs
+
+find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
+
 
 echo "Running TypeScript compiler..."
 bun tsc --build

@@ -39,7 +39,7 @@
     "packages/validators"
   ],
   "lint-staged": {
-    "*": "biome check --fix --error-on-warnings"
+    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",

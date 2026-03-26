@@ -23,14 +23,29 @@ else
   }
 fi
 
-prepend_path "$repo_root/packages/api/scripts"
-prepend_path "$repo_root/packages/app/scripts"
-prepend_path "$repo_root/packages/sqlite-instance/scripts"
-prepend_path "$repo_root/scripts"
-prepend_path "$repo_root/scripts/git"
-prepend_path "$repo_root/scripts/testing"
+repo_script_paths="
+$repo_root/packages/api/scripts
+$repo_root/packages/app/scripts
+$repo_root/packages/sqlite-instance/scripts
+$repo_root/scripts
+$repo_root/scripts/git
+$repo_root/scripts/testing
+"
+
+old_ifs=$IFS
+IFS='
+'
+
+for script_path in $repo_script_paths; do
+  [ -n "$script_path" ] || continue
+  prepend_path "$script_path"
+done
+
+IFS=$old_ifs
 
 export PATH
 
 unset repo_root
+unset old_ifs
+unset script_path
 unset -f prepend_path 2>/dev/null || true
