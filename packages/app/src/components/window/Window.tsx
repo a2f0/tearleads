@@ -2,6 +2,7 @@ import {
   type PropsWithChildren,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -9,6 +10,7 @@ import "./Window.css";
 import { WindowBody } from "./WindowBody";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
+import { useWindowState } from "./WindowStateProvider";
 import { WindowTitleBar } from "./WindowTitleBar";
 
 const MIN_WIDTH = 200;
@@ -28,6 +30,8 @@ export function Window({
   onClose,
   children,
 }: PropsWithChildren<WindowProps>) {
+  const windowId = useId();
+  const { windows, register, unregister, minimize } = useWindowState();
   const windowRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -47,6 +51,14 @@ export function Window({
     startWidth: number;
     startHeight: number;
   } | null>(null);
+
+  const entry = windows.find((w) => w.id === windowId);
+  const minimized = entry?.minimized ?? false;
+
+  useEffect(() => {
+    register(windowId, title);
+    return () => unregister(windowId);
+  }, [windowId, title, register, unregister]);
 
   // Constrain window position so it stays fully within its parent container.
   const clamp = useCallback((x: number, y: number) => {
@@ -102,6 +114,10 @@ export function Window({
     },
     [position, maximized],
   );
+
+  const handleMinimize = useCallback(() => {
+    minimize(windowId);
+  }, [minimize, windowId]);
 
   const handleMaximize = useCallback(() => {
     setMaximized((prev) => !prev);
@@ -171,6 +187,8 @@ export function Window({
     };
   }, [clamp]);
 
+  if (minimized) return null;
+
   const style: React.CSSProperties | undefined = maximized
     ? undefined
     : position
@@ -190,6 +208,7 @@ export function Window({
       <WindowTitleBar
         title={title}
         onMouseDown={handleMouseDown}
+        onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onClose={onClose}
       />
