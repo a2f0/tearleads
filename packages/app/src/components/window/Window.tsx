@@ -23,11 +23,41 @@ export function Window({
   onClose,
   children,
 }: PropsWithChildren<WindowProps>) {
-  const [position, setPosition] = useState({ x: initialX, y: initialY });
+  const windowRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const dragging = useRef<{ offsetX: number; offsetY: number } | null>(null);
+
+  useEffect(() => {
+    const el = windowRef.current;
+    const container = el?.parentElement;
+    if (!el || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    setPosition({
+      x: initialX - containerRect.left,
+      y: initialY - containerRect.top,
+    });
+  }, [initialX, initialY]);
+
+  // Constrain window position so it stays fully within its parent container.
+  const clamp = useCallback((x: number, y: number) => {
+    const el = windowRef.current;
+    const container = el?.parentElement;
+    if (!el || !container) return { x, y };
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const ew = el.offsetWidth;
+    const eh = el.offsetHeight;
+    return {
+      x: Math.max(0, Math.min(x, cw - ew)),
+      y: Math.max(0, Math.min(y, ch - eh)),
+    };
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (!position) return;
       dragging.current = {
         offsetX: e.clientX - position.x,
         offsetY: e.clientY - position.y,
@@ -39,10 +69,9 @@ export function Window({
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       if (!dragging.current) return;
-      setPosition({
-        x: e.clientX - dragging.current.offsetX,
-        y: e.clientY - dragging.current.offsetY,
-      });
+      const rawX = e.clientX - dragging.current.offsetX;
+      const rawY = e.clientY - dragging.current.offsetY;
+      setPosition(clamp(rawX, rawY));
     }
     function handleMouseUp() {
       dragging.current = null;
@@ -53,10 +82,18 @@ export function Window({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []);
+  }, [clamp]);
 
   return (
-    <div className="window" style={{ left: position.x, top: position.y }}>
+    <div
+      ref={windowRef}
+      className="window"
+      style={
+        position
+          ? { left: position.x, top: position.y }
+          : { visibility: "hidden" }
+      }
+    >
       <WindowTitleBar
         title={title}
         onMouseDown={handleMouseDown}

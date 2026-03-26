@@ -75,44 +75,54 @@ export function Pane({ className }: { className: string }) {
       className={className}
       onContextMenu={handleContextMenu}
     >
-      <div className="pane-content">
-        worker: {status}
-        <br />
-        id: {id}
-        <br />
-        publicKey: {fingerprint ?? "none"}
-        <br />
-        userId: {userId ?? "none"}
-        <br />
-        peerUserId: {peerUserId ?? "none"}
-        <br />
-        session: {authToken ? authToken.slice(0, 32) : "none"}
-        <br />
-        addressBook: {entries.length === 0 ? "empty" : ""}
-        {entries.map((e) => (
-          <div key={e.userId}>
-            {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
-          </div>
-        ))}
-        <br />
-        network: {online ? "online" : "offline"}
-        <br />
-        ws: {connected ? "connected" : "disconnected"}
-        <br />
-        events: {events.length === 0 ? "none" : ""}
-        {events.map((e) => (
-          <div key={e.id}>
-            {e.type}
-            {isUserEvent(e) ? ` (${e.userId})` : ""}
-          </div>
-        ))}
-      </div>
-      <div className="pane-log">
-        {logEntries.map((entry) => (
-          <div key={entry.id}>
-            [{formatTimestamp(entry.timestamp)}] {entry.message}
-          </div>
-        ))}
+      <div className="pane-main">
+        <div className="pane-content">
+          worker: {status}
+          <br />
+          id: {id}
+          <br />
+          publicKey: {fingerprint ?? "none"}
+          <br />
+          userId: {userId ?? "none"}
+          <br />
+          peerUserId: {peerUserId ?? "none"}
+          <br />
+          session: {authToken ? authToken.slice(0, 32) : "none"}
+          <br />
+          addressBook: {entries.length === 0 ? "empty" : ""}
+          {entries.map((e) => (
+            <div key={e.userId}>
+              {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
+            </div>
+          ))}
+          <br />
+          network: {online ? "online" : "offline"}
+          <br />
+          ws: {connected ? "connected" : "disconnected"}
+          <br />
+          events: {events.length === 0 ? "none" : ""}
+          {events.map((e) => (
+            <div key={e.id}>
+              {e.type}
+              {isUserEvent(e) ? ` (${e.userId})` : ""}
+            </div>
+          ))}
+        </div>
+        <div className="pane-log">
+          {logEntries.map((entry) => (
+            <div key={entry.id}>
+              [{formatTimestamp(entry.timestamp)}] {entry.message}
+            </div>
+          ))}
+        </div>
+        {floatingWindow && (
+          <Window
+            title="Window"
+            initialX={floatingWindow.x}
+            initialY={floatingWindow.y}
+            onClose={closeFloatingWindow}
+          />
+        )}
       </div>
       <div className="pane-footer">
         <button type="button" onClick={handleClick}>
@@ -124,14 +134,6 @@ export function Pane({ className }: { className: string }) {
         <Menu position={contextMenu} onClose={closeContextMenu}>
           <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
         </Menu>
-      )}
-      {floatingWindow && (
-        <Window
-          title="Window"
-          initialX={floatingWindow.x}
-          initialY={floatingWindow.y}
-          onClose={closeFloatingWindow}
-        />
       )}
     </section>
   );
