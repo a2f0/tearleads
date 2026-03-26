@@ -1,4 +1,5 @@
 import { toFingerprint } from "@tearleads/crypto";
+import { isUserEvent } from "@tearleads/validators/event";
 import { useCallback, useEffect, useState } from "react";
 import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
@@ -68,7 +69,10 @@ export function Pane({ className }: { className: string }) {
         <br />
         events: {events.length === 0 ? "none" : ""}
         {events.map((e) => (
-          <div key={e.id}>{e.type}</div>
+          <div key={e.id}>
+            {e.type}
+            {isUserEvent(e) ? ` (${e.userId})` : ""}
+          </div>
         ))}
       </div>
       <div className="pane-log">

@@ -42,15 +42,18 @@ export function EventsProvider({ children }: PropsWithChildren) {
   const { log } = useLog();
 
   useEffect(() => {
+    let cancelled = false;
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.addEventListener("open", () => {
+      if (cancelled) return;
       setConnected(true);
       log("WebSocket connected");
     });
 
     ws.addEventListener("message", (event) => {
+      if (cancelled) return;
       try {
         const data: unknown = JSON.parse(String(event.data));
         if (isServerEvent(data)) {
@@ -65,10 +68,12 @@ export function EventsProvider({ children }: PropsWithChildren) {
     });
 
     ws.addEventListener("close", () => {
+      if (cancelled) return;
       setConnected(false);
     });
 
     return () => {
+      cancelled = true;
       ws.close();
       wsRef.current = null;
     };

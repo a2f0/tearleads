@@ -1,0 +1,1 @@
+export { isUserEvent } from "./userEvent";

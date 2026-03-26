@@ -12,6 +12,7 @@ import {
 } from "react";
 import { authenticate, authenticateWithChallenge } from "../api/routes/auth";
 import { setAuthToken } from "../api/util/request";
+import { useLog } from "../logging/LogProvider";
 
 interface SigningKeyPair {
   signingPublicKey: Uint8Array;
@@ -50,13 +51,15 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [userId, setUserId] = useState<string | null>(null);
   const [authToken, setStoredAuthToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { log } = useLog();
 
   const generateKey = useCallback(() => {
     setSigningKeyPair(generateSigningSeedAndKeyPair());
     setEncapsulationKeyPair(generateKemSeedAndKeyPair());
     setIsAuthenticated(false);
     setAuthToken(null);
-  }, []);
+    log("Key pair generated");
+  }, [log]);
 
   const destroyKey = useCallback(() => {
     setSigningKeyPair(null);
@@ -65,7 +68,8 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     setStoredAuthToken(null);
     setIsAuthenticated(false);
     setAuthToken(null);
-  }, []);
+    log("Key pair destroyed");
+  }, [log]);
 
   const logout = useCallback(() => {
     setStoredAuthToken(null);
@@ -76,6 +80,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const login = useCallback(async (): Promise<boolean> => {
     if (!signingKeyPair) return false;
     const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
+    log("Authenticating...");
     const token = await authenticate(
       fingerprint,
       signingKeyPair.signingPrivateKey,
@@ -84,16 +89,19 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
       setAuthToken(token);
       setStoredAuthToken(token);
       setIsAuthenticated(true);
+      log("Authentication successful");
       return true;
     }
     setIsAuthenticated(false);
+    log("Authentication failed");
     return false;
-  }, [signingKeyPair]);
+  }, [signingKeyPair, log]);
 
   const loginWithChallenge = useCallback(
     async (challengeHex: string): Promise<boolean> => {
       if (!signingKeyPair) return false;
       const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
+      log("Authenticating with challenge...");
       const token = await authenticateWithChallenge(
         fingerprint,
         signingKeyPair.signingPrivateKey,
@@ -103,12 +111,14 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
         setAuthToken(token);
         setStoredAuthToken(token);
         setIsAuthenticated(true);
+        log("Authentication successful");
         return true;
       }
       setIsAuthenticated(false);
+      log("Authentication failed");
       return false;
     },
-    [signingKeyPair],
+    [signingKeyPair, log],
   );
 
   return (
