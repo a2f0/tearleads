@@ -11,7 +11,7 @@
       "devDependencies": {
         "@biomejs/biome": "2.4.8",
         "@tsconfig/strictest": "2.0.8",
-        "app": "0.1.0",
+        "app": "workspace:*",
         "lint-staged": "16.4.0",
         "msw": "2.12.14",
         "turbo": "2.8.20",
@@ -67,6 +67,12 @@
       "dependencies": {
         "@noble/post-quantum": "0.5.4",
       },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/sqlite-instance": {
+      "name": "@tearleads/sqlite-instance",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -263,6 +269,8 @@
     "@tearleads/api": ["@tearleads/api@workspace:packages/api"],
 
     "@tearleads/crypto": ["@tearleads/crypto@workspace:packages/crypto"],
+
+    "@tearleads/sqlite-instance": ["@tearleads/sqlite-instance@workspace:packages/sqlite-instance"],
 
     "@tearleads/sqlite-worker": ["@tearleads/sqlite-worker@workspace:packages/sqlite-worker"],
 
