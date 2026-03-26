@@ -10,6 +10,13 @@ import { PaneMenu } from "../shared/PaneMenu";
 import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
 import "./Pane.css";
 
+function formatTimestamp(ts: number): string {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString();
+  const ms = String(d.getMilliseconds()).padStart(3, "0");
+  return time.replace(/(\d{2})([ \u202f](?:AM|PM))/i, `$1.${ms}$2`);
+}
+
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
   const { signingKeyPair, userId, authToken } = useCryptoSession();
@@ -60,14 +67,14 @@ export function Pane({ className }: { className: string }) {
         ws: {connected ? "connected" : "disconnected"}
         <br />
         events: {events.length === 0 ? "none" : ""}
-        {events.map((e, i) => (
-          <div key={i}>{e.type}</div>
+        {events.map((e) => (
+          <div key={e.id}>{e.type}</div>
         ))}
       </div>
       <div className="pane-log">
-        {logEntries.map((entry, i) => (
-          <div key={i}>
-            [{new Date(entry.timestamp).toLocaleTimeString()}] {entry.message}
+        {logEntries.map((entry) => (
+          <div key={entry.id}>
+            [{formatTimestamp(entry.timestamp)}] {entry.message}
           </div>
         ))}
       </div>

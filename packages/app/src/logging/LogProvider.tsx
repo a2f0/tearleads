@@ -8,9 +8,12 @@ import {
 } from "react";
 
 export interface LogEntry {
+  id: string;
   timestamp: number;
   message: string;
 }
+
+let nextLogId = 0;
 
 interface LogContextValue {
   entries: ReadonlyArray<LogEntry>;
@@ -23,7 +26,10 @@ export function LogProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
 
   const log = useCallback((message: string) => {
-    setEntries((prev) => [...prev, { timestamp: Date.now(), message }]);
+    setEntries((prev) => [
+      ...prev,
+      { id: String(nextLogId++), timestamp: Date.now(), message },
+    ]);
   }, []);
 
   const value = useMemo(() => ({ entries, log }), [entries, log]);

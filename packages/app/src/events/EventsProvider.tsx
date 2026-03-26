@@ -21,9 +21,12 @@ function isServerEvent(value: unknown): value is ServerEvent {
 }
 
 export interface ServerEvent {
+  id: string;
   type: string;
   [key: string]: unknown;
 }
+
+let nextEventId = 0;
 
 interface EventsContextValue {
   events: ReadonlyArray<ServerEvent>;
@@ -51,7 +54,10 @@ export function EventsProvider({ children }: PropsWithChildren) {
       try {
         const data: unknown = JSON.parse(String(event.data));
         if (isServerEvent(data)) {
-          setEvents((prev) => [...prev, data]);
+          setEvents((prev) => [
+            ...prev,
+            { ...data, id: String(nextEventId++) },
+          ]);
         }
       } catch {
         // ignore malformed messages
