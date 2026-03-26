@@ -14,10 +14,17 @@ if (!workerBuild.success || workerBuild.outputs.length === 0) {
 
 const workerScript = workerBuild.outputs[0];
 
+const sqliteWasm = Bun.file(
+  new URL("../../../sqlite-instance/dist/jswasm/sqlite3.wasm", import.meta.url),
+);
+
 export const serverConfig = {
   routes: {
     "/worker.js": new Response(workerScript, {
       headers: { "Content-Type": "application/javascript" },
+    }),
+    "/sqlite3.wasm": new Response(sqliteWasm, {
+      headers: { "Content-Type": "application/wasm" },
     }),
     "/*": index,
   },
