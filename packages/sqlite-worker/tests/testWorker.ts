@@ -1,3 +1,8 @@
+import { initDatabase } from "../src/loadSqlite3";
 import { registerDatabaseWorker } from "../src/worker";
 
-registerDatabaseWorker();
+registerDatabaseWorker({
+  onInit: async (options) => {
+    await initDatabase(options);
+  },
+});

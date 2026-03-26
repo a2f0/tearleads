@@ -14,3 +14,9 @@
 
 export const SQLITE3MC_VERSION = "2.3.2";
 export const SQLITE_VERSION = "3.51.3";
+
+export type {
+  Database,
+  PreparedStatement,
+  Sqlite3Static,
+} from "@sqlite.org/sqlite-wasm";

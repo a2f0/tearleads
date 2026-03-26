@@ -74,11 +74,15 @@
     "packages/sqlite-instance": {
       "name": "@tearleads/sqlite-instance",
       "devDependencies": {
+        "@sqlite.org/sqlite-wasm": "3.51.2-build8",
         "@types/bun": "catalog:",
       },
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
+      "dependencies": {
+        "@tearleads/sqlite-instance": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -265,6 +269,8 @@
     "@redis/search": ["@redis/search@5.11.0", "", { "peerDependencies": { "@redis/client": "^5.11.0" } }, "sha512-g1l7f3Rnyk/xI99oGHIgWHSKFl45Re5YTIcO8j/JE8olz389yUFyz2+A6nqVy/Zi031VgPDWscbbgOk8hlhZ3g=="],
 
     "@redis/time-series": ["@redis/time-series@5.11.0", "", { "peerDependencies": { "@redis/client": "^5.11.0" } }, "sha512-TWFeOcU4xkj0DkndnOyhtxvX1KWD+78UHT3XX3x3XRBUGWeQrKo3jqzDsZwxbggUgf9yLJr/akFHXru66X5UQA=="],
+
+    "@sqlite.org/sqlite-wasm": ["@sqlite.org/sqlite-wasm@3.51.2-build8", "", {}, "sha512-NvWLTgbqGu1XOLKxePE5Jvc5bzy6QACAQLURQnumSFm0hQms09r2rjMp5i1rvh1DXCe5Rx1FEGcEeQ9BnBB2+Q=="],
 
     "@tearleads/api": ["@tearleads/api@workspace:packages/api"],
 

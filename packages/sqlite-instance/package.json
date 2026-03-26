@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./jswasm/*": "./dist/jswasm/*"
   },
   "scripts": {
@@ -10,6 +11,7 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@sqlite.org/sqlite-wasm": "3.51.2-build8",
     "@types/bun": "catalog:"
   }
 }

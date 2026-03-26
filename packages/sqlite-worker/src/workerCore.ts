@@ -1,4 +1,8 @@
-import type { WorkerRequest, WorkerResponse } from "./types";
+import type {
+  DatabaseWorkerInitOptions,
+  WorkerRequest,
+  WorkerResponse,
+} from "./types";
 
 export interface DatabaseWorkerScope {
   addEventListener(
@@ -9,7 +13,7 @@ export interface DatabaseWorkerScope {
 }
 
 export interface RegisterDatabaseWorkerOptions {
-  onInit?: (dbName: string) => Promise<void> | void;
+  onInit?: (options: DatabaseWorkerInitOptions) => Promise<void> | void;
 }
 
 export function registerDatabaseWorker(
@@ -47,7 +51,7 @@ export async function handleRequest(
       };
 
     case "init":
-      await options.onInit?.(message.params.dbName);
+      await options.onInit?.(message.params);
       return {
         id: message.id,
         result: { ok: true },
