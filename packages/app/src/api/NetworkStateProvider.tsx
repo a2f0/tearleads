@@ -35,6 +35,8 @@ export function NetworkStateProvider({ children }: PropsWithChildren) {
     return () => {
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
+      apiClient.setOnNetworkError(null);
+      apiClient.setOnNetworkSuccess(null);
     };
   }, [apiClient]);
 

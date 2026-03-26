@@ -16,6 +16,9 @@ export function ApiClientProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     client.setOnError(log);
+    return () => {
+      client.setOnError(null);
+    };
   }, [client, log]);
 
   return (

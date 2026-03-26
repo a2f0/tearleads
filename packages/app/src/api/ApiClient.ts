@@ -19,15 +19,15 @@ export class ApiClient {
     this.request = this.makeRequest.bind(this);
   }
 
-  setOnError(handler: (message: string) => void): void {
+  setOnError(handler: ((message: string) => void) | null): void {
     this.onError = handler;
   }
 
-  setOnNetworkError(handler: () => void): void {
+  setOnNetworkError(handler: (() => void) | null): void {
     this.onNetworkError = handler;
   }
 
-  setOnNetworkSuccess(handler: () => void): void {
+  setOnNetworkSuccess(handler: (() => void) | null): void {
     this.onNetworkSuccess = handler;
   }
 
@@ -61,9 +61,10 @@ export class ApiClient {
       response = await fetch(`${this.baseUrl}${path}`, init);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
+      const error = e instanceof Error ? e : new Error(message);
       this.onError?.(`${method} ${path}: ${message}`);
       this.onNetworkError?.();
-      return new Promise<T>(() => {});
+      throw error;
     }
 
     this.onNetworkSuccess?.();
