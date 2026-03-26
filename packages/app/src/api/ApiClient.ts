@@ -75,7 +75,15 @@ export class ApiClient {
       return null;
     }
 
-    const data: unknown = await response.json();
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.onError?.(`${method} ${path}: failed to parse JSON: ${message}`);
+      return null;
+    }
+
     if (!validator(data)) {
       this.onError?.(`Invalid response shape for ${path}`);
       return null;
