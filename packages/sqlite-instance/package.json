@@ -1,0 +1,21 @@
+{
+  "name": "@tearleads/sqlite-instance",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jswasm/sqlite3.mjs": {
+      "types": "./src/sqlite3.d.ts",
+      "default": "./dist/jswasm/sqlite3.mjs"
+    },
+    "./jswasm/*": "./dist/jswasm/*"
+  },
+  "scripts": {
+    "build": "./scripts/buildSqliteMultipleCiphers.sh",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@sqlite.org/sqlite-wasm": "3.51.2-build8",
+    "@types/bun": "catalog:"
+  }
+}

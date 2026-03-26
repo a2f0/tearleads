@@ -56,6 +56,13 @@ export function DatabaseProvider({
 
       void appWorker.client
         .ping()
+        .then(() =>
+          appWorker.client.init({
+            dbName: "/app.db",
+            cipher: "chacha20",
+            key: "development-key",
+          }),
+        )
         .then(() => {
           if (workerRef.current === appWorker) {
             bootingRef.current = false;

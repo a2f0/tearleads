@@ -57,7 +57,7 @@ test("displays userId after uploading public key", async () => {
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
   await waitFor(() => {
-    expect(view.getByText(/worker: ready/)).toBeTruthy();
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
   });
 
   fireEvent.click(view.getByText("Menu"));
@@ -88,7 +88,7 @@ test("userId resets to none when key pair is destroyed", async () => {
   const view = renderPane();
 
   await waitFor(() => {
-    expect(view.getByText(/worker: ready/)).toBeTruthy();
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
   });
 
   fireEvent.click(view.getByText("Menu"));

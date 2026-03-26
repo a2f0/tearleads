@@ -43,7 +43,7 @@ test("handleRequest returns init error responses", async () => {
         },
       },
       {
-        onInit() {
+        onInit(_options) {
           throw new Error("init failed");
         },
       },
@@ -55,7 +55,7 @@ test("registerDatabaseWorker posts error responses for thrown init handlers", as
   const scope = new MockWorkerScope();
 
   registerDatabaseWorker(scope, {
-    onInit() {
+    onInit(_options) {
       throw new Error("init failed");
     },
   });

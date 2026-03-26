@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./client": "./src/client.ts",
+    "./load-sqlite3": "./src/loadSqlite3.ts",
     "./types": "./src/types.ts",
     "./worker": "./src/worker.ts",
     "./worker-core": "./src/workerCore.ts"
@@ -11,6 +12,9 @@
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "bun test tests --max-concurrency=4"
+  },
+  "dependencies": {
+    "@tearleads/sqlite-instance": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"
