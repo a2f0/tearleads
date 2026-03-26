@@ -53,7 +53,6 @@ export function DatabaseProvider({
       setId(appWorker.id);
       setClient(appWorker.client);
       setStatus("idle");
-      log("Worker spawned");
 
       void appWorker.client
         .ping()
@@ -61,6 +60,7 @@ export function DatabaseProvider({
           if (workerRef.current === appWorker) {
             bootingRef.current = false;
             setStatus("ready");
+            log("Worker spawned");
           }
         })
         .catch((error) => {

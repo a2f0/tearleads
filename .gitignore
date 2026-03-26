@@ -10,3 +10,6 @@ tsconfig.tsbuildinfo
 .turbo/
 playwright-report/
 test-results/
+
+# Serena
+.serena/

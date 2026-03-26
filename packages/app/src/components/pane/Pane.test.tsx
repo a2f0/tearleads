@@ -6,6 +6,7 @@ import { MockWorker } from "../../../test/helpers/mockWorker";
 import { server } from "../../../test/helpers/mswServer";
 import { ApiClient } from "../../api/ApiClient";
 import { ApiClientProvider } from "../../api/ApiClientProvider";
+import { NetworkStateProvider } from "../../api/NetworkStateProvider";
 import "../../../test/helpers/wsServer";
 import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
@@ -26,20 +27,22 @@ function renderPane() {
       <PaneSideProvider side="left">
         <LogProvider>
           <ApiClientProvider>
-            <DatabaseProvider
-              createWorker={() => {
-                const appWorker = createAppDatabaseWorker(MockWorker);
-                return appWorker;
-              }}
-            >
-              <CryptoSessionProvider>
-                <AddressBookProvider>
-                  <EventsProvider>
-                    <Pane className="pane" />
-                  </EventsProvider>
-                </AddressBookProvider>
-              </CryptoSessionProvider>
-            </DatabaseProvider>
+            <NetworkStateProvider>
+              <DatabaseProvider
+                createWorker={() => {
+                  const appWorker = createAppDatabaseWorker(MockWorker);
+                  return appWorker;
+                }}
+              >
+                <CryptoSessionProvider>
+                  <AddressBookProvider>
+                    <EventsProvider>
+                      <Pane className="pane" />
+                    </EventsProvider>
+                  </AddressBookProvider>
+                </CryptoSessionProvider>
+              </DatabaseProvider>
+            </NetworkStateProvider>
           </ApiClientProvider>
         </LogProvider>
       </PaneSideProvider>

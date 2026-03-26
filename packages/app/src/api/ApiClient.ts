@@ -11,9 +11,24 @@ import type { HttpMethod, RequestFn } from "./types";
 export class ApiClient {
   private authToken: string | null = null;
   private readonly request: RequestFn;
+  private onError: ((message: string) => void) | null = null;
+  private onNetworkError: (() => void) | null = null;
+  private onNetworkSuccess: (() => void) | null = null;
 
   constructor(private baseUrl = "http://localhost:3001") {
     this.request = this.makeRequest.bind(this);
+  }
+
+  setOnError(handler: ((message: string) => void) | null): void {
+    this.onError = handler;
+  }
+
+  setOnNetworkError(handler: (() => void) | null): void {
+    this.onNetworkError = handler;
+  }
+
+  setOnNetworkSuccess(handler: (() => void) | null): void {
+    this.onNetworkSuccess = handler;
   }
 
   setAuthToken(token: string | null): void {
@@ -41,15 +56,32 @@ export class ApiClient {
     if (body) {
       init.body = body;
     }
-    const response = await fetch(`${this.baseUrl}${path}`, init);
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, init);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      const error = e instanceof Error ? e : new Error(message);
+      this.onError?.(`${method} ${path}: ${message}`);
+      this.onNetworkError?.();
+      throw error;
+    }
+
+    this.onNetworkSuccess?.();
 
     if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
+      const error = new Error(`${response.status} ${response.statusText}`);
+      this.onError?.(
+        `${method} ${path}: ${response.status} ${response.statusText}`,
+      );
+      throw error;
     }
 
     const data: unknown = await response.json();
     if (!validator(data)) {
-      throw new Error(`Invalid response shape for ${path}`);
+      const error = new Error(`Invalid response shape for ${path}`);
+      this.onError?.(error.message);
+      throw error;
     }
 
     return data;
