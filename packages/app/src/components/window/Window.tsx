@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -130,6 +131,25 @@ export function Window({
     setShowStatusBar((prev) => !prev);
   }, []);
 
+  const menus = useMemo(
+    () => [
+      {
+        label: "File",
+        items: [{ label: "Close", onClick: onClose }],
+      },
+      {
+        label: "View",
+        items: [
+          {
+            label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
+            onClick: toggleStatusBar,
+          },
+        ],
+      },
+    ],
+    [onClose, showStatusBar, toggleStatusBar],
+  );
+
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       if (resizing.current) {
@@ -219,23 +239,7 @@ export function Window({
         onMaximize={handleMaximize}
         onClose={onClose}
       />
-      <WindowMenuBar
-        menus={[
-          {
-            label: "File",
-            items: [{ label: "Close", onClick: onClose }],
-          },
-          {
-            label: "View",
-            items: [
-              {
-                label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
-                onClick: toggleStatusBar,
-              },
-            ],
-          },
-        ]}
-      />
+      <WindowMenuBar menus={menus} />
       <WindowBody>{children}</WindowBody>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (

@@ -29,11 +29,14 @@ export function WindowMenuBar({ menus }: { menus: MenuDef[] }) {
   }, [openIndex, close]);
 
   return (
-    <div ref={barRef} className="window-menubar">
+    <div ref={barRef} className="window-menubar" role="menubar">
       {menus.map((menu, i) => (
         <div key={menu.label} className="window-menubar-item">
           <button
             type="button"
+            role="menuitem"
+            aria-haspopup="true"
+            aria-expanded={openIndex === i}
             className={
               openIndex === i
                 ? "window-menubar-trigger window-menubar-trigger--active"
@@ -47,11 +50,12 @@ export function WindowMenuBar({ menus }: { menus: MenuDef[] }) {
             {menu.label}
           </button>
           {openIndex === i && (
-            <div className="window-menubar-dropdown">
+            <div className="window-menubar-dropdown" role="menu">
               {menu.items.map((item) => (
                 <button
                   key={item.label}
                   type="button"
+                  role="menuitem"
                   onClick={() => {
                     item.onClick();
                     close();
