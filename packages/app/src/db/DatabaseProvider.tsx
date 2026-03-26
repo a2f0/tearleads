@@ -54,19 +54,23 @@ export function DatabaseProvider({
       setClient(appWorker.client);
       setStatus("idle");
 
+      log("Loading SQLite3 WASM module...");
       void appWorker.client
         .ping()
-        .then(() =>
-          appWorker.client.init({
+        .then(() => {
+          log("SQLite3 WASM module loaded successfully");
+          log("Initializing database: /app.db");
+          return appWorker.client.init({
             dbName: "/app.db",
             cipher: "chacha20",
             key: "development-key",
-          }),
-        )
+          });
+        })
         .then(() => {
           if (workerRef.current === appWorker) {
             bootingRef.current = false;
             setStatus("ready");
+            log("Database initialized successfully: /app.db");
             log("Worker spawned");
           }
         })
