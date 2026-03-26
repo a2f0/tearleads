@@ -2,7 +2,6 @@ import {
   type PropsWithChildren,
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -20,21 +19,12 @@ const MIN_WIDTH = 200;
 const MIN_HEIGHT = 100;
 
 interface WindowProps {
-  title: string;
-  initialX: number;
-  initialY: number;
-  onClose: () => void;
+  windowId: string;
 }
 
-export function Window({
-  title,
-  initialX,
-  initialY,
-  onClose,
-  children,
-}: PropsWithChildren<WindowProps>) {
-  const windowId = useId();
-  const { windows, register, unregister, minimize } = useWindowState();
+export function Window({ windowId, children }: PropsWithChildren<WindowProps>) {
+  const { windows, close, minimize } = useWindowState();
+  const entry = windows.find((w) => w.id === windowId);
   const windowRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -55,13 +45,10 @@ export function Window({
     startHeight: number;
   } | null>(null);
 
-  const entry = windows.find((w) => w.id === windowId);
+  const title = entry?.title ?? "";
   const minimized = entry?.minimized ?? false;
-
-  useEffect(() => {
-    register(windowId, title);
-    return () => unregister(windowId);
-  }, [windowId, title, register, unregister]);
+  const initialX = entry?.initialX ?? 0;
+  const initialY = entry?.initialY ?? 0;
 
   // Constrain window position so it stays fully within its parent container.
   const clamp = useCallback((x: number, y: number) => {
@@ -126,6 +113,10 @@ export function Window({
     setMaximized((prev) => !prev);
   }, []);
 
+  const handleClose = useCallback(() => {
+    close(windowId);
+  }, [close, windowId]);
+
   const [showStatusBar, setShowStatusBar] = useState(true);
   const toggleStatusBar = useCallback(() => {
     setShowStatusBar((prev) => !prev);
@@ -135,7 +126,7 @@ export function Window({
     () => [
       {
         label: "File",
-        items: [{ label: "Close", onClick: onClose }],
+        items: [{ label: "Close", onClick: handleClose }],
       },
       {
         label: "View",
@@ -147,7 +138,7 @@ export function Window({
         ],
       },
     ],
-    [onClose, showStatusBar, toggleStatusBar],
+    [handleClose, showStatusBar, toggleStatusBar],
   );
 
   useEffect(() => {
@@ -175,8 +166,6 @@ export function Window({
         if (container) {
           const cw = container.clientWidth;
           const ch = container.clientHeight;
-          // Clamp position first, then recalculate size to keep
-          // the opposite edge fixed when hitting container bounds.
           if (newX < 0) {
             newW += newX;
             newX = 0;
@@ -214,7 +203,7 @@ export function Window({
     };
   }, [clamp]);
 
-  if (minimized) return null;
+  if (!entry || minimized) return null;
 
   const style: React.CSSProperties | undefined = maximized
     ? undefined
@@ -237,7 +226,7 @@ export function Window({
         onMouseDown={handleMouseDown}
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
-        onClose={onClose}
+        onClose={handleClose}
       />
       <WindowMenuBar menus={menus} />
       <WindowBody>{children}</WindowBody>
