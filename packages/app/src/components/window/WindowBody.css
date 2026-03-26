@@ -1,0 +1,5 @@
+.window-body {
+  flex: 1;
+  padding: var(--padding);
+  overflow: auto;
+}

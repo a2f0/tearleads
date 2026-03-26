@@ -27,6 +27,7 @@ export function Window({
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
   );
+  const [maximized, setMaximized] = useState(false);
   const dragging = useRef<{ offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
@@ -57,14 +58,18 @@ export function Window({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (!position) return;
+      if (!position || maximized) return;
       dragging.current = {
         offsetX: e.clientX - position.x,
         offsetY: e.clientY - position.y,
       };
     },
-    [position],
+    [position, maximized],
   );
+
+  const handleMaximize = useCallback(() => {
+    setMaximized((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -87,16 +92,19 @@ export function Window({
   return (
     <div
       ref={windowRef}
-      className="window"
+      className={maximized ? "window window--maximized" : "window"}
       style={
-        position
-          ? { left: position.x, top: position.y }
-          : { visibility: "hidden" }
+        maximized
+          ? undefined
+          : position
+            ? { left: position.x, top: position.y }
+            : { visibility: "hidden" }
       }
     >
       <WindowTitleBar
         title={title}
         onMouseDown={handleMouseDown}
+        onMaximize={handleMaximize}
         onClose={onClose}
       />
       <WindowBody>{children}</WindowBody>
