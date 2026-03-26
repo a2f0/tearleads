@@ -1,0 +1,23 @@
+.window-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-dark);
+  color: var(--color-light);
+  cursor: grab;
+  user-select: none;
+}
+
+.window-titlebar:active {
+  cursor: grabbing;
+}
+
+.window--maximized .window-titlebar {
+  cursor: default;
+}
+
+.window-titlebar-buttons {
+  display: flex;
+  gap: 0.25rem;
+}

@@ -1,0 +1,19 @@
+.window {
+  position: absolute;
+  background: var(--color-light);
+  border: 1px solid var(--color-dark);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  min-height: 100px;
+}
+
+.window--maximized {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: unset;
+  min-height: unset;
+}
