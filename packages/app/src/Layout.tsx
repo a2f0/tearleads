@@ -1,4 +1,8 @@
 import { useCallback, useState } from "react";
+import {
+  DualPaneProvider,
+  PaneSideProvider,
+} from "./components/pane/DualPaneProvider";
 import { Pane } from "./components/pane/Pane";
 import { PaneProvider } from "./components/pane/PaneProvider";
 import type { createAppDatabaseWorker } from "./db/sqliteWorker";
@@ -21,12 +25,18 @@ export function Layout({ createWorker }: LayoutProps) {
           {split ? "Unsplit" : "Split"}
         </button>
       </header>
-      <PaneProvider createWorker={createWorker}>
-        <Pane className="pane pane-left" />
-      </PaneProvider>
-      <PaneProvider createWorker={createWorker}>
-        <Pane className="pane pane-right" />
-      </PaneProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider createWorker={createWorker}>
+            <Pane className="pane pane-left" />
+          </PaneProvider>
+        </PaneSideProvider>
+        <PaneSideProvider side="right">
+          <PaneProvider createWorker={createWorker}>
+            <Pane className="pane pane-right" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
       <Footer />
     </div>
   );
