@@ -4,11 +4,14 @@ import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { PaneMenu } from "../shared/PaneMenu";
+import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
 import "./Pane.css";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
   const { signingKeyPair, userId, authToken } = useCryptoSession();
+  useRegisterUserId(userId);
+  const peerUserId = usePeerUserId();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
@@ -36,6 +39,8 @@ export function Pane({ className }: { className: string }) {
         publicKey: {fingerprint ?? "none"}
         <br />
         userId: {userId ?? "none"}
+        <br />
+        peerUserId: {peerUserId ?? "none"}
         <br />
         session: {authToken ? authToken.slice(0, 32) : "none"}
       </div>

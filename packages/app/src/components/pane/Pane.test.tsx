@@ -8,6 +8,7 @@ import { server } from "../../../test/helpers/mswServer";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
+import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 
 beforeAll(() => server.listen());
@@ -16,16 +17,20 @@ afterAll(() => server.close());
 
 function renderPane() {
   return render(
-    <DatabaseProvider
-      createWorker={() => {
-        const appWorker = createAppDatabaseWorker(MockWorker);
-        return appWorker;
-      }}
-    >
-      <CryptoSessionProvider>
-        <Pane className="pane" />
-      </CryptoSessionProvider>
-    </DatabaseProvider>,
+    <DualPaneProvider>
+      <PaneSideProvider side="left">
+        <DatabaseProvider
+          createWorker={() => {
+            const appWorker = createAppDatabaseWorker(MockWorker);
+            return appWorker;
+          }}
+        >
+          <CryptoSessionProvider>
+            <Pane className="pane" />
+          </CryptoSessionProvider>
+        </DatabaseProvider>
+      </PaneSideProvider>
+    </DualPaneProvider>,
   );
 }
 
