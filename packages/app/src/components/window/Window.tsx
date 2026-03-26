@@ -23,8 +23,29 @@ interface WindowProps {
 }
 
 export function Window({ windowId, children }: PropsWithChildren<WindowProps>) {
-  const { windows, close, minimize } = useWindowState();
-  const entry = windows.find((w) => w.id === windowId);
+  const { windowMap, close, minimize } = useWindowState();
+  const entry = windowMap.get(windowId);
+
+  if (!entry) return null;
+
+  return (
+    <WindowInner entry={entry} close={close} minimize={minimize}>
+      {children}
+    </WindowInner>
+  );
+}
+
+function WindowInner({
+  entry,
+  close,
+  minimize,
+  children,
+}: PropsWithChildren<{
+  entry: import("./WindowStateProvider").WindowEntry;
+  close: (id: string) => void;
+  minimize: (id: string) => void;
+}>) {
+  const { id: windowId, title, minimized, initialX, initialY } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -44,11 +65,6 @@ export function Window({ windowId, children }: PropsWithChildren<WindowProps>) {
     startWidth: number;
     startHeight: number;
   } | null>(null);
-
-  const title = entry?.title ?? "";
-  const minimized = entry?.minimized ?? false;
-  const initialX = entry?.initialX ?? 0;
-  const initialY = entry?.initialY ?? 0;
 
   // Constrain window position so it stays fully within its parent container.
   const clamp = useCallback((x: number, y: number) => {
@@ -203,7 +219,7 @@ export function Window({ windowId, children }: PropsWithChildren<WindowProps>) {
     };
   }, [clamp]);
 
-  if (!entry || minimized) return null;
+  if (minimized) return null;
 
   const style: React.CSSProperties | undefined = maximized
     ? undefined

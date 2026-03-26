@@ -17,7 +17,11 @@ export interface WindowEntry {
 }
 
 interface WindowStateContextValue {
+  // windows is the raw useState array — stable and cheap to iterate for
+  // rendering lists. windowMap is derived via useMemo for O(1) lookups by ID.
+  // Both are already memoized so neither adds redundant computation.
   windows: WindowEntry[];
+  windowMap: Map<string, WindowEntry>;
   create: (title: string, x: number, y: number) => string;
   close: (id: string) => void;
   minimize: (id: string) => void;
@@ -60,9 +64,22 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, title } : w)));
   }, []);
 
+  const windowMap = useMemo(
+    () => new Map(windows.map((w) => [w.id, w])),
+    [windows],
+  );
+
   const value = useMemo(
-    () => ({ windows, create, close, minimize, restore, updateTitle }),
-    [windows, create, close, minimize, restore, updateTitle],
+    () => ({
+      windows,
+      windowMap,
+      create,
+      close,
+      minimize,
+      restore,
+      updateTitle,
+    }),
+    [windows, windowMap, create, close, minimize, restore, updateTitle],
   );
 
   return (
