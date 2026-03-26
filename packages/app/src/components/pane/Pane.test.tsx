@@ -2,9 +2,10 @@ import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import invariant from "invariant";
-import * as register from "../../../src/api/routes/register";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { server } from "../../../test/helpers/mswServer";
+import { ApiClient } from "../../api/ApiClient";
+import { ApiClientProvider } from "../../api/ApiClientProvider";
 import "../../../test/helpers/wsServer";
 import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
@@ -24,20 +25,22 @@ function renderPane() {
     <DualPaneProvider>
       <PaneSideProvider side="left">
         <LogProvider>
-          <DatabaseProvider
-            createWorker={() => {
-              const appWorker = createAppDatabaseWorker(MockWorker);
-              return appWorker;
-            }}
-          >
-            <CryptoSessionProvider>
-              <AddressBookProvider>
-                <EventsProvider>
-                  <Pane className="pane" />
-                </EventsProvider>
-              </AddressBookProvider>
-            </CryptoSessionProvider>
-          </DatabaseProvider>
+          <ApiClientProvider>
+            <DatabaseProvider
+              createWorker={() => {
+                const appWorker = createAppDatabaseWorker(MockWorker);
+                return appWorker;
+              }}
+            >
+              <CryptoSessionProvider>
+                <AddressBookProvider>
+                  <EventsProvider>
+                    <Pane className="pane" />
+                  </EventsProvider>
+                </AddressBookProvider>
+              </CryptoSessionProvider>
+            </DatabaseProvider>
+          </ApiClientProvider>
         </LogProvider>
       </PaneSideProvider>
     </DualPaneProvider>,
@@ -45,7 +48,7 @@ function renderPane() {
 }
 
 test("displays userId after uploading public key", async () => {
-  const spy = spyOn(register, "postPublicKey");
+  const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
@@ -78,7 +81,7 @@ test("displays userId after uploading public key", async () => {
 });
 
 test("userId resets to none when key pair is destroyed", async () => {
-  const spy = spyOn(register, "postPublicKey");
+  const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
   await waitFor(() => {

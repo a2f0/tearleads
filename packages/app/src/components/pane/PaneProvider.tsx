@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "react";
+import { ApiClientProvider } from "../../api/ApiClientProvider";
 import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import {
@@ -18,13 +19,15 @@ interface PaneProviderProps extends PropsWithChildren {
 export function PaneProvider({ children, createWorker }: PaneProviderProps) {
   return (
     <LogProvider>
-      <DatabaseProvider createWorker={createWorker}>
-        <CryptoSessionProvider>
-          <AddressBookProvider>
-            <EventsProvider>{children}</EventsProvider>
-          </AddressBookProvider>
-        </CryptoSessionProvider>
-      </DatabaseProvider>
+      <ApiClientProvider>
+        <DatabaseProvider createWorker={createWorker}>
+          <CryptoSessionProvider>
+            <AddressBookProvider>
+              <EventsProvider>{children}</EventsProvider>
+            </AddressBookProvider>
+          </CryptoSessionProvider>
+        </DatabaseProvider>
+      </ApiClientProvider>
     </LogProvider>
   );
 }

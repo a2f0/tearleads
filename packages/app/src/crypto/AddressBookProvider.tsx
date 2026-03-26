@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { getEncapsulationKey } from "../api/routes/auth/encapsulationKey";
+import { useApiClient } from "../api/ApiClientProvider";
 import { useLog } from "../logging/LogProvider";
 
 interface AddressBookEntry {
@@ -25,11 +25,12 @@ const AddressBookContext = createContext<AddressBookContextValue | null>(null);
 export function AddressBookProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
   const { log } = useLog();
+  const apiClient = useApiClient();
 
   const importKey = useCallback(
     async (userId: string) => {
       log(`Importing peer key for userId: ${userId}`);
-      const response = await getEncapsulationKey(userId);
+      const response = await apiClient.getEncapsulationKey(userId);
       setEntries((prev) => {
         const existing = prev.findIndex((e) => e.userId === userId);
         const entry: AddressBookEntry = {
@@ -45,7 +46,7 @@ export function AddressBookProvider({ children }: PropsWithChildren) {
       });
       log("Peer key imported");
     },
-    [log],
+    [log, apiClient],
   );
 
   const removeKey = useCallback((userId: string) => {

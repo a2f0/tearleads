@@ -1,6 +1,6 @@
 import { isHealthResponse } from "@tearleads/validators/response";
-import { request } from "../util/request";
+import type { RequestFn } from "../types";
 
-export function getHealth() {
+export function getHealth(request: RequestFn) {
   return request("/", isHealthResponse, "GET");
 }
