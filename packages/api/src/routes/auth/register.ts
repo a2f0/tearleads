@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { db } from "../../adapters/postgres";
 import { set } from "../../adapters/redis";
+import { publish } from "../../adapters/redisPubSub";
 import { users } from "../../schema";
 
 export const registerRoute = new Hono();
@@ -49,6 +50,12 @@ registerRoute.post(
     const challengeBytes = generateChallenge();
     const challengeHex = bytesToHex(challengeBytes);
     await set(`challenge:${fingerprint}`, challengeHex, CHALLENGE_TTL_SECONDS);
+
+    await publish({
+      type: "user_registered",
+      userId: user.id,
+      fingerprint,
+    });
 
     return c.json<PublicKeyResponse>({
       message: "ok",

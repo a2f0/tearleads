@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
+import { useEvents } from "../../events/EventsProvider";
+import { useLog } from "../../logging/LogProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { PaneMenu } from "../shared/PaneMenu";
 import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
@@ -12,6 +14,8 @@ export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
   const { signingKeyPair, userId, authToken } = useCryptoSession();
   const { entries } = useAddressBook();
+  const { events, connected } = useEvents();
+  const { entries: logEntries } = useLog();
   useRegisterUserId(userId);
   const peerUserId = usePeerUserId();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
@@ -50,6 +54,20 @@ export function Pane({ className }: { className: string }) {
         {entries.map((e) => (
           <div key={e.userId}>
             {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
+          </div>
+        ))}
+        <br />
+        ws: {connected ? "connected" : "disconnected"}
+        <br />
+        events: {events.length === 0 ? "none" : ""}
+        {events.map((e, i) => (
+          <div key={i}>{e.type}</div>
+        ))}
+      </div>
+      <div className="pane-log">
+        {logEntries.map((entry, i) => (
+          <div key={i}>
+            [{new Date(entry.timestamp).toLocaleTimeString()}] {entry.message}
           </div>
         ))}
       </div>

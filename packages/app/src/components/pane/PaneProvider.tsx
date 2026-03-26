@@ -6,6 +6,8 @@ import {
   DatabaseProvider,
 } from "../../db/DatabaseProvider";
 import type { createAppDatabaseWorker } from "../../db/sqliteWorker";
+import { EventsProvider } from "../../events/EventsProvider";
+import { LogProvider } from "../../logging/LogProvider";
 
 export type { DatabaseContextValue };
 
@@ -15,10 +17,14 @@ interface PaneProviderProps extends PropsWithChildren {
 
 export function PaneProvider({ children, createWorker }: PaneProviderProps) {
   return (
-    <DatabaseProvider createWorker={createWorker}>
-      <CryptoSessionProvider>
-        <AddressBookProvider>{children}</AddressBookProvider>
-      </CryptoSessionProvider>
-    </DatabaseProvider>
+    <LogProvider>
+      <DatabaseProvider createWorker={createWorker}>
+        <CryptoSessionProvider>
+          <AddressBookProvider>
+            <EventsProvider>{children}</EventsProvider>
+          </AddressBookProvider>
+        </CryptoSessionProvider>
+      </DatabaseProvider>
+    </LogProvider>
   );
 }
