@@ -8,7 +8,10 @@ import { useDatabase } from "../../db/DatabaseProvider";
 import { useEvents } from "../../events/EventsProvider";
 import { useLog } from "../../logging/LogProvider";
 import type { MenuPosition } from "../shared/Menu";
+import { Menu } from "../shared/Menu";
+import { MenuItem } from "../shared/MenuItem";
 import { PaneMenu } from "../shared/PaneMenu";
+import { Window } from "../window/Window";
 import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
 import "./Pane.css";
 
@@ -29,6 +32,11 @@ export function Pane({ className }: { className: string }) {
   useRegisterUserId(userId);
   const peerUserId = usePeerUserId();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
+  const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
+  const [floatingWindow, setFloatingWindow] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,8 +53,28 @@ export function Pane({ className }: { className: string }) {
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const openFloatingWindow = useCallback(() => {
+    if (contextMenu) {
+      setFloatingWindow({ x: contextMenu.x, y: contextMenu.y });
+    }
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const closeFloatingWindow = useCallback(() => setFloatingWindow(null), []);
+
   return (
-    <section className={className}>
+    <section
+      role="application"
+      className={className}
+      onContextMenu={handleContextMenu}
+    >
       <div className="pane-content">
         worker: {status}
         <br />
@@ -92,6 +120,19 @@ export function Pane({ className }: { className: string }) {
         </button>
       </div>
       {menu && <PaneMenu position={menu} onClose={closeMenu} />}
+      {contextMenu && (
+        <Menu position={contextMenu} onClose={closeContextMenu}>
+          <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
+        </Menu>
+      )}
+      {floatingWindow && (
+        <Window
+          title="Window"
+          initialX={floatingWindow.x}
+          initialY={floatingWindow.y}
+          onClose={closeFloatingWindow}
+        />
+      )}
     </section>
   );
 }

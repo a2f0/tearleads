@@ -3,6 +3,13 @@ body {
   font-family: monospace;
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 :root {
   --color-muted: #eee;
   --color-dark: #333;
