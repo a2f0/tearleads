@@ -30,17 +30,6 @@ export function Window({
   const [maximized, setMaximized] = useState(false);
   const dragging = useRef<{ offsetX: number; offsetY: number } | null>(null);
 
-  useEffect(() => {
-    const el = windowRef.current;
-    const container = el?.parentElement;
-    if (!el || !container) return;
-    const containerRect = container.getBoundingClientRect();
-    setPosition({
-      x: initialX - containerRect.left,
-      y: initialY - containerRect.top,
-    });
-  }, [initialX, initialY]);
-
   // Constrain window position so it stays fully within its parent container.
   const clamp = useCallback((x: number, y: number) => {
     const el = windowRef.current;
@@ -55,6 +44,16 @@ export function Window({
       y: Math.max(0, Math.min(y, ch - eh)),
     };
   }, []);
+
+  useEffect(() => {
+    const el = windowRef.current;
+    const container = el?.parentElement;
+    if (!el || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const x = initialX - containerRect.left;
+    const y = initialY - containerRect.top;
+    setPosition(clamp(x, y));
+  }, [initialX, initialY, clamp]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
