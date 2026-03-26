@@ -17,11 +17,6 @@
   overflow: hidden;
 }
 
-.pane-footer {
-  padding: var(--padding);
-  background: var(--color-muted);
-}
-
 .pane-left {
   grid-area: left;
 }

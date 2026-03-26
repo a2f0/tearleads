@@ -6,21 +6,14 @@ import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useEvents } from "../../events/EventsProvider";
-import { useLog } from "../../logging/LogProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
-import { PaneMenu } from "../shared/PaneMenu";
 import { Window } from "../window/Window";
 import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
 import "./Pane.css";
-
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  const time = d.toLocaleTimeString();
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return time.replace(/(\d{2})([ \u202f](?:AM|PM))/i, `$1.${ms}$2`);
-}
+import { PaneFooter } from "./PaneFooter";
+import { PaneLog } from "./PaneLog";
 
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
@@ -28,10 +21,8 @@ export function Pane({ className }: { className: string }) {
   const { entries } = useAddressBook();
   const { events, connected } = useEvents();
   const { online } = useNetworkState();
-  const { entries: logEntries } = useLog();
   useRegisterUserId(userId);
   const peerUserId = usePeerUserId();
-  const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
   const [floatingWindow, setFloatingWindow] = useState<{
     x: number;
@@ -46,12 +37,6 @@ export function Pane({ className }: { className: string }) {
       setFingerprint(null);
     }
   }, [signingKeyPair]);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    setMenu({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  const closeMenu = useCallback(() => setMenu(null), []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,13 +93,7 @@ export function Pane({ className }: { className: string }) {
             </div>
           ))}
         </div>
-        <div className="pane-log">
-          {logEntries.map((entry) => (
-            <div key={entry.id}>
-              [{formatTimestamp(entry.timestamp)}] {entry.message}
-            </div>
-          ))}
-        </div>
+        <PaneLog />
         {floatingWindow && (
           <Window
             title="Window"
@@ -124,12 +103,7 @@ export function Pane({ className }: { className: string }) {
           />
         )}
       </div>
-      <div className="pane-footer">
-        <button type="button" onClick={handleClick}>
-          Menu
-        </button>
-      </div>
-      {menu && <PaneMenu position={menu} onClose={closeMenu} />}
+      <PaneFooter />
       {contextMenu && (
         <Menu position={contextMenu} onClose={closeContextMenu}>
           <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />

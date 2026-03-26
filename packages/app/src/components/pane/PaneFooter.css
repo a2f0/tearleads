@@ -1,0 +1,4 @@
+.pane-footer {
+  padding: var(--padding);
+  background: var(--color-muted);
+}
