@@ -1,5 +1,6 @@
 import { toFingerprint } from "@tearleads/crypto";
 import { useCallback, useEffect, useState } from "react";
+import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import type { MenuPosition } from "../shared/Menu";
@@ -10,6 +11,7 @@ import "./Pane.css";
 export function Pane({ className }: { className: string }) {
   const { id, status } = useDatabase();
   const { signingKeyPair, userId, authToken } = useCryptoSession();
+  const { entries } = useAddressBook();
   useRegisterUserId(userId);
   const peerUserId = usePeerUserId();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
@@ -43,6 +45,13 @@ export function Pane({ className }: { className: string }) {
         peerUserId: {peerUserId ?? "none"}
         <br />
         session: {authToken ? authToken.slice(0, 32) : "none"}
+        <br />
+        addressBook: {entries.length === 0 ? "empty" : ""}
+        {entries.map((e) => (
+          <div key={e.userId}>
+            {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
+          </div>
+        ))}
       </div>
       <div className="pane-footer">
         <button type="button" onClick={handleClick}>

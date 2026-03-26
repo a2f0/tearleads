@@ -5,6 +5,7 @@ import invariant from "invariant";
 import * as register from "../../../src/api/routes/register";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { server } from "../../../test/helpers/mswServer";
+import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
@@ -26,7 +27,9 @@ function renderPane() {
           }}
         >
           <CryptoSessionProvider>
-            <Pane className="pane" />
+            <AddressBookProvider>
+              <Pane className="pane" />
+            </AddressBookProvider>
           </CryptoSessionProvider>
         </DatabaseProvider>
       </PaneSideProvider>

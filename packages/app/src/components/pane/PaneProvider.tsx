@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "react";
+import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import {
   type DatabaseContextValue,
@@ -15,7 +16,9 @@ interface PaneProviderProps extends PropsWithChildren {
 export function PaneProvider({ children, createWorker }: PaneProviderProps) {
   return (
     <DatabaseProvider createWorker={createWorker}>
-      <CryptoSessionProvider>{children}</CryptoSessionProvider>
+      <CryptoSessionProvider>
+        <AddressBookProvider>{children}</AddressBookProvider>
+      </CryptoSessionProvider>
     </DatabaseProvider>
   );
 }

@@ -1,8 +1,10 @@
 export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
+  type EncapsulationKeyResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
+  isEncapsulationKeyResponse,
   isVerifyResponse,
   type VerifyResponse,
 } from "./auth";
