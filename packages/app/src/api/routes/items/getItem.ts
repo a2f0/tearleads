@@ -1,6 +1,6 @@
 import { isGetItemResponse } from "@tearleads/validators/response";
-import { request } from "../../util/request";
+import type { RequestFn } from "../../types";
 
-export function getItem(itemId: string) {
+export function getItem(request: RequestFn, itemId: string) {
   return request(`/items/${itemId}`, isGetItemResponse, "GET");
 }

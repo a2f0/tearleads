@@ -1,8 +1,12 @@
 import { isVerifyRequest } from "@tearleads/validators/request";
 import { isVerifyResponse } from "@tearleads/validators/response";
-import { request } from "../../util/request";
+import type { RequestFn } from "../../types";
 
-export function postVerify(fingerprint: string, signature: Uint8Array) {
+export function postVerify(
+  request: RequestFn,
+  fingerprint: string,
+  signature: Uint8Array,
+) {
   const body = {
     fingerprint,
     signature: Array.from(signature),

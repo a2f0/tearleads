@@ -1,4 +1,4 @@
-import { postPublicKey } from "../../api/routes/register";
+import { useApiClient } from "../../api/ApiClientProvider";
 import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
@@ -27,6 +27,7 @@ export function PaneMenu({
   } = useCryptoSession();
   const { entries, importKey } = useAddressBook();
   const { log } = useLog();
+  const apiClient = useApiClient();
   const peerUserId = usePeerUserId();
   const isTerminated = status === "terminated";
   const hasPeerKey =
@@ -74,15 +75,15 @@ export function PaneMenu({
         <MenuItem
           label="Upload Public Key"
           onClick={async () => {
+            onClose();
             log("Uploading public key...");
-            const response = await postPublicKey(
+            const response = await apiClient.postPublicKey(
               signingKeyPair.signingPublicKey,
               encapsulationKeyPair.publicKey,
             );
             log(`Key registered (${response.userId})`);
             setUserId(response.userId);
             await loginWithChallenge(response.challenge);
-            onClose();
           }}
         />
       )}
@@ -90,8 +91,8 @@ export function PaneMenu({
         <MenuItem
           label="Import Peer Key"
           onClick={async () => {
-            await importKey(peerUserId);
             onClose();
+            await importKey(peerUserId);
           }}
         />
       )}

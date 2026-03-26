@@ -1,8 +1,8 @@
 import { isSetItemRequest } from "@tearleads/validators/request";
 import { isSetItemResponse } from "@tearleads/validators/response";
-import { request } from "../../util/request";
+import type { RequestFn } from "../../types";
 
-export function postItem(encryptedData: string) {
+export function postItem(request: RequestFn, encryptedData: string) {
   const body = { encryptedData };
   if (!isSetItemRequest(body)) {
     throw new Error("Invalid SetItemRequest");

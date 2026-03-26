@@ -1,8 +1,9 @@
 import { isPublicKeyRequest } from "@tearleads/validators/request";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
-import { request } from "../util/request";
+import type { RequestFn } from "../types";
 
 export function postPublicKey(
+  request: RequestFn,
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
 ) {

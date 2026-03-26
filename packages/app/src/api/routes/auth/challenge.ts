@@ -1,8 +1,8 @@
 import { isChallengeRequest } from "@tearleads/validators/request";
 import { isChallengeResponse } from "@tearleads/validators/response";
-import { request } from "../../util/request";
+import type { RequestFn } from "../../types";
 
-export function postChallenge(fingerprint: string) {
+export function postChallenge(request: RequestFn, fingerprint: string) {
   const body = { fingerprint };
   if (!isChallengeRequest(body)) {
     throw new Error("Invalid ChallengeRequest");
