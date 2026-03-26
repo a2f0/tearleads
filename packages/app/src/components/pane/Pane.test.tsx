@@ -9,6 +9,8 @@ import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
+import { EventsProvider } from "../../events/EventsProvider";
+import { LogProvider } from "../../logging/LogProvider";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 
@@ -20,18 +22,22 @@ function renderPane() {
   return render(
     <DualPaneProvider>
       <PaneSideProvider side="left">
-        <DatabaseProvider
-          createWorker={() => {
-            const appWorker = createAppDatabaseWorker(MockWorker);
-            return appWorker;
-          }}
-        >
-          <CryptoSessionProvider>
-            <AddressBookProvider>
-              <Pane className="pane" />
-            </AddressBookProvider>
-          </CryptoSessionProvider>
-        </DatabaseProvider>
+        <LogProvider>
+          <DatabaseProvider
+            createWorker={() => {
+              const appWorker = createAppDatabaseWorker(MockWorker);
+              return appWorker;
+            }}
+          >
+            <CryptoSessionProvider>
+              <AddressBookProvider>
+                <EventsProvider>
+                  <Pane className="pane" />
+                </EventsProvider>
+              </AddressBookProvider>
+            </CryptoSessionProvider>
+          </DatabaseProvider>
+        </LogProvider>
       </PaneSideProvider>
     </DualPaneProvider>,
   );
