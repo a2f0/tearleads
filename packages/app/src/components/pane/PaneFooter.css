@@ -1,0 +1,17 @@
+.pane-footer {
+  display: flex;
+  gap: 0.25rem;
+  padding: var(--padding);
+  background: var(--color-muted);
+}
+
+.pane-footer-window {
+  border: 1px solid var(--color-dark);
+  background: var(--color-light);
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.pane-footer-window:hover {
+  opacity: 0.7;
+}
