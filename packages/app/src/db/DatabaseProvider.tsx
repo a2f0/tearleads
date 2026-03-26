@@ -56,17 +56,21 @@ export function DatabaseProvider({
 
       void appWorker.client
         .ping()
-        .then(() =>
-          appWorker.client.init({
+        .then(() => {
+          if (workerRef.current !== appWorker) return;
+          log("Loading SQLite3 WASM module...");
+          log("Initializing database: /app.db");
+          return appWorker.client.init({
             dbName: "/app.db",
             cipher: "chacha20",
             key: "development-key",
-          }),
-        )
+          });
+        })
         .then(() => {
           if (workerRef.current === appWorker) {
             bootingRef.current = false;
             setStatus("ready");
+            log("Database initialized successfully: /app.db");
             log("Worker spawned");
           }
         })
