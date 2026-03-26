@@ -33,7 +33,8 @@ test("rejects and reports network failures", async () => {
     }),
   );
 
-  await expect(client.getHealth()).rejects.toThrow("Failed to fetch");
+  const result = await client.getHealth();
+  expect(result).toBeNull();
   expect(errors).toEqual(["GET /: Failed to fetch"]);
   expect(networkErrors).toBe(1);
   expect(networkSuccesses).toBe(0);

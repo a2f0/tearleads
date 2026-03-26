@@ -7,7 +7,7 @@ import type { RequestFn } from "../../types";
 export function getEncapsulationKey(
   request: RequestFn,
   userId: string,
-): Promise<EncapsulationKeyResponse> {
+): Promise<EncapsulationKeyResponse | null> {
   return request(
     `/auth/encapsulation-key/${userId}`,
     isEncapsulationKeyResponse,

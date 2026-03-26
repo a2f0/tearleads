@@ -81,6 +81,7 @@ export function PaneMenu({
               signingKeyPair.signingPublicKey,
               encapsulationKeyPair.publicKey,
             );
+            if (!response) return;
             log(`Key registered (${response.userId})`);
             setUserId(response.userId);
             await loginWithChallenge(response.challenge);
