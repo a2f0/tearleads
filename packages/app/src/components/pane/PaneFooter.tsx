@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { MenuPosition } from "../shared/Menu";
 import { PaneMenu } from "../shared/PaneMenu";
 import { useWindowState } from "../window/WindowStateProvider";
@@ -7,7 +7,10 @@ import "./PaneFooter.css";
 export function PaneFooter() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { windows, restore } = useWindowState();
-  const minimizedWindows = windows.filter((w) => w.minimized);
+  const minimizedWindows = useMemo(
+    () => windows.filter((w) => w.minimized),
+    [windows],
+  );
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     setMenu({ x: e.clientX, y: e.clientY });

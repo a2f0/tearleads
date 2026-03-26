@@ -28,8 +28,15 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
 
   const register = useCallback((id: string, title: string) => {
     setWindows((prev) => {
-      if (prev.some((w) => w.id === id)) return prev;
-      return [...prev, { id, title, minimized: false }];
+      const index = prev.findIndex((w) => w.id === id);
+      if (index === -1) {
+        return [...prev, { id, title, minimized: false }];
+      }
+      const existing = prev[index] as WindowEntry;
+      if (existing.title === title) {
+        return prev;
+      }
+      return prev.map((w, i) => (i === index ? { ...w, title } : w));
     });
   }, []);
 
