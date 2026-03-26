@@ -54,11 +54,11 @@ export function DatabaseProvider({
       setClient(appWorker.client);
       setStatus("idle");
 
-      log("Loading SQLite3 WASM module...");
       void appWorker.client
         .ping()
         .then(() => {
-          log("SQLite3 WASM module loaded successfully");
+          if (workerRef.current !== appWorker) return;
+          log("Loading SQLite3 WASM module...");
           log("Initializing database: /app.db");
           return appWorker.client.init({
             dbName: "/app.db",
