@@ -4,43 +4,47 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
-interface WindowEntry {
+export interface WindowEntry {
   id: string;
   title: string;
+  initialX: number;
+  initialY: number;
   minimized: boolean;
 }
 
 interface WindowStateContextValue {
+  // windows is the raw useState array — stable and cheap to iterate for
+  // rendering lists. windowMap is derived via useMemo for O(1) lookups by ID.
+  // Both are already memoized so neither adds redundant computation.
   windows: WindowEntry[];
-  register: (id: string, title: string) => void;
-  unregister: (id: string) => void;
+  windowMap: Map<string, WindowEntry>;
+  create: (title: string, x: number, y: number) => string;
+  close: (id: string) => void;
   minimize: (id: string) => void;
   restore: (id: string) => void;
+  updateTitle: (id: string, title: string) => void;
 }
 
 const WindowStateContext = createContext<WindowStateContextValue | null>(null);
 
 export function WindowStateProvider({ children }: PropsWithChildren) {
   const [windows, setWindows] = useState<WindowEntry[]>([]);
+  const counter = useRef(0);
 
-  const register = useCallback((id: string, title: string) => {
-    setWindows((prev) => {
-      const index = prev.findIndex((w) => w.id === id);
-      if (index === -1) {
-        return [...prev, { id, title, minimized: false }];
-      }
-      const existing = prev[index] as WindowEntry;
-      if (existing.title === title) {
-        return prev;
-      }
-      return prev.map((w, i) => (i === index ? { ...w, title } : w));
-    });
+  const create = useCallback((title: string, x: number, y: number) => {
+    const id = String(++counter.current);
+    setWindows((prev) => [
+      ...prev,
+      { id, title, initialX: x, initialY: y, minimized: false },
+    ]);
+    return id;
   }, []);
 
-  const unregister = useCallback((id: string) => {
+  const close = useCallback((id: string) => {
     setWindows((prev) => prev.filter((w) => w.id !== id));
   }, []);
 
@@ -56,9 +60,26 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
     );
   }, []);
 
+  const updateTitle = useCallback((id: string, title: string) => {
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, title } : w)));
+  }, []);
+
+  const windowMap = useMemo(
+    () => new Map(windows.map((w) => [w.id, w])),
+    [windows],
+  );
+
   const value = useMemo(
-    () => ({ windows, register, unregister, minimize, restore }),
-    [windows, register, unregister, minimize, restore],
+    () => ({
+      windows,
+      windowMap,
+      create,
+      close,
+      minimize,
+      restore,
+      updateTitle,
+    }),
+    [windows, windowMap, create, close, minimize, restore, updateTitle],
   );
 
   return (
