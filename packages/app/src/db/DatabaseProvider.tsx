@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useLog } from "../logging/LogProvider";
 import {
   type AppDatabaseWorker,
   createAppDatabaseWorker,
@@ -35,13 +36,16 @@ export function DatabaseProvider({
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
   const workerRef = useRef<AppDatabaseWorker | null>(null);
+  const bootingRef = useRef(false);
   const killedRef = useRef(false);
+  const { log } = useLog();
 
   const spawnWorker = useCallback(() => {
-    if (workerRef.current) {
+    if (workerRef.current || bootingRef.current) {
       return;
     }
     killedRef.current = false;
+    bootingRef.current = true;
 
     try {
       const appWorker = createWorker();
@@ -49,25 +53,29 @@ export function DatabaseProvider({
       setId(appWorker.id);
       setClient(appWorker.client);
       setStatus("idle");
+      log("Worker spawned");
 
       void appWorker.client
         .ping()
         .then(() => {
           if (workerRef.current === appWorker) {
+            bootingRef.current = false;
             setStatus("ready");
           }
         })
         .catch((error) => {
           if (workerRef.current === appWorker) {
+            bootingRef.current = false;
             console.error("Failed to ping worker:", error);
             setStatus("error");
           }
         });
     } catch (error) {
+      bootingRef.current = false;
       console.error("Failed to create database worker:", error);
       setStatus("error");
     }
-  }, [createWorker]);
+  }, [createWorker, log]);
 
   const killWorker = useCallback(() => {
     if (!workerRef.current) {
@@ -77,15 +85,18 @@ export function DatabaseProvider({
     workerRef.current.client.destroy();
     workerRef.current.worker.terminate();
     workerRef.current = null;
+    bootingRef.current = false;
     killedRef.current = true;
     setId(null);
     setClient(null);
     setStatus("terminated");
-  }, []);
+    log("Worker killed");
+  }, [log]);
 
   useEffect(() => {
     spawnWorker();
     return () => {
+      bootingRef.current = false;
       if (workerRef.current) {
         workerRef.current.client.destroy();
         workerRef.current.worker.terminate();

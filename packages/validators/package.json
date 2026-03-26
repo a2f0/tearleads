@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./isPlainObject": "./src/isPlainObject.ts",
+    "./event": "./src/event/index.ts",
     "./request": "./src/request/index.ts",
     "./response": "./src/response/index.ts"
   },

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { render, waitFor } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
+import "../test/helpers/wsServer";
 import { App } from "./App";
 import { createAppDatabaseWorker } from "./db/sqliteWorker";
 
