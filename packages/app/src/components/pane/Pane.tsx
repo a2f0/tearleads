@@ -61,7 +61,7 @@ function PaneInner({ className }: { className: string }) {
     >
       <div className="pane-main">
         <div className="pane-content">
-          worker: {status}
+          sqlite worker: {status}
           <br />
           id: {id}
           <br />

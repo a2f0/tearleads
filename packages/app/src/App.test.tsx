@@ -19,7 +19,9 @@ test("renders App", async () => {
   );
 
   await waitFor(() => {
-    expect(view.getAllByText(/worker: ready/).length).toBeGreaterThanOrEqual(1);
+    expect(
+      view.getAllByText(/sqlite worker: ready/).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   view.unmount();
