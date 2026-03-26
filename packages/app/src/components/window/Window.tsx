@@ -114,28 +114,19 @@ export function Window({
         const dx = e.clientX - r.startX;
         const dy = e.clientY - r.startY;
 
-        let newX = r.startLeft;
-        let newY = r.startTop;
-        let newW = r.startWidth;
-        let newH = r.startHeight;
+        const movesLeft = r.corner.includes("w");
+        const movesUp = r.corner.includes("n");
 
-        if (r.corner === "se") {
-          newW = Math.max(MIN_WIDTH, r.startWidth + dx);
-          newH = Math.max(MIN_HEIGHT, r.startHeight + dy);
-        } else if (r.corner === "sw") {
-          newW = Math.max(MIN_WIDTH, r.startWidth - dx);
-          newH = Math.max(MIN_HEIGHT, r.startHeight + dy);
-          newX = r.startLeft + r.startWidth - newW;
-        } else if (r.corner === "ne") {
-          newW = Math.max(MIN_WIDTH, r.startWidth + dx);
-          newH = Math.max(MIN_HEIGHT, r.startHeight - dy);
-          newY = r.startTop + r.startHeight - newH;
-        } else if (r.corner === "nw") {
-          newW = Math.max(MIN_WIDTH, r.startWidth - dx);
-          newH = Math.max(MIN_HEIGHT, r.startHeight - dy);
-          newX = r.startLeft + r.startWidth - newW;
-          newY = r.startTop + r.startHeight - newH;
-        }
+        let newW = Math.max(
+          MIN_WIDTH,
+          r.startWidth + dx * (movesLeft ? -1 : 1),
+        );
+        let newH = Math.max(
+          MIN_HEIGHT,
+          r.startHeight + dy * (movesUp ? -1 : 1),
+        );
+        let newX = movesLeft ? r.startLeft + r.startWidth - newW : r.startLeft;
+        let newY = movesUp ? r.startTop + r.startHeight - newH : r.startTop;
 
         const container = windowRef.current?.parentElement;
         if (container) {

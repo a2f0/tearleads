@@ -11,9 +11,7 @@ export function WindowResizeHandle({
 }) {
   return (
     <div
-      role="slider"
-      tabIndex={0}
-      aria-valuenow={0}
+      role="none"
       className={`window-resize window-resize--${corner}`}
       onMouseDown={(e) => onMouseDown(e, corner)}
     />
