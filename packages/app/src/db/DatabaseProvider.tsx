@@ -96,6 +96,7 @@ export function DatabaseProvider({
   useEffect(() => {
     spawnWorker();
     return () => {
+      bootingRef.current = false;
       if (workerRef.current) {
         workerRef.current.client.destroy();
         workerRef.current.worker.terminate();

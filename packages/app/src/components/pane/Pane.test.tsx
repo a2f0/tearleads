@@ -5,6 +5,7 @@ import invariant from "invariant";
 import * as register from "../../../src/api/routes/register";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { server } from "../../../test/helpers/mswServer";
+import "../../../test/helpers/wsServer";
 import { AddressBookProvider } from "../../crypto/AddressBookProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";

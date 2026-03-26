@@ -9,7 +9,11 @@ import {
 } from "react";
 import { useLog } from "../logging/LogProvider";
 
-const WS_URL = "ws://localhost:3001";
+export let WS_URL = "ws://localhost:3001";
+
+export function setWsUrl(url: string) {
+  WS_URL = url;
+}
 
 function isServerEvent(value: unknown): value is ServerEvent {
   return (
