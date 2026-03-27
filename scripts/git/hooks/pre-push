@@ -14,6 +14,26 @@ fi
 
 cd "$REPO_ROOT"
 
+echo "Checking for binary files..."
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="main..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  tmpfile=$(mktemp)
+  git diff --name-only --diff-filter=ACM "$range" > "$tmpfile"
+  while IFS= read -r file; do
+    if file "$file" | grep -qv text; then
+      echo "ERROR: Binary file detected: $file" >&2
+      rm -f "$tmpfile"
+      exit 1
+    fi
+  done < "$tmpfile"
+  rm -f "$tmpfile"
+done
+
 echo "Running cargo tests..."
 cargo test
 
