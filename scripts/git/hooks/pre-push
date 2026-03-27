@@ -7,6 +7,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # Source session.sh to get script paths for shellcheck.
 . "$REPO_ROOT/scripts/session.sh" "$REPO_ROOT"
 
+if [ -z "$repo_script_paths" ]; then
+  echo "Error: repo_script_paths is not defined" >&2
+  exit 1
+fi
+
 cd "$REPO_ROOT"
 
 echo "Running cargo tests..."
