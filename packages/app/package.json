@@ -7,12 +7,15 @@
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",
     "./db/createModuleWorker": "./src/db/createModuleWorker.ts",
-    "./db/sqliteWorker": "./src/db/sqliteWorker.ts"
+    "./db/sqliteWorker": "./src/db/sqliteWorker.ts",
+    "./db/sqliteWorkerThread": "./src/db/sqliteWorkerThread.ts",
+    "./host/AppHostConfig": "./src/host/AppHostConfig.ts"
   },
   "scripts": {
     "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
+    "@tearleads/api-client": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",

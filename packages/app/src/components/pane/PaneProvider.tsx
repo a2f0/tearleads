@@ -9,28 +9,37 @@ import {
 } from "../../db/DatabaseProvider";
 import type { createAppDatabaseWorker } from "../../db/sqliteWorker";
 import { EventsProvider } from "../../events/EventsProvider";
+import type { AppHostConfig } from "../../host/AppHostConfig";
+import { AppHostConfigProvider } from "../../host/AppHostConfigProvider";
 import { LogProvider } from "../../logging/LogProvider";
 
 export type { DatabaseContextValue };
 
 interface PaneProviderProps extends PropsWithChildren {
   createWorker: typeof createAppDatabaseWorker;
+  hostConfig: AppHostConfig;
 }
 
-export function PaneProvider({ children, createWorker }: PaneProviderProps) {
+export function PaneProvider({
+  children,
+  createWorker,
+  hostConfig,
+}: PaneProviderProps) {
   return (
-    <LogProvider>
-      <ApiClientProvider>
-        <NetworkStateProvider>
-          <DatabaseProvider createWorker={createWorker}>
-            <CryptoSessionProvider>
-              <AddressBookProvider>
-                <EventsProvider>{children}</EventsProvider>
-              </AddressBookProvider>
-            </CryptoSessionProvider>
-          </DatabaseProvider>
-        </NetworkStateProvider>
-      </ApiClientProvider>
-    </LogProvider>
+    <AppHostConfigProvider value={hostConfig}>
+      <LogProvider>
+        <ApiClientProvider>
+          <NetworkStateProvider>
+            <DatabaseProvider createWorker={createWorker}>
+              <CryptoSessionProvider>
+                <AddressBookProvider>
+                  <EventsProvider>{children}</EventsProvider>
+                </AddressBookProvider>
+              </CryptoSessionProvider>
+            </DatabaseProvider>
+          </NetworkStateProvider>
+        </ApiClientProvider>
+      </LogProvider>
+    </AppHostConfigProvider>
   );
 }

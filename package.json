@@ -32,6 +32,7 @@
   "workspaces": [
     "crates/http-client-wasm",
     "packages/api",
+    "packages/api-client",
     "packages/app",
     "packages/app-web",
     "packages/app-electrobun",
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
     "@tsconfig/strictest": "2.0.8",
+    "@tearleads/api-client": "workspace:*",
     "app": "workspace:*",
     "lint-staged": "16.4.0",
     "msw": "2.12.14",

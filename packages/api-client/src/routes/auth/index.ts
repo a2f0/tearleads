@@ -1,4 +1,3 @@
 export { authenticate, authenticateWithChallenge } from "./authenticate";
-export { postChallenge } from "./challenge";
+export { getChallenge } from "./challenge";
 export { getEncapsulationKey } from "./encapsulationKey";
-export { postVerify } from "./verify";

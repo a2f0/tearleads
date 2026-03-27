@@ -1,0 +1,21 @@
+{
+  "name": "@tearleads/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ApiClient": "./src/ApiClient.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "test": "bun test src --max-concurrency=4"
+  },
+  "dependencies": {
+    "@tearleads/crypto": "workspace:*",
+    "@tearleads/validators": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

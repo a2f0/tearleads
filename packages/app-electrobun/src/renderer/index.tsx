@@ -2,12 +2,15 @@ import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
 import { renderApp } from "app/client";
 import { createModuleWorker } from "app/db/createModuleWorker";
 import type { AppDatabaseWorker } from "app/db/sqliteWorker";
+import { AppHostConfig } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 
 function createElectrobunDatabaseWorker(): AppDatabaseWorker {
-  const worker = createModuleWorker(
-    new URL("../../../app/src/db/sqliteWorkerThread.ts", import.meta.url),
-  );
+  const workerUrl =
+    location.protocol === "http:"
+      ? "/worker.js"
+      : new URL("./sqliteWorker.ts", import.meta.url);
+  const worker = createModuleWorker(workerUrl);
 
   return {
     id: crypto.randomUUID(),
@@ -23,4 +26,5 @@ if (!elem) {
 
 renderApp(createRoot(elem), {
   createWorker: createElectrobunDatabaseWorker,
+  hostConfig: new AppHostConfig("http://localhost:3001", "ws://localhost:3001"),
 });

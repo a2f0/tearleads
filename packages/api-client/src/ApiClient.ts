@@ -15,7 +15,7 @@ export class ApiClient {
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
 
-  constructor(private baseUrl = "http://localhost:3001") {
+  constructor(private readonly baseUrl: string) {
     this.request = this.makeRequest.bind(this);
   }
 
@@ -56,6 +56,7 @@ export class ApiClient {
     if (body) {
       init.body = body;
     }
+
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, init);

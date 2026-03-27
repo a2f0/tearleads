@@ -1,3 +1,4 @@
+import { ApiClient } from "@tearleads/api-client";
 import {
   createContext,
   type PropsWithChildren,
@@ -5,13 +6,14 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
-import { ApiClient } from "./ApiClient";
 
 const ApiClientContext = createContext<ApiClient | null>(null);
 
 export function ApiClientProvider({ children }: PropsWithChildren) {
-  const [client] = useState(() => new ApiClient());
+  const hostConfig = useAppHostConfig();
+  const [client] = useState(() => new ApiClient(hostConfig.apiBaseUrl));
   const { log } = useLog();
 
   useEffect(() => {

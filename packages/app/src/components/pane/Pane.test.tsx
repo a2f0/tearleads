@@ -1,50 +1,31 @@
-import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
+import { ApiClient } from "@tearleads/api-client";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
-import { server } from "../../../test/helpers/mswServer";
-import { ApiClient } from "../../api/ApiClient";
-import { ApiClientProvider } from "../../api/ApiClientProvider";
-import { NetworkStateProvider } from "../../api/NetworkStateProvider";
-import "../../../test/helpers/wsServer";
-import { AddressBookProvider } from "../../crypto/AddressBookProvider";
-import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
-import { DatabaseProvider } from "../../db/DatabaseProvider";
+import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
-import { EventsProvider } from "../../events/EventsProvider";
-import { LogProvider } from "../../logging/LogProvider";
+import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
+import { PaneProvider } from "./PaneProvider";
 
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+afterEach(() => resetMockServer());
 
 function renderPane() {
   return render(
     <DualPaneProvider>
       <PaneSideProvider side="left">
-        <LogProvider>
-          <ApiClientProvider>
-            <NetworkStateProvider>
-              <DatabaseProvider
-                createWorker={() => {
-                  const appWorker = createAppDatabaseWorker(MockWorker);
-                  return appWorker;
-                }}
-              >
-                <CryptoSessionProvider>
-                  <AddressBookProvider>
-                    <EventsProvider>
-                      <Pane className="pane" />
-                    </EventsProvider>
-                  </AddressBookProvider>
-                </CryptoSessionProvider>
-              </DatabaseProvider>
-            </NetworkStateProvider>
-          </ApiClientProvider>
-        </LogProvider>
+        <PaneProvider
+          hostConfig={new AppHostConfig("http://localhost:3001", wsUrl)}
+          createWorker={() => {
+            const appWorker = createAppDatabaseWorker(MockWorker);
+            return appWorker;
+          }}
+        >
+          <Pane className="pane" />
+        </PaneProvider>
       </PaneSideProvider>
     </DualPaneProvider>,
   );

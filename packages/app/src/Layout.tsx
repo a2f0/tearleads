@@ -7,13 +7,15 @@ import { Pane } from "./components/pane/Pane";
 import { PaneProvider } from "./components/pane/PaneProvider";
 import type { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { Footer } from "./Footer";
+import type { AppHostConfig } from "./host/AppHostConfig";
 import "./App.css";
 
 interface LayoutProps {
   createWorker: typeof createAppDatabaseWorker;
+  hostConfig: AppHostConfig;
 }
 
-export function Layout({ createWorker }: LayoutProps) {
+export function Layout({ createWorker, hostConfig }: LayoutProps) {
   const [split, setSplit] = useState(true);
 
   const toggleSplit = useCallback(() => setSplit((s) => !s), []);
@@ -27,12 +29,12 @@ export function Layout({ createWorker }: LayoutProps) {
       </header>
       <DualPaneProvider>
         <PaneSideProvider side="left">
-          <PaneProvider createWorker={createWorker}>
+          <PaneProvider createWorker={createWorker} hostConfig={hostConfig}>
             <Pane className="pane pane-left" />
           </PaneProvider>
         </PaneSideProvider>
         <PaneSideProvider side="right">
-          <PaneProvider createWorker={createWorker}>
+          <PaneProvider createWorker={createWorker} hostConfig={hostConfig}>
             <Pane className="pane pane-right" />
           </PaneProvider>
         </PaneSideProvider>
