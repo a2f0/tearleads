@@ -32,7 +32,6 @@
   display: none;
 }
 
-.layout:not(.layout--split) .pane-right:not(.pane-hidden),
 .layout:not(.layout--split) .pane-unsplit {
   display: none;
 }

@@ -14,15 +14,13 @@ interface LayoutProps {
   hostConfig: AppHostConfig;
 }
 
-function Workspace({
-  hostConfig,
-  active,
-  split,
-}: {
+interface WorkspaceProps {
   hostConfig: AppHostConfig;
   active: boolean;
   split: boolean;
-}) {
+}
+
+function Workspace({ hostConfig, active, split }: WorkspaceProps) {
   return (
     <DualPaneProvider>
       <PaneSideProvider side="left">
@@ -54,16 +52,14 @@ function LayoutInner({ hostConfig }: LayoutProps) {
           {split ? "Unsplit" : "Split"}
         </button>
       </header>
-      <Workspace
-        hostConfig={hostConfig}
-        active={activeWorkspace === 1}
-        split={split}
-      />
-      <Workspace
-        hostConfig={hostConfig}
-        active={activeWorkspace === 2}
-        split={split}
-      />
+      {[1, 2].map((id) => (
+        <Workspace
+          key={id}
+          hostConfig={hostConfig}
+          active={activeWorkspace === id}
+          split={split}
+        />
+      ))}
       <Footer />
     </div>
   );

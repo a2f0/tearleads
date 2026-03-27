@@ -21,20 +21,16 @@ export function Footer() {
           Footer
         </button>
         <div className="workspace-switcher">
-          <button
-            type="button"
-            className={`workspace-button${activeWorkspace === 1 ? " workspace-button--active" : ""}`}
-            onClick={() => setActiveWorkspace(1)}
-          >
-            1
-          </button>
-          <button
-            type="button"
-            className={`workspace-button${activeWorkspace === 2 ? " workspace-button--active" : ""}`}
-            onClick={() => setActiveWorkspace(2)}
-          >
-            2
-          </button>
+          {[1, 2].map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`workspace-button${activeWorkspace === id ? " workspace-button--active" : ""}`}
+              onClick={() => setActiveWorkspace(id)}
+            >
+              {id}
+            </button>
+          ))}
         </div>
       </footer>
       {menu && <StartMenu position={menu} onClose={closeMenu} />}
