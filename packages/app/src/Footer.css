@@ -1,0 +1,8 @@
+.footer {
+  grid-area: footer;
+  display: flex;
+  gap: var(--footer-gap);
+  padding: var(--padding);
+  background: var(--color-dark);
+  color: var(--color-light);
+}

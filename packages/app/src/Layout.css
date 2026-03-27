@@ -1,0 +1,17 @@
+.layout {
+  display: grid;
+  grid-template:
+    "header header" auto
+    "left   left" 1fr
+    "footer footer" auto
+    / 1fr 1fr;
+  height: 100vh;
+}
+
+.layout--split {
+  grid-template:
+    "header header" auto
+    "left   right" 1fr
+    "footer footer" auto
+    / 1fr 1fr;
+}

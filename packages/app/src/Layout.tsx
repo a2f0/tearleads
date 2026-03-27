@@ -6,9 +6,11 @@ import {
 import { Pane } from "./components/pane/Pane";
 import { PaneProvider } from "./components/pane/PaneProvider";
 import { Footer } from "./Footer";
+import { Header } from "./Header";
 import type { AppHostConfig } from "./host/AppHostConfig";
 import { useWorkspace, WorkspaceProvider } from "./WorkspaceProvider";
 import "./App.css";
+import "./Layout.css";
 
 interface LayoutProps {
   hostConfig: AppHostConfig;
@@ -47,11 +49,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
 
   return (
     <div className={split ? "layout layout--split" : "layout"}>
-      <header>
-        <button type="button" onClick={toggleSplit}>
-          {split ? "Unsplit" : "Split"}
-        </button>
-      </header>
+      <Header split={split} onToggleSplit={toggleSplit} />
       {[1, 2].map((id) => (
         <Workspace
           key={id}
