@@ -1,11 +1,5 @@
-import { toFingerprint } from "@tearleads/crypto";
-import { isUserEvent } from "@tearleads/validators/event";
-import { useCallback, useEffect, useState } from "react";
-import { useNetworkState } from "../../api/NetworkStateProvider";
-import { useAddressBook } from "../../crypto/AddressBookProvider";
+import { useCallback, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useDatabase } from "../../db/DatabaseProvider";
-import { useEvents } from "../../events/EventsProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -14,30 +8,17 @@ import {
   useWindowState,
   WindowStateProvider,
 } from "../window/WindowStateProvider";
-import { usePeerUserId, useRegisterUserId } from "./DualPaneProvider";
+import { useRegisterUserId } from "./DualPaneProvider";
 import "./Pane.css";
 import { PaneFooter } from "./PaneFooter";
 import { PaneLog } from "./PaneLog";
+import { PaneStatus } from "./PaneStatus";
 
 function PaneInner({ className }: { className: string }) {
-  const { id, status } = useDatabase();
-  const { signingKeyPair, userId, authToken } = useCryptoSession();
-  const { entries } = useAddressBook();
-  const { events, connected } = useEvents();
-  const { online } = useNetworkState();
+  const { userId } = useCryptoSession();
   useRegisterUserId(userId);
-  const peerUserId = usePeerUserId();
   const { windows, create } = useWindowState();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
-  const [fingerprint, setFingerprint] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (signingKeyPair) {
-      toFingerprint(signingKeyPair.signingPublicKey).then(setFingerprint);
-    } else {
-      setFingerprint(null);
-    }
-  }, [signingKeyPair]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,38 +41,7 @@ function PaneInner({ className }: { className: string }) {
       onContextMenu={handleContextMenu}
     >
       <div className="pane-main">
-        <div className="pane-content">
-          sqlite worker: {status}
-          <br />
-          id: {id}
-          <br />
-          publicKey: {fingerprint ?? "none"}
-          <br />
-          userId: {userId ?? "none"}
-          <br />
-          peerUserId: {peerUserId ?? "none"}
-          <br />
-          session: {authToken ? authToken.slice(0, 32) : "none"}
-          <br />
-          addressBook: {entries.length === 0 ? "empty" : ""}
-          {entries.map((e) => (
-            <div key={e.userId}>
-              {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
-            </div>
-          ))}
-          <br />
-          network: {online ? "online" : "offline"}
-          <br />
-          ws: {connected ? "connected" : "disconnected"}
-          <br />
-          events: {events.length === 0 ? "none" : ""}
-          {events.map((e) => (
-            <div key={e.id}>
-              {e.type}
-              {isUserEvent(e) ? ` (${e.userId})` : ""}
-            </div>
-          ))}
-        </div>
+        <PaneStatus />
         <PaneLog />
         {windows.map((w) => (
           <Window key={w.id} windowId={w.id} />
