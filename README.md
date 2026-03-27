@@ -9,7 +9,7 @@
 4. Run `install-hooks.sh` to install Git hooks.
 5. Run `brew install authzed/tap/spicedb authzed/tap/zed` to install SpiceDB.
 6. Run `cargo run http-server` to start the API.
-7. Run `bun run --filter=app dev` to start the dev server.
+7. Run `bun run --filter=app-web dev` to start the dev server.
 8. Run `spicedb serve --grpc-preshared-key "in-memory-developer-key"` to start SpiceDB.
 
 ## Running Tests

@@ -26,13 +26,15 @@
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
     "test:turbo:bun": "turbo run test",
     "test:turbo:bun:affected": "turbo run test --affected",
-    "test:turbo:e2e": "turbo run e2e --filter=app",
+    "test:turbo:e2e": "turbo run e2e --filter=app-web",
     "test:turbo:e2e:affected": "turbo run e2e --affected"
   },
   "workspaces": [
     "crates/http-client-wasm",
     "packages/api",
     "packages/app",
+    "packages/app-web",
+    "packages/app-electrobun",
     "packages/crypto",
     "packages/sqlite-instance",
     "packages/sqlite-worker",

@@ -6,6 +6,7 @@ target/
 # Bun / JS / TS
 node_modules/
 dist/
+build/
 tsconfig.tsbuildinfo
 .turbo/
 playwright-report/

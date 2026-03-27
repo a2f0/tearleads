@@ -2,7 +2,8 @@ import index from "../index.html";
 
 const workerBuild = await Bun.build({
   entrypoints: [
-    new URL("../db/sqliteWorkerThread.ts", import.meta.url).pathname,
+    new URL("../../../app/src/db/sqliteWorkerThread.ts", import.meta.url)
+      .pathname,
   ],
   target: "browser",
   format: "esm",

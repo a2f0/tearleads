@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./App": "./src/App.tsx",
+    "./client": "./src/client.tsx",
+    "./db/createModuleWorker": "./src/db/createModuleWorker.ts",
+    "./db/sqliteWorker": "./src/db/sqliteWorker.ts"
+  },
   "scripts": {
-    "test": "bun test src --max-concurrency=4",
-    "e2e": "playwright test",
-    "test:e2e": "bun run e2e",
-    "dev": "bun --hot src/servers/devServer.ts",
-    "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*'",
-    "start": "bun src/servers/devServer.ts"
+    "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
     "@tearleads/crypto": "workspace:*",
@@ -20,7 +21,6 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "catalog:testing",
-    "@playwright/test": "1.58.2",
     "@testing-library/jest-dom": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@types/bun": "catalog:",
