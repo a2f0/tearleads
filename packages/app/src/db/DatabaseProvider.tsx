@@ -15,7 +15,7 @@ import {
   type WorkerStatus,
 } from "./sqliteWorker";
 
-export interface DatabaseContextValue {
+interface DatabaseContextValue {
   id: string | null;
   client: ReturnType<typeof createAppDatabaseWorker>["client"] | null;
   status: WorkerStatus;

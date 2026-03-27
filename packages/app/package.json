@@ -24,7 +24,6 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "catalog:testing",
-    "@testing-library/jest-dom": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@types/bun": "catalog:",
     "@types/react": "catalog:react",

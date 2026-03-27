@@ -3,7 +3,7 @@ import invariant from "invariant";
 import { requestChallenge, submitVerify } from "./api";
 import type { TestUser } from "./createTestUser";
 
-export async function authenticateWithChallenge(
+async function authenticateWithChallenge(
   user: TestUser,
   challengeHex: string,
 ): Promise<void> {

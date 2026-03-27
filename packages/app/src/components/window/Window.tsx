@@ -11,7 +11,7 @@ import { WindowBody } from "./WindowBody";
 import { WindowMenuBar } from "./WindowMenuBar";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
-import { useWindowState } from "./WindowStateProvider";
+import { useWindowState, type WindowEntry } from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 
@@ -41,7 +41,7 @@ function WindowInner({
   minimize,
   children,
 }: PropsWithChildren<{
-  entry: import("./WindowStateProvider").WindowEntry;
+  entry: WindowEntry;
   close: (id: string) => void;
   minimize: (id: string) => void;
 }>) {

@@ -16,7 +16,7 @@ function randomHex(bytes: number): string {
     .join("");
 }
 
-export const server = setupServer(
+const server = setupServer(
   eventsSocket.addEventListener("connection", () => {
     // Keep the test socket open; individual tests can add behavior later.
   }),

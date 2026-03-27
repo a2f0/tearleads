@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-export interface LogEntry {
+interface LogEntry {
   id: string;
   timestamp: number;
   message: string;

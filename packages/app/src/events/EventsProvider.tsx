@@ -19,7 +19,7 @@ function isServerEvent(value: unknown): value is ServerEvent {
   );
 }
 
-export interface ServerEvent {
+interface ServerEvent {
   id: string;
   type: string;
   [key: string]: unknown;
