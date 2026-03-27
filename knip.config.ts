@@ -5,7 +5,12 @@ export default {
     ".": {
       entry: [],
       project: [],
-      ignoreDependencies: ["@tearleads/api-client", "app", "lint-staged"],
+      ignoreDependencies: [
+        "@tearleads/api-client",
+        "app",
+        "lint-staged",
+        "madge",
+      ],
     },
     "packages/api": {
       entry: ["src/**/*.test.ts", "test/**/*.test.ts"],

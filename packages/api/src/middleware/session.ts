@@ -2,15 +2,11 @@ import { bytesToHex, generateChallenge } from "@tearleads/crypto";
 import type { Context, Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import { del, get, set } from "../adapters/redis";
+import type { SessionData } from "../validators/session";
 import { isSessionData } from "../validators/session";
 
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_PREFIX = "session:";
-
-export interface SessionData {
-  fingerprint: string;
-  createdAt: number;
-}
 
 function sessionKey(sessionId: string): string {
   return `${SESSION_PREFIX}${sessionId}`;
