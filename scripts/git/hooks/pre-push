@@ -14,6 +14,9 @@ fi
 
 cd "$REPO_ROOT"
 
+echo "Checking file names..."
+bun run lint:files
+
 echo "Checking for binary files..."
 while read -r local_ref local_sha remote_ref remote_sha; do
   if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then

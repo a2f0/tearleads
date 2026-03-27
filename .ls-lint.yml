@@ -1,0 +1,16 @@
+ls:
+  .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+  .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | regex:Cargo
+
+ignore:
+  - .git
+  - .gemini
+  - .serena
+  - "**/.*"
+  - "**/node_modules"
+  - "**/dist"
+  - "**/build"
+  - "**/.turbo"
+  - target
+  - playwright-report
+  - test-results

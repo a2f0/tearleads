@@ -10,6 +10,7 @@ build/
 tsconfig.tsbuildinfo
 .turbo/
 playwright-report/
+# Created by Playwright
 test-results/
 
 # Serena
