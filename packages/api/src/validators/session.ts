@@ -1,5 +1,9 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { SessionData } from "../middleware/session";
+
+export interface SessionData {
+  fingerprint: string;
+  createdAt: number;
+}
 
 export function isSessionData(value: unknown): value is SessionData {
   return (

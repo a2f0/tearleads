@@ -47,4 +47,7 @@ bun run biome check --error-on-warnings
 echo "Running knip..."
 bun run knip
 
+echo "Checking for circular imports..."
+bunx madge --circular --extensions ts,tsx packages/
+
 echo "All checks passed."
