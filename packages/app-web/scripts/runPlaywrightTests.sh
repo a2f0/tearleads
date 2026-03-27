@@ -1,4 +1,4 @@
 #!/bin/sh
-set -e 
+set -e
 
 bun run test:turbo:e2e

@@ -3,9 +3,13 @@
   "references": [
     { "path": "crates/http-client-wasm" },
     { "path": "packages/api" },
+    { "path": "packages/api-client" },
     { "path": "packages/app" },
+    { "path": "packages/app-web" },
+    { "path": "packages/app-electrobun" },
     { "path": "packages/crypto" },
     { "path": "packages/sqlite-worker" },
+    { "path": "packages/sqlite-instance" },
     { "path": "packages/validators" }
   ]
 }

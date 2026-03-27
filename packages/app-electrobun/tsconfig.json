@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "composite": true,
+    "jsx": "react-jsx",
+    // Electrobun currently exports .ts sources that fail this stricter check.
+    "exactOptionalPropertyTypes": false,
+    // Electrobun currently has vendor code paths without explicit returns.
+    "noImplicitReturns": false
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "../../node_modules"]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "app-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "test:e2e": "bun run e2e",
+    "dev": "bun --hot src/servers/devServer.ts",
+    "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*'",
+    "start": "bun src/servers/devServer.ts"
+  },
+  "dependencies": {
+    "app": "workspace:*",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/bun": "catalog:",
+    "@types/react-dom": "catalog:react"
+  }
+}

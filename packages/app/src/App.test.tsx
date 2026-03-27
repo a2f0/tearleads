@@ -1,20 +1,29 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
+import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
 import { render, waitFor } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
-import "../test/helpers/wsServer";
+import { resetMockServer, wsUrl } from "../test/helpers/mswServer";
 import { App } from "./App";
-import { createAppDatabaseWorker } from "./db/sqliteWorker";
+import { AppHostConfig } from "./host/AppHostConfig";
+
+afterEach(() => resetMockServer());
 
 test("renders App", async () => {
-  const workers: MockWorker[] = [];
+  const mockWorkers: MockWorker[] = [];
 
   const view = render(
     <App
-      createWorker={() => {
-        const appWorker = createAppDatabaseWorker(MockWorker);
-        workers.push(appWorker.worker as MockWorker);
-        return appWorker;
-      }}
+      hostConfig={
+        new AppHostConfig("http://localhost:3001", wsUrl, () => {
+          const worker = new MockWorker();
+          mockWorkers.push(worker);
+          return {
+            id: crypto.randomUUID(),
+            client: createDatabaseWorkerClient(worker),
+            worker,
+          };
+        })
+      }
     />,
   );
 
@@ -25,7 +34,7 @@ test("renders App", async () => {
   });
 
   view.unmount();
-  for (const worker of workers) {
+  for (const worker of mockWorkers) {
     expect(worker.terminated).toBe(true);
   }
 });

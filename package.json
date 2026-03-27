@@ -26,13 +26,16 @@
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
     "test:turbo:bun": "turbo run test",
     "test:turbo:bun:affected": "turbo run test --affected",
-    "test:turbo:e2e": "turbo run e2e --filter=app",
+    "test:turbo:e2e": "turbo run e2e --filter=app-web",
     "test:turbo:e2e:affected": "turbo run e2e --affected"
   },
   "workspaces": [
     "crates/http-client-wasm",
     "packages/api",
+    "packages/api-client",
     "packages/app",
+    "packages/app-web",
+    "packages/app-electrobun",
     "packages/crypto",
     "packages/sqlite-instance",
     "packages/sqlite-worker",
@@ -44,6 +47,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
     "@tsconfig/strictest": "2.0.8",
+    "@tearleads/api-client": "workspace:*",
     "app": "workspace:*",
     "lint-staged": "16.4.0",
     "msw": "2.12.14",

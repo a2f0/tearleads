@@ -9,6 +9,10 @@ import { handleRequest } from "@tearleads/sqlite-worker/worker-core";
 export class MockWorker extends EventTarget {
   terminated = false;
 
+  constructor(_scriptURL?: string | URL, _options?: WorkerOptions) {
+    super();
+  }
+
   terminate() {
     this.terminated = true;
   }

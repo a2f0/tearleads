@@ -7,13 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
-
-export let WS_URL = "ws://localhost:3001";
-
-export function setWsUrl(url: string) {
-  WS_URL = url;
-}
 
 function isServerEvent(value: unknown): value is ServerEvent {
   return (
@@ -40,6 +35,7 @@ interface EventsContextValue {
 const EventsContext = createContext<EventsContextValue | null>(null);
 
 export function EventsProvider({ children }: PropsWithChildren) {
+  const hostConfig = useAppHostConfig();
   const [events, setEvents] = useState<ServerEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -47,7 +43,7 @@ export function EventsProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let cancelled = false;
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(hostConfig.wsUrl);
     wsRef.current = ws;
 
     ws.addEventListener("open", () => {
@@ -81,7 +77,7 @@ export function EventsProvider({ children }: PropsWithChildren) {
       ws.close();
       wsRef.current = null;
     };
-  }, []);
+  }, [hostConfig.wsUrl, log]);
 
   const value = useMemo(() => ({ events, connected }), [events, connected]);
 
