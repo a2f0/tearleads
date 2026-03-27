@@ -23,19 +23,20 @@ else
   }
 fi
 
-for script_path in \
-  "$repo_root/packages/api/scripts" \
-  "$repo_root/packages/app-web/scripts" \
-  "$repo_root/packages/app-electrobun/scripts" \
-  "$repo_root/packages/sqlite-instance/scripts" \
-  "$repo_root/scripts" \
-  "$repo_root/scripts/git" \
-  "$repo_root/scripts/testing"
-do
-  prepend_path "$script_path"
-done
+repo_script_paths="$repo_root/packages/api/scripts
+$repo_root/packages/app-web/scripts
+$repo_root/packages/app-electrobun/scripts
+$repo_root/packages/sqlite-instance/scripts
+$repo_root/scripts
+$repo_root/scripts/git
+$repo_root/scripts/testing"
 
-export PATH
+while read -r script_path; do
+  prepend_path "$script_path"
+done <<EOF
+$repo_script_paths
+EOF
+
 
 unset repo_root
 unset script_path
