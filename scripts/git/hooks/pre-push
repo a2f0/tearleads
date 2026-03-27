@@ -23,9 +23,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
 
   tmpfile=$(mktemp)
-  git diff --name-only --diff-filter=ACM "$range" > "$tmpfile"
-  while IFS= read -r file; do
-    if file "$file" | grep -qv text; then
+  git diff --numstat --diff-filter=ACM "$range" > "$tmpfile"
+  while IFS='	' read -r added deleted file; do
+    if [ "$added" = "-" ] || [ "$deleted" = "-" ]; then
       echo "ERROR: Binary file detected: $file" >&2
       rm -f "$tmpfile"
       exit 1
