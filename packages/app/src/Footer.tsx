@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { MenuPosition } from "./components/shared/Menu";
 import { StartMenu } from "./components/shared/StartMenu";
+import "./Footer.css";
 import "./Workspace.css";
 import { useWorkspace } from "./WorkspaceProvider";
 
@@ -16,7 +17,7 @@ export function Footer() {
 
   return (
     <>
-      <footer>
+      <footer className="footer">
         <button type="button" onClick={handleClick}>
           Footer
         </button>
