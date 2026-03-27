@@ -37,8 +37,6 @@ done <<EOF
 $repo_script_paths
 EOF
 
-export PATH
-export repo_script_paths
 
 unset repo_root
 unset script_path
