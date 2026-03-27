@@ -1,12 +1,14 @@
 .pane {
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .pane-content {
   flex: 1;
   padding: var(--padding);
+  overflow: hidden;
 }
 
 .pane-main {
@@ -15,6 +17,7 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  min-height: 0;
 }
 
 .pane-left {
