@@ -27,7 +27,7 @@ textarea {
     "left   left" 1fr
     "footer footer" auto
     / 1fr 1fr;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .layout--split {
