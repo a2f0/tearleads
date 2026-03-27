@@ -20,6 +20,7 @@
     }
   },
   "scripts": {
+    "lint:files": "ls-lint",
     "test:bun": "bun run --filter='*' --sequential test",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
@@ -46,13 +47,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
+    "@ls-lint/ls-lint": "2.3.1",
     "@tearleads/api-client": "workspace:*",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.3.11",
     "app": "workspace:*",
     "knip": "6.0.6",
-    "madge": "8.0.0",
     "lint-staged": "16.4.0",
+    "madge": "8.0.0",
     "msw": "2.12.14",
     "turbo": "2.8.20",
     "typescript": "5.9.3"
