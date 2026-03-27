@@ -18,6 +18,7 @@ textarea {
   --color-dark: #333;
   --color-light: #fff;
   --padding: 1rem;
+  --footer-gap: 0.5rem;
 }
 
 .layout {
@@ -47,6 +48,8 @@ textarea {
 
 .layout > footer {
   grid-area: footer;
+  display: flex;
+  gap: var(--footer-gap);
   padding: var(--padding);
   background: var(--color-dark);
   color: var(--color-light);
