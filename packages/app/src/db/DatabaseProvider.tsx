@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import {
   type AppDatabaseWorker,
@@ -24,14 +25,8 @@ export interface DatabaseContextValue {
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
-interface DatabaseProviderProps extends PropsWithChildren {
-  createWorker?: typeof createAppDatabaseWorker;
-}
-
-export function DatabaseProvider({
-  children,
-  createWorker = createAppDatabaseWorker,
-}: DatabaseProviderProps) {
+export function DatabaseProvider({ children }: PropsWithChildren) {
+  const { createWorker = createAppDatabaseWorker } = useAppHostConfig();
   const [status, setStatus] = useState<WorkerStatus>("idle");
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);

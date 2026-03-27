@@ -18,11 +18,11 @@ function renderPane() {
     <DualPaneProvider>
       <PaneSideProvider side="left">
         <PaneProvider
-          hostConfig={new AppHostConfig("http://localhost:3001", wsUrl)}
-          createWorker={() => {
-            const appWorker = createAppDatabaseWorker(MockWorker);
-            return appWorker;
-          }}
+          hostConfig={
+            new AppHostConfig("http://localhost:3001", wsUrl, () =>
+              createAppDatabaseWorker(MockWorker),
+            )
+          }
         >
           <Pane className="pane" />
         </PaneProvider>

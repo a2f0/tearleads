@@ -79,12 +79,7 @@ async function createDevServerConfig() {
 
       const webOutput = webOutputs.get(pathname) ?? indexOutput;
       return new Response(webOutput, {
-        headers: {
-          "Content-Type":
-            pathname === "/"
-              ? indexOutput.type
-              : (webOutputs.get(pathname) ?? indexOutput).type,
-        },
+        headers: { "Content-Type": webOutput.type },
       });
     },
   };

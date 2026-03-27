@@ -25,6 +25,9 @@ if (!elem) {
 }
 
 renderApp(createRoot(elem), {
-  createWorker: createElectrobunDatabaseWorker,
-  hostConfig: new AppHostConfig("http://localhost:3001", "ws://localhost:3001"),
+  hostConfig: new AppHostConfig(
+    "http://localhost:3001",
+    "ws://localhost:3001",
+    createElectrobunDatabaseWorker,
+  ),
 });
