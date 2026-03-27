@@ -22,12 +22,16 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
-  for file in $(git diff --name-only --diff-filter=ACM "$range"); do
+  tmpfile=$(mktemp)
+  git diff --name-only --diff-filter=ACM "$range" > "$tmpfile"
+  while IFS= read -r file; do
     if file "$file" | grep -qv text; then
       echo "ERROR: Binary file detected: $file" >&2
+      rm -f "$tmpfile"
       exit 1
     fi
-  done
+  done < "$tmpfile"
+  rm -f "$tmpfile"
 done
 
 echo "Running cargo tests..."
