@@ -48,6 +48,6 @@ echo "Running knip..."
 bun run knip
 
 echo "Checking for circular imports..."
-bunx madge --circular --extensions ts,tsx packages/
+bun run madge --circular --extensions ts,tsx packages/
 
 echo "All checks passed."
