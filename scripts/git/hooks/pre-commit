@@ -4,9 +4,9 @@ set -e
 
 echo "Checking for binary files..."
 tmpfile=$(mktemp)
-git diff --cached --name-only --diff-filter=ACM > "$tmpfile"
-while IFS= read -r file; do
-  if file "$file" | grep -qv text; then
+git diff --cached --numstat --diff-filter=ACM > "$tmpfile"
+while IFS='	' read -r added deleted file; do
+  if [ "$added" = "-" ] || [ "$deleted" = "-" ]; then
     echo "ERROR: Binary file detected: $file" >&2
     rm -f "$tmpfile"
     exit 1
