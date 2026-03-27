@@ -3,9 +3,8 @@ import type { RequestFn } from "../../types";
 
 export function getEncapsulationKey(request: RequestFn, userId: string) {
   return request(
-    "/auth/encapsulation-key",
+    `/auth/encapsulation-key/${userId}`,
     isEncapsulationKeyResponse,
-    "POST",
-    JSON.stringify({ userId }),
+    "GET",
   );
 }
