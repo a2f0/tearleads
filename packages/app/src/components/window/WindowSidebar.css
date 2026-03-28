@@ -1,0 +1,31 @@
+.window-sidebar-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.window-sidebar {
+  overflow: auto;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-dark);
+  min-width: 80px;
+}
+
+.window-sidebar-handle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.window-sidebar-handle:hover {
+  background: var(--color-dark);
+  opacity: 0.3;
+}
+
+.window-sidebar-content {
+  flex: 1;
+  overflow: auto;
+}
