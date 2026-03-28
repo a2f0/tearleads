@@ -6,11 +6,9 @@ const MIN_WIDTH = 80;
 const MAX_WIDTH = 400;
 
 export function WindowSidebar({
-  sidebar,
   defaultWidth = DEFAULT_WIDTH,
   children,
 }: PropsWithChildren<{
-  sidebar: React.ReactNode;
   defaultWidth?: number;
 }>) {
   const [width, setWidth] = useState(defaultWidth);
@@ -20,6 +18,8 @@ export function WindowSidebar({
     (e: React.MouseEvent) => {
       e.preventDefault();
       dragging.current = { startX: e.clientX, startWidth: width };
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
     },
     [width],
   );
@@ -34,7 +34,10 @@ export function WindowSidebar({
     }
 
     function handleMouseUp() {
+      if (!dragging.current) return;
       dragging.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     }
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -42,14 +45,13 @@ export function WindowSidebar({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      handleMouseUp();
     };
   }, []);
 
   return (
     <div className="window-sidebar-layout">
-      <div className="window-sidebar" style={{ width }}>
-        {sidebar}
-      </div>
+      <div className="window-sidebar" style={{ width }} />
       <div
         role="separator"
         className="window-sidebar-handle"
