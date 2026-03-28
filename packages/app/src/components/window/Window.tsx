@@ -1,11 +1,4 @@
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./Window.css";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar } from "./WindowMenuBar";
@@ -22,30 +15,32 @@ interface WindowProps {
   windowId: string;
 }
 
-export function Window({ windowId, children }: PropsWithChildren<WindowProps>) {
+export function Window({ windowId }: WindowProps) {
   const { windowMap, close, minimize } = useWindowState();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
 
-  return (
-    <WindowInner entry={entry} close={close} minimize={minimize}>
-      {children}
-    </WindowInner>
-  );
+  return <WindowInner entry={entry} close={close} minimize={minimize} />;
 }
 
 function WindowInner({
   entry,
   close,
   minimize,
-  children,
-}: PropsWithChildren<{
+}: {
   entry: WindowEntry;
   close: (id: string) => void;
   minimize: (id: string) => void;
-}>) {
-  const { id: windowId, title, minimized, initialX, initialY } = entry;
+}) {
+  const {
+    id: windowId,
+    title,
+    minimized,
+    initialX,
+    initialY,
+    component: Component,
+  } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -254,7 +249,9 @@ function WindowInner({
         onClose={handleClose}
       />
       <WindowMenuBar menus={menus} />
-      <WindowBody showSidebar={showSidebar}>{children}</WindowBody>
+      <WindowBody showSidebar={showSidebar}>
+        {Component && <Component />}
+      </WindowBody>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (
         <>

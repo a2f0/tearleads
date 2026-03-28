@@ -1,0 +1,17 @@
+.notes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.notes-editor {
+  flex: 1;
+  padding: var(--padding);
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  color: inherit;
+}
