@@ -3,3 +3,8 @@
   padding: var(--padding);
   overflow: auto;
 }
+
+.window-body:has(.window-sidebar-layout) {
+  padding: 0;
+  overflow: hidden;
+}

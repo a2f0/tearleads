@@ -138,6 +138,11 @@ function WindowInner({
     setShowStatusBar((prev) => !prev);
   }, []);
 
+  const [showSidebar, setShowSidebar] = useState(true);
+  const toggleSidebar = useCallback(() => {
+    setShowSidebar((prev) => !prev);
+  }, []);
+
   const menus = useMemo(
     () => [
       {
@@ -151,10 +156,14 @@ function WindowInner({
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
             onClick: toggleStatusBar,
           },
+          {
+            label: `${showSidebar ? "Hide" : "Show"} Sidebar`,
+            onClick: toggleSidebar,
+          },
         ],
       },
     ],
-    [handleClose, showStatusBar, toggleStatusBar],
+    [handleClose, showStatusBar, toggleStatusBar, showSidebar, toggleSidebar],
   );
 
   useEffect(() => {
@@ -245,7 +254,7 @@ function WindowInner({
         onClose={handleClose}
       />
       <WindowMenuBar menus={menus} />
-      <WindowBody>{children}</WindowBody>
+      <WindowBody showSidebar={showSidebar}>{children}</WindowBody>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (
         <>

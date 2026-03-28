@@ -1,6 +1,24 @@
 import type { PropsWithChildren } from "react";
 import "./WindowBody.css";
+import { WindowSidebar } from "./WindowSidebar";
 
-export function WindowBody({ children }: PropsWithChildren) {
-  return <div className="window-body">{children}</div>;
+interface WindowBodyProps {
+  sidebar?: React.ReactNode;
+  showSidebar?: boolean;
+}
+
+export function WindowBody({
+  sidebar,
+  showSidebar = false,
+  children,
+}: PropsWithChildren<WindowBodyProps>) {
+  return (
+    <div className="window-body">
+      {showSidebar ? (
+        <WindowSidebar sidebar={sidebar}>{children}</WindowSidebar>
+      ) : (
+        children
+      )}
+    </div>
+  );
 }
