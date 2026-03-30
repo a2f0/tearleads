@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
-import { useAddressBook } from "../../crypto/AddressBookProvider";
+import { useContacts } from "../../contacts/ContactsProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import "./Contacts.css";
 
 export function Contacts() {
-  const { entries, importKey, removeKey } = useAddressBook();
+  const { entries, importKey, removeKey } = useContacts();
   const { isAuthenticated } = useCryptoSession();
   const peerUserId = usePeerUserId();
   const [draftUserId, setDraftUserId] = useState("");

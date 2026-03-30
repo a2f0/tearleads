@@ -1,5 +1,5 @@
 import { useApiClient } from "../../api/ApiClientProvider";
-import { useAddressBook } from "../../crypto/AddressBookProvider";
+import { useContacts } from "../../contacts/ContactsProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
@@ -25,7 +25,7 @@ export function PaneMenu({
     setUserId,
     loginWithChallenge,
   } = useCryptoSession();
-  const { entries, importKey } = useAddressBook();
+  const { entries, importKey } = useContacts();
   const { log } = useLog();
   const apiClient = useApiClient();
   const peerUserId = usePeerUserId();

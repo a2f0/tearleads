@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { ApiClientProvider } from "../../api/ApiClientProvider";
 import { NetworkStateProvider } from "../../api/NetworkStateProvider";
-import { AddressBookProvider } from "../../crypto/AddressBookProvider";
+import { ContactsProvider } from "../../contacts/ContactsProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { EventsProvider } from "../../events/EventsProvider";
@@ -22,11 +22,11 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
           <NetworkStateProvider>
             <DatabaseProvider>
               <CryptoSessionProvider>
-                <AddressBookProvider>
+                <ContactsProvider>
                   <EventsProvider>
                     <NotesProvider>{children}</NotesProvider>
                   </EventsProvider>
-                </AddressBookProvider>
+                </ContactsProvider>
               </CryptoSessionProvider>
             </DatabaseProvider>
           </NetworkStateProvider>
