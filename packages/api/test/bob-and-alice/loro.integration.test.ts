@@ -11,11 +11,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { del } from "../../src/adapters/redis";
-import {
-  createDocument,
-  fetchEncapsulationKey,
-  syncDocument,
-} from "../helpers/api";
+import { createDocument, syncDocument } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
 import { grantDocumentWriteAccessToUser } from "../helpers/grantDocumentAccess";
@@ -58,16 +54,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   documentId = createdDocument.id;
   expect(typeof documentId).toBe("string");
   expect(createdDocument.currentAccessEpoch).toBe(1);
-
-  const bobKeyResponse = await fetchEncapsulationKey(bob.userId, alice.token);
-  expect(bobKeyResponse.status).toBe(200);
-  const bobKeyBody = await bobKeyResponse.json();
-  const bobPublicKey = base64ToBytes(bobKeyBody.encapsulationPublicKey);
-
-  const aliceKeyResponse = await fetchEncapsulationKey(alice.userId, bob.token);
-  expect(aliceKeyResponse.status).toBe(200);
-  const aliceKeyBody = await aliceKeyResponse.json();
-  const alicePublicKey = base64ToBytes(aliceKeyBody.encapsulationPublicKey);
+  expect(createdDocument.recipientEncapsulationPublicKeys).toHaveLength(1);
 
   const aliceDoc = await createTextDocument(alice.fingerprint);
   const bobDoc = await createTextDocument(bob.fingerprint);
@@ -92,10 +79,12 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const aliceVersion = encodeVersionVector(aliceDoc);
   aliceDoc.getText("text").update("Hello from Alice");
   const firstUpdate = exportUpdatesSince(aliceDoc, aliceVersion);
-  const encryptedFirstUpdate = await encryptLoroUpdate(firstUpdate, [
-    alicePublicKey,
-    bobPublicKey,
-  ]);
+  const encryptedFirstUpdate = await encryptLoroUpdate(
+    firstUpdate,
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
   const firstUpdateVersionVectors = getUpdateVersionVectors(firstUpdate);
 
   const appendFirstResponse = await syncDocument(
@@ -120,6 +109,14 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const staleEpochSync = await appendFirstResponse.json();
   expect(staleEpochSync.acceptedOutgoingUpdateIds).toHaveLength(0);
   expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
+  expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
+
+  const encryptedGrantedUpdate = await encryptLoroUpdate(
+    firstUpdate,
+    staleEpochSync.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
 
   const appendGrantedResponse = await syncDocument(
     documentId,
@@ -129,7 +126,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
       outgoingUpdates: [
         {
           id: crypto.randomUUID(),
-          encryptedData: encryptedFirstUpdate,
+          encryptedData: encryptedGrantedUpdate,
           partialStartVersionVector:
             firstUpdateVersionVectors.partialStartVersionVector,
           partialEndVersionVector:
@@ -157,6 +154,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const bobFetched = await bobFetchResponse.json();
   expect(bobFetched.updates.length).toBe(1);
   expect(bobFetched.currentAccessEpoch).toBe(grantedAccessEpoch);
+  expect(bobFetched.recipientEncapsulationPublicKeys).toHaveLength(2);
 
   const decryptedForBob = await Promise.all(
     bobFetched.updates.map((update: { encryptedData: string }) =>
@@ -169,10 +167,12 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const bobVersion = encodeVersionVector(bobDoc);
   bobDoc.getText("text").update("Hello from Alice and Bob");
   const secondUpdate = exportUpdatesSince(bobDoc, bobVersion);
-  const encryptedSecondUpdate = await encryptLoroUpdate(secondUpdate, [
-    alicePublicKey,
-    bobPublicKey,
-  ]);
+  const encryptedSecondUpdate = await encryptLoroUpdate(
+    secondUpdate,
+    bobFetched.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
   const secondUpdateVersionVectors = getUpdateVersionVectors(secondUpdate);
 
   const appendSecondResponse = await syncDocument(

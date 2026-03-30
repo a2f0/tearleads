@@ -27,6 +27,7 @@ interface DocumentAccessState {
   canWrite: boolean;
   currentAccessEpoch: number;
   recipientKeyFingerprints: string[];
+  recipientEncapsulationPublicKeys: string[];
 }
 
 interface LoroRouterDeps<TSession extends SessionLike> {
@@ -37,6 +38,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     }): Promise<{
       document: DocumentRecord;
       currentAccessEpoch: number;
+      recipientEncapsulationPublicKeys: string[];
     } | null>;
     getDocumentById(documentId: string): Promise<DocumentRecord | null>;
     getDocumentAccess(input: {
@@ -115,6 +117,8 @@ export function createLoroRouter<TSession extends SessionLike>({
       id: created.document.id,
       createdAt: created.document.createdAt.toISOString(),
       currentAccessEpoch: created.currentAccessEpoch,
+      recipientEncapsulationPublicKeys:
+        created.recipientEncapsulationPublicKeys,
     });
   });
 
@@ -156,36 +160,37 @@ export function createLoroRouter<TSession extends SessionLike>({
         return c.json({ error: "Forbidden" }, 403);
       }
 
-      const expectedRecipientKeyFingerprints = uniqueSortedStrings(
-        access.recipientKeyFingerprints,
-      );
+      let acceptedOutgoingUpdateIds: string[] = [];
 
-      for (const outgoingUpdate of outgoingUpdates) {
-        try {
-          if (
-            !matchesRecipients(
-              outgoingUpdate.encryptedData,
-              expectedRecipientKeyFingerprints,
-            )
-          ) {
-            return c.json(
-              { error: "Encrypted update recipients mismatch" },
-              400,
-            );
+      if (accessEpoch === access.currentAccessEpoch) {
+        const expectedRecipientKeyFingerprints = uniqueSortedStrings(
+          access.recipientKeyFingerprints,
+        );
+
+        for (const outgoingUpdate of outgoingUpdates) {
+          try {
+            if (
+              !matchesRecipients(
+                outgoingUpdate.encryptedData,
+                expectedRecipientKeyFingerprints,
+              )
+            ) {
+              return c.json(
+                { error: "Encrypted update recipients mismatch" },
+                400,
+              );
+            }
+          } catch {
+            return c.json({ error: "Invalid encrypted update envelope" }, 400);
           }
-        } catch {
-          return c.json({ error: "Invalid encrypted update envelope" }, 400);
         }
-      }
 
-      const acceptedOutgoingUpdateIds =
-        accessEpoch === access.currentAccessEpoch
-          ? await store.appendDocumentUpdates({
-              documentId,
-              authorFingerprint: session.fingerprint,
-              updates: outgoingUpdates,
-            })
-          : [];
+        acceptedOutgoingUpdateIds = await store.appendDocumentUpdates({
+          documentId,
+          authorFingerprint: session.fingerprint,
+          updates: outgoingUpdates,
+        });
+      }
 
       const updates = await store.listDocumentUpdates(documentId);
       const missingUpdates = updates
@@ -211,6 +216,8 @@ export function createLoroRouter<TSession extends SessionLike>({
         acceptedOutgoingUpdateIds,
         updates: missingUpdates,
         currentAccessEpoch: access.currentAccessEpoch,
+        recipientEncapsulationPublicKeys:
+          access.recipientEncapsulationPublicKeys,
       });
     },
   );

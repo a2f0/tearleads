@@ -19,6 +19,7 @@ export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
   currentAccessEpoch: number;
+  recipientEncapsulationPublicKeys: string[];
 }
 
 export interface SyncDocumentRequest {
@@ -42,6 +43,7 @@ export interface SyncDocumentResponse {
   acceptedOutgoingUpdateIds: string[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
+  recipientEncapsulationPublicKeys: string[];
 }
 
 function hasPositiveNumberProperty<Key extends string>(
@@ -60,6 +62,16 @@ function hasNullableStringProperty<Key extends string>(
   key: Key,
 ): value is Record<string, unknown> & Record<Key, string | null> {
   return value[key] === null || typeof value[key] === "string";
+}
+
+function hasStringArrayProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, string[]> {
+  return (
+    hasArrayProperty(value, key) &&
+    value[key].every((entry) => typeof entry === "string")
+  );
 }
 
 export function isSyncDocumentOutgoingUpdate(
@@ -81,7 +93,8 @@ export function isCreateDocumentResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
-    hasPositiveNumberProperty(value, "currentAccessEpoch")
+    hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }
 
@@ -124,6 +137,7 @@ export function isSyncDocumentResponse(
     ) &&
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
-    hasPositiveNumberProperty(value, "currentAccessEpoch")
+    hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }

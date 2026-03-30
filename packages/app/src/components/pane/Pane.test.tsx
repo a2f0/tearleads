@@ -118,9 +118,15 @@ test("notes windows in the same pane share live note state", async () => {
   fireEvent.click(view.getByText("Open Notes"));
 
   await waitFor(() => {
-    expect(
-      view.container.querySelectorAll("textarea.notes-editor"),
-    ).toHaveLength(2);
+    const editors = Array.from(
+      view.container.querySelectorAll<HTMLTextAreaElement>(
+        "textarea.notes-editor",
+      ),
+    );
+    expect(editors).toHaveLength(2);
+    for (const editor of editors) {
+      expect(editor.disabled).toBe(false);
+    }
   });
 
   const noteEditors = view.container.querySelectorAll<HTMLTextAreaElement>(

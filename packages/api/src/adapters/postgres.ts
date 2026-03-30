@@ -68,6 +68,18 @@ await client.exec(`
     recipient_key_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE INDEX IF NOT EXISTS organization_members_organization_id_idx
+    ON organization_members (organization_id);
+  CREATE INDEX IF NOT EXISTS group_members_group_id_idx
+    ON group_members (group_id);
+  CREATE INDEX IF NOT EXISTS object_access_grants_object_idx
+    ON object_access_grants (object_type, object_id);
+  CREATE INDEX IF NOT EXISTS object_access_epochs_object_idx
+    ON object_access_epochs (object_type, object_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS object_access_epochs_object_epoch_idx
+    ON object_access_epochs (object_type, object_id, epoch);
+  CREATE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_idx
+    ON object_recipient_envelopes (object_type, object_id, epoch);
   ${loroSql}
 `);
 

@@ -15,10 +15,23 @@ const DOCUMENT_OBJECT_TYPE = "document";
 
 type AccessLevel = "read" | "write" | "admin";
 type SubjectType = "user" | "group" | "organization";
+type DocumentAccessTransaction = Parameters<
+  (typeof db)["transaction"]
+>[0] extends (tx: infer T) => Promise<unknown>
+  ? T
+  : never;
+type DocumentAccessExecutor = typeof db | DocumentAccessTransaction;
+
+interface GrantRow {
+  subjectType: string;
+  subjectId: string;
+  accessLevel: string;
+}
 
 interface EffectiveDocumentRecipient {
   userId: string;
   accessLevel: AccessLevel;
+  encapsulationPublicKey: string;
   keyFingerprint: string;
 }
 
@@ -66,8 +79,15 @@ function uniqueSortedStrings(values: string[]): string[] {
   );
 }
 
-async function getCurrentEpoch(documentId: string): Promise<number | null> {
-  const [row] = await db
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+async function getCurrentEpoch(
+  documentId: string,
+  executor: DocumentAccessExecutor = db,
+): Promise<number | null> {
+  const [row] = await executor
     .select({ epoch: objectAccessEpochs.epoch })
     .from(objectAccessEpochs)
     .where(
@@ -82,8 +102,11 @@ async function getCurrentEpoch(documentId: string): Promise<number | null> {
   return row?.epoch ?? null;
 }
 
-async function loadDocumentGrantRows(documentId: string) {
-  return db
+async function loadDocumentGrantRows(
+  documentId: string,
+  executor: DocumentAccessExecutor = db,
+) {
+  return executor
     .select({
       subjectType: objectAccessGrants.subjectType,
       subjectId: objectAccessGrants.subjectId,
@@ -99,11 +122,7 @@ async function loadDocumentGrantRows(documentId: string) {
 }
 
 function collectGrantedSubjectIds(
-  grants: Array<{
-    subjectType: string;
-    subjectId: string;
-    accessLevel: string;
-  }>,
+  grants: GrantRow[],
   subjectType: SubjectType,
 ): string[] {
   const result: string[] = [];
@@ -124,13 +143,16 @@ function collectGrantedSubjectIds(
   return uniqueSortedStrings(result);
 }
 
-async function loadMembershipRows(input: {
-  organizationIds: string[];
-  groupIds: string[];
-}) {
+async function loadMembershipRows(
+  input: {
+    organizationIds: string[];
+    groupIds: string[];
+  },
+  executor: DocumentAccessExecutor = db,
+) {
   const organizationMemberships =
     input.organizationIds.length > 0
-      ? await db
+      ? await executor
           .select({
             organizationId: organizationMembers.organizationId,
             userId: organizationMembers.userId,
@@ -143,7 +165,7 @@ async function loadMembershipRows(input: {
 
   const groupMemberships =
     input.groupIds.length > 0
-      ? await db
+      ? await executor
           .select({
             groupId: groupMembers.groupId,
             userId: groupMembers.userId,
@@ -155,12 +177,15 @@ async function loadMembershipRows(input: {
   return { organizationMemberships, groupMemberships };
 }
 
-async function loadRecipientUsers(userIds: string[]) {
+async function loadRecipientUsers(
+  userIds: string[],
+  executor: DocumentAccessExecutor = db,
+) {
   if (userIds.length === 0) {
     return [];
   }
 
-  return db
+  return executor
     .select({
       id: users.id,
       encapsulationPublicKey: users.encapsulationPublicKey,
@@ -171,21 +196,25 @@ async function loadRecipientUsers(userIds: string[]) {
 
 export async function resolveDocumentAccessState(
   documentId: string,
+  executor: DocumentAccessExecutor = db,
 ): Promise<DocumentAccessState | null> {
-  const currentAccessEpoch = await getCurrentEpoch(documentId);
+  const currentAccessEpoch = await getCurrentEpoch(documentId, executor);
   if (currentAccessEpoch === null) {
     return null;
   }
 
-  const grants = await loadDocumentGrantRows(documentId);
+  const grants = await loadDocumentGrantRows(documentId, executor);
   const directUserIds = collectGrantedSubjectIds(grants, "user");
   const organizationIds = collectGrantedSubjectIds(grants, "organization");
   const groupIds = collectGrantedSubjectIds(grants, "group");
   const { organizationMemberships, groupMemberships } =
-    await loadMembershipRows({
-      organizationIds,
-      groupIds,
-    });
+    await loadMembershipRows(
+      {
+        organizationIds,
+        groupIds,
+      },
+      executor,
+    );
 
   const effectiveAccessByUserId = new Map<string, AccessLevel>();
 
@@ -240,32 +269,30 @@ export async function resolveDocumentAccessState(
     ...directUserIds,
     ...Array.from(effectiveAccessByUserId.keys()),
   ]);
-  const recipientUsers = await loadRecipientUsers(effectiveUserIds);
+  const recipientUsers = await loadRecipientUsers(effectiveUserIds, executor);
+  const usersById = new Map(recipientUsers.map((user) => [user.id, user]));
 
-  const usersById = new Map(
-    recipientUsers.map((user) => [user.id, user.encapsulationPublicKey]),
-  );
+  const effectiveRecipients = (
+    await Promise.all(
+      effectiveUserIds.map(async (userId) => {
+        const recipientUser = usersById.get(userId);
+        const accessLevel = effectiveAccessByUserId.get(userId);
 
-  const effectiveRecipients: EffectiveDocumentRecipient[] = [];
+        if (!recipientUser || !accessLevel) {
+          return null;
+        }
 
-  for (const userId of effectiveUserIds) {
-    const encapsulationPublicKey = usersById.get(userId);
-    const accessLevel = effectiveAccessByUserId.get(userId);
-
-    if (!encapsulationPublicKey || !accessLevel) {
-      continue;
-    }
-
-    const keyFingerprint = await toFingerprint(
-      base64ToBytes(encapsulationPublicKey),
-    );
-
-    effectiveRecipients.push({
-      userId,
-      accessLevel,
-      keyFingerprint,
-    });
-  }
+        return {
+          userId,
+          accessLevel,
+          encapsulationPublicKey: recipientUser.encapsulationPublicKey,
+          keyFingerprint: await toFingerprint(
+            base64ToBytes(recipientUser.encapsulationPublicKey),
+          ),
+        };
+      }),
+    )
+  ).filter(isPresent);
 
   effectiveRecipients.sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
@@ -303,12 +330,21 @@ export function listRecipientKeyFingerprints(
   return state.effectiveRecipients.map((recipient) => recipient.keyFingerprint);
 }
 
+export function listRecipientEncapsulationPublicKeys(
+  state: DocumentAccessState,
+): string[] {
+  return state.effectiveRecipients.map(
+    (recipient) => recipient.encapsulationPublicKey,
+  );
+}
+
 async function replaceRecipientEnvelopes(
   documentId: string,
   epoch: number,
   recipients: EffectiveDocumentRecipient[],
+  executor: DocumentAccessExecutor = db,
 ) {
-  await db
+  await executor
     .delete(objectRecipientEnvelopes)
     .where(
       and(
@@ -322,7 +358,7 @@ async function replaceRecipientEnvelopes(
     return;
   }
 
-  await db.insert(objectRecipientEnvelopes).values(
+  await executor.insert(objectRecipientEnvelopes).values(
     recipients.map((recipient) => ({
       objectType: DOCUMENT_OBJECT_TYPE,
       objectId: documentId,
@@ -333,8 +369,12 @@ async function replaceRecipientEnvelopes(
   );
 }
 
-async function writeEpoch(documentId: string, epoch: number) {
-  await db.insert(objectAccessEpochs).values({
+async function writeEpoch(
+  documentId: string,
+  epoch: number,
+  executor: DocumentAccessExecutor = db,
+) {
+  await executor.insert(objectAccessEpochs).values({
     objectType: DOCUMENT_OBJECT_TYPE,
     objectId: documentId,
     epoch,
@@ -346,28 +386,31 @@ export async function initializeDocumentAccess(
   documentId: string,
   ownerUserId: string,
 ): Promise<number> {
-  await db.insert(objectAccessGrants).values({
-    objectType: DOCUMENT_OBJECT_TYPE,
-    objectId: documentId,
-    subjectType: "user",
-    subjectId: ownerUserId,
-    accessLevel: "admin",
+  return db.transaction(async (tx) => {
+    await tx.insert(objectAccessGrants).values({
+      objectType: DOCUMENT_OBJECT_TYPE,
+      objectId: documentId,
+      subjectType: "user",
+      subjectId: ownerUserId,
+      accessLevel: "admin",
+    });
+
+    await writeEpoch(documentId, 1, tx);
+
+    const state = await resolveDocumentAccessState(documentId, tx);
+    if (!state) {
+      throw new Error("Failed to initialize document access state.");
+    }
+
+    await replaceRecipientEnvelopes(
+      documentId,
+      state.currentAccessEpoch,
+      state.effectiveRecipients,
+      tx,
+    );
+
+    return state.currentAccessEpoch;
   });
-
-  await writeEpoch(documentId, 1);
-
-  const state = await resolveDocumentAccessState(documentId);
-  if (!state) {
-    throw new Error("Failed to initialize document access state.");
-  }
-
-  await replaceRecipientEnvelopes(
-    documentId,
-    state.currentAccessEpoch,
-    state.effectiveRecipients,
-  );
-
-  return state.currentAccessEpoch;
 }
 
 export async function grantDocumentAccess(input: {
@@ -376,40 +419,43 @@ export async function grantDocumentAccess(input: {
   subjectId: string;
   accessLevel: AccessLevel;
 }): Promise<number> {
-  await db
-    .delete(objectAccessGrants)
-    .where(
-      and(
-        eq(objectAccessGrants.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectAccessGrants.objectId, input.documentId),
-        eq(objectAccessGrants.subjectType, input.subjectType),
-        eq(objectAccessGrants.subjectId, input.subjectId),
-      ),
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(objectAccessGrants)
+      .where(
+        and(
+          eq(objectAccessGrants.objectType, DOCUMENT_OBJECT_TYPE),
+          eq(objectAccessGrants.objectId, input.documentId),
+          eq(objectAccessGrants.subjectType, input.subjectType),
+          eq(objectAccessGrants.subjectId, input.subjectId),
+        ),
+      );
+
+    await tx.insert(objectAccessGrants).values({
+      objectType: DOCUMENT_OBJECT_TYPE,
+      objectId: input.documentId,
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      accessLevel: input.accessLevel,
+    });
+
+    const currentEpoch = await getCurrentEpoch(input.documentId, tx);
+    const nextEpoch = currentEpoch === null ? 1 : currentEpoch + 1;
+
+    await writeEpoch(input.documentId, nextEpoch, tx);
+
+    const state = await resolveDocumentAccessState(input.documentId, tx);
+    if (!state) {
+      throw new Error("Failed to resolve document access state after grant.");
+    }
+
+    await replaceRecipientEnvelopes(
+      input.documentId,
+      state.currentAccessEpoch,
+      state.effectiveRecipients,
+      tx,
     );
 
-  await db.insert(objectAccessGrants).values({
-    objectType: DOCUMENT_OBJECT_TYPE,
-    objectId: input.documentId,
-    subjectType: input.subjectType,
-    subjectId: input.subjectId,
-    accessLevel: input.accessLevel,
+    return state.currentAccessEpoch;
   });
-
-  const currentEpoch = await getCurrentEpoch(input.documentId);
-  const nextEpoch = currentEpoch === null ? 1 : currentEpoch + 1;
-
-  await writeEpoch(input.documentId, nextEpoch);
-
-  const state = await resolveDocumentAccessState(input.documentId);
-  if (!state) {
-    throw new Error("Failed to resolve document access state after grant.");
-  }
-
-  await replaceRecipientEnvelopes(
-    input.documentId,
-    state.currentAccessEpoch,
-    state.effectiveRecipients,
-  );
-
-  return state.currentAccessEpoch;
 }

@@ -4,6 +4,7 @@ import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
   initializeDocumentAccess,
+  listRecipientEncapsulationPublicKeys,
   listRecipientKeyFingerprints,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
@@ -29,8 +30,17 @@ export const documentsRouter = createLoroRouter({
         document.id,
         input.createdByUserId,
       );
+      const access = await resolveDocumentAccessState(document.id);
+      if (!access) {
+        return null;
+      }
 
-      return { document, currentAccessEpoch };
+      return {
+        document,
+        currentAccessEpoch,
+        recipientEncapsulationPublicKeys:
+          listRecipientEncapsulationPublicKeys(access),
+      };
     },
     async getDocumentById(documentId) {
       const [document] = await db
@@ -50,6 +60,8 @@ export const documentsRouter = createLoroRouter({
         canWrite: canWriteDocumentAccess(access, userId),
         currentAccessEpoch: access.currentAccessEpoch,
         recipientKeyFingerprints: listRecipientKeyFingerprints(access),
+        recipientEncapsulationPublicKeys:
+          listRecipientEncapsulationPublicKeys(access),
       };
     },
     async appendDocumentUpdates({ documentId, authorFingerprint, updates }) {

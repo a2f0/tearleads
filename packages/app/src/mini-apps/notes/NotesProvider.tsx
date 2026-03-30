@@ -96,9 +96,29 @@ const notesSql = `
 
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
 const NotesContext = createContext<NotesStore | null>(null);
+const DEVICE_SEED_KEY = "tearleads.notes.device-seed";
+const SESSION_PEER_SEED_KEY = "tearleads.notes.session-peer-seed";
 
 function getDeviceSeed(): string {
-  return crypto.randomUUID();
+  try {
+    const existingDeviceSeed = window.localStorage.getItem(DEVICE_SEED_KEY);
+    const deviceSeed = existingDeviceSeed ?? crypto.randomUUID();
+    if (!existingDeviceSeed) {
+      window.localStorage.setItem(DEVICE_SEED_KEY, deviceSeed);
+    }
+
+    const existingSessionSeed = window.sessionStorage.getItem(
+      SESSION_PEER_SEED_KEY,
+    );
+    const sessionSeed = existingSessionSeed ?? crypto.randomUUID();
+    if (!existingSessionSeed) {
+      window.sessionStorage.setItem(SESSION_PEER_SEED_KEY, sessionSeed);
+    }
+
+    return `${deviceSeed}:${sessionSeed}`;
+  } catch {
+    return crypto.randomUUID();
+  }
 }
 
 function readRowValue(
@@ -175,7 +195,14 @@ function createNotesStore(
   let syncRequested = false;
   let writeChain = Promise.resolve();
   let lastEventCount = 0;
+  let recipientPublicKeys = getLocalRecipientPublicKeys();
   const listeners = new Set<() => void>();
+
+  function getLocalRecipientPublicKeys(): Uint8Array[] {
+    return runtime.encapsulationKeyPair
+      ? [runtime.encapsulationKeyPair.publicKey]
+      : [];
+  }
 
   function emit() {
     for (const listener of listeners) {
@@ -196,6 +223,13 @@ function createNotesStore(
     emit();
   }
 
+  function updateRecipientPublicKeys(encodedPublicKeys: string[]) {
+    recipientPublicKeys =
+      encodedPublicKeys.length > 0
+        ? encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey))
+        : getLocalRecipientPublicKeys();
+  }
+
   function resetStore() {
     doc = null;
     record = null;
@@ -204,6 +238,7 @@ function createNotesStore(
     syncPromise = null;
     syncRequested = false;
     writeChain = Promise.resolve();
+    recipientPublicKeys = getLocalRecipientPublicKeys();
     setSnapshot({
       ready: false,
       text: "",
@@ -487,6 +522,7 @@ function createNotesStore(
               continue;
             }
 
+            updateRecipientPublicKeys(created.recipientEncapsulationPublicKeys);
             documentId = created.id;
             nextRecord = await persistDocument(doc, {
               documentId,
@@ -512,9 +548,10 @@ function createNotesStore(
 
                 return {
                   id: pending.id,
-                  encryptedData: await encryptLoroUpdate(updateBytes, [
-                    encapsulationKeyPair.publicKey,
-                  ]),
+                  encryptedData: await encryptLoroUpdate(
+                    updateBytes,
+                    recipientPublicKeys,
+                  ),
                   partialStartVersionVector:
                     versionVectors.partialStartVersionVector,
                   partialEndVersionVector:
@@ -533,6 +570,8 @@ function createNotesStore(
             if (!synced) {
               continue;
             }
+
+            updateRecipientPublicKeys(synced.recipientEncapsulationPublicKeys);
 
             for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
               await deletePendingUpdate(acceptedOutgoingUpdateId);
@@ -555,10 +594,18 @@ function createNotesStore(
               });
             }
 
+            const previousAccessEpoch = nextRecord.accessEpoch;
             nextRecord = await persistDocument(doc, {
               documentId,
               accessEpoch: synced.currentAccessEpoch,
             });
+
+            if (
+              pendingUpdates.length > 0 &&
+              synced.currentAccessEpoch !== previousAccessEpoch
+            ) {
+              syncRequested = true;
+            }
           }
         } catch (error) {
           if (
@@ -650,6 +697,9 @@ function createNotesStore(
     updateRuntime(nextRuntime: NotesRuntime) {
       const previousRuntime = runtime;
       runtime = nextRuntime;
+      if (!record?.documentId) {
+        recipientPublicKeys = getLocalRecipientPublicKeys();
+      }
 
       if (nextRuntime.dbStatus !== "ready") {
         if (snapshot.ready || initialized || initializePromise) {
