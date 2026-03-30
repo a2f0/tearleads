@@ -1,5 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { LoroDoc, VersionVector } from "loro-crdt";
+import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
 
 function toBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.slice().buffer;
@@ -52,8 +52,56 @@ export function exportUpdatesSince(
   });
 }
 
+export function encodeEncodedVersionVector(
+  versionVector: VersionVector,
+): string {
+  return bytesToBase64(versionVector.encode());
+}
+
 export function encodeVersionVector(doc: LoroDoc): string {
-  return bytesToBase64(doc.oplogVersion().encode());
+  return encodeEncodedVersionVector(doc.oplogVersion());
+}
+
+export function decodeVersionVector(
+  encodedVersionVector: string | null | undefined,
+): VersionVector {
+  if (!encodedVersionVector) {
+    return new VersionVector(undefined);
+  }
+
+  return VersionVector.decode(base64ToBytes(encodedVersionVector));
+}
+
+export function getUpdateVersionVectors(update: Uint8Array): {
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
+} {
+  const metadata = decodeImportBlobMeta(update, true);
+
+  return {
+    partialStartVersionVector: encodeEncodedVersionVector(
+      metadata.partialStartVersionVector,
+    ),
+    partialEndVersionVector: encodeEncodedVersionVector(
+      metadata.partialEndVersionVector,
+    ),
+  };
+}
+
+export function satisfiesVersionVector(
+  encodedVersionVector: string | null | undefined,
+  partialVersionVector: string,
+): boolean {
+  const versionVector = decodeVersionVector(encodedVersionVector);
+  const requiredVersionVector = decodeVersionVector(partialVersionVector);
+
+  for (const [peerId, counter] of requiredVersionVector.toJSON()) {
+    if ((versionVector.get(peerId) ?? 0) < counter) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {

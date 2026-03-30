@@ -1,6 +1,5 @@
 export {
-  appendDocumentUpdate,
   createDocument,
-  getDocumentUpdates,
   type LoroRequestFn,
+  syncDocument,
 } from "./api";

@@ -22,6 +22,34 @@ adjacent planes:
 
 The server must remain plaintext-blind for document content.
 
+## Current Implementation
+
+The sequence-based client protocol has now been replaced by a single sync
+handshake for the document plane.
+
+Current shape:
+
+- `POST /documents`
+  - creates a document and initializes access state
+- `POST /documents/:documentId/sync`
+  - request includes:
+    - `accessEpoch`
+    - `localVersionVector`
+    - `outgoingUpdates[]`
+  - each outgoing update includes:
+    - client-generated update id
+    - encrypted Loro update envelope
+    - visible `partialStartVersionVector`
+    - visible `partialEndVersionVector`
+  - response includes:
+    - `currentAccessEpoch`
+    - `acceptedOutgoingUpdateIds[]`
+    - encrypted updates whose visible causal metadata is not yet covered by the
+      client version vector
+
+The server still does not decrypt document content. It filters updates using the
+visible partial version-vector metadata supplied with each encrypted update.
+
 ## Why This Boundary Matters
 
 Issue `#82` is about replacing the current sequence-oriented update fetch with a

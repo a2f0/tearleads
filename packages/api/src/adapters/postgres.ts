@@ -19,6 +19,55 @@ await client.exec(`
     encrypted_data TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS organizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS organization_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS group_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    group_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS object_access_grants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    access_level TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS object_access_epochs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    recipient_user_id TEXT NOT NULL,
+    recipient_key_fingerprint TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   ${loroSql}
 `);
 

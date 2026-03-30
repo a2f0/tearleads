@@ -7,17 +7,18 @@ import {
   encryptLoroUpdate,
   exportUpdatesSince,
   getTextValue,
+  getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
 import { del } from "../../src/adapters/redis";
 import {
-  appendDocumentUpdate,
   createDocument,
   fetchEncapsulationKey,
-  getDocumentUpdates,
+  syncDocument,
 } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
+import { grantDocumentWriteAccessToUser } from "../helpers/grantDocumentAccess";
 import { registerUser } from "../helpers/registerUser";
 
 const alice = createTestUser();
@@ -49,8 +50,6 @@ test("Bob authenticates", async () => {
 });
 
 let documentId = "";
-let aliceCursor = 0;
-let bobCursor = 0;
 
 test("Alice and Bob converge through encrypted Loro update streaming", async () => {
   const createDocumentResponse = await createDocument(alice.token);
@@ -58,6 +57,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const createdDocument = await createDocumentResponse.json();
   documentId = createdDocument.id;
   expect(typeof documentId).toBe("string");
+  expect(createdDocument.currentAccessEpoch).toBe(1);
 
   const bobKeyResponse = await fetchEncapsulationKey(bob.userId, alice.token);
   expect(bobKeyResponse.status).toBe(200);
@@ -72,6 +72,23 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const aliceDoc = await createTextDocument(alice.fingerprint);
   const bobDoc = await createTextDocument(bob.fingerprint);
 
+  const bobForbiddenFetchResponse = await syncDocument(
+    documentId,
+    {
+      accessEpoch: 1,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [],
+    },
+    bob.token,
+  );
+  expect(bobForbiddenFetchResponse.status).toBe(403);
+
+  const grantedAccessEpoch = await grantDocumentWriteAccessToUser(
+    documentId,
+    bob.userId,
+  );
+  expect(grantedAccessEpoch).toBe(2);
+
   const aliceVersion = encodeVersionVector(aliceDoc);
   aliceDoc.getText("text").update("Hello from Alice");
   const firstUpdate = exportUpdatesSince(aliceDoc, aliceVersion);
@@ -79,22 +96,67 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
     alicePublicKey,
     bobPublicKey,
   ]);
+  const firstUpdateVersionVectors = getUpdateVersionVectors(firstUpdate);
 
-  const appendFirstResponse = await appendDocumentUpdate(
+  const appendFirstResponse = await syncDocument(
     documentId,
-    encryptedFirstUpdate,
+    {
+      accessEpoch: 1,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: encryptedFirstUpdate,
+          partialStartVersionVector:
+            firstUpdateVersionVectors.partialStartVersionVector,
+          partialEndVersionVector:
+            firstUpdateVersionVectors.partialEndVersionVector,
+        },
+      ],
+    },
     alice.token,
   );
   expect(appendFirstResponse.status).toBe(200);
-  const appendedFirstUpdate = await appendFirstResponse.json();
-  aliceCursor = appendedFirstUpdate.sequence;
-  expect(aliceCursor).toBeGreaterThan(0);
+  const staleEpochSync = await appendFirstResponse.json();
+  expect(staleEpochSync.acceptedOutgoingUpdateIds).toHaveLength(0);
+  expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
 
-  const bobFetchResponse = await getDocumentUpdates(documentId, bob.token);
+  const appendGrantedResponse = await syncDocument(
+    documentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: encryptedFirstUpdate,
+          partialStartVersionVector:
+            firstUpdateVersionVectors.partialStartVersionVector,
+          partialEndVersionVector:
+            firstUpdateVersionVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(appendGrantedResponse.status).toBe(200);
+  const appendedFirstUpdate = await appendGrantedResponse.json();
+  expect(appendedFirstUpdate.acceptedOutgoingUpdateIds).toHaveLength(1);
+  expect(appendedFirstUpdate.currentAccessEpoch).toBe(grantedAccessEpoch);
+
+  const bobFetchResponse = await syncDocument(
+    documentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [],
+    },
+    bob.token,
+  );
   expect(bobFetchResponse.status).toBe(200);
   const bobFetched = await bobFetchResponse.json();
   expect(bobFetched.updates.length).toBe(1);
-  bobCursor = bobFetched.nextCursor;
+  expect(bobFetched.currentAccessEpoch).toBe(grantedAccessEpoch);
 
   const decryptedForBob = await Promise.all(
     bobFetched.updates.map((update: { encryptedData: string }) =>
@@ -111,23 +173,44 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
     alicePublicKey,
     bobPublicKey,
   ]);
+  const secondUpdateVersionVectors = getUpdateVersionVectors(secondUpdate);
 
-  const appendSecondResponse = await appendDocumentUpdate(
+  const appendSecondResponse = await syncDocument(
     documentId,
-    encryptedSecondUpdate,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: encryptedSecondUpdate,
+          partialStartVersionVector:
+            secondUpdateVersionVectors.partialStartVersionVector,
+          partialEndVersionVector:
+            secondUpdateVersionVectors.partialEndVersionVector,
+        },
+      ],
+    },
     bob.token,
   );
   expect(appendSecondResponse.status).toBe(200);
+  const appendedSecondUpdate = await appendSecondResponse.json();
+  expect(appendedSecondUpdate.acceptedOutgoingUpdateIds).toHaveLength(1);
+  expect(appendedSecondUpdate.currentAccessEpoch).toBe(grantedAccessEpoch);
 
-  const aliceFetchResponse = await getDocumentUpdates(
+  const aliceFetchResponse = await syncDocument(
     documentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [],
+    },
     alice.token,
-    aliceCursor,
   );
   expect(aliceFetchResponse.status).toBe(200);
   const aliceFetched = await aliceFetchResponse.json();
   expect(aliceFetched.updates.length).toBe(1);
-  aliceCursor = aliceFetched.nextCursor;
+  expect(aliceFetched.currentAccessEpoch).toBe(grantedAccessEpoch);
 
   const decryptedForAlice = await Promise.all(
     aliceFetched.updates.map((update: { encryptedData: string }) =>
@@ -137,12 +220,16 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   importUpdates(aliceDoc, decryptedForAlice);
   expect(getTextValue(aliceDoc)).toBe("Hello from Alice and Bob");
 
-  const bobNoopFetchResponse = await getDocumentUpdates(
+  const bobNoopFetchResponse = await syncDocument(
     documentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [],
+    },
     bob.token,
-    bobCursor,
   );
   expect(bobNoopFetchResponse.status).toBe(200);
   const bobNoopFetched = await bobNoopFetchResponse.json();
-  expect(bobNoopFetched.updates.length).toBe(1);
+  expect(bobNoopFetched.updates.length).toBe(0);
 });

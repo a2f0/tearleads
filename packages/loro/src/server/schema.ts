@@ -9,10 +9,12 @@ export const documents = pgTable("documents", {
 
 export const documentUpdates = pgTable("document_updates", {
   sequence: integer("sequence").generatedAlwaysAsIdentity().primaryKey(),
-  id: uuid("id").defaultRandom().notNull().unique(),
+  id: uuid("id").notNull().unique(),
   documentId: uuid("document_id").notNull(),
   authorFingerprint: text("author_fingerprint").notNull(),
   encryptedData: text("encrypted_data").notNull(),
+  partialStartVersionVector: text("partial_start_version_vector").notNull(),
+  partialEndVersionVector: text("partial_end_version_vector").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

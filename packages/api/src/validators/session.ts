@@ -5,6 +5,7 @@ import {
 } from "@tearleads/validators/util";
 
 export interface SessionData {
+  userId: string;
   fingerprint: string;
   createdAt: number;
 }
@@ -12,6 +13,7 @@ export interface SessionData {
 export function isSessionData(value: unknown): value is SessionData {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "userId") &&
     hasStringProperty(value, "fingerprint") &&
     hasNumberProperty(value, "createdAt")
   );

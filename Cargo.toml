@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/http-client", "crates/http-client-wasm", "crates/http-server", "crates/protocol", "crates/store"]
+members = []
 resolver = "2"
 
 [profile.release]

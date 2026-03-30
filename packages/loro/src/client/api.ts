@@ -1,10 +1,9 @@
 import {
-  type AppendDocumentUpdateResponse,
   type CreateDocumentResponse,
-  type GetDocumentUpdatesResponse,
-  isAppendDocumentUpdateResponse,
   isCreateDocumentResponse,
-  isGetDocumentUpdatesResponse,
+  isSyncDocumentResponse,
+  type SyncDocumentOutgoingUpdate,
+  type SyncDocumentResponse,
 } from "../shared";
 
 export type LoroRequestFn = <T>(
@@ -20,28 +19,21 @@ export function createDocument(
   return request("/documents", isCreateDocumentResponse, "POST");
 }
 
-export function appendDocumentUpdate(
+export function syncDocument(
   request: LoroRequestFn,
   documentId: string,
-  encryptedData: string,
-): Promise<AppendDocumentUpdateResponse | null> {
+  accessEpoch: number,
+  localVersionVector: string | null,
+  outgoingUpdates: SyncDocumentOutgoingUpdate[],
+): Promise<SyncDocumentResponse | null> {
   return request(
-    `/documents/${documentId}/updates`,
-    isAppendDocumentUpdateResponse,
+    `/documents/${documentId}/sync`,
+    isSyncDocumentResponse,
     "POST",
-    JSON.stringify({ encryptedData }),
-  );
-}
-
-export function getDocumentUpdates(
-  request: LoroRequestFn,
-  documentId: string,
-  since?: number,
-): Promise<GetDocumentUpdatesResponse | null> {
-  const query = since === undefined ? "" : `?since=${since}`;
-  return request(
-    `/documents/${documentId}/updates${query}`,
-    isGetDocumentUpdatesResponse,
-    "GET",
+    JSON.stringify({
+      accessEpoch,
+      localVersionVector,
+      outgoingUpdates,
+    }),
   );
 }
