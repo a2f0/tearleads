@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
 } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
@@ -20,6 +21,7 @@ interface AppDataContextValue {
   authToken: string | null;
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
+  domainScope: object;
   encapsulationKeyPair: ReturnType<
     typeof useCryptoSession
   >["encapsulationKeyPair"];
@@ -43,6 +45,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     useCryptoSession();
   const { events } = useEvents();
   const { log } = useLog();
+  const domainScopeRef = useRef({});
 
   const execSql = useCallback(
     async (sql: string, bind?: Record<string, SqlRowValue>) => {
@@ -62,6 +65,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       authToken,
       dbId,
       dbStatus,
+      domainScope: domainScopeRef.current,
       encapsulationKeyPair,
       events,
       execSql,
@@ -74,6 +78,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       authToken,
       dbId,
       dbStatus,
+      domainScopeRef,
       encapsulationKeyPair,
       events,
       execSql,

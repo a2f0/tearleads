@@ -98,3 +98,48 @@ test("userId resets to none when key pair is destroyed", async () => {
   spy.mockRestore();
   view.unmount();
 });
+
+test("notes windows in the same pane share live note state", async () => {
+  const view = renderPane();
+
+  await waitFor(() => {
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
+  });
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Notes"));
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 160,
+    clientY: 160,
+  });
+  fireEvent.click(view.getByText("Open Notes"));
+
+  await waitFor(() => {
+    expect(
+      view.container.querySelectorAll("textarea.notes-editor"),
+    ).toHaveLength(2);
+  });
+
+  const noteEditors = view.container.querySelectorAll<HTMLTextAreaElement>(
+    "textarea.notes-editor",
+  );
+  const firstEditor = noteEditors[0];
+  const secondEditor = noteEditors[1];
+
+  invariant(firstEditor, "first editor not found");
+  invariant(secondEditor, "second editor not found");
+
+  fireEvent.change(firstEditor, {
+    target: { value: "shared pane note" },
+  });
+
+  await waitFor(() => {
+    expect(firstEditor.value).toBe("shared pane note");
+    expect(secondEditor.value).toBe("shared pane note");
+  });
+
+  view.unmount();
+});
