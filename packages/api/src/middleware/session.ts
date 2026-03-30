@@ -8,7 +8,7 @@ import { isSessionData } from "../validators/session";
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_PREFIX = "session:";
 
-export interface SessionEnv {
+interface SessionEnv {
   Variables: {
     session: SessionData;
   };
