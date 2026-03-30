@@ -39,21 +39,6 @@
       "quoteStyle": "double"
     }
   },
-  // Bracket notation is required in validators because type guards narrow
-  // through Record<string, unknown>, and tsconfig's noPropertyAccessFromIndexSignature
-  // forbids dot access on index signatures.
-  "overrides": [
-    {
-      "includes": ["packages/validators/**", "packages/api/src/validators/**"],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "useLiteralKeys": "off"
-          }
-        }
-      }
-    }
-  ],
   "assist": {
     "enabled": true,
     "actions": {

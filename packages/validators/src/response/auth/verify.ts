@@ -1,4 +1,5 @@
 import { isPlainObject } from "../../isPlainObject";
+import { hasBooleanProperty, hasOptionalStringProperty } from "../../util";
 
 export interface VerifyResponse {
   authenticated: boolean;
@@ -9,8 +10,8 @@ export interface VerifyResponse {
 export function isVerifyResponse(value: unknown): value is VerifyResponse {
   return (
     isPlainObject(value) &&
-    typeof value["authenticated"] === "boolean" &&
-    (value["token"] === undefined || typeof value["token"] === "string") &&
-    (value["error"] === undefined || typeof value["error"] === "string")
+    hasBooleanProperty(value, "authenticated") &&
+    hasOptionalStringProperty(value, "token") &&
+    hasOptionalStringProperty(value, "error")
   );
 }

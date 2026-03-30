@@ -5,30 +5,13 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import {
+  hasArrayProperty,
+  hasPropertyValue,
+  hasStringProperty,
+} from "@tearleads/validators/util";
 
 const ENCRYPTED_UPDATE_FORMAT = "tearleads.loro.update.v1";
-
-function hasStringProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, string> {
-  return typeof value[key] === "string";
-}
-
-function hasArrayProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, unknown[]> {
-  return Array.isArray(value[key]);
-}
-
-function hasExactProperty<Key extends string, ExactValue extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-  expected: ExactValue,
-): value is Record<string, unknown> & Record<Key, ExactValue> {
-  return value[key] === expected;
-}
 
 export interface SerializedRecipientEntry {
   keyFingerprint: string;
@@ -59,7 +42,7 @@ function isSerializedEncryptedUpdate(
 ): value is SerializedEncryptedUpdate {
   return (
     isPlainObject(value) &&
-    hasExactProperty(value, "format", ENCRYPTED_UPDATE_FORMAT) &&
+    hasPropertyValue(value, "format", ENCRYPTED_UPDATE_FORMAT) &&
     hasStringProperty(value, "iv") &&
     hasStringProperty(value, "ciphertext") &&
     hasArrayProperty(value, "recipients") &&

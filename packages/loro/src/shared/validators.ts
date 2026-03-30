@@ -1,33 +1,12 @@
+import {
+  hasArrayProperty,
+  hasNullableNumberProperty,
+  hasNumberProperty,
+  hasStringProperty,
+} from "@tearleads/validators/util";
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function hasStringProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, string> {
-  return typeof value[key] === "string";
-}
-
-function hasNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number> {
-  return typeof value[key] === "number";
-}
-
-function hasNullableNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number | null> {
-  return typeof value[key] === "number" || value[key] === null;
-}
-
-function hasArrayProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, unknown[]> {
-  return Array.isArray(value[key]);
 }
 
 export interface AppendDocumentUpdateRequest {
