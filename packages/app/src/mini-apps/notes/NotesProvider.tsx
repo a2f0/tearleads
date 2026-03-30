@@ -640,7 +640,7 @@ export function NotesProvider({ children }: PropsWithChildren) {
   const runtime = useAppData();
   const store = useMemo(
     () => getOrCreateNotesStore(runtime.domainScope, NOTE_ID, runtime),
-    [runtime],
+    [runtime.domainScope],
   );
 
   useEffect(() => {
