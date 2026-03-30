@@ -22,7 +22,7 @@ interface EffectiveDocumentRecipient {
   keyFingerprint: string;
 }
 
-export interface DocumentAccessState {
+interface DocumentAccessState {
   currentAccessEpoch: number;
   effectiveRecipients: EffectiveDocumentRecipient[];
 }
