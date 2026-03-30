@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useNotes } from "./NotesProvider";
 import "./Notes.css";
 
 export function Notes() {
-  const [text, setText] = useState("");
+  const { ready, setText, syncing, text } = useNotes();
 
   return (
     <div className="notes">
@@ -10,7 +10,9 @@ export function Notes() {
         className="notes-editor"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Type your notes here..."
+        placeholder={ready ? "Type your notes here..." : "Loading notes..."}
+        disabled={!ready}
+        aria-label={syncing ? "Notes editor syncing" : "Notes editor"}
       />
     </div>
   );

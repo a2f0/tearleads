@@ -1,4 +1,6 @@
 import type {
+  DatabaseWorkerExecOptions,
+  DatabaseWorkerExecResult,
   DatabaseWorkerInitOptions,
   WorkerRequest,
   WorkerResponse,
@@ -14,6 +16,11 @@ export interface DatabaseWorkerScope {
 
 export interface RegisterDatabaseWorkerOptions {
   onInit?: (options: DatabaseWorkerInitOptions) => Promise<void> | void;
+  onExec?: (
+    options: DatabaseWorkerExecOptions,
+  ) =>
+    | Promise<DatabaseWorkerExecResult["rows"]>
+    | DatabaseWorkerExecResult["rows"];
 }
 
 export function registerDatabaseWorker(
@@ -55,6 +62,15 @@ export async function handleRequest(
       return {
         id: message.id,
         result: { ok: true },
+      };
+
+    case "exec":
+      return {
+        id: message.id,
+        result: {
+          ok: true,
+          rows: (await options.onExec?.(message.params)) ?? [],
+        },
       };
   }
 }

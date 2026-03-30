@@ -5,6 +5,9 @@ export interface DatabaseWorkerClient {
   init(
     options: WorkerRequestMap["init"]["params"],
   ): Promise<WorkerRequestMap["init"]["result"]>;
+  exec(
+    options: WorkerRequestMap["exec"]["params"],
+  ): Promise<WorkerRequestMap["exec"]["result"]>;
   destroy(): void;
 }
 
@@ -111,6 +114,9 @@ export function createDatabaseWorkerClient(
     },
     init(options) {
       return request("init", options);
+    },
+    exec(options) {
+      return request("exec", options);
     },
     destroy() {
       if (isDestroyed) {
