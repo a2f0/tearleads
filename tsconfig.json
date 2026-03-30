@@ -8,6 +8,8 @@
     { "path": "packages/app-web" },
     { "path": "packages/app-electrobun" },
     { "path": "packages/crypto" },
+    { "path": "packages/encoding" },
+    { "path": "packages/loro" },
     { "path": "packages/sqlite-worker" },
     { "path": "packages/sqlite-instance" },
     { "path": "packages/validators" }

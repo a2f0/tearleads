@@ -35,6 +35,8 @@
       "dependencies": {
         "@electric-sql/pglite": "0.4.1",
         "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "hono": "4.7.11",
@@ -50,6 +52,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {
@@ -110,6 +113,28 @@
       "version": "0.1.0",
       "dependencies": {
         "@noble/post-quantum": "0.5.4",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/encoding": {
+      "name": "@tearleads/encoding",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/loro": {
+      "name": "@tearleads/loro",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/validators": "workspace:*",
+        "drizzle-orm": "0.45.1",
+        "hono": "4.7.11",
+        "loro-crdt": "1.10.8",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -372,6 +397,10 @@
     "@tearleads/api-client": ["@tearleads/api-client@workspace:packages/api-client"],
 
     "@tearleads/crypto": ["@tearleads/crypto@workspace:packages/crypto"],
+
+    "@tearleads/encoding": ["@tearleads/encoding@workspace:packages/encoding"],
+
+    "@tearleads/loro": ["@tearleads/loro@workspace:packages/loro"],
 
     "@tearleads/sqlite-instance": ["@tearleads/sqlite-instance@workspace:packages/sqlite-instance"],
 
@@ -700,6 +729,8 @@
     "long": ["long@5.3.2", "", {}, "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA=="],
 
     "loose-envify": ["loose-envify@1.4.0", "", { "dependencies": { "js-tokens": "^3.0.0 || ^4.0.0" }, "bin": { "loose-envify": "cli.js" } }, "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q=="],
+
+    "loro-crdt": ["loro-crdt@1.10.8", "", {}, "sha512-GvH8fSJST1VDHRGzlQml80pBYoFbIP4ULeV1S8fD4ffmA8m+icoPORyVUW2AkJBY3dxKIcMMn0WqaJmpCmnbkQ=="],
 
     "lru-cache": ["lru-cache@7.18.3", "", {}, "sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA=="],
 

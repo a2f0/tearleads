@@ -1,4 +1,5 @@
 import { hexToBytes, verify } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { isVerifyRequest } from "@tearleads/validators/request";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
@@ -37,7 +38,7 @@ verifyRoute.post(
       );
     }
 
-    const publicKey = new Uint8Array(Buffer.from(storedKey, "base64"));
+    const publicKey = base64ToBytes(storedKey);
     const challengeBytes = hexToBytes(challengeHex);
     const signatureBytes = new Uint8Array(signature);
 

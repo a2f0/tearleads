@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadKey } from "../../../test/helpers/api";
@@ -12,6 +13,10 @@ import { del, get } from "../../adapters/redis";
 import { users } from "../../schema";
 
 let fingerprint: string;
+
+function decodeKey(value: string): number[] {
+  return Array.from(base64ToBytes(value));
+}
 
 afterAll(async () => {
   await del(fingerprint);
@@ -33,7 +38,7 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
 
   const stored = await get(fingerprint);
   invariant(stored, "expected publicKey to be stored in redis by fingerprint");
-  expect(Array.from(Buffer.from(stored, "base64"))).toEqual(keyArray);
+  expect(decodeKey(stored)).toEqual(keyArray);
 });
 
 test("POST /auth/register creates a user in postgres", async () => {
@@ -50,9 +55,7 @@ test("POST /auth/register creates a user in postgres", async () => {
 
   invariant(user, "expected user to exist in postgres");
   expect(user.fingerprint).toBe(fingerprint);
-  expect(Array.from(Buffer.from(user.signingPublicKey, "base64"))).toEqual(
-    keyArray,
-  );
+  expect(decodeKey(user.signingPublicKey)).toEqual(keyArray);
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

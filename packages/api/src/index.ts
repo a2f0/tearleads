@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./routes/auth";
+import { documentsRouter } from "./routes/documents";
 import { health } from "./routes/health";
 import { itemsRouter } from "./routes/items";
 import { websocket } from "./ws";
@@ -10,6 +11,7 @@ const app = new Hono();
 app.use("*", cors());
 
 app.route("/", auth);
+app.route("/", documentsRouter);
 app.route("/", health);
 app.route("/", itemsRouter);
 

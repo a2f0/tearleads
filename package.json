@@ -38,6 +38,8 @@
     "packages/app-web",
     "packages/app-electrobun",
     "packages/crypto",
+    "packages/encoding",
+    "packages/loro",
     "packages/sqlite-instance",
     "packages/sqlite-worker",
     "packages/validators"
