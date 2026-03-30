@@ -12,7 +12,7 @@ export function Contacts() {
 
   useEffect(() => {
     if (peerUserId) {
-      setDraftUserId(peerUserId);
+      setDraftUserId((currentId) => (currentId ? currentId : peerUserId));
     }
   }, [peerUserId]);
 
