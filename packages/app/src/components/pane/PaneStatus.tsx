@@ -39,12 +39,7 @@ export function PaneStatus() {
       <br />
       session: {authToken ? authToken.slice(0, 32) : "none"}
       <br />
-      addressBook: {entries.length === 0 ? "empty" : ""}
-      {entries.map((e) => (
-        <div key={e.userId}>
-          {e.userId}: {e.encapsulationPublicKey.slice(0, 16)}...
-        </div>
-      ))}
+      contacts: {entries.length}
       <br />
       network: {online ? "online" : "offline"}
       <br />

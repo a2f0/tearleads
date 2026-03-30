@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
+import { Contacts } from "../../mini-apps/contacts/Contacts";
 import { Notes } from "../../mini-apps/notes/Notes";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
@@ -42,6 +43,13 @@ function PaneInner({ className }: { className: string }) {
     setContextMenu(null);
   }, [contextMenu, create]);
 
+  const openContacts = useCallback(() => {
+    if (contextMenu) {
+      create("Contacts", contextMenu.x, contextMenu.y, Contacts);
+    }
+    setContextMenu(null);
+  }, [contextMenu, create]);
+
   return (
     <section
       role="application"
@@ -60,6 +68,7 @@ function PaneInner({ className }: { className: string }) {
         <Menu position={contextMenu} onClose={closeContextMenu}>
           <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
           <MenuItem label="Open Notes" onClick={openNotes} />
+          <MenuItem label="Open Contacts" onClick={openContacts} />
         </Menu>
       )}
     </section>
