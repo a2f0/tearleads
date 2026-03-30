@@ -50,8 +50,8 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
         initialX: x,
         initialY: y,
         minimized: false,
+        ...(component && { component }),
       };
-      if (component) entry.component = component;
       setWindows((prev) => [...prev, entry]);
       return id;
     },
