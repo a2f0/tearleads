@@ -11,6 +11,18 @@ export interface DatabaseWorkerInitOptions {
   key: string;
 }
 
+export type SqliteBindValue = string | number | null;
+
+export interface DatabaseWorkerExecOptions {
+  sql: string;
+  bind?: Record<string, SqliteBindValue>;
+}
+
+export interface DatabaseWorkerExecResult {
+  ok: true;
+  rows: Record<string, SqliteBindValue>[];
+}
+
 export interface DatabaseWorkerReady {
   ok: true;
 }
@@ -30,6 +42,10 @@ export interface WorkerRequestMap {
   init: {
     params: DatabaseWorkerInitOptions;
     result: DatabaseWorkerReady;
+  };
+  exec: {
+    params: DatabaseWorkerExecOptions;
+    result: DatabaseWorkerExecResult;
   };
 }
 

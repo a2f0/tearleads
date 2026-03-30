@@ -80,3 +80,28 @@ test("registerDatabaseWorker posts error responses for thrown init handlers", as
     },
   ]);
 });
+
+test("handleRequest returns exec rows", async () => {
+  await expect(
+    handleRequest(
+      {
+        id: 3,
+        method: "exec",
+        params: {
+          sql: "SELECT 1 AS value",
+        },
+      },
+      {
+        onExec() {
+          return [{ value: 1 }];
+        },
+      },
+    ),
+  ).resolves.toEqual({
+    id: 3,
+    result: {
+      ok: true,
+      rows: [{ value: 1 }],
+    },
+  });
+});

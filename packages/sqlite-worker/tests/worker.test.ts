@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 
+// Wait for exactly one worker response so each assertion can pair a request
+// with its next message without leaving persistent listeners behind.
 function onceMessage(worker: Worker): Promise<unknown> {
   return new Promise((resolve, reject) => {
     worker.addEventListener("message", (event) => resolve(event.data), {
@@ -46,6 +48,76 @@ test("worker responds to init", async () => {
     id: 2,
     result: {
       ok: true,
+    },
+  });
+
+  worker.terminate();
+});
+
+test("worker responds to exec", async () => {
+  const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
+
+  worker.postMessage({
+    id: 2,
+    method: "init",
+    params: {
+      dbName: "test.db",
+      cipher: "sqlcipher",
+      key: "secret",
+    },
+  });
+
+  await onceMessage(worker);
+
+  worker.postMessage({
+    id: 3,
+    method: "exec",
+    params: {
+      sql: "SELECT 1 AS value",
+    },
+  });
+
+  expect(await onceMessage(worker)).toEqual({
+    id: 3,
+    result: {
+      ok: true,
+      rows: [{ value: 1 }],
+    },
+  });
+
+  worker.terminate();
+});
+
+test("worker rejects repeat init", async () => {
+  const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
+
+  worker.postMessage({
+    id: 4,
+    method: "init",
+    params: {
+      dbName: "test.db",
+      cipher: "sqlcipher",
+      key: "secret",
+    },
+  });
+
+  await onceMessage(worker);
+
+  worker.postMessage({
+    id: 5,
+    method: "init",
+    params: {
+      dbName: "test.db",
+      cipher: "sqlcipher",
+      key: "secret",
+    },
+  });
+
+  expect(await onceMessage(worker)).toEqual({
+    id: 5,
+    result: {
+      ok: false,
+      message: "Database has already been initialized.",
     },
   });
 

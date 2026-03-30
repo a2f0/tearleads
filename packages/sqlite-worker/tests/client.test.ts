@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDatabaseWorkerClient } from "../src/client";
+import { createDatabaseWorkerClient, type WorkerLike } from "../src/client";
 
 type WorkerMessage = {
   id: number;
@@ -7,7 +7,7 @@ type WorkerMessage = {
   params: unknown;
 };
 
-class MockWorker extends EventTarget {
+class MockWorker extends EventTarget implements WorkerLike {
   readonly messages: WorkerMessage[] = [];
 
   postMessage(message: WorkerMessage) {
@@ -17,7 +17,7 @@ class MockWorker extends EventTarget {
 
 test("destroy rejects pending requests and detaches listeners", async () => {
   const worker = new MockWorker();
-  const client = createDatabaseWorkerClient(worker as unknown as Worker);
+  const client = createDatabaseWorkerClient(worker);
 
   const pendingPing = client.ping();
   expect(worker.messages).toHaveLength(1);
@@ -43,4 +43,23 @@ test("destroy rejects pending requests and detaches listeners", async () => {
   expect(client.ping()).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+});
+
+test("exec posts query requests", async () => {
+  const worker = new MockWorker();
+  const client = createDatabaseWorkerClient(worker);
+
+  void client.exec({
+    sql: "SELECT 1 AS value",
+  });
+
+  expect(worker.messages).toEqual([
+    {
+      id: 1,
+      method: "exec",
+      params: {
+        sql: "SELECT 1 AS value",
+      },
+    },
+  ]);
 });

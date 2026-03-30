@@ -65,6 +65,8 @@
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "react": "catalog:react",
