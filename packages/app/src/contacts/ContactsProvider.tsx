@@ -6,8 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useApiClient } from "../api/ApiClientProvider";
-import { useLog } from "../logging/LogProvider";
+import { useAppData } from "../data/AppDataProvider";
 
 interface AddressBookEntry {
   userId: string;
@@ -24,8 +23,7 @@ const ContactsContext = createContext<ContactsContextValue | null>(null);
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
-  const { log } = useLog();
-  const apiClient = useApiClient();
+  const { apiClient, log } = useAppData();
 
   const importKey = useCallback(
     async (userId: string) => {

@@ -2,7 +2,6 @@ import { toFingerprint } from "@tearleads/crypto";
 import { isUserEvent } from "@tearleads/validators/event";
 import { useEffect, useState } from "react";
 import { useNetworkState } from "../../api/NetworkStateProvider";
-import { useContacts } from "../../contacts/ContactsProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useEvents } from "../../events/EventsProvider";
@@ -11,7 +10,6 @@ import { usePeerUserId } from "./DualPaneProvider";
 export function PaneStatus() {
   const { id, status } = useDatabase();
   const { signingKeyPair, userId, authToken } = useCryptoSession();
-  const { entries } = useContacts();
   const { events, connected } = useEvents();
   const { online } = useNetworkState();
   const peerUserId = usePeerUserId();
@@ -38,8 +36,6 @@ export function PaneStatus() {
       peerUserId: {peerUserId ?? "none"}
       <br />
       session: {authToken ? authToken.slice(0, 32) : "none"}
-      <br />
-      contacts: {entries.length}
       <br />
       network: {online ? "online" : "offline"}
       <br />

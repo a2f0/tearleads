@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { Contacts } from "../../mini-apps/contacts/Contacts";
-import { Notes } from "../../mini-apps/notes/Notes";
+import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
+import { NotesApp } from "../../mini-apps/notes/NotesApp";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -38,14 +38,14 @@ function PaneInner({ className }: { className: string }) {
 
   const openNotes = useCallback(() => {
     if (contextMenu) {
-      create("Notes", contextMenu.x, contextMenu.y, Notes);
+      create("Notes", contextMenu.x, contextMenu.y, NotesApp);
     }
     setContextMenu(null);
   }, [contextMenu, create]);
 
   const openContacts = useCallback(() => {
     if (contextMenu) {
-      create("Contacts", contextMenu.x, contextMenu.y, Contacts);
+      create("Contacts", contextMenu.x, contextMenu.y, ContactsApp);
     }
     setContextMenu(null);
   }, [contextMenu, create]);
