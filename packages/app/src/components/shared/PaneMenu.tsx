@@ -1,9 +1,7 @@
 import { useApiClient } from "../../api/ApiClientProvider";
-import { useAddressBook } from "../../crypto/AddressBookProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
-import { usePeerUserId } from "../pane/DualPaneProvider";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -19,19 +17,14 @@ export function PaneMenu({
     signingKeyPair,
     encapsulationKeyPair,
     userId,
-    isAuthenticated,
     generateKey,
     destroyKey,
     setUserId,
     loginWithChallenge,
   } = useCryptoSession();
-  const { entries, importKey } = useAddressBook();
   const { log } = useLog();
   const apiClient = useApiClient();
-  const peerUserId = usePeerUserId();
   const isTerminated = status === "terminated";
-  const hasPeerKey =
-    peerUserId !== null && entries.some((e) => e.userId === peerUserId);
 
   return (
     <Menu position={position} onClose={onClose}>
@@ -85,15 +78,6 @@ export function PaneMenu({
             log(`Key registered (${response.userId})`);
             setUserId(response.userId);
             await loginWithChallenge(response.challenge);
-          }}
-        />
-      )}
-      {isAuthenticated && peerUserId && !hasPeerKey && (
-        <MenuItem
-          label="Import Peer Key"
-          onClick={async () => {
-            onClose();
-            await importKey(peerUserId);
           }}
         />
       )}

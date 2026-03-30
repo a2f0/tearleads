@@ -19,12 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useApiClient } from "../../api/ApiClientProvider";
-import { useNetworkState } from "../../api/NetworkStateProvider";
-import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useDatabase } from "../../db/DatabaseProvider";
-import { useEvents } from "../../events/EventsProvider";
-import { useLog } from "../../logging/LogProvider";
+import { type SqlRow, useAppData } from "../../data/AppDataProvider";
 
 type NotesDocument = Awaited<ReturnType<typeof createTextDocument>>;
 
@@ -87,15 +82,13 @@ function getDeviceSeed(): string {
 }
 
 function readRowValue(
-  row: Record<string, string | number | null>,
+  row: SqlRow,
   key: string,
 ): string | number | null | undefined {
   return row[key];
 }
 
-function parseNoteRecord(
-  value: Record<string, string | number | null>,
-): NoteRecord {
+function parseNoteRecord(value: SqlRow): NoteRecord {
   const id = readRowValue(value, "id");
   const documentId = readRowValue(value, "document_id");
   const text = readRowValue(value, "text");
@@ -111,9 +104,7 @@ function parseNoteRecord(
   };
 }
 
-function parsePendingUpdateRecord(
-  value: Record<string, string | number | null>,
-): PendingUpdateRecord {
+function parsePendingUpdateRecord(value: SqlRow): PendingUpdateRecord {
   const id = readRowValue(value, "id");
   const updateData = readRowValue(value, "update_data");
 
@@ -137,12 +128,16 @@ function isDocumentUpdateCreatedEvent(
 }
 
 export function NotesProvider({ children }: PropsWithChildren) {
-  const apiClient = useApiClient();
-  const { online } = useNetworkState();
-  const { client: dbClient, status: dbStatus } = useDatabase();
-  const { encapsulationKeyPair, isAuthenticated } = useCryptoSession();
-  const { events } = useEvents();
-  const { log } = useLog();
+  const {
+    apiClient,
+    dbStatus,
+    encapsulationKeyPair,
+    events,
+    execSql,
+    isAuthenticated,
+    log,
+    online,
+  } = useAppData();
   const [ready, setReady] = useState(false);
   const [text, setEditorText] = useState("");
   const [syncing, setSyncing] = useState(false);
@@ -152,18 +147,6 @@ export function NotesProvider({ children }: PropsWithChildren) {
   const syncPromiseRef = useRef<Promise<void> | null>(null);
   const syncRequestedRef = useRef(false);
   const activeRef = useRef(true);
-
-  const execSql = useCallback(
-    async (sql: string, bind?: Record<string, string | number | null>) => {
-      if (!dbClient) {
-        throw new Error("Database client is unavailable.");
-      }
-
-      const result = await dbClient.exec(bind ? { sql, bind } : { sql });
-      return result.rows;
-    },
-    [dbClient],
-  );
 
   const ensureSchema = useCallback(async () => {
     await execSql(notesSql);
@@ -293,7 +276,7 @@ export function NotesProvider({ children }: PropsWithChildren) {
   );
 
   const initialize = useCallback(async () => {
-    if (!dbClient || dbStatus !== "ready") {
+    if (dbStatus !== "ready") {
       return;
     }
 
@@ -351,7 +334,7 @@ export function NotesProvider({ children }: PropsWithChildren) {
 
       throw error;
     }
-  }, [dbClient, dbStatus, ensureSchema, execSql, saveNoteRecord]);
+  }, [dbStatus, ensureSchema, execSql, saveNoteRecord]);
 
   const scheduleSync = useCallback(() => {
     syncRequestedRef.current = true;
@@ -365,7 +348,6 @@ export function NotesProvider({ children }: PropsWithChildren) {
         syncRequestedRef.current = false;
 
         if (
-          !dbClient ||
           !docRef.current ||
           !ready ||
           !online ||
@@ -469,7 +451,6 @@ export function NotesProvider({ children }: PropsWithChildren) {
     })();
   }, [
     apiClient,
-    dbClient,
     deletePendingUpdate,
     encapsulationKeyPair,
     isAuthenticated,

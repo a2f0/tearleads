@@ -1,0 +1,64 @@
+.contacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding);
+  height: 100%;
+  padding: var(--padding);
+  box-sizing: border-box;
+}
+
+.contacts-toolbar {
+  display: flex;
+  gap: calc(var(--padding) / 2);
+  align-items: center;
+}
+
+.contacts-toolbar input {
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--padding) / 2);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.contacts-toolbar button,
+.contacts-list button {
+  padding: calc(var(--padding) / 2) var(--padding);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.contacts-hint {
+  opacity: 0.8;
+}
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--padding) / 2);
+  overflow: auto;
+}
+
+.contacts-card {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--padding);
+  padding: calc(var(--padding) / 1.5);
+  border: 1px solid currentColor;
+}
+
+.contacts-card strong,
+.contacts-card span {
+  display: block;
+}
+
+.contacts-card span {
+  font-size: 0.9em;
+  opacity: 0.8;
+  word-break: break-all;
+}

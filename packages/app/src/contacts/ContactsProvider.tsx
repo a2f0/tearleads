@@ -6,26 +6,24 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useApiClient } from "../api/ApiClientProvider";
-import { useLog } from "../logging/LogProvider";
+import { useAppData } from "../data/AppDataProvider";
 
 interface AddressBookEntry {
   userId: string;
   encapsulationPublicKey: string;
 }
 
-interface AddressBookContextValue {
+interface ContactsContextValue {
   entries: ReadonlyArray<AddressBookEntry>;
   importKey: (userId: string) => Promise<void>;
   removeKey: (userId: string) => void;
 }
 
-const AddressBookContext = createContext<AddressBookContextValue | null>(null);
+const ContactsContext = createContext<ContactsContextValue | null>(null);
 
-export function AddressBookProvider({ children }: PropsWithChildren) {
+export function ContactsProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
-  const { log } = useLog();
-  const apiClient = useApiClient();
+  const { apiClient, log } = useAppData();
 
   const importKey = useCallback(
     async (userId: string) => {
@@ -60,18 +58,16 @@ export function AddressBookProvider({ children }: PropsWithChildren) {
   );
 
   return (
-    <AddressBookContext.Provider value={value}>
+    <ContactsContext.Provider value={value}>
       {children}
-    </AddressBookContext.Provider>
+    </ContactsContext.Provider>
   );
 }
 
-export function useAddressBook(): AddressBookContextValue {
-  const ctx = useContext(AddressBookContext);
+export function useContacts(): ContactsContextValue {
+  const ctx = useContext(ContactsContext);
   if (!ctx) {
-    throw new Error(
-      "useAddressBook must be used within an AddressBookProvider.",
-    );
+    throw new Error("useContacts must be used within a ContactsProvider.");
   }
   return ctx;
 }
