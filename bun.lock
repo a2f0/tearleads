@@ -23,12 +23,6 @@
         "typescript": "5.9.3",
       },
     },
-    "crates/http-client-wasm": {
-      "name": "http-client-wasm",
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
     "packages/api": {
       "name": "@tearleads/api",
       "version": "0.1.0",
@@ -628,8 +622,6 @@
     "headers-polyfill": ["headers-polyfill@4.0.3", "", {}, "sha512-IScLbePpkvO846sIwOtOTDjutRMWdXdJmXdMvk6gCBHxFO8d+QKOQedyZSxFTTFYRSmlgSTDtXqqq4pcenBXLQ=="],
 
     "hono": ["hono@4.7.11", "", {}, "sha512-rv0JMwC0KALbbmwJDEnxvQCeJh+xbS3KEWW5PC9cMJ08Ur9xgatI0HmtgYZfOdOSOeYsp5LO2cOhdI8cLEbDEQ=="],
-
-    "http-client-wasm": ["http-client-wasm@workspace:crates/http-client-wasm"],
 
     "http-proxy-agent": ["http-proxy-agent@7.0.2", "", { "dependencies": { "agent-base": "^7.1.0", "debug": "^4.3.4" } }, "sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig=="],
 

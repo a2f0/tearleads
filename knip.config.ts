@@ -57,9 +57,5 @@ export default {
       entry: ["tests/**/*.test.ts"],
       project: ["src/**/*.ts", "tests/**/*.ts"],
     },
-    "crates/http-client-wasm": {
-      entry: ["pkg/http_client_wasm.js", "tests/**/*.test.ts"],
-      project: ["pkg/**/*.{js,ts}", "tests/**/*.ts"],
-    },
   },
 } satisfies KnipConfig;

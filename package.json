@@ -31,7 +31,6 @@
     "knip": "knip"
   },
   "workspaces": [
-    "crates/http-client-wasm",
     "packages/api",
     "packages/api-client",
     "packages/app",
