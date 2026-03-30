@@ -14,6 +14,7 @@ export interface WindowEntry {
   initialX: number;
   initialY: number;
   minimized: boolean;
+  component?: React.ComponentType;
 }
 
 interface WindowStateContextValue {
@@ -22,7 +23,12 @@ interface WindowStateContextValue {
   // Both are already memoized so neither adds redundant computation.
   windows: WindowEntry[];
   windowMap: Map<string, WindowEntry>;
-  create: (title: string, x: number, y: number) => string;
+  create: (
+    title: string,
+    x: number,
+    y: number,
+    component?: React.ComponentType,
+  ) => string;
   close: (id: string) => void;
   minimize: (id: string) => void;
   restore: (id: string) => void;
@@ -35,14 +41,22 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
   const [windows, setWindows] = useState<WindowEntry[]>([]);
   const counter = useRef(0);
 
-  const create = useCallback((title: string, x: number, y: number) => {
-    const id = String(++counter.current);
-    setWindows((prev) => [
-      ...prev,
-      { id, title, initialX: x, initialY: y, minimized: false },
-    ]);
-    return id;
-  }, []);
+  const create = useCallback(
+    (title: string, x: number, y: number, component?: React.ComponentType) => {
+      const id = String(++counter.current);
+      const entry: WindowEntry = {
+        id,
+        title,
+        initialX: x,
+        initialY: y,
+        minimized: false,
+        ...(component && { component }),
+      };
+      setWindows((prev) => [...prev, entry]);
+      return id;
+    },
+    [],
+  );
 
   const close = useCallback((id: string) => {
     setWindows((prev) => prev.filter((w) => w.id !== id));

@@ -13,5 +13,8 @@ playwright-report/
 # Created by Playwright
 test-results/
 
+# Rust
+pkg/
+
 # Serena
 .serena/
