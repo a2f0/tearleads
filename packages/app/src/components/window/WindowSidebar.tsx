@@ -1,4 +1,10 @@
-import { type PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import "./WindowSidebar.css";
 
 const DEFAULT_WIDTH = 160;
@@ -29,7 +35,10 @@ export function WindowSidebar({
       if (!dragging.current) return;
       const dx = e.clientX - dragging.current.startX;
       setWidth(
-        Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, dragging.current.startWidth + dx)),
+        Math.min(
+          MAX_WIDTH,
+          Math.max(MIN_WIDTH, dragging.current.startWidth + dx),
+        ),
       );
     }
 
@@ -52,8 +61,9 @@ export function WindowSidebar({
   return (
     <div className="window-sidebar-layout">
       <div className="window-sidebar" style={{ width }} />
-      <div
-        role="separator"
+      <hr
+        aria-valuenow={width}
+        tabIndex={0}
         className="window-sidebar-handle"
         onMouseDown={handleMouseDown}
       />

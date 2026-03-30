@@ -12,11 +12,7 @@ export function WindowBody({
 }: PropsWithChildren<WindowBodyProps>) {
   return (
     <div className="window-body">
-      {showSidebar ? (
-        <WindowSidebar>{children}</WindowSidebar>
-      ) : (
-        children
-      )}
+      {showSidebar ? <WindowSidebar>{children}</WindowSidebar> : children}
     </div>
   );
 }
