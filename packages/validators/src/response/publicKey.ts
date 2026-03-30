@@ -1,4 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
+import { hasStringProperty } from "../util";
 
 export interface PublicKeyResponse {
   message: string;
@@ -11,8 +12,8 @@ export function isPublicKeyResponse(
 ): value is PublicKeyResponse {
   return (
     isPlainObject(value) &&
-    typeof value["message"] === "string" &&
-    typeof value["userId"] === "string" &&
-    typeof value["challenge"] === "string"
+    hasStringProperty(value, "message") &&
+    hasStringProperty(value, "userId") &&
+    hasStringProperty(value, "challenge")
   );
 }

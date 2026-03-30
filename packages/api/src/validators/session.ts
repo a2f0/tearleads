@@ -1,4 +1,8 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import {
+  hasNumberProperty,
+  hasStringProperty,
+} from "@tearleads/validators/util";
 
 export interface SessionData {
   fingerprint: string;
@@ -8,7 +12,7 @@ export interface SessionData {
 export function isSessionData(value: unknown): value is SessionData {
   return (
     isPlainObject(value) &&
-    typeof value["fingerprint"] === "string" &&
-    typeof value["createdAt"] === "number"
+    hasStringProperty(value, "fingerprint") &&
+    hasNumberProperty(value, "createdAt")
   );
 }

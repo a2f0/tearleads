@@ -1,4 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
+import { loroSql } from "@tearleads/loro/server";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../schema";
 
@@ -19,6 +20,7 @@ await client.exec(`
     spicedb_zed_token TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  ${loroSql}
 `);
 
 export default client;

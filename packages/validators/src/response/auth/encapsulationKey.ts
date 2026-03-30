@@ -1,4 +1,5 @@
 import { isPlainObject } from "../../isPlainObject";
+import { hasStringProperty } from "../../util";
 
 export interface EncapsulationKeyResponse {
   userId: string;
@@ -10,7 +11,7 @@ export function isEncapsulationKeyResponse(
 ): value is EncapsulationKeyResponse {
   return (
     isPlainObject(value) &&
-    typeof value["userId"] === "string" &&
-    typeof value["encapsulationPublicKey"] === "string"
+    hasStringProperty(value, "userId") &&
+    hasStringProperty(value, "encapsulationPublicKey")
   );
 }

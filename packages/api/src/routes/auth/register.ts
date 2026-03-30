@@ -4,6 +4,7 @@ import {
   generateChallenge,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { isPublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
@@ -33,10 +34,8 @@ registerRoute.post(
       .insert(users)
       .values({
         fingerprint,
-        signingPublicKey: Buffer.from(signingKeyBytes).toString("base64"),
-        encapsulationPublicKey: Buffer.from(encapsulationKeyBytes).toString(
-          "base64",
-        ),
+        signingPublicKey: bytesToBase64(signingKeyBytes),
+        encapsulationPublicKey: bytesToBase64(encapsulationKeyBytes),
       })
       .onConflictDoNothing({ target: users.fingerprint })
       .returning({ id: users.id });
@@ -45,7 +44,7 @@ registerRoute.post(
       return c.json({ error: "Key already exists" }, 409);
     }
 
-    await set(fingerprint, Buffer.from(signingKeyBytes).toString("base64"));
+    await set(fingerprint, bytesToBase64(signingKeyBytes));
 
     const challengeBytes = generateChallenge();
     const challengeHex = bytesToHex(challengeBytes);

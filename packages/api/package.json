@@ -11,6 +11,8 @@
   "dependencies": {
     "@electric-sql/pglite": "0.4.1",
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/encoding": "workspace:*",
+    "@tearleads/loro": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "hono": "4.7.11",

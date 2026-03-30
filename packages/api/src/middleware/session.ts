@@ -8,6 +8,12 @@ import { isSessionData } from "../validators/session";
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_PREFIX = "session:";
 
+interface SessionEnv {
+  Variables: {
+    session: SessionData;
+  };
+}
+
 function sessionKey(sessionId: string): string {
   return `${SESSION_PREFIX}${sessionId}`;
 }
@@ -37,26 +43,28 @@ export async function destroySession(c: Context): Promise<void> {
   }
 }
 
-export const requireAuth = createMiddleware(async (c: Context, next: Next) => {
-  const token = extractToken(c);
+export const requireAuth = createMiddleware<SessionEnv>(
+  async (c: Context<SessionEnv>, next: Next) => {
+    const token = extractToken(c);
 
-  if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+    if (!token) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
 
-  const sessionRaw = await get(sessionKey(token));
+    const sessionRaw = await get(sessionKey(token));
 
-  if (!sessionRaw) {
-    return c.json({ error: "Session expired" }, 401);
-  }
+    if (!sessionRaw) {
+      return c.json({ error: "Session expired" }, 401);
+    }
 
-  const parsed: unknown = JSON.parse(sessionRaw);
+    const parsed: unknown = JSON.parse(sessionRaw);
 
-  if (!isSessionData(parsed)) {
-    return c.json({ error: "Invalid session data" }, 401);
-  }
+    if (!isSessionData(parsed)) {
+      return c.json({ error: "Invalid session data" }, 401);
+    }
 
-  c.set("session", parsed);
+    c.set("session", parsed);
 
-  return next();
-});
+    return next();
+  },
+);

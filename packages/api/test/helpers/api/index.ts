@@ -1,5 +1,8 @@
+export { appendDocumentUpdate } from "./appendDocumentUpdate";
+export { createDocument } from "./createDocument";
 export { createItem } from "./createItem";
 export { fetchEncapsulationKey } from "./fetchEncapsulationKey";
+export { getDocumentUpdates } from "./getDocumentUpdates";
 export { getItem } from "./getItem";
 export { requestChallenge } from "./requestChallenge";
 export { submitLogout } from "./submitLogout";

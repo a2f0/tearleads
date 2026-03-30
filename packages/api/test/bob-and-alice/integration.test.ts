@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { decryptAsRecipient, encryptForRecipients } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { del } from "../../src/adapters/redis";
 import { createItem, fetchEncapsulationKey, getItem } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
@@ -85,17 +86,13 @@ test("Bob encrypts 'Hi, Alice' for Alice and himself, and stores it via setItem"
   const res = await fetchEncapsulationKey(alice.userId, bob.token);
   expect(res.status).toBe(200);
   const { encapsulationPublicKey: aliceKeyBase64 } = await res.json();
-  const aliceEncapsulationKey = new Uint8Array(
-    Buffer.from(aliceKeyBase64, "base64"),
-  );
+  const aliceEncapsulationKey = base64ToBytes(aliceKeyBase64);
 
   // Bob fetches his own encapsulation public key
   const bobRes = await fetchEncapsulationKey(bob.userId, bob.token);
   expect(bobRes.status).toBe(200);
   const { encapsulationPublicKey: bobKeyBase64 } = await bobRes.json();
-  const bobEncapsulationKey = new Uint8Array(
-    Buffer.from(bobKeyBase64, "base64"),
-  );
+  const bobEncapsulationKey = base64ToBytes(bobKeyBase64);
 
   // Bob encrypts the message for both Alice and himself
   const plaintext = new TextEncoder().encode("Hi, Alice");

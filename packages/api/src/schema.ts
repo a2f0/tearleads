@@ -1,3 +1,4 @@
+import { documents, documentUpdates } from "@tearleads/loro/server";
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -14,3 +15,5 @@ export const items = pgTable("items", {
   spicedbZedToken: text("spicedb_zed_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export { documents, documentUpdates };

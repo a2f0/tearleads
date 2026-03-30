@@ -1,4 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
+import { hasStringProperty } from "../util";
 
 export interface GetItemResponse {
   id: string;
@@ -9,8 +10,8 @@ export interface GetItemResponse {
 export function isGetItemResponse(value: unknown): value is GetItemResponse {
   return (
     isPlainObject(value) &&
-    typeof value["id"] === "string" &&
-    typeof value["encryptedData"] === "string" &&
-    typeof value["createdAt"] === "string"
+    hasStringProperty(value, "id") &&
+    hasStringProperty(value, "encryptedData") &&
+    hasStringProperty(value, "createdAt")
   );
 }

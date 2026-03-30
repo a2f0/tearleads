@@ -1,4 +1,9 @@
 import {
+  appendDocumentUpdate,
+  createDocument,
+  getDocumentUpdates,
+} from "@tearleads/loro/client";
+import {
   authenticate,
   authenticateWithChallenge,
   getEncapsulationKey,
@@ -127,6 +132,18 @@ export class ApiClient {
 
   getEncapsulationKey(userId: string) {
     return getEncapsulationKey(this.request, userId);
+  }
+
+  createDocument() {
+    return createDocument(this.request);
+  }
+
+  appendDocumentUpdate(documentId: string, encryptedData: string) {
+    return appendDocumentUpdate(this.request, documentId, encryptedData);
+  }
+
+  getDocumentUpdates(documentId: string, since?: number) {
+    return getDocumentUpdates(this.request, documentId, since);
   }
 
   getItem(itemId: string) {
