@@ -12,16 +12,26 @@ import {
 import {
   createContext,
   type PropsWithChildren,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import { type SqlRow, useAppData } from "../../data/AppDataProvider";
 
 type NotesDocument = Awaited<ReturnType<typeof createTextDocument>>;
+type NotesRuntime = Pick<
+  ReturnType<typeof useAppData>,
+  | "apiClient"
+  | "dbStatus"
+  | "domainScope"
+  | "encapsulationKeyPair"
+  | "events"
+  | "execSql"
+  | "isAuthenticated"
+  | "log"
+  | "online"
+>;
 
 interface NoteRecord {
   id: string;
@@ -43,9 +53,22 @@ interface NotesContextValue {
   setText: (value: string) => void;
 }
 
+interface NotesSnapshot {
+  ready: boolean;
+  text: string;
+  syncing: boolean;
+}
+
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";
   documentId: string;
+}
+
+interface NotesStore {
+  getSnapshot: () => NotesSnapshot;
+  setText: (value: string) => void;
+  subscribe: (listener: () => void) => () => void;
+  updateRuntime: (runtime: NotesRuntime) => void;
 }
 
 const NOTE_ID = "default";
@@ -68,7 +91,8 @@ const notesSql = `
   );
 `;
 
-const NotesContext = createContext<NotesContextValue | null>(null);
+const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
+const NotesContext = createContext<NotesStore | null>(null);
 
 function getDeviceSeed(): string {
   const existing = window.localStorage.getItem(DEVICE_SEED_KEY);
@@ -127,93 +151,123 @@ function isDocumentUpdateCreatedEvent(
   );
 }
 
-export function NotesProvider({ children }: PropsWithChildren) {
-  const {
-    apiClient,
-    dbStatus,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-  } = useAppData();
-  const [ready, setReady] = useState(false);
-  const [text, setEditorText] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  const docRef = useRef<NotesDocument | null>(null);
-  const recordRef = useRef<NoteRecord | null>(null);
-  const writeChainRef = useRef(Promise.resolve());
-  const syncPromiseRef = useRef<Promise<void> | null>(null);
-  const syncRequestedRef = useRef(false);
-  const activeRef = useRef(true);
+function createNotesStore(
+  noteId: string,
+  initialRuntime: NotesRuntime,
+): NotesStore {
+  let runtime = initialRuntime;
+  let snapshot: NotesSnapshot = {
+    ready: false,
+    text: "",
+    syncing: false,
+  };
+  let doc: NotesDocument | null = null;
+  let record: NoteRecord | null = null;
+  let initialized = false;
+  let initializePromise: Promise<void> | null = null;
+  let syncPromise: Promise<void> | null = null;
+  let syncRequested = false;
+  let writeChain = Promise.resolve();
+  let lastEventCount = 0;
+  const listeners = new Set<() => void>();
 
-  const ensureSchema = useCallback(async () => {
-    await execSql(notesSql);
-  }, [execSql]);
+  function emit() {
+    for (const listener of listeners) {
+      listener();
+    }
+  }
 
-  const saveNoteRecord = useCallback(
-    async (record: NoteRecord) => {
-      await execSql(
-        `
-          INSERT INTO notes (
-            id,
-            document_id,
-            text,
-            loro_snapshot,
-            remote_cursor,
-            updated_at
-          )
-          VALUES (
-            :id,
-            :documentId,
-            :text,
-            :loroSnapshot,
-            :remoteCursor,
-            :updatedAt
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            document_id = excluded.document_id,
-            text = excluded.text,
-            loro_snapshot = excluded.loro_snapshot,
-            remote_cursor = excluded.remote_cursor,
-            updated_at = excluded.updated_at
-        `,
-        {
-          ":id": record.id,
-          ":documentId": record.documentId,
-          ":text": record.text,
-          ":loroSnapshot": record.loroSnapshot,
-          ":remoteCursor": record.remoteCursor,
-          ":updatedAt": new Date().toISOString(),
-        },
-      );
-      recordRef.current = record;
-    },
-    [execSql],
-  );
+  function setSnapshot(next: NotesSnapshot) {
+    if (
+      snapshot.ready === next.ready &&
+      snapshot.text === next.text &&
+      snapshot.syncing === next.syncing
+    ) {
+      return;
+    }
 
-  const persistDocument = useCallback(
-    async (doc: NotesDocument, patch: Partial<NoteRecord> = {}) => {
-      const current = recordRef.current;
-      const record: NoteRecord = {
-        id: current?.id ?? NOTE_ID,
-        documentId: patch.documentId ?? current?.documentId ?? null,
-        text: patch.text ?? getTextValue(doc),
-        loroSnapshot:
-          patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(doc)),
-        remoteCursor: patch.remoteCursor ?? current?.remoteCursor ?? null,
-      };
-      await saveNoteRecord(record);
-      return record;
-    },
-    [saveNoteRecord],
-  );
+    snapshot = next;
+    emit();
+  }
 
-  const listPendingUpdates = useCallback(async (): Promise<
-    PendingUpdateRecord[]
-  > => {
-    const rows = await execSql(
+  function resetStore() {
+    doc = null;
+    record = null;
+    initialized = false;
+    initializePromise = null;
+    syncPromise = null;
+    syncRequested = false;
+    writeChain = Promise.resolve();
+    setSnapshot({
+      ready: false,
+      text: "",
+      syncing: false,
+    });
+  }
+
+  async function saveNoteRecord(nextRecord: NoteRecord) {
+    await runtime.execSql(
+      `
+        INSERT INTO notes (
+          id,
+          document_id,
+          text,
+          loro_snapshot,
+          remote_cursor,
+          updated_at
+        )
+        VALUES (
+          :id,
+          :documentId,
+          :text,
+          :loroSnapshot,
+          :remoteCursor,
+          :updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          document_id = excluded.document_id,
+          text = excluded.text,
+          loro_snapshot = excluded.loro_snapshot,
+          remote_cursor = excluded.remote_cursor,
+          updated_at = excluded.updated_at
+      `,
+      {
+        ":id": nextRecord.id,
+        ":documentId": nextRecord.documentId,
+        ":text": nextRecord.text,
+        ":loroSnapshot": nextRecord.loroSnapshot,
+        ":remoteCursor": nextRecord.remoteCursor,
+        ":updatedAt": new Date().toISOString(),
+      },
+    );
+
+    record = nextRecord;
+  }
+
+  async function persistDocument(
+    currentDoc: NotesDocument,
+    patch: Partial<NoteRecord> = {},
+  ): Promise<NoteRecord> {
+    const nextRecord: NoteRecord = {
+      id: record?.id ?? noteId,
+      documentId: patch.documentId ?? record?.documentId ?? null,
+      text: patch.text ?? getTextValue(currentDoc),
+      loroSnapshot:
+        patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
+      remoteCursor: patch.remoteCursor ?? record?.remoteCursor ?? null,
+    };
+
+    await saveNoteRecord(nextRecord);
+    setSnapshot({
+      ready: true,
+      text: nextRecord.text,
+      syncing: snapshot.syncing,
+    });
+    return nextRecord;
+  }
+
+  async function listPendingUpdates(): Promise<PendingUpdateRecord[]> {
+    const rows = await runtime.execSql(
       `
         SELECT id, update_data
         FROM note_pending_updates
@@ -221,110 +275,114 @@ export function NotesProvider({ children }: PropsWithChildren) {
         ORDER BY created_at ASC
       `,
       {
-        ":noteId": NOTE_ID,
+        ":noteId": noteId,
       },
     );
 
     return rows.map((row) => parsePendingUpdateRecord(row));
-  }, [execSql]);
+  }
 
-  const enqueuePendingUpdate = useCallback(
-    async (update: Uint8Array) => {
-      if (update.byteLength === 0) {
-        return;
-      }
-
-      await execSql(
-        `
-          INSERT INTO note_pending_updates (
-            id,
-            note_id,
-            update_data,
-            created_at
-          )
-          VALUES (
-            :id,
-            :noteId,
-            :updateData,
-            :createdAt
-          )
-        `,
-        {
-          ":id": crypto.randomUUID(),
-          ":noteId": NOTE_ID,
-          ":updateData": bytesToBase64(update),
-          ":createdAt": new Date().toISOString(),
-        },
-      );
-    },
-    [execSql],
-  );
-
-  const deletePendingUpdate = useCallback(
-    async (id: string) => {
-      await execSql(
-        `
-          DELETE FROM note_pending_updates
-          WHERE id = :id
-        `,
-        {
-          ":id": id,
-        },
-      );
-    },
-    [execSql],
-  );
-
-  const initialize = useCallback(async () => {
-    if (dbStatus !== "ready") {
+  async function enqueuePendingUpdate(update: Uint8Array) {
+    if (update.byteLength === 0) {
       return;
     }
 
-    try {
-      await ensureSchema();
+    await runtime.execSql(
+      `
+        INSERT INTO note_pending_updates (
+          id,
+          note_id,
+          update_data,
+          created_at
+        )
+        VALUES (
+          :id,
+          :noteId,
+          :updateData,
+          :createdAt
+        )
+      `,
+      {
+        ":id": crypto.randomUUID(),
+        ":noteId": noteId,
+        ":updateData": bytesToBase64(update),
+        ":createdAt": new Date().toISOString(),
+      },
+    );
+  }
 
-      const rows = await execSql(
-        `
-          SELECT id, document_id, text, loro_snapshot, remote_cursor
-          FROM notes
-          WHERE id = :id
-          LIMIT 1
-        `,
-        {
-          ":id": NOTE_ID,
-        },
-      );
+  async function deletePendingUpdate(id: string) {
+    await runtime.execSql(
+      `
+        DELETE FROM note_pending_updates
+        WHERE id = :id
+      `,
+      {
+        ":id": id,
+      },
+    );
+  }
 
-      if (!activeRef.current) {
-        return;
-      }
+  async function initialize() {
+    if (runtime.dbStatus !== "ready") {
+      return;
+    }
 
-      const doc = await createTextDocument(getDeviceSeed());
-      const existing = rows[0] ? parseNoteRecord(rows[0]) : null;
+    await runtime.execSql(notesSql);
 
-      if (existing?.loroSnapshot) {
-        importUpdates(doc, [base64ToBytes(existing.loroSnapshot)]);
-        recordRef.current = existing;
-        setEditorText(getTextValue(doc));
-      } else {
-        const created: NoteRecord = {
-          id: NOTE_ID,
-          documentId: null,
-          text: "",
-          loroSnapshot: bytesToBase64(exportAllUpdates(doc)),
-          remoteCursor: null,
-        };
-        await saveNoteRecord(created);
-        setEditorText("");
-      }
+    const rows = await runtime.execSql(
+      `
+        SELECT id, document_id, text, loro_snapshot, remote_cursor
+        FROM notes
+        WHERE id = :id
+        LIMIT 1
+      `,
+      {
+        ":id": noteId,
+      },
+    );
 
-      if (!activeRef.current) {
-        return;
-      }
+    const nextDoc = await createTextDocument(getDeviceSeed());
+    const existing = rows[0] ? parseNoteRecord(rows[0]) : null;
 
-      docRef.current = doc;
-      setReady(true);
-    } catch (error) {
+    if (existing?.loroSnapshot) {
+      importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
+      record = existing;
+      setSnapshot({
+        ready: true,
+        text: getTextValue(nextDoc),
+        syncing: false,
+      });
+    } else {
+      const created: NoteRecord = {
+        id: noteId,
+        documentId: null,
+        text: "",
+        loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
+        remoteCursor: null,
+      };
+      await saveNoteRecord(created);
+      setSnapshot({
+        ready: true,
+        text: "",
+        syncing: false,
+      });
+    }
+
+    doc = nextDoc;
+    initialized = true;
+    initializePromise = null;
+    scheduleSync();
+  }
+
+  function ensureInitialized() {
+    if (initialized || initializePromise || runtime.dbStatus !== "ready") {
+      return;
+    }
+
+    initializePromise = initialize().catch((error: unknown) => {
+      initializePromise = null;
+
       if (
         error instanceof Error &&
         error.message === "Database worker client has been destroyed."
@@ -333,46 +391,50 @@ export function NotesProvider({ children }: PropsWithChildren) {
       }
 
       throw error;
-    }
-  }, [dbStatus, ensureSchema, execSql, saveNoteRecord]);
+    });
+  }
 
-  const scheduleSync = useCallback(() => {
-    syncRequestedRef.current = true;
+  function scheduleSync() {
+    syncRequested = true;
 
-    if (syncPromiseRef.current) {
+    if (syncPromise) {
       return;
     }
 
-    syncPromiseRef.current = (async () => {
-      while (syncRequestedRef.current) {
-        syncRequestedRef.current = false;
+    syncPromise = (async () => {
+      while (syncRequested) {
+        syncRequested = false;
 
         if (
-          !docRef.current ||
-          !ready ||
-          !online ||
-          !isAuthenticated ||
-          !encapsulationKeyPair
+          !doc ||
+          !snapshot.ready ||
+          !runtime.online ||
+          !runtime.isAuthenticated ||
+          !runtime.encapsulationKeyPair
         ) {
           continue;
         }
 
-        setSyncing(true);
+        setSnapshot({
+          ready: snapshot.ready,
+          text: snapshot.text,
+          syncing: true,
+        });
 
         try {
-          let record = recordRef.current;
+          let nextRecord = record;
 
-          if (!record) {
+          if (!nextRecord) {
             continue;
           }
 
           const pendingUpdates = await listPendingUpdates();
-          let documentId = record.documentId;
+          let documentId = nextRecord.documentId;
 
           if (documentId) {
-            const fetched = await apiClient.getDocumentUpdates(
+            const fetched = await runtime.apiClient.getDocumentUpdates(
               documentId,
-              record.remoteCursor ?? undefined,
+              nextRecord.remoteCursor ?? undefined,
             );
 
             if (fetched) {
@@ -381,15 +443,20 @@ export function NotesProvider({ children }: PropsWithChildren) {
                   fetched.updates.map((update) =>
                     decryptLoroUpdate(
                       update.encryptedData,
-                      encapsulationKeyPair.secretKey,
+                      runtime.encapsulationKeyPair?.secretKey ??
+                        new Uint8Array(),
                     ),
                   ),
                 );
-                importUpdates(docRef.current, decrypted);
-                setEditorText(getTextValue(docRef.current));
+                importUpdates(doc, decrypted);
+                setSnapshot({
+                  ready: true,
+                  text: getTextValue(doc),
+                  syncing: true,
+                });
               }
 
-              record = await persistDocument(docRef.current, {
+              nextRecord = await persistDocument(doc, {
                 documentId,
                 remoteCursor: fetched.nextCursor,
               });
@@ -397,28 +464,28 @@ export function NotesProvider({ children }: PropsWithChildren) {
           }
 
           if (!documentId && pendingUpdates.length > 0) {
-            const created = await apiClient.createDocument();
+            const created = await runtime.apiClient.createDocument();
             if (!created) {
               continue;
             }
 
             documentId = created.id;
-            record = await persistDocument(docRef.current, {
+            nextRecord = await persistDocument(doc, {
               documentId,
             });
-            log(`Created notes document: ${created.id}`);
+            runtime.log(`Created notes document: ${created.id}`);
           }
 
           for (const pending of pendingUpdates) {
-            if (!documentId) {
+            if (!documentId || !runtime.encapsulationKeyPair) {
               break;
             }
 
             const encrypted = await encryptLoroUpdate(
               base64ToBytes(pending.updateData),
-              [encapsulationKeyPair.publicKey],
+              [runtime.encapsulationKeyPair.publicKey],
             );
-            const appended = await apiClient.appendDocumentUpdate(
+            const appended = await runtime.apiClient.appendDocumentUpdate(
               documentId,
               encrypted,
             );
@@ -428,7 +495,7 @@ export function NotesProvider({ children }: PropsWithChildren) {
             }
 
             await deletePendingUpdate(pending.id);
-            record = await persistDocument(docRef.current, {
+            nextRecord = await persistDocument(doc, {
               documentId,
               remoteCursor: appended.sequence,
             });
@@ -443,74 +510,56 @@ export function NotesProvider({ children }: PropsWithChildren) {
 
           throw error;
         } finally {
-          setSyncing(false);
+          setSnapshot({
+            ready: snapshot.ready,
+            text: snapshot.text,
+            syncing: false,
+          });
         }
       }
 
-      syncPromiseRef.current = null;
+      syncPromise = null;
     })();
-  }, [
-    apiClient,
-    deletePendingUpdate,
-    encapsulationKeyPair,
-    isAuthenticated,
-    listPendingUpdates,
-    log,
-    online,
-    persistDocument,
-    ready,
-  ]);
+  }
 
-  useEffect(() => {
-    activeRef.current = true;
-    setReady(false);
-    docRef.current = null;
-    recordRef.current = null;
-
-    void initialize();
-
-    return () => {
-      activeRef.current = false;
-    };
-  }, [initialize]);
-
-  useEffect(() => {
-    if (ready) {
-      scheduleSync();
-    }
-  }, [ready, scheduleSync]);
-
-  useEffect(() => {
-    if (online && ready) {
-      scheduleSync();
-    }
-  }, [online, ready, scheduleSync]);
-
-  useEffect(() => {
-    const documentId = recordRef.current?.documentId;
-    if (!documentId || !ready) {
+  function handleRemoteEvents() {
+    if (!record?.documentId) {
+      lastEventCount = runtime.events.length;
       return;
     }
 
+    const nextEvents = runtime.events.slice(lastEventCount);
+    lastEventCount = runtime.events.length;
+
     if (
-      events.some(
+      nextEvents.some(
         (event) =>
           isDocumentUpdateCreatedEvent(event) &&
-          event.documentId === documentId,
+          event.documentId === record?.documentId,
       )
     ) {
       scheduleSync();
     }
-  }, [events, ready, scheduleSync]);
+  }
 
-  const setText = useCallback(
-    (value: string) => {
-      setEditorText(value);
+  return {
+    getSnapshot() {
+      return snapshot;
+    },
+    setText(value: string) {
+      if (!doc) {
+        return;
+      }
 
-      writeChainRef.current = writeChainRef.current
+      setSnapshot({
+        ready: snapshot.ready,
+        text: value,
+        syncing: snapshot.syncing,
+      });
+
+      writeChain = writeChain
         .catch(() => undefined)
         .then(async () => {
-          const doc = docRef.current;
           if (!doc) {
             return;
           }
@@ -527,33 +576,101 @@ export function NotesProvider({ children }: PropsWithChildren) {
           await persistDocument(doc, { text: value });
           scheduleSync();
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("Failed to persist note changes:", error);
         });
     },
-    [enqueuePendingUpdate, persistDocument, scheduleSync],
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    updateRuntime(nextRuntime: NotesRuntime) {
+      const previousRuntime = runtime;
+      runtime = nextRuntime;
+
+      if (nextRuntime.dbStatus !== "ready") {
+        if (snapshot.ready || initialized || initializePromise) {
+          resetStore();
+        }
+        lastEventCount = nextRuntime.events.length;
+        return;
+      }
+
+      ensureInitialized();
+
+      const regainedSyncPrerequisites =
+        (!previousRuntime.online && nextRuntime.online) ||
+        (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
+        (!previousRuntime.encapsulationKeyPair &&
+          !!nextRuntime.encapsulationKeyPair);
+
+      handleRemoteEvents();
+
+      if (snapshot.ready && regainedSyncPrerequisites) {
+        scheduleSync();
+      }
+    },
+  };
+}
+
+function getOrCreateNotesStore(
+  domainScope: object,
+  noteId: string,
+  runtime: NotesRuntime,
+): NotesStore {
+  const existingStores = notesStoresByScope.get(domainScope);
+  if (existingStores) {
+    const existingStore = existingStores.get(noteId);
+    if (existingStore) {
+      return existingStore;
+    }
+  }
+
+  const nextStore = createNotesStore(noteId, runtime);
+  const stores = existingStores ?? new Map<string, NotesStore>();
+  stores.set(noteId, nextStore);
+  notesStoresByScope.set(domainScope, stores);
+  return nextStore;
+}
+
+export function NotesProvider({ children }: PropsWithChildren) {
+  const runtime = useAppData();
+  const store = useMemo(
+    () => getOrCreateNotesStore(runtime.domainScope, NOTE_ID, runtime),
+    [runtime],
   );
 
-  const value = useMemo(
-    () => ({
-      ready,
-      text,
-      syncing,
-      setText,
-    }),
-    [ready, setText, syncing, text],
-  );
+  useEffect(() => {
+    store.updateRuntime(runtime);
+  }, [store, runtime]);
 
   return (
-    <NotesContext.Provider value={value}>{children}</NotesContext.Provider>
+    <NotesContext.Provider value={store}>{children}</NotesContext.Provider>
   );
 }
 
 export function useNotes(): NotesContextValue {
-  const context = useContext(NotesContext);
-  if (!context) {
+  const store = useContext(NotesContext);
+  if (!store) {
     throw new Error("useNotes must be used within a NotesProvider.");
   }
 
-  return context;
+  const snapshot = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+
+  return useMemo(
+    () => ({
+      ready: snapshot.ready,
+      text: snapshot.text,
+      syncing: snapshot.syncing,
+      setText: store.setText,
+    }),
+    [snapshot, store],
+  );
 }
