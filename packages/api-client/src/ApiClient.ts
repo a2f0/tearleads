@@ -1,8 +1,4 @@
-import {
-  appendDocumentUpdate,
-  createDocument,
-  getDocumentUpdates,
-} from "@tearleads/loro/client";
+import { createDocument, syncDocument } from "@tearleads/loro/client";
 import {
   authenticate,
   authenticateWithChallenge,
@@ -138,12 +134,19 @@ export class ApiClient {
     return createDocument(this.request);
   }
 
-  appendDocumentUpdate(documentId: string, encryptedData: string) {
-    return appendDocumentUpdate(this.request, documentId, encryptedData);
-  }
-
-  getDocumentUpdates(documentId: string, since?: number) {
-    return getDocumentUpdates(this.request, documentId, since);
+  syncDocument(
+    documentId: string,
+    accessEpoch: number,
+    localVersionVector: string | null,
+    outgoingUpdates: Parameters<typeof syncDocument>[4],
+  ) {
+    return syncDocument(
+      this.request,
+      documentId,
+      accessEpoch,
+      localVersionVector,
+      outgoingUpdates,
+    );
   }
 
   getItem(itemId: string) {

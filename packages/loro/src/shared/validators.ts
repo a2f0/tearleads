@@ -1,6 +1,5 @@
 import {
   hasArrayProperty,
-  hasNullableNumberProperty,
   hasNumberProperty,
   hasStringProperty,
 } from "@tearleads/validators/util";
@@ -9,40 +8,82 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export interface AppendDocumentUpdateRequest {
+export interface SyncDocumentOutgoingUpdate {
+  id: string;
   encryptedData: string;
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
 }
 
 export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
+  currentAccessEpoch: number;
+  recipientEncapsulationPublicKeys: string[];
 }
 
-export interface DocumentUpdate {
+export interface SyncDocumentRequest {
+  accessEpoch: number;
+  localVersionVector: string | null;
+  outgoingUpdates: SyncDocumentOutgoingUpdate[];
+}
+
+export interface DocumentSyncUpdate {
   id: string;
   documentId: string;
-  sequence: number;
   authorFingerprint: string;
   encryptedData: string;
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
   createdAt: string;
 }
 
-export interface AppendDocumentUpdateResponse {
-  id: string;
-  sequence: number;
-  createdAt: string;
-}
-
-export interface GetDocumentUpdatesResponse {
+export interface SyncDocumentResponse {
   documentId: string;
-  updates: DocumentUpdate[];
-  nextCursor: number | null;
+  acceptedOutgoingUpdateIds: string[];
+  updates: DocumentSyncUpdate[];
+  currentAccessEpoch: number;
+  recipientEncapsulationPublicKeys: string[];
 }
 
-export function isAppendDocumentUpdateRequest(
+function hasPositiveNumberProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, number> {
+  return (
+    hasNumberProperty(value, key) &&
+    Number.isInteger(value[key]) &&
+    value[key] > 0
+  );
+}
+
+function hasNullableStringProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, string | null> {
+  return value[key] === null || typeof value[key] === "string";
+}
+
+function hasStringArrayProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, string[]> {
+  return (
+    hasArrayProperty(value, key) &&
+    value[key].every((entry) => typeof entry === "string")
+  );
+}
+
+export function isSyncDocumentOutgoingUpdate(
   value: unknown,
-): value is AppendDocumentUpdateRequest {
-  return isPlainObject(value) && hasStringProperty(value, "encryptedData");
+): value is SyncDocumentOutgoingUpdate {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "id") &&
+    hasStringProperty(value, "encryptedData") &&
+    hasStringProperty(value, "partialStartVersionVector") &&
+    hasStringProperty(value, "partialEndVersionVector")
+  );
 }
 
 export function isCreateDocumentResponse(
@@ -51,41 +92,52 @@ export function isCreateDocumentResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
-    hasStringProperty(value, "createdAt")
+    hasStringProperty(value, "createdAt") &&
+    hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }
 
-export function isDocumentUpdate(value: unknown): value is DocumentUpdate {
+export function isSyncDocumentRequest(
+  value: unknown,
+): value is SyncDocumentRequest {
+  return (
+    isPlainObject(value) &&
+    hasPositiveNumberProperty(value, "accessEpoch") &&
+    hasNullableStringProperty(value, "localVersionVector") &&
+    hasArrayProperty(value, "outgoingUpdates") &&
+    value.outgoingUpdates.every(isSyncDocumentOutgoingUpdate)
+  );
+}
+
+export function isDocumentSyncUpdate(
+  value: unknown,
+): value is DocumentSyncUpdate {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "documentId") &&
-    hasNumberProperty(value, "sequence") &&
     hasStringProperty(value, "authorFingerprint") &&
     hasStringProperty(value, "encryptedData") &&
+    hasStringProperty(value, "partialStartVersionVector") &&
+    hasStringProperty(value, "partialEndVersionVector") &&
     hasStringProperty(value, "createdAt")
   );
 }
 
-export function isAppendDocumentUpdateResponse(
+export function isSyncDocumentResponse(
   value: unknown,
-): value is AppendDocumentUpdateResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    hasNumberProperty(value, "sequence") &&
-    hasStringProperty(value, "createdAt")
-  );
-}
-
-export function isGetDocumentUpdatesResponse(
-  value: unknown,
-): value is GetDocumentUpdatesResponse {
+): value is SyncDocumentResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
+    hasArrayProperty(value, "acceptedOutgoingUpdateIds") &&
+    value.acceptedOutgoingUpdateIds.every(
+      (entry) => typeof entry === "string",
+    ) &&
     hasArrayProperty(value, "updates") &&
-    value.updates.every(isDocumentUpdate) &&
-    hasNullableNumberProperty(value, "nextCursor")
+    value.updates.every(isDocumentSyncUpdate) &&
+    hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }

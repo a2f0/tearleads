@@ -6,10 +6,12 @@ export const loroSql = `
   );
   CREATE TABLE IF NOT EXISTS document_updates (
     sequence INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+    id UUID NOT NULL UNIQUE,
     document_id UUID NOT NULL,
     author_fingerprint TEXT NOT NULL,
     encrypted_data TEXT NOT NULL,
+    partial_start_version_vector TEXT NOT NULL,
+    partial_end_version_vector TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
 `;

@@ -1,15 +1,18 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
+import { satisfiesVersionVector } from "../document";
+import { parseEnvelope } from "../encryptedUpdate";
 import {
-  type AppendDocumentUpdateResponse,
   type CreateDocumentResponse,
-  type DocumentUpdate,
-  type GetDocumentUpdatesResponse,
-  isAppendDocumentUpdateRequest,
+  type DocumentSyncUpdate,
+  isSyncDocumentRequest,
+  type SyncDocumentOutgoingUpdate,
+  type SyncDocumentResponse,
 } from "../shared";
 import type { DocumentRecord, DocumentUpdateRecord } from "./schema";
 
 interface SessionLike {
+  userId: string;
   fingerprint: string;
 }
 
@@ -19,24 +22,76 @@ type LoroEnv<TSession extends SessionLike> = {
   };
 };
 
+interface DocumentAccessState {
+  canRead: boolean;
+  canWrite: boolean;
+  currentAccessEpoch: number;
+  recipientKeyFingerprints: string[];
+  recipientEncapsulationPublicKeys: string[];
+}
+
 interface LoroRouterDeps<TSession extends SessionLike> {
   store: {
     createDocument(input: {
       createdByFingerprint: string;
-    }): Promise<DocumentRecord | null>;
+      createdByUserId: string;
+    }): Promise<{
+      document: DocumentRecord;
+      currentAccessEpoch: number;
+      recipientEncapsulationPublicKeys: string[];
+    } | null>;
     getDocumentById(documentId: string): Promise<DocumentRecord | null>;
-    appendDocumentUpdate(input: {
+    getDocumentAccess(input: {
+      documentId: string;
+      userId: string;
+    }): Promise<DocumentAccessState | null>;
+    appendDocumentUpdates(input: {
       documentId: string;
       authorFingerprint: string;
-      encryptedData: string;
-    }): Promise<DocumentUpdateRecord | null>;
-    listDocumentUpdates(input: {
-      documentId: string;
-      since: number | null;
-    }): Promise<DocumentUpdateRecord[]>;
+      updates: SyncDocumentOutgoingUpdate[];
+    }): Promise<string[]>;
+    listDocumentUpdates(documentId: string): Promise<DocumentUpdateRecord[]>;
   };
   publish: (event: Record<string, unknown>) => Promise<void>;
   requireAuth: MiddlewareHandler<LoroEnv<TSession>>;
+}
+
+function uniqueSortedStrings(values: string[]): string[] {
+  return Array.from(new Set(values)).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function matchesRecipients(
+  encryptedData: string,
+  expectedRecipientKeyFingerprints: string[],
+): boolean {
+  const recipientKeyFingerprints = uniqueSortedStrings(
+    parseEnvelope(encryptedData).recipients.map(
+      (recipient) => recipient.keyFingerprint,
+    ),
+  );
+
+  return (
+    recipientKeyFingerprints.length ===
+      expectedRecipientKeyFingerprints.length &&
+    recipientKeyFingerprints.every(
+      (fingerprint, index) =>
+        fingerprint === expectedRecipientKeyFingerprints[index],
+    )
+  );
+}
+
+function toSyncUpdate(update: DocumentUpdateRecord): DocumentSyncUpdate {
+  return {
+    id: update.id,
+    documentId: update.documentId,
+    authorFingerprint: update.authorFingerprint,
+    encryptedData: update.encryptedData,
+    partialStartVersionVector: update.partialStartVersionVector,
+    partialEndVersionVector: update.partialEndVersionVector,
+    createdAt: update.createdAt.toISOString(),
+  };
 }
 
 export function createLoroRouter<TSession extends SessionLike>({
@@ -49,102 +104,123 @@ export function createLoroRouter<TSession extends SessionLike>({
   router.post("/documents", requireAuth, async (c) => {
     const session = c.get("session");
 
-    const document = await store.createDocument({
+    const created = await store.createDocument({
       createdByFingerprint: session.fingerprint,
+      createdByUserId: session.userId,
     });
 
-    if (!document) {
+    if (!created) {
       return c.json({ error: "Failed to create document" }, 500);
     }
 
     return c.json<CreateDocumentResponse>({
-      id: document.id,
-      createdAt: document.createdAt.toISOString(),
+      id: created.document.id,
+      createdAt: created.document.createdAt.toISOString(),
+      currentAccessEpoch: created.currentAccessEpoch,
+      recipientEncapsulationPublicKeys:
+        created.recipientEncapsulationPublicKeys,
     });
   });
 
   router.post(
-    "/documents/:documentId/updates",
+    "/documents/:documentId/sync",
     requireAuth,
     validator("json", (value, c) => {
-      if (!isAppendDocumentUpdateRequest(value)) {
+      if (!isSyncDocumentRequest(value)) {
         return c.json({ error: "Invalid request" }, 400);
       }
+
       return value;
     }),
     async (c) => {
-      const { encryptedData } = c.req.valid("json");
       const documentId = c.req.param("documentId");
+      const { accessEpoch, localVersionVector, outgoingUpdates } =
+        c.req.valid("json");
       const session = c.get("session");
 
       const document = await store.getDocumentById(documentId);
-
       if (!document) {
         return c.json({ error: "Document not found" }, 404);
       }
 
-      const update = await store.appendDocumentUpdate({
+      const access = await store.getDocumentAccess({
         documentId,
-        authorFingerprint: session.fingerprint,
-        encryptedData,
+        userId: session.userId,
       });
 
-      if (!update) {
-        return c.json({ error: "Failed to append document update" }, 500);
+      if (!access) {
+        return c.json({ error: "Document access state not found" }, 500);
       }
 
-      await publish({
-        type: "document_update_created",
-        documentId,
-        updateId: update.id,
-        authorFingerprint: update.authorFingerprint,
-        sequence: update.sequence,
-      });
+      if (!access.canRead) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
 
-      return c.json<AppendDocumentUpdateResponse>({
-        id: update.id,
-        sequence: update.sequence,
-        createdAt: update.createdAt.toISOString(),
+      if (outgoingUpdates.length > 0 && !access.canWrite) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      let acceptedOutgoingUpdateIds: string[] = [];
+
+      if (accessEpoch === access.currentAccessEpoch) {
+        const expectedRecipientKeyFingerprints = uniqueSortedStrings(
+          access.recipientKeyFingerprints,
+        );
+
+        for (const outgoingUpdate of outgoingUpdates) {
+          try {
+            if (
+              !matchesRecipients(
+                outgoingUpdate.encryptedData,
+                expectedRecipientKeyFingerprints,
+              )
+            ) {
+              return c.json(
+                { error: "Encrypted update recipients mismatch" },
+                400,
+              );
+            }
+          } catch {
+            return c.json({ error: "Invalid encrypted update envelope" }, 400);
+          }
+        }
+
+        acceptedOutgoingUpdateIds = await store.appendDocumentUpdates({
+          documentId,
+          authorFingerprint: session.fingerprint,
+          updates: outgoingUpdates,
+        });
+      }
+
+      const updates = await store.listDocumentUpdates(documentId);
+      const missingUpdates = updates
+        .filter(
+          (update) =>
+            !satisfiesVersionVector(
+              localVersionVector,
+              update.partialEndVersionVector,
+            ),
+        )
+        .map((update) => toSyncUpdate(update));
+
+      if (acceptedOutgoingUpdateIds.length > 0) {
+        await publish({
+          type: "document_update_created",
+          documentId,
+          updateIds: acceptedOutgoingUpdateIds,
+        });
+      }
+
+      return c.json<SyncDocumentResponse>({
+        documentId,
+        acceptedOutgoingUpdateIds,
+        updates: missingUpdates,
+        currentAccessEpoch: access.currentAccessEpoch,
+        recipientEncapsulationPublicKeys:
+          access.recipientEncapsulationPublicKeys,
       });
     },
   );
-
-  router.get("/documents/:documentId/updates", requireAuth, async (c) => {
-    const documentId = c.req.param("documentId");
-    const sinceParam = c.req.query("since");
-    const since =
-      sinceParam === undefined ? null : Number.parseInt(sinceParam, 10);
-
-    if (sinceParam !== undefined && Number.isNaN(since)) {
-      return c.json({ error: "Invalid since cursor" }, 400);
-    }
-
-    const document = await store.getDocumentById(documentId);
-
-    if (!document) {
-      return c.json({ error: "Document not found" }, 404);
-    }
-
-    const updates = await store.listDocumentUpdates({ documentId, since });
-
-    const responseUpdates: DocumentUpdate[] = updates.map((update) => ({
-      id: update.id,
-      documentId: update.documentId,
-      sequence: update.sequence,
-      authorFingerprint: update.authorFingerprint,
-      encryptedData: update.encryptedData,
-      createdAt: update.createdAt.toISOString(),
-    }));
-
-    return c.json<GetDocumentUpdatesResponse>({
-      documentId,
-      updates: responseUpdates,
-      nextCursor:
-        responseUpdates.length > 0
-          ? (responseUpdates[responseUpdates.length - 1]?.sequence ?? null)
-          : since,
-    });
-  });
 
   return router;
 }

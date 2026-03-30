@@ -37,14 +37,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   rm -f "$tmpfile"
 done
 
-echo "Running cargo tests..."
-cargo test
-
 echo "Running bun tests..."
 bun run test:turbo:affected
-
-echo "Running linter..."
-cargo clippy -- -D warnings
 
 echo "Running shellcheck..."
 old_ifs=$IFS

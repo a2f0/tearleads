@@ -1,12 +1,16 @@
 export * from "./client";
 export {
   createTextDocument,
+  decodeVersionVector,
   derivePeerId,
+  encodeEncodedVersionVector,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
   getTextValue,
+  getUpdateVersionVectors,
   importUpdates,
+  satisfiesVersionVector,
 } from "./document";
 export {
   decryptLoroUpdate,

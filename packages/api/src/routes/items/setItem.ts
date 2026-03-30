@@ -23,7 +23,6 @@ setItemRoute.post(
       .insert(items)
       .values({
         encryptedData,
-        spicedbZedToken: null,
       })
       .returning({ id: items.id });
 

@@ -7,6 +7,7 @@ import {
   exportAllUpdates,
   exportUpdatesSince,
   getTextValue,
+  getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
 import {
@@ -38,12 +39,14 @@ interface NoteRecord {
   documentId: string | null;
   text: string;
   loroSnapshot: string;
-  remoteCursor: number | null;
+  accessEpoch: number;
 }
 
 interface PendingUpdateRecord {
   id: string;
   updateData: string;
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
 }
 
 interface NotesContextValue {
@@ -72,37 +75,50 @@ interface NotesStore {
 }
 
 const NOTE_ID = "default";
-const DEVICE_SEED_KEY = "tearleads.notes.device-seed";
-
 const notesSql = `
   CREATE TABLE IF NOT EXISTS notes (
     id TEXT PRIMARY KEY,
     document_id TEXT,
     text TEXT NOT NULL,
     loro_snapshot TEXT NOT NULL,
-    remote_cursor INTEGER,
+    access_epoch INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS note_pending_updates (
     id TEXT PRIMARY KEY,
     note_id TEXT NOT NULL,
     update_data TEXT NOT NULL,
+    partial_start_version_vector TEXT NOT NULL,
+    partial_end_version_vector TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
 `;
 
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
 const NotesContext = createContext<NotesStore | null>(null);
+const DEVICE_SEED_KEY = "tearleads.notes.device-seed";
+const SESSION_PEER_SEED_KEY = "tearleads.notes.session-peer-seed";
 
 function getDeviceSeed(): string {
-  const existing = window.localStorage.getItem(DEVICE_SEED_KEY);
-  if (existing) {
-    return existing;
-  }
+  try {
+    const existingDeviceSeed = window.localStorage.getItem(DEVICE_SEED_KEY);
+    const deviceSeed = existingDeviceSeed ?? crypto.randomUUID();
+    if (!existingDeviceSeed) {
+      window.localStorage.setItem(DEVICE_SEED_KEY, deviceSeed);
+    }
 
-  const created = crypto.randomUUID();
-  window.localStorage.setItem(DEVICE_SEED_KEY, created);
-  return created;
+    const existingSessionSeed = window.sessionStorage.getItem(
+      SESSION_PEER_SEED_KEY,
+    );
+    const sessionSeed = existingSessionSeed ?? crypto.randomUUID();
+    if (!existingSessionSeed) {
+      window.sessionStorage.setItem(SESSION_PEER_SEED_KEY, sessionSeed);
+    }
+
+    return `${deviceSeed}:${sessionSeed}`;
+  } catch {
+    return crypto.randomUUID();
+  }
 }
 
 function readRowValue(
@@ -117,24 +133,34 @@ function parseNoteRecord(value: SqlRow): NoteRecord {
   const documentId = readRowValue(value, "document_id");
   const text = readRowValue(value, "text");
   const loroSnapshot = readRowValue(value, "loro_snapshot");
-  const remoteCursor = readRowValue(value, "remote_cursor");
+  const accessEpoch = readRowValue(value, "access_epoch");
 
   return {
     id: String(id ?? NOTE_ID),
     documentId: documentId === null ? null : String(documentId),
     text: String(text ?? ""),
     loroSnapshot: String(loroSnapshot ?? ""),
-    remoteCursor: typeof remoteCursor === "number" ? remoteCursor : null,
+    accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
   };
 }
 
 function parsePendingUpdateRecord(value: SqlRow): PendingUpdateRecord {
   const id = readRowValue(value, "id");
   const updateData = readRowValue(value, "update_data");
+  const partialStartVersionVector = readRowValue(
+    value,
+    "partial_start_version_vector",
+  );
+  const partialEndVersionVector = readRowValue(
+    value,
+    "partial_end_version_vector",
+  );
 
   return {
     id: String(id),
     updateData: String(updateData ?? ""),
+    partialStartVersionVector: String(partialStartVersionVector ?? ""),
+    partialEndVersionVector: String(partialEndVersionVector ?? ""),
   };
 }
 
@@ -169,7 +195,14 @@ function createNotesStore(
   let syncRequested = false;
   let writeChain = Promise.resolve();
   let lastEventCount = 0;
+  let recipientPublicKeys = getLocalRecipientPublicKeys();
   const listeners = new Set<() => void>();
+
+  function getLocalRecipientPublicKeys(): Uint8Array[] {
+    return runtime.encapsulationKeyPair
+      ? [runtime.encapsulationKeyPair.publicKey]
+      : [];
+  }
 
   function emit() {
     for (const listener of listeners) {
@@ -190,6 +223,13 @@ function createNotesStore(
     emit();
   }
 
+  function updateRecipientPublicKeys(encodedPublicKeys: string[]) {
+    recipientPublicKeys =
+      encodedPublicKeys.length > 0
+        ? encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey))
+        : getLocalRecipientPublicKeys();
+  }
+
   function resetStore() {
     doc = null;
     record = null;
@@ -198,6 +238,7 @@ function createNotesStore(
     syncPromise = null;
     syncRequested = false;
     writeChain = Promise.resolve();
+    recipientPublicKeys = getLocalRecipientPublicKeys();
     setSnapshot({
       ready: false,
       text: "",
@@ -213,7 +254,7 @@ function createNotesStore(
           document_id,
           text,
           loro_snapshot,
-          remote_cursor,
+          access_epoch,
           updated_at
         )
         VALUES (
@@ -221,14 +262,14 @@ function createNotesStore(
           :documentId,
           :text,
           :loroSnapshot,
-          :remoteCursor,
+          :accessEpoch,
           :updatedAt
         )
         ON CONFLICT(id) DO UPDATE SET
           document_id = excluded.document_id,
           text = excluded.text,
           loro_snapshot = excluded.loro_snapshot,
-          remote_cursor = excluded.remote_cursor,
+          access_epoch = excluded.access_epoch,
           updated_at = excluded.updated_at
       `,
       {
@@ -236,7 +277,7 @@ function createNotesStore(
         ":documentId": nextRecord.documentId,
         ":text": nextRecord.text,
         ":loroSnapshot": nextRecord.loroSnapshot,
-        ":remoteCursor": nextRecord.remoteCursor,
+        ":accessEpoch": nextRecord.accessEpoch,
         ":updatedAt": new Date().toISOString(),
       },
     );
@@ -254,7 +295,7 @@ function createNotesStore(
       text: patch.text ?? getTextValue(currentDoc),
       loroSnapshot:
         patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
-      remoteCursor: patch.remoteCursor ?? record?.remoteCursor ?? null,
+      accessEpoch: patch.accessEpoch ?? record?.accessEpoch ?? 1,
     };
 
     await saveNoteRecord(nextRecord);
@@ -270,6 +311,8 @@ function createNotesStore(
     const rows = await runtime.execSql(
       `
         SELECT id, update_data
+          , partial_start_version_vector
+          , partial_end_version_vector
         FROM note_pending_updates
         WHERE note_id = :noteId
         ORDER BY created_at ASC
@@ -287,18 +330,25 @@ function createNotesStore(
       return;
     }
 
+    const { partialEndVersionVector, partialStartVersionVector } =
+      getUpdateVersionVectors(update);
+
     await runtime.execSql(
       `
         INSERT INTO note_pending_updates (
           id,
           note_id,
           update_data,
+          partial_start_version_vector,
+          partial_end_version_vector,
           created_at
         )
         VALUES (
           :id,
           :noteId,
           :updateData,
+          :partialStartVersionVector,
+          :partialEndVersionVector,
           :createdAt
         )
       `,
@@ -306,6 +356,8 @@ function createNotesStore(
         ":id": crypto.randomUUID(),
         ":noteId": noteId,
         ":updateData": bytesToBase64(update),
+        ":partialStartVersionVector": partialStartVersionVector,
+        ":partialEndVersionVector": partialEndVersionVector,
         ":createdAt": new Date().toISOString(),
       },
     );
@@ -329,10 +381,42 @@ function createNotesStore(
     }
 
     await runtime.execSql(notesSql);
+    const noteColumns = await runtime.execSql("PRAGMA table_info(notes)");
+    const hasAccessEpoch = noteColumns.some(
+      (row) => readRowValue(row, "name") === "access_epoch",
+    );
+
+    if (!hasAccessEpoch) {
+      await runtime.execSql(
+        "ALTER TABLE notes ADD COLUMN access_epoch INTEGER NOT NULL DEFAULT 1",
+      );
+    }
+
+    const pendingUpdateColumns = await runtime.execSql(
+      "PRAGMA table_info(note_pending_updates)",
+    );
+    const hasPartialStartVersionVector = pendingUpdateColumns.some(
+      (row) => readRowValue(row, "name") === "partial_start_version_vector",
+    );
+    const hasPartialEndVersionVector = pendingUpdateColumns.some(
+      (row) => readRowValue(row, "name") === "partial_end_version_vector",
+    );
+
+    if (!hasPartialStartVersionVector) {
+      await runtime.execSql(
+        "ALTER TABLE note_pending_updates ADD COLUMN partial_start_version_vector TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!hasPartialEndVersionVector) {
+      await runtime.execSql(
+        "ALTER TABLE note_pending_updates ADD COLUMN partial_end_version_vector TEXT NOT NULL DEFAULT ''",
+      );
+    }
 
     const rows = await runtime.execSql(
       `
-        SELECT id, document_id, text, loro_snapshot, remote_cursor
+        SELECT id, document_id, text, loro_snapshot, access_epoch
         FROM notes
         WHERE id = :id
         LIMIT 1
@@ -359,7 +443,7 @@ function createNotesStore(
         documentId: null,
         text: "",
         loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
-        remoteCursor: null,
+        accessEpoch: 1,
       };
       await saveNoteRecord(created);
       setSnapshot({
@@ -423,45 +507,14 @@ function createNotesStore(
 
         try {
           let nextRecord = record;
+          const encapsulationKeyPair = runtime.encapsulationKeyPair;
 
-          if (!nextRecord) {
+          if (!nextRecord || !encapsulationKeyPair) {
             continue;
           }
 
           const pendingUpdates = await listPendingUpdates();
           let documentId = nextRecord.documentId;
-
-          if (documentId) {
-            const fetched = await runtime.apiClient.getDocumentUpdates(
-              documentId,
-              nextRecord.remoteCursor ?? undefined,
-            );
-
-            if (fetched) {
-              if (fetched.updates.length > 0) {
-                const decrypted = await Promise.all(
-                  fetched.updates.map((update) =>
-                    decryptLoroUpdate(
-                      update.encryptedData,
-                      runtime.encapsulationKeyPair?.secretKey ??
-                        new Uint8Array(),
-                    ),
-                  ),
-                );
-                importUpdates(doc, decrypted);
-                setSnapshot({
-                  ready: true,
-                  text: getTextValue(doc),
-                  syncing: true,
-                });
-              }
-
-              nextRecord = await persistDocument(doc, {
-                documentId,
-                remoteCursor: fetched.nextCursor,
-              });
-            }
-          }
 
           if (!documentId && pendingUpdates.length > 0) {
             const created = await runtime.apiClient.createDocument();
@@ -469,36 +522,90 @@ function createNotesStore(
               continue;
             }
 
+            updateRecipientPublicKeys(created.recipientEncapsulationPublicKeys);
             documentId = created.id;
             nextRecord = await persistDocument(doc, {
               documentId,
+              accessEpoch: created.currentAccessEpoch,
             });
             runtime.log(`Created notes document: ${created.id}`);
           }
 
-          for (const pending of pendingUpdates) {
-            if (!documentId || !runtime.encapsulationKeyPair) {
-              break;
-            }
+          if (documentId) {
+            const outgoingUpdates = await Promise.all(
+              pendingUpdates.map(async (pending) => {
+                const updateBytes = base64ToBytes(pending.updateData);
+                const versionVectors =
+                  pending.partialStartVersionVector &&
+                  pending.partialEndVersionVector
+                    ? {
+                        partialStartVersionVector:
+                          pending.partialStartVersionVector,
+                        partialEndVersionVector:
+                          pending.partialEndVersionVector,
+                      }
+                    : getUpdateVersionVectors(updateBytes);
 
-            const encrypted = await encryptLoroUpdate(
-              base64ToBytes(pending.updateData),
-              [runtime.encapsulationKeyPair.publicKey],
+                return {
+                  id: pending.id,
+                  encryptedData: await encryptLoroUpdate(
+                    updateBytes,
+                    recipientPublicKeys,
+                  ),
+                  partialStartVersionVector:
+                    versionVectors.partialStartVersionVector,
+                  partialEndVersionVector:
+                    versionVectors.partialEndVersionVector,
+                };
+              }),
             );
-            const appended = await runtime.apiClient.appendDocumentUpdate(
+
+            const synced = await runtime.apiClient.syncDocument(
               documentId,
-              encrypted,
+              nextRecord.accessEpoch,
+              encodeVersionVector(doc),
+              outgoingUpdates,
             );
 
-            if (!appended) {
-              break;
+            if (!synced) {
+              continue;
             }
 
-            await deletePendingUpdate(pending.id);
+            updateRecipientPublicKeys(synced.recipientEncapsulationPublicKeys);
+
+            for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+              await deletePendingUpdate(acceptedOutgoingUpdateId);
+            }
+
+            if (synced.updates.length > 0) {
+              const decrypted = await Promise.all(
+                synced.updates.map((update) =>
+                  decryptLoroUpdate(
+                    update.encryptedData,
+                    encapsulationKeyPair.secretKey,
+                  ),
+                ),
+              );
+              importUpdates(doc, decrypted);
+              setSnapshot({
+                ready: true,
+                text: getTextValue(doc),
+                syncing: true,
+              });
+            }
+
+            const previousAccessEpoch = nextRecord.accessEpoch;
             nextRecord = await persistDocument(doc, {
               documentId,
-              remoteCursor: appended.sequence,
+              accessEpoch: synced.currentAccessEpoch,
             });
+
+            if (
+              pendingUpdates.length > 0 &&
+              synced.currentAccessEpoch !== previousAccessEpoch
+            ) {
+              syncRequested = true;
+            }
           }
         } catch (error) {
           if (
@@ -590,6 +697,9 @@ function createNotesStore(
     updateRuntime(nextRuntime: NotesRuntime) {
       const previousRuntime = runtime;
       runtime = nextRuntime;
+      if (!record?.documentId) {
+        recipientPublicKeys = getLocalRecipientPublicKeys();
+      }
 
       if (nextRuntime.dbStatus !== "ready") {
         if (snapshot.ready || initialized || initializePromise) {

@@ -1,8 +1,0 @@
-[workspace]
-members = ["crates/http-client", "crates/http-client-wasm", "crates/http-server", "crates/protocol", "crates/store"]
-resolver = "2"
-
-[profile.release]
-opt-level = "s"
-lto = true
-strip = true
