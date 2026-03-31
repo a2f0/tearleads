@@ -36,9 +36,35 @@ interface WindowStateContextValue {
   updateTitle: (id: string, title: string) => void;
   moveForward: (id: string) => void;
   moveBackward: (id: string) => void;
+  bringToFront: (id: string) => void;
 }
 
 const WindowStateContext = createContext<WindowStateContextValue | null>(null);
+
+function findAdjacentWindow(
+  windows: WindowEntry[],
+  target: WindowEntry,
+  direction: "forward" | "backward",
+) {
+  let candidate: WindowEntry | null = null;
+
+  for (const window of windows) {
+    if (direction === "forward") {
+      if (window.zIndex <= target.zIndex) continue;
+      if (!candidate || window.zIndex < candidate.zIndex) {
+        candidate = window;
+      }
+      continue;
+    }
+
+    if (window.zIndex >= target.zIndex) continue;
+    if (!candidate || window.zIndex > candidate.zIndex) {
+      candidate = window;
+    }
+  }
+
+  return candidate;
+}
 
 export function WindowStateProvider({ children }: PropsWithChildren) {
   const [windows, setWindows] = useState<WindowEntry[]>([]);
@@ -89,9 +115,7 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
     setWindows((prev) => {
       const target = prev.find((w) => w.id === id);
       if (!target) return prev;
-      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
-      const sortedIdx = sorted.findIndex((w) => w.id === id);
-      const swapWith = sorted[sortedIdx + 1];
+      const swapWith = findAdjacentWindow(prev, target, "forward");
       if (!swapWith) return prev;
       return prev.map((w) => {
         if (w.id === target.id) return { ...w, zIndex: swapWith.zIndex };
@@ -105,13 +129,27 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
     setWindows((prev) => {
       const target = prev.find((w) => w.id === id);
       if (!target) return prev;
-      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
-      const sortedIdx = sorted.findIndex((w) => w.id === id);
-      const swapWith = sorted[sortedIdx - 1];
+      const swapWith = findAdjacentWindow(prev, target, "backward");
       if (!swapWith) return prev;
       return prev.map((w) => {
         if (w.id === target.id) return { ...w, zIndex: swapWith.zIndex };
         if (w.id === swapWith.id) return { ...w, zIndex: target.zIndex };
+        return w;
+      });
+    });
+  }, []);
+
+  const bringToFront = useCallback((id: string) => {
+    setWindows((prev) => {
+      const target = prev.find((w) => w.id === id);
+      if (!target) return prev;
+
+      const topZIndex = prev.reduce((max, w) => Math.max(max, w.zIndex), 0);
+      if (target.zIndex === topZIndex) return prev;
+
+      return prev.map((w) => {
+        if (w.id === target.id) return { ...w, zIndex: topZIndex };
+        if (w.zIndex > target.zIndex) return { ...w, zIndex: w.zIndex - 1 };
         return w;
       });
     });
@@ -133,6 +171,7 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
       updateTitle,
       moveForward,
       moveBackward,
+      bringToFront,
     }),
     [
       windows,
@@ -144,6 +183,7 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
       updateTitle,
       moveForward,
       moveBackward,
+      bringToFront,
     ],
   );
 

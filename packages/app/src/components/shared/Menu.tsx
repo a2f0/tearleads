@@ -1,4 +1,5 @@
 import { type PropsWithChildren, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import "./Menu.css";
 
 export interface MenuPosition {
@@ -28,7 +29,7 @@ export function Menu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  return (
+  const menu = (
     <div
       ref={menuRef}
       className="menu"
@@ -41,4 +42,10 @@ export function Menu({
       {children}
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return menu;
+  }
+
+  return createPortal(menu, document.body);
 }

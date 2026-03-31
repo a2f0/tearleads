@@ -97,6 +97,36 @@ test("moveBackward on bottommost window is a no-op", () => {
   expect(byTitle(result, "B").zIndex).toBe(2);
 });
 
+test("bringToFront moves a window above all others", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() => result.current.create("A", 0, 0));
+  act(() => result.current.create("B", 10, 10));
+  act(() => result.current.create("C", 20, 20));
+
+  const idA = at(result, 0).id;
+
+  act(() => result.current.bringToFront(idA));
+
+  expect(byTitle(result, "A").zIndex).toBe(3);
+  expect(byTitle(result, "B").zIndex).toBe(1);
+  expect(byTitle(result, "C").zIndex).toBe(2);
+});
+
+test("bringToFront on topmost window is a no-op", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() => result.current.create("A", 0, 0));
+  act(() => result.current.create("B", 10, 10));
+
+  const idB = at(result, 1).id;
+
+  act(() => result.current.bringToFront(idB));
+
+  expect(byTitle(result, "A").zIndex).toBe(1);
+  expect(byTitle(result, "B").zIndex).toBe(2);
+});
+
 test("zIndex change triggers re-render in consuming component", () => {
   const zIndices: number[][] = [];
 

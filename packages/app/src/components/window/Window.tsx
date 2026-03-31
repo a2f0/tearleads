@@ -16,8 +16,14 @@ interface WindowProps {
 }
 
 export function Window({ windowId }: WindowProps) {
-  const { windowMap, close, minimize, moveForward, moveBackward } =
-    useWindowState();
+  const {
+    windowMap,
+    close,
+    minimize,
+    moveForward,
+    moveBackward,
+    bringToFront,
+  } = useWindowState();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
@@ -29,6 +35,7 @@ export function Window({ windowId }: WindowProps) {
       minimize={minimize}
       moveForward={moveForward}
       moveBackward={moveBackward}
+      bringToFront={bringToFront}
     />
   );
 }
@@ -39,12 +46,14 @@ function WindowInner({
   minimize,
   moveForward,
   moveBackward,
+  bringToFront,
 }: {
   entry: WindowEntry;
   close: (id: string) => void;
   minimize: (id: string) => void;
   moveForward: (id: string) => void;
   moveBackward: (id: string) => void;
+  bringToFront: (id: string) => void;
 }) {
   const {
     id: windowId,
@@ -135,8 +144,11 @@ function WindowInner({
   }, [minimize, windowId]);
 
   const handleMaximize = useCallback(() => {
+    if (!maximized) {
+      bringToFront(windowId);
+    }
     setMaximized((prev) => !prev);
-  }, []);
+  }, [bringToFront, maximized, windowId]);
 
   const handleClose = useCallback(() => {
     close(windowId);

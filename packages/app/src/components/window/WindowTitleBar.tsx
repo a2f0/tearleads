@@ -26,6 +26,16 @@ export function WindowTitleBar({
 }) {
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
 
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target;
+      if (e.button !== 0) return;
+      if (target instanceof HTMLElement && target.closest("button")) return;
+      onMouseDown(e);
+    },
+    [onMouseDown],
+  );
+
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -38,7 +48,7 @@ export function WindowTitleBar({
     <div
       role="toolbar"
       className="window-titlebar"
-      onMouseDown={onMouseDown}
+      onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
     >
       <span>{title}</span>
