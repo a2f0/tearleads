@@ -16,22 +16,44 @@ interface WindowProps {
 }
 
 export function Window({ windowId }: WindowProps) {
-  const { windowMap, close, minimize } = useWindowState();
+  const {
+    windowMap,
+    close,
+    minimize,
+    moveForward,
+    moveBackward,
+    bringToFront,
+  } = useWindowState();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
 
-  return <WindowInner entry={entry} close={close} minimize={minimize} />;
+  return (
+    <WindowInner
+      entry={entry}
+      close={close}
+      minimize={minimize}
+      moveForward={moveForward}
+      moveBackward={moveBackward}
+      bringToFront={bringToFront}
+    />
+  );
 }
 
 function WindowInner({
   entry,
   close,
   minimize,
+  moveForward,
+  moveBackward,
+  bringToFront,
 }: {
   entry: WindowEntry;
   close: (id: string) => void;
   minimize: (id: string) => void;
+  moveForward: (id: string) => void;
+  moveBackward: (id: string) => void;
+  bringToFront: (id: string) => void;
 }) {
   const {
     id: windowId,
@@ -39,6 +61,7 @@ function WindowInner({
     minimized,
     initialX,
     initialY,
+    zIndex,
     component: Component,
   } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
@@ -121,12 +144,23 @@ function WindowInner({
   }, [minimize, windowId]);
 
   const handleMaximize = useCallback(() => {
+    if (!maximized) {
+      bringToFront(windowId);
+    }
     setMaximized((prev) => !prev);
-  }, []);
+  }, [bringToFront, maximized, windowId]);
 
   const handleClose = useCallback(() => {
     close(windowId);
   }, [close, windowId]);
+
+  const handleMoveForward = useCallback(() => {
+    moveForward(windowId);
+  }, [moveForward, windowId]);
+
+  const handleMoveBackward = useCallback(() => {
+    moveBackward(windowId);
+  }, [moveBackward, windowId]);
 
   const [showStatusBar, setShowStatusBar] = useState(true);
   const toggleStatusBar = useCallback(() => {
@@ -226,14 +260,15 @@ function WindowInner({
   if (minimized) return null;
 
   const style: React.CSSProperties | undefined = maximized
-    ? undefined
+    ? { zIndex }
     : position
       ? {
           left: position.x,
           top: position.y,
+          zIndex,
           ...(size ? { width: size.width, height: size.height } : {}),
         }
-      : { visibility: "hidden" };
+      : { visibility: "hidden" as const, zIndex };
 
   return (
     <div
@@ -247,6 +282,8 @@ function WindowInner({
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onClose={handleClose}
+        onMoveForward={handleMoveForward}
+        onMoveBackward={handleMoveBackward}
       />
       <WindowMenuBar menus={menus} />
       <WindowBody showSidebar={showSidebar}>

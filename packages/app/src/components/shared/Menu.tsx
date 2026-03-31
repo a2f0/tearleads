@@ -1,4 +1,5 @@
 import { type PropsWithChildren, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import "./Menu.css";
 
 export interface MenuPosition {
@@ -9,10 +10,12 @@ export interface MenuPosition {
 export function Menu({
   position,
   onClose,
+  direction = "up",
   children,
 }: PropsWithChildren<{
   position: MenuPosition;
   onClose: () => void;
+  direction?: "up" | "down";
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -26,17 +29,23 @@ export function Menu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  return (
+  const menu = (
     <div
       ref={menuRef}
       className="menu"
       style={{
         top: position.y,
         left: position.x,
-        transform: "translateY(-100%)",
+        ...(direction === "up" && { transform: "translateY(-100%)" }),
       }}
     >
       {children}
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return menu;
+  }
+
+  return createPortal(menu, document.body);
 }
