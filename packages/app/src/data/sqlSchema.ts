@@ -48,41 +48,6 @@ export async function ensureSqlTables(
   }
 }
 
-export async function sqlTableExists(
-  execSql: ExecSql,
-  tableName: string,
-): Promise<boolean> {
-  const rows = await execSql(
-    `
-      SELECT name
-      FROM sqlite_master
-      WHERE type = 'table' AND name = :tableName
-      LIMIT 1
-    `,
-    {
-      ":tableName": tableName,
-    },
-  );
-
-  return rows.length > 0;
-}
-
-export async function sqlTableHasColumn(
-  execSql: ExecSql,
-  tableName: string,
-  columnName: string,
-): Promise<boolean> {
-  if (!(await sqlTableExists(execSql, tableName))) {
-    return false;
-  }
-
-  const columns = await execSql(`PRAGMA table_info(${tableName})`);
-
-  return columns.some(
-    (column) => readSqlRowValue(column, "name") === columnName,
-  );
-}
-
 export async function runSqlTransaction<T>(
   execSql: ExecSql,
   operation: () => Promise<T>,

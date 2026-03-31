@@ -161,25 +161,6 @@ export async function saveDocumentRecord(
   );
 }
 
-export async function hasDocumentsForAppKind(
-  execSql: ExecSql,
-  appKind: string,
-): Promise<boolean> {
-  const rows = await execSql(
-    `
-      SELECT 1
-      FROM documents
-      WHERE app_kind = :appKind
-      LIMIT 1
-    `,
-    {
-      ":appKind": appKind,
-    },
-  );
-
-  return rows.length > 0;
-}
-
 export async function listDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
@@ -234,25 +215,6 @@ export async function enqueueDocumentPendingUpdate(
       ":createdAt": new Date().toISOString(),
     },
   );
-}
-
-export async function hasDocumentPendingUpdatesForAppKind(
-  execSql: ExecSql,
-  appKind: string,
-): Promise<boolean> {
-  const rows = await execSql(
-    `
-      SELECT 1
-      FROM document_pending_updates
-      WHERE app_kind = :appKind
-      LIMIT 1
-    `,
-    {
-      ":appKind": appKind,
-    },
-  );
-
-  return rows.length > 0;
 }
 
 export async function deleteDocumentPendingUpdate(
