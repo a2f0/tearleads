@@ -28,18 +28,15 @@ import {
   isDocumentUpdateCreatedEvent,
   resolveRecipientPublicKeys,
 } from "../../data/documentSync";
+import type { ExecSql } from "../../data/sqlSchema";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,
 } from "./contactsPersistence";
+import type { AddressBookEntry } from "./types";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;
-
-export interface AddressBookEntry {
-  userId: string;
-  encapsulationPublicKey: string;
-}
 
 interface ContactsContextValue {
   entries: ReadonlyArray<AddressBookEntry>;
@@ -53,8 +50,6 @@ interface ContactsSnapshot {
   ready: boolean;
 }
 
-export type ContactsExecSql = ContactsAppData["execSql"];
-
 export interface ContactsRuntime {
   apiClient: Pick<
     ContactsAppData["apiClient"],
@@ -64,7 +59,7 @@ export interface ContactsRuntime {
   domainScope: ContactsAppData["domainScope"];
   encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
   events: ContactsAppData["events"];
-  execSql: ContactsExecSql;
+  execSql: ExecSql;
   isAuthenticated: ContactsAppData["isAuthenticated"];
   log: ContactsAppData["log"];
   online: ContactsAppData["online"];

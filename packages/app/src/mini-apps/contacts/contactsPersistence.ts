@@ -6,8 +6,12 @@ import {
   parseDocumentRecord,
   parsePendingUpdateRecord,
 } from "../../data/documentPersistence";
-import { ensureSqlTables, readSqlRowValue } from "../../data/sqlSchema";
-import type { AddressBookEntry, ContactsExecSql } from "./ContactsProvider";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  readSqlRowValue,
+} from "../../data/sqlSchema";
+import type { AddressBookEntry } from "./types";
 
 export interface AddressBookPendingUpdateInsert extends PendingUpdateFields {
   addressBookId: string;
@@ -19,25 +23,25 @@ export interface AddressBookState {
 }
 
 export interface ContactsPersistence {
-  ensureSchema: (execSql: ContactsExecSql) => Promise<void>;
+  ensureSchema: (execSql: ExecSql) => Promise<void>;
   loadAddressBook: (
-    execSql: ContactsExecSql,
+    execSql: ExecSql,
     addressBookId: string,
   ) => Promise<AddressBookState>;
   saveAddressBook: (
-    execSql: ContactsExecSql,
+    execSql: ExecSql,
     record: DocumentRecord,
     entries: ReadonlyArray<AddressBookEntry>,
   ) => Promise<void>;
   listPendingUpdates: (
-    execSql: ContactsExecSql,
+    execSql: ExecSql,
     addressBookId: string,
   ) => Promise<PendingUpdateRecord[]>;
   enqueuePendingUpdate: (
-    execSql: ContactsExecSql,
+    execSql: ExecSql,
     pendingUpdate: AddressBookPendingUpdateInsert,
   ) => Promise<void>;
-  deletePendingUpdate: (execSql: ContactsExecSql, id: string) => Promise<void>;
+  deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
 }
 
 const contactsTables = [
@@ -100,7 +104,7 @@ function parseAddressBookEntry(row: SqlRow): AddressBookEntry {
 }
 
 async function loadEntries(
-  execSql: ContactsExecSql,
+  execSql: ExecSql,
   addressBookId: string,
 ): Promise<ReadonlyArray<AddressBookEntry>> {
   const rows = await execSql(
@@ -119,7 +123,7 @@ async function loadEntries(
 }
 
 async function replaceEntries(
-  execSql: ContactsExecSql,
+  execSql: ExecSql,
   addressBookId: string,
   entries: ReadonlyArray<AddressBookEntry>,
 ) {
