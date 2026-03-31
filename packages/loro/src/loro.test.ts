@@ -4,7 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import {
-  createTextDocument,
+  createDocument,
   decryptLoroUpdate,
   encodeVersionVector,
   encryptLoroUpdate,
@@ -19,8 +19,8 @@ test("encrypted loro updates let peers converge on the same text", async () => {
   const bobSigning = generateSigningSeedAndKeyPair();
   const bobKem = generateKemSeedAndKeyPair();
 
-  const aliceDoc = await createTextDocument(aliceSigning.signingPublicKey);
-  const bobDoc = await createTextDocument(bobSigning.signingPublicKey);
+  const aliceDoc = await createDocument(aliceSigning.signingPublicKey);
+  const bobDoc = await createDocument(bobSigning.signingPublicKey);
   const recipients = [aliceKem.publicKey, bobKem.publicKey];
 
   const initialVersion = encodeVersionVector(aliceDoc);

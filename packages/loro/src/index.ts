@@ -1,6 +1,6 @@
 export * from "./client";
 export {
-  createTextDocument,
+  createDocument,
   decodeVersionVector,
   derivePeerId,
   encodeEncodedVersionVector,

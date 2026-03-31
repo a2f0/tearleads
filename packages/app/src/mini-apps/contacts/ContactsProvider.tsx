@@ -5,7 +5,6 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
-  getTextValue,
   importUpdates,
 } from "@tearleads/loro";
 import {
@@ -18,6 +17,10 @@ import {
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/documentPersistence";
 import {
   createPendingUpdateFields,
   encryptPendingUpdates,
@@ -25,65 +28,95 @@ import {
   isDocumentUpdateCreatedEvent,
   resolveRecipientPublicKeys,
 } from "../../data/documentSync";
+import type { ExecSql } from "../../data/sqlSchema";
 import {
-  type NoteRecord,
-  type NotesPersistence,
-  type PendingUpdateRecord,
-  sqlNotesPersistence,
-} from "./notesPersistence";
+  type ContactsPersistence,
+  sqlContactsPersistence,
+} from "./contactsPersistence";
+import type { AddressBookEntry } from "./types";
 
-type NotesDocument = Awaited<ReturnType<typeof createDocument>>;
-type NotesAppData = ReturnType<typeof useAppData>;
+type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
+type ContactsAppData = ReturnType<typeof useAppData>;
 
-export interface NotesRuntime {
-  apiClient: Pick<NotesAppData["apiClient"], "createDocument" | "syncDocument">;
-  dbStatus: NotesAppData["dbStatus"];
-  domainScope: NotesAppData["domainScope"];
-  encapsulationKeyPair: NotesAppData["encapsulationKeyPair"];
-  events: NotesAppData["events"];
-  execSql: NotesAppData["execSql"];
-  isAuthenticated: NotesAppData["isAuthenticated"];
-  log: NotesAppData["log"];
-  online: NotesAppData["online"];
-}
-
-interface NotesContextValue {
+interface ContactsContextValue {
+  entries: ReadonlyArray<AddressBookEntry>;
+  importKey: (userId: string) => Promise<void>;
   ready: boolean;
-  text: string;
-  syncing: boolean;
-  setText: (value: string) => void;
+  removeKey: (userId: string) => Promise<void>;
 }
 
-interface NotesSnapshot {
+interface ContactsSnapshot {
+  entries: ReadonlyArray<AddressBookEntry>;
   ready: boolean;
-  text: string;
-  syncing: boolean;
 }
 
-interface NotesStore {
-  getSnapshot: () => NotesSnapshot;
-  setText: (value: string) => void;
+export interface ContactsRuntime {
+  apiClient: Pick<
+    ContactsAppData["apiClient"],
+    "createDocument" | "getEncapsulationKey" | "syncDocument"
+  >;
+  dbStatus: ContactsAppData["dbStatus"];
+  domainScope: ContactsAppData["domainScope"];
+  encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
+  events: ContactsAppData["events"];
+  execSql: ExecSql;
+  isAuthenticated: ContactsAppData["isAuthenticated"];
+  log: ContactsAppData["log"];
+  online: ContactsAppData["online"];
+}
+
+interface ContactsStore {
+  getSnapshot: () => ContactsSnapshot;
+  importKey: (userId: string) => Promise<void>;
+  removeKey: (userId: string) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
-  updateRuntime: (runtime: NotesRuntime) => void;
+  updateRuntime: (runtime: ContactsRuntime) => void;
 }
 
-const NOTE_ID = "default";
-const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
-const NotesContext = createContext<NotesStore | null>(null);
+const ADDRESS_BOOK_ID = "default";
+const contactsStoresByScope = new WeakMap<object, ContactsStore>();
+const ContactsContext = createContext<ContactsStore | null>(null);
 
-export function createNotesStore(
-  noteId: string,
-  initialRuntime: NotesRuntime,
-  persistence: NotesPersistence = sqlNotesPersistence,
-): NotesStore {
+function sortEntries(
+  entries: ReadonlyArray<AddressBookEntry>,
+): AddressBookEntry[] {
+  return [...entries].sort((left, right) =>
+    left.userId.localeCompare(right.userId),
+  );
+}
+
+function getEntriesValue(doc: ContactsDocument): AddressBookEntry[] {
+  const rawEntries = Array.from(doc.getMap("entries").entries());
+
+  return sortEntries(
+    rawEntries.flatMap(([userId, value]) =>
+      typeof value === "string"
+        ? [
+            {
+              userId,
+              encapsulationPublicKey: value,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
+function setEntryValue(doc: ContactsDocument, entry: AddressBookEntry) {
+  doc.getMap("entries").set(entry.userId, entry.encapsulationPublicKey);
+}
+
+export function createContactsStore(
+  initialRuntime: ContactsRuntime,
+  persistence: ContactsPersistence = sqlContactsPersistence,
+): ContactsStore {
   let runtime = initialRuntime;
-  let snapshot: NotesSnapshot = {
+  let snapshot: ContactsSnapshot = {
+    entries: [],
     ready: false,
-    text: "",
-    syncing: false,
   };
-  let doc: NotesDocument | null = null;
-  let record: NoteRecord | null = null;
+  let doc: ContactsDocument | null = null;
+  let record: DocumentRecord | null = null;
   let initialized = false;
   let initializePromise: Promise<void> | null = null;
   let syncPromise: Promise<void> | null = null;
@@ -101,11 +134,18 @@ export function createNotesStore(
     }
   }
 
-  function setSnapshot(next: NotesSnapshot) {
+  function setSnapshot(next: ContactsSnapshot) {
     if (
       snapshot.ready === next.ready &&
-      snapshot.text === next.text &&
-      snapshot.syncing === next.syncing
+      snapshot.entries.length === next.entries.length &&
+      snapshot.entries.every((entry, index) => {
+        const nextEntry = next.entries[index];
+        return (
+          nextEntry &&
+          entry.userId === nextEntry.userId &&
+          entry.encapsulationPublicKey === nextEntry.encapsulationPublicKey
+        );
+      })
     ) {
       return;
     }
@@ -133,41 +173,45 @@ export function createNotesStore(
       runtime.encapsulationKeyPair,
     );
     setSnapshot({
+      entries: [],
       ready: false,
-      text: "",
-      syncing: false,
     });
   }
 
-  async function saveNoteRecord(nextRecord: NoteRecord) {
-    await persistence.saveNote(runtime.execSql, nextRecord);
+  async function saveAddressBookRecord(
+    nextRecord: DocumentRecord,
+    currentDoc: ContactsDocument,
+  ) {
+    await persistence.saveAddressBook(
+      runtime.execSql,
+      nextRecord,
+      getEntriesValue(currentDoc),
+    );
     record = nextRecord;
   }
 
   async function persistDocument(
-    currentDoc: NotesDocument,
-    patch: Partial<NoteRecord> = {},
-  ): Promise<NoteRecord> {
-    const nextRecord: NoteRecord = {
-      id: record?.id ?? noteId,
+    currentDoc: ContactsDocument,
+    patch: Partial<DocumentRecord> = {},
+  ): Promise<DocumentRecord> {
+    const nextRecord: DocumentRecord = {
+      id: record?.id ?? ADDRESS_BOOK_ID,
       documentId: patch.documentId ?? record?.documentId ?? null,
-      text: patch.text ?? getTextValue(currentDoc),
       loroSnapshot:
         patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
       accessEpoch: patch.accessEpoch ?? record?.accessEpoch ?? 1,
     };
 
-    await saveNoteRecord(nextRecord);
+    await saveAddressBookRecord(nextRecord, currentDoc);
     setSnapshot({
+      entries: getEntriesValue(currentDoc),
       ready: true,
-      text: nextRecord.text,
-      syncing: snapshot.syncing,
     });
     return nextRecord;
   }
 
   async function listPendingUpdates(): Promise<PendingUpdateRecord[]> {
-    return persistence.listPendingUpdates(runtime.execSql, noteId);
+    return persistence.listPendingUpdates(runtime.execSql, ADDRESS_BOOK_ID);
   }
 
   async function enqueuePendingUpdate(update: Uint8Array) {
@@ -177,7 +221,7 @@ export function createNotesStore(
     }
 
     await persistence.enqueuePendingUpdate(runtime.execSql, {
-      noteId,
+      addressBookId: ADDRESS_BOOK_ID,
       ...pendingUpdateFields,
     });
   }
@@ -192,31 +236,38 @@ export function createNotesStore(
     }
 
     await persistence.ensureSchema(runtime.execSql);
+    const stored = await persistence.loadAddressBook(
+      runtime.execSql,
+      ADDRESS_BOOK_ID,
+    );
+    const nextDoc = await createDocument(getScopedPeerSeed("contacts"));
 
-    const nextDoc = await createDocument(getScopedPeerSeed("notes"));
-    const existing = await persistence.loadNote(runtime.execSql, noteId);
-
-    if (existing?.loroSnapshot) {
-      importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
-      record = existing;
+    if (stored.record?.loroSnapshot) {
+      importUpdates(nextDoc, [base64ToBytes(stored.record.loroSnapshot)]);
+      record = stored.record;
       setSnapshot({
+        entries: getEntriesValue(nextDoc),
         ready: true,
-        text: getTextValue(nextDoc),
-        syncing: false,
       });
     } else {
-      const created: NoteRecord = {
-        id: noteId,
+      for (const entry of stored.entries) {
+        setEntryValue(nextDoc, entry);
+      }
+
+      if (stored.entries.length > 0) {
+        await enqueuePendingUpdate(exportAllUpdates(nextDoc));
+      }
+
+      const created: DocumentRecord = {
+        id: ADDRESS_BOOK_ID,
         documentId: null,
-        text: "",
         loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
         accessEpoch: 1,
       };
-      await saveNoteRecord(created);
+      await saveAddressBookRecord(created, nextDoc);
       setSnapshot({
+        entries: getEntriesValue(nextDoc),
         ready: true,
-        text: "",
-        syncing: false,
       });
     }
 
@@ -245,6 +296,14 @@ export function createNotesStore(
     });
   }
 
+  async function waitForInitialization() {
+    ensureInitialized();
+
+    if (initializePromise) {
+      await initializePromise;
+    }
+  }
+
   function scheduleSync() {
     syncRequested = true;
 
@@ -265,12 +324,6 @@ export function createNotesStore(
         ) {
           continue;
         }
-
-        setSnapshot({
-          ready: snapshot.ready,
-          text: snapshot.text,
-          syncing: true,
-        });
 
         try {
           let nextRecord = record;
@@ -295,7 +348,7 @@ export function createNotesStore(
               documentId,
               accessEpoch: created.currentAccessEpoch,
             });
-            runtime.log(`Created notes document: ${created.id}`);
+            runtime.log(`Created contacts document: ${created.id}`);
           }
 
           if (documentId) {
@@ -332,9 +385,8 @@ export function createNotesStore(
               );
               importUpdates(doc, decrypted);
               setSnapshot({
+                entries: getEntriesValue(doc),
                 ready: true,
-                text: getTextValue(doc),
-                syncing: true,
               });
             }
 
@@ -360,12 +412,6 @@ export function createNotesStore(
           }
 
           throw error;
-        } finally {
-          setSnapshot({
-            ready: snapshot.ready,
-            text: snapshot.text,
-            syncing: false,
-          });
         }
       }
 
@@ -397,16 +443,22 @@ export function createNotesStore(
     getSnapshot() {
       return snapshot;
     },
-    setText(value: string) {
-      if (!doc) {
+    async importKey(userId: string) {
+      runtime.log(`Importing peer key for userId: ${userId}`);
+      const response = await runtime.apiClient.getEncapsulationKey(userId);
+      if (!response) {
         return;
       }
 
-      setSnapshot({
-        ready: snapshot.ready,
-        text: value,
-        syncing: snapshot.syncing,
-      });
+      await waitForInitialization();
+      if (!doc || runtime.dbStatus !== "ready") {
+        return;
+      }
+
+      const entry: AddressBookEntry = {
+        userId: response.userId,
+        encapsulationPublicKey: response.encapsulationPublicKey,
+      };
 
       writeChain = writeChain
         .catch(() => undefined)
@@ -415,21 +467,58 @@ export function createNotesStore(
             return;
           }
 
-          if (getTextValue(doc) === value) {
+          if (
+            doc.getMap("entries").get(entry.userId) ===
+            entry.encapsulationPublicKey
+          ) {
             return;
           }
 
-          const previousTextVersion = encodeVersionVector(doc);
-          doc.getText("text").update(value);
-          const update = exportUpdatesSince(doc, previousTextVersion);
+          const previousVersion = encodeVersionVector(doc);
+          setEntryValue(doc, entry);
+          const update = exportUpdatesSince(doc, previousVersion);
 
           await enqueuePendingUpdate(update);
-          await persistDocument(doc, { text: value });
+          await persistDocument(doc);
+          scheduleSync();
+          runtime.log("Peer key imported");
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to persist contact:", error);
+        });
+
+      await writeChain;
+    },
+    async removeKey(userId: string) {
+      await waitForInitialization();
+      if (!doc || runtime.dbStatus !== "ready") {
+        return;
+      }
+
+      writeChain = writeChain
+        .catch(() => undefined)
+        .then(async () => {
+          if (!doc) {
+            return;
+          }
+
+          if (typeof doc.getMap("entries").get(userId) === "undefined") {
+            return;
+          }
+
+          const previousVersion = encodeVersionVector(doc);
+          doc.getMap("entries").delete(userId);
+          const update = exportUpdatesSince(doc, previousVersion);
+
+          await enqueuePendingUpdate(update);
+          await persistDocument(doc);
           scheduleSync();
         })
         .catch((error: unknown) => {
-          console.error("Failed to persist note changes:", error);
+          console.error("Failed to remove contact:", error);
         });
+
+      await writeChain;
     },
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -438,7 +527,7 @@ export function createNotesStore(
         listeners.delete(listener);
       };
     },
-    updateRuntime(nextRuntime: NotesRuntime) {
+    updateRuntime(nextRuntime: ContactsRuntime) {
       const previousRuntime = runtime;
       runtime = nextRuntime;
       if (!record?.documentId) {
@@ -472,30 +561,24 @@ export function createNotesStore(
   };
 }
 
-function getOrCreateNotesStore(
+function getOrCreateContactsStore(
   domainScope: object,
-  noteId: string,
-  runtime: NotesRuntime,
-): NotesStore {
-  const existingStores = notesStoresByScope.get(domainScope);
-  if (existingStores) {
-    const existingStore = existingStores.get(noteId);
-    if (existingStore) {
-      return existingStore;
-    }
+  runtime: ContactsRuntime,
+): ContactsStore {
+  const existingStore = contactsStoresByScope.get(domainScope);
+  if (existingStore) {
+    return existingStore;
   }
 
-  const nextStore = createNotesStore(noteId, runtime);
-  const stores = existingStores ?? new Map<string, NotesStore>();
-  stores.set(noteId, nextStore);
-  notesStoresByScope.set(domainScope, stores);
+  const nextStore = createContactsStore(runtime);
+  contactsStoresByScope.set(domainScope, nextStore);
   return nextStore;
 }
 
-export function NotesProvider({ children }: PropsWithChildren) {
+export function ContactsProvider({ children }: PropsWithChildren) {
   const runtime = useAppData();
   const store = useMemo(
-    () => getOrCreateNotesStore(runtime.domainScope, NOTE_ID, runtime),
+    () => getOrCreateContactsStore(runtime.domainScope, runtime),
     [runtime.domainScope],
   );
 
@@ -504,14 +587,16 @@ export function NotesProvider({ children }: PropsWithChildren) {
   }, [store, runtime]);
 
   return (
-    <NotesContext.Provider value={store}>{children}</NotesContext.Provider>
+    <ContactsContext.Provider value={store}>
+      {children}
+    </ContactsContext.Provider>
   );
 }
 
-export function useNotes(): NotesContextValue {
-  const store = useContext(NotesContext);
+export function useContacts(): ContactsContextValue {
+  const store = useContext(ContactsContext);
   if (!store) {
-    throw new Error("useNotes must be used within a NotesProvider.");
+    throw new Error("useContacts must be used within a ContactsProvider.");
   }
 
   const snapshot = useSyncExternalStore(
@@ -522,10 +607,10 @@ export function useNotes(): NotesContextValue {
 
   return useMemo(
     () => ({
+      entries: snapshot.entries,
+      importKey: store.importKey,
       ready: snapshot.ready,
-      text: snapshot.text,
-      syncing: snapshot.syncing,
-      setText: store.setText,
+      removeKey: store.removeKey,
     }),
     [snapshot, store],
   );

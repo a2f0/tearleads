@@ -28,7 +28,7 @@ export async function derivePeerId(
   return normalizePeerId(peerId);
 }
 
-export async function createTextDocument(peerSeed: string | Uint8Array) {
+export async function createDocument(peerSeed: string | Uint8Array) {
   const doc = new LoroDoc();
   doc.setPeerId(await derivePeerId(peerSeed));
   return doc;

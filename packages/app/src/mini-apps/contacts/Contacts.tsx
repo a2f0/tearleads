@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
-import { useContacts } from "../../contacts/ContactsProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
+import { useContacts } from "./ContactsProvider";
 import "./Contacts.css";
 
 export function Contacts() {
-  const { entries, importKey, removeKey } = useContacts();
+  const { entries, importKey, ready, removeKey } = useContacts();
   const { isAuthenticated } = useCryptoSession();
   const peerUserId = usePeerUserId();
   const [draftUserId, setDraftUserId] = useState("");
@@ -16,7 +16,7 @@ export function Contacts() {
     }
   }, [peerUserId]);
 
-  const canImport = isAuthenticated && draftUserId.trim().length > 0;
+  const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
 
   return (
     <div className="contacts">
@@ -42,7 +42,9 @@ export function Contacts() {
           Authenticate before importing peer keys.
         </div>
       )}
-      {entries.length === 0 ? (
+      {!ready ? (
+        <div className="contacts-hint">Loading contacts...</div>
+      ) : entries.length === 0 ? (
         <div className="contacts-hint">No contacts imported yet.</div>
       ) : (
         <div className="contacts-list">
@@ -54,8 +56,8 @@ export function Contacts() {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  removeKey(entry.userId);
+                onClick={async () => {
+                  await removeKey(entry.userId);
                 }}
               >
                 Remove

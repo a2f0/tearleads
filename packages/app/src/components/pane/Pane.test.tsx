@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
@@ -145,6 +145,97 @@ test("notes windows in the same pane share live note state", async () => {
   await waitFor(() => {
     expect(firstEditor.value).toBe("shared pane note");
     expect(secondEditor.value).toBe("shared pane note");
+  });
+
+  view.unmount();
+});
+
+test("contacts windows in the same pane share live address book state", async () => {
+  const view = renderPane();
+
+  await waitFor(() => {
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByText("Generate Key Pair"));
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByText("Upload Public Key"));
+
+  await waitFor(() => {
+    expect(view.queryByText(/userId: none/)).toBeNull();
+  });
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Contacts"));
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 160,
+    clientY: 160,
+  });
+  fireEvent.click(view.getByText("Open Contacts"));
+
+  await waitFor(() => {
+    const contactsApps = Array.from(
+      view.container.querySelectorAll<HTMLDivElement>(".contacts"),
+    );
+    expect(contactsApps).toHaveLength(2);
+  });
+
+  const contactsApps =
+    view.container.querySelectorAll<HTMLDivElement>(".contacts");
+  const firstContactsApp = contactsApps[0];
+
+  invariant(firstContactsApp, "first contacts app not found");
+
+  const firstInput = within(firstContactsApp).getByLabelText("Contact user ID");
+  invariant(firstInput, "contact input not found");
+
+  fireEvent.change(firstInput, {
+    target: { value: "peer-user-1" },
+  });
+
+  const updatedFirstContactsApp = view
+    .getByDisplayValue("peer-user-1")
+    .closest(".contacts");
+
+  await waitFor(() => {
+    invariant(
+      updatedFirstContactsApp instanceof HTMLDivElement,
+      "updated first contacts app not found",
+    );
+    const importButton = within(updatedFirstContactsApp).getByRole("button", {
+      name: "Import",
+    });
+    invariant(
+      importButton instanceof HTMLButtonElement,
+      "contact import button not found",
+    );
+    expect(importButton.disabled).toBe(false);
+  });
+
+  invariant(
+    updatedFirstContactsApp instanceof HTMLDivElement,
+    "updated first contacts app not found",
+  );
+
+  const firstImportButton = within(updatedFirstContactsApp).getByRole(
+    "button",
+    {
+      name: "Import",
+    },
+  );
+  invariant(
+    firstImportButton instanceof HTMLButtonElement,
+    "contact import button not found",
+  );
+
+  fireEvent.click(firstImportButton);
+
+  await waitFor(() => {
+    expect(view.getAllByText("peer-user-1")).toHaveLength(2);
   });
 
   view.unmount();

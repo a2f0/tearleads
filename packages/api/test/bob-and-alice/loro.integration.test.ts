@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { base64ToBytes } from "@tearleads/encoding";
 import {
-  createTextDocument,
+  createDocument as createLoroDocument,
   decryptLoroUpdate,
   encodeVersionVector,
   encryptLoroUpdate,
@@ -56,8 +56,8 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(createdDocument.currentAccessEpoch).toBe(1);
   expect(createdDocument.recipientEncapsulationPublicKeys).toHaveLength(1);
 
-  const aliceDoc = await createTextDocument(alice.fingerprint);
-  const bobDoc = await createTextDocument(bob.fingerprint);
+  const aliceDoc = await createLoroDocument(alice.fingerprint);
+  const bobDoc = await createLoroDocument(bob.fingerprint);
 
   const bobForbiddenFetchResponse = await syncDocument(
     documentId,
