@@ -9,10 +9,12 @@ export interface MenuPosition {
 export function Menu({
   position,
   onClose,
+  direction = "up",
   children,
 }: PropsWithChildren<{
   position: MenuPosition;
   onClose: () => void;
+  direction?: "up" | "down";
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -33,7 +35,7 @@ export function Menu({
       style={{
         top: position.y,
         left: position.x,
-        transform: "translateY(-100%)",
+        ...(direction === "up" && { transform: "translateY(-100%)" }),
       }}
     >
       {children}
