@@ -2,14 +2,9 @@
 
 ## Summary
 
-We can remove SpiceDB and start with an application-owned access plane.
+The access plane is application-owned.
 
-That is feasible because the current repo does not meaningfully depend on
-SpiceDB for runtime authorization. The remaining footprint was a small adapter,
-one test, one nullable `items.spicedb_zed_token` column, and README setup
-instructions.
-
-The initial access plane should focus on explicit, durable metadata we control:
+The initial access plane focuses on explicit, durable metadata we control:
 
 - users
 - organizations
@@ -18,23 +13,6 @@ The initial access plane should focus on explicit, durable metadata we control:
 - object grants
 - access epochs
 - recipient envelopes
-
-## Why Gut SpiceDB Now
-
-SpiceDB is useful when the hard part is server-side relationship evaluation at
-scale across a stable object graph.
-
-That is not where this repo is yet. The harder problems here are:
-
-- offline-first mutation flow
-- E2EE recipient management
-- attachment commit gating
-- key epoch rotation
-- sync-safe permission checkpoints
-
-Those concerns already require app-specific protocol semantics. Keeping a mostly
-unused external auth graph in the loop adds complexity without solving the
-problems we actually have.
 
 ## Principles
 
@@ -174,15 +152,11 @@ encrypted Loro diffs.
 - Do not implement full Zanzibar-style relationship semantics.
 - Do not solve retroactive revocation in v1.
 - Do not add branching-aware access semantics yet.
-- Do not require SpiceDB parity before shipping basic local-first sync.
+- Do not require external authorization service parity before shipping basic local-first sync.
 
 ## Recommended First Implementation Slice
 
-1. Remove the dead SpiceDB integration.
-2. Add explicit access-plane schema tables owned by the app.
-3. Add a small resolver that computes effective recipients for one object.
-4. Use that resolver in notes writes before encrypted update append.
-5. Add epoch mismatch rejection on note update append.
-
-That gets us from "unused external auth dependency" to "real app-owned access
-metadata" without overcommitting to a full graph engine too early.
+1. Add explicit access-plane schema tables owned by the app.
+2. Add a small resolver that computes effective recipients for one object.
+3. Use that resolver in notes writes before encrypted update append.
+4. Add epoch mismatch rejection on note update append.
