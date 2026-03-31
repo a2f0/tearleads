@@ -38,6 +38,13 @@ import type { AddressBookEntry } from "./types";
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;
 
+interface ContactState {
+  doc: ContactsDocument;
+  entry: AddressBookEntry;
+  recipientPublicKeys: Uint8Array[];
+  record: DocumentRecord;
+}
+
 interface ContactsContextValue {
   entries: ReadonlyArray<AddressBookEntry>;
   importKey: (userId: string) => Promise<void>;
@@ -85,25 +92,34 @@ function sortEntries(
   );
 }
 
-function getEntriesValue(doc: ContactsDocument): AddressBookEntry[] {
-  const rawEntries = Array.from(doc.getMap("entries").entries());
+function getEntryValue(
+  userId: string,
+  doc: ContactsDocument,
+): AddressBookEntry | null {
+  const encapsulationPublicKey = doc
+    .getMap("contact")
+    .get("encapsulationPublicKey");
 
-  return sortEntries(
-    rawEntries.flatMap(([userId, value]) =>
-      typeof value === "string"
-        ? [
-            {
-              userId,
-              encapsulationPublicKey: value,
-            },
-          ]
-        : [],
-    ),
-  );
+  return typeof encapsulationPublicKey === "string"
+    ? {
+        userId,
+        encapsulationPublicKey,
+      }
+    : null;
 }
 
 function setEntryValue(doc: ContactsDocument, entry: AddressBookEntry) {
-  doc.getMap("entries").set(entry.userId, entry.encapsulationPublicKey);
+  const map = doc.getMap("contact");
+  map.set("userId", entry.userId);
+  map.set("encapsulationPublicKey", entry.encapsulationPublicKey);
+}
+
+function getSnapshotEntries(
+  contactsByUserId: ReadonlyMap<string, ContactState>,
+): AddressBookEntry[] {
+  return sortEntries(
+    Array.from(contactsByUserId.values(), (contact) => contact.entry),
+  );
 }
 
 export function createContactsStore(
@@ -115,17 +131,13 @@ export function createContactsStore(
     entries: [],
     ready: false,
   };
-  let doc: ContactsDocument | null = null;
-  let record: DocumentRecord | null = null;
+  let contactsByUserId = new Map<string, ContactState>();
   let initialized = false;
   let initializePromise: Promise<void> | null = null;
   let syncPromise: Promise<void> | null = null;
   let syncRequested = false;
   let writeChain = Promise.resolve();
   let lastEventCount = 0;
-  let recipientPublicKeys = getLocalRecipientPublicKeys(
-    runtime.encapsulationKeyPair,
-  );
   const listeners = new Set<() => void>();
 
   function emit() {
@@ -154,74 +166,63 @@ export function createContactsStore(
     emit();
   }
 
-  function updateRecipientPublicKeys(encodedPublicKeys: string[]) {
-    recipientPublicKeys = resolveRecipientPublicKeys(
-      encodedPublicKeys,
-      getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
-    );
-  }
-
   function resetStore() {
-    doc = null;
-    record = null;
+    contactsByUserId = new Map();
     initialized = false;
     initializePromise = null;
     syncPromise = null;
     syncRequested = false;
     writeChain = Promise.resolve();
-    recipientPublicKeys = getLocalRecipientPublicKeys(
-      runtime.encapsulationKeyPair,
-    );
     setSnapshot({
       entries: [],
       ready: false,
     });
   }
 
-  async function saveAddressBookRecord(
-    nextRecord: DocumentRecord,
-    currentDoc: ContactsDocument,
-  ) {
-    await persistence.saveAddressBook(
-      runtime.execSql,
-      nextRecord,
-      getEntriesValue(currentDoc),
-    );
-    record = nextRecord;
+  async function createContactDocument() {
+    return createDocument(getScopedPeerSeed("contacts"));
   }
 
-  async function persistDocument(
-    currentDoc: ContactsDocument,
+  async function persistContact(
+    contact: ContactState,
     patch: Partial<DocumentRecord> = {},
   ): Promise<DocumentRecord> {
     const nextRecord: DocumentRecord = {
-      id: record?.id ?? ADDRESS_BOOK_ID,
-      documentId: patch.documentId ?? record?.documentId ?? null,
+      id: contact.entry.userId,
+      documentId: patch.documentId ?? contact.record.documentId ?? null,
       loroSnapshot:
-        patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
-      accessEpoch: patch.accessEpoch ?? record?.accessEpoch ?? 1,
+        patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
+      accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
     };
 
-    await saveAddressBookRecord(nextRecord, currentDoc);
+    await persistence.saveContact(
+      runtime.execSql,
+      ADDRESS_BOOK_ID,
+      nextRecord,
+      contact.entry,
+    );
+    contact.record = nextRecord;
     setSnapshot({
-      entries: getEntriesValue(currentDoc),
+      entries: getSnapshotEntries(contactsByUserId),
       ready: true,
     });
     return nextRecord;
   }
 
-  async function listPendingUpdates(): Promise<PendingUpdateRecord[]> {
-    return persistence.listPendingUpdates(runtime.execSql, ADDRESS_BOOK_ID);
+  async function listPendingUpdates(
+    userId: string,
+  ): Promise<PendingUpdateRecord[]> {
+    return persistence.listPendingUpdates(runtime.execSql, userId);
   }
 
-  async function enqueuePendingUpdate(update: Uint8Array) {
+  async function enqueuePendingUpdate(userId: string, update: Uint8Array) {
     const pendingUpdateFields = createPendingUpdateFields(update);
     if (!pendingUpdateFields) {
       return;
     }
 
     await persistence.enqueuePendingUpdate(runtime.execSql, {
-      addressBookId: ADDRESS_BOOK_ID,
+      userId,
       ...pendingUpdateFields,
     });
   }
@@ -236,45 +237,59 @@ export function createContactsStore(
     }
 
     await persistence.ensureSchema(runtime.execSql);
-    const stored = await persistence.loadAddressBook(
+    const storedContacts = await persistence.loadContacts(
       runtime.execSql,
       ADDRESS_BOOK_ID,
     );
-    const nextDoc = await createDocument(getScopedPeerSeed("contacts"));
 
-    if (stored.record?.loroSnapshot) {
-      importUpdates(nextDoc, [base64ToBytes(stored.record.loroSnapshot)]);
-      record = stored.record;
-      setSnapshot({
-        entries: getEntriesValue(nextDoc),
-        ready: true,
-      });
-    } else {
-      for (const entry of stored.entries) {
+    for (const storedContact of storedContacts) {
+      const nextDoc = await createContactDocument();
+      let entry = storedContact.entry;
+      let record = storedContact.record;
+
+      if (record?.loroSnapshot) {
+        importUpdates(nextDoc, [base64ToBytes(record.loroSnapshot)]);
+        const docEntry = getEntryValue(entry.userId, nextDoc);
+        if (docEntry) {
+          entry = docEntry;
+        }
+      } else {
         setEntryValue(nextDoc, entry);
+        const initialUpdate = exportAllUpdates(nextDoc);
+        await enqueuePendingUpdate(entry.userId, initialUpdate);
+        record = {
+          id: entry.userId,
+          documentId: null,
+          loroSnapshot: bytesToBase64(initialUpdate),
+          accessEpoch: 1,
+        };
+        await persistence.saveContact(
+          runtime.execSql,
+          ADDRESS_BOOK_ID,
+          record,
+          entry,
+        );
       }
 
-      if (stored.entries.length > 0) {
-        await enqueuePendingUpdate(exportAllUpdates(nextDoc));
-      }
-
-      const created: DocumentRecord = {
-        id: ADDRESS_BOOK_ID,
-        documentId: null,
-        loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
-        accessEpoch: 1,
-      };
-      await saveAddressBookRecord(created, nextDoc);
-      setSnapshot({
-        entries: getEntriesValue(nextDoc),
-        ready: true,
+      contactsByUserId.set(entry.userId, {
+        doc: nextDoc,
+        entry,
+        recipientPublicKeys: getLocalRecipientPublicKeys(
+          runtime.encapsulationKeyPair,
+        ),
+        record,
       });
     }
 
-    doc = nextDoc;
     initialized = true;
     initializePromise = null;
-    scheduleSync();
+    setSnapshot({
+      entries: getSnapshotEntries(contactsByUserId),
+      ready: true,
+    });
+    if (contactsByUserId.size > 0) {
+      scheduleSync();
+    }
   }
 
   function ensureInitialized() {
@@ -316,7 +331,6 @@ export function createContactsStore(
         syncRequested = false;
 
         if (
-          !doc ||
           !snapshot.ready ||
           !runtime.online ||
           !runtime.isAuthenticated ||
@@ -326,41 +340,54 @@ export function createContactsStore(
         }
 
         try {
-          let nextRecord = record;
           const encapsulationKeyPair = runtime.encapsulationKeyPair;
 
-          if (!nextRecord || !encapsulationKeyPair) {
+          if (!encapsulationKeyPair) {
             continue;
           }
 
-          const pendingUpdates = await listPendingUpdates();
-          let documentId = nextRecord.documentId;
-
-          if (!documentId && pendingUpdates.length > 0) {
-            const created = await runtime.apiClient.createDocument();
-            if (!created) {
+          for (const userId of Array.from(contactsByUserId.keys())) {
+            const contact = contactsByUserId.get(userId);
+            if (!contact) {
               continue;
             }
 
-            updateRecipientPublicKeys(created.recipientEncapsulationPublicKeys);
-            documentId = created.id;
-            nextRecord = await persistDocument(doc, {
-              documentId,
-              accessEpoch: created.currentAccessEpoch,
-            });
-            runtime.log(`Created contacts document: ${created.id}`);
-          }
+            const pendingUpdates = await listPendingUpdates(userId);
+            let documentId = contact.record.documentId;
 
-          if (documentId) {
+            if (!documentId && pendingUpdates.length > 0) {
+              const created = await runtime.apiClient.createDocument();
+              if (!created) {
+                continue;
+              }
+
+              contact.recipientPublicKeys = resolveRecipientPublicKeys(
+                created.recipientEncapsulationPublicKeys,
+                getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+              );
+              documentId = created.id;
+              await persistContact(contact, {
+                documentId,
+                accessEpoch: created.currentAccessEpoch,
+              });
+              runtime.log(
+                `Created contact document: ${created.id} (${contact.entry.userId})`,
+              );
+            }
+
+            if (!documentId) {
+              continue;
+            }
+
             const outgoingUpdates = await encryptPendingUpdates(
               pendingUpdates,
-              recipientPublicKeys,
+              contact.recipientPublicKeys,
             );
 
             const synced = await runtime.apiClient.syncDocument(
               documentId,
-              nextRecord.accessEpoch,
-              encodeVersionVector(doc),
+              contact.record.accessEpoch,
+              encodeVersionVector(contact.doc),
               outgoingUpdates,
             );
 
@@ -368,7 +395,10 @@ export function createContactsStore(
               continue;
             }
 
-            updateRecipientPublicKeys(synced.recipientEncapsulationPublicKeys);
+            contact.recipientPublicKeys = resolveRecipientPublicKeys(
+              synced.recipientEncapsulationPublicKeys,
+              getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+            );
 
             for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
               await deletePendingUpdate(acceptedOutgoingUpdateId);
@@ -383,15 +413,18 @@ export function createContactsStore(
                   ),
                 ),
               );
-              importUpdates(doc, decrypted);
-              setSnapshot({
-                entries: getEntriesValue(doc),
-                ready: true,
-              });
+              importUpdates(contact.doc, decrypted);
+              const updatedEntry = getEntryValue(
+                contact.entry.userId,
+                contact.doc,
+              );
+              if (updatedEntry) {
+                contact.entry = updatedEntry;
+              }
             }
 
-            const previousAccessEpoch = nextRecord.accessEpoch;
-            nextRecord = await persistDocument(doc, {
+            const previousAccessEpoch = contact.record.accessEpoch;
+            await persistContact(contact, {
               documentId,
               accessEpoch: synced.currentAccessEpoch,
             });
@@ -414,13 +447,25 @@ export function createContactsStore(
           throw error;
         }
       }
-
+    })().finally(() => {
       syncPromise = null;
-    })();
+      if (syncRequested) {
+        scheduleSync();
+      }
+    });
   }
 
   function handleRemoteEvents() {
-    if (!record?.documentId) {
+    const knownDocumentIds = new Set(
+      Array.from(
+        contactsByUserId.values(),
+        (contact) => contact.record.documentId,
+      ).filter(
+        (documentId): documentId is string => typeof documentId === "string",
+      ),
+    );
+
+    if (knownDocumentIds.size === 0) {
       lastEventCount = runtime.events.length;
       return;
     }
@@ -432,7 +477,7 @@ export function createContactsStore(
       nextEvents.some(
         (event) =>
           isDocumentUpdateCreatedEvent(event) &&
-          event.documentId === record?.documentId,
+          knownDocumentIds.has(event.documentId),
       )
     ) {
       scheduleSync();
@@ -451,7 +496,7 @@ export function createContactsStore(
       }
 
       await waitForInitialization();
-      if (!doc || runtime.dbStatus !== "ready") {
+      if (runtime.dbStatus !== "ready") {
         return;
       }
 
@@ -463,23 +508,50 @@ export function createContactsStore(
       writeChain = writeChain
         .catch(() => undefined)
         .then(async () => {
-          if (!doc) {
-            return;
-          }
+          const existingContact = contactsByUserId.get(entry.userId);
 
           if (
-            doc.getMap("entries").get(entry.userId) ===
-            entry.encapsulationPublicKey
+            existingContact &&
+            existingContact.entry.encapsulationPublicKey ===
+              entry.encapsulationPublicKey
           ) {
             return;
           }
 
-          const previousVersion = encodeVersionVector(doc);
-          setEntryValue(doc, entry);
-          const update = exportUpdatesSince(doc, previousVersion);
+          if (!existingContact) {
+            const nextDoc = await createContactDocument();
+            setEntryValue(nextDoc, entry);
+            const initialUpdate = exportAllUpdates(nextDoc);
+            const nextContact: ContactState = {
+              doc: nextDoc,
+              entry,
+              recipientPublicKeys: getLocalRecipientPublicKeys(
+                runtime.encapsulationKeyPair,
+              ),
+              record: {
+                id: entry.userId,
+                documentId: null,
+                loroSnapshot: bytesToBase64(initialUpdate),
+                accessEpoch: 1,
+              },
+            };
 
-          await enqueuePendingUpdate(update);
-          await persistDocument(doc);
+            await enqueuePendingUpdate(entry.userId, initialUpdate);
+            contactsByUserId.set(entry.userId, nextContact);
+            await persistContact(nextContact);
+          } else {
+            const previousVersion = encodeVersionVector(existingContact.doc);
+            setEntryValue(existingContact.doc, entry);
+            existingContact.entry = entry;
+            const update = exportUpdatesSince(
+              existingContact.doc,
+              previousVersion,
+            );
+
+            await enqueuePendingUpdate(entry.userId, update);
+            await persistContact(existingContact);
+          }
+
           scheduleSync();
           runtime.log("Peer key imported");
         })
@@ -491,28 +563,28 @@ export function createContactsStore(
     },
     async removeKey(userId: string) {
       await waitForInitialization();
-      if (!doc || runtime.dbStatus !== "ready") {
+      if (runtime.dbStatus !== "ready") {
         return;
       }
 
       writeChain = writeChain
         .catch(() => undefined)
         .then(async () => {
-          if (!doc) {
+          if (!contactsByUserId.has(userId)) {
             return;
           }
 
-          if (typeof doc.getMap("entries").get(userId) === "undefined") {
-            return;
-          }
-
-          const previousVersion = encodeVersionVector(doc);
-          doc.getMap("entries").delete(userId);
-          const update = exportUpdatesSince(doc, previousVersion);
-
-          await enqueuePendingUpdate(update);
-          await persistDocument(doc);
-          scheduleSync();
+          contactsByUserId.delete(userId);
+          await persistence.deleteContact(
+            runtime.execSql,
+            ADDRESS_BOOK_ID,
+            userId,
+          );
+          setSnapshot({
+            entries: getSnapshotEntries(contactsByUserId),
+            ready: true,
+          });
+          runtime.log("Peer key removed");
         })
         .catch((error: unknown) => {
           console.error("Failed to remove contact:", error);
@@ -530,10 +602,13 @@ export function createContactsStore(
     updateRuntime(nextRuntime: ContactsRuntime) {
       const previousRuntime = runtime;
       runtime = nextRuntime;
-      if (!record?.documentId) {
-        recipientPublicKeys = getLocalRecipientPublicKeys(
-          runtime.encapsulationKeyPair,
-        );
+
+      for (const contact of contactsByUserId.values()) {
+        if (!contact.record.documentId) {
+          contact.recipientPublicKeys = getLocalRecipientPublicKeys(
+            runtime.encapsulationKeyPair,
+          );
+        }
       }
 
       if (nextRuntime.dbStatus !== "ready") {

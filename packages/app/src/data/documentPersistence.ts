@@ -70,7 +70,7 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
 }
 
-function parseDocumentRecord(row: SqlRow): DocumentRecord {
+export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   const id = readSqlRowValue(row, "id");
   const documentId = readSqlRowValue(row, "document_id");
   const loroSnapshot = readSqlRowValue(row, "loro_snapshot");
@@ -161,6 +161,19 @@ export async function saveDocumentRecord(
   );
 }
 
+export async function deleteDocumentRecord(
+  execSql: ExecSql,
+  scope: DocumentScope,
+): Promise<void> {
+  await execSql(
+    `
+      DELETE FROM documents
+      WHERE app_kind = :appKind AND local_id = :localId
+    `,
+    getScopeBind(scope),
+  );
+}
+
 export async function listDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
@@ -229,5 +242,18 @@ export async function deleteDocumentPendingUpdate(
     {
       ":id": id,
     },
+  );
+}
+
+export async function deleteDocumentPendingUpdates(
+  execSql: ExecSql,
+  scope: DocumentScope,
+): Promise<void> {
+  await execSql(
+    `
+      DELETE FROM document_pending_updates
+      WHERE app_kind = :appKind AND local_id = :localId
+    `,
+    getScopeBind(scope),
   );
 }

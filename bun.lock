@@ -71,6 +71,8 @@
         "@types/bun": "catalog:",
         "@types/react": "catalog:react",
         "@types/react-dom": "catalog:react",
+        "invariant": "catalog:",
+        "msw": "2.12.14",
       },
     },
     "packages/app-electrobun": {
