@@ -39,6 +39,7 @@
   padding: var(--window-bar-padding);
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .window-menubar-dropdown button:hover {
