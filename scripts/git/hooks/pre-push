@@ -14,6 +14,33 @@ fi
 
 cd "$REPO_ROOT"
 
+echo "Running shellcheck..."
+old_ifs=$IFS
+IFS='
+'
+
+for path_dir in $repo_script_paths; do
+  [ -d "$path_dir" ] || continue
+  find "$path_dir" -name '*.sh' -exec shellcheck {} +
+done
+
+IFS=$old_ifs
+
+find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
+
+echo "Running TypeScript compiler..."
+bun tsc --build
+
+echo "Running biome check..."
+bun run biome check --error-on-warnings
+
+echo "Running knip..."
+bun run knip
+
+echo "Checking for circular imports..."
+bun run madge --circular --extensions ts,tsx packages/
+
+
 echo "Checking file names..."
 bun run lint:files
 
@@ -40,31 +67,5 @@ done
 echo "Running bun tests..."
 bun run test:turbo:affected
 
-echo "Running shellcheck..."
-old_ifs=$IFS
-IFS='
-'
-
-for path_dir in $repo_script_paths; do
-  [ -d "$path_dir" ] || continue
-  find "$path_dir" -name '*.sh' -exec shellcheck {} +
-done
-
-IFS=$old_ifs
-
-find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
-
-
-echo "Running TypeScript compiler..."
-bun tsc --build
-
-echo "Running biome check..."
-bun run biome check --error-on-warnings
-
-echo "Running knip..."
-bun run knip
-
-echo "Checking for circular imports..."
-bun run madge --circular --extensions ts,tsx packages/
 
 echo "All checks passed."
