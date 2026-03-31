@@ -449,21 +449,16 @@ export function createContactsStore(
       }
     })().finally(() => {
       syncPromise = null;
-      if (syncRequested) {
-        scheduleSync();
-      }
     });
   }
 
   function handleRemoteEvents() {
-    const knownDocumentIds = new Set(
-      Array.from(
-        contactsByUserId.values(),
-        (contact) => contact.record.documentId,
-      ).filter(
-        (documentId): documentId is string => typeof documentId === "string",
-      ),
-    );
+    const knownDocumentIds = new Set<string>();
+    for (const contact of contactsByUserId.values()) {
+      if (typeof contact.record.documentId === "string") {
+        knownDocumentIds.add(contact.record.documentId);
+      }
+    }
 
     if (knownDocumentIds.size === 0) {
       lastEventCount = runtime.events.length;
