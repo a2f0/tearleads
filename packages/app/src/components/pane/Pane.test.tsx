@@ -149,3 +149,61 @@ test("notes windows in the same pane share live note state", async () => {
 
   view.unmount();
 });
+
+test("contacts windows in the same pane share live address book state", async () => {
+  const view = renderPane();
+
+  await waitFor(() => {
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByText("Generate Key Pair"));
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByText("Upload Public Key"));
+
+  await waitFor(() => {
+    expect(view.queryByText(/userId: none/)).toBeNull();
+  });
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Contacts"));
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 160,
+    clientY: 160,
+  });
+  fireEvent.click(view.getByText("Open Contacts"));
+
+  await waitFor(() => {
+    const inputs = Array.from(
+      view.container.querySelectorAll<HTMLInputElement>(
+        'input[aria-label="Contact user ID"]',
+      ),
+    );
+
+    expect(inputs).toHaveLength(2);
+  });
+
+  const contactsInputs = view.container.querySelectorAll<HTMLInputElement>(
+    'input[aria-label="Contact user ID"]',
+  );
+  const firstInput = contactsInputs[0];
+  const firstImportButton = view.getAllByRole("button", { name: "Import" })[0];
+  invariant(firstInput, "contact input not found");
+  invariant(firstImportButton, "contact import button not found");
+
+  fireEvent.change(firstInput, {
+    target: { value: "peer-user-1" },
+  });
+
+  fireEvent.click(firstImportButton);
+
+  await waitFor(() => {
+    expect(view.getAllByText("peer-user-1")).toHaveLength(2);
+  });
+
+  view.unmount();
+});

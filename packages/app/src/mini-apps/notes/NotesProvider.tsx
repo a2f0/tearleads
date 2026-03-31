@@ -18,35 +18,27 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { type SqlRow, useAppData } from "../../data/AppDataProvider";
+import { useAppData } from "../../data/AppDataProvider";
+import {
+  type NoteRecord,
+  type NotesPersistence,
+  type PendingUpdateRecord,
+  sqlNotesPersistence,
+} from "./notesPersistence";
 
 type NotesDocument = Awaited<ReturnType<typeof createTextDocument>>;
-type NotesRuntime = Pick<
-  ReturnType<typeof useAppData>,
-  | "apiClient"
-  | "dbStatus"
-  | "domainScope"
-  | "encapsulationKeyPair"
-  | "events"
-  | "execSql"
-  | "isAuthenticated"
-  | "log"
-  | "online"
->;
+type NotesAppData = ReturnType<typeof useAppData>;
 
-interface NoteRecord {
-  id: string;
-  documentId: string | null;
-  text: string;
-  loroSnapshot: string;
-  accessEpoch: number;
-}
-
-interface PendingUpdateRecord {
-  id: string;
-  updateData: string;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
+export interface NotesRuntime {
+  apiClient: Pick<NotesAppData["apiClient"], "createDocument" | "syncDocument">;
+  dbStatus: NotesAppData["dbStatus"];
+  domainScope: NotesAppData["domainScope"];
+  encapsulationKeyPair: NotesAppData["encapsulationKeyPair"];
+  events: NotesAppData["events"];
+  execSql: NotesAppData["execSql"];
+  isAuthenticated: NotesAppData["isAuthenticated"];
+  log: NotesAppData["log"];
+  online: NotesAppData["online"];
 }
 
 interface NotesContextValue {
@@ -75,25 +67,6 @@ interface NotesStore {
 }
 
 const NOTE_ID = "default";
-const notesSql = `
-  CREATE TABLE IF NOT EXISTS notes (
-    id TEXT PRIMARY KEY,
-    document_id TEXT,
-    text TEXT NOT NULL,
-    loro_snapshot TEXT NOT NULL,
-    access_epoch INTEGER NOT NULL DEFAULT 1,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS note_pending_updates (
-    id TEXT PRIMARY KEY,
-    note_id TEXT NOT NULL,
-    update_data TEXT NOT NULL,
-    partial_start_version_vector TEXT NOT NULL,
-    partial_end_version_vector TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );
-`;
-
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
 const NotesContext = createContext<NotesStore | null>(null);
 const DEVICE_SEED_KEY = "tearleads.notes.device-seed";
@@ -121,49 +94,6 @@ function getDeviceSeed(): string {
   }
 }
 
-function readRowValue(
-  row: SqlRow,
-  key: string,
-): string | number | null | undefined {
-  return row[key];
-}
-
-function parseNoteRecord(value: SqlRow): NoteRecord {
-  const id = readRowValue(value, "id");
-  const documentId = readRowValue(value, "document_id");
-  const text = readRowValue(value, "text");
-  const loroSnapshot = readRowValue(value, "loro_snapshot");
-  const accessEpoch = readRowValue(value, "access_epoch");
-
-  return {
-    id: String(id ?? NOTE_ID),
-    documentId: documentId === null ? null : String(documentId),
-    text: String(text ?? ""),
-    loroSnapshot: String(loroSnapshot ?? ""),
-    accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
-  };
-}
-
-function parsePendingUpdateRecord(value: SqlRow): PendingUpdateRecord {
-  const id = readRowValue(value, "id");
-  const updateData = readRowValue(value, "update_data");
-  const partialStartVersionVector = readRowValue(
-    value,
-    "partial_start_version_vector",
-  );
-  const partialEndVersionVector = readRowValue(
-    value,
-    "partial_end_version_vector",
-  );
-
-  return {
-    id: String(id),
-    updateData: String(updateData ?? ""),
-    partialStartVersionVector: String(partialStartVersionVector ?? ""),
-    partialEndVersionVector: String(partialEndVersionVector ?? ""),
-  };
-}
-
 function isDocumentUpdateCreatedEvent(
   event: unknown,
 ): event is DocumentUpdateCreatedEvent {
@@ -177,9 +107,10 @@ function isDocumentUpdateCreatedEvent(
   );
 }
 
-function createNotesStore(
+export function createNotesStore(
   noteId: string,
   initialRuntime: NotesRuntime,
+  persistence: NotesPersistence = sqlNotesPersistence,
 ): NotesStore {
   let runtime = initialRuntime;
   let snapshot: NotesSnapshot = {
@@ -247,41 +178,7 @@ function createNotesStore(
   }
 
   async function saveNoteRecord(nextRecord: NoteRecord) {
-    await runtime.execSql(
-      `
-        INSERT INTO notes (
-          id,
-          document_id,
-          text,
-          loro_snapshot,
-          access_epoch,
-          updated_at
-        )
-        VALUES (
-          :id,
-          :documentId,
-          :text,
-          :loroSnapshot,
-          :accessEpoch,
-          :updatedAt
-        )
-        ON CONFLICT(id) DO UPDATE SET
-          document_id = excluded.document_id,
-          text = excluded.text,
-          loro_snapshot = excluded.loro_snapshot,
-          access_epoch = excluded.access_epoch,
-          updated_at = excluded.updated_at
-      `,
-      {
-        ":id": nextRecord.id,
-        ":documentId": nextRecord.documentId,
-        ":text": nextRecord.text,
-        ":loroSnapshot": nextRecord.loroSnapshot,
-        ":accessEpoch": nextRecord.accessEpoch,
-        ":updatedAt": new Date().toISOString(),
-      },
-    );
-
+    await persistence.saveNote(runtime.execSql, nextRecord);
     record = nextRecord;
   }
 
@@ -308,21 +205,7 @@ function createNotesStore(
   }
 
   async function listPendingUpdates(): Promise<PendingUpdateRecord[]> {
-    const rows = await runtime.execSql(
-      `
-        SELECT id, update_data
-          , partial_start_version_vector
-          , partial_end_version_vector
-        FROM note_pending_updates
-        WHERE note_id = :noteId
-        ORDER BY created_at ASC
-      `,
-      {
-        ":noteId": noteId,
-      },
-    );
-
-    return rows.map((row) => parsePendingUpdateRecord(row));
+    return persistence.listPendingUpdates(runtime.execSql, noteId);
   }
 
   async function enqueuePendingUpdate(update: Uint8Array) {
@@ -333,46 +216,16 @@ function createNotesStore(
     const { partialEndVersionVector, partialStartVersionVector } =
       getUpdateVersionVectors(update);
 
-    await runtime.execSql(
-      `
-        INSERT INTO note_pending_updates (
-          id,
-          note_id,
-          update_data,
-          partial_start_version_vector,
-          partial_end_version_vector,
-          created_at
-        )
-        VALUES (
-          :id,
-          :noteId,
-          :updateData,
-          :partialStartVersionVector,
-          :partialEndVersionVector,
-          :createdAt
-        )
-      `,
-      {
-        ":id": crypto.randomUUID(),
-        ":noteId": noteId,
-        ":updateData": bytesToBase64(update),
-        ":partialStartVersionVector": partialStartVersionVector,
-        ":partialEndVersionVector": partialEndVersionVector,
-        ":createdAt": new Date().toISOString(),
-      },
-    );
+    await persistence.enqueuePendingUpdate(runtime.execSql, {
+      noteId,
+      updateData: bytesToBase64(update),
+      partialStartVersionVector,
+      partialEndVersionVector,
+    });
   }
 
   async function deletePendingUpdate(id: string) {
-    await runtime.execSql(
-      `
-        DELETE FROM note_pending_updates
-        WHERE id = :id
-      `,
-      {
-        ":id": id,
-      },
-    );
+    await persistence.deletePendingUpdate(runtime.execSql, id);
   }
 
   async function initialize() {
@@ -380,54 +233,10 @@ function createNotesStore(
       return;
     }
 
-    await runtime.execSql(notesSql);
-    const noteColumns = await runtime.execSql("PRAGMA table_info(notes)");
-    const hasAccessEpoch = noteColumns.some(
-      (row) => readRowValue(row, "name") === "access_epoch",
-    );
-
-    if (!hasAccessEpoch) {
-      await runtime.execSql(
-        "ALTER TABLE notes ADD COLUMN access_epoch INTEGER NOT NULL DEFAULT 1",
-      );
-    }
-
-    const pendingUpdateColumns = await runtime.execSql(
-      "PRAGMA table_info(note_pending_updates)",
-    );
-    const hasPartialStartVersionVector = pendingUpdateColumns.some(
-      (row) => readRowValue(row, "name") === "partial_start_version_vector",
-    );
-    const hasPartialEndVersionVector = pendingUpdateColumns.some(
-      (row) => readRowValue(row, "name") === "partial_end_version_vector",
-    );
-
-    if (!hasPartialStartVersionVector) {
-      await runtime.execSql(
-        "ALTER TABLE note_pending_updates ADD COLUMN partial_start_version_vector TEXT NOT NULL DEFAULT ''",
-      );
-    }
-
-    if (!hasPartialEndVersionVector) {
-      await runtime.execSql(
-        "ALTER TABLE note_pending_updates ADD COLUMN partial_end_version_vector TEXT NOT NULL DEFAULT ''",
-      );
-    }
-
-    const rows = await runtime.execSql(
-      `
-        SELECT id, document_id, text, loro_snapshot, access_epoch
-        FROM notes
-        WHERE id = :id
-        LIMIT 1
-      `,
-      {
-        ":id": noteId,
-      },
-    );
+    await persistence.ensureSchema(runtime.execSql);
 
     const nextDoc = await createTextDocument(getDeviceSeed());
-    const existing = rows[0] ? parseNoteRecord(rows[0]) : null;
+    const existing = await persistence.loadNote(runtime.execSql, noteId);
 
     if (existing?.loroSnapshot) {
       importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
