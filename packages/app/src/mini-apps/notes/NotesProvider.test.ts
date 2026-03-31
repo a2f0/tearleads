@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import type {
   NoteRecord,
@@ -66,21 +67,6 @@ function createRuntime(): NotesRuntime {
     log: () => {},
     online: false,
   };
-}
-
-async function waitForCondition(
-  predicate: () => boolean,
-  message: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-
-  throw new Error(message);
 }
 
 test("notes store reloads persisted note text and pending updates", async () => {

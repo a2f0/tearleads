@@ -1,13 +1,11 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
-  createTextDocument,
+  createDocument,
   decryptLoroUpdate,
   encodeVersionVector,
-  encryptLoroUpdate,
   exportAllUpdates,
   exportUpdatesSince,
   getTextValue,
-  getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
 import {
@@ -19,6 +17,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import {
+  createPendingUpdateFields,
+  encryptPendingUpdates,
+  getLocalRecipientPublicKeys,
+  isDocumentUpdateCreatedEvent,
+  resolveRecipientPublicKeys,
+} from "../../data/documentSync";
 import {
   type NoteRecord,
   type NotesPersistence,
@@ -26,7 +32,7 @@ import {
   sqlNotesPersistence,
 } from "./notesPersistence";
 
-type NotesDocument = Awaited<ReturnType<typeof createTextDocument>>;
+type NotesDocument = Awaited<ReturnType<typeof createDocument>>;
 type NotesAppData = ReturnType<typeof useAppData>;
 
 export interface NotesRuntime {
@@ -54,11 +60,6 @@ interface NotesSnapshot {
   syncing: boolean;
 }
 
-interface DocumentUpdateCreatedEvent {
-  type: "document_update_created";
-  documentId: string;
-}
-
 interface NotesStore {
   getSnapshot: () => NotesSnapshot;
   setText: (value: string) => void;
@@ -69,43 +70,6 @@ interface NotesStore {
 const NOTE_ID = "default";
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
 const NotesContext = createContext<NotesStore | null>(null);
-const DEVICE_SEED_KEY = "tearleads.notes.device-seed";
-const SESSION_PEER_SEED_KEY = "tearleads.notes.session-peer-seed";
-
-function getDeviceSeed(): string {
-  try {
-    const existingDeviceSeed = window.localStorage.getItem(DEVICE_SEED_KEY);
-    const deviceSeed = existingDeviceSeed ?? crypto.randomUUID();
-    if (!existingDeviceSeed) {
-      window.localStorage.setItem(DEVICE_SEED_KEY, deviceSeed);
-    }
-
-    const existingSessionSeed = window.sessionStorage.getItem(
-      SESSION_PEER_SEED_KEY,
-    );
-    const sessionSeed = existingSessionSeed ?? crypto.randomUUID();
-    if (!existingSessionSeed) {
-      window.sessionStorage.setItem(SESSION_PEER_SEED_KEY, sessionSeed);
-    }
-
-    return `${deviceSeed}:${sessionSeed}`;
-  } catch {
-    return crypto.randomUUID();
-  }
-}
-
-function isDocumentUpdateCreatedEvent(
-  event: unknown,
-): event is DocumentUpdateCreatedEvent {
-  return (
-    typeof event === "object" &&
-    event !== null &&
-    "type" in event &&
-    event.type === "document_update_created" &&
-    "documentId" in event &&
-    typeof event.documentId === "string"
-  );
-}
 
 export function createNotesStore(
   noteId: string,
@@ -126,14 +90,10 @@ export function createNotesStore(
   let syncRequested = false;
   let writeChain = Promise.resolve();
   let lastEventCount = 0;
-  let recipientPublicKeys = getLocalRecipientPublicKeys();
+  let recipientPublicKeys = getLocalRecipientPublicKeys(
+    runtime.encapsulationKeyPair,
+  );
   const listeners = new Set<() => void>();
-
-  function getLocalRecipientPublicKeys(): Uint8Array[] {
-    return runtime.encapsulationKeyPair
-      ? [runtime.encapsulationKeyPair.publicKey]
-      : [];
-  }
 
   function emit() {
     for (const listener of listeners) {
@@ -155,10 +115,10 @@ export function createNotesStore(
   }
 
   function updateRecipientPublicKeys(encodedPublicKeys: string[]) {
-    recipientPublicKeys =
-      encodedPublicKeys.length > 0
-        ? encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey))
-        : getLocalRecipientPublicKeys();
+    recipientPublicKeys = resolveRecipientPublicKeys(
+      encodedPublicKeys,
+      getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+    );
   }
 
   function resetStore() {
@@ -169,7 +129,9 @@ export function createNotesStore(
     syncPromise = null;
     syncRequested = false;
     writeChain = Promise.resolve();
-    recipientPublicKeys = getLocalRecipientPublicKeys();
+    recipientPublicKeys = getLocalRecipientPublicKeys(
+      runtime.encapsulationKeyPair,
+    );
     setSnapshot({
       ready: false,
       text: "",
@@ -209,18 +171,14 @@ export function createNotesStore(
   }
 
   async function enqueuePendingUpdate(update: Uint8Array) {
-    if (update.byteLength === 0) {
+    const pendingUpdateFields = createPendingUpdateFields(update);
+    if (!pendingUpdateFields) {
       return;
     }
 
-    const { partialEndVersionVector, partialStartVersionVector } =
-      getUpdateVersionVectors(update);
-
     await persistence.enqueuePendingUpdate(runtime.execSql, {
       noteId,
-      updateData: bytesToBase64(update),
-      partialStartVersionVector,
-      partialEndVersionVector,
+      ...pendingUpdateFields,
     });
   }
 
@@ -235,7 +193,7 @@ export function createNotesStore(
 
     await persistence.ensureSchema(runtime.execSql);
 
-    const nextDoc = await createTextDocument(getDeviceSeed());
+    const nextDoc = await createDocument(getScopedPeerSeed("notes"));
     const existing = await persistence.loadNote(runtime.execSql, noteId);
 
     if (existing?.loroSnapshot) {
@@ -341,32 +299,9 @@ export function createNotesStore(
           }
 
           if (documentId) {
-            const outgoingUpdates = await Promise.all(
-              pendingUpdates.map(async (pending) => {
-                const updateBytes = base64ToBytes(pending.updateData);
-                const versionVectors =
-                  pending.partialStartVersionVector &&
-                  pending.partialEndVersionVector
-                    ? {
-                        partialStartVersionVector:
-                          pending.partialStartVersionVector,
-                        partialEndVersionVector:
-                          pending.partialEndVersionVector,
-                      }
-                    : getUpdateVersionVectors(updateBytes);
-
-                return {
-                  id: pending.id,
-                  encryptedData: await encryptLoroUpdate(
-                    updateBytes,
-                    recipientPublicKeys,
-                  ),
-                  partialStartVersionVector:
-                    versionVectors.partialStartVersionVector,
-                  partialEndVersionVector:
-                    versionVectors.partialEndVersionVector,
-                };
-              }),
+            const outgoingUpdates = await encryptPendingUpdates(
+              pendingUpdates,
+              recipientPublicKeys,
             );
 
             const synced = await runtime.apiClient.syncDocument(
@@ -507,7 +442,9 @@ export function createNotesStore(
       const previousRuntime = runtime;
       runtime = nextRuntime;
       if (!record?.documentId) {
-        recipientPublicKeys = getLocalRecipientPublicKeys();
+        recipientPublicKeys = getLocalRecipientPublicKeys(
+          runtime.encapsulationKeyPair,
+        );
       }
 
       if (nextRuntime.dbStatus !== "ready") {

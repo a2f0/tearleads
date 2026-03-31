@@ -1,31 +1,26 @@
 import type { SqlRow } from "../../data/AppDataProvider";
 import {
+  type DocumentRecord,
+  type PendingUpdateFields,
+  type PendingUpdateRecord,
+  parseDocumentRecord,
+  parsePendingUpdateRecord,
+} from "../../data/documentPersistence";
+import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
   type SqlTableSchema,
 } from "../../data/sqlSchema";
 
-export interface NoteRecord {
-  id: string;
-  documentId: string | null;
+export type { PendingUpdateRecord } from "../../data/documentPersistence";
+
+export interface NoteRecord extends DocumentRecord {
   text: string;
-  loroSnapshot: string;
-  accessEpoch: number;
 }
 
-export interface PendingUpdateRecord {
-  id: string;
-  updateData: string;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
-}
-
-export interface PendingUpdateInsert {
+export interface PendingUpdateInsert extends PendingUpdateFields {
   noteId: string;
-  updateData: string;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
 }
 
 export interface NotesPersistence {
@@ -92,38 +87,11 @@ const notesTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 function parseNoteRecord(value: SqlRow): NoteRecord {
-  const id = readSqlRowValue(value, "id");
-  const documentId = readSqlRowValue(value, "document_id");
   const text = readSqlRowValue(value, "text");
-  const loroSnapshot = readSqlRowValue(value, "loro_snapshot");
-  const accessEpoch = readSqlRowValue(value, "access_epoch");
 
   return {
-    id: String(id ?? ""),
-    documentId: documentId === null ? null : String(documentId),
+    ...parseDocumentRecord(value),
     text: String(text ?? ""),
-    loroSnapshot: String(loroSnapshot ?? ""),
-    accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
-  };
-}
-
-function parsePendingUpdateRecord(value: SqlRow): PendingUpdateRecord {
-  const id = readSqlRowValue(value, "id");
-  const updateData = readSqlRowValue(value, "update_data");
-  const partialStartVersionVector = readSqlRowValue(
-    value,
-    "partial_start_version_vector",
-  );
-  const partialEndVersionVector = readSqlRowValue(
-    value,
-    "partial_end_version_vector",
-  );
-
-  return {
-    id: String(id),
-    updateData: String(updateData ?? ""),
-    partialStartVersionVector: String(partialStartVersionVector ?? ""),
-    partialEndVersionVector: String(partialEndVersionVector ?? ""),
   };
 }
 
