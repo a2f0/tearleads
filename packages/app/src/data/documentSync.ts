@@ -9,7 +9,7 @@ import type {
   PendingUpdateRecord,
 } from "./documentPersistence";
 
-export interface DocumentUpdateCreatedEvent {
+interface DocumentUpdateCreatedEvent {
   type: "document_update_created";
   documentId: string;
 }
