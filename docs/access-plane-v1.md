@@ -12,6 +12,7 @@ The initial access plane focuses on explicit, durable metadata we control:
 - memberships
 - object grants
 - access epochs
+- access fingerprints
 - recipient envelopes
 
 ## Principles
@@ -38,7 +39,28 @@ Revocation must therefore be modeled as:
 - future ciphertext uses new recipient envelopes
 - old ciphertext remains readable to prior recipients unless re-encrypted
 
-### 3. Permissions And Keys Must Be Related But Distinct
+### 3. Access Fingerprints Should Be Derived State
+
+The access graph is the source of truth.
+
+An `accessFingerprint` should be derived from the current effective access
+closure for an object, not treated as the only authoritative record of access.
+
+That makes it useful as:
+
+- a cache key for the current wrapped-DEK bundle
+- a fast stale-check for future writes
+- a compact summary of whether the recipient set has changed
+
+The fingerprint should roll up changes such as:
+
+- direct grant changes
+- group membership changes
+- organization membership changes
+- account deactivation
+- recipient key changes that affect wrapping
+
+### 4. Permissions And Keys Must Be Related But Distinct
 
 The access graph answers who should have access.
 
@@ -64,6 +86,13 @@ one API.
 - `group_members`
   - `group_id`
   - `user_id`
+
+V1 can start with direct `group -> user` and `organization -> user`
+membership.
+
+Nested groups are compatible with this model but can be deferred. If added,
+they should be expanded transitively before computing effective recipients or
+an `accessFingerprint`.
 
 ### Object Grants
 
@@ -92,6 +121,7 @@ Every protected object should have a current epoch.
   - `object_type`
   - `object_id`
   - `epoch`
+  - `access_fingerprint`
   - `updated_at`
 
 Any change that affects future recipient sets should advance the epoch.
@@ -101,6 +131,28 @@ Examples:
 - direct grant added or removed
 - group membership change affecting access
 - organization membership change affecting access
+- account deactivation affecting access
+- recipient key change affecting future wrapping
+
+The current epoch and current `accessFingerprint` together represent the active
+authorization state for future writes.
+
+### Access Fingerprints
+
+An `accessFingerprint` is a canonical hash of the current effective access
+closure for one object.
+
+At minimum it should be derived from:
+
+- effective active users
+- contributing groups and organizations
+- recipient key fingerprints or equivalent key identity
+
+This gives the server one compact validation point for deciding whether the
+current wrapped-DEK bundle is still valid.
+
+The fingerprint is not a substitute for grants, memberships, or envelopes. It
+is derived state that helps detect when those underlying inputs have changed.
 
 ### Recipient Envelopes
 
@@ -117,6 +169,20 @@ Persist the effective recipient set used for a given encrypted object version.
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.
 
+Operationally, think in terms of envelope bundles:
+
+- the current bundle is the set of recipient envelopes for the latest
+  `accessEpoch`
+- historical bundles are the sets of recipient envelopes for earlier epochs
+
+This is important because the access plane must support both:
+
+- future writes against the current authorization state
+- previously accepted ciphertext that was wrapped for an older epoch
+
+There should be one active bundle for the current object epoch, but there may
+be multiple historical bundles retained for older ciphertext versions.
+
 ## Notes, Loro, And Access
 
 For notes:
@@ -128,10 +194,13 @@ A note write should carry enough metadata to say:
 
 - which document it targets
 - which `accessEpoch` it assumes
-- which recipient set the update was encrypted for
+- which `accessFingerprint` or recipient-set identity it targeted
 
 If the access epoch is stale, the server should reject the write rather than
 accepting ciphertext for an obsolete recipient set.
+
+If the epoch matches but the derived fingerprint does not, the server should
+also reject the write as targeting a stale wrapped-key bundle.
 
 ## Attachments, Blobs, And Access
 
@@ -158,5 +227,6 @@ encrypted Loro diffs.
 
 1. Add explicit access-plane schema tables owned by the app.
 2. Add a small resolver that computes effective recipients for one object.
-3. Use that resolver in notes writes before encrypted update append.
-4. Add epoch mismatch rejection on note update append.
+3. Derive a current `accessFingerprint` from that resolver output.
+4. Use the epoch plus fingerprint check in notes writes before encrypted update append.
+5. Persist recipient envelopes by epoch so the latest bundle is active and older bundles remain available for historical ciphertext.
