@@ -86,7 +86,7 @@ function sortEntries(
 }
 
 function getEntriesValue(doc: ContactsDocument): AddressBookEntry[] {
-  const rawEntries = doc.getMap("entries").entries();
+  const rawEntries = Array.from(doc.getMap("entries").entries());
 
   return sortEntries(
     rawEntries.flatMap(([userId, value]) =>

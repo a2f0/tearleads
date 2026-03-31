@@ -1,15 +1,21 @@
 import type { SqlRow } from "../../data/AppDataProvider";
 import {
   type DocumentRecord,
+  type DocumentScope,
+  deleteDocumentPendingUpdate,
+  enqueueDocumentPendingUpdate,
+  ensureDocumentTables,
+  listDocumentPendingUpdates,
+  loadDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
-  parseDocumentRecord,
-  parsePendingUpdateRecord,
+  saveDocumentRecord,
 } from "../../data/documentPersistence";
 import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSqlTransaction,
   type SqlTableSchema,
 } from "../../data/sqlSchema";
 
@@ -38,174 +44,103 @@ export interface NotesPersistence {
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
 }
 
-const notesTables: ReadonlyArray<SqlTableSchema> = [
+const NOTES_APP_KIND = "notes";
+
+const noteProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {
-    name: "notes",
+    name: "note_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS notes (
-        id TEXT PRIMARY KEY,
-        document_id TEXT,
+      CREATE TABLE IF NOT EXISTS note_projection (
+        note_id TEXT PRIMARY KEY,
         text TEXT NOT NULL,
-        loro_snapshot TEXT NOT NULL,
-        access_epoch INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL
       )
     `,
-    requiredColumns: [
-      {
-        name: "access_epoch",
-        addSql:
-          "ALTER TABLE notes ADD COLUMN access_epoch INTEGER NOT NULL DEFAULT 1",
-      },
-    ],
-  },
-  {
-    name: "note_pending_updates",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS note_pending_updates (
-        id TEXT PRIMARY KEY,
-        note_id TEXT NOT NULL,
-        update_data TEXT NOT NULL,
-        partial_start_version_vector TEXT NOT NULL,
-        partial_end_version_vector TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `,
-    requiredColumns: [
-      {
-        name: "partial_start_version_vector",
-        addSql:
-          "ALTER TABLE note_pending_updates ADD COLUMN partial_start_version_vector TEXT NOT NULL DEFAULT ''",
-      },
-      {
-        name: "partial_end_version_vector",
-        addSql:
-          "ALTER TABLE note_pending_updates ADD COLUMN partial_end_version_vector TEXT NOT NULL DEFAULT ''",
-      },
-    ],
   },
 ];
 
-function parseNoteRecord(value: SqlRow): NoteRecord {
-  const text = readSqlRowValue(value, "text");
-
+function getNoteScope(noteId: string): DocumentScope {
   return {
-    ...parseDocumentRecord(value),
-    text: String(text ?? ""),
+    appKind: NOTES_APP_KIND,
+    localId: noteId,
   };
+}
+
+function parseProjectionText(row: SqlRow | undefined): string {
+  const text = row ? readSqlRowValue(row, "text") : null;
+  return String(text ?? "");
 }
 
 export const sqlNotesPersistence: NotesPersistence = {
   async ensureSchema(execSql) {
-    await ensureSqlTables(execSql, notesTables);
+    await ensureDocumentTables(execSql);
+    await ensureSqlTables(execSql, noteProjectionTables);
   },
   async loadNote(execSql, noteId) {
-    const rows = await execSql(
-      `
-        SELECT id, document_id, text, loro_snapshot, access_epoch
-        FROM notes
-        WHERE id = :id
-        LIMIT 1
-      `,
-      {
-        ":id": noteId,
-      },
-    );
+    const [documentRecord, projectionRows] = await Promise.all([
+      loadDocumentRecord(execSql, getNoteScope(noteId)),
+      execSql(
+        `
+          SELECT text
+          FROM note_projection
+          WHERE note_id = :noteId
+          LIMIT 1
+        `,
+        {
+          ":noteId": noteId,
+        },
+      ),
+    ]);
 
-    return rows[0] ? parseNoteRecord(rows[0]) : null;
+    if (!documentRecord) {
+      return null;
+    }
+
+    return {
+      ...documentRecord,
+      text: parseProjectionText(projectionRows[0]),
+    };
   },
   async saveNote(execSql, note) {
-    await execSql(
-      `
-        INSERT INTO notes (
-          id,
-          document_id,
-          text,
-          loro_snapshot,
-          access_epoch,
-          updated_at
-        )
-        VALUES (
-          :id,
-          :documentId,
-          :text,
-          :loroSnapshot,
-          :accessEpoch,
-          :updatedAt
-        )
-        ON CONFLICT(id) DO UPDATE SET
-          document_id = excluded.document_id,
-          text = excluded.text,
-          loro_snapshot = excluded.loro_snapshot,
-          access_epoch = excluded.access_epoch,
-          updated_at = excluded.updated_at
-      `,
-      {
-        ":id": note.id,
-        ":documentId": note.documentId,
-        ":text": note.text,
-        ":loroSnapshot": note.loroSnapshot,
-        ":accessEpoch": note.accessEpoch,
-        ":updatedAt": new Date().toISOString(),
-      },
-    );
+    const updatedAt = new Date().toISOString();
+
+    await runSqlTransaction(execSql, async () => {
+      await saveDocumentRecord(execSql, getNoteScope(note.id), note, updatedAt);
+      await execSql(
+        `
+          INSERT INTO note_projection (
+            note_id,
+            text,
+            updated_at
+          )
+          VALUES (
+            :noteId,
+            :text,
+            :updatedAt
+          )
+          ON CONFLICT(note_id) DO UPDATE SET
+            text = excluded.text,
+            updated_at = excluded.updated_at
+        `,
+        {
+          ":noteId": note.id,
+          ":text": note.text,
+          ":updatedAt": updatedAt,
+        },
+      );
+    });
   },
   async listPendingUpdates(execSql, noteId) {
-    const rows = await execSql(
-      `
-        SELECT id, update_data
-          , partial_start_version_vector
-          , partial_end_version_vector
-        FROM note_pending_updates
-        WHERE note_id = :noteId
-        ORDER BY created_at ASC
-      `,
-      {
-        ":noteId": noteId,
-      },
-    );
-
-    return rows.map((row) => parsePendingUpdateRecord(row));
+    return listDocumentPendingUpdates(execSql, getNoteScope(noteId));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await execSql(
-      `
-        INSERT INTO note_pending_updates (
-          id,
-          note_id,
-          update_data,
-          partial_start_version_vector,
-          partial_end_version_vector,
-          created_at
-        )
-        VALUES (
-          :id,
-          :noteId,
-          :updateData,
-          :partialStartVersionVector,
-          :partialEndVersionVector,
-          :createdAt
-        )
-      `,
-      {
-        ":id": crypto.randomUUID(),
-        ":noteId": pendingUpdate.noteId,
-        ":updateData": pendingUpdate.updateData,
-        ":partialStartVersionVector": pendingUpdate.partialStartVersionVector,
-        ":partialEndVersionVector": pendingUpdate.partialEndVersionVector,
-        ":createdAt": new Date().toISOString(),
-      },
+    await enqueueDocumentPendingUpdate(
+      execSql,
+      getNoteScope(pendingUpdate.noteId),
+      pendingUpdate,
     );
   },
   async deletePendingUpdate(execSql, id) {
-    await execSql(
-      `
-        DELETE FROM note_pending_updates
-        WHERE id = :id
-      `,
-      {
-        ":id": id,
-      },
-    );
+    await deleteDocumentPendingUpdate(execSql, id);
   },
 };

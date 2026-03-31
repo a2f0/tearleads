@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
@@ -178,26 +178,59 @@ test("contacts windows in the same pane share live address book state", async ()
   fireEvent.click(view.getByText("Open Contacts"));
 
   await waitFor(() => {
-    const inputs = Array.from(
-      view.container.querySelectorAll<HTMLInputElement>(
-        'input[aria-label="Contact user ID"]',
-      ),
+    const contactsApps = Array.from(
+      view.container.querySelectorAll<HTMLDivElement>(".contacts"),
     );
-
-    expect(inputs).toHaveLength(2);
+    expect(contactsApps).toHaveLength(2);
   });
 
-  const contactsInputs = view.container.querySelectorAll<HTMLInputElement>(
-    'input[aria-label="Contact user ID"]',
-  );
-  const firstInput = contactsInputs[0];
-  const firstImportButton = view.getAllByRole("button", { name: "Import" })[0];
+  const contactsApps =
+    view.container.querySelectorAll<HTMLDivElement>(".contacts");
+  const firstContactsApp = contactsApps[0];
+
+  invariant(firstContactsApp, "first contacts app not found");
+
+  const firstInput = within(firstContactsApp).getByLabelText("Contact user ID");
   invariant(firstInput, "contact input not found");
-  invariant(firstImportButton, "contact import button not found");
 
   fireEvent.change(firstInput, {
     target: { value: "peer-user-1" },
   });
+
+  const updatedFirstContactsApp = view
+    .getByDisplayValue("peer-user-1")
+    .closest(".contacts");
+
+  await waitFor(() => {
+    invariant(
+      updatedFirstContactsApp instanceof HTMLDivElement,
+      "updated first contacts app not found",
+    );
+    const importButton = within(updatedFirstContactsApp).getByRole("button", {
+      name: "Import",
+    });
+    invariant(
+      importButton instanceof HTMLButtonElement,
+      "contact import button not found",
+    );
+    expect(importButton.disabled).toBe(false);
+  });
+
+  invariant(
+    updatedFirstContactsApp instanceof HTMLDivElement,
+    "updated first contacts app not found",
+  );
+
+  const firstImportButton = within(updatedFirstContactsApp).getByRole(
+    "button",
+    {
+      name: "Import",
+    },
+  );
+  invariant(
+    firstImportButton instanceof HTMLButtonElement,
+    "contact import button not found",
+  );
 
   fireEvent.click(firstImportButton);
 

@@ -1,15 +1,26 @@
 import type { SqlRow } from "../../data/AppDataProvider";
 import {
   type DocumentRecord,
+  type DocumentScope,
+  deleteDocumentPendingUpdate,
+  enqueueDocumentPendingUpdate,
+  ensureDocumentTables,
+  hasDocumentPendingUpdatesForAppKind,
+  hasDocumentsForAppKind,
+  listDocumentPendingUpdates,
+  loadDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
-  parseDocumentRecord,
-  parsePendingUpdateRecord,
+  saveDocumentRecord,
 } from "../../data/documentPersistence";
 import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSqlTransaction,
+  type SqlTableSchema,
+  sqlTableExists,
+  sqlTableHasColumn,
 } from "../../data/sqlSchema";
 import type { AddressBookEntry } from "./types";
 
@@ -44,51 +55,29 @@ export interface ContactsPersistence {
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
 }
 
-const contactsTables = [
+const CONTACTS_APP_KIND = "contacts";
+
+const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {
-    name: "address_book_entries",
+    name: "address_book_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS address_book_entries (
-        user_id TEXT PRIMARY KEY,
-        address_book_id TEXT NOT NULL DEFAULT 'default',
-        encapsulation_public_key TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `,
-    requiredColumns: [
-      {
-        name: "address_book_id",
-        addSql:
-          "ALTER TABLE address_book_entries ADD COLUMN address_book_id TEXT NOT NULL DEFAULT 'default'",
-      },
-    ],
-  },
-  {
-    name: "address_books",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS address_books (
-        id TEXT PRIMARY KEY,
-        document_id TEXT,
-        loro_snapshot TEXT NOT NULL,
-        access_epoch INTEGER NOT NULL DEFAULT 1,
-        updated_at TEXT NOT NULL
-      )
-    `,
-  },
-  {
-    name: "address_book_pending_updates",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS address_book_pending_updates (
-        id TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS address_book_projection (
         address_book_id TEXT NOT NULL,
-        update_data TEXT NOT NULL,
-        partial_start_version_vector TEXT NOT NULL,
-        partial_end_version_vector TEXT NOT NULL,
-        created_at TEXT NOT NULL
+        user_id TEXT NOT NULL,
+        encapsulation_public_key TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (address_book_id, user_id)
       )
     `,
   },
-] as const;
+];
+
+function getAddressBookScope(addressBookId: string): DocumentScope {
+  return {
+    appKind: CONTACTS_APP_KIND,
+    localId: addressBookId,
+  };
+}
 
 function parseAddressBookEntry(row: SqlRow): AddressBookEntry {
   const userId = readSqlRowValue(row, "user_id");
@@ -103,6 +92,14 @@ function parseAddressBookEntry(row: SqlRow): AddressBookEntry {
   };
 }
 
+async function tableHasRows(
+  execSql: ExecSql,
+  tableName: string,
+): Promise<boolean> {
+  const rows = await execSql(`SELECT 1 FROM ${tableName} LIMIT 1`);
+  return rows.length > 0;
+}
+
 async function loadEntries(
   execSql: ExecSql,
   addressBookId: string,
@@ -110,7 +107,7 @@ async function loadEntries(
   const rows = await execSql(
     `
       SELECT user_id, encapsulation_public_key
-      FROM address_book_entries
+      FROM address_book_projection
       WHERE address_book_id = :addressBookId
       ORDER BY user_id COLLATE NOCASE ASC
     `,
@@ -126,10 +123,11 @@ async function replaceEntries(
   execSql: ExecSql,
   addressBookId: string,
   entries: ReadonlyArray<AddressBookEntry>,
+  updatedAt: string,
 ) {
   await execSql(
     `
-      DELETE FROM address_book_entries
+      DELETE FROM address_book_projection
       WHERE address_book_id = :addressBookId
     `,
     {
@@ -140,144 +138,223 @@ async function replaceEntries(
   for (const entry of entries) {
     await execSql(
       `
-        INSERT INTO address_book_entries (
-          user_id,
+        INSERT INTO address_book_projection (
           address_book_id,
+          user_id,
           encapsulation_public_key,
           updated_at
         )
         VALUES (
-          :userId,
           :addressBookId,
+          :userId,
           :encapsulationPublicKey,
           :updatedAt
         )
       `,
       {
-        ":userId": entry.userId,
         ":addressBookId": addressBookId,
+        ":userId": entry.userId,
         ":encapsulationPublicKey": entry.encapsulationPublicKey,
-        ":updatedAt": new Date().toISOString(),
+        ":updatedAt": updatedAt,
       },
     );
   }
 }
 
-export const sqlContactsPersistence: ContactsPersistence = {
-  async ensureSchema(execSql) {
-    await ensureSqlTables(execSql, contactsTables);
-  },
-  async loadAddressBook(execSql, addressBookId) {
-    const [recordRows, entries] = await Promise.all([
-      execSql(
+async function migrateLegacyContacts(execSql: ExecSql) {
+  const hasLegacyAddressBooksTable = await sqlTableExists(
+    execSql,
+    "address_books",
+  );
+  const hasLegacyEntriesTable = await sqlTableExists(
+    execSql,
+    "address_book_entries",
+  );
+  const hasLegacyPendingUpdatesTable = await sqlTableExists(
+    execSql,
+    "address_book_pending_updates",
+  );
+
+  if (
+    !hasLegacyAddressBooksTable &&
+    !hasLegacyEntriesTable &&
+    !hasLegacyPendingUpdatesTable
+  ) {
+    return;
+  }
+
+  await runSqlTransaction(execSql, async () => {
+    if (
+      hasLegacyAddressBooksTable &&
+      !(await hasDocumentsForAppKind(execSql, CONTACTS_APP_KIND))
+    ) {
+      const addressBooksHasAccessEpoch = await sqlTableHasColumn(
+        execSql,
+        "address_books",
+        "access_epoch",
+      );
+      const addressBooksHasUpdatedAt = await sqlTableHasColumn(
+        execSql,
+        "address_books",
+        "updated_at",
+      );
+
+      await execSql(
         `
-          SELECT id, document_id, loro_snapshot, access_epoch
+          INSERT OR IGNORE INTO documents (
+            app_kind,
+            local_id,
+            document_id,
+            loro_snapshot,
+            access_epoch,
+            updated_at
+          )
+          SELECT
+            :appKind,
+            id,
+            document_id,
+            loro_snapshot,
+            ${addressBooksHasAccessEpoch ? "access_epoch" : "1"},
+            ${addressBooksHasUpdatedAt ? "updated_at" : "CURRENT_TIMESTAMP"}
           FROM address_books
-          WHERE id = :id
-          LIMIT 1
         `,
         {
-          ":id": addressBookId,
+          ":appKind": CONTACTS_APP_KIND,
         },
-      ),
+      );
+    }
+
+    if (
+      hasLegacyEntriesTable &&
+      !(await tableHasRows(execSql, "address_book_projection"))
+    ) {
+      const entriesHasAddressBookId = await sqlTableHasColumn(
+        execSql,
+        "address_book_entries",
+        "address_book_id",
+      );
+      const entriesHasUpdatedAt = await sqlTableHasColumn(
+        execSql,
+        "address_book_entries",
+        "updated_at",
+      );
+
+      await execSql(
+        `
+          INSERT OR IGNORE INTO address_book_projection (
+            address_book_id,
+            user_id,
+            encapsulation_public_key,
+            updated_at
+          )
+          SELECT
+            ${entriesHasAddressBookId ? "address_book_id" : "'default'"},
+            user_id,
+            encapsulation_public_key,
+            ${entriesHasUpdatedAt ? "updated_at" : "CURRENT_TIMESTAMP"}
+          FROM address_book_entries
+        `,
+      );
+    }
+
+    if (
+      hasLegacyPendingUpdatesTable &&
+      !(await hasDocumentPendingUpdatesForAppKind(execSql, CONTACTS_APP_KIND))
+    ) {
+      const pendingHasAddressBookId = await sqlTableHasColumn(
+        execSql,
+        "address_book_pending_updates",
+        "address_book_id",
+      );
+      const pendingHasStart = await sqlTableHasColumn(
+        execSql,
+        "address_book_pending_updates",
+        "partial_start_version_vector",
+      );
+      const pendingHasEnd = await sqlTableHasColumn(
+        execSql,
+        "address_book_pending_updates",
+        "partial_end_version_vector",
+      );
+      const pendingHasCreatedAt = await sqlTableHasColumn(
+        execSql,
+        "address_book_pending_updates",
+        "created_at",
+      );
+
+      await execSql(
+        `
+          INSERT OR IGNORE INTO document_pending_updates (
+            id,
+            app_kind,
+            local_id,
+            update_data,
+            partial_start_version_vector,
+            partial_end_version_vector,
+            created_at
+          )
+          SELECT
+            id,
+            :appKind,
+            ${pendingHasAddressBookId ? "address_book_id" : "'default'"},
+            update_data,
+            ${pendingHasStart ? "partial_start_version_vector" : "''"},
+            ${pendingHasEnd ? "partial_end_version_vector" : "''"},
+            ${pendingHasCreatedAt ? "created_at" : "CURRENT_TIMESTAMP"}
+          FROM address_book_pending_updates
+        `,
+        {
+          ":appKind": CONTACTS_APP_KIND,
+        },
+      );
+    }
+  });
+}
+
+export const sqlContactsPersistence: ContactsPersistence = {
+  async ensureSchema(execSql) {
+    await ensureDocumentTables(execSql);
+    await ensureSqlTables(execSql, addressBookProjectionTables);
+    await migrateLegacyContacts(execSql);
+  },
+  async loadAddressBook(execSql, addressBookId) {
+    const [record, entries] = await Promise.all([
+      loadDocumentRecord(execSql, getAddressBookScope(addressBookId)),
       loadEntries(execSql, addressBookId),
     ]);
 
     return {
       entries,
-      record: recordRows[0] ? parseDocumentRecord(recordRows[0]) : null,
+      record,
     };
   },
   async saveAddressBook(execSql, record, entries) {
-    await execSql(
-      `
-        INSERT INTO address_books (
-          id,
-          document_id,
-          loro_snapshot,
-          access_epoch,
-          updated_at
-        )
-        VALUES (
-          :id,
-          :documentId,
-          :loroSnapshot,
-          :accessEpoch,
-          :updatedAt
-        )
-        ON CONFLICT(id) DO UPDATE SET
-          document_id = excluded.document_id,
-          loro_snapshot = excluded.loro_snapshot,
-          access_epoch = excluded.access_epoch,
-          updated_at = excluded.updated_at
-      `,
-      {
-        ":id": record.id,
-        ":documentId": record.documentId,
-        ":loroSnapshot": record.loroSnapshot,
-        ":accessEpoch": record.accessEpoch,
-        ":updatedAt": new Date().toISOString(),
-      },
-    );
+    const updatedAt = new Date().toISOString();
 
-    await replaceEntries(execSql, record.id, entries);
+    await runSqlTransaction(execSql, async () => {
+      await saveDocumentRecord(
+        execSql,
+        getAddressBookScope(record.id),
+        record,
+        updatedAt,
+      );
+      await replaceEntries(execSql, record.id, entries, updatedAt);
+    });
   },
   async listPendingUpdates(execSql, addressBookId) {
-    const rows = await execSql(
-      `
-        SELECT id, update_data
-          , partial_start_version_vector
-          , partial_end_version_vector
-        FROM address_book_pending_updates
-        WHERE address_book_id = :addressBookId
-        ORDER BY created_at ASC
-      `,
-      {
-        ":addressBookId": addressBookId,
-      },
+    return listDocumentPendingUpdates(
+      execSql,
+      getAddressBookScope(addressBookId),
     );
-
-    return rows.map((row) => parsePendingUpdateRecord(row));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await execSql(
-      `
-        INSERT INTO address_book_pending_updates (
-          id,
-          address_book_id,
-          update_data,
-          partial_start_version_vector,
-          partial_end_version_vector,
-          created_at
-        )
-        VALUES (
-          :id,
-          :addressBookId,
-          :updateData,
-          :partialStartVersionVector,
-          :partialEndVersionVector,
-          :createdAt
-        )
-      `,
-      {
-        ":id": crypto.randomUUID(),
-        ":addressBookId": pendingUpdate.addressBookId,
-        ":updateData": pendingUpdate.updateData,
-        ":partialStartVersionVector": pendingUpdate.partialStartVersionVector,
-        ":partialEndVersionVector": pendingUpdate.partialEndVersionVector,
-        ":createdAt": new Date().toISOString(),
-      },
+    await enqueueDocumentPendingUpdate(
+      execSql,
+      getAddressBookScope(pendingUpdate.addressBookId),
+      pendingUpdate,
     );
   },
   async deletePendingUpdate(execSql, id) {
-    await execSql(
-      `
-        DELETE FROM address_book_pending_updates
-        WHERE id = :id
-      `,
-      {
-        ":id": id,
-      },
-    );
+    await deleteDocumentPendingUpdate(execSql, id);
   },
 };
