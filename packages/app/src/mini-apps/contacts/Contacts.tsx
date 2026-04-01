@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
@@ -14,7 +14,7 @@ function timeLow(uuid: string): string {
 
 export function Contacts() {
   const { entries, importKey, ready, removeKey } = useContacts();
-  const { isAuthenticated } = useCryptoSession();
+  const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const [draftUserId, setDraftUserId] = useState("");
@@ -34,6 +34,21 @@ export function Contacts() {
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const selfImportedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      ready &&
+      isAuthenticated &&
+      sessionUserId &&
+      !selfImportedRef.current &&
+      !entries.some((entry) => entry.userId === sessionUserId)
+    ) {
+      selfImportedRef.current = true;
+      importKey(sessionUserId);
+    }
+  }, [ready, isAuthenticated, sessionUserId, entries, importKey]);
 
   useEffect(() => {
     if (peerUserId) {
@@ -62,14 +77,23 @@ export function Contacts() {
               onClick={() => setSelectedUserId(entry.userId)}
               onContextMenu={(e) => handleContextMenu(e, entry.userId)}
             >
-              {timeLow(entry.userId)}
+              {entry.userId === sessionUserId
+                ? `${timeLow(entry.userId)} (me)`
+                : timeLow(entry.userId)}
             </button>
           ))
         )}
       </div>,
     );
     return () => setSidebar(null);
-  }, [setSidebar, entries, ready, selectedUserId, handleContextMenu]);
+  }, [
+    setSidebar,
+    entries,
+    ready,
+    selectedUserId,
+    sessionUserId,
+    handleContextMenu,
+  ]);
 
   const selectedEntry = entries.find(
     (entry) => entry.userId === selectedUserId,
@@ -125,6 +149,7 @@ export function Contacts() {
         >
           <MenuItem
             label="Remove"
+            disabled={contextMenu.userId === sessionUserId}
             onClick={async () => {
               const userId = contextMenu.userId;
               closeContextMenu();
