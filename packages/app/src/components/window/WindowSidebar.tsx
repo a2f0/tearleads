@@ -13,9 +13,11 @@ const MAX_WIDTH = 400;
 
 export function WindowSidebar({
   defaultWidth = DEFAULT_WIDTH,
+  sidebar,
   children,
 }: PropsWithChildren<{
   defaultWidth?: number;
+  sidebar?: React.ReactNode;
 }>) {
   const [width, setWidth] = useState(defaultWidth);
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -60,7 +62,9 @@ export function WindowSidebar({
 
   return (
     <div className="window-sidebar-layout">
-      <div className="window-sidebar" style={{ width }} />
+      <div className="window-sidebar" style={{ width }}>
+        {sidebar}
+      </div>
       <hr
         aria-valuenow={width}
         tabIndex={0}
