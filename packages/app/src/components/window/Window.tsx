@@ -4,6 +4,10 @@ import { WindowBody } from "./WindowBody";
 import { WindowMenuBar } from "./WindowMenuBar";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
+import {
+  useWindowSidebar,
+  WindowSidebarProvider,
+} from "./WindowSidebarContext";
 import { useWindowState, type WindowEntry } from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
@@ -286,9 +290,11 @@ function WindowInner({
         onMoveBackward={handleMoveBackward}
       />
       <WindowMenuBar menus={menus} />
-      <WindowBody showSidebar={showSidebar}>
-        {Component && <Component />}
-      </WindowBody>
+      <WindowSidebarProvider>
+        <WindowBodyWithSidebar showSidebar={showSidebar}>
+          {Component && <Component />}
+        </WindowBodyWithSidebar>
+      </WindowSidebarProvider>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (
         <>
@@ -299,5 +305,17 @@ function WindowInner({
         </>
       )}
     </div>
+  );
+}
+
+function WindowBodyWithSidebar({
+  showSidebar,
+  children,
+}: React.PropsWithChildren<{ showSidebar: boolean }>) {
+  const { sidebar } = useWindowSidebar();
+  return (
+    <WindowBody showSidebar={showSidebar} sidebar={sidebar}>
+      {children}
+    </WindowBody>
   );
 }
