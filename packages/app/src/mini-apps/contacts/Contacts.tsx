@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
+import { Menu, type MenuPosition } from "../../components/shared/Menu";
+import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useContacts } from "./ContactsProvider";
@@ -17,6 +19,21 @@ export function Contacts() {
   const peerUserId = usePeerUserId();
   const [draftUserId, setDraftUserId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    position: MenuPosition;
+    userId: string;
+  } | null>(null);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, userId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ position: { x: e.clientX, y: e.clientY }, userId });
+    },
+    [],
+  );
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   useEffect(() => {
     if (peerUserId) {
@@ -43,6 +60,7 @@ export function Contacts() {
                   : "")
               }
               onClick={() => setSelectedUserId(entry.userId)}
+              onContextMenu={(e) => handleContextMenu(e, entry.userId)}
             >
               {timeLow(entry.userId)}
             </button>
@@ -51,7 +69,7 @@ export function Contacts() {
       </div>,
     );
     return () => setSidebar(null);
-  }, [setSidebar, entries, ready, selectedUserId]);
+  }, [setSidebar, entries, ready, selectedUserId, handleContextMenu]);
 
   const selectedEntry = entries.find(
     (entry) => entry.userId === selectedUserId,
@@ -89,15 +107,6 @@ export function Contacts() {
             <strong>{selectedEntry.userId}</strong>
             <span>{selectedEntry.encapsulationPublicKey}</span>
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              setSelectedUserId(null);
-              await removeKey(selectedEntry.userId);
-            }}
-          >
-            Remove
-          </button>
         </div>
       ) : (
         <div className="contacts-hint">
@@ -107,6 +116,25 @@ export function Contacts() {
               ? "Loading contacts..."
               : "No contacts imported yet."}
         </div>
+      )}
+      {contextMenu && (
+        <Menu
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          direction="down"
+        >
+          <MenuItem
+            label="Remove"
+            onClick={async () => {
+              const userId = contextMenu.userId;
+              closeContextMenu();
+              if (selectedUserId === userId) {
+                setSelectedUserId(null);
+              }
+              await removeKey(userId);
+            }}
+          />
+        </Menu>
       )}
     </div>
   );
