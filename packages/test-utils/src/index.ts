@@ -1,0 +1,1 @@
+export { createLargeText } from "./createLargeText";

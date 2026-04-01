@@ -10,7 +10,11 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import { createLargeText } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
+import { db } from "../../src/adapters/postgres";
 import { del } from "../../src/adapters/redis";
+import { documentUpdates } from "../../src/schema";
 import { createDocument, syncDocument } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
@@ -232,4 +236,56 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(bobNoopFetchResponse.status).toBe(200);
   const bobNoopFetched = await bobNoopFetchResponse.json();
   expect(bobNoopFetched.updates.length).toBe(0);
+});
+
+test("Large note-style updates stay as a single synced document update", async () => {
+  const createDocumentResponse = await createDocument(alice.token);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+
+  const aliceDoc = await createLoroDocument(alice.fingerprint);
+  const initialVersion = encodeVersionVector(aliceDoc);
+  const largeText = createLargeText(1024 * 1024);
+  aliceDoc.getText("text").update(largeText);
+
+  const largeUpdate = exportUpdatesSince(aliceDoc, initialVersion);
+  expect(largeUpdate.byteLength).toBeGreaterThan(256 * 1024);
+
+  const encryptedLargeUpdate = await encryptLoroUpdate(
+    largeUpdate,
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
+  const largeUpdateVersionVectors = getUpdateVersionVectors(largeUpdate);
+
+  const syncResponse = await syncDocument(
+    createdDocument.id,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: encryptedLargeUpdate,
+          partialStartVersionVector:
+            largeUpdateVersionVectors.partialStartVersionVector,
+          partialEndVersionVector:
+            largeUpdateVersionVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(syncResponse.status).toBe(200);
+  const synced = await syncResponse.json();
+  expect(synced.acceptedOutgoingUpdateIds).toHaveLength(1);
+
+  const storedUpdates = await db
+    .select()
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, createdDocument.id));
+
+  expect(storedUpdates).toHaveLength(1);
+  expect(storedUpdates[0]?.encryptedData.length).toBeGreaterThan(256 * 1024);
 });

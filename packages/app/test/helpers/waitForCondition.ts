@@ -1,9 +1,9 @@
 export async function waitForCondition(
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   message: string,
 ): Promise<void> {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (predicate()) {
+    if (await predicate()) {
       return;
     }
 
