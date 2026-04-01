@@ -41,6 +41,7 @@
     "packages/loro",
     "packages/sqlite-instance",
     "packages/sqlite-worker",
+    "packages/test-utils",
     "packages/validators"
   ],
   "lint-staged": {

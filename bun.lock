@@ -36,6 +36,7 @@
         "redis": "5.11.0",
       },
       "devDependencies": {
+        "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -66,6 +67,7 @@
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "catalog:testing",
+        "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",
         "@types/bun": "catalog:",
         "@types/react": "catalog:react",
@@ -148,6 +150,13 @@
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/test-utils": {
+      "name": "@tearleads/test-utils",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -369,6 +378,8 @@
     "@tearleads/sqlite-instance": ["@tearleads/sqlite-instance@workspace:packages/sqlite-instance"],
 
     "@tearleads/sqlite-worker": ["@tearleads/sqlite-worker@workspace:packages/sqlite-worker"],
+
+    "@tearleads/test-utils": ["@tearleads/test-utils@workspace:packages/test-utils"],
 
     "@tearleads/validators": ["@tearleads/validators@workspace:packages/validators"],
 

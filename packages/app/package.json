@@ -25,6 +25,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
+    "@tearleads/test-utils": "workspace:*",
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@types/bun": "catalog:",

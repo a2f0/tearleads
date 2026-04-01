@@ -19,6 +19,7 @@
     "redis": "5.11.0"
   },
   "devDependencies": {
+    "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }
 }
