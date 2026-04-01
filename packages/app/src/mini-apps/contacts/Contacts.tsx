@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
@@ -35,13 +35,17 @@ export function Contacts() {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
+  const selfImportedRef = useRef(false);
+
   useEffect(() => {
     if (
       ready &&
       isAuthenticated &&
       sessionUserId &&
+      !selfImportedRef.current &&
       !entries.some((entry) => entry.userId === sessionUserId)
     ) {
+      selfImportedRef.current = true;
       importKey(sessionUserId);
     }
   }, [ready, isAuthenticated, sessionUserId, entries, importKey]);
@@ -145,6 +149,7 @@ export function Contacts() {
         >
           <MenuItem
             label="Remove"
+            disabled={contextMenu.userId === sessionUserId}
             onClick={async () => {
               const userId = contextMenu.userId;
               closeContextMenu();
