@@ -50,6 +50,7 @@ export function Contacts() {
         )}
       </div>,
     );
+    return () => setSidebar(null);
   }, [setSidebar, entries, ready, selectedUserId]);
 
   const selectedEntry = entries.find(

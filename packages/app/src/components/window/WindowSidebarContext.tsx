@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useMemo,
   useState,
 } from "react";
 
@@ -22,8 +23,9 @@ export function WindowSidebarProvider({ children }: PropsWithChildren) {
   const setSidebar = useCallback((node: ReactNode) => {
     setSidebarState(node);
   }, []);
+  const value = useMemo(() => ({ sidebar, setSidebar }), [sidebar, setSidebar]);
   return (
-    <WindowSidebarContext.Provider value={{ sidebar, setSidebar }}>
+    <WindowSidebarContext.Provider value={value}>
       {children}
     </WindowSidebarContext.Provider>
   );
