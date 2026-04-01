@@ -14,7 +14,7 @@ function timeLow(uuid: string): string {
 
 export function Contacts() {
   const { entries, importKey, ready, removeKey } = useContacts();
-  const { isAuthenticated } = useCryptoSession();
+  const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const [draftUserId, setDraftUserId] = useState("");
@@ -34,6 +34,17 @@ export function Contacts() {
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  useEffect(() => {
+    if (
+      ready &&
+      isAuthenticated &&
+      sessionUserId &&
+      !entries.some((entry) => entry.userId === sessionUserId)
+    ) {
+      importKey(sessionUserId);
+    }
+  }, [ready, isAuthenticated, sessionUserId, entries, importKey]);
 
   useEffect(() => {
     if (peerUserId) {
@@ -62,14 +73,23 @@ export function Contacts() {
               onClick={() => setSelectedUserId(entry.userId)}
               onContextMenu={(e) => handleContextMenu(e, entry.userId)}
             >
-              {timeLow(entry.userId)}
+              {entry.userId === sessionUserId
+                ? `${timeLow(entry.userId)} (me)`
+                : timeLow(entry.userId)}
             </button>
           ))
         )}
       </div>,
     );
     return () => setSidebar(null);
-  }, [setSidebar, entries, ready, selectedUserId, handleContextMenu]);
+  }, [
+    setSidebar,
+    entries,
+    ready,
+    selectedUserId,
+    sessionUserId,
+    handleContextMenu,
+  ]);
 
   const selectedEntry = entries.find(
     (entry) => entry.userId === selectedUserId,
