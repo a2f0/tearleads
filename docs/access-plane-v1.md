@@ -69,6 +69,24 @@ Recipient envelopes answer how a particular ciphertext can be decrypted.
 Those concepts must line up, but they should not be collapsed into one table or
 one API.
 
+### 5. Fingerprints Are Not Proofs By Themselves
+
+An `accessFingerprint` is only as trustworthy as the inputs used to derive it.
+
+If grants, group membership, and organization membership live only as mutable
+API/database state, then a client cannot use the fingerprint alone to prove
+that the current recipient set is legitimate.
+
+That matters for the threat model where a bad API change adds an unauthorized
+user to a group. In that case:
+
+- the derived fingerprint will change
+- the epoch can advance correctly
+- the server can still present a self-consistent but unauthorized recipient set
+
+So in zero-trust mode, the fingerprint must be derived from policy inputs that
+are independently verifiable by the client, not just returned by the API.
+
 ## Recommended V1 Data Model
 
 ### Principals
@@ -153,6 +171,168 @@ current wrapped-DEK bundle is still valid.
 
 The fingerprint is not a substitute for grants, memberships, or envelopes. It
 is derived state that helps detect when those underlying inputs have changed.
+
+## Zero-Trust Extension For Membership Changes
+
+This section answers the specific concern:
+
+- what if the API changes a group so a bad user gets added?
+
+In the current V1 model, if the API is the only authority for group membership,
+clients cannot distinguish:
+
+- a legitimate group change
+- an unauthorized server-side membership insertion
+
+To make that verifiable, the trust root for group and ACL state must live
+outside the ordinary API mutation path.
+
+### Required Trust Boundary
+
+At minimum, clients need one or both of:
+
+- trusted group or organization admin public keys
+- a dedicated policy-signing service whose signing key is isolated from the API
+
+The API may store and distribute access metadata, but it must not be able to
+invent authoritative membership state on its own.
+
+### Signed Group State
+
+One workable shape is a signed snapshot for each group version.
+
+```ts
+interface SignedGroupState {
+  groupId: string;
+  version: number;
+  prevStateHash: string | null;
+  members: Array<
+    | { principalType: "user"; principalId: string }
+    | { principalType: "group"; principalId: string }
+  >;
+  membershipRoot: string;
+  signedAt: string;
+  signerKeyId: string;
+  signature: string;
+}
+```
+
+Rules:
+
+- `members` must be canonically sorted before hashing or signing
+- `membershipRoot` is the hash of the normalized member list
+- `prevStateHash` forms a hash chain so rollback is detectable
+- `signature` must verify against a trusted admin or policy key
+
+If the API adds `mallory` to a group without a valid signature from the group's
+authorized signer, clients reject the new group state.
+
+### Signed Access Manifest
+
+The server can still materialize a per-object access view, but clients should
+verify it against the signed policy inputs.
+
+```ts
+interface SignedAccessManifest {
+  objectType: string;
+  objectId: string;
+  accessEpoch: number;
+  accessFingerprint: string;
+  aclEntries: Array<{
+    subjectType: "user" | "group" | "organization";
+    subjectId: string;
+    accessLevel: "read" | "write" | "admin";
+  }>;
+  referencedGroups: Array<{
+    groupId: string;
+    version: number;
+    stateHash: string;
+  }>;
+  referencedOrganizations: Array<{
+    organizationId: string;
+    version: number;
+    stateHash: string;
+  }>;
+  effectiveRecipients: Array<{
+    userId: string;
+    recipientKeyFingerprint: string;
+  }>;
+  issuedAt: string;
+  signerKeyId: string;
+  signature: string;
+}
+```
+
+The manifest signer should be a trusted policy signer, not the general-purpose
+API process. A client should treat the manifest as invalid unless:
+
+- the manifest signature verifies
+- every referenced group or organization state is signed by a trusted authority
+- each referenced state hash matches the signed group or organization snapshot
+- the client can recompute the effective recipients and `accessFingerprint`
+
+### Client Verification Flow
+
+Before encrypting for a new write, the client should:
+
+1. Fetch the latest `SignedAccessManifest` plus all referenced signed group or organization states.
+2. Verify signatures on the manifest and all referenced policy states.
+3. Check monotonicity:
+   - `accessEpoch` did not go backwards
+   - each `group.version` did not go backwards
+   - each `prevStateHash` chain is consistent
+4. Expand the ACL plus signed membership states locally into the effective recipient set.
+5. Recompute `accessFingerprint` from that verified closure.
+6. Encrypt only if the recomputed fingerprint matches the manifest fingerprint and the caller is still an authorized writer.
+
+The client should include the manifest identity in writes:
+
+- `accessEpoch`
+- `accessFingerprint`
+- optionally a `manifestHash` or manifest signature reference
+
+The server should reject a write if the client targets anything other than the
+current signed manifest.
+
+### Why This Helps
+
+With this extension, the API cannot unilaterally add a bad user to a group and
+successfully trick honest clients into encrypting for them unless at least one
+of these is also true:
+
+- a trusted policy signing key is compromised
+- clients accept unsigned or invalidly signed policy state
+- clients fail to detect rollback or split-view responses
+
+### Split-View And Rollback Protection
+
+Signatures alone are not enough if the API can show different clients different
+valid old states.
+
+To fail closed, clients should remember the highest seen versions and hashes
+for:
+
+- object manifests
+- group states
+- organization states
+
+Stronger deployments can additionally publish signed state hashes into an
+append-only transparency log or auditable checkpoint stream.
+
+That prevents the API from safely replaying an older signed group state that
+excluded the newly added recipient from some clients and included them for
+others.
+
+### Practical Interpretation
+
+So the secure interpretation is:
+
+- `accessFingerprint` is a useful stale-check and cache key
+- it is not an authorization proof by itself
+- zero-trust verification of group membership requires signed, versioned policy
+  state outside the API's unilateral control
+- without that extra structure, the server remains the trust root for group
+  membership
 
 ### Recipient Envelopes
 

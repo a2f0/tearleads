@@ -21,6 +21,15 @@ Operationally, the fingerprint is derived from the fully expanded access
 closure plus recipient validity inputs such as account status and current
 recipient key identity.
 
+Important limitation:
+
+The fingerprint is not itself proof that the access closure was authorized.
+
+If the underlying ACL or group membership inputs come only from mutable API
+state, a malicious or compromised API can produce a self-consistent but
+unauthorized fingerprint. In zero-trust mode, the closure inputs must therefore
+be signed and versioned outside the API's unilateral control.
+
 ## 1. Resolve Effective Access
 
 This section answers: who currently reaches the container?
@@ -107,6 +116,18 @@ flowchart LR
 > The access fingerprint is the single cache key for the container's active
 > wrapped-DEK bundle.
 
+In zero-trust mode, the canonicalization input should include verified policy
+state identifiers, not just the expanded recipient list. For example:
+
+- object ACL entries or ACL hash
+- referenced group ids plus signed versions or state hashes
+- referenced organization ids plus signed versions or state hashes
+- effective active users
+- recipient key fingerprints
+
+That way the fingerprint changes not only when recipients change, but also when
+the signed policy state used to justify those recipients changes.
+
 ## 3. Materialize Or Invalidate The Wrapped-DEK Bundle
 
 This section answers: when the fingerprint changes, can future writes keep the
@@ -148,3 +169,8 @@ In this model, the access fingerprint answers:
 - which nested groups were reached transitively from an ACL-linked group
 - whether the container's current wrapped-DEK bundle is still valid
 - whether the next bundle can reuse the current DEK or must rotate to a new one
+
+In zero-trust mode it should additionally answer:
+
+- which signed group or organization states justified that access
+- whether the API is presenting policy state that matches trusted signatures
