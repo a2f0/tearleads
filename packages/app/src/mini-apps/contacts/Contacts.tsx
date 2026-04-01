@@ -118,7 +118,11 @@ export function Contacts() {
         </div>
       )}
       {contextMenu && (
-        <Menu position={contextMenu.position} onClose={closeContextMenu}>
+        <Menu
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          direction="down"
+        >
           <MenuItem
             label="Remove"
             onClick={async () => {
