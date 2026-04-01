@@ -21,7 +21,7 @@ interface ExplorerSnapshot {
   ready: boolean;
 }
 
-export interface ExplorerRuntime {
+interface ExplorerRuntime {
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
   isAuthenticated: ExplorerAppData["isAuthenticated"];
@@ -38,9 +38,7 @@ const ROOT_CONTAINER_ID = "root";
 const explorerStoresByScope = new WeakMap<object, ExplorerStore>();
 const ExplorerContext = createContext<ExplorerStore | null>(null);
 
-export function createExplorerStore(
-  initialRuntime: ExplorerRuntime,
-): ExplorerStore {
+function createExplorerStore(initialRuntime: ExplorerRuntime): ExplorerStore {
   let runtime = initialRuntime;
   let initialized = false;
   const listeners = new Set<() => void>();
