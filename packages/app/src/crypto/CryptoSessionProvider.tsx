@@ -27,11 +27,15 @@ interface CryptoSessionContextValue {
   signingKeyPair: SigningKeyPair | null;
   encapsulationKeyPair: EncapsulationKeyPair | null;
   userId: string | null;
+  organizationId: string | null;
+  containerId: string | null;
   authToken: string | null;
   isAuthenticated: boolean;
   generateKey: () => void;
   destroyKey: () => void;
   setUserId: (id: string | null) => void;
+  setOrganizationId: (id: string | null) => void;
+  setContainerId: (id: string | null) => void;
   login: () => Promise<boolean>;
   loginWithChallenge: (challengeHex: string) => Promise<boolean>;
   logout: () => void;
@@ -48,6 +52,8 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [encapsulationKeyPair, setEncapsulationKeyPair] =
     useState<EncapsulationKeyPair | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [containerId, setContainerId] = useState<string | null>(null);
   const [authToken, setStoredAuthToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { log } = useLog();
@@ -65,6 +71,8 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     setSigningKeyPair(null);
     setEncapsulationKeyPair(null);
     setUserId(null);
+    setOrganizationId(null);
+    setContainerId(null);
     setStoredAuthToken(null);
     setIsAuthenticated(false);
     apiClient.setAuthToken(null);
@@ -127,11 +135,15 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
         signingKeyPair,
         encapsulationKeyPair,
         userId,
+        organizationId,
+        containerId,
         authToken,
         isAuthenticated,
         generateKey,
         destroyKey,
         setUserId,
+        setOrganizationId,
+        setContainerId,
         login,
         loginWithChallenge,
         logout,

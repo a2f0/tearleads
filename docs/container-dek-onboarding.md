@@ -1,0 +1,235 @@
+# Container DEK Onboarding
+
+## Summary
+
+User registration provisions the full identity and access bootstrap in a single
+request. The client generates cryptographic material locally, the server creates
+the relational structure atomically, and the client persists the result to local
+SQLite.
+
+This document describes the bootstrap step for the root container only. It does
+not mean every encrypted payload in the system should use the container DEK
+directly. The current V1 direction is:
+
+- containers have their own access state and wrapped key bundles
+- documents derive access from linked containers and use document DEKs
+- blobs derive access from linked documents and use blob DEKs
+
+After registration, every user has:
+
+- a default organization
+- a root container for that organization
+- a DEK for the root container, wrapped for the user's own encapsulation key
+- an access grant, epoch, and recipient envelope for the container
+- a local "me" contact and persisted root container in SQLite
+
+The server never sees the plaintext DEK.
+
+## Containers
+
+Containers are plain relational data, not Loro documents. They form a tree of
+folders where each container has exactly one parent, except the root container
+for an organization which has `parent_id = NULL`.
+
+Documents can appear in multiple containers but only within a single
+organization. The organization owns the data and governs the access plane.
+
+Root containers are identified by convention rather than a foreign key on the
+organization table. A partial unique index enforces at most one root per
+organization:
+
+```sql
+CREATE UNIQUE INDEX containers_org_root_idx
+  ON containers (organization_id) WHERE parent_id IS NULL;
+```
+
+This avoids a circular foreign key between organizations and containers.
+
+## Registration Flow
+
+### Client Side (before request)
+
+1. Generate signing and encapsulation key pairs (already existed).
+2. Generate a 32-byte DEK: `crypto.getRandomValues(new Uint8Array(32))`.
+3. Wrap the DEK for self using `wrapDekForRecipients(dek, [encapsulationPublicKey])`.
+4. Send all material in a single `POST /auth/register`.
+
+### Server Side (atomic transaction)
+
+The register endpoint creates seven rows across six tables in one transaction:
+
+1. Insert organization (name: `"Personal"`).
+2. Insert container (`organization_id = org.id`, `parent_id = NULL`, name: `"/"`).
+3. Insert user (`default_organization_id = org.id`).
+4. Insert organization member (`role: "owner"`).
+5. Insert object access grant (`objectType: "container"`, `accessLevel: "admin"`).
+6. Insert object access epoch (`epoch: 1`).
+7. Insert object recipient envelope (`epoch: 1`, with `kem_cipher_text` and `wrapped_key` from the client).
+
+The server controls all UUIDs. If the user's fingerprint already exists, the
+transaction rolls back and the endpoint returns 409.
+
+### Client Side (after response)
+
+The response includes `userId`, `organizationId`, `containerId`, and
+`challenge`.
+
+1. Set `userId`, `organizationId`, and `containerId` in session state.
+2. Persist the root container to local SQLite (`containers` table).
+3. Persist a "me" contact in `address_book_projection` with `is_self = 1`.
+4. Authenticate using the challenge.
+
+The plaintext DEK remains in memory for immediate use. It is not persisted to
+SQLite. Future access to the DEK requires unwrapping from the recipient envelope
+via `unwrapDek`.
+
+## Crypto Functions
+
+### `wrapDekForRecipients`
+
+Wraps an existing DEK for one or more recipients without encrypting a payload.
+
+```ts
+async function wrapDekForRecipients(
+  dek: Uint8Array,
+  recipientPublicKeys: Uint8Array[],
+): Promise<RecipientEntry[]>
+```
+
+Each `RecipientEntry` contains:
+
+- `keyFingerprint`: SHA-256 hex of the recipient's public key.
+- `kemCipherText`: ML-KEM-1024 ciphertext (~1568 bytes).
+- `wrappedKey`: AES-256-GCM encrypted DEK (~48 bytes).
+
+The wrapping IV is derived from `kemCipherText.slice(0, 12)`, matching the
+convention used by `encryptForRecipients`.
+
+`encryptForRecipients` now delegates to `wrapDekForRecipients` internally for
+the key wrapping step.
+
+### `unwrapDek`
+
+Recovers a DEK from a set of recipient entries using a secret key.
+
+```ts
+async function unwrapDek(
+  recipients: RecipientEntry[],
+  secretKey: Uint8Array,
+): Promise<Uint8Array>
+```
+
+Finds the matching entry by key fingerprint, decapsulates the shared secret via
+ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
+
+## Request And Response Shapes
+
+### `POST /auth/register` request
+
+```ts
+interface PublicKeyRequest {
+  signingPublicKey: number[];
+  encapsulationPublicKey: number[];
+  wrappedDekEnvelope: {
+    keyFingerprint: string;
+    kemCipherText: number[];
+    wrappedKey: number[];
+  };
+}
+```
+
+### `POST /auth/register` response
+
+```ts
+interface PublicKeyResponse {
+  message: string;
+  userId: string;
+  organizationId: string;
+  containerId: string;
+  challenge: string;
+}
+```
+
+## Schema Changes
+
+### New table: `containers`
+
+```sql
+CREATE TABLE containers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  parent_id UUID,
+  name TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+```
+
+### New column: `users.default_organization_id`
+
+```sql
+ALTER TABLE users ADD COLUMN default_organization_id UUID NOT NULL;
+```
+
+### New columns: `object_recipient_envelopes`
+
+```sql
+ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT NOT NULL;
+ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT NOT NULL;
+```
+
+These columns store base64-encoded wrapped key material.
+
+Important current implementation note:
+
+- the codebase still allows these columns to be nullable
+- that reflects the transition from identity-only recipient-envelope rows
+  toward full wrapped-key bundles for encrypted objects
+- do not treat `NOT NULL` as an implemented invariant yet
+
+### Local SQLite: `containers`
+
+```sql
+CREATE TABLE containers (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  parent_id TEXT,
+  name TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+```
+
+### Local SQLite: `address_book_projection.is_self`
+
+```sql
+ALTER TABLE address_book_projection
+  ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0;
+
+CREATE UNIQUE INDEX address_book_projection_self_idx
+  ON address_book_projection (address_book_id) WHERE is_self = 1;
+```
+
+The partial unique index enforces at most one self-contact per address book at
+the database level.
+
+## Future: Adding Users To An Organization
+
+Adding a user to an organization means they need access to the container tree
+and its documents. The flow would be:
+
+1. Org admin grants membership (insert `organization_members` row).
+2. Container DEKs are re-wrapped for the new member's encapsulation public key.
+3. New recipient envelopes are stored. The access fingerprint changes and the
+   epoch advances.
+4. Document DEKs inside those containers are also re-wrapped for the new
+   recipient set.
+
+Whether this is eager (re-wrap everything at grant time) or lazy (re-wrap on
+next write or access) is a future design decision. The registration flow
+establishes the DEK and container primitives so that adding members later is
+"more recipient envelopes for the same container DEK," not a schema redesign.
+
+For the broader hierarchy direction, see:
+
+- `docs/access-plane-v1.md`
+- `docs/access-fingerprint.md`
+- `docs/loro-e2ee-sync-protocol.md`

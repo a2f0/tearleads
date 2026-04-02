@@ -6,28 +6,54 @@ import {
 } from "./index";
 
 test("isPublicKeyRequest", () => {
+  const validEnvelope = {
+    keyFingerprint: "abc123",
+    kemCipherText: [1, 2, 3],
+    wrappedKey: [4, 5, 6],
+  };
   expect(
     isPublicKeyRequest({
       signingPublicKey: [1, 2, 3],
       encapsulationPublicKey: [4, 5, 6],
+      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(true);
   expect(
     isPublicKeyRequest({
       signingPublicKey: [],
       encapsulationPublicKey: [],
+      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(true);
   expect(
     isPublicKeyRequest({
+      signingPublicKey: [1, 2, 3],
+      encapsulationPublicKey: [4, 5, 6],
+    }),
+  ).toBe(false);
+  expect(
+    isPublicKeyRequest({
+      signingPublicKey: [1, 2, 3],
+      encapsulationPublicKey: [4, 5, 6],
+      wrappedDekEnvelope: {
+        keyFingerprint: 123,
+        kemCipherText: [],
+        wrappedKey: [],
+      },
+    }),
+  ).toBe(false);
+  expect(
+    isPublicKeyRequest({
       signingPublicKey: "not-array",
       encapsulationPublicKey: [1],
+      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(false);
   expect(
     isPublicKeyRequest({
       signingPublicKey: [1],
       encapsulationPublicKey: ["a"],
+      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(false);
   expect(isPublicKeyRequest({ signingPublicKey: [1] })).toBe(false);

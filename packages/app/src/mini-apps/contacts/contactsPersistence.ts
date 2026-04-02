@@ -69,10 +69,18 @@ const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
         address_book_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         encapsulation_public_key TEXT NOT NULL,
+        is_self INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (address_book_id, user_id)
       )
     `,
+    requiredColumns: [
+      {
+        name: "is_self",
+        addSql:
+          "ALTER TABLE address_book_projection ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0",
+      },
+    ],
   },
 ];
 
@@ -89,10 +97,12 @@ function parseAddressBookEntry(row: SqlRow): AddressBookEntry {
     row,
     "encapsulation_public_key",
   );
+  const isSelf = readSqlRowValue(row, "is_self");
 
   return {
     userId: String(userId ?? ""),
     encapsulationPublicKey: String(encapsulationPublicKey ?? ""),
+    isSelf: isSelf === 1,
   };
 }
 
@@ -112,6 +122,10 @@ export const sqlContactsPersistence: ContactsPersistence = {
   async ensureSchema(execSql) {
     await ensureDocumentTables(execSql);
     await ensureSqlTables(execSql, addressBookProjectionTables);
+    await execSql(`
+      CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
+        ON address_book_projection (address_book_id) WHERE is_self = 1
+    `);
   },
   async loadContacts(execSql, addressBookId) {
     const rows = await execSql(
@@ -119,6 +133,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
         SELECT
           projection.user_id,
           projection.encapsulation_public_key,
+          projection.is_self,
           documents.local_id AS id,
           documents.document_id,
           documents.loro_snapshot,
@@ -157,22 +172,26 @@ export const sqlContactsPersistence: ContactsPersistence = {
             address_book_id,
             user_id,
             encapsulation_public_key,
+            is_self,
             updated_at
           )
           VALUES (
             :addressBookId,
             :userId,
             :encapsulationPublicKey,
+            :isSelf,
             :updatedAt
           )
           ON CONFLICT(address_book_id, user_id) DO UPDATE SET
             encapsulation_public_key = excluded.encapsulation_public_key,
+            is_self = excluded.is_self,
             updated_at = excluded.updated_at
         `,
         {
           ":addressBookId": addressBookId,
           ":userId": entry.userId,
           ":encapsulationPublicKey": entry.encapsulationPublicKey,
+          ":isSelf": entry.isSelf ? 1 : 0,
           ":updatedAt": updatedAt,
         },
       );

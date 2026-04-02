@@ -15,6 +15,7 @@ import type {
 interface StoredContactState {
   entry: {
     encapsulationPublicKey: string;
+    isSelf: boolean;
     userId: string;
   };
   record: DocumentRecord | null;
@@ -199,6 +200,7 @@ test("contacts store reloads persisted address book entries", async () => {
     entries: [
       {
         encapsulationPublicKey: "peer-user-1-key",
+        isSelf: false,
         userId: "peer-user-1",
       },
     ],
@@ -219,6 +221,7 @@ test("contacts store reloads persisted address book entries", async () => {
     entries: [
       {
         encapsulationPublicKey: "peer-user-1-key",
+        isSelf: false,
         userId: "peer-user-1",
       },
     ],

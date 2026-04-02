@@ -43,7 +43,7 @@ export function Contacts() {
       isAuthenticated &&
       sessionUserId &&
       !selfImportedRef.current &&
-      !entries.some((entry) => entry.userId === sessionUserId)
+      !entries.some((entry) => entry.isSelf || entry.userId === sessionUserId)
     ) {
       selfImportedRef.current = true;
       importKey(sessionUserId);
@@ -77,7 +77,7 @@ export function Contacts() {
               onClick={() => setSelectedUserId(entry.userId)}
               onContextMenu={(e) => handleContextMenu(e, entry.userId)}
             >
-              {entry.userId === sessionUserId
+              {entry.isSelf
                 ? `${timeLow(entry.userId)} (me)`
                 : timeLow(entry.userId)}
             </button>
@@ -86,14 +86,7 @@ export function Contacts() {
       </div>,
     );
     return () => setSidebar(null);
-  }, [
-    setSidebar,
-    entries,
-    ready,
-    selectedUserId,
-    sessionUserId,
-    handleContextMenu,
-  ]);
+  }, [setSidebar, entries, ready, selectedUserId, handleContextMenu]);
 
   const selectedEntry = entries.find(
     (entry) => entry.userId === selectedUserId,
@@ -149,7 +142,10 @@ export function Contacts() {
         >
           <MenuItem
             label="Remove"
-            disabled={contextMenu.userId === sessionUserId}
+            disabled={
+              entries.find((e) => e.userId === contextMenu.userId)?.isSelf ??
+              false
+            }
             onClick={async () => {
               const userId = contextMenu.userId;
               closeContextMenu();

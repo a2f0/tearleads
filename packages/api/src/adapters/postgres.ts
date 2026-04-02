@@ -12,6 +12,7 @@ await client.exec(`
     fingerprint TEXT NOT NULL UNIQUE,
     signing_public_key TEXT NOT NULL,
     encapsulation_public_key TEXT NOT NULL,
+    default_organization_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS items (
@@ -24,6 +25,15 @@ await client.exec(`
     name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS containers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL,
+    parent_id UUID,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS containers_org_root_idx
+    ON containers (organization_id) WHERE parent_id IS NULL;
   CREATE TABLE IF NOT EXISTS groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID,
@@ -66,6 +76,8 @@ await client.exec(`
     epoch INTEGER NOT NULL,
     recipient_user_id TEXT NOT NULL,
     recipient_key_fingerprint TEXT NOT NULL,
+    kem_cipher_text TEXT,
+    wrapped_key TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE INDEX IF NOT EXISTS organization_members_organization_id_idx

@@ -1,7 +1,6 @@
-import { ml_kem1024 } from "@noble/post-quantum/ml-kem.js";
-import { toFingerprint } from "../fingerprint";
 import { toBuffer } from "./buffer";
-import type { EncryptedEnvelope, RecipientEntry } from "./types";
+import type { EncryptedEnvelope } from "./types";
+import { wrapDekForRecipients } from "./wrapDek";
 
 /**
  * Encrypt a payload so that multiple recipients can each independently decrypt it.
@@ -29,33 +28,9 @@ export async function encryptForRecipients(
     ),
   );
 
-  const recipients: RecipientEntry[] = await Promise.all(
-    recipientPublicKeys.map(async (publicKey) => {
-      const { cipherText: kemCipherText, sharedSecret } =
-        ml_kem1024.encapsulate(publicKey);
-
-      const wrappingKey = await crypto.subtle.importKey(
-        "raw",
-        toBuffer(sharedSecret),
-        "AES-GCM",
-        false,
-        ["encrypt"],
-      );
-      const wrappedKeyIv = kemCipherText.slice(0, 12);
-      const wrappedKey = new Uint8Array(
-        await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv: wrappedKeyIv },
-          wrappingKey,
-          toBuffer(payloadKey),
-        ),
-      );
-
-      return {
-        keyFingerprint: await toFingerprint(publicKey),
-        kemCipherText,
-        wrappedKey,
-      };
-    }),
+  const recipients = await wrapDekForRecipients(
+    payloadKey,
+    recipientPublicKeys,
   );
 
   return { iv, ciphertext, recipients };

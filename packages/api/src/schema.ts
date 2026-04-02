@@ -6,6 +6,7 @@ export const users = pgTable("users", {
   fingerprint: text("fingerprint").notNull().unique(),
   signingPublicKey: text("signing_public_key").notNull(),
   encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+  defaultOrganizationId: uuid("default_organization_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -17,6 +18,14 @@ export const items = pgTable("items", {
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const containers = pgTable("containers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id").notNull(),
+  parentId: uuid("parent_id"),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -68,6 +77,8 @@ export const objectRecipientEnvelopes = pgTable("object_recipient_envelopes", {
   epoch: integer("epoch").notNull(),
   recipientUserId: text("recipient_user_id").notNull(),
   recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
+  kemCipherText: text("kem_cipher_text"),
+  wrappedKey: text("wrapped_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

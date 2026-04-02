@@ -1,6 +1,22 @@
 # Access Fingerprint
 
-An access fingerprint is a composite access view for a container.
+An access fingerprint is a composite access view for a protected object.
+
+In V1 there are three relevant object classes:
+
+- container
+- document
+- blob
+
+Each one has its own current `accessEpoch` and `accessFingerprint`, but
+documents and blobs derive their principals from upstream links rather than
+from standalone ACLs.
+
+V1 derivation chain:
+
+- container principal = inherited container grants
+- document principal = union of linked container principals
+- blob principal = union of linked document principals
 
 It starts from the container's ACL entries, follows those ACL subject links to
 users, groups, and organizations, and then expands group and organization
@@ -14,8 +30,8 @@ key fingerprint.
 
 > Key idea
 >
-> Each container has one active wrapped-DEK bundle for its current access
-> fingerprint. When the fingerprint changes, that bundle is stale.
+> Each protected object has one active wrapped-DEK bundle for its current
+> access fingerprint. When the fingerprint changes, that bundle is stale.
 
 Operationally, the fingerprint is derived from the fully expanded access
 closure plus recipient validity inputs such as account status and current
@@ -81,10 +97,26 @@ flowchart LR
 > Nested groups are resolved transitively. The result is the effective active
 > user set plus the contributing groups and organizations.
 
+For containers in V1, access also inherits from ancestor containers. So the
+effective ACL input for one container is the union of grants on the path from
+the organization root to that container.
+
+For documents in V1:
+
+- load the linked containers
+- resolve each linked container principal
+- union those recipient sets
+
+For blobs in V1:
+
+- load the linked documents
+- resolve each linked document principal
+- union those recipient sets
+
 ## 2. Derive The Fingerprint
 
-This section answers: does the container's current wrapped-key bundle still
-match the current access closure?
+This section answers: does the object's current wrapped-key bundle still match
+the current access closure?
 
 ```mermaid
 flowchart LR
@@ -113,7 +145,7 @@ flowchart LR
 
 > Callout
 >
-> The access fingerprint is the single cache key for the container's active
+> The access fingerprint is the single cache key for the object's active
 > wrapped-DEK bundle.
 
 In zero-trust mode, the canonicalization input should include verified policy
@@ -128,6 +160,21 @@ state identifiers, not just the expanded recipient list. For example:
 That way the fingerprint changes not only when recipients change, but also when
 the signed policy state used to justify those recipients changes.
 
+For V1, recommended canonical inputs are:
+
+- container
+  - ancestor container ids
+  - grants on the ancestor path
+  - effective recipient key fingerprints
+- document
+  - linked container ids
+  - linked container fingerprints
+  - effective recipient key fingerprints
+- blob
+  - linked document ids
+  - linked document fingerprints
+  - effective recipient key fingerprints
+
 ## 3. Materialize Or Invalidate The Wrapped-DEK Bundle
 
 This section answers: when the fingerprint changes, can future writes keep the
@@ -140,8 +187,8 @@ flowchart LR
   KEEP[Reuse current wrapped-DEK bundle]
   REWRAP[Re-wrap current DEK<br/>for the new fingerprint]
   ROTATE[Rotate to a new DEK<br/>for future writes]
-  BUNDLE[Active recipient-envelope bundle<br/>one active bundle per container fingerprint]
-  ST[Container state<br/>current access_epoch<br/>current access_fingerprint<br/>active DEK id]
+  BUNDLE[Active recipient-envelope bundle<br/>one active bundle per object fingerprint]
+  ST[Object state<br/>current access_epoch<br/>current access_fingerprint<br/>active DEK id]
 
   CMP -- no --> KEEP
   CMP -- yes --> ROTQ
@@ -160,14 +207,25 @@ flowchart LR
 
 - Additive access changes can usually keep the current DEK and only re-wrap it for the new fingerprint.
 - Removal, deactivation, or compromise should rotate to a new DEK for future writes.
-- Any fingerprint change should bump the container's access epoch so stale writes can be rejected.
+- Any fingerprint change should bump the object's access epoch so stale writes can be rejected.
+
+In V1, structure changes are also access changes:
+
+- container re-parent
+- document linked into or removed from a container
+- blob attached to or detached from a document
+
+These operations are not "just navigation." They can change the effective
+recipient set and should therefore participate in the same fingerprint, epoch,
+and rewrap-or-rotate logic.
 
 In this model, the access fingerprint answers:
 
 - which users have effective access right now
 - which groups and organizations contributed to that access
+- which upstream containers or documents contributed to that access
 - which nested groups were reached transitively from an ACL-linked group
-- whether the container's current wrapped-DEK bundle is still valid
+- whether the object's current wrapped-DEK bundle is still valid
 - whether the next bundle can reuse the current DEK or must rotate to a new one
 
 In zero-trust mode it should additionally answer:
