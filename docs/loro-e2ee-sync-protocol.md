@@ -123,6 +123,17 @@ Recommended objects:
 - `attachment_binding`
   - current or historical binding from attachment record to blob object
 
+For the current access-plane direction, the important semantic is:
+
+- blobs are first-class encrypted objects
+- blobs may be attached to multiple documents
+- a blob's effective recipients are derived from the union of the principals of
+  the documents that currently reference it
+
+So attach and detach are not only indexing operations. They are also
+security-relevant graph mutations that may require access-epoch bumps and
+wrapped-key bundle changes for the blob object.
+
 Recommended logical operations:
 
 - `stage_blob`
@@ -207,6 +218,14 @@ So the answer to "does attach/detach get wired into the Loro protocol?" is:
 - only as a client-visible reference inside note content if useful
 - authoritative attach/detach state should live beside Loro, not inside opaque
   encrypted diffs alone
+
+In V1, one practical consequence is:
+
+- document access derives from linked containers
+- blob access derives from linked documents
+
+That makes attach and detach part of the access-derivation graph even though
+they remain outside encrypted Loro payloads.
 
 ## Server Indexing
 

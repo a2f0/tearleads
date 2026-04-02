@@ -94,6 +94,15 @@ are independently verifiable by the client, not just returned by the API.
 - `users`
 - `organizations`
 - `groups`
+- `containers`
+- `documents`
+- `blobs`
+
+V1 treats containers, documents, and blobs as first-class protected objects.
+
+- containers are the primary access roots
+- documents derive access from linked containers
+- blobs derive access from linked documents
 
 ### Membership
 
@@ -114,7 +123,7 @@ an `accessFingerprint`.
 
 ### Object Grants
 
-Use direct grants on protected objects first.
+Use direct grants on containers first.
 
 For example:
 
@@ -131,6 +140,31 @@ For example:
 - `group`
 - `organization`
 
+V1 rule:
+
+- containers own direct ACL grants
+- child containers inherit parent grants automatically
+- child containers may add more grants
+- inherited access is additive only
+- V1 does not support deny rules or narrowing inherited access
+
+That means a deep folder can be shared directly, and its descendants inherit
+that access automatically.
+
+### Structural Links
+
+V1 needs explicit visible link metadata for derived principals:
+
+- `document_container_links`
+  - `document_id`
+  - `container_id`
+- `document_blob_links`
+  - `document_id`
+  - `blob_id`
+
+These links are not cosmetic only. They are security-relevant metadata because
+they affect the effective recipient set of documents and blobs.
+
 ### Access Epochs
 
 Every protected object should have a current epoch.
@@ -146,7 +180,10 @@ Any change that affects future recipient sets should advance the epoch.
 
 Examples:
 
-- direct grant added or removed
+- direct container grant added or removed
+- container re-parenting that changes inherited access
+- document linked to or unlinked from a container
+- blob attached to or detached from a document
 - group membership change affecting access
 - organization membership change affecting access
 - account deactivation affecting access
@@ -164,6 +201,7 @@ At minimum it should be derived from:
 
 - effective active users
 - contributing groups and organizations
+- upstream linked object identities and/or fingerprints
 - recipient key fingerprints or equivalent key identity
 
 This gives the server one compact validation point for deciding whether the
@@ -171,6 +209,158 @@ current wrapped-DEK bundle is still valid.
 
 The fingerprint is not a substitute for grants, memberships, or envelopes. It
 is derived state that helps detect when those underlying inputs have changed.
+
+## Principal Derivation Model
+
+### Containers
+
+Container access is inherited downward through the folder tree.
+
+For one container:
+
+- effective grants = union of grants on the ancestor path from root to that
+  container
+- effective recipients = expanded users reachable from those grants through
+  organization and group membership
+- `accessFingerprint` = canonical hash of the ancestor path, resolved grant
+  inputs, and recipient key identities
+
+This makes sharing a parent container automatically share descendants, while a
+direct share on a deep child expands only that subtree.
+
+### Documents
+
+Documents do not own direct ACL grants in V1.
+
+Instead:
+
+- a document links to one or more containers
+- the document's effective principal is the union of the linked container
+  principals
+- the document's `accessFingerprint` should include:
+  - linked container ids
+  - linked container fingerprints
+  - effective recipient key identities
+
+This gives "drag document into folder to share it there" semantics. Linking a
+document into another container is therefore a security mutation, not only a
+navigation mutation.
+
+### Blobs
+
+Blobs derive access from the documents that currently reference them.
+
+Instead:
+
+- a blob links to one or more documents
+- the blob's effective principal is the union of the linked document
+  principals
+- the blob's `accessFingerprint` should include:
+  - linked document ids
+  - linked document fingerprints
+  - effective recipient key identities
+
+This lets one blob be attached to multiple documents without inventing a
+standalone blob ACL in V1.
+
+## Wrapped Key Material
+
+Recipient envelopes should persist the wrapped key bundle for the current epoch
+of each encrypted object.
+
+V1 direction:
+
+- containers have wrapped key bundles for container-level crypto state
+- documents have wrapped key bundles for document DEKs
+- blobs have wrapped key bundles for blob DEKs
+
+The important distinction is:
+
+- grants and memberships answer who should have access
+- recipient envelopes answer how the current epoch's DEK is distributed
+
+## Structural Mutations
+
+The following operations are security-relevant because they can change derived
+principals:
+
+- share or unshare container
+- move or re-parent container
+- link or unlink document from container
+- attach or detach blob from document
+
+That is acceptable. It simply means the access plane must recompute affected
+objects and bump epochs when fingerprints change.
+
+## Recompute Scope
+
+When one object's effective principal changes, derived objects downstream of it
+must be recomputed.
+
+Examples:
+
+- container change
+  - recompute that container
+  - recompute descendant containers
+  - recompute documents linked to any affected container
+  - recompute blobs attached to any affected document
+- document link change
+  - recompute that document
+  - recompute blobs attached to that document
+- blob attachment change
+  - recompute that blob
+
+## Rewrap And Rotation Rules
+
+For containers, documents, and blobs, use the same rule:
+
+- if the effective recipient set grows only, reuse the current DEK and re-wrap
+  it for the new epoch
+- if the effective recipient set shrinks or is otherwise invalidated, rotate to
+  a new DEK for future writes
+
+Any fingerprint change should bump `accessEpoch`, even if the final recipient
+set happens to be unchanged, because upstream security-relevant structure may
+have changed.
+
+## Implementation Plan
+
+V1 should build on the existing generic object-access tables rather than
+creating a parallel model.
+
+Keep:
+
+- `object_access_grants`
+- `object_access_epochs`
+- `object_recipient_envelopes`
+
+Add:
+
+- `object_access_epochs.access_fingerprint`
+- `document_container_links`
+- `document_blob_links`
+
+Resolver modules:
+
+- `containerAccess.ts`
+  - resolves inherited container access from the ancestor path
+- `documentAccess.ts`
+  - resolves document access from linked containers
+- `blobAccess.ts`
+  - resolves blob access from linked documents
+
+Mutation entry points:
+
+- `shareContainer`
+- `unshareContainer`
+- `moveContainer`
+- `linkDocumentToContainer`
+- `unlinkDocumentFromContainer`
+- `attachBlobToDocument`
+- `detachBlobFromDocument`
+
+V1 scope should allow offline structural mutations such as move, link, unlink,
+attach, and detach, with authoritative recomputation at sync time.
 
 ## Zero-Trust Extension For Membership Changes
 

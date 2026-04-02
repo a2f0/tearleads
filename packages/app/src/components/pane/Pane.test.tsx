@@ -46,7 +46,9 @@ test("displays userId after uploading public key", async () => {
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Upload Public Key"));
 
-  expect(spy.mock.results).toHaveLength(1);
+  await waitFor(() => {
+    expect(spy.mock.results).toHaveLength(1);
+  });
   const spyResult = spy.mock.results[0];
   invariant(spyResult, "spy has no results");
   const result = await spyResult.value;
@@ -77,7 +79,9 @@ test("userId resets to none when key pair is destroyed", async () => {
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Upload Public Key"));
 
-  expect(spy.mock.results).toHaveLength(1);
+  await waitFor(() => {
+    expect(spy.mock.results).toHaveLength(1);
+  });
   const spyResult = spy.mock.results[0];
   invariant(spyResult, "spy has no results");
   const result = await spyResult.value;
@@ -151,6 +155,7 @@ test("notes windows in the same pane share live note state", async () => {
 });
 
 test("contacts windows in the same pane share live address book state", async () => {
+  const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
   await waitFor(() => {
@@ -161,6 +166,14 @@ test("contacts windows in the same pane share live address book state", async ()
   fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Upload Public Key"));
+
+  await waitFor(() => {
+    expect(spy.mock.results).toHaveLength(1);
+  });
+  const spyResult = spy.mock.results[0];
+  invariant(spyResult, "spy has no results");
+  await spyResult.value;
+  spy.mockRestore();
 
   await waitFor(() => {
     expect(view.queryByText(/userId: none/)).toBeNull();

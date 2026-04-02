@@ -40,6 +40,14 @@ export function hasArrayProperty<Key extends string>(
   return Array.isArray(value[key]);
 }
 
+export function hasObjectProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, Record<string, unknown>> {
+  const v = value[key];
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 export function hasPropertyValue<Key extends string, ExactValue>(
   value: Record<string, unknown>,
   key: Key,

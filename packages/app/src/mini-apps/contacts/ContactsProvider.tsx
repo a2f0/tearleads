@@ -95,6 +95,7 @@ function sortEntries(
 function getEntryValue(
   userId: string,
   doc: ContactsDocument,
+  isSelf = false,
 ): AddressBookEntry | null {
   const encapsulationPublicKey = doc
     .getMap("contact")
@@ -104,6 +105,7 @@ function getEntryValue(
     ? {
         userId,
         encapsulationPublicKey,
+        isSelf,
       }
     : null;
 }
@@ -249,7 +251,7 @@ export function createContactsStore(
 
       if (record?.loroSnapshot) {
         importUpdates(nextDoc, [base64ToBytes(record.loroSnapshot)]);
-        const docEntry = getEntryValue(entry.userId, nextDoc);
+        const docEntry = getEntryValue(entry.userId, nextDoc, entry.isSelf);
         if (docEntry) {
           entry = docEntry;
         }
@@ -417,6 +419,7 @@ export function createContactsStore(
               const updatedEntry = getEntryValue(
                 contact.entry.userId,
                 contact.doc,
+                contact.entry.isSelf,
               );
               if (updatedEntry) {
                 contact.entry = updatedEntry;
@@ -498,6 +501,7 @@ export function createContactsStore(
       const entry: AddressBookEntry = {
         userId: response.userId,
         encapsulationPublicKey: response.encapsulationPublicKey,
+        isSelf: false,
       };
 
       writeChain = writeChain

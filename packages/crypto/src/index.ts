@@ -6,6 +6,8 @@ export {
   generateKemSeedAndKeyPair,
 } from "./encapsulation/generateKeyPair";
 export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
+export { unwrapDek } from "./encapsulation/unwrapDek";
+export { wrapDekForRecipients } from "./encapsulation/wrapDek";
 export { toFingerprint } from "./fingerprint";
 export { bytesToHex, hexToBytes } from "./hex";
 export {

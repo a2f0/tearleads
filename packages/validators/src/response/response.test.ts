@@ -19,9 +19,18 @@ test("isPublicKeyResponse", () => {
     isPublicKeyResponse({
       message: "ok",
       userId: "abc-123",
+      organizationId: "org-456",
+      containerId: "ctr-789",
       challenge: "deadbeef",
     }),
   ).toBe(true);
+  expect(
+    isPublicKeyResponse({
+      message: "ok",
+      userId: "abc-123",
+      challenge: "deadbeef",
+    }),
+  ).toBe(false);
   expect(isPublicKeyResponse({ message: "ok" })).toBe(false);
   expect(isPublicKeyResponse({ message: 123 })).toBe(false);
   expect(isPublicKeyResponse({})).toBe(false);

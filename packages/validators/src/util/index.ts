@@ -3,6 +3,7 @@ export {
   hasBooleanProperty,
   hasNullableNumberProperty,
   hasNumberProperty,
+  hasObjectProperty,
   hasOptionalStringProperty,
   hasPropertyValue,
   hasStringProperty,

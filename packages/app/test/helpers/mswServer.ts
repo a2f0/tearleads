@@ -24,6 +24,8 @@ const server = setupServer(
     return HttpResponse.json<PublicKeyResponse>({
       message: "ok",
       userId: crypto.randomUUID(),
+      organizationId: crypto.randomUUID(),
+      containerId: crypto.randomUUID(),
       challenge: randomHex(32),
     });
   }),
