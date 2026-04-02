@@ -9,6 +9,7 @@ import {
 } from "../../data/containerPersistence";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
+import { sqlContactsPersistence } from "../../mini-apps/contacts/contactsPersistence";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -113,22 +114,13 @@ export function PaneMenu({
 
               try {
                 await ensureContainerTables(execSql);
+                await sqlContactsPersistence.ensureSchema(execSql);
                 await saveContainer(execSql, {
                   id: response.containerId,
                   organizationId: response.organizationId,
                   parentId: null,
                   name: "/",
                 });
-                await execSql(`
-                  CREATE TABLE IF NOT EXISTS address_book_projection (
-                    address_book_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
-                    encapsulation_public_key TEXT NOT NULL,
-                    is_self INTEGER NOT NULL DEFAULT 0,
-                    updated_at TEXT NOT NULL,
-                    PRIMARY KEY (address_book_id, user_id)
-                  )
-                `);
                 await execSql(
                   `
                     INSERT INTO address_book_projection (
