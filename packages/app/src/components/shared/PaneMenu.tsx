@@ -1,15 +1,10 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import type { SqlRow, SqlRowValue } from "../../data/AppDataProvider";
-import {
-  ensureContainerTables,
-  saveContainer,
-} from "../../data/containerPersistence";
+import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
-import { sqlContactsPersistence } from "../../mini-apps/contacts/contactsPersistence";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -113,34 +108,12 @@ export function PaneMenu({
               };
 
               try {
-                await ensureContainerTables(execSql);
-                await sqlContactsPersistence.ensureSchema(execSql);
-                await saveContainer(execSql, {
-                  id: response.containerId,
+                await persistRegistrationBootstrap(execSql, {
+                  containerId: response.containerId,
+                  encapsulationPublicKey: encapsulationKeyPair.publicKey,
                   organizationId: response.organizationId,
-                  parentId: null,
-                  name: "/",
+                  userId: response.userId,
                 });
-                await execSql(
-                  `
-                    INSERT INTO address_book_projection (
-                      address_book_id, user_id, encapsulation_public_key, is_self, updated_at
-                    )
-                    VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
-                    ON CONFLICT(address_book_id, user_id) DO UPDATE SET
-                      encapsulation_public_key = excluded.encapsulation_public_key,
-                      is_self = 1,
-                      updated_at = excluded.updated_at
-                  `,
-                  {
-                    ":addressBookId": "default",
-                    ":userId": response.userId,
-                    ":encapsulationPublicKey": bytesToBase64(
-                      encapsulationKeyPair.publicKey,
-                    ),
-                    ":updatedAt": new Date().toISOString(),
-                  },
-                );
                 log("Local identity and root container persisted");
               } catch (error: unknown) {
                 console.error("Failed to persist registration data:", error);
