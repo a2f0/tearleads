@@ -173,8 +173,8 @@ ALTER TABLE users ADD COLUMN default_organization_id UUID NOT NULL;
 ### New columns: `object_recipient_envelopes`
 
 ```sql
-ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT NOT NULL;
-ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT NOT NULL;
+ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT;
+ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT;
 ```
 
 These columns store base64-encoded wrapped key material.

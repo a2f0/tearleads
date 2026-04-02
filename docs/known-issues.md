@@ -3,71 +3,6 @@
 This file tracks implementation bugs, schema mismatches, and unresolved design
 questions that are already visible in the current docs and code.
 
-## Registration And Onboarding
-
-### KI-001: Duplicate registration leaks orphan organizations and containers
-
-Status: open
-
-The current `POST /auth/register` flow creates the organization and root
-container before attempting the unique user insert. On duplicate fingerprint,
-the route returns `409`, but the transaction still commits the earlier rows.
-
-Impact:
-
-- repeated registration attempts can accumulate orphan organizations
-- repeated registration attempts can accumulate orphan root containers
-- onboarding metrics and later cleanup become harder
-
-Recommended fix:
-
-- attempt the unique user insert before creating dependent rows, or
-- throw to force a rollback when the user insert conflicts
-
-### KI-002: Registration accepts unverified wrapped-DEK envelopes
-
-Status: open
-
-The server currently validates only the request shape, then persists
-`wrappedDekEnvelope.keyFingerprint`, `kemCipherText`, and `wrappedKey` as
-supplied by the client.
-
-Impact:
-
-- onboarding can succeed with undecryptable recipient-envelope data
-- the persisted recipient envelope can claim a key fingerprint that does not
-  match the submitted encapsulation public key
-- malformed envelope material can survive until a later decrypt attempt
-
-Recommended fix:
-
-- verify that `wrappedDekEnvelope.keyFingerprint` matches the submitted
-  encapsulation public key
-- reject obviously invalid envelope sizes
-- if stronger guarantees are needed, require a server-verifiable proof that the
-  envelope was derived from the submitted recipient key
-
-### KI-003: Client registration flow can race local persistence
-
-Status: open
-
-The client starts login immediately after registration while local SQLite
-persistence of the root container and self-contact still runs in an unawaited
-promise chain.
-
-Impact:
-
-- explorer initialization can observe zero containers and never refresh during
-  that session
-- local onboarding state may appear partially initialized even though the
-  server registration succeeded
-
-Recommended fix:
-
-- await local persistence before completing the onboarding flow, or
-- make explorer and contacts stores react to post-registration writes instead
-  of assuming one-shot initialization
-
 ## Access Plane And Envelope Storage
 
 ### KI-004: `object_recipient_envelopes` mixes identity metadata with wrapped key material
@@ -96,24 +31,6 @@ Recommended fix:
   - containers require wrapped key material
   - documents may temporarily allow nulls until wrapped key persistence is
     implemented there too
-
-### KI-005: Documentation says recipient-envelope key material is `NOT NULL`, implementation does not
-
-Status: open
-
-`docs/container-dek-onboarding.md` describes `kem_cipher_text` and
-`wrapped_key` as `TEXT NOT NULL`, but the actual schema allows nulls.
-
-Impact:
-
-- readers get the wrong picture of current invariants
-- future migrations may be designed from incorrect assumptions
-
-Recommended fix:
-
-- update the doc to reflect current behavior and explain why nullability exists
-- only document `NOT NULL` once document and container envelope semantics are
-  aligned
 
 ## Key Hierarchy And Sharing Model
 

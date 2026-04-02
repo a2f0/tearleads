@@ -111,53 +111,48 @@ export function PaneMenu({
                 return result.rows;
               };
 
-              ensureContainerTables(execSql)
-                .then(() =>
-                  saveContainer(execSql, {
-                    id: response.containerId,
-                    organizationId: response.organizationId,
-                    parentId: null,
-                    name: "/",
-                  }),
-                )
-                .then(() =>
-                  execSql(`
-                    CREATE TABLE IF NOT EXISTS address_book_projection (
-                      address_book_id TEXT NOT NULL,
-                      user_id TEXT NOT NULL,
-                      encapsulation_public_key TEXT NOT NULL,
-                      is_self INTEGER NOT NULL DEFAULT 0,
-                      updated_at TEXT NOT NULL,
-                      PRIMARY KEY (address_book_id, user_id)
-                    )
-                  `),
-                )
-                .then(() =>
-                  execSql(
-                    `
-                      INSERT INTO address_book_projection (
-                        address_book_id, user_id, encapsulation_public_key, is_self, updated_at
-                      )
-                      VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
-                      ON CONFLICT(address_book_id, user_id) DO UPDATE SET
-                        encapsulation_public_key = excluded.encapsulation_public_key,
-                        is_self = 1,
-                        updated_at = excluded.updated_at
-                    `,
-                    {
-                      ":addressBookId": "default",
-                      ":userId": response.userId,
-                      ":encapsulationPublicKey": bytesToBase64(
-                        encapsulationKeyPair.publicKey,
-                      ),
-                      ":updatedAt": new Date().toISOString(),
-                    },
-                  ),
-                )
-                .then(() => log("Local identity and root container persisted"))
-                .catch((error: unknown) => {
-                  console.error("Failed to persist registration data:", error);
+              try {
+                await ensureContainerTables(execSql);
+                await saveContainer(execSql, {
+                  id: response.containerId,
+                  organizationId: response.organizationId,
+                  parentId: null,
+                  name: "/",
                 });
+                await execSql(`
+                  CREATE TABLE IF NOT EXISTS address_book_projection (
+                    address_book_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    encapsulation_public_key TEXT NOT NULL,
+                    is_self INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (address_book_id, user_id)
+                  )
+                `);
+                await execSql(
+                  `
+                    INSERT INTO address_book_projection (
+                      address_book_id, user_id, encapsulation_public_key, is_self, updated_at
+                    )
+                    VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
+                    ON CONFLICT(address_book_id, user_id) DO UPDATE SET
+                      encapsulation_public_key = excluded.encapsulation_public_key,
+                      is_self = 1,
+                      updated_at = excluded.updated_at
+                  `,
+                  {
+                    ":addressBookId": "default",
+                    ":userId": response.userId,
+                    ":encapsulationPublicKey": bytesToBase64(
+                      encapsulationKeyPair.publicKey,
+                    ),
+                    ":updatedAt": new Date().toISOString(),
+                  },
+                );
+                log("Local identity and root container persisted");
+              } catch (error: unknown) {
+                console.error("Failed to persist registration data:", error);
+              }
             }
 
             await loginWithChallenge(response.challenge);
