@@ -6,7 +6,7 @@ import {
   type SqlTableSchema,
 } from "./sqlSchema";
 
-export interface ContainerRecord {
+interface ContainerRecord {
   id: string;
   organizationId: string;
   parentId: string | null;
