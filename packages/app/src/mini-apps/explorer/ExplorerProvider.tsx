@@ -89,13 +89,7 @@ function createExplorerStore(initialRuntime: ExplorerRuntime): ExplorerStore {
     },
 
     updateRuntime(nextRuntime) {
-      const previousRuntime = runtime;
       runtime = nextRuntime;
-
-      if (previousRuntime.domainScope !== nextRuntime.domainScope) {
-        return;
-      }
-
       ensureInitialized();
     },
   };
@@ -145,11 +139,5 @@ export function useExplorer(): ExplorerContextValue {
     store.getSnapshot,
   );
 
-  return useMemo(
-    () => ({
-      nodes: snapshot.nodes,
-      ready: snapshot.ready,
-    }),
-    [snapshot],
-  );
+  return snapshot;
 }
