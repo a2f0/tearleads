@@ -38,7 +38,7 @@ async function createSqlRuntime() {
   };
 }
 
-test("explorer store creates and reloads child containers", async () => {
+test("explorer store creates, renames, deletes, and reloads child containers", async () => {
   const runtime = await createSqlRuntime();
 
   try {
@@ -89,6 +89,34 @@ test("explorer store creates and reloads child containers", async () => {
         ),
     ).toBe(true);
 
+    const renamedNode = await firstStore.renameContainer(
+      childNode.id,
+      "Manuals",
+    );
+    if (!renamedNode) {
+      throw new Error("Expected renameContainer to return the renamed node.");
+    }
+
+    expect(renamedNode.id).toBe(childNode.id);
+    expect(renamedNode.name).toBe("Manuals");
+    expect(
+      firstStore
+        .getSnapshot()
+        .nodes.some(
+          (node) => node.id === childNode.id && node.name === "Manuals",
+        ),
+    ).toBe(true);
+
+    const deletedRoot = await firstStore.deleteContainer("root-container");
+    expect(deletedRoot).toBe(false);
+
+    const deletedChild = await firstStore.deleteContainer(childNode.id);
+    expect(deletedChild).toBe(true);
+    expect(firstStore.getSnapshot().nodes).toHaveLength(1);
+    expect(
+      firstStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
+    ).toBe(false);
+
     const secondStore = createExplorerStore(runtime);
     secondStore.updateRuntime(runtime);
 
@@ -97,12 +125,10 @@ test("explorer store creates and reloads child containers", async () => {
       "Reloaded explorer store did not become ready.",
     );
 
-    expect(secondStore.getSnapshot().nodes).toHaveLength(2);
+    expect(secondStore.getSnapshot().nodes).toHaveLength(1);
     expect(
-      secondStore
-        .getSnapshot()
-        .nodes.some((node) => node.id === childNode.id && node.name === "Docs"),
-    ).toBe(true);
+      secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
+    ).toBe(false);
   } finally {
     runtime.close();
   }
