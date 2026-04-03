@@ -2,7 +2,7 @@ import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
+import { objectAccessEpochs, objectAccessGrants } from "../schema";
 import { computeAccessFingerprint } from "./accessFingerprint";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -29,6 +29,11 @@ interface GrantedRecipientRow {
   userId: string;
   accessLevel: string;
   encapsulationPublicKey: string;
+}
+
+interface AncestorContainerRow {
+  id: string;
+  cycleDetected: boolean;
 }
 
 interface ContainerAccessState {
@@ -93,6 +98,17 @@ function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
   );
 }
 
+function isAncestorContainerRow(value: unknown): value is AncestorContainerRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, "id") === "string" &&
+    typeof Reflect.get(value, "cycleDetected") === "boolean"
+  );
+}
+
 async function getCurrentEpochRow(
   containerId: string,
   executor: ContainerAccessExecutor = db,
@@ -134,34 +150,53 @@ async function listAncestorContainerIds(
   containerId: string,
   executor: ContainerAccessExecutor = db,
 ): Promise<string[]> {
+  const result = await executor.execute(sql`
+    with recursive ancestor_path as (
+      select
+        c.id,
+        c.parent_id,
+        array[c.id::text] as visited_ids,
+        false as cycle_detected,
+        0 as depth
+      from containers c
+      where c.id = ${containerId}
+      union all
+      select
+        parent.id,
+        parent.parent_id,
+        ap.visited_ids || parent.id::text,
+        parent.id::text = any(ap.visited_ids) as cycle_detected,
+        ap.depth + 1
+      from containers parent
+      inner join ancestor_path ap on parent.id = ap.parent_id
+      where not ap.cycle_detected
+    )
+    select
+      id::text as "id",
+      cycle_detected as "cycleDetected"
+    from ancestor_path
+    order by depth desc
+  `);
+
+  if (result.rows.length === 0) {
+    throw new Error(`Container ${containerId} does not exist`);
+  }
+
   const path: string[] = [];
-  const visited = new Set<string>();
-  let currentId: string | null = containerId;
 
-  while (currentId) {
-    if (visited.has(currentId)) {
-      throw new Error(`Container parent cycle detected at ${currentId}`);
+  for (const row of result.rows) {
+    if (!isAncestorContainerRow(row)) {
+      continue;
     }
-    visited.add(currentId);
 
-    const [row] = await executor
-      .select({
-        id: containers.id,
-        parentId: containers.parentId,
-      })
-      .from(containers)
-      .where(eq(containers.id, currentId))
-      .limit(1);
-
-    if (!row) {
-      throw new Error(`Container ${currentId} does not exist`);
+    if (row.cycleDetected) {
+      throw new Error(`Container parent cycle detected at ${row.id}`);
     }
 
     path.push(row.id);
-    currentId = row.parentId;
   }
 
-  return path.reverse();
+  return path;
 }
 
 async function loadContainerGrantRows(
