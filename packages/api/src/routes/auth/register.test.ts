@@ -116,6 +116,7 @@ test("POST /auth/register rejects a wrapped envelope whose fingerprint does not 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(publicKey),
       wrappedDekEnvelope: {
@@ -150,6 +151,7 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(publicKey),
       wrappedDekEnvelope: {

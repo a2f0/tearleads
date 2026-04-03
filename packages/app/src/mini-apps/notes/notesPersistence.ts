@@ -1,4 +1,3 @@
-import type { SqlRow } from "../../data/AppDataProvider";
 import {
   type DocumentRecord,
   type DocumentScope,
@@ -11,6 +10,7 @@ import {
   type PendingUpdateRecord,
   saveDocumentRecord,
 } from "../../data/documentPersistence";
+import type { SqlRow } from "../../data/sqlSchema";
 import {
   type ExecSql,
   ensureSqlTables,

@@ -22,7 +22,7 @@ test("isPublicKeyResponse", () => {
       message: "ok",
       userId: "abc-123",
       organizationId: "org-456",
-      containerId: "ctr-789",
+      rootContainerId: "ctr-789",
       challenge: "deadbeef",
     }),
   ).toBe(true);

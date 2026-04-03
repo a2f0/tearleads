@@ -1,8 +1,8 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import type { SqlRow, SqlRowValue } from "../../data/AppDataProvider";
 import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
+import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
 import { Menu, type MenuPosition } from "./Menu";
@@ -20,11 +20,11 @@ export function PaneMenu({
     signingKeyPair,
     encapsulationKeyPair,
     userId,
+    containerId,
     generateKey,
     destroyKey,
     setUserId,
     setOrganizationId,
-    setContainerId,
     loginWithChallenge,
   } = useCryptoSession();
   const { log } = useLog();
@@ -69,7 +69,7 @@ export function PaneMenu({
           }}
         />
       )}
-      {signingKeyPair && encapsulationKeyPair && !userId && (
+      {signingKeyPair && encapsulationKeyPair && !userId && containerId && (
         <MenuItem
           label="Upload Public Key"
           onClick={async () => {
@@ -85,6 +85,7 @@ export function PaneMenu({
             if (!wrappedEnvelope) return;
 
             const response = await apiClient.postPublicKey(
+              containerId,
               signingKeyPair.signingPublicKey,
               encapsulationKeyPair.publicKey,
               wrappedEnvelope,
@@ -94,7 +95,6 @@ export function PaneMenu({
             log(`Key registered (${response.userId})`);
             setUserId(response.userId);
             setOrganizationId(response.organizationId);
-            setContainerId(response.containerId);
 
             if (dbClient) {
               const execSql = async (
@@ -109,7 +109,7 @@ export function PaneMenu({
 
               try {
                 await persistRegistrationBootstrap(execSql, {
-                  containerId: response.containerId,
+                  containerId,
                   encapsulationPublicKey: encapsulationKeyPair.publicKey,
                   organizationId: response.organizationId,
                   userId: response.userId,

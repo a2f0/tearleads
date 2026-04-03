@@ -8,9 +8,17 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
+import {
+  ensureContainerTables,
+  loadContainers,
+  saveContainer,
+} from "../data/containerPersistence";
+import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
 
 interface SigningKeyPair {
@@ -58,6 +66,47 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { log } = useLog();
   const apiClient = useApiClient();
+  const { client: dbClient, status: dbStatus } = useDatabase();
+  const containerBootstrapped = useRef(false);
+
+  useEffect(() => {
+    if (dbStatus !== "ready" || !dbClient || containerBootstrapped.current) {
+      return;
+    }
+    containerBootstrapped.current = true;
+
+    const execSql = async (
+      sql: string,
+      bind?: Record<string, string | number | null>,
+    ) => {
+      const result = await dbClient.exec(bind ? { sql, bind } : { sql });
+      return result.rows;
+    };
+
+    void (async () => {
+      try {
+        await ensureContainerTables(execSql);
+        const containers = await loadContainers(execSql);
+        const root = containers.find((c) => c.parentId === null);
+
+        if (root) {
+          setContainerId(root.id);
+        } else {
+          const id = crypto.randomUUID();
+          await saveContainer(execSql, {
+            id,
+            organizationId: "",
+            parentId: null,
+            name: "/",
+          });
+          setContainerId(id);
+          log("Root container created");
+        }
+      } catch (error: unknown) {
+        console.error("Failed to bootstrap root container:", error);
+      }
+    })();
+  }, [dbStatus, dbClient, log]);
 
   const generateKey = useCallback(() => {
     setSigningKeyPair(generateSigningSeedAndKeyPair());

@@ -13,6 +13,7 @@ export interface WrappedDekEnvelope {
 }
 
 export interface PublicKeyRequest {
+  rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
   wrappedDekEnvelope: WrappedDekEnvelope;
@@ -31,6 +32,7 @@ function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "rootContainerId") &&
     hasArrayProperty(value, "signingPublicKey") &&
     isNumberArray(value.signingPublicKey) &&
     hasArrayProperty(value, "encapsulationPublicKey") &&

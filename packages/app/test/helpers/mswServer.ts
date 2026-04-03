@@ -25,7 +25,7 @@ const server = setupServer(
       message: "ok",
       userId: crypto.randomUUID(),
       organizationId: crypto.randomUUID(),
-      containerId: crypto.randomUUID(),
+      rootContainerId: crypto.randomUUID(),
       challenge: randomHex(32),
     });
   }),
