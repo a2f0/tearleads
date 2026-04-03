@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import {
+  deleteContainer as deleteContainerRecord,
   ensureContainerTables,
   loadContainers,
   saveContainer,
@@ -20,6 +21,11 @@ type ExplorerAppData = ReturnType<typeof useAppData>;
 interface ExplorerContextValue {
   createChild: (
     parentId: string,
+    name: string,
+  ) => Promise<ContainerNode | null>;
+  deleteContainer: (containerId: string) => Promise<boolean>;
+  renameContainer: (
+    containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -42,6 +48,11 @@ interface ExplorerRuntime {
 interface ExplorerStore {
   createChild: (
     parentId: string,
+    name: string,
+  ) => Promise<ContainerNode | null>;
+  deleteContainer: (containerId: string) => Promise<boolean>;
+  renameContainer: (
+    containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
   getSnapshot: () => ExplorerSnapshot;
@@ -180,6 +191,87 @@ export function createExplorerStore(
       return writeChain;
     },
 
+    deleteContainer(containerId) {
+      if (runtime.dbStatus !== "ready" || !snapshot.ready) {
+        return Promise.resolve(false);
+      }
+
+      writeChain = writeChain
+        .catch(() => null)
+        .then(async () => {
+          const existingNode = snapshot.nodes.find(
+            (node) => node.id === containerId,
+          );
+          if (
+            !existingNode ||
+            existingNode.parentId === null ||
+            snapshot.nodes.some((node) => node.parentId === containerId)
+          ) {
+            return null;
+          }
+
+          await deleteContainerRecord(runtime.execSql, existingNode.id);
+
+          setSnapshot({
+            nodes: sortNodes(
+              snapshot.nodes.filter((node) => node.id !== existingNode.id),
+            ),
+            ready: true,
+          });
+          runtime.log(`Explorer: deleted container "${existingNode.name}"`);
+          return existingNode;
+        });
+
+      return writeChain.then((deletedNode) => deletedNode !== null);
+    },
+
+    renameContainer(containerId, name) {
+      const trimmedName = name.trim();
+      if (runtime.dbStatus !== "ready" || !snapshot.ready || !trimmedName) {
+        return Promise.resolve(null);
+      }
+
+      writeChain = writeChain
+        .catch(() => null)
+        .then(async () => {
+          const existingNode = snapshot.nodes.find(
+            (node) => node.id === containerId,
+          );
+          if (!existingNode) {
+            return null;
+          }
+
+          if (existingNode.name === trimmedName) {
+            return existingNode;
+          }
+
+          const renamedNode: ContainerNode = {
+            ...existingNode,
+            name: trimmedName,
+          };
+
+          await saveContainer(runtime.execSql, {
+            id: renamedNode.id,
+            organizationId: renamedNode.organizationId,
+            parentId: renamedNode.parentId,
+            name: renamedNode.name,
+          });
+
+          setSnapshot({
+            nodes: sortNodes(
+              snapshot.nodes.map((node) =>
+                node.id === renamedNode.id ? renamedNode : node,
+              ),
+            ),
+            ready: true,
+          });
+          runtime.log(`Explorer: renamed container to "${trimmedName}"`);
+          return renamedNode;
+        });
+
+      return writeChain;
+    },
+
     getSnapshot() {
       return snapshot;
     },
@@ -243,7 +335,9 @@ export function useExplorer(): ExplorerContextValue {
   return useMemo(
     () => ({
       createChild: store.createChild,
+      deleteContainer: store.deleteContainer,
       nodes: snapshot.nodes,
+      renameContainer: store.renameContainer,
       ready: snapshot.ready,
     }),
     [snapshot, store],

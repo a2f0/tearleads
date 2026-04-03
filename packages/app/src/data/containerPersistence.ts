@@ -84,3 +84,18 @@ export async function saveContainer(
     },
   );
 }
+
+export async function deleteContainer(
+  execSql: ExecSql,
+  id: string,
+): Promise<void> {
+  await execSql(
+    `
+      DELETE FROM containers
+      WHERE id = :id
+    `,
+    {
+      ":id": id,
+    },
+  );
+}

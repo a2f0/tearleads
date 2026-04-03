@@ -21,6 +21,11 @@ interface ExplorerTreeEntry {
   node: ContainerNode;
 }
 
+type ExplorerModalState =
+  | { mode: "create-child"; nodeId: string }
+  | { mode: "delete"; nodeId: string }
+  | { mode: "rename"; nodeId: string };
+
 function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
 ): ExplorerTreeEntry[] {
@@ -58,66 +63,93 @@ function buildExplorerTree(
 function renderTreeEntries(
   entries: ReadonlyArray<ExplorerTreeEntry>,
   depth: number,
+  collapsedIds: ReadonlySet<string>,
   selectedId: string | null,
   onSelect: (id: string) => void,
+  onToggleCollapsed: (id: string) => void,
   onContextMenu: (
     event: React.MouseEvent<HTMLButtonElement>,
     id: string,
   ) => void,
-  renderNodeLabel: (name: string) => ReactNode,
 ): ReactNode {
-  return entries.map((entry) => (
-    <Fragment key={entry.node.id}>
-      <button
-        type="button"
-        className={
-          "explorer-sidebar-item" +
-          (selectedId === entry.node.id
-            ? " explorer-sidebar-item--selected"
-            : "")
-        }
-        style={{ "--explorer-depth": depth } as CSSProperties}
-        onClick={() => onSelect(entry.node.id)}
-        onContextMenu={(event) => onContextMenu(event, entry.node.id)}
-      >
-        {renderNodeLabel(entry.node.name)}
-      </button>
-      {renderTreeEntries(
-        entry.children,
-        depth + 1,
-        selectedId,
-        onSelect,
-        onContextMenu,
-        renderNodeLabel,
-      )}
-    </Fragment>
-  ));
+  return entries.map((entry) => {
+    const hasChildren = entry.children.length > 0;
+    const isCollapsed = collapsedIds.has(entry.node.id);
+
+    return (
+      <Fragment key={entry.node.id}>
+        <div
+          className="explorer-sidebar-row"
+          style={{ "--explorer-depth": depth } as CSSProperties}
+        >
+          {hasChildren ? (
+            <button
+              type="button"
+              className="explorer-node-toggle"
+              aria-label={
+                isCollapsed ? "Expand container" : "Collapse container"
+              }
+              aria-expanded={!isCollapsed}
+              onClick={() => onToggleCollapsed(entry.node.id)}
+            >
+              <span
+                className={
+                  "explorer-node-icon" +
+                  (!isCollapsed ? " explorer-node-icon--expanded" : "")
+                }
+              >
+                {"\u25B6"}
+              </span>
+            </button>
+          ) : (
+            <span className="explorer-node-spacer" aria-hidden="true" />
+          )}
+          <button
+            type="button"
+            className={
+              "explorer-sidebar-item" +
+              (selectedId === entry.node.id
+                ? " explorer-sidebar-item--selected"
+                : "")
+            }
+            onClick={() => onSelect(entry.node.id)}
+            onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+          >
+            {entry.node.name}
+          </button>
+        </div>
+        {!isCollapsed &&
+          renderTreeEntries(
+            entry.children,
+            depth + 1,
+            collapsedIds,
+            selectedId,
+            onSelect,
+            onToggleCollapsed,
+            onContextMenu,
+          )}
+      </Fragment>
+    );
+  });
 }
 
 export function Explorer() {
-  const { createChild, nodes, ready } = useExplorer();
+  const { createChild, deleteContainer, nodes, ready, renameContainer } =
+    useExplorer();
   const { setSidebar } = useWindowSidebar();
+  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string;
     position: MenuPosition;
   } | null>(null);
-  const [createChildParentId, setCreateChildParentId] = useState<string | null>(
-    null,
-  );
-  const [createChildError, setCreateChildError] = useState<string | null>(null);
-  const [isCreatingChild, setIsCreatingChild] = useState(false);
-  const [draftChildName, setDraftChildName] = useState("");
-  const childNameInputRef = useRef<HTMLInputElement>(null);
-
-  const renderNodeLabel = useCallback((name: string) => {
-    return (
-      <>
-        <span className="explorer-node-icon">{"\u25B6"}</span>
-        {name}
-      </>
-    );
-  }, []);
+  const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
 
@@ -132,6 +164,24 @@ export function Explorer() {
     }
   }, [nodes, selectedId]);
 
+  useEffect(() => {
+    setCollapsedIds((currentIds) => {
+      const validIds = new Set(nodes.map((node) => node.id));
+      let changed = false;
+      const nextIds = new Set<string>();
+
+      for (const id of currentIds) {
+        if (validIds.has(id)) {
+          nextIds.add(id);
+        } else {
+          changed = true;
+        }
+      }
+
+      return changed ? nextIds : currentIds;
+    });
+  }, [nodes]);
+
   const handleSidebarContextMenu = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>, nodeId: string) => {
       event.preventDefault();
@@ -145,6 +195,30 @@ export function Explorer() {
     [],
   );
 
+  const toggleCollapsed = useCallback((nodeId: string) => {
+    setCollapsedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (nextIds.has(nodeId)) {
+        nextIds.delete(nodeId);
+      } else {
+        nextIds.add(nodeId);
+      }
+      return nextIds;
+    });
+  }, []);
+
+  const expandNode = useCallback((nodeId: string) => {
+    setCollapsedIds((currentIds) => {
+      if (!currentIds.has(nodeId)) {
+        return currentIds;
+      }
+
+      const nextIds = new Set(currentIds);
+      nextIds.delete(nodeId);
+      return nextIds;
+    });
+  }, []);
+
   const sidebar = useMemo(() => {
     return (
       <div className="explorer-sidebar">
@@ -156,19 +230,21 @@ export function Explorer() {
           renderTreeEntries(
             treeEntries,
             0,
+            collapsedIds,
             selectedId,
             setSelectedId,
+            toggleCollapsed,
             handleSidebarContextMenu,
-            renderNodeLabel,
           )
         )}
       </div>
     );
   }, [
+    collapsedIds,
+    toggleCollapsed,
     handleSidebarContextMenu,
     nodes.length,
     ready,
-    renderNodeLabel,
     selectedId,
     treeEntries,
   ]);
@@ -180,79 +256,158 @@ export function Explorer() {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  const closeCreateChildModal = useCallback(() => {
-    if (isCreatingChild) {
+  const closeModal = useCallback(() => {
+    if (isSubmittingModal) {
       return;
     }
 
-    setCreateChildParentId(null);
-    setCreateChildError(null);
-    setDraftChildName("");
-  }, [isCreatingChild]);
+    setModalState(null);
+    setModalError(null);
+    setDraftName("");
+  }, [isSubmittingModal]);
 
   const openCreateChildModal = useCallback((parentId: string) => {
-    setCreateChildParentId(parentId);
-    setCreateChildError(null);
-    setDraftChildName("");
+    setModalState({ mode: "create-child", nodeId: parentId });
+    setModalError(null);
+    setDraftName("");
+  }, []);
+
+  const openRenameModal = useCallback(
+    (containerId: string) => {
+      const container = nodes.find((node) => node.id === containerId);
+      if (!container) {
+        return;
+      }
+
+      setModalState({ mode: "rename", nodeId: containerId });
+      setModalError(null);
+      setDraftName(container.name);
+    },
+    [nodes],
+  );
+
+  const openDeleteModal = useCallback((containerId: string) => {
+    setModalState({ mode: "delete", nodeId: containerId });
+    setModalError(null);
+    setDraftName("");
   }, []);
 
   useEffect(() => {
-    if (!createChildParentId) {
+    if (!modalState || modalState.mode === "delete") {
       return;
     }
 
-    childNameInputRef.current?.focus();
-    childNameInputRef.current?.select();
-  }, [createChildParentId]);
+    nameInputRef.current?.focus();
+    nameInputRef.current?.select();
+  }, [modalState]);
 
   useEffect(() => {
-    if (!createChildParentId) {
+    if (!modalState) {
       return;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isCreatingChild) {
+      if (event.key === "Escape" && !isSubmittingModal) {
         event.preventDefault();
-        closeCreateChildModal();
+        closeModal();
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [createChildParentId, closeCreateChildModal, isCreatingChild]);
+  }, [modalState, closeModal, isSubmittingModal]);
 
-  const handleCreateChild = useCallback(
+  const handleModalSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!createChildParentId || isCreatingChild) {
+      if (!modalState || isSubmittingModal) {
         return;
       }
 
-      setCreateChildError(null);
-      setIsCreatingChild(true);
+      setModalError(null);
+      setIsSubmittingModal(true);
 
       try {
-        const nextNode = await createChild(createChildParentId, draftChildName);
+        if (modalState.mode === "delete") {
+          const deletingNode = nodes.find(
+            (node) => node.id === modalState.nodeId,
+          );
+          const deleted = await deleteContainer(modalState.nodeId);
+          if (!deleted) {
+            setModalError("Failed to delete container.");
+            return;
+          }
+
+          setSelectedId(deletingNode?.parentId ?? null);
+          setModalState(null);
+          setModalError(null);
+          setDraftName("");
+          return;
+        }
+
+        const nextNode =
+          modalState.mode === "create-child"
+            ? await createChild(modalState.nodeId, draftName)
+            : await renameContainer(modalState.nodeId, draftName);
         if (!nextNode) {
-          setCreateChildError("Failed to create child container.");
+          setModalError(
+            modalState.mode === "create-child"
+              ? "Failed to create child container."
+              : "Failed to rename container.",
+          );
           return;
         }
 
         setSelectedId(nextNode.id);
-        setCreateChildParentId(null);
-        setCreateChildError(null);
-        setDraftChildName("");
+        if (modalState.mode === "create-child") {
+          expandNode(modalState.nodeId);
+        }
+        setModalState(null);
+        setModalError(null);
+        setDraftName("");
       } catch (error: unknown) {
-        console.error("Failed to create child container:", error);
-        setCreateChildError("Failed to create child container.");
+        console.error(
+          modalState.mode === "create-child"
+            ? "Failed to create child container:"
+            : modalState.mode === "rename"
+              ? "Failed to rename container:"
+              : "Failed to delete container:",
+          error,
+        );
+        setModalError(
+          modalState.mode === "create-child"
+            ? "Failed to create child container."
+            : modalState.mode === "rename"
+              ? "Failed to rename container."
+              : "Failed to delete container.",
+        );
       } finally {
-        setIsCreatingChild(false);
+        setIsSubmittingModal(false);
       }
     },
-    [createChild, createChildParentId, draftChildName, isCreatingChild],
+    [
+      createChild,
+      deleteContainer,
+      draftName,
+      expandNode,
+      isSubmittingModal,
+      modalState,
+      nodes,
+      renameContainer,
+    ],
   );
 
   const selectedNode = nodes.find((node) => node.id === selectedId);
+  const contextMenuNode = nodes.find((node) => node.id === contextMenu?.nodeId);
+  const contextMenuNodeHasChildren =
+    contextMenuNode !== undefined &&
+    nodes.some((node) => node.parentId === contextMenuNode.id);
+  const canDeleteContextMenuNode =
+    contextMenuNode !== undefined &&
+    contextMenuNode.parentId !== null &&
+    !contextMenuNodeHasChildren;
+  const isDeleteModal = modalState?.mode === "delete";
+  const isRenameModal = modalState?.mode === "rename";
 
   return (
     <div className="explorer">
@@ -288,49 +443,87 @@ export function Explorer() {
               openCreateChildModal(contextMenu.nodeId);
             }}
           />
+          <MenuItem
+            label="Rename"
+            onClick={() => {
+              closeContextMenu();
+              openRenameModal(contextMenu.nodeId);
+            }}
+          />
+          <MenuItem
+            label="Delete"
+            disabled={!canDeleteContextMenuNode}
+            onClick={() => {
+              closeContextMenu();
+              openDeleteModal(contextMenu.nodeId);
+            }}
+          />
         </Menu>
       )}
-      {createChildParentId && (
+      {modalState && (
         <div className="explorer-modal-backdrop" role="presentation">
           <div
             className="explorer-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="explorer-create-child-title"
+            aria-labelledby="explorer-modal-title"
           >
-            <form className="explorer-modal-form" onSubmit={handleCreateChild}>
-              <h2 id="explorer-create-child-title">Create Child</h2>
-              <label className="explorer-modal-field">
-                Name
-                <input
-                  ref={childNameInputRef}
-                  aria-label="Container name"
-                  disabled={isCreatingChild}
-                  value={draftChildName}
-                  onChange={(event) => {
-                    setCreateChildError(null);
-                    setDraftChildName(event.target.value);
-                  }}
-                />
-              </label>
-              {createChildError && (
-                <div className="explorer-modal-error">{createChildError}</div>
+            <form className="explorer-modal-form" onSubmit={handleModalSubmit}>
+              <h2 id="explorer-modal-title">
+                {isDeleteModal
+                  ? "Delete Container"
+                  : isRenameModal
+                    ? "Rename Container"
+                    : "Create Child"}
+              </h2>
+              {isDeleteModal ? (
+                <div className="explorer-modal-copy">
+                  Delete this container?
+                </div>
+              ) : (
+                <label className="explorer-modal-field">
+                  Name
+                  <input
+                    ref={nameInputRef}
+                    aria-label="Container name"
+                    disabled={isSubmittingModal}
+                    value={draftName}
+                    onChange={(event) => {
+                      setModalError(null);
+                      setDraftName(event.target.value);
+                    }}
+                  />
+                </label>
+              )}
+              {modalError && (
+                <div className="explorer-modal-error">{modalError}</div>
               )}
               <div className="explorer-modal-actions">
                 <button
                   type="button"
-                  disabled={isCreatingChild}
-                  onClick={closeCreateChildModal}
+                  disabled={isSubmittingModal}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={
-                    isCreatingChild || draftChildName.trim().length === 0
+                    isSubmittingModal ||
+                    (!isDeleteModal && draftName.trim().length === 0)
                   }
                 >
-                  {isCreatingChild ? "Creating..." : "Create"}
+                  {isSubmittingModal
+                    ? isDeleteModal
+                      ? "Deleting..."
+                      : isRenameModal
+                        ? "Renaming..."
+                        : "Creating..."
+                    : isDeleteModal
+                      ? "Delete"
+                      : isRenameModal
+                        ? "Rename"
+                        : "Create"}
                 </button>
               </div>
             </form>
