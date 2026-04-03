@@ -10,6 +10,7 @@ import { useAppData } from "../../data/AppDataProvider";
 import {
   ensureContainerTables,
   loadContainers,
+  saveContainer,
 } from "../../data/containerPersistence";
 import type { ExecSql } from "../../data/sqlSchema";
 import type { ContainerNode } from "./types";
@@ -17,6 +18,10 @@ import type { ContainerNode } from "./types";
 type ExplorerAppData = ReturnType<typeof useAppData>;
 
 interface ExplorerContextValue {
+  createChild: (
+    parentId: string,
+    name: string,
+  ) => Promise<ContainerNode | null>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
 }
@@ -35,6 +40,10 @@ interface ExplorerRuntime {
 }
 
 interface ExplorerStore {
+  createChild: (
+    parentId: string,
+    name: string,
+  ) => Promise<ContainerNode | null>;
   getSnapshot: () => ExplorerSnapshot;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: ExplorerRuntime) => void;
@@ -43,10 +52,38 @@ interface ExplorerStore {
 const explorerStoresByScope = new WeakMap<object, ExplorerStore>();
 const ExplorerContext = createContext<ExplorerStore | null>(null);
 
-function createExplorerStore(initialRuntime: ExplorerRuntime): ExplorerStore {
+function sortNodes(
+  nodes: ReadonlyArray<ContainerNode>,
+): ReadonlyArray<ContainerNode> {
+  return [...nodes].sort((left, right) =>
+    left.name.localeCompare(right.name, undefined, {
+      sensitivity: "base",
+    }),
+  );
+}
+
+function toContainerNode(record: {
+  id: string;
+  organizationId: string;
+  parentId: string | null;
+  name: string;
+}): ContainerNode {
+  return {
+    id: record.id,
+    kind: "container",
+    name: record.name,
+    organizationId: record.organizationId,
+    parentId: record.parentId,
+  };
+}
+
+export function createExplorerStore(
+  initialRuntime: ExplorerRuntime,
+): ExplorerStore {
   let runtime = initialRuntime;
   let initialized = false;
   let initializePromise: Promise<void> | null = null;
+  let writeChain = Promise.resolve<ContainerNode | null>(null);
   const listeners = new Set<() => void>();
 
   let snapshot: ExplorerSnapshot = {
@@ -75,12 +112,7 @@ function createExplorerStore(initialRuntime: ExplorerRuntime): ExplorerStore {
 
     await ensureContainerTables(runtime.execSql);
     const records = await loadContainers(runtime.execSql);
-    const nodes: ContainerNode[] = records.map((record) => ({
-      id: record.id,
-      name: record.name,
-      parentId: record.parentId,
-      kind: "container",
-    }));
+    const nodes = sortNodes(records.map((record) => toContainerNode(record)));
 
     initialized = true;
     initializePromise = null;
@@ -108,6 +140,46 @@ function createExplorerStore(initialRuntime: ExplorerRuntime): ExplorerStore {
   }
 
   return {
+    createChild(parentId, name) {
+      const trimmedName = name.trim();
+      if (runtime.dbStatus !== "ready" || !snapshot.ready || !trimmedName) {
+        return Promise.resolve(null);
+      }
+
+      writeChain = writeChain
+        .catch(() => null)
+        .then(async () => {
+          const parent = snapshot.nodes.find((node) => node.id === parentId);
+          if (!parent) {
+            return null;
+          }
+
+          const childNode: ContainerNode = {
+            id: crypto.randomUUID(),
+            kind: "container",
+            name: trimmedName,
+            organizationId: parent.organizationId,
+            parentId: parent.id,
+          };
+
+          await saveContainer(runtime.execSql, {
+            id: childNode.id,
+            organizationId: childNode.organizationId,
+            parentId: childNode.parentId,
+            name: childNode.name,
+          });
+
+          setSnapshot({
+            nodes: sortNodes([...snapshot.nodes, childNode]),
+            ready: true,
+          });
+          runtime.log(`Explorer: created container "${trimmedName}"`);
+          return childNode;
+        });
+
+      return writeChain;
+    },
+
     getSnapshot() {
       return snapshot;
     },
@@ -168,5 +240,12 @@ export function useExplorer(): ExplorerContextValue {
     store.getSnapshot,
   );
 
-  return snapshot;
+  return useMemo(
+    () => ({
+      createChild: store.createChild,
+      nodes: snapshot.nodes,
+      ready: snapshot.ready,
+    }),
+    [snapshot, store],
+  );
 }
