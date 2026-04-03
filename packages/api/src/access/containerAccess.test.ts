@@ -60,9 +60,20 @@ test("container access inherits ancestor grants and merges child grants", async 
 
   invariant(childContainer, "expected child container");
 
+  const [grandchildContainer] = await db
+    .insert(containers)
+    .values({
+      organizationId: aliceRow.defaultOrganizationId,
+      parentId: childContainer.id,
+      name: "Shared Grandchild",
+    })
+    .returning({ id: containers.id });
+
+  invariant(grandchildContainer, "expected grandchild container");
+
   await db.insert(objectAccessGrants).values({
     objectType: CONTAINER_OBJECT_TYPE,
-    objectId: childContainer.id,
+    objectId: grandchildContainer.id,
     subjectType: "user",
     subjectId: bob.userId,
     accessLevel: "read",
@@ -70,18 +81,19 @@ test("container access inherits ancestor grants and merges child grants", async 
 
   await db.insert(objectAccessEpochs).values({
     objectType: CONTAINER_OBJECT_TYPE,
-    objectId: childContainer.id,
+    objectId: grandchildContainer.id,
     epoch: 1,
     accessFingerprint: "seed",
     updatedAt: new Date(),
   });
 
-  const state = await resolveContainerAccessState(childContainer.id);
+  const state = await resolveContainerAccessState(grandchildContainer.id);
   invariant(state, "expected container access state");
 
   expect(state.ancestorContainerIds).toEqual([
     rootContainer.id,
     childContainer.id,
+    grandchildContainer.id,
   ]);
   const userIds = state.effectiveRecipients
     .map((recipient) => recipient.userId)
