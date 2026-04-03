@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import {
   attachmentBindings,
@@ -18,6 +18,9 @@ type BlobAccessTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
   ? T
   : never;
 type BlobAccessExecutor = typeof db | BlobAccessTransaction;
+type ResolvedDocumentAccessState = Awaited<
+  ReturnType<typeof resolveDocumentAccessState>
+>;
 
 interface EffectiveBlobRecipient {
   userId: string;
@@ -117,15 +120,81 @@ async function listLinkedDocumentIds(
   return uniqueSortedStrings(rows.map((row) => row.documentId));
 }
 
+async function listLinkedDocumentIdsByBlobId(
+  blobIds: string[],
+  executor: BlobAccessExecutor = db,
+): Promise<Map<string, string[]>> {
+  const linkedDocumentIdsByBlobId = new Map<string, string[]>();
+
+  for (const blobId of blobIds) {
+    linkedDocumentIdsByBlobId.set(blobId, []);
+  }
+
+  if (blobIds.length === 0) {
+    return linkedDocumentIdsByBlobId;
+  }
+
+  const rows = await executor
+    .select({
+      blobId: attachmentBindings.blobId,
+      documentId: attachmentBindings.documentId,
+    })
+    .from(attachmentBindings)
+    .where(
+      and(
+        inArray(attachmentBindings.blobId, blobIds),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    );
+
+  for (const row of rows) {
+    const linkedDocumentIds = linkedDocumentIdsByBlobId.get(row.blobId);
+    if (!linkedDocumentIds) {
+      linkedDocumentIdsByBlobId.set(row.blobId, [row.documentId]);
+      continue;
+    }
+    linkedDocumentIds.push(row.documentId);
+  }
+
+  for (const [blobId, linkedDocumentIds] of linkedDocumentIdsByBlobId) {
+    linkedDocumentIdsByBlobId.set(
+      blobId,
+      uniqueSortedStrings(linkedDocumentIds),
+    );
+  }
+
+  return linkedDocumentIdsByBlobId;
+}
+
+async function resolveDocumentAccessStates(
+  documentIds: string[],
+  executor: BlobAccessExecutor = db,
+): Promise<Map<string, ResolvedDocumentAccessState>> {
+  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
+  const resolvedStates = await Promise.all(
+    uniqueDocumentIds.map(
+      async (documentId): Promise<[string, ResolvedDocumentAccessState]> => [
+        documentId,
+        await resolveDocumentAccessState(documentId, executor),
+      ],
+    ),
+  );
+
+  return new Map(resolvedStates);
+}
+
 async function resolveBlobAccessInputs(
   blobId: string,
   executor: BlobAccessExecutor = db,
+  documentAccessStateById?: ReadonlyMap<string, ResolvedDocumentAccessState>,
 ) {
   const linkedDocumentIds = await listLinkedDocumentIds(blobId, executor);
   const linkedDocumentStates = (
     await Promise.all(
-      linkedDocumentIds.map((documentId) =>
-        resolveDocumentAccessState(documentId, executor),
+      linkedDocumentIds.map(
+        (documentId) =>
+          documentAccessStateById?.get(documentId) ??
+          resolveDocumentAccessState(documentId, executor),
       ),
     )
   ).filter((state) => state !== null);
@@ -210,10 +279,11 @@ async function replaceRecipientEnvelopes(
 async function materializeBlobAccessState(
   blobId: string,
   executor: BlobAccessExecutor = db,
+  documentAccessStateById?: ReadonlyMap<string, ResolvedDocumentAccessState>,
 ): Promise<number | null> {
   const currentEpochRow = await getCurrentEpochRow(blobId, executor);
   const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
-    await resolveBlobAccessInputs(blobId, executor);
+    await resolveBlobAccessInputs(blobId, executor, documentAccessStateById);
 
   if (currentEpochRow === null && linkedDocumentStates.length === 0) {
     return null;
@@ -308,11 +378,33 @@ export async function initializeBlobAccess(blobId: string): Promise<number> {
   });
 }
 
-export async function refreshBlobAccess(
-  blobId: string,
+export async function refreshBlobAccesses(
+  blobIds: string[],
   executor: BlobAccessExecutor = db,
-): Promise<number | null> {
-  return materializeBlobAccessState(blobId, executor);
+): Promise<Map<string, number | null>> {
+  const uniqueBlobIds = uniqueSortedStrings(blobIds);
+  const linkedDocumentIdsByBlobId = await listLinkedDocumentIdsByBlobId(
+    uniqueBlobIds,
+    executor,
+  );
+  const documentAccessStateById = await resolveDocumentAccessStates(
+    Array.from(linkedDocumentIdsByBlobId.values()).flat(),
+    executor,
+  );
+  const refreshedEpochEntries = await Promise.all(
+    uniqueBlobIds.map(
+      async (blobId): Promise<[string, number | null]> => [
+        blobId,
+        await materializeBlobAccessState(
+          blobId,
+          executor,
+          documentAccessStateById,
+        ),
+      ],
+    ),
+  );
+
+  return new Map(refreshedEpochEntries);
 }
 
 export async function attachBlobToDocument(
