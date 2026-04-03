@@ -13,8 +13,7 @@ import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useLog } from "../logging/LogProvider";
 
-export type SqlRowValue = string | number | null;
-export type SqlRow = Record<string, SqlRowValue>;
+import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
 interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;

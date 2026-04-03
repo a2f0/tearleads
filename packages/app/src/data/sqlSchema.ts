@@ -1,4 +1,5 @@
-import type { SqlRow, SqlRowValue } from "./AppDataProvider";
+export type SqlRowValue = string | number | null;
+export type SqlRow = Record<string, SqlRowValue>;
 
 export type ExecSql = (
   sql: string,

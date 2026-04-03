@@ -1,4 +1,4 @@
-import type { SqlRow } from "./AppDataProvider";
+import type { SqlRow } from "./sqlSchema";
 import {
   type ExecSql,
   ensureSqlTables,

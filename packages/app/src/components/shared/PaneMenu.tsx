@@ -1,8 +1,8 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import type { SqlRow, SqlRowValue } from "../../data/AppDataProvider";
 import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
+import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
 import { Menu, type MenuPosition } from "./Menu";
