@@ -15,7 +15,7 @@ if [ -n "$1" ]; then
 else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "could not determine repo root; pass it explicitly:" >&2
-    echo ". /path/to/repo/scripts/path.sh /path/to/repo" >&2
+    echo ". /path/to/repo/scripts/session.sh /path/to/repo" >&2
     if (return 0 2>/dev/null); then
       return 1
     fi
