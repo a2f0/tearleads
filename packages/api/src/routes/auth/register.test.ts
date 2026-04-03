@@ -47,6 +47,7 @@ test("POST /auth/register creates a user in postgres", async () => {
   const { signingPublicKey } = generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   const keyArray = Array.from(signingPublicKey);
+  const encapsulationFingerprint = await toFingerprint(publicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await uploadKey(signingPublicKey, publicKey);
@@ -58,6 +59,7 @@ test("POST /auth/register creates a user in postgres", async () => {
   invariant(user, "expected user to exist in postgres");
   expect(user.fingerprint).toBe(fingerprint);
   expect(decodeKey(user.signingPublicKey)).toEqual(keyArray);
+  expect(user.encapsulationKeyFingerprint).toBe(encapsulationFingerprint);
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {
