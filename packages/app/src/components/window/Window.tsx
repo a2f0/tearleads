@@ -272,7 +272,7 @@ function WindowInner({
           zIndex,
           ...(size ? { width: size.width, height: size.height } : {}),
         }
-      : { visibility: "hidden" as const, zIndex };
+      : { visibility: "hidden", zIndex };
 
   return (
     <div

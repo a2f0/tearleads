@@ -4,6 +4,7 @@ import {
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { createLargeText } from "@tearleads/test-utils";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import type {
@@ -29,6 +30,51 @@ interface ProjectionLengthRow {
 interface PendingUpdateDetailRow extends PendingUpdateLengthRow {
   partial_start_version_vector: string | null;
   partial_end_version_vector: string | null;
+}
+
+function readRowValue(value: unknown, key: string): unknown {
+  return isPlainObject(value) ? value[key] : undefined;
+}
+
+function isPendingUpdateLengthRow(
+  value: unknown,
+): value is PendingUpdateLengthRow {
+  const updateDataLength = readRowValue(value, "update_data_length");
+  return (
+    typeof updateDataLength === "number" ||
+    typeof updateDataLength === "string" ||
+    updateDataLength === null
+  );
+}
+
+function isProjectionLengthRow(value: unknown): value is ProjectionLengthRow {
+  const textLength = readRowValue(value, "text_length");
+  return (
+    typeof textLength === "number" ||
+    typeof textLength === "string" ||
+    textLength === null
+  );
+}
+
+function isPendingUpdateDetailRow(
+  value: unknown,
+): value is PendingUpdateDetailRow {
+  const partialStartVersionVector = readRowValue(
+    value,
+    "partial_start_version_vector",
+  );
+  const partialEndVersionVector = readRowValue(
+    value,
+    "partial_end_version_vector",
+  );
+
+  return (
+    isPendingUpdateLengthRow(value) &&
+    (typeof partialStartVersionVector === "string" ||
+      partialStartVersionVector === null) &&
+    (typeof partialEndVersionVector === "string" ||
+      partialEndVersionVector === null)
+  );
 }
 
 function createNotesPersistence(): NotesPersistence & {
@@ -211,15 +257,15 @@ test("large note edits remain a single pending update row before sync", async ()
           ":noteId": noteId,
         },
       );
-      const pendingRow = pendingRows[0] as PendingUpdateLengthRow | undefined;
-      const projectionRow = projectionRows[0] as
-        | ProjectionLengthRow
-        | undefined;
+      const pendingRow = pendingRows[0];
+      const projectionRow = projectionRows[0];
 
       return (
         pendingRows.length === 1 &&
-        Number(pendingRow?.update_data_length ?? 0) > 256 * 1024 &&
-        Number(projectionRow?.text_length ?? 0) === largeText.length
+        isPendingUpdateLengthRow(pendingRow) &&
+        isProjectionLengthRow(projectionRow) &&
+        Number(pendingRow.update_data_length ?? 0) > 256 * 1024 &&
+        Number(projectionRow.text_length ?? 0) === largeText.length
       );
     }, "Large note edit was not persisted as a single pending update.");
 
@@ -238,14 +284,18 @@ test("large note edits remain a single pending update row before sync", async ()
         ":localId": noteId,
       },
     );
-    const pendingRow = pendingRows[0] as PendingUpdateDetailRow | undefined;
+    const pendingRow = pendingRows[0];
 
     expect(pendingRows).toHaveLength(1);
-    expect(Number(pendingRow?.update_data_length ?? 0)).toBeGreaterThan(
+    if (!isPendingUpdateDetailRow(pendingRow)) {
+      throw new Error("Expected a pending update detail row.");
+    }
+
+    expect(Number(pendingRow.update_data_length ?? 0)).toBeGreaterThan(
       256 * 1024,
     );
-    expect(pendingRow?.partial_start_version_vector).toBeString();
-    expect(pendingRow?.partial_end_version_vector).toBeString();
+    expect(pendingRow.partial_start_version_vector).toBeString();
+    expect(pendingRow.partial_end_version_vector).toBeString();
   } finally {
     runtime.close();
   }

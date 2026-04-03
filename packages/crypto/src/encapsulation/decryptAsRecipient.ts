@@ -1,6 +1,5 @@
 import { ml_kem1024 } from "@noble/post-quantum/ml-kem.js";
 import { toFingerprint } from "../fingerprint";
-import { toBuffer } from "./buffer";
 import type { EncryptedEnvelope } from "./types";
 
 /** ML-KEM-1024 secret key layout: dk_pke (1536 bytes) || ek_pke (1568 bytes) || H(ek) || z */
@@ -35,7 +34,7 @@ export async function decryptAsRecipient(
 
   const wrappingKey = await crypto.subtle.importKey(
     "raw",
-    toBuffer(sharedSecret),
+    sharedSecret.slice(),
     "AES-GCM",
     false,
     ["decrypt"],
@@ -45,22 +44,22 @@ export async function decryptAsRecipient(
     await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: wrappedKeyIv },
       wrappingKey,
-      toBuffer(wrappedKey),
+      wrappedKey.slice(),
     ),
   );
 
   const aesKey = await crypto.subtle.importKey(
     "raw",
-    toBuffer(payloadKey),
+    payloadKey.slice(),
     "AES-GCM",
     false,
     ["decrypt"],
   );
   return new Uint8Array(
     await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: toBuffer(envelope.iv) },
+      { name: "AES-GCM", iv: envelope.iv.slice() },
       aesKey,
-      toBuffer(envelope.ciphertext),
+      envelope.ciphertext.slice(),
     ),
   );
 }

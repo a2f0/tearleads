@@ -1,3 +1,5 @@
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { hasStringProperty } from "@tearleads/validators/util";
 import {
   createContext,
   type PropsWithChildren,
@@ -11,12 +13,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 
 function isServerEvent(value: unknown): value is ServerEvent {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    typeof (value as ServerEvent).type === "string"
-  );
+  return isPlainObject(value) && hasStringProperty(value, "type");
 }
 
 interface ServerEvent {

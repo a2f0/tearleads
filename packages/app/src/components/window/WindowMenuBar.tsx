@@ -20,7 +20,13 @@ export function WindowMenuBar({ menus }: { menus: MenuDef[] }) {
   useEffect(() => {
     if (openIndex === null) return;
     function handleMouseDown(e: MouseEvent) {
-      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+      const target = e.target;
+      if (!(target instanceof Node)) {
+        close();
+        return;
+      }
+
+      if (barRef.current && !barRef.current.contains(target)) {
         close();
       }
     }
