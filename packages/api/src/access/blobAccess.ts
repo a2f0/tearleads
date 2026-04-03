@@ -7,7 +7,10 @@ import {
   objectRecipientEnvelopes,
 } from "../schema";
 import { computeAccessFingerprint } from "./accessFingerprint";
-import { resolveDocumentAccessState } from "./documentAccess";
+import {
+  resolveDocumentAccessState,
+  resolveDocumentAccessStates,
+} from "./documentAccess";
 
 const BLOB_OBJECT_TYPE = "blob";
 
@@ -18,6 +21,7 @@ type BlobAccessTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
   ? T
   : never;
 type BlobAccessExecutor = typeof db | BlobAccessTransaction;
+type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedDocumentAccessState = Awaited<
   ReturnType<typeof resolveDocumentAccessState>
 >;
@@ -86,6 +90,47 @@ async function getCurrentEpochRow(
     .limit(1);
 
   return row ?? null;
+}
+
+async function getCurrentEpochRows(
+  blobIds: string[],
+  executor: BlobAccessExecutor = db,
+): Promise<Map<string, CurrentEpochRow>> {
+  const uniqueBlobIds = uniqueSortedStrings(blobIds);
+
+  if (uniqueBlobIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      blobId: objectAccessEpochs.objectId,
+      epoch: objectAccessEpochs.epoch,
+      accessFingerprint: objectAccessEpochs.accessFingerprint,
+    })
+    .from(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, BLOB_OBJECT_TYPE),
+        inArray(objectAccessEpochs.objectId, uniqueBlobIds),
+      ),
+    )
+    .orderBy(desc(objectAccessEpochs.epoch));
+
+  const currentEpochByBlobId = new Map<string, CurrentEpochRow>();
+
+  for (const row of rows) {
+    if (currentEpochByBlobId.has(row.blobId)) {
+      continue;
+    }
+
+    currentEpochByBlobId.set(row.blobId, {
+      epoch: row.epoch,
+      accessFingerprint: row.accessFingerprint,
+    });
+  }
+
+  return currentEpochByBlobId;
 }
 
 async function writeEpoch(
@@ -166,29 +211,15 @@ async function listLinkedDocumentIdsByBlobId(
   return linkedDocumentIdsByBlobId;
 }
 
-async function resolveDocumentAccessStates(
-  documentIds: string[],
-  executor: BlobAccessExecutor = db,
-): Promise<Map<string, ResolvedDocumentAccessState>> {
-  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
-  const resolvedStates = await Promise.all(
-    uniqueDocumentIds.map(
-      async (documentId): Promise<[string, ResolvedDocumentAccessState]> => [
-        documentId,
-        await resolveDocumentAccessState(documentId, executor),
-      ],
-    ),
-  );
-
-  return new Map(resolvedStates);
-}
-
 async function resolveBlobAccessInputs(
   blobId: string,
   executor: BlobAccessExecutor = db,
   documentAccessStateById?: ReadonlyMap<string, ResolvedDocumentAccessState>,
+  providedLinkedDocumentIds?: string[],
 ) {
-  const linkedDocumentIds = await listLinkedDocumentIds(blobId, executor);
+  const linkedDocumentIds =
+    providedLinkedDocumentIds ??
+    (await listLinkedDocumentIds(blobId, executor));
   const linkedDocumentStates = (
     await Promise.all(
       linkedDocumentIds.map(
@@ -280,12 +311,20 @@ async function materializeBlobAccessState(
   blobId: string,
   executor: BlobAccessExecutor = db,
   documentAccessStateById?: ReadonlyMap<string, ResolvedDocumentAccessState>,
+  providedLinkedDocumentIds?: string[],
+  currentEpochRow?: CurrentEpochRow | null,
 ): Promise<number | null> {
-  const currentEpochRow = await getCurrentEpochRow(blobId, executor);
+  const resolvedCurrentEpochRow =
+    currentEpochRow ?? (await getCurrentEpochRow(blobId, executor));
   const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
-    await resolveBlobAccessInputs(blobId, executor, documentAccessStateById);
+    await resolveBlobAccessInputs(
+      blobId,
+      executor,
+      documentAccessStateById,
+      providedLinkedDocumentIds,
+    );
 
-  if (currentEpochRow === null && linkedDocumentStates.length === 0) {
+  if (resolvedCurrentEpochRow === null && linkedDocumentStates.length === 0) {
     return null;
   }
 
@@ -302,16 +341,16 @@ async function materializeBlobAccessState(
     ...linkedDocumentStates.map((state) => state.currentAccessEpoch),
   );
   const nextEpoch =
-    currentEpochRow === null
+    resolvedCurrentEpochRow === null
       ? linkedEpoch
-      : currentEpochRow.accessFingerprint === accessFingerprint
-        ? Math.max(currentEpochRow.epoch, linkedEpoch)
-        : Math.max(currentEpochRow.epoch + 1, linkedEpoch);
+      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint
+        ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
+        : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
 
   if (
-    currentEpochRow === null ||
-    currentEpochRow.epoch !== nextEpoch ||
-    currentEpochRow.accessFingerprint !== accessFingerprint
+    resolvedCurrentEpochRow === null ||
+    resolvedCurrentEpochRow.epoch !== nextEpoch ||
+    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint
   ) {
     await writeEpoch(blobId, nextEpoch, accessFingerprint, executor);
   }
@@ -391,6 +430,10 @@ export async function refreshBlobAccesses(
     Array.from(linkedDocumentIdsByBlobId.values()).flat(),
     executor,
   );
+  const currentEpochByBlobId = await getCurrentEpochRows(
+    uniqueBlobIds,
+    executor,
+  );
   const refreshedEpochEntries = await Promise.all(
     uniqueBlobIds.map(
       async (blobId): Promise<[string, number | null]> => [
@@ -399,6 +442,8 @@ export async function refreshBlobAccesses(
           blobId,
           executor,
           documentAccessStateById,
+          linkedDocumentIdsByBlobId.get(blobId),
+          currentEpochByBlobId.get(blobId) ?? null,
         ),
       ],
     ),

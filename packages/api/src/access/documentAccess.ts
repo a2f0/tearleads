@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import {
   documentContainerLinks,
@@ -17,6 +17,10 @@ type DocumentAccessTransaction = Parameters<
   ? T
   : never;
 type DocumentAccessExecutor = typeof db | DocumentAccessTransaction;
+type CurrentEpochRow = { epoch: number; accessFingerprint: string };
+type ResolvedContainerAccessState = Awaited<
+  ReturnType<typeof resolveContainerAccessState>
+>;
 
 interface GrantRow {
   subjectType: string;
@@ -90,6 +94,47 @@ async function getCurrentEpoch(
   return row ?? null;
 }
 
+async function getCurrentEpochs(
+  documentIds: string[],
+  executor: DocumentAccessExecutor = db,
+): Promise<Map<string, CurrentEpochRow>> {
+  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
+
+  if (uniqueDocumentIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      documentId: objectAccessEpochs.objectId,
+      epoch: objectAccessEpochs.epoch,
+      accessFingerprint: objectAccessEpochs.accessFingerprint,
+    })
+    .from(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, DOCUMENT_OBJECT_TYPE),
+        inArray(objectAccessEpochs.objectId, uniqueDocumentIds),
+      ),
+    )
+    .orderBy(desc(objectAccessEpochs.epoch));
+
+  const currentEpochByDocumentId = new Map<string, CurrentEpochRow>();
+
+  for (const row of rows) {
+    if (currentEpochByDocumentId.has(row.documentId)) {
+      continue;
+    }
+
+    currentEpochByDocumentId.set(row.documentId, {
+      epoch: row.epoch,
+      accessFingerprint: row.accessFingerprint,
+    });
+  }
+
+  return currentEpochByDocumentId;
+}
+
 async function listLinkedContainerIds(
   documentId: string,
   executor: DocumentAccessExecutor = db,
@@ -102,19 +147,66 @@ async function listLinkedContainerIds(
   return uniqueSortedStrings(rows.map((row) => row.containerId));
 }
 
-async function resolveDocumentRecipientsFromLinkedContainers(
-  documentId: string,
+async function listLinkedContainerIdsByDocumentId(
+  documentIds: string[],
   executor: DocumentAccessExecutor = db,
-) {
-  const linkedContainerIds = await listLinkedContainerIds(documentId, executor);
-  const linkedContainerStates = (
-    await Promise.all(
-      linkedContainerIds.map((containerId) =>
-        resolveContainerAccessState(containerId, executor),
-      ),
-    )
-  ).filter((state) => state !== null);
+): Promise<Map<string, string[]>> {
+  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
+  const linkedContainerIdsByDocumentId = new Map<string, string[]>();
 
+  for (const documentId of uniqueDocumentIds) {
+    linkedContainerIdsByDocumentId.set(documentId, []);
+  }
+
+  if (uniqueDocumentIds.length === 0) {
+    return linkedContainerIdsByDocumentId;
+  }
+
+  const rows = await executor
+    .select({
+      documentId: documentContainerLinks.documentId,
+      containerId: documentContainerLinks.containerId,
+    })
+    .from(documentContainerLinks)
+    .where(inArray(documentContainerLinks.documentId, uniqueDocumentIds));
+
+  for (const row of rows) {
+    linkedContainerIdsByDocumentId.get(row.documentId)?.push(row.containerId);
+  }
+
+  for (const [
+    documentId,
+    linkedContainerIds,
+  ] of linkedContainerIdsByDocumentId) {
+    linkedContainerIdsByDocumentId.set(
+      documentId,
+      uniqueSortedStrings(linkedContainerIds),
+    );
+  }
+
+  return linkedContainerIdsByDocumentId;
+}
+
+async function resolveContainerAccessStates(
+  containerIds: string[],
+  executor: DocumentAccessExecutor = db,
+): Promise<Map<string, ResolvedContainerAccessState>> {
+  const uniqueContainerIds = uniqueSortedStrings(containerIds);
+  const resolvedStates = await Promise.all(
+    uniqueContainerIds.map(
+      async (containerId): Promise<[string, ResolvedContainerAccessState]> => [
+        containerId,
+        await resolveContainerAccessState(containerId, executor),
+      ],
+    ),
+  );
+
+  return new Map(resolvedStates);
+}
+
+function mergeRecipientsFromLinkedContainerStates(
+  linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[],
+): EffectiveDocumentRecipient[] {
   const recipientsByUserId = new Map<string, EffectiveDocumentRecipient>();
 
   for (const state of linkedContainerStates) {
@@ -131,8 +223,31 @@ async function resolveDocumentRecipientsFromLinkedContainers(
     }
   }
 
-  const effectiveRecipients = Array.from(recipientsByUserId.values()).sort(
-    (left, right) => left.keyFingerprint.localeCompare(right.keyFingerprint),
+  return Array.from(recipientsByUserId.values()).sort((left, right) =>
+    left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
+}
+
+async function resolveDocumentRecipientsFromLinkedContainers(
+  documentId: string,
+  executor: DocumentAccessExecutor = db,
+  linkedContainerStateById?: ReadonlyMap<string, ResolvedContainerAccessState>,
+  providedLinkedContainerIds?: string[],
+) {
+  const linkedContainerIds =
+    providedLinkedContainerIds ??
+    (await listLinkedContainerIds(documentId, executor));
+  const linkedContainerStates = (
+    await Promise.all(
+      linkedContainerIds.map(
+        (containerId) =>
+          linkedContainerStateById?.get(containerId) ??
+          resolveContainerAccessState(containerId, executor),
+      ),
+    )
+  ).filter((state) => state !== null);
+  const effectiveRecipients = mergeRecipientsFromLinkedContainerStates(
+    linkedContainerStates,
   );
 
   return {
@@ -145,13 +260,20 @@ async function resolveDocumentRecipientsFromLinkedContainers(
 async function resolveDocumentAccessInputs(
   documentId: string,
   executor: DocumentAccessExecutor = db,
+  linkedContainerStateById?: ReadonlyMap<string, ResolvedContainerAccessState>,
+  providedLinkedContainerIds?: string[],
 ) {
   const grants: GrantRow[] = [];
   const {
     linkedContainerIds,
     linkedContainerStates,
     effectiveRecipients: linkedContainerRecipients,
-  } = await resolveDocumentRecipientsFromLinkedContainers(documentId, executor);
+  } = await resolveDocumentRecipientsFromLinkedContainers(
+    documentId,
+    executor,
+    linkedContainerStateById,
+    providedLinkedContainerIds,
+  );
 
   return {
     linkedContainerIds,
@@ -190,21 +312,27 @@ async function computeDocumentAccessFingerprint(input: {
   });
 }
 
-export async function resolveDocumentAccessState(
-  documentId: string,
-  executor: DocumentAccessExecutor = db,
-): Promise<DocumentAccessState | null> {
-  const currentEpochRow = await getCurrentEpoch(documentId, executor);
+async function buildDocumentAccessState(input: {
+  currentEpochRow: CurrentEpochRow | null;
+  documentId: string;
+  effectiveRecipients: EffectiveDocumentRecipient[];
+  grants: GrantRow[];
+  linkedContainerIds: string[];
+  linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[];
+}): Promise<DocumentAccessState | null> {
   const {
+    currentEpochRow,
+    documentId,
+    effectiveRecipients,
+    grants,
     linkedContainerIds,
     linkedContainerStates,
-    grants,
-    effectiveRecipients,
-  } = await resolveDocumentAccessInputs(documentId, executor);
+  } = input;
 
   if (currentEpochRow === null && linkedContainerStates.length === 0) {
     return null;
   }
+
   const accessFingerprint = await computeDocumentAccessFingerprint({
     documentId,
     grants,
@@ -225,6 +353,76 @@ export async function resolveDocumentAccessState(
     accessFingerprint,
     effectiveRecipients,
   };
+}
+
+export async function resolveDocumentAccessState(
+  documentId: string,
+  executor: DocumentAccessExecutor = db,
+): Promise<DocumentAccessState | null> {
+  const currentEpochRow = await getCurrentEpoch(documentId, executor);
+  const {
+    linkedContainerIds,
+    linkedContainerStates,
+    grants,
+    effectiveRecipients,
+  } = await resolveDocumentAccessInputs(documentId, executor);
+
+  return buildDocumentAccessState({
+    currentEpochRow,
+    documentId,
+    effectiveRecipients,
+    grants,
+    linkedContainerIds,
+    linkedContainerStates,
+  });
+}
+
+export async function resolveDocumentAccessStates(
+  documentIds: string[],
+  executor: DocumentAccessExecutor = db,
+): Promise<Map<string, DocumentAccessState | null>> {
+  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
+  const linkedContainerIdsByDocumentId =
+    await listLinkedContainerIdsByDocumentId(uniqueDocumentIds, executor);
+  const linkedContainerStateById = await resolveContainerAccessStates(
+    Array.from(linkedContainerIdsByDocumentId.values()).flat(),
+    executor,
+  );
+  const currentEpochByDocumentId = await getCurrentEpochs(
+    uniqueDocumentIds,
+    executor,
+  );
+  const resolvedStates = await Promise.all(
+    uniqueDocumentIds.map(
+      async (documentId): Promise<[string, DocumentAccessState | null]> => {
+        const {
+          linkedContainerIds,
+          linkedContainerStates,
+          grants,
+          effectiveRecipients,
+        } = await resolveDocumentAccessInputs(
+          documentId,
+          executor,
+          linkedContainerStateById,
+          linkedContainerIdsByDocumentId.get(documentId),
+        );
+
+        return [
+          documentId,
+          await buildDocumentAccessState({
+            currentEpochRow: currentEpochByDocumentId.get(documentId) ?? null,
+            documentId,
+            effectiveRecipients,
+            grants,
+            linkedContainerIds,
+            linkedContainerStates,
+          }),
+        ];
+      },
+    ),
+  );
+
+  return new Map(resolvedStates);
 }
 
 export function canReadDocumentAccess(
