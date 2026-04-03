@@ -2,17 +2,12 @@ import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import {
-  containers,
-  groupMembers,
-  objectAccessEpochs,
-  objectAccessGrants,
-  organizationMembers,
-  users,
-} from "../schema";
+import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { computeAccessFingerprint } from "./accessFingerprint";
 
 const CONTAINER_OBJECT_TYPE = "container";
+const UUID_PATTERN =
+  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 
 type AccessLevel = "read" | "write" | "admin";
 type SubjectType = "user" | "group" | "organization";
@@ -30,6 +25,12 @@ interface EffectiveContainerRecipient {
   keyFingerprint: string;
 }
 
+interface GrantedRecipientRow {
+  userId: string;
+  accessLevel: string;
+  encapsulationPublicKey: string;
+}
+
 interface ContainerAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
@@ -39,6 +40,10 @@ interface ContainerAccessState {
 
 function isAccessLevel(value: string): value is AccessLevel {
   return value === "read" || value === "write" || value === "admin";
+}
+
+function isUuidString(value: string): boolean {
+  return new RegExp(UUID_PATTERN).test(value);
 }
 
 function accessLevelRank(accessLevel: AccessLevel): number {
@@ -74,6 +79,18 @@ function uniqueSortedStrings(values: string[]): string[] {
 
 function isPresent<T>(value: T | null): value is T {
   return value !== null;
+}
+
+function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, "userId") === "string" &&
+    typeof Reflect.get(value, "accessLevel") === "string" &&
+    typeof Reflect.get(value, "encapsulationPublicKey") === "string"
+  );
 }
 
 async function getCurrentEpochRow(
@@ -179,74 +196,64 @@ async function loadGrantedRecipients(
     return [];
   }
 
-  const [directUserRecipients, organizationRecipients, groupRecipients] =
-    await Promise.all([
-      executor
-        .select({
-          userId: users.id,
-          accessLevel: objectAccessGrants.accessLevel,
-          encapsulationPublicKey: users.encapsulationPublicKey,
-        })
-        .from(objectAccessGrants)
-        .innerJoin(
-          users,
-          eq(users.id, sql`${objectAccessGrants.subjectId}::uuid`),
-        )
-        .where(
-          and(
-            eq(objectAccessGrants.objectType, CONTAINER_OBJECT_TYPE),
-            eq(objectAccessGrants.subjectType, "user"),
-            inArray(objectAccessGrants.objectId, containerIds),
-          ),
-        ),
-      executor
-        .select({
-          userId: users.id,
-          accessLevel: objectAccessGrants.accessLevel,
-          encapsulationPublicKey: users.encapsulationPublicKey,
-        })
-        .from(objectAccessGrants)
-        .innerJoin(
-          organizationMembers,
-          eq(
-            organizationMembers.organizationId,
-            sql`${objectAccessGrants.subjectId}::uuid`,
-          ),
-        )
-        .innerJoin(users, eq(users.id, organizationMembers.userId))
-        .where(
-          and(
-            eq(objectAccessGrants.objectType, CONTAINER_OBJECT_TYPE),
-            eq(objectAccessGrants.subjectType, "organization"),
-            inArray(objectAccessGrants.objectId, containerIds),
-          ),
-        ),
-      executor
-        .select({
-          userId: users.id,
-          accessLevel: objectAccessGrants.accessLevel,
-          encapsulationPublicKey: users.encapsulationPublicKey,
-        })
-        .from(objectAccessGrants)
-        .innerJoin(
-          groupMembers,
-          eq(groupMembers.groupId, sql`${objectAccessGrants.subjectId}::uuid`),
-        )
-        .innerJoin(users, eq(users.id, groupMembers.userId))
-        .where(
-          and(
-            eq(objectAccessGrants.objectType, CONTAINER_OBJECT_TYPE),
-            eq(objectAccessGrants.subjectType, "group"),
-            inArray(objectAccessGrants.objectId, containerIds),
-          ),
-        ),
-    ]);
+  const safeSubjectUuid = sql`substring(g.subject_id from ${UUID_PATTERN})::uuid`;
+  const objectIdList = sql.join(
+    containerIds.map((containerId) => sql`${containerId}`),
+    sql`, `,
+  );
 
-  return [
-    ...directUserRecipients,
-    ...organizationRecipients,
-    ...groupRecipients,
-  ];
+  const result = await executor.execute(sql`
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join users u on u.id = ${safeSubjectUuid}
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"user"}
+      and g.object_id in (${objectIdList})
+    union all
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join organization_members om on om.organization_id = ${safeSubjectUuid}
+    inner join users u on u.id = om.user_id
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"organization"}
+      and g.object_id in (${objectIdList})
+    union all
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join group_members gm on gm.group_id = ${safeSubjectUuid}
+    inner join users u on u.id = gm.user_id
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"group"}
+      and g.object_id in (${objectIdList})
+  `);
+
+  const grantedRecipients: GrantedRecipientRow[] = [];
+
+  for (const row of result.rows) {
+    if (!isGrantedRecipientRow(row)) {
+      continue;
+    }
+
+    grantedRecipients.push({
+      userId: Reflect.get(row, "userId"),
+      accessLevel: Reflect.get(row, "accessLevel"),
+      encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
+    });
+  }
+
+  return grantedRecipients;
 }
 
 async function resolveContainerRecipients(
@@ -369,6 +376,12 @@ export async function grantContainerAccess(input: {
   subjectId: string;
   accessLevel: AccessLevel;
 }): Promise<number> {
+  if (!isUuidString(input.subjectId)) {
+    throw new Error(
+      `Container grant subjectId must be a UUID for subjectType ${input.subjectType}`,
+    );
+  }
+
   return db.transaction(async (tx) => {
     await tx
       .delete(objectAccessGrants)
