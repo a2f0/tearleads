@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   fingerprint: text("fingerprint").notNull().unique(),
   signingPublicKey: text("signing_public_key").notNull(),
   encapsulationPublicKey: text("encapsulation_public_key").notNull(),
-  encapsulationKeyFingerprint: text("encapsulation_key_fingerprint"),
+  encapsulationKeyFingerprint: text("encapsulation_key_fingerprint").notNull(),
   defaultOrganizationId: uuid("default_organization_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

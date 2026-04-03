@@ -1,5 +1,3 @@
-import { toFingerprint } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
@@ -29,7 +27,7 @@ interface GrantedRecipientRow {
   userId: string;
   accessLevel: string;
   encapsulationPublicKey: string;
-  encapsulationKeyFingerprint: string | null;
+  encapsulationKeyFingerprint: string;
 }
 
 interface AncestorContainerRow {
@@ -96,8 +94,7 @@ function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
     typeof Reflect.get(value, "userId") === "string" &&
     typeof Reflect.get(value, "accessLevel") === "string" &&
     typeof Reflect.get(value, "encapsulationPublicKey") === "string" &&
-    (Reflect.get(value, "encapsulationKeyFingerprint") === null ||
-      typeof Reflect.get(value, "encapsulationKeyFingerprint") === "string")
+    typeof Reflect.get(value, "encapsulationKeyFingerprint") === "string"
   );
 }
 
@@ -291,8 +288,10 @@ async function loadGrantedRecipients(
       userId: Reflect.get(row, "userId"),
       accessLevel: Reflect.get(row, "accessLevel"),
       encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
-      encapsulationKeyFingerprint:
-        Reflect.get(row, "encapsulationKeyFingerprint") ?? null,
+      encapsulationKeyFingerprint: Reflect.get(
+        row,
+        "encapsulationKeyFingerprint",
+      ),
     });
   }
 
@@ -345,10 +344,7 @@ async function resolveContainerRecipients(
       recipient.userId,
       recipient.encapsulationPublicKey,
     );
-    if (
-      recipient.encapsulationKeyFingerprint &&
-      recipient.encapsulationKeyFingerprint.length > 0
-    ) {
+    if (recipient.encapsulationKeyFingerprint.length > 0) {
       keyFingerprintByUserId.set(
         recipient.userId,
         recipient.encapsulationKeyFingerprint,
@@ -366,13 +362,11 @@ async function resolveContainerRecipients(
         const accessLevel = effectiveAccessByUserId.get(userId);
         const encapsulationPublicKey =
           encapsulationPublicKeyByUserId.get(userId);
-        if (!accessLevel || !encapsulationPublicKey) {
+        const keyFingerprint = keyFingerprintByUserId.get(userId);
+
+        if (!accessLevel || !encapsulationPublicKey || !keyFingerprint) {
           return null;
         }
-
-        const keyFingerprint =
-          keyFingerprintByUserId.get(userId) ??
-          (await toFingerprint(base64ToBytes(encapsulationPublicKey)));
 
         return {
           userId,

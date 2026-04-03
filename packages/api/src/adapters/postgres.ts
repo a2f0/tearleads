@@ -12,7 +12,7 @@ await client.exec(`
     fingerprint TEXT NOT NULL UNIQUE,
     signing_public_key TEXT NOT NULL,
     encapsulation_public_key TEXT NOT NULL,
-    encapsulation_key_fingerprint TEXT,
+    encapsulation_key_fingerprint TEXT NOT NULL,
     default_organization_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
