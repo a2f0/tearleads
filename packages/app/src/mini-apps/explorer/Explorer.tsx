@@ -105,6 +105,8 @@ export function Explorer() {
   const [createChildParentId, setCreateChildParentId] = useState<string | null>(
     null,
   );
+  const [createChildError, setCreateChildError] = useState<string | null>(null);
+  const [isCreatingChild, setIsCreatingChild] = useState(false);
   const [draftChildName, setDraftChildName] = useState("");
   const childNameInputRef = useRef<HTMLInputElement>(null);
 
@@ -179,12 +181,18 @@ export function Explorer() {
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const closeCreateChildModal = useCallback(() => {
+    if (isCreatingChild) {
+      return;
+    }
+
     setCreateChildParentId(null);
+    setCreateChildError(null);
     setDraftChildName("");
-  }, []);
+  }, [isCreatingChild]);
 
   const openCreateChildModal = useCallback((parentId: string) => {
     setCreateChildParentId(parentId);
+    setCreateChildError(null);
     setDraftChildName("");
   }, []);
 
@@ -203,7 +211,7 @@ export function Explorer() {
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !isCreatingChild) {
         event.preventDefault();
         closeCreateChildModal();
       }
@@ -211,24 +219,37 @@ export function Explorer() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [createChildParentId, closeCreateChildModal]);
+  }, [createChildParentId, closeCreateChildModal, isCreatingChild]);
 
   const handleCreateChild = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!createChildParentId) {
+      if (!createChildParentId || isCreatingChild) {
         return;
       }
 
-      const nextNode = await createChild(createChildParentId, draftChildName);
-      if (!nextNode) {
-        return;
-      }
+      setCreateChildError(null);
+      setIsCreatingChild(true);
 
-      setSelectedId(nextNode.id);
-      closeCreateChildModal();
+      try {
+        const nextNode = await createChild(createChildParentId, draftChildName);
+        if (!nextNode) {
+          setCreateChildError("Failed to create child container.");
+          return;
+        }
+
+        setSelectedId(nextNode.id);
+        setCreateChildParentId(null);
+        setCreateChildError(null);
+        setDraftChildName("");
+      } catch (error: unknown) {
+        console.error("Failed to create child container:", error);
+        setCreateChildError("Failed to create child container.");
+      } finally {
+        setIsCreatingChild(false);
+      }
     },
-    [createChild, createChildParentId, draftChildName, closeCreateChildModal],
+    [createChild, createChildParentId, draftChildName, isCreatingChild],
   );
 
   const selectedNode = nodes.find((node) => node.id === selectedId);
@@ -284,19 +305,32 @@ export function Explorer() {
                 <input
                   ref={childNameInputRef}
                   aria-label="Container name"
+                  disabled={isCreatingChild}
                   value={draftChildName}
-                  onChange={(event) => setDraftChildName(event.target.value)}
+                  onChange={(event) => {
+                    setCreateChildError(null);
+                    setDraftChildName(event.target.value);
+                  }}
                 />
               </label>
+              {createChildError && (
+                <div className="explorer-modal-error">{createChildError}</div>
+              )}
               <div className="explorer-modal-actions">
-                <button type="button" onClick={closeCreateChildModal}>
+                <button
+                  type="button"
+                  disabled={isCreatingChild}
+                  onClick={closeCreateChildModal}
+                >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={draftChildName.trim().length === 0}
+                  disabled={
+                    isCreatingChild || draftChildName.trim().length === 0
+                  }
                 >
-                  Create
+                  {isCreatingChild ? "Creating..." : "Create"}
                 </button>
               </div>
             </form>

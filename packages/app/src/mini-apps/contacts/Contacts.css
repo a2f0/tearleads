@@ -58,7 +58,7 @@
 }
 
 .contacts-card span {
-  font-size: 0.9em;
+  font-size: var(--font-size-sm);
   opacity: 0.8;
   word-break: break-all;
 }
@@ -78,7 +78,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.9em;
+  font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
 }

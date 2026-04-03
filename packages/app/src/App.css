@@ -17,6 +17,7 @@ textarea {
   --color-muted: #eee;
   --color-dark: #333;
   --color-light: #fff;
+  --font-size-sm: 0.9em;
   --padding: 1rem;
   --footer-gap: 0.5rem;
 }
