@@ -31,7 +31,7 @@ interface ExplorerSnapshot {
   ready: boolean;
 }
 
-export interface ExplorerRuntime {
+interface ExplorerRuntime {
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
   execSql: ExecSql;
