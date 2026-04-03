@@ -53,6 +53,35 @@ test("maximizing a background window brings it to the front", async () => {
   expect(windowB.style.zIndex).toBe("1");
 });
 
+test("maximized window fills its parent via inline styles", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowHarness />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("A")).toBeTruthy();
+  });
+
+  const windowA = view.getByText("A").closest<HTMLDivElement>(".window");
+  if (!windowA) throw new Error("window not found");
+
+  const maximizeButton =
+    windowA.querySelector<HTMLButtonElement>(".window-maximize");
+  if (!maximizeButton) throw new Error("maximize button not found");
+
+  fireEvent.click(maximizeButton);
+
+  expect(windowA.className).toContain("window--maximized");
+
+  const style = windowA.style;
+  expect(style.top).toBe("0px");
+  expect(style.left).toBe("0px");
+  expect(style.width).toBe("100%");
+  expect(style.height).toBe("100%");
+});
+
 test("right-clicking a rendered window title bar opens the window menu", async () => {
   const view = render(
     <WindowStateProvider>
