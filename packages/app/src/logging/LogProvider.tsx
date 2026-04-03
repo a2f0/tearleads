@@ -8,6 +8,7 @@ import {
 } from "react";
 
 type LogLevel = "error" | "info";
+const MAX_LOG_ENTRIES = 1000;
 
 interface LogEntry {
   id: string;
@@ -21,20 +22,12 @@ let nextLogId = 0;
 interface LogContextValue {
   entries: ReadonlyArray<LogEntry>;
   log: (message: string) => void;
-  logError: (message: string, cause?: unknown) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
 }
 
 const LogContext = createContext<LogContextValue | null>(null);
 
 function formatLogCause(cause: unknown): string {
-  if (cause instanceof Error) {
-    return cause.message;
-  }
-
-  if (typeof cause === "string") {
-    return cause;
-  }
-
   return String(cause);
 }
 
@@ -42,10 +35,18 @@ export function LogProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
 
   const appendEntry = useCallback((level: LogLevel, message: string) => {
-    setEntries((prev) => [
-      ...prev,
-      { id: String(nextLogId++), level, timestamp: Date.now(), message },
-    ]);
+    const entry: LogEntry = {
+      id: String(nextLogId++),
+      level,
+      timestamp: Date.now(),
+      message,
+    };
+    setEntries((prev) => {
+      const nextEntries = [...prev, entry];
+      return nextEntries.length > MAX_LOG_ENTRIES
+        ? nextEntries.slice(-MAX_LOG_ENTRIES)
+        : nextEntries;
+    });
   }, []);
 
   const log = useCallback(
@@ -56,9 +57,10 @@ export function LogProvider({ children }: PropsWithChildren) {
   );
 
   const logError = useCallback(
-    (message: string, cause?: unknown) => {
+    (message: string | Error, cause?: unknown) => {
+      const formattedMessage = String(message);
       const detail = cause === undefined ? "" : `: ${formatLogCause(cause)}`;
-      appendEntry("error", `${message}${detail}`);
+      appendEntry("error", `${formattedMessage}${detail}`);
     },
     [appendEntry],
   );
