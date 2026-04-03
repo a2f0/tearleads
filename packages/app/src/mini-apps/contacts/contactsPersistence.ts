@@ -17,6 +17,7 @@ import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
 } from "../../data/sqlSchema";
@@ -113,12 +114,14 @@ function parseStoredContact(row: SqlRow): StoredContact {
 
 export const sqlContactsPersistence: ContactsPersistence = {
   async ensureSchema(execSql) {
-    await ensureDocumentTables(execSql);
-    await ensureSqlTables(execSql, addressBookProjectionTables);
-    await execSql(`
-      CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
-        ON address_book_projection (address_book_id) WHERE is_self = 1
-    `);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await ensureDocumentTables(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, addressBookProjectionTables);
+      await lockedExecSql(`
+        CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
+          ON address_book_projection (address_book_id) WHERE is_self = 1
+      `);
+    });
   },
   async loadContacts(execSql, addressBookId) {
     const rows = await execSql(
@@ -149,75 +152,86 @@ export const sqlContactsPersistence: ContactsPersistence = {
   async saveContact(execSql, addressBookId, record, entry) {
     const updatedAt = new Date().toISOString();
 
-    await runSqlTransaction(execSql, async () => {
-      await saveDocumentRecord(
-        execSql,
-        getContactScope(entry.userId),
-        {
-          ...record,
-          id: entry.userId,
-        },
-        updatedAt,
-      );
-      await execSql(
-        `
-          INSERT INTO address_book_projection (
-            address_book_id,
-            user_id,
-            encapsulation_public_key,
-            is_self,
-            updated_at
-          )
-          VALUES (
-            :addressBookId,
-            :userId,
-            :encapsulationPublicKey,
-            :isSelf,
-            :updatedAt
-          )
-          ON CONFLICT(address_book_id, user_id) DO UPDATE SET
-            encapsulation_public_key = excluded.encapsulation_public_key,
-            is_self = excluded.is_self,
-            updated_at = excluded.updated_at
-        `,
-        {
-          ":addressBookId": addressBookId,
-          ":userId": entry.userId,
-          ":encapsulationPublicKey": entry.encapsulationPublicKey,
-          ":isSelf": entry.isSelf ? 1 : 0,
-          ":updatedAt": updatedAt,
-        },
-      );
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await runSqlTransaction(lockedExecSql, async () => {
+        await saveDocumentRecord(
+          lockedExecSql,
+          getContactScope(entry.userId),
+          {
+            ...record,
+            id: entry.userId,
+          },
+          updatedAt,
+        );
+        await lockedExecSql(
+          `
+            INSERT INTO address_book_projection (
+              address_book_id,
+              user_id,
+              encapsulation_public_key,
+              is_self,
+              updated_at
+            )
+            VALUES (
+              :addressBookId,
+              :userId,
+              :encapsulationPublicKey,
+              :isSelf,
+              :updatedAt
+            )
+            ON CONFLICT(address_book_id, user_id) DO UPDATE SET
+              encapsulation_public_key = excluded.encapsulation_public_key,
+              is_self = excluded.is_self,
+              updated_at = excluded.updated_at
+          `,
+          {
+            ":addressBookId": addressBookId,
+            ":userId": entry.userId,
+            ":encapsulationPublicKey": entry.encapsulationPublicKey,
+            ":isSelf": entry.isSelf ? 1 : 0,
+            ":updatedAt": updatedAt,
+          },
+        );
+      });
     });
   },
   async deleteContact(execSql, addressBookId, userId) {
-    await runSqlTransaction(execSql, async () => {
-      await execSql(
-        `
-          DELETE FROM address_book_projection
-          WHERE address_book_id = :addressBookId
-            AND user_id = :userId
-        `,
-        {
-          ":addressBookId": addressBookId,
-          ":userId": userId,
-        },
-      );
-      await deleteDocumentRecord(execSql, getContactScope(userId));
-      await deleteDocumentPendingUpdates(execSql, getContactScope(userId));
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await runSqlTransaction(lockedExecSql, async () => {
+        await lockedExecSql(
+          `
+            DELETE FROM address_book_projection
+            WHERE address_book_id = :addressBookId
+              AND user_id = :userId
+          `,
+          {
+            ":addressBookId": addressBookId,
+            ":userId": userId,
+          },
+        );
+        await deleteDocumentRecord(lockedExecSql, getContactScope(userId));
+        await deleteDocumentPendingUpdates(
+          lockedExecSql,
+          getContactScope(userId),
+        );
+      });
     });
   },
   async listPendingUpdates(execSql, userId) {
     return listDocumentPendingUpdates(execSql, getContactScope(userId));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await enqueueDocumentPendingUpdate(
-      execSql,
-      getContactScope(pendingUpdate.userId),
-      pendingUpdate,
-    );
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await enqueueDocumentPendingUpdate(
+        lockedExecSql,
+        getContactScope(pendingUpdate.userId),
+        pendingUpdate,
+      );
+    });
   },
   async deletePendingUpdate(execSql, id) {
-    await deleteDocumentPendingUpdate(execSql, id);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await deleteDocumentPendingUpdate(lockedExecSql, id);
+    });
   },
 };
