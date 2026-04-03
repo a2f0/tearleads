@@ -169,7 +169,7 @@ async function listAncestorContainerIds(
         ap.depth + 1
       from containers parent
       inner join ancestor_path ap on parent.id = ap.parent_id
-      where not ap.cycle_detected
+      where not ap.cycle_detected and ap.depth < 100
     )
     select
       id::text as "id",
@@ -186,7 +186,7 @@ async function listAncestorContainerIds(
 
   for (const row of result.rows) {
     if (!isAncestorContainerRow(row)) {
-      continue;
+      throw new Error("Unexpected row shape from ancestor_path CTE");
     }
 
     if (row.cycleDetected) {
