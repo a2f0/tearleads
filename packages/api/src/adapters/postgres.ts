@@ -16,8 +16,6 @@ await client.exec(`
     default_organization_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS encapsulation_key_fingerprint TEXT;
   CREATE TABLE IF NOT EXISTS items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     encrypted_data TEXT NOT NULL,

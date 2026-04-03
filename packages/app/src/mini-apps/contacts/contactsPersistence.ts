@@ -74,13 +74,6 @@ const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
         PRIMARY KEY (address_book_id, user_id)
       )
     `,
-    requiredColumns: [
-      {
-        name: "is_self",
-        addSql:
-          "ALTER TABLE address_book_projection ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0",
-      },
-    ],
   },
 ];
 

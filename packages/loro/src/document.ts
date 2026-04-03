@@ -1,23 +1,13 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
 
-function toBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.slice().buffer;
-}
-
-// Loro accepts numeric peer IDs as strings; normalize once so callers don't
-// need to care about bigint vs string representation.
-function normalizePeerId(peerId: bigint): `${number}` {
-  return peerId.toString() as `${number}`;
-}
-
 export async function derivePeerId(
   seed: string | Uint8Array,
 ): Promise<`${number}`> {
   const bytes =
     typeof seed === "string" ? new TextEncoder().encode(seed) : seed;
   const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", toBuffer(bytes)),
+    await crypto.subtle.digest("SHA-256", bytes.slice()),
   );
   const view = new DataView(
     digest.buffer,
@@ -25,7 +15,7 @@ export async function derivePeerId(
     digest.byteLength,
   );
   const peerId = view.getBigUint64(0, false) || 1n;
-  return normalizePeerId(peerId);
+  return peerId.toString() as `${number}`;
 }
 
 export async function createDocument(peerSeed: string | Uint8Array) {

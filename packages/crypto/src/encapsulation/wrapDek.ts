@@ -1,6 +1,5 @@
 import { ml_kem1024 } from "@noble/post-quantum/ml-kem.js";
 import { toFingerprint } from "../fingerprint";
-import { toBuffer } from "./buffer";
 import type { RecipientEntry } from "./types";
 
 /**
@@ -19,7 +18,7 @@ export async function wrapDekForRecipients(
 
       const wrappingKey = await crypto.subtle.importKey(
         "raw",
-        toBuffer(sharedSecret),
+        sharedSecret.slice(),
         "AES-GCM",
         false,
         ["encrypt"],
@@ -29,7 +28,7 @@ export async function wrapDekForRecipients(
         await crypto.subtle.encrypt(
           { name: "AES-GCM", iv: wrappedKeyIv },
           wrappingKey,
-          toBuffer(dek),
+          dek.slice(),
         ),
       );
 

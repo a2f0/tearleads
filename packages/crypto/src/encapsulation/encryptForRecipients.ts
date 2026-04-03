@@ -1,4 +1,3 @@
-import { toBuffer } from "./buffer";
 import type { EncryptedEnvelope } from "./types";
 import { wrapDekForRecipients } from "./wrapDek";
 
@@ -24,7 +23,7 @@ export async function encryptForRecipients(
     await crypto.subtle.encrypt(
       { name: "AES-GCM", iv },
       aesKey,
-      toBuffer(plaintext),
+      plaintext.slice(),
     ),
   );
 

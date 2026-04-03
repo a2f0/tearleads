@@ -1,6 +1,5 @@
 import { ml_kem1024 } from "@noble/post-quantum/ml-kem.js";
 import { toFingerprint } from "../fingerprint";
-import { toBuffer } from "./buffer";
 import type { RecipientEntry } from "./types";
 
 /** ML-KEM-1024 secret key layout: dk_pke (1536 bytes) || ek_pke (1568 bytes) || H(ek) || z */
@@ -33,7 +32,7 @@ export async function unwrapDek(
 
   const wrappingKey = await crypto.subtle.importKey(
     "raw",
-    toBuffer(sharedSecret),
+    sharedSecret.slice(),
     "AES-GCM",
     false,
     ["decrypt"],
@@ -43,7 +42,7 @@ export async function unwrapDek(
     await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: wrappedKeyIv },
       wrappingKey,
-      toBuffer(wrappedKey),
+      wrappedKey.slice(),
     ),
   );
 }
