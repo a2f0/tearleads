@@ -14,7 +14,9 @@ export function PaneLog() {
     <div className="pane-log">
       {logEntries.map((entry) => (
         <div key={entry.id}>
-          [{formatTimestamp(entry.timestamp)}] {entry.message}
+          [{formatTimestamp(entry.timestamp)}]{" "}
+          {entry.level === "error" ? "ERROR: " : ""}
+          {entry.message}
         </div>
       ))}
     </div>

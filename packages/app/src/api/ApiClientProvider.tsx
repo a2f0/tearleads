@@ -14,14 +14,14 @@ const ApiClientContext = createContext<ApiClient | null>(null);
 export function ApiClientProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const [client] = useState(() => new ApiClient(hostConfig.apiBaseUrl));
-  const { log } = useLog();
+  const { logError } = useLog();
 
   useEffect(() => {
-    client.setOnError(log);
+    client.setOnError(logError);
     return () => {
       client.setOnError(null);
     };
-  }, [client, log]);
+  }, [client, logError]);
 
   return (
     <ApiClientContext.Provider value={client}>
