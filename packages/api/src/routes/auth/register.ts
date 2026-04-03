@@ -42,7 +42,7 @@ registerRoute.post(
   }),
   async (c) => {
     const {
-      containerId,
+      rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
       wrappedDekEnvelope,
@@ -52,9 +52,9 @@ registerRoute.post(
     const fingerprint = await toFingerprint(signingKeyBytes);
     const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
 
-    if (!UUID_V4_REGEX.test(containerId)) {
+    if (!UUID_V4_REGEX.test(rootContainerId)) {
       return c.json(
-        { error: "Invalid containerId: must be a valid UUIDv4" },
+        { error: "Invalid rootContainerId: must be a valid UUIDv4" },
         400,
       );
     }
@@ -88,7 +88,7 @@ registerRoute.post(
     let result: {
       userId: string;
       organizationId: string;
-      containerId: string;
+      rootContainerId: string;
     };
     try {
       result = await db.transaction(async (tx) => {
@@ -104,7 +104,7 @@ registerRoute.post(
         const [container] = await tx
           .insert(containers)
           .values({
-            id: containerId,
+            id: rootContainerId,
             organizationId: org.id,
             parentId: null,
             name: "/",
@@ -151,7 +151,7 @@ registerRoute.post(
           epoch: 1,
           accessFingerprint: await computeAccessFingerprint({
             objectType: CONTAINER_OBJECT_TYPE,
-            containerId: container.id,
+            rootContainerId: container.id,
             ancestorContainerIds: [container.id],
             grants: [
               {
@@ -189,7 +189,7 @@ registerRoute.post(
         return {
           userId: user.id,
           organizationId: org.id,
-          containerId: container.id,
+          rootContainerId: container.id,
         };
       });
     } catch (error) {
@@ -219,7 +219,7 @@ registerRoute.post(
       message: "ok",
       userId: result.userId,
       organizationId: result.organizationId,
-      containerId: result.containerId,
+      rootContainerId: result.rootContainerId,
       challenge: challengeHex,
     });
   },

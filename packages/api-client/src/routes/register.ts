@@ -4,7 +4,7 @@ import type { RequestFn } from "../types";
 
 export function postPublicKey(
   request: RequestFn,
-  containerId: string,
+  rootContainerId: string,
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
   wrappedDekEnvelope: RecipientEntry,
@@ -14,7 +14,7 @@ export function postPublicKey(
     isPublicKeyResponse,
     "POST",
     JSON.stringify({
-      containerId,
+      rootContainerId,
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       wrappedDekEnvelope: {

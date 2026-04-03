@@ -17,6 +17,7 @@ export async function uploadKey(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       wrappedDekEnvelope: {
