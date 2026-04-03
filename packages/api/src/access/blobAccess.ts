@@ -353,14 +353,13 @@ async function materializeBlobAccessState(
     resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint
   ) {
     await writeEpoch(blobId, nextEpoch, accessFingerprint, executor);
+    await replaceRecipientEnvelopes(
+      blobId,
+      nextEpoch,
+      effectiveRecipients,
+      executor,
+    );
   }
-
-  await replaceRecipientEnvelopes(
-    blobId,
-    nextEpoch,
-    effectiveRecipients,
-    executor,
-  );
 
   return nextEpoch;
 }
