@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import {
   isChallengeRequest,
+  isCommitDocumentChangeRequest,
   isPublicKeyRequest,
+  isStageBlobRequest,
   isVerifyRequest,
 } from "./index";
 
@@ -75,4 +77,59 @@ test("isVerifyRequest", () => {
   expect(isVerifyRequest({ fingerprint: "abc" })).toBe(false);
   expect(isVerifyRequest({ signature: [1, 2] })).toBe(false);
   expect(isVerifyRequest(null)).toBe(false);
+});
+
+test("isStageBlobRequest", () => {
+  expect(
+    isStageBlobRequest({
+      encryptedBytes: "YWJj",
+      byteLength: 3,
+      sha256: "sha256-1",
+    }),
+  ).toBe(true);
+  expect(
+    isStageBlobRequest({
+      encryptedBytes: "YWJj",
+      byteLength: 0,
+      sha256: "sha256-1",
+    }),
+  ).toBe(false);
+  expect(isStageBlobRequest(null)).toBe(false);
+});
+
+test("isCommitDocumentChangeRequest", () => {
+  expect(
+    isCommitDocumentChangeRequest({
+      accessEpoch: 1,
+      attachmentCommits: [
+        {
+          slotId: "slot_01",
+          stageId: "stage_01",
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: {
+        id: "update_01",
+        encryptedData: "encrypted",
+        partialStartVersionVector: "{}",
+        partialEndVersionVector: '{"a":1}',
+        referencedSlotIds: ["slot_01"],
+      },
+    }),
+  ).toBe(true);
+  expect(
+    isCommitDocumentChangeRequest({
+      accessEpoch: 1,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      loroUpdate: {
+        id: "update_01",
+        encryptedData: "encrypted",
+        partialStartVersionVector: "{}",
+        referencedSlotIds: [],
+      },
+    }),
+  ).toBe(false);
+  expect(isCommitDocumentChangeRequest(null)).toBe(false);
 });

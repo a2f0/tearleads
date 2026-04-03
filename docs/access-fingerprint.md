@@ -109,7 +109,8 @@ For documents in V1:
 
 For blobs in V1:
 
-- load the linked documents
+- load active attachment bindings for the blob
+- extract linked documents from those active bindings
 - resolve each linked document principal
 - union those recipient sets
 
@@ -171,7 +172,7 @@ For V1, recommended canonical inputs are:
   - linked container fingerprints
   - effective recipient key fingerprints
 - blob
-  - linked document ids
+  - active attachment-derived linked document ids
   - linked document fingerprints
   - effective recipient key fingerprints
 
@@ -213,7 +214,7 @@ In V1, structure changes are also access changes:
 
 - container re-parent
 - document linked into or removed from a container
-- blob attached to or detached from a document
+- attachment binding added, replaced, or detached from a document
 
 These operations are not "just navigation." They can change the effective
 recipient set and should therefore participate in the same fingerprint, epoch,

@@ -1,20 +1,16 @@
-import { toFingerprint } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import {
-  groupMembers,
+  documentContainerLinks,
   objectAccessEpochs,
-  objectAccessGrants,
   objectRecipientEnvelopes,
-  organizationMembers,
-  users,
 } from "../schema";
+import { computeAccessFingerprint } from "./accessFingerprint";
+import { resolveContainerAccessState } from "./containerAccess";
 
 const DOCUMENT_OBJECT_TYPE = "document";
 
 type AccessLevel = "read" | "write" | "admin";
-type SubjectType = "user" | "group" | "organization";
 type DocumentAccessTransaction = Parameters<
   (typeof db)["transaction"]
 >[0] extends (tx: infer T) => Promise<unknown>
@@ -37,15 +33,8 @@ interface EffectiveDocumentRecipient {
 
 interface DocumentAccessState {
   currentAccessEpoch: number;
+  accessFingerprint: string;
   effectiveRecipients: EffectiveDocumentRecipient[];
-}
-
-function isAccessLevel(value: string): value is AccessLevel {
-  return value === "read" || value === "write" || value === "admin";
-}
-
-function isSubjectType(value: string): value is SubjectType {
-  return value === "user" || value === "group" || value === "organization";
 }
 
 function accessLevelRank(accessLevel: AccessLevel): number {
@@ -79,16 +68,15 @@ function uniqueSortedStrings(values: string[]): string[] {
   );
 }
 
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
-}
-
 async function getCurrentEpoch(
   documentId: string,
   executor: DocumentAccessExecutor = db,
-): Promise<number | null> {
+) {
   const [row] = await executor
-    .select({ epoch: objectAccessEpochs.epoch })
+    .select({
+      epoch: objectAccessEpochs.epoch,
+      accessFingerprint: objectAccessEpochs.accessFingerprint,
+    })
     .from(objectAccessEpochs)
     .where(
       and(
@@ -99,207 +87,142 @@ async function getCurrentEpoch(
     .orderBy(desc(objectAccessEpochs.epoch))
     .limit(1);
 
-  return row?.epoch ?? null;
+  return row ?? null;
 }
 
-async function loadDocumentGrantRows(
+async function listLinkedContainerIds(
+  documentId: string,
+  executor: DocumentAccessExecutor = db,
+): Promise<string[]> {
+  const rows = await executor
+    .select({ containerId: documentContainerLinks.containerId })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, documentId));
+
+  return uniqueSortedStrings(rows.map((row) => row.containerId));
+}
+
+async function resolveDocumentRecipientsFromLinkedContainers(
   documentId: string,
   executor: DocumentAccessExecutor = db,
 ) {
-  return executor
-    .select({
-      subjectType: objectAccessGrants.subjectType,
-      subjectId: objectAccessGrants.subjectId,
-      accessLevel: objectAccessGrants.accessLevel,
-    })
-    .from(objectAccessGrants)
-    .where(
-      and(
-        eq(objectAccessGrants.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectAccessGrants.objectId, documentId),
+  const linkedContainerIds = await listLinkedContainerIds(documentId, executor);
+  const linkedContainerStates = (
+    await Promise.all(
+      linkedContainerIds.map((containerId) =>
+        resolveContainerAccessState(containerId, executor),
       ),
-    );
-}
+    )
+  ).filter((state) => state !== null);
 
-function collectGrantedSubjectIds(
-  grants: GrantRow[],
-  subjectType: SubjectType,
-): string[] {
-  const result: string[] = [];
+  const recipientsByUserId = new Map<string, EffectiveDocumentRecipient>();
 
-  for (const grant of grants) {
-    if (
-      !isSubjectType(grant.subjectType) ||
-      !isAccessLevel(grant.accessLevel)
-    ) {
-      continue;
-    }
-
-    if (grant.subjectType === subjectType) {
-      result.push(grant.subjectId);
+  for (const state of linkedContainerStates) {
+    for (const recipient of state.effectiveRecipients) {
+      const existing = recipientsByUserId.get(recipient.userId);
+      recipientsByUserId.set(recipient.userId, {
+        userId: recipient.userId,
+        accessLevel: existing
+          ? mergeAccessLevel(existing.accessLevel, recipient.accessLevel)
+          : recipient.accessLevel,
+        encapsulationPublicKey: recipient.encapsulationPublicKey,
+        keyFingerprint: recipient.keyFingerprint,
+      });
     }
   }
 
-  return uniqueSortedStrings(result);
+  const effectiveRecipients = Array.from(recipientsByUserId.values()).sort(
+    (left, right) => left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
+
+  return {
+    linkedContainerIds,
+    linkedContainerStates,
+    effectiveRecipients,
+  };
 }
 
-async function loadMembershipRows(
-  input: {
-    organizationIds: string[];
-    groupIds: string[];
-  },
+async function resolveDocumentAccessInputs(
+  documentId: string,
   executor: DocumentAccessExecutor = db,
 ) {
-  const organizationMemberships =
-    input.organizationIds.length > 0
-      ? await executor
-          .select({
-            organizationId: organizationMembers.organizationId,
-            userId: organizationMembers.userId,
-          })
-          .from(organizationMembers)
-          .where(
-            inArray(organizationMembers.organizationId, input.organizationIds),
-          )
-      : [];
+  const grants: GrantRow[] = [];
+  const {
+    linkedContainerIds,
+    linkedContainerStates,
+    effectiveRecipients: linkedContainerRecipients,
+  } = await resolveDocumentRecipientsFromLinkedContainers(documentId, executor);
 
-  const groupMemberships =
-    input.groupIds.length > 0
-      ? await executor
-          .select({
-            groupId: groupMembers.groupId,
-            userId: groupMembers.userId,
-          })
-          .from(groupMembers)
-          .where(inArray(groupMembers.groupId, input.groupIds))
-      : [];
-
-  return { organizationMemberships, groupMemberships };
+  return {
+    linkedContainerIds,
+    linkedContainerStates,
+    grants,
+    effectiveRecipients: linkedContainerRecipients,
+  };
 }
 
-async function loadRecipientUsers(
-  userIds: string[],
-  executor: DocumentAccessExecutor = db,
-) {
-  if (userIds.length === 0) {
-    return [];
-  }
-
-  return executor
-    .select({
-      id: users.id,
-      encapsulationPublicKey: users.encapsulationPublicKey,
-    })
-    .from(users)
-    .where(inArray(users.id, userIds));
+async function computeDocumentAccessFingerprint(input: {
+  documentId: string;
+  grants: GrantRow[];
+  linkedContainerIds: string[];
+  linkedContainerFingerprints: string[];
+  effectiveRecipients: EffectiveDocumentRecipient[];
+}) {
+  return computeAccessFingerprint({
+    objectType: DOCUMENT_OBJECT_TYPE,
+    documentId: input.documentId,
+    linkedContainerIds: input.linkedContainerIds,
+    linkedContainerFingerprints: input.linkedContainerFingerprints,
+    grants: input.grants
+      .map((grant) => ({
+        subjectType: grant.subjectType,
+        subjectId: grant.subjectId,
+        accessLevel: grant.accessLevel,
+      }))
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      ),
+    recipients: input.effectiveRecipients.map((recipient) => ({
+      userId: recipient.userId,
+      accessLevel: recipient.accessLevel,
+      keyFingerprint: recipient.keyFingerprint,
+    })),
+  });
 }
 
 export async function resolveDocumentAccessState(
   documentId: string,
   executor: DocumentAccessExecutor = db,
 ): Promise<DocumentAccessState | null> {
-  const currentAccessEpoch = await getCurrentEpoch(documentId, executor);
-  if (currentAccessEpoch === null) {
+  const currentEpochRow = await getCurrentEpoch(documentId, executor);
+  const {
+    linkedContainerIds,
+    linkedContainerStates,
+    grants,
+    effectiveRecipients,
+  } = await resolveDocumentAccessInputs(documentId, executor);
+
+  if (currentEpochRow === null && linkedContainerStates.length === 0) {
     return null;
   }
+  const accessFingerprint = await computeDocumentAccessFingerprint({
+    documentId,
+    grants,
+    linkedContainerIds,
+    linkedContainerFingerprints: linkedContainerStates.map(
+      (state) => state.accessFingerprint,
+    ),
+    effectiveRecipients,
+  });
 
-  const grants = await loadDocumentGrantRows(documentId, executor);
-  const directUserIds = collectGrantedSubjectIds(grants, "user");
-  const organizationIds = collectGrantedSubjectIds(grants, "organization");
-  const groupIds = collectGrantedSubjectIds(grants, "group");
-  const { organizationMemberships, groupMemberships } =
-    await loadMembershipRows(
-      {
-        organizationIds,
-        groupIds,
-      },
-      executor,
-    );
-
-  const effectiveAccessByUserId = new Map<string, AccessLevel>();
-
-  for (const grant of grants) {
-    if (
-      !isSubjectType(grant.subjectType) ||
-      !isAccessLevel(grant.accessLevel)
-    ) {
-      continue;
-    }
-
-    if (grant.subjectType === "user") {
-      effectiveAccessByUserId.set(
-        grant.subjectId,
-        mergeAccessLevel(
-          effectiveAccessByUserId.get(grant.subjectId),
-          grant.accessLevel,
-        ),
-      );
-      continue;
-    }
-
-    if (grant.subjectType === "organization") {
-      for (const membership of organizationMemberships) {
-        if (membership.organizationId === grant.subjectId) {
-          effectiveAccessByUserId.set(
-            membership.userId,
-            mergeAccessLevel(
-              effectiveAccessByUserId.get(membership.userId),
-              grant.accessLevel,
-            ),
-          );
-        }
-      }
-      continue;
-    }
-
-    for (const membership of groupMemberships) {
-      if (membership.groupId === grant.subjectId) {
-        effectiveAccessByUserId.set(
-          membership.userId,
-          mergeAccessLevel(
-            effectiveAccessByUserId.get(membership.userId),
-            grant.accessLevel,
-          ),
-        );
-      }
-    }
-  }
-
-  const effectiveUserIds = uniqueSortedStrings([
-    ...directUserIds,
-    ...Array.from(effectiveAccessByUserId.keys()),
-  ]);
-  const recipientUsers = await loadRecipientUsers(effectiveUserIds, executor);
-  const usersById = new Map(recipientUsers.map((user) => [user.id, user]));
-
-  const effectiveRecipients = (
-    await Promise.all(
-      effectiveUserIds.map(async (userId) => {
-        const recipientUser = usersById.get(userId);
-        const accessLevel = effectiveAccessByUserId.get(userId);
-
-        if (!recipientUser || !accessLevel) {
-          return null;
-        }
-
-        return {
-          userId,
-          accessLevel,
-          encapsulationPublicKey: recipientUser.encapsulationPublicKey,
-          keyFingerprint: await toFingerprint(
-            base64ToBytes(recipientUser.encapsulationPublicKey),
-          ),
-        };
-      }),
-    )
-  ).filter(isPresent);
-
-  effectiveRecipients.sort((left, right) =>
-    left.keyFingerprint.localeCompare(right.keyFingerprint),
+  const currentAccessEpoch = Math.max(
+    currentEpochRow?.epoch ?? 1,
+    ...linkedContainerStates.map((state) => state.currentAccessEpoch),
   );
 
   return {
     currentAccessEpoch,
+    accessFingerprint,
     effectiveRecipients,
   };
 }
@@ -372,90 +295,51 @@ async function replaceRecipientEnvelopes(
 async function writeEpoch(
   documentId: string,
   epoch: number,
+  accessFingerprint: string,
   executor: DocumentAccessExecutor = db,
 ) {
   await executor.insert(objectAccessEpochs).values({
     objectType: DOCUMENT_OBJECT_TYPE,
     objectId: documentId,
     epoch,
+    accessFingerprint,
     updatedAt: new Date(),
   });
 }
 
 export async function initializeDocumentAccess(
   documentId: string,
-  ownerUserId: string,
 ): Promise<number> {
   return db.transaction(async (tx) => {
-    await tx.insert(objectAccessGrants).values({
-      objectType: DOCUMENT_OBJECT_TYPE,
-      objectId: documentId,
-      subjectType: "user",
-      subjectId: ownerUserId,
-      accessLevel: "admin",
+    const {
+      linkedContainerIds,
+      linkedContainerStates,
+      grants,
+      effectiveRecipients,
+    } = await resolveDocumentAccessInputs(documentId, tx);
+    const accessFingerprint = await computeDocumentAccessFingerprint({
+      documentId,
+      grants,
+      linkedContainerIds,
+      linkedContainerFingerprints: linkedContainerStates.map(
+        (state) => state.accessFingerprint,
+      ),
+      effectiveRecipients,
     });
+    const initialEpoch = Math.max(
+      1,
+      ...linkedContainerStates.map((state) => state.currentAccessEpoch),
+    );
 
-    await writeEpoch(documentId, 1, tx);
-
-    const state = await resolveDocumentAccessState(documentId, tx);
-    if (!state) {
-      throw new Error("Failed to initialize document access state.");
-    }
+    await writeEpoch(documentId, initialEpoch, accessFingerprint, tx);
 
     await replaceRecipientEnvelopes(
       documentId,
-      state.currentAccessEpoch,
-      state.effectiveRecipients,
+      initialEpoch,
+      effectiveRecipients,
       tx,
     );
 
-    return state.currentAccessEpoch;
-  });
-}
-
-export async function grantDocumentAccess(input: {
-  documentId: string;
-  subjectType: SubjectType;
-  subjectId: string;
-  accessLevel: AccessLevel;
-}): Promise<number> {
-  return db.transaction(async (tx) => {
-    await tx
-      .delete(objectAccessGrants)
-      .where(
-        and(
-          eq(objectAccessGrants.objectType, DOCUMENT_OBJECT_TYPE),
-          eq(objectAccessGrants.objectId, input.documentId),
-          eq(objectAccessGrants.subjectType, input.subjectType),
-          eq(objectAccessGrants.subjectId, input.subjectId),
-        ),
-      );
-
-    await tx.insert(objectAccessGrants).values({
-      objectType: DOCUMENT_OBJECT_TYPE,
-      objectId: input.documentId,
-      subjectType: input.subjectType,
-      subjectId: input.subjectId,
-      accessLevel: input.accessLevel,
-    });
-
-    const currentEpoch = await getCurrentEpoch(input.documentId, tx);
-    const nextEpoch = currentEpoch === null ? 1 : currentEpoch + 1;
-
-    await writeEpoch(input.documentId, nextEpoch, tx);
-
-    const state = await resolveDocumentAccessState(input.documentId, tx);
-    if (!state) {
-      throw new Error("Failed to resolve document access state after grant.");
-    }
-
-    await replaceRecipientEnvelopes(
-      input.documentId,
-      state.currentAccessEpoch,
-      state.effectiveRecipients,
-      tx,
-    );
-
-    return state.currentAccessEpoch;
+    return initialEpoch;
   });
 }

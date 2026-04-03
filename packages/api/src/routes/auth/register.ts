@@ -9,6 +9,7 @@ import { isPublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
+import { computeAccessFingerprint } from "../../access/accessFingerprint";
 import { db } from "../../adapters/postgres";
 import { set } from "../../adapters/redis";
 import { publish } from "../../adapters/redisPubSub";
@@ -133,6 +134,26 @@ registerRoute.post(
           objectType: CONTAINER_OBJECT_TYPE,
           objectId: container.id,
           epoch: 1,
+          accessFingerprint: await computeAccessFingerprint({
+            objectType: CONTAINER_OBJECT_TYPE,
+            containerId: container.id,
+            ancestorContainerIds: [container.id],
+            grants: [
+              {
+                objectId: container.id,
+                subjectType: "user",
+                subjectId: user.id,
+                accessLevel: "admin",
+              },
+            ],
+            recipients: [
+              {
+                userId: user.id,
+                accessLevel: "admin",
+                keyFingerprint: wrappedDekEnvelope.keyFingerprint,
+              },
+            ],
+          }),
           updatedAt: new Date(),
         });
 

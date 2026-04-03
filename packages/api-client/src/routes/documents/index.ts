@@ -1,0 +1,1 @@
+export { commitDocumentChange } from "./commitChange";

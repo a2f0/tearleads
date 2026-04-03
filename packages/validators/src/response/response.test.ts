@@ -2,8 +2,10 @@ import { expect, test } from "bun:test";
 import {
   isChallengeErrorResponse,
   isChallengeResponse,
+  isCommitDocumentChangeResponse,
   isHealthResponse,
   isPublicKeyResponse,
+  isStageBlobResponse,
   isVerifyResponse,
 } from "./index";
 
@@ -63,4 +65,46 @@ test("isVerifyResponse", () => {
   expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);
   expect(isVerifyResponse({})).toBe(false);
   expect(isVerifyResponse(null)).toBe(false);
+});
+
+test("isStageBlobResponse", () => {
+  expect(
+    isStageBlobResponse({
+      stageId: "stage_01",
+      expiresAt: new Date().toISOString(),
+    }),
+  ).toBe(true);
+  expect(isStageBlobResponse({ stageId: "stage_01" })).toBe(false);
+  expect(isStageBlobResponse(null)).toBe(false);
+});
+
+test("isCommitDocumentChangeResponse", () => {
+  expect(
+    isCommitDocumentChangeResponse({
+      currentAccessEpoch: 2,
+      acceptedOutgoingUpdateIds: ["update_01"],
+      committedBindings: [
+        {
+          slotId: "slot_01",
+          bindingId: "binding_01",
+          blobId: "blob_01",
+        },
+      ],
+      detachedBindingIds: ["binding_old"],
+    }),
+  ).toBe(true);
+  expect(
+    isCommitDocumentChangeResponse({
+      currentAccessEpoch: 2,
+      acceptedOutgoingUpdateIds: [],
+      committedBindings: [
+        {
+          slotId: "slot_01",
+          bindingId: "binding_01",
+        },
+      ],
+      detachedBindingIds: [],
+    }),
+  ).toBe(false);
+  expect(isCommitDocumentChangeResponse(null)).toBe(false);
 });

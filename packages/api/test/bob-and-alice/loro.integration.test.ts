@@ -18,7 +18,7 @@ import { documentUpdates } from "../../src/schema";
 import { createDocument, syncDocument } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
-import { grantDocumentWriteAccessToUser } from "../helpers/grantDocumentAccess";
+import { grantRootContainerWriteAccessToUser } from "../helpers/grantContainerAccess";
 import { registerUser } from "../helpers/registerUser";
 
 const alice = createTestUser();
@@ -74,8 +74,8 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   );
   expect(bobForbiddenFetchResponse.status).toBe(403);
 
-  const grantedAccessEpoch = await grantDocumentWriteAccessToUser(
-    documentId,
+  const grantedAccessEpoch = await grantRootContainerWriteAccessToUser(
+    alice.userId,
     bob.userId,
   );
   expect(grantedAccessEpoch).toBe(2);

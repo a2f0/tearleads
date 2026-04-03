@@ -1,9 +1,15 @@
 import { createDocument, syncDocument } from "@tearleads/loro/client";
+import type {
+  CommitDocumentChangeRequest,
+  StageBlobRequest,
+} from "@tearleads/validators/request";
 import {
   authenticate,
   authenticateWithChallenge,
   getEncapsulationKey,
 } from "./routes/auth";
+import { stageBlob } from "./routes/blobs";
+import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getItem, postItem } from "./routes/items";
 import { postPublicKey } from "./routes/register";
@@ -149,6 +155,14 @@ export class ApiClient {
       localVersionVector,
       outgoingUpdates,
     );
+  }
+
+  stageBlob(input: StageBlobRequest) {
+    return stageBlob(this.request, input);
+  }
+
+  commitDocumentChange(documentId: string, input: CommitDocumentChangeRequest) {
+    return commitDocumentChange(this.request, documentId, input);
   }
 
   getItem(itemId: string) {

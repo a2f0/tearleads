@@ -1,0 +1,363 @@
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { db } from "../adapters/postgres";
+import {
+  attachmentBindings,
+  blobs,
+  objectAccessEpochs,
+  objectRecipientEnvelopes,
+} from "../schema";
+import { computeAccessFingerprint } from "./accessFingerprint";
+import { resolveDocumentAccessState } from "./documentAccess";
+
+const BLOB_OBJECT_TYPE = "blob";
+
+type AccessLevel = "read" | "write" | "admin";
+type BlobAccessTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
+  tx: infer T,
+) => Promise<unknown>
+  ? T
+  : never;
+type BlobAccessExecutor = typeof db | BlobAccessTransaction;
+
+interface EffectiveBlobRecipient {
+  userId: string;
+  accessLevel: AccessLevel;
+  encapsulationPublicKey: string;
+  keyFingerprint: string;
+}
+
+interface BlobAccessState {
+  currentAccessEpoch: number;
+  accessFingerprint: string;
+  effectiveRecipients: EffectiveBlobRecipient[];
+}
+
+function accessLevelRank(accessLevel: AccessLevel): number {
+  if (accessLevel === "admin") {
+    return 3;
+  }
+
+  if (accessLevel === "write") {
+    return 2;
+  }
+
+  return 1;
+}
+
+function mergeAccessLevel(
+  current: AccessLevel | undefined,
+  incoming: AccessLevel,
+): AccessLevel {
+  if (!current) {
+    return incoming;
+  }
+
+  return accessLevelRank(incoming) > accessLevelRank(current)
+    ? incoming
+    : current;
+}
+
+function uniqueSortedStrings(values: string[]): string[] {
+  return Array.from(new Set(values)).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+async function getCurrentEpochRow(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<{ epoch: number; accessFingerprint: string } | null> {
+  const [row] = await executor
+    .select({
+      epoch: objectAccessEpochs.epoch,
+      accessFingerprint: objectAccessEpochs.accessFingerprint,
+    })
+    .from(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, BLOB_OBJECT_TYPE),
+        eq(objectAccessEpochs.objectId, blobId),
+      ),
+    )
+    .orderBy(desc(objectAccessEpochs.epoch))
+    .limit(1);
+
+  return row ?? null;
+}
+
+async function writeEpoch(
+  blobId: string,
+  epoch: number,
+  accessFingerprint: string,
+  executor: BlobAccessExecutor = db,
+) {
+  await executor.insert(objectAccessEpochs).values({
+    objectType: BLOB_OBJECT_TYPE,
+    objectId: blobId,
+    epoch,
+    accessFingerprint,
+    updatedAt: new Date(),
+  });
+}
+
+async function listLinkedDocumentIds(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<string[]> {
+  const rows = await executor
+    .select({ documentId: attachmentBindings.documentId })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.blobId, blobId),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    );
+
+  return uniqueSortedStrings(rows.map((row) => row.documentId));
+}
+
+async function resolveBlobAccessInputs(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+) {
+  const linkedDocumentIds = await listLinkedDocumentIds(blobId, executor);
+  const linkedDocumentStates = (
+    await Promise.all(
+      linkedDocumentIds.map((documentId) =>
+        resolveDocumentAccessState(documentId, executor),
+      ),
+    )
+  ).filter((state) => state !== null);
+
+  const recipientsByUserId = new Map<string, EffectiveBlobRecipient>();
+
+  for (const state of linkedDocumentStates) {
+    for (const recipient of state.effectiveRecipients) {
+      const existing = recipientsByUserId.get(recipient.userId);
+      recipientsByUserId.set(recipient.userId, {
+        userId: recipient.userId,
+        accessLevel: existing
+          ? mergeAccessLevel(existing.accessLevel, recipient.accessLevel)
+          : recipient.accessLevel,
+        encapsulationPublicKey: recipient.encapsulationPublicKey,
+        keyFingerprint: recipient.keyFingerprint,
+      });
+    }
+  }
+
+  const effectiveRecipients = Array.from(recipientsByUserId.values()).sort(
+    (left, right) => left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
+
+  return {
+    linkedDocumentIds,
+    linkedDocumentStates,
+    effectiveRecipients,
+  };
+}
+
+async function computeBlobAccessFingerprint(input: {
+  blobId: string;
+  linkedDocumentIds: string[];
+  linkedDocumentFingerprints: string[];
+  effectiveRecipients: EffectiveBlobRecipient[];
+}) {
+  return computeAccessFingerprint({
+    objectType: BLOB_OBJECT_TYPE,
+    blobId: input.blobId,
+    linkedDocumentIds: input.linkedDocumentIds,
+    linkedDocumentFingerprints: input.linkedDocumentFingerprints,
+    recipients: input.effectiveRecipients.map((recipient) => ({
+      userId: recipient.userId,
+      accessLevel: recipient.accessLevel,
+      keyFingerprint: recipient.keyFingerprint,
+    })),
+  });
+}
+
+async function replaceRecipientEnvelopes(
+  blobId: string,
+  epoch: number,
+  recipients: EffectiveBlobRecipient[],
+  executor: BlobAccessExecutor = db,
+) {
+  await executor
+    .delete(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
+        eq(objectRecipientEnvelopes.objectId, blobId),
+        eq(objectRecipientEnvelopes.epoch, epoch),
+      ),
+    );
+
+  if (recipients.length === 0) {
+    return;
+  }
+
+  await executor.insert(objectRecipientEnvelopes).values(
+    recipients.map((recipient) => ({
+      objectType: BLOB_OBJECT_TYPE,
+      objectId: blobId,
+      epoch,
+      recipientUserId: recipient.userId,
+      recipientKeyFingerprint: recipient.keyFingerprint,
+    })),
+  );
+}
+
+async function materializeBlobAccessState(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<number | null> {
+  const currentEpochRow = await getCurrentEpochRow(blobId, executor);
+  const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
+    await resolveBlobAccessInputs(blobId, executor);
+
+  if (currentEpochRow === null && linkedDocumentStates.length === 0) {
+    return null;
+  }
+
+  const accessFingerprint = await computeBlobAccessFingerprint({
+    blobId,
+    linkedDocumentIds,
+    linkedDocumentFingerprints: linkedDocumentStates.map(
+      (state) => state.accessFingerprint,
+    ),
+    effectiveRecipients,
+  });
+  const linkedEpoch = Math.max(
+    1,
+    ...linkedDocumentStates.map((state) => state.currentAccessEpoch),
+  );
+  const nextEpoch =
+    currentEpochRow === null
+      ? linkedEpoch
+      : currentEpochRow.accessFingerprint === accessFingerprint
+        ? Math.max(currentEpochRow.epoch, linkedEpoch)
+        : Math.max(currentEpochRow.epoch + 1, linkedEpoch);
+
+  if (
+    currentEpochRow === null ||
+    currentEpochRow.epoch !== nextEpoch ||
+    currentEpochRow.accessFingerprint !== accessFingerprint
+  ) {
+    await writeEpoch(blobId, nextEpoch, accessFingerprint, executor);
+  }
+
+  await replaceRecipientEnvelopes(
+    blobId,
+    nextEpoch,
+    effectiveRecipients,
+    executor,
+  );
+
+  return nextEpoch;
+}
+
+export async function resolveBlobAccessState(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<BlobAccessState | null> {
+  const currentEpochRow = await getCurrentEpochRow(blobId, executor);
+  const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
+    await resolveBlobAccessInputs(blobId, executor);
+
+  if (currentEpochRow === null && linkedDocumentStates.length === 0) {
+    return null;
+  }
+
+  const accessFingerprint = await computeBlobAccessFingerprint({
+    blobId,
+    linkedDocumentIds,
+    linkedDocumentFingerprints: linkedDocumentStates.map(
+      (state) => state.accessFingerprint,
+    ),
+    effectiveRecipients,
+  });
+  const currentAccessEpoch = Math.max(
+    currentEpochRow?.epoch ?? 1,
+    ...linkedDocumentStates.map((state) => state.currentAccessEpoch),
+  );
+
+  return {
+    currentAccessEpoch,
+    accessFingerprint,
+    effectiveRecipients,
+  };
+}
+
+export async function initializeBlobAccess(blobId: string): Promise<number> {
+  return db.transaction(async (tx) => {
+    const [blob] = await tx
+      .select({ id: blobs.id })
+      .from(blobs)
+      .where(eq(blobs.id, blobId))
+      .limit(1);
+
+    if (!blob) {
+      throw new Error(`Blob ${blobId} does not exist`);
+    }
+
+    const epoch = await materializeBlobAccessState(blobId, tx);
+    if (epoch === null) {
+      throw new Error(`Blob ${blobId} access state could not be initialized`);
+    }
+    return epoch;
+  });
+}
+
+export async function refreshBlobAccess(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<number | null> {
+  return materializeBlobAccessState(blobId, executor);
+}
+
+export async function attachBlobToDocument(
+  blobId: string,
+  documentId: string,
+  slotId: string,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const [existingBinding] = await tx
+      .select({
+        id: attachmentBindings.id,
+      })
+      .from(attachmentBindings)
+      .where(
+        and(
+          eq(attachmentBindings.documentId, documentId),
+          eq(attachmentBindings.slotId, slotId),
+          isNull(attachmentBindings.detachedAt),
+        ),
+      )
+      .limit(1);
+
+    if (existingBinding) {
+      await tx
+        .update(attachmentBindings)
+        .set({
+          detachedAt: new Date(),
+        })
+        .where(eq(attachmentBindings.id, existingBinding.id));
+    }
+
+    await tx
+      .insert(attachmentBindings)
+      .values({
+        blobId,
+        documentId,
+        slotId,
+        previousBindingId: existingBinding?.id ?? null,
+      })
+      .returning({ id: attachmentBindings.id });
+
+    const epoch = await materializeBlobAccessState(blobId, tx);
+    if (epoch === null) {
+      throw new Error(`Blob ${blobId} access state could not be materialized`);
+    }
+    return epoch;
+  });
+}

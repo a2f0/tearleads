@@ -67,6 +67,7 @@ await client.exec(`
     object_type TEXT NOT NULL,
     object_id TEXT NOT NULL,
     epoch INTEGER NOT NULL,
+    access_fingerprint TEXT NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
@@ -78,6 +79,35 @@ await client.exec(`
     recipient_key_fingerprint TEXT NOT NULL,
     kem_cipher_text TEXT,
     wrapped_key TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS document_container_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id TEXT NOT NULL,
+    container_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS blobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    storage_key TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS blob_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_user_id UUID NOT NULL,
+    encrypted_bytes TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    byte_length INTEGER NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS attachment_bindings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id TEXT NOT NULL,
+    slot_id TEXT NOT NULL,
+    blob_id UUID NOT NULL,
+    previous_binding_id UUID,
+    detached_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE INDEX IF NOT EXISTS organization_members_organization_id_idx
@@ -92,6 +122,16 @@ await client.exec(`
     ON object_access_epochs (object_type, object_id, epoch);
   CREATE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_idx
     ON object_recipient_envelopes (object_type, object_id, epoch);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
+    ON document_container_links (document_id, container_id);
+  CREATE INDEX IF NOT EXISTS document_container_links_container_idx
+    ON document_container_links (container_id);
+  CREATE INDEX IF NOT EXISTS attachment_bindings_document_idx
+    ON attachment_bindings (document_id);
+  CREATE INDEX IF NOT EXISTS attachment_bindings_blob_idx
+    ON attachment_bindings (blob_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS attachment_bindings_document_slot_active_idx
+    ON attachment_bindings (document_id, slot_id) WHERE detached_at IS NULL;
   ${loroSql}
 `);
 

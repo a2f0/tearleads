@@ -67,6 +67,7 @@ export const objectAccessEpochs = pgTable("object_access_epochs", {
   objectType: text("object_type").notNull(),
   objectId: text("object_id").notNull(),
   epoch: integer("epoch").notNull(),
+  accessFingerprint: text("access_fingerprint").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -79,6 +80,39 @@ export const objectRecipientEnvelopes = pgTable("object_recipient_envelopes", {
   recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
   kemCipherText: text("kem_cipher_text"),
   wrappedKey: text("wrapped_key"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const documentContainerLinks = pgTable("document_container_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  documentId: text("document_id").notNull(),
+  containerId: uuid("container_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const blobs = pgTable("blobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  storageKey: text("storage_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const blobStages = pgTable("blob_stages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: uuid("owner_user_id").notNull(),
+  encryptedBytes: text("encrypted_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attachmentBindings = pgTable("attachment_bindings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  documentId: text("document_id").notNull(),
+  slotId: text("slot_id").notNull(),
+  blobId: uuid("blob_id").notNull(),
+  previousBindingId: uuid("previous_binding_id"),
+  detachedAt: timestamp("detached_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

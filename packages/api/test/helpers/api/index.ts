@@ -1,8 +1,10 @@
+export { commitDocumentChange } from "./commitDocumentChange";
 export { createDocument } from "./createDocument";
 export { createItem } from "./createItem";
 export { fetchEncapsulationKey } from "./fetchEncapsulationKey";
 export { getItem } from "./getItem";
 export { requestChallenge } from "./requestChallenge";
+export { stageBlob } from "./stageBlob";
 export { submitLogout } from "./submitLogout";
 export { submitVerify } from "./submitVerify";
 export { syncDocument } from "./syncDocument";
