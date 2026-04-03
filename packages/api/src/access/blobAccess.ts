@@ -378,13 +378,6 @@ export async function initializeBlobAccess(blobId: string): Promise<number> {
   });
 }
 
-export async function refreshBlobAccess(
-  blobId: string,
-  executor: BlobAccessExecutor = db,
-): Promise<number | null> {
-  return materializeBlobAccessState(blobId, executor);
-}
-
 export async function refreshBlobAccesses(
   blobIds: string[],
   executor: BlobAccessExecutor = db,
