@@ -227,6 +227,15 @@ test("container access expands organization and group grants and merges access l
   const state = await resolveContainerAccessState(grandchildContainer.id);
   invariant(state, "expected container access state");
 
+  const userIds = state.effectiveRecipients
+    .map((recipient) => recipient.userId)
+    .sort((left, right) => left.localeCompare(right));
+  expect(userIds).toEqual(
+    [alice.userId, bob.userId, charlie.userId].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  );
+
   expect(canReadContainerAccess(state, alice.userId)).toBe(true);
   expect(canWriteContainerAccess(state, alice.userId)).toBe(true);
   expect(canReadContainerAccess(state, bob.userId)).toBe(true);
@@ -243,4 +252,16 @@ test("container access expands organization and group grants and merges access l
 
   expect(bobRecipient?.accessLevel).toBe("write");
   expect(charlieRecipient?.accessLevel).toBe("write");
+
+  // A user who is not a member of the org or group should not have access
+  const outsider = createTestUser();
+  await registerUser(outsider);
+
+  expect(canReadContainerAccess(state, outsider.userId)).toBe(false);
+  expect(canWriteContainerAccess(state, outsider.userId)).toBe(false);
+  expect(
+    state.effectiveRecipients.find(
+      (recipient) => recipient.userId === outsider.userId,
+    ),
+  ).toBeUndefined();
 });
