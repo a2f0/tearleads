@@ -11,14 +11,9 @@ export interface SqlTableSchema {
   createSql: string;
 }
 
-const sqlMutationLockedSymbol = Symbol("sqlMutationLocked");
-const sqlMutationRootSymbol = Symbol("sqlMutationRoot");
 const sqlMutationQueue = new WeakMap<ExecSql, Promise<void>>();
-
-type SerializedExecSql = ExecSql & {
-  [sqlMutationLockedSymbol]?: true;
-  [sqlMutationRootSymbol]?: ExecSql;
-};
+const serializedSqlExecs = new WeakSet<ExecSql>();
+const serializedSqlRoots = new WeakMap<ExecSql, ExecSql>();
 
 export function readSqlRowValue(
   row: SqlRow,
@@ -27,17 +22,12 @@ export function readSqlRowValue(
   return row[key];
 }
 
-function isSerializedSqlExec(execSql: ExecSql): execSql is SerializedExecSql {
-  return (
-    (execSql as SerializedExecSql)[sqlMutationLockedSymbol] === true &&
-    typeof (execSql as SerializedExecSql)[sqlMutationRootSymbol] === "function"
-  );
+function isSerializedSqlExec(execSql: ExecSql): boolean {
+  return serializedSqlExecs.has(execSql);
 }
 
 function getSqlMutationRoot(execSql: ExecSql): ExecSql {
-  return isSerializedSqlExec(execSql)
-    ? execSql[sqlMutationRootSymbol]
-    : execSql;
+  return serializedSqlRoots.get(execSql) ?? execSql;
 }
 
 function createSerializedSqlExec(execSql: ExecSql): ExecSql {
@@ -46,11 +36,11 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
   }
 
   const rootExecSql = getSqlMutationRoot(execSql);
-  const serializedExecSql = (async (sql, bind) =>
-    rootExecSql(sql, bind)) as SerializedExecSql;
+  const serializedExecSql: ExecSql = async (sql, bind) =>
+    rootExecSql(sql, bind);
 
-  serializedExecSql[sqlMutationLockedSymbol] = true;
-  serializedExecSql[sqlMutationRootSymbol] = rootExecSql;
+  serializedSqlExecs.add(serializedExecSql);
+  serializedSqlRoots.set(serializedExecSql, rootExecSql);
   return serializedExecSql;
 }
 
@@ -66,22 +56,20 @@ export async function runSerializedSqlMutation<T>(
 
   const rootExecSql = getSqlMutationRoot(execSql);
   const previous = sqlMutationQueue.get(rootExecSql) ?? Promise.resolve();
-  let releaseCurrent!: () => void;
-  const current = previous.then(
-    () =>
-      new Promise<void>((resolve) => {
-        releaseCurrent = resolve;
-      }),
-  );
+  let releaseCurrent = () => {};
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const queuedCurrent = previous.then(() => current);
 
-  sqlMutationQueue.set(rootExecSql, current);
+  sqlMutationQueue.set(rootExecSql, queuedCurrent);
   await previous;
 
   try {
     return await operation(createSerializedSqlExec(rootExecSql));
   } finally {
     releaseCurrent();
-    if (sqlMutationQueue.get(rootExecSql) === current) {
+    if (sqlMutationQueue.get(rootExecSql) === queuedCurrent) {
       sqlMutationQueue.delete(rootExecSql);
     }
   }
