@@ -27,6 +27,8 @@ const CONTAINER_OBJECT_TYPE = "container";
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
 const ML_KEM1024_CIPHERTEXT_LENGTH = 1568;
 const WRAPPED_DEK_LENGTH = 48;
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const registerRoute = new Hono();
 
@@ -39,12 +41,23 @@ registerRoute.post(
     return value;
   }),
   async (c) => {
-    const { signingPublicKey, encapsulationPublicKey, wrappedDekEnvelope } =
-      c.req.valid("json");
+    const {
+      containerId,
+      signingPublicKey,
+      encapsulationPublicKey,
+      wrappedDekEnvelope,
+    } = c.req.valid("json");
     const signingKeyBytes = new Uint8Array(signingPublicKey);
     const encapsulationKeyBytes = new Uint8Array(encapsulationPublicKey);
     const fingerprint = await toFingerprint(signingKeyBytes);
     const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
+
+    if (!UUID_V4_REGEX.test(containerId)) {
+      return c.json(
+        { error: "Invalid containerId: must be a valid UUIDv4" },
+        400,
+      );
+    }
 
     if (wrappedDekEnvelope.keyFingerprint !== encapsulationFingerprint) {
       return c.json(
@@ -91,6 +104,7 @@ registerRoute.post(
         const [container] = await tx
           .insert(containers)
           .values({
+            id: containerId,
             organizationId: org.id,
             parentId: null,
             name: "/",

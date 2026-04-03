@@ -105,12 +105,14 @@ export class ApiClient {
   }
 
   postPublicKey(
+    containerId: string,
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
-    wrappedDekEnvelope: Parameters<typeof postPublicKey>[3],
+    wrappedDekEnvelope: Parameters<typeof postPublicKey>[4],
   ) {
     return postPublicKey(
       this.request,
+      containerId,
       signingPublicKey,
       encapsulationPublicKey,
       wrappedDekEnvelope,

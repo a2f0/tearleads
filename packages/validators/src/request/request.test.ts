@@ -15,6 +15,7 @@ test("isPublicKeyRequest", () => {
   };
   expect(
     isPublicKeyRequest({
+      containerId: "550e8400-e29b-41d4-a716-446655440000",
       signingPublicKey: [1, 2, 3],
       encapsulationPublicKey: [4, 5, 6],
       wrappedDekEnvelope: validEnvelope,
@@ -22,6 +23,7 @@ test("isPublicKeyRequest", () => {
   ).toBe(true);
   expect(
     isPublicKeyRequest({
+      containerId: "550e8400-e29b-41d4-a716-446655440000",
       signingPublicKey: [],
       encapsulationPublicKey: [],
       wrappedDekEnvelope: validEnvelope,
