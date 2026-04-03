@@ -6,7 +6,7 @@ import {
 } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
-import { refreshBlobAccess } from "../../access/blobAccess";
+import { refreshBlobAccesses } from "../../access/blobAccess";
 import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
@@ -527,9 +527,7 @@ documentsRouter.post(
           }
         }
 
-        for (const blobId of affectedBlobIds) {
-          await refreshBlobAccess(blobId, tx);
-        }
+        await refreshBlobAccesses(Array.from(affectedBlobIds), tx);
 
         return {
           acceptedOutgoingUpdateIds,
