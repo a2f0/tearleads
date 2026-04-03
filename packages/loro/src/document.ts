@@ -1,6 +1,10 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
 
+function isPeerIdString(value: string): value is `${number}` {
+  return /^\d+$/.test(value);
+}
+
 export async function derivePeerId(
   seed: string | Uint8Array,
 ): Promise<`${number}`> {
@@ -14,8 +18,13 @@ export async function derivePeerId(
     digest.byteOffset,
     digest.byteLength,
   );
-  const peerId = view.getBigUint64(0, false) || 1n;
-  return peerId.toString() as `${number}`;
+  const peerId = (view.getBigUint64(0, false) || 1n).toString();
+
+  if (!isPeerIdString(peerId)) {
+    throw new Error("Failed to derive a numeric peer ID.");
+  }
+
+  return peerId;
 }
 
 export async function createDocument(peerSeed: string | Uint8Array) {

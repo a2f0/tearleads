@@ -21,7 +21,13 @@ export function Menu({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target;
+      if (!(target instanceof Node)) {
+        onClose();
+        return;
+      }
+
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose();
       }
     }
