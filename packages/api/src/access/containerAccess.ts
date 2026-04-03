@@ -1,5 +1,3 @@
-import { toFingerprint } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
@@ -29,6 +27,7 @@ interface GrantedRecipientRow {
   userId: string;
   accessLevel: string;
   encapsulationPublicKey: string;
+  encapsulationKeyFingerprint: string;
 }
 
 interface AncestorContainerRow {
@@ -94,7 +93,8 @@ function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
   return (
     typeof Reflect.get(value, "userId") === "string" &&
     typeof Reflect.get(value, "accessLevel") === "string" &&
-    typeof Reflect.get(value, "encapsulationPublicKey") === "string"
+    typeof Reflect.get(value, "encapsulationPublicKey") === "string" &&
+    typeof Reflect.get(value, "encapsulationKeyFingerprint") === "string"
   );
 }
 
@@ -241,7 +241,8 @@ async function loadGrantedRecipients(
     select
       u.id as "userId",
       g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey"
+      u.encapsulation_public_key as "encapsulationPublicKey",
+      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
     from object_access_grants g
     inner join users u on u.id = ${safeSubjectUuid}
     where
@@ -252,7 +253,8 @@ async function loadGrantedRecipients(
     select
       u.id as "userId",
       g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey"
+      u.encapsulation_public_key as "encapsulationPublicKey",
+      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
     from object_access_grants g
     inner join organization_members om on om.organization_id = ${safeSubjectUuid}
     inner join users u on u.id = om.user_id
@@ -264,7 +266,8 @@ async function loadGrantedRecipients(
     select
       u.id as "userId",
       g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey"
+      u.encapsulation_public_key as "encapsulationPublicKey",
+      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
     from object_access_grants g
     inner join group_members gm on gm.group_id = ${safeSubjectUuid}
     inner join users u on u.id = gm.user_id
@@ -285,6 +288,10 @@ async function loadGrantedRecipients(
       userId: Reflect.get(row, "userId"),
       accessLevel: Reflect.get(row, "accessLevel"),
       encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
+      encapsulationKeyFingerprint: Reflect.get(
+        row,
+        "encapsulationKeyFingerprint",
+      ),
     });
   }
 
@@ -316,6 +323,7 @@ async function resolveContainerRecipients(
 
   const effectiveAccessByUserId = new Map<string, AccessLevel>();
   const encapsulationPublicKeyByUserId = new Map<string, string>();
+  const keyFingerprintByUserId = new Map<string, string>();
 
   for (const recipient of grantedRecipients) {
     if (
@@ -336,6 +344,12 @@ async function resolveContainerRecipients(
       recipient.userId,
       recipient.encapsulationPublicKey,
     );
+    if (recipient.encapsulationKeyFingerprint.length > 0) {
+      keyFingerprintByUserId.set(
+        recipient.userId,
+        recipient.encapsulationKeyFingerprint,
+      );
+    }
   }
 
   const effectiveUserIds = uniqueSortedStrings(
@@ -348,8 +362,9 @@ async function resolveContainerRecipients(
         const accessLevel = effectiveAccessByUserId.get(userId);
         const encapsulationPublicKey =
           encapsulationPublicKeyByUserId.get(userId);
+        const keyFingerprint = keyFingerprintByUserId.get(userId);
 
-        if (!accessLevel || !encapsulationPublicKey) {
+        if (!accessLevel || !encapsulationPublicKey || !keyFingerprint) {
           return null;
         }
 
@@ -357,9 +372,7 @@ async function resolveContainerRecipients(
           userId,
           accessLevel,
           encapsulationPublicKey,
-          keyFingerprint: await toFingerprint(
-            base64ToBytes(encapsulationPublicKey),
-          ),
+          keyFingerprint,
         };
       }),
     )

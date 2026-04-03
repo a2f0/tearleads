@@ -107,6 +107,7 @@ registerRoute.post(
             fingerprint,
             signingPublicKey: bytesToBase64(signingKeyBytes),
             encapsulationPublicKey: bytesToBase64(encapsulationKeyBytes),
+            encapsulationKeyFingerprint: encapsulationFingerprint,
             defaultOrganizationId: org.id,
           })
           .onConflictDoNothing({ target: users.fingerprint })
