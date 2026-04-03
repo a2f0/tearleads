@@ -34,9 +34,9 @@ Recommended fix:
 
 ## Key Hierarchy And Sharing Model
 
-### KI-006: Container DEK vs document/item/blob DEK boundary needs implementation
+### KI-006: Container DEK vs document/item/blob DEK boundary is only partially materialized
 
-Status: open
+Status: partial
 
 The docs now converge on the following model:
 
@@ -46,12 +46,14 @@ The docs now converge on the following model:
 - document principals derive from linked containers
 - blob principals derive from linked documents
 
-The remaining gap is implementation, not high-level direction.
+The principal-derivation model and the atomic attachment/document mutation
+protocol now exist in the API. The remaining gap is full wrapped-key
+materialization and client integration, not high-level direction.
 
 Why this matters:
 
 - multi-container document links need a clear recipient-union rule
-- multi-document blob links need a clear recipient-union rule
+- multi-document attachment bindings need a clear recipient-union rule
 - structural mutations now participate in epoch and bundle invalidation
 
 Current recommendation:
@@ -61,7 +63,14 @@ Current recommendation:
 - derive document recipients from linked containers
 - derive blob recipients from linked documents
 
-### KI-007: Rewrap and rotation rules across hierarchy need implementation
+Remaining implementation work:
+
+- persist actual wrapped key material for document and blob envelope rows
+- teach app clients to use `POST /blobs/stage` and
+  `POST /documents/:documentId/commit-change`
+- add document/container structural mutation routes and client flows
+
+### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented
 
 Status: open
 
@@ -70,8 +79,9 @@ The docs now specify the intended rule:
 - recipient set grows: re-wrap current DEK
 - recipient set shrinks: rotate for future writes
 
-The remaining work is implementing that rule consistently for containers,
-documents, and blobs when structural links change.
+The access-plane resolver chain exists, and attachment binding mutations now
+recompute blob access state. The remaining work is implementing the rewrap vs
+rotate decision consistently when recipient sets expand or shrink.
 
 Implementation questions:
 

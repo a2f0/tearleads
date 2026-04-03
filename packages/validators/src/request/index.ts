@@ -4,6 +4,11 @@ export {
   isVerifyRequest,
   type VerifyRequest,
 } from "./auth";
+export { isStageBlobRequest, type StageBlobRequest } from "./blob";
+export {
+  type CommitDocumentChangeRequest,
+  isCommitDocumentChangeRequest,
+} from "./commitDocumentChange";
 export {
   isPublicKeyRequest,
   type PublicKeyRequest,

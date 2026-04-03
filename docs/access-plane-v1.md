@@ -158,9 +158,11 @@ V1 needs explicit visible link metadata for derived principals:
 - `document_container_links`
   - `document_id`
   - `container_id`
-- `document_blob_links`
+- `attachment_bindings`
   - `document_id`
+  - `slot_id`
   - `blob_id`
+  - `detached_at`
 
 These links are not cosmetic only. They are security-relevant metadata because
 they affect the effective recipient set of documents and blobs.
@@ -252,7 +254,8 @@ Blobs derive access from the documents that currently reference them.
 
 Instead:
 
-- a blob links to one or more documents
+- a blob is reachable through one or more active `attachment_bindings`
+- each active binding contributes one document edge
 - the blob's effective principal is the union of the linked document
   principals
 - the blob's `accessFingerprint` should include:
@@ -338,7 +341,8 @@ Add:
 
 - `object_access_epochs.access_fingerprint`
 - `document_container_links`
-- `document_blob_links`
+- `blob_stages`
+- `attachment_bindings`
 
 Resolver modules:
 
@@ -347,7 +351,7 @@ Resolver modules:
 - `documentAccess.ts`
   - resolves document access from linked containers
 - `blobAccess.ts`
-  - resolves blob access from linked documents
+  - resolves blob access from active attachment bindings and linked documents
 
 Mutation entry points:
 
@@ -356,8 +360,28 @@ Mutation entry points:
 - `moveContainer`
 - `linkDocumentToContainer`
 - `unlinkDocumentFromContainer`
-- `attachBlobToDocument`
-- `detachBlobFromDocument`
+- `POST /blobs/stage`
+- `POST /documents/:documentId/commit-change`
+
+Atomic document mutation payload:
+
+- `accessEpoch`
+- `attachmentCommits[]`
+  - `slotId`
+  - `stageId`
+  - `expectedBindingId`
+- `attachmentDetaches[]`
+  - `slotId`
+  - `expectedBindingId`
+- optional `loroUpdate`
+  - encrypted payload
+  - visible partial version vectors
+  - `referencedSlotIds[]`
+
+Important V1 invariant:
+
+- the server must not accept a Loro update that references a slot without an
+  active committed binding after the same atomic mutation is applied
 
 V1 scope should allow offline structural mutations such as move, link, unlink,
 attach, and detach, with authoritative recomputation at sync time.

@@ -17,7 +17,7 @@ In other words, note sync is not a single protocol surface. It has three
 adjacent planes:
 
 1. document plane: encrypted Loro updates
-2. attachment plane: blob stage/attach/detach metadata
+2. attachment plane: blob stage plus atomic attachment-binding metadata
 3. access plane: permissions, recipient envelopes, and key epochs
 
 The server must remain plaintext-blind for document content.
@@ -103,8 +103,8 @@ Attachment lifecycle should be a separate, explicit metadata protocol.
 This plane owns:
 
 - blob staging
-- blob attach
-- blob detach
+- attachment bind / replace
+- attachment detach
 - attachment-to-note indexing
 - any server-visible attachment binding identity required for commit and GC
 
@@ -136,10 +136,19 @@ wrapped-key bundle changes for the blob object.
 
 Recommended logical operations:
 
-- `stage_blob`
-- `commit_attachment`
-- `detach_attachment`
-- optionally `abandon_stage`
+- `POST /blobs/stage`
+- `POST /documents/:documentId/commit-change`
+
+The current V1 implementation uses:
+
+- `blob_stages`
+  - temporary encrypted upload bytes keyed by `stageId`
+- `attachment_bindings`
+  - document-visible attachment state keyed by opaque `slotId`
+  - `detached_at IS NULL` means the binding is currently active
+
+This means blob reachability is derived from active attachment bindings, not
+from an older generic doc/blob link table.
 
 ### 3. Access Plane
 
@@ -160,57 +169,91 @@ relevant DEK or plaintext, removing that client from a group does not make them
 forget it. Revocation can only reliably control future access unless old
 ciphertext is re-encrypted.
 
-## Recommended Semantics For Attach / Detach
+## Atomic Attachment Semantics
 
-### Attach
+The implemented V1 contract is intentionally atomic at the document-mutation
+layer:
 
-`commit_attachment` should require:
+1. `POST /blobs/stage`
+2. `POST /documents/:documentId/commit-change`
 
-- the note or attachment target
-- the staged blob
-- the intended attachment relation
-- the current `accessEpoch`
-- a required control-plane checkpoint proving the client observed the relevant
-  permission state before commit
+`commit-change` accepts:
 
-The server should reject attach if:
+- `accessEpoch`
+- `attachmentCommits[]`
+- `attachmentDetaches[]`
+- optional `loroUpdate`
 
-- the stage expired
-- the staged blob bytes are unavailable
-- the caller no longer has permission to attach
-- the access epoch is stale
-- the required permission checkpoint is no longer satisfied
+Each attachment commit contains:
 
-### Detach
+- opaque `slotId`
+- `stageId`
+- `expectedBindingId`
 
-`detach_attachment` should be an explicit metadata operation, not a background
-storage deletion.
+Each attachment detach contains:
 
-Detach means:
+- opaque `slotId`
+- `expectedBindingId`
 
-- the note no longer references that attachment binding
-- the blob may become unreachable
-- the blob is only physically deleted later after GC determines there are no
-  remaining live references
+The optional `loroUpdate` contains:
 
-Detach does **not** imply retroactive crypto revocation for readers that already
-had the bytes or keys.
+- encrypted update envelope
+- visible partial version vectors
+- `referencedSlotIds[]`
+
+### Server Guarantees
+
+The server must reject `commit-change` if:
+
+- the provided `accessEpoch` is stale
+- the caller cannot write the document
+- a `stageId` does not exist, expired, or belongs to another user
+- a `slotId` is not currently bound to the `expectedBindingId`
+- the encrypted Loro update recipient set does not match the current document
+  recipient set
+- `referencedSlotIds[]` includes a slot without an active binding after the
+  requested attachment mutations are applied
+
+If the request succeeds:
+
+- staged blobs are promoted to committed blob objects
+- requested binding replacements/detaches are persisted
+- the optional Loro update is appended
+- affected blob access state is recomputed
+- all of the above happen in one transaction
+
+This gives the important invariant:
+
+- an accepted Loro update cannot reference an uncommitted or missing attachment
+  slot
+
+### Why `slotId` Instead Of `bindingId`
+
+The API contract intentionally uses opaque stable `slotId` values for Loro
+references, not server-generated `bindingId` values.
+
+Reason:
+
+- a new binding id does not exist until the atomic commit lands
+- the client can know and reference a stable opaque slot before the server
+  generates the replacement binding
+- semantic labels such as `front` and `back` remain client-local, while the
+  server only sees opaque attachment identities
 
 ## Loro And Attachments
 
 The clean split is:
 
 - Loro sync transports encrypted note document updates.
-- Attachment sync transports visible note-to-blob reference metadata.
+- Attachment sync transports visible document-to-blob reference metadata.
 
 The note editor may store attachment IDs inside Loro content, for example to
 render inline placeholders or cards, but the server should not need to parse or
 index encrypted Loro diffs to answer basic attachment questions.
 
 Human-meaningful attachment semantics such as `front`, `back`, `cover`, or
-`inline` do not need to be server-visible by default. If uniqueness or slot
-stability is needed, the visible field can be an opaque slot or binding ID
-instead of a semantic label.
+`inline` do not need to be server-visible by default. The visible field should
+be an opaque `slotId`, not a semantic label.
 
 So the answer to "does attach/detach get wired into the Loro protocol?" is:
 
@@ -222,7 +265,7 @@ So the answer to "does attach/detach get wired into the Loro protocol?" is:
 In V1, one practical consequence is:
 
 - document access derives from linked containers
-- blob access derives from linked documents
+- blob access derives from active attachment bindings and linked documents
 
 That makes attach and detach part of the access-derivation graph even though
 they remain outside encrypted Loro payloads.
@@ -248,7 +291,7 @@ Do not use client-maintained refcounts as the source of truth.
 
 Prefer server-authoritative reachability derived from:
 
-- committed attachment bindings
+- active committed attachment bindings
 - staged-but-not-yet-committed uploads
 - retained branches or snapshots, if supported
 
