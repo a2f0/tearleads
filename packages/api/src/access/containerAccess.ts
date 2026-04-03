@@ -2,7 +2,7 @@ import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import { objectAccessEpochs, objectAccessGrants } from "../schema";
+import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { computeAccessFingerprint } from "./accessFingerprint";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -158,7 +158,7 @@ async function listAncestorContainerIds(
         array[c.id::text] as visited_ids,
         false as cycle_detected,
         0 as depth
-      from containers c
+      from ${containers} c
       where c.id = ${containerId}
       union all
       select
@@ -167,7 +167,7 @@ async function listAncestorContainerIds(
         ap.visited_ids || parent.id::text,
         parent.id::text = any(ap.visited_ids) as cycle_detected,
         ap.depth + 1
-      from containers parent
+      from ${containers} parent
       inner join ancestor_path ap on parent.id = ap.parent_id
       where not ap.cycle_detected and ap.depth < 100
     )
