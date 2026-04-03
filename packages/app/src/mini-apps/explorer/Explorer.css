@@ -1,4 +1,5 @@
 .explorer {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--padding);
@@ -11,49 +12,18 @@
   opacity: 0.8;
 }
 
-.explorer-tree {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overflow: auto;
-  flex: 1;
-}
-
-.explorer-node {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--padding) / 2);
-  width: 100%;
-  padding: calc(var(--padding) / 2);
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.9em;
-  text-align: left;
-  cursor: pointer;
-}
-
-.explorer-node:hover {
-  background: var(--color-dark);
-  opacity: 0.8;
-}
-
-.explorer-node--selected {
-  background: var(--color-dark);
-  color: var(--color-light);
-}
-
-.explorer-node-icon {
-  opacity: 0.6;
-}
-
 .explorer-detail {
   display: flex;
   flex-direction: column;
   gap: calc(var(--padding) / 2);
   padding: calc(var(--padding) / 1.5);
   border: 1px solid currentColor;
+}
+
+.explorer-detail-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .explorer-detail strong,
@@ -74,9 +44,16 @@
 }
 
 .explorer-sidebar-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--padding) / 2);
   width: 100%;
   padding: calc(var(--padding) / 2);
+  padding-left: calc(
+    var(--padding) /
+    2 +
+    (var(--padding) * var(--explorer-depth, 0))
+  );
   border: none;
   background: transparent;
   color: inherit;
@@ -94,4 +71,80 @@
 .explorer-sidebar-item--selected {
   background: var(--color-dark);
   color: var(--color-light);
+}
+
+.explorer-node-icon {
+  width: 0.85rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.explorer-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--padding);
+  background: rgb(0 0 0 / 35%);
+}
+
+.explorer-modal {
+  width: min(100%, 22rem);
+  padding: var(--padding);
+  border: 1px solid var(--color-dark);
+  background: var(--color-light);
+  color: inherit;
+  box-shadow: 0 0 0 1px var(--color-dark);
+}
+
+.explorer-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding);
+}
+
+.explorer-modal-form h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.explorer-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--padding) / 2);
+  font-size: 0.9em;
+}
+
+.explorer-modal-field input {
+  padding: calc(var(--padding) / 2);
+  border: 1px solid var(--color-dark);
+  background: var(--color-light);
+  color: inherit;
+  font: inherit;
+}
+
+.explorer-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(var(--padding) / 2);
+}
+
+.explorer-modal-actions button {
+  padding: calc(var(--padding) / 2) var(--padding);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.explorer-modal-actions button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.explorer-modal-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
