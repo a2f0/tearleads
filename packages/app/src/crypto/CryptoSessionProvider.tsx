@@ -64,7 +64,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const [containerId, setContainerId] = useState<string | null>(null);
   const [authToken, setStoredAuthToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { log } = useLog();
+  const { log, logError } = useLog();
   const apiClient = useApiClient();
   const { client: dbClient, status: dbStatus } = useDatabase();
   const containerBootstrapped = useRef(false);
@@ -103,10 +103,10 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
           log("Root container created");
         }
       } catch (error: unknown) {
-        console.error("Failed to bootstrap root container:", error);
+        logError("Failed to bootstrap root container", error);
       }
     })();
-  }, [dbStatus, dbClient, log]);
+  }, [dbStatus, dbClient, log, logError]);
 
   const generateKey = useCallback(() => {
     setSigningKeyPair(generateSigningSeedAndKeyPair());
