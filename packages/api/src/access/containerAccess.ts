@@ -1,18 +1,13 @@
 import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import {
-  containers,
-  groupMembers,
-  objectAccessEpochs,
-  objectAccessGrants,
-  organizationMembers,
-  users,
-} from "../schema";
+import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { computeAccessFingerprint } from "./accessFingerprint";
 
 const CONTAINER_OBJECT_TYPE = "container";
+const UUID_PATTERN =
+  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 
 type AccessLevel = "read" | "write" | "admin";
 type SubjectType = "user" | "group" | "organization";
@@ -23,17 +18,17 @@ type ContainerAccessTransaction = Parameters<
   : never;
 type ContainerAccessExecutor = typeof db | ContainerAccessTransaction;
 
-interface GrantRow {
-  subjectType: string;
-  subjectId: string;
-  accessLevel: string;
-}
-
 interface EffectiveContainerRecipient {
   userId: string;
   accessLevel: AccessLevel;
   encapsulationPublicKey: string;
   keyFingerprint: string;
+}
+
+interface GrantedRecipientRow {
+  userId: string;
+  accessLevel: string;
+  encapsulationPublicKey: string;
 }
 
 interface ContainerAccessState {
@@ -47,8 +42,8 @@ function isAccessLevel(value: string): value is AccessLevel {
   return value === "read" || value === "write" || value === "admin";
 }
 
-function isSubjectType(value: string): value is SubjectType {
-  return value === "user" || value === "group" || value === "organization";
+function isUuidString(value: string): boolean {
+  return new RegExp(UUID_PATTERN).test(value);
 }
 
 function accessLevelRank(accessLevel: AccessLevel): number {
@@ -84,6 +79,18 @@ function uniqueSortedStrings(values: string[]): string[] {
 
 function isPresent<T>(value: T | null): value is T {
   return value !== null;
+}
+
+function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, "userId") === "string" &&
+    typeof Reflect.get(value, "accessLevel") === "string" &&
+    typeof Reflect.get(value, "encapsulationPublicKey") === "string"
+  );
 }
 
 async function getCurrentEpochRow(
@@ -181,77 +188,72 @@ async function loadContainerGrantRows(
     );
 }
 
-function collectGrantedSubjectIds(
-  grants: GrantRow[],
-  subjectType: SubjectType,
-): string[] {
-  const result: string[] = [];
-
-  for (const grant of grants) {
-    if (
-      !isSubjectType(grant.subjectType) ||
-      !isAccessLevel(grant.accessLevel)
-    ) {
-      continue;
-    }
-
-    if (grant.subjectType === subjectType) {
-      result.push(grant.subjectId);
-    }
-  }
-
-  return uniqueSortedStrings(result);
-}
-
-async function loadMembershipRows(
-  input: {
-    organizationIds: string[];
-    groupIds: string[];
-  },
+async function loadGrantedRecipients(
+  containerIds: string[],
   executor: ContainerAccessExecutor = db,
 ) {
-  const organizationMemberships =
-    input.organizationIds.length > 0
-      ? await executor
-          .select({
-            organizationId: organizationMembers.organizationId,
-            userId: organizationMembers.userId,
-          })
-          .from(organizationMembers)
-          .where(
-            inArray(organizationMembers.organizationId, input.organizationIds),
-          )
-      : [];
-
-  const groupMemberships =
-    input.groupIds.length > 0
-      ? await executor
-          .select({
-            groupId: groupMembers.groupId,
-            userId: groupMembers.userId,
-          })
-          .from(groupMembers)
-          .where(inArray(groupMembers.groupId, input.groupIds))
-      : [];
-
-  return { organizationMemberships, groupMemberships };
-}
-
-async function loadRecipientUsers(
-  userIds: string[],
-  executor: ContainerAccessExecutor = db,
-) {
-  if (userIds.length === 0) {
+  if (containerIds.length === 0) {
     return [];
   }
 
-  return executor
-    .select({
-      id: users.id,
-      encapsulationPublicKey: users.encapsulationPublicKey,
-    })
-    .from(users)
-    .where(inArray(users.id, userIds));
+  const safeSubjectUuid = sql`substring(g.subject_id from ${UUID_PATTERN})::uuid`;
+  const objectIdList = sql.join(
+    containerIds.map((containerId) => sql`${containerId}`),
+    sql`, `,
+  );
+
+  const result = await executor.execute(sql`
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join users u on u.id = ${safeSubjectUuid}
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"user"}
+      and g.object_id in (${objectIdList})
+    union all
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join organization_members om on om.organization_id = ${safeSubjectUuid}
+    inner join users u on u.id = om.user_id
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"organization"}
+      and g.object_id in (${objectIdList})
+    union all
+    select
+      u.id as "userId",
+      g.access_level as "accessLevel",
+      u.encapsulation_public_key as "encapsulationPublicKey"
+    from object_access_grants g
+    inner join group_members gm on gm.group_id = ${safeSubjectUuid}
+    inner join users u on u.id = gm.user_id
+    where
+      g.object_type = ${CONTAINER_OBJECT_TYPE}
+      and g.subject_type = ${"group"}
+      and g.object_id in (${objectIdList})
+  `);
+
+  const grantedRecipients: GrantedRecipientRow[] = [];
+
+  for (const row of result.rows) {
+    if (!isGrantedRecipientRow(row)) {
+      continue;
+    }
+
+    grantedRecipients.push({
+      userId: Reflect.get(row, "userId"),
+      accessLevel: Reflect.get(row, "accessLevel"),
+      encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
+    });
+  }
+
+  return grantedRecipients;
 }
 
 async function resolveContainerRecipients(
@@ -272,90 +274,56 @@ async function resolveContainerRecipients(
     executor,
   );
   const grants = await loadContainerGrantRows(ancestorContainerIds, executor);
-  const directUserIds = collectGrantedSubjectIds(grants, "user");
-  const organizationIds = collectGrantedSubjectIds(grants, "organization");
-  const groupIds = collectGrantedSubjectIds(grants, "group");
-  const { organizationMemberships, groupMemberships } =
-    await loadMembershipRows(
-      {
-        organizationIds,
-        groupIds,
-      },
-      executor,
-    );
+  const grantedRecipients = await loadGrantedRecipients(
+    ancestorContainerIds,
+    executor,
+  );
 
   const effectiveAccessByUserId = new Map<string, AccessLevel>();
+  const encapsulationPublicKeyByUserId = new Map<string, string>();
 
-  for (const grant of grants) {
+  for (const recipient of grantedRecipients) {
     if (
-      !isSubjectType(grant.subjectType) ||
-      !isAccessLevel(grant.accessLevel)
+      !isAccessLevel(recipient.accessLevel) ||
+      recipient.encapsulationPublicKey.length === 0
     ) {
       continue;
     }
 
-    if (grant.subjectType === "user") {
-      effectiveAccessByUserId.set(
-        grant.subjectId,
-        mergeAccessLevel(
-          effectiveAccessByUserId.get(grant.subjectId),
-          grant.accessLevel,
-        ),
-      );
-      continue;
-    }
-
-    if (grant.subjectType === "organization") {
-      for (const membership of organizationMemberships) {
-        if (membership.organizationId === grant.subjectId) {
-          effectiveAccessByUserId.set(
-            membership.userId,
-            mergeAccessLevel(
-              effectiveAccessByUserId.get(membership.userId),
-              grant.accessLevel,
-            ),
-          );
-        }
-      }
-      continue;
-    }
-
-    for (const membership of groupMemberships) {
-      if (membership.groupId === grant.subjectId) {
-        effectiveAccessByUserId.set(
-          membership.userId,
-          mergeAccessLevel(
-            effectiveAccessByUserId.get(membership.userId),
-            grant.accessLevel,
-          ),
-        );
-      }
-    }
+    effectiveAccessByUserId.set(
+      recipient.userId,
+      mergeAccessLevel(
+        effectiveAccessByUserId.get(recipient.userId),
+        recipient.accessLevel,
+      ),
+    );
+    encapsulationPublicKeyByUserId.set(
+      recipient.userId,
+      recipient.encapsulationPublicKey,
+    );
   }
 
-  const effectiveUserIds = uniqueSortedStrings([
-    ...directUserIds,
-    ...Array.from(effectiveAccessByUserId.keys()),
-  ]);
-  const recipientUsers = await loadRecipientUsers(effectiveUserIds, executor);
-  const usersById = new Map(recipientUsers.map((user) => [user.id, user]));
+  const effectiveUserIds = uniqueSortedStrings(
+    Array.from(effectiveAccessByUserId.keys()),
+  );
 
   const effectiveRecipients = (
     await Promise.all(
       effectiveUserIds.map(async (userId) => {
-        const recipientUser = usersById.get(userId);
         const accessLevel = effectiveAccessByUserId.get(userId);
+        const encapsulationPublicKey =
+          encapsulationPublicKeyByUserId.get(userId);
 
-        if (!recipientUser || !accessLevel) {
+        if (!accessLevel || !encapsulationPublicKey) {
           return null;
         }
 
         return {
           userId,
           accessLevel,
-          encapsulationPublicKey: recipientUser.encapsulationPublicKey,
+          encapsulationPublicKey,
           keyFingerprint: await toFingerprint(
-            base64ToBytes(recipientUser.encapsulationPublicKey),
+            base64ToBytes(encapsulationPublicKey),
           ),
         };
       }),
@@ -408,6 +376,12 @@ export async function grantContainerAccess(input: {
   subjectId: string;
   accessLevel: AccessLevel;
 }): Promise<number> {
+  if (!isUuidString(input.subjectId)) {
+    throw new Error(
+      `Container grant subjectId must be a UUID for subjectType ${input.subjectType}`,
+    );
+  }
+
   return db.transaction(async (tx) => {
     await tx
       .delete(objectAccessGrants)
