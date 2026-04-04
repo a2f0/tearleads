@@ -10,7 +10,10 @@ import {
 } from "../../data/containerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
 
-async function createSqlRuntime() {
+type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
+type TestRuntime = ExplorerRuntime & { close: () => void };
+
+async function createSqlRuntime(): Promise<TestRuntime> {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = Bun.fetch;
 
