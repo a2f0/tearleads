@@ -46,6 +46,8 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
 
 // SQLite transactions are scoped to the shared connection, so we must hold a
 // connection-level lock across multi-statement mutations to prevent interleaving.
+// Nested callers must keep passing the provided locked executor. Re-entering
+// with the original root executor will wait on the current mutation and deadlock.
 export async function runSerializedSqlMutation<T>(
   execSql: ExecSql,
   operation: (execSql: ExecSql) => Promise<T> | T,
@@ -60,10 +62,11 @@ export async function runSerializedSqlMutation<T>(
   const current = new Promise<void>((resolve) => {
     releaseCurrent = resolve;
   });
-  const queuedCurrent = previous.then(() => current);
+  const waitForPrevious = previous.catch(() => undefined);
+  const queuedCurrent = waitForPrevious.then(() => current);
 
   sqlMutationQueue.set(rootExecSql, queuedCurrent);
-  await previous;
+  await waitForPrevious;
 
   try {
     return await operation(createSerializedSqlExec(rootExecSql));
