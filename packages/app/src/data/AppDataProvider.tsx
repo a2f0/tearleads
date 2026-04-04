@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useRef,
 } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
@@ -12,6 +11,7 @@ import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useLog } from "../logging/LogProvider";
+import { usePersona } from "../persona/PersonaProvider";
 
 import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
@@ -22,9 +22,7 @@ interface AppDataContextValue {
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
   domainScope: object;
-  encapsulationKeyPair: ReturnType<
-    typeof useCryptoSession
-  >["encapsulationKeyPair"];
+  encapsulationKeyPair: ReturnType<typeof usePersona>["encapsulationKeyPair"];
   events: ReturnType<typeof useEvents>["events"];
   execSql: (
     sql: string,
@@ -41,11 +39,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
-  const { encapsulationKeyPair, authToken, containerId, isAuthenticated } =
-    useCryptoSession();
+  const { authToken, containerId, isAuthenticated } = useCryptoSession();
+  const { encapsulationKeyPair, signingFingerprint } = usePersona();
   const { events } = useEvents();
   const { log } = useLog();
-  const domainScopeRef = useRef({});
+  const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
 
   const execSql = useCallback(
     async (sql: string, bind?: Record<string, SqlRowValue>) => {
@@ -66,7 +64,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       containerId,
       dbId,
       dbStatus,
-      domainScope: domainScopeRef.current,
+      domainScope,
       encapsulationKeyPair,
       events,
       execSql,
@@ -80,13 +78,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       containerId,
       dbId,
       dbStatus,
-      domainScopeRef,
+      domainScope,
       encapsulationKeyPair,
       events,
       execSql,
       isAuthenticated,
       log,
       online,
+      signingFingerprint,
     ],
   );
 

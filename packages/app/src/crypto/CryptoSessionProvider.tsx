@@ -1,8 +1,4 @@
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  toFingerprint,
-} from "@tearleads/crypto";
+import { toFingerprint } from "@tearleads/crypto";
 import {
   createContext,
   type PropsWithChildren,
@@ -20,27 +16,14 @@ import {
 } from "../data/containerPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
-
-interface SigningKeyPair {
-  signingPublicKey: Uint8Array;
-  signingPrivateKey: Uint8Array;
-}
-
-interface EncapsulationKeyPair {
-  publicKey: Uint8Array;
-  secretKey: Uint8Array;
-}
+import { usePersona } from "../persona/PersonaProvider";
 
 interface CryptoSessionContextValue {
-  signingKeyPair: SigningKeyPair | null;
-  encapsulationKeyPair: EncapsulationKeyPair | null;
   userId: string | null;
   organizationId: string | null;
   containerId: string | null;
   authToken: string | null;
   isAuthenticated: boolean;
-  generateKey: () => void;
-  destroyKey: () => void;
   setUserId: (id: string | null) => void;
   setOrganizationId: (id: string | null) => void;
   setContainerId: (id: string | null) => void;
@@ -54,11 +37,6 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 );
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
-  const [signingKeyPair, setSigningKeyPair] = useState<SigningKeyPair | null>(
-    null,
-  );
-  const [encapsulationKeyPair, setEncapsulationKeyPair] =
-    useState<EncapsulationKeyPair | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [containerId, setContainerId] = useState<string | null>(null);
@@ -67,13 +45,38 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const { log, logError } = useLog();
   const apiClient = useApiClient();
   const { client: dbClient, status: dbStatus } = useDatabase();
-  const containerBootstrapped = useRef(false);
+  const { signingFingerprint, signingKeyPair } = usePersona();
+  const containerBootstrapped = useRef<string | null>(null);
 
   useEffect(() => {
-    if (dbStatus !== "ready" || !dbClient || containerBootstrapped.current) {
+    if (signingKeyPair) {
       return;
     }
-    containerBootstrapped.current = true;
+
+    containerBootstrapped.current = null;
+    setUserId(null);
+    setOrganizationId(null);
+    setContainerId(null);
+    setStoredAuthToken(null);
+    setIsAuthenticated(false);
+    apiClient.setAuthToken(null);
+  }, [apiClient, signingKeyPair]);
+
+  useEffect(() => {
+    const bootstrapKey =
+      signingFingerprint && dbClient
+        ? `${signingFingerprint}:${dbStatus}`
+        : null;
+
+    if (
+      !signingFingerprint ||
+      dbStatus !== "ready" ||
+      !dbClient ||
+      containerBootstrapped.current === bootstrapKey
+    ) {
+      return;
+    }
+    containerBootstrapped.current = bootstrapKey;
 
     const execSql = async (
       sql: string,
@@ -105,30 +108,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
           log("Root container created");
         }
       } catch (error: unknown) {
+        containerBootstrapped.current = null;
         logError("Failed to bootstrap root container", error);
       }
     })();
-  }, [dbStatus, dbClient, log, logError]);
-
-  const generateKey = useCallback(() => {
-    setSigningKeyPair(generateSigningSeedAndKeyPair());
-    setEncapsulationKeyPair(generateKemSeedAndKeyPair());
-    setIsAuthenticated(false);
-    apiClient.setAuthToken(null);
-    log("Key pair generated");
-  }, [log, apiClient]);
-
-  const destroyKey = useCallback(() => {
-    setSigningKeyPair(null);
-    setEncapsulationKeyPair(null);
-    setUserId(null);
-    setOrganizationId(null);
-    setContainerId(null);
-    setStoredAuthToken(null);
-    setIsAuthenticated(false);
-    apiClient.setAuthToken(null);
-    log("Key pair destroyed");
-  }, [log, apiClient]);
+  }, [dbStatus, dbClient, log, logError, signingFingerprint]);
 
   const logout = useCallback(() => {
     setStoredAuthToken(null);
@@ -183,15 +167,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   return (
     <CryptoSessionContext.Provider
       value={{
-        signingKeyPair,
-        encapsulationKeyPair,
         userId,
         organizationId,
         containerId,
         authToken,
         isAuthenticated,
-        generateKey,
-        destroyKey,
         setUserId,
         setOrganizationId,
         setContainerId,

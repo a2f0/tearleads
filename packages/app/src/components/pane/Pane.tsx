@@ -3,6 +3,7 @@ import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { NotesApp } from "../../mini-apps/notes/NotesApp";
+import { usePersona } from "../../persona/PersonaProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -19,14 +20,21 @@ import { PaneStatus } from "./PaneStatus";
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
+  const { signingKeyPair } = usePersona();
   useRegisterUserId(userId);
   const { windows, create } = useWindowState();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }, []);
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (!signingKeyPair) {
+        return;
+      }
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    },
+    [signingKeyPair],
+  );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
@@ -67,6 +75,11 @@ function PaneInner({ className }: { className: string }) {
       <div className="pane-main">
         <PaneStatus />
         <PaneLog />
+        {!signingKeyPair && (
+          <div className="pane-content">
+            Generate a key pair from the pane menu to boot this pane.
+          </div>
+        )}
         {windows.map((w) => (
           <Window key={w.id} windowId={w.id} />
         ))}

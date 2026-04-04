@@ -18,6 +18,7 @@ type TestRuntime = ExplorerRuntime & { close: () => void };
 async function createSqlRuntime(): Promise<TestRuntime> {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = Bun.fetch;
+  const dbStatus: ExplorerRuntime["dbStatus"] = "ready";
 
   let db: Awaited<ReturnType<typeof initDatabase>>;
   try {
@@ -37,10 +38,11 @@ async function createSqlRuntime(): Promise<TestRuntime> {
         _parentId: string,
         _initialMetadataUpdates,
       ) => null,
+      listContainers: async () => [],
       syncDocument: async () => null,
     },
     close: () => db.close(),
-    dbStatus: "ready" as const,
+    dbStatus,
     domainScope: {},
     encapsulationKeyPair: null,
     events: [],
@@ -182,6 +184,7 @@ test("explorer store creates authenticated child containers through the API befo
         parentId,
       };
     },
+    listContainers: async () => [],
     syncDocument: async () => null,
   };
 

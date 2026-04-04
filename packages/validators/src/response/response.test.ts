@@ -5,6 +5,7 @@ import {
   isCommitDocumentChangeResponse,
   isCreateContainerResponse,
   isHealthResponse,
+  isListContainersResponse,
   isPublicKeyResponse,
   isStageBlobResponse,
   isVerifyResponse,
@@ -131,4 +132,31 @@ test("isCreateContainerResponse", () => {
     }),
   ).toBe(false);
   expect(isCreateContainerResponse(null)).toBe(false);
+});
+
+test("isListContainersResponse", () => {
+  expect(
+    isListContainersResponse([
+      {
+        id: "ctr-root",
+        organizationId: "org-123",
+        parentId: null,
+        metadataDocumentId: "doc-root",
+        metadataAccessEpoch: 1,
+        metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+      },
+    ]),
+  ).toBe(true);
+  expect(
+    isListContainersResponse([
+      {
+        id: "ctr-root",
+        organizationId: "org-123",
+        metadataDocumentId: "doc-root",
+        metadataAccessEpoch: 1,
+        metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+      },
+    ]),
+  ).toBe(false);
+  expect(isListContainersResponse(null)).toBe(false);
 });

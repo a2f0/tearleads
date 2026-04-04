@@ -17,8 +17,11 @@ export {
   isCommitDocumentChangeResponse,
 } from "./commitDocumentChange";
 export {
+  type ContainerSummary,
   type CreateContainerResponse,
   isCreateContainerResponse,
+  isListContainersResponse,
+  type ListContainersResponse,
 } from "./container";
 export { type HealthResponse, isHealthResponse } from "./health";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";

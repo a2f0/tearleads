@@ -31,18 +31,26 @@ function renderPane() {
   );
 }
 
+async function generatePersonaAndWaitForDb(
+  view: ReturnType<typeof renderPane>,
+) {
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByText("Generate Key Pair"));
+
+  await waitFor(() => {
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
+    expect(view.queryByText(/publicKey: none/)).toBeNull();
+  });
+}
+
 test("displays userId after uploading public key", async () => {
   const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-  });
+  await generatePersonaAndWaitForDb(view);
 
-  fireEvent.click(view.getByText("Menu"));
-  fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
     expect(view.getByText("Upload Public Key")).toBeTruthy();
@@ -73,12 +81,8 @@ test("userId resets to none when key pair is destroyed", async () => {
   const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-  });
+  await generatePersonaAndWaitForDb(view);
 
-  fireEvent.click(view.getByText("Menu"));
-  fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
     expect(view.getByText("Upload Public Key")).toBeTruthy();
@@ -112,9 +116,7 @@ test("userId resets to none when key pair is destroyed", async () => {
 test("notes windows in the same pane share live note state", async () => {
   const view = renderPane();
 
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-  });
+  await generatePersonaAndWaitForDb(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -164,12 +166,8 @@ test("contacts windows in the same pane share live address book state", async ()
   const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-  });
+  await generatePersonaAndWaitForDb(view);
 
-  fireEvent.click(view.getByText("Menu"));
-  fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
     expect(view.getByText("Upload Public Key")).toBeTruthy();

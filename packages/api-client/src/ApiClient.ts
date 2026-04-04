@@ -9,7 +9,7 @@ import {
   getEncapsulationKey,
 } from "./routes/auth";
 import { stageBlob } from "./routes/blobs";
-import { createContainer } from "./routes/containers";
+import { createContainer, listContainers } from "./routes/containers";
 import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { postPublicKey } from "./routes/register";
@@ -152,6 +152,10 @@ export class ApiClient {
     initialMetadataUpdates: Parameters<typeof createContainer>[3],
   ) {
     return createContainer(this.request, id, parentId, initialMetadataUpdates);
+  }
+
+  listContainers() {
+    return listContainers(this.request);
   }
 
   syncDocument(
