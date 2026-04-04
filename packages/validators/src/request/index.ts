@@ -10,6 +10,10 @@ export {
   isCommitDocumentChangeRequest,
 } from "./commitDocumentChange";
 export {
+  type CreateContainerRequest,
+  isCreateContainerRequest,
+} from "./container";
+export {
   isPublicKeyRequest,
   type PublicKeyRequest,
   type WrappedDekEnvelope,

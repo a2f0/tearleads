@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isChallengeRequest,
   isCommitDocumentChangeRequest,
+  isCreateContainerRequest,
   isPublicKeyRequest,
   isStageBlobRequest,
   isVerifyRequest,
@@ -134,4 +135,21 @@ test("isCommitDocumentChangeRequest", () => {
     }),
   ).toBe(false);
   expect(isCommitDocumentChangeRequest(null)).toBe(false);
+});
+
+test("isCreateContainerRequest", () => {
+  expect(
+    isCreateContainerRequest({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      parentId: "550e8400-e29b-41d4-a716-446655440001",
+      name: "Docs",
+    }),
+  ).toBe(true);
+  expect(
+    isCreateContainerRequest({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      parentId: "550e8400-e29b-41d4-a716-446655440001",
+    }),
+  ).toBe(false);
+  expect(isCreateContainerRequest(null)).toBe(false);
 });

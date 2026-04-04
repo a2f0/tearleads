@@ -9,6 +9,7 @@ import {
   getEncapsulationKey,
 } from "./routes/auth";
 import { stageBlob } from "./routes/blobs";
+import { createContainer } from "./routes/containers";
 import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getItem, postItem } from "./routes/items";
@@ -142,6 +143,10 @@ export class ApiClient {
 
   createDocument() {
     return createDocument(this.request);
+  }
+
+  createContainer(id: string, parentId: string, name: string) {
+    return createContainer(this.request, id, parentId, name);
   }
 
   syncDocument(

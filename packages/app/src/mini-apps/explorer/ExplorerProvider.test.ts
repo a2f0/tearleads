@@ -26,6 +26,10 @@ async function createSqlRuntime() {
   }
 
   return {
+    apiClient: {
+      createContainer: async (_id: string, _parentId: string, _name: string) =>
+        null,
+    },
     close: () => db.close(),
     dbStatus: "ready" as const,
     domainScope: {},
@@ -129,6 +133,74 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(
       secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
     ).toBe(false);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
+  const runtime = await createSqlRuntime();
+  const createContainerCalls: Array<{
+    id: string;
+    parentId: string;
+    name: string;
+  }> = [];
+
+  runtime.isAuthenticated = true;
+  runtime.apiClient = {
+    createContainer: async (id: string, parentId: string, name: string) => {
+      createContainerCalls.push({ id, parentId, name });
+      return {
+        id,
+        organizationId: "org-1",
+        parentId,
+        name,
+      };
+    },
+  };
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      name: "/",
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const childNode = await store.createChild("root-container", "Docs");
+    if (!childNode) {
+      throw new Error("Expected createChild to return a new container node.");
+    }
+
+    expect(createContainerCalls).toEqual([
+      {
+        id: childNode.id,
+        parentId: "root-container",
+        name: "Docs",
+      },
+    ]);
+
+    const persistedRows = await runtime.execSql(
+      `
+        SELECT id, organization_id, parent_id, name
+        FROM containers
+        WHERE id = :id
+      `,
+      { ":id": childNode.id },
+    );
+
+    expect(persistedRows).toHaveLength(1);
+    expect(childNode.organizationId).toBe("org-1");
+    expect(childNode.parentId).toBe("root-container");
   } finally {
     runtime.close();
   }

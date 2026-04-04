@@ -38,6 +38,7 @@ interface ExplorerSnapshot {
 }
 
 interface ExplorerRuntime {
+  apiClient: Pick<ExplorerAppData["apiClient"], "createContainer">;
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
   execSql: ExecSql;
@@ -165,12 +166,30 @@ export function createExplorerStore(
             return null;
           }
 
+          const childId = crypto.randomUUID();
+          const createdRecord = runtime.isAuthenticated
+            ? await runtime.apiClient.createContainer(
+                childId,
+                parent.id,
+                trimmedName,
+              )
+            : {
+                id: childId,
+                organizationId: parent.organizationId,
+                parentId: parent.id,
+                name: trimmedName,
+              };
+
+          if (!createdRecord) {
+            return null;
+          }
+
           const childNode: ContainerNode = {
-            id: crypto.randomUUID(),
+            id: createdRecord.id,
             kind: "container",
-            name: trimmedName,
-            organizationId: parent.organizationId,
-            parentId: parent.id,
+            name: createdRecord.name,
+            organizationId: createdRecord.organizationId,
+            parentId: createdRecord.parentId,
           };
 
           await saveContainer(runtime.execSql, {

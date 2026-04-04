@@ -146,6 +146,29 @@ async function writeEpoch(
   });
 }
 
+export async function initializeContainerAccess(
+  containerId: string,
+  executor: ContainerAccessExecutor = db,
+): Promise<number> {
+  const currentEpochRow = await getCurrentEpochRow(containerId, executor);
+  if (currentEpochRow) {
+    return currentEpochRow.epoch;
+  }
+
+  const { ancestorContainerIds, effectiveRecipients, grants } =
+    await resolveContainerRecipients(containerId, executor);
+  const accessFingerprint = await computeContainerFingerprint({
+    containerId,
+    ancestorContainerIds,
+    grants,
+    effectiveRecipients,
+  });
+
+  const initialEpoch = 1;
+  await writeEpoch(containerId, initialEpoch, accessFingerprint, executor);
+  return initialEpoch;
+}
+
 async function listAncestorContainerIds(
   containerId: string,
   executor: ContainerAccessExecutor = db,

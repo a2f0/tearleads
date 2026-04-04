@@ -3,6 +3,7 @@ import {
   isChallengeErrorResponse,
   isChallengeResponse,
   isCommitDocumentChangeResponse,
+  isCreateContainerResponse,
   isHealthResponse,
   isPublicKeyResponse,
   isStageBlobResponse,
@@ -107,4 +108,23 @@ test("isCommitDocumentChangeResponse", () => {
     }),
   ).toBe(false);
   expect(isCommitDocumentChangeResponse(null)).toBe(false);
+});
+
+test("isCreateContainerResponse", () => {
+  expect(
+    isCreateContainerResponse({
+      id: "ctr-123",
+      organizationId: "org-123",
+      parentId: "ctr-root",
+      name: "Docs",
+    }),
+  ).toBe(true);
+  expect(
+    isCreateContainerResponse({
+      id: "ctr-123",
+      organizationId: "org-123",
+      name: "Docs",
+    }),
+  ).toBe(false);
+  expect(isCreateContainerResponse(null)).toBe(false);
 });
