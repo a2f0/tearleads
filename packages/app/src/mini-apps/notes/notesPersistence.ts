@@ -15,6 +15,7 @@ import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
 } from "../../data/sqlSchema";
@@ -73,8 +74,10 @@ function parseProjectionText(row: SqlRow | undefined): string {
 
 export const sqlNotesPersistence: NotesPersistence = {
   async ensureSchema(execSql) {
-    await ensureDocumentTables(execSql);
-    await ensureSqlTables(execSql, noteProjectionTables);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await ensureDocumentTables(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, noteProjectionTables);
+    });
   },
   async loadNote(execSql, noteId) {
     const [documentRecord, projectionRows] = await Promise.all([
@@ -104,43 +107,54 @@ export const sqlNotesPersistence: NotesPersistence = {
   async saveNote(execSql, note) {
     const updatedAt = new Date().toISOString();
 
-    await runSqlTransaction(execSql, async () => {
-      await saveDocumentRecord(execSql, getNoteScope(note.id), note, updatedAt);
-      await execSql(
-        `
-          INSERT INTO note_projection (
-            note_id,
-            text,
-            updated_at
-          )
-          VALUES (
-            :noteId,
-            :text,
-            :updatedAt
-          )
-          ON CONFLICT(note_id) DO UPDATE SET
-            text = excluded.text,
-            updated_at = excluded.updated_at
-        `,
-        {
-          ":noteId": note.id,
-          ":text": note.text,
-          ":updatedAt": updatedAt,
-        },
-      );
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await runSqlTransaction(lockedExecSql, async () => {
+        await saveDocumentRecord(
+          lockedExecSql,
+          getNoteScope(note.id),
+          note,
+          updatedAt,
+        );
+        await lockedExecSql(
+          `
+            INSERT INTO note_projection (
+              note_id,
+              text,
+              updated_at
+            )
+            VALUES (
+              :noteId,
+              :text,
+              :updatedAt
+            )
+            ON CONFLICT(note_id) DO UPDATE SET
+              text = excluded.text,
+              updated_at = excluded.updated_at
+          `,
+          {
+            ":noteId": note.id,
+            ":text": note.text,
+            ":updatedAt": updatedAt,
+          },
+        );
+      });
     });
   },
   async listPendingUpdates(execSql, noteId) {
     return listDocumentPendingUpdates(execSql, getNoteScope(noteId));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await enqueueDocumentPendingUpdate(
-      execSql,
-      getNoteScope(pendingUpdate.noteId),
-      pendingUpdate,
-    );
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await enqueueDocumentPendingUpdate(
+        lockedExecSql,
+        getNoteScope(pendingUpdate.noteId),
+        pendingUpdate,
+      );
+    });
   },
   async deletePendingUpdate(execSql, id) {
-    await deleteDocumentPendingUpdate(execSql, id);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await deleteDocumentPendingUpdate(lockedExecSql, id);
+    });
   },
 };

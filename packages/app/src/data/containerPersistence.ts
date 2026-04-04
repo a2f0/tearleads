@@ -2,6 +2,7 @@ import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSerializedSqlMutation,
   type SqlRow,
   type SqlTableSchema,
 } from "./sqlSchema";
@@ -65,37 +66,41 @@ export async function saveContainer(
   execSql: ExecSql,
   record: ContainerRecord,
 ): Promise<void> {
-  await execSql(
-    `
-      INSERT INTO containers (id, organization_id, parent_id, name, updated_at)
-      VALUES (:id, :organizationId, :parentId, :name, :updatedAt)
-      ON CONFLICT(id) DO UPDATE SET
-        organization_id = excluded.organization_id,
-        parent_id = excluded.parent_id,
-        name = excluded.name,
-        updated_at = excluded.updated_at
-    `,
-    {
-      ":id": record.id,
-      ":organizationId": record.organizationId,
-      ":parentId": record.parentId,
-      ":name": record.name,
-      ":updatedAt": new Date().toISOString(),
-    },
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        INSERT INTO containers (id, organization_id, parent_id, name, updated_at)
+        VALUES (:id, :organizationId, :parentId, :name, :updatedAt)
+        ON CONFLICT(id) DO UPDATE SET
+          organization_id = excluded.organization_id,
+          parent_id = excluded.parent_id,
+          name = excluded.name,
+          updated_at = excluded.updated_at
+      `,
+      {
+        ":id": record.id,
+        ":organizationId": record.organizationId,
+        ":parentId": record.parentId,
+        ":name": record.name,
+        ":updatedAt": new Date().toISOString(),
+      },
+    );
+  });
 }
 
 export async function deleteContainer(
   execSql: ExecSql,
   id: string,
 ): Promise<void> {
-  await execSql(
-    `
-      DELETE FROM containers
-      WHERE id = :id
-    `,
-    {
-      ":id": id,
-    },
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        DELETE FROM containers
+        WHERE id = :id
+      `,
+      {
+        ":id": id,
+      },
+    );
+  });
 }

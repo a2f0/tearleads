@@ -3,6 +3,7 @@ import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
+  runSerializedSqlMutation,
   type SqlTableSchema,
 } from "./sqlSchema";
 
@@ -127,51 +128,55 @@ export async function saveDocumentRecord(
   record: DocumentRecord,
   updatedAt: string,
 ): Promise<void> {
-  await execSql(
-    `
-      INSERT INTO documents (
-        app_kind,
-        local_id,
-        document_id,
-        loro_snapshot,
-        access_epoch,
-        updated_at
-      )
-      VALUES (
-        :appKind,
-        :localId,
-        :documentId,
-        :loroSnapshot,
-        :accessEpoch,
-        :updatedAt
-      )
-      ON CONFLICT(app_kind, local_id) DO UPDATE SET
-        document_id = excluded.document_id,
-        loro_snapshot = excluded.loro_snapshot,
-        access_epoch = excluded.access_epoch,
-        updated_at = excluded.updated_at
-    `,
-    {
-      ...getScopeBind(scope),
-      ":documentId": record.documentId,
-      ":loroSnapshot": record.loroSnapshot,
-      ":accessEpoch": record.accessEpoch,
-      ":updatedAt": updatedAt,
-    },
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        INSERT INTO documents (
+          app_kind,
+          local_id,
+          document_id,
+          loro_snapshot,
+          access_epoch,
+          updated_at
+        )
+        VALUES (
+          :appKind,
+          :localId,
+          :documentId,
+          :loroSnapshot,
+          :accessEpoch,
+          :updatedAt
+        )
+        ON CONFLICT(app_kind, local_id) DO UPDATE SET
+          document_id = excluded.document_id,
+          loro_snapshot = excluded.loro_snapshot,
+          access_epoch = excluded.access_epoch,
+          updated_at = excluded.updated_at
+      `,
+      {
+        ...getScopeBind(scope),
+        ":documentId": record.documentId,
+        ":loroSnapshot": record.loroSnapshot,
+        ":accessEpoch": record.accessEpoch,
+        ":updatedAt": updatedAt,
+      },
+    );
+  });
 }
 
 export async function deleteDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
-  await execSql(
-    `
-      DELETE FROM documents
-      WHERE app_kind = :appKind AND local_id = :localId
-    `,
-    getScopeBind(scope),
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        DELETE FROM documents
+        WHERE app_kind = :appKind AND local_id = :localId
+      `,
+      getScopeBind(scope),
+    );
+  });
 }
 
 export async function listDocumentPendingUpdates(
@@ -198,62 +203,68 @@ export async function enqueueDocumentPendingUpdate(
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
 ): Promise<void> {
-  await execSql(
-    `
-      INSERT INTO document_pending_updates (
-        id,
-        app_kind,
-        local_id,
-        update_data,
-        partial_start_version_vector,
-        partial_end_version_vector,
-        created_at
-      )
-      VALUES (
-        :id,
-        :appKind,
-        :localId,
-        :updateData,
-        :partialStartVersionVector,
-        :partialEndVersionVector,
-        :createdAt
-      )
-    `,
-    {
-      ...getScopeBind(scope),
-      ":id": crypto.randomUUID(),
-      ":updateData": pendingUpdate.updateData,
-      ":partialStartVersionVector": pendingUpdate.partialStartVersionVector,
-      ":partialEndVersionVector": pendingUpdate.partialEndVersionVector,
-      ":createdAt": new Date().toISOString(),
-    },
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        INSERT INTO document_pending_updates (
+          id,
+          app_kind,
+          local_id,
+          update_data,
+          partial_start_version_vector,
+          partial_end_version_vector,
+          created_at
+        )
+        VALUES (
+          :id,
+          :appKind,
+          :localId,
+          :updateData,
+          :partialStartVersionVector,
+          :partialEndVersionVector,
+          :createdAt
+        )
+      `,
+      {
+        ...getScopeBind(scope),
+        ":id": crypto.randomUUID(),
+        ":updateData": pendingUpdate.updateData,
+        ":partialStartVersionVector": pendingUpdate.partialStartVersionVector,
+        ":partialEndVersionVector": pendingUpdate.partialEndVersionVector,
+        ":createdAt": new Date().toISOString(),
+      },
+    );
+  });
 }
 
 export async function deleteDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,
 ): Promise<void> {
-  await execSql(
-    `
-      DELETE FROM document_pending_updates
-      WHERE id = :id
-    `,
-    {
-      ":id": id,
-    },
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        DELETE FROM document_pending_updates
+        WHERE id = :id
+      `,
+      {
+        ":id": id,
+      },
+    );
+  });
 }
 
 export async function deleteDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
-  await execSql(
-    `
-      DELETE FROM document_pending_updates
-      WHERE app_kind = :appKind AND local_id = :localId
-    `,
-    getScopeBind(scope),
-  );
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        DELETE FROM document_pending_updates
+        WHERE app_kind = :appKind AND local_id = :localId
+      `,
+      getScopeBind(scope),
+    );
+  });
 }
