@@ -322,15 +322,16 @@ test("explorer store shares an authenticated container and enqueues a full metad
       icon: null,
     });
 
-    store = createExplorerStore(runtime);
-    store.updateRuntime(runtime);
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
 
     await waitForCondition(
-      () => store.getSnapshot().ready,
+      () => createdStore.getSnapshot().ready,
       "Explorer store did not become ready.",
     );
 
-    const shared = await store.shareWithUser(
+    const shared = await createdStore.shareWithUser(
       "child-container",
       "550e8400-e29b-41d4-a716-446655440000",
     );
