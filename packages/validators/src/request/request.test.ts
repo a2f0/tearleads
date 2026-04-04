@@ -4,6 +4,7 @@ import {
   isCommitDocumentChangeRequest,
   isCreateContainerRequest,
   isPublicKeyRequest,
+  isShareContainerRequest,
   isStageBlobRequest,
   isVerifyRequest,
 } from "./index";
@@ -170,4 +171,29 @@ test("isCreateContainerRequest", () => {
     }),
   ).toBe(false);
   expect(isCreateContainerRequest(null)).toBe(false);
+});
+
+test("isShareContainerRequest", () => {
+  expect(
+    isShareContainerRequest({
+      subjectType: "user",
+      subjectId: "550e8400-e29b-41d4-a716-446655440000",
+      accessLevel: "write",
+    }),
+  ).toBe(true);
+  expect(
+    isShareContainerRequest({
+      subjectType: "team",
+      subjectId: "550e8400-e29b-41d4-a716-446655440000",
+      accessLevel: "write",
+    }),
+  ).toBe(false);
+  expect(
+    isShareContainerRequest({
+      subjectType: "user",
+      subjectId: "not-a-uuid",
+      accessLevel: "write",
+    }),
+  ).toBe(false);
+  expect(isShareContainerRequest(null)).toBe(false);
 });

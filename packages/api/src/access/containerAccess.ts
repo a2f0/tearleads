@@ -36,6 +36,11 @@ interface AncestorContainerRow {
   cycleDetected: boolean;
 }
 
+interface DescendantContainerRow {
+  id: string;
+  depth: number;
+}
+
 interface ContainerAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
@@ -110,6 +115,19 @@ function isAncestorContainerRow(value: unknown): value is AncestorContainerRow {
   );
 }
 
+function isDescendantContainerRow(
+  value: unknown,
+): value is DescendantContainerRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, "id") === "string" &&
+    typeof Reflect.get(value, "depth") === "number"
+  );
+}
+
 async function getCurrentEpochRow(
   containerId: string,
   executor: ContainerAccessExecutor = db,
@@ -130,6 +148,45 @@ async function getCurrentEpochRow(
     .limit(1);
 
   return row ?? null;
+}
+
+async function listDescendantContainerIds(
+  containerId: string,
+  executor: ContainerAccessExecutor = db,
+): Promise<string[]> {
+  const result = await executor.execute(sql`
+    with recursive descendants as (
+      select
+        c.id,
+        0 as depth
+      from ${containers} c
+      where c.id = ${containerId}
+      union all
+      select
+        child.id,
+        descendants.depth + 1 as depth
+      from ${containers} child
+      inner join descendants on child.parent_id = descendants.id
+      where descendants.depth < 100
+    )
+    select
+      id::text as "id",
+      depth as "depth"
+    from descendants
+    order by depth asc, id asc
+  `);
+
+  const descendantIds: string[] = [];
+
+  for (const row of result.rows) {
+    if (!isDescendantContainerRow(row)) {
+      throw new Error("Unexpected row shape from descendants CTE");
+    }
+
+    descendantIds.push(row.id);
+  }
+
+  return descendantIds;
 }
 
 async function writeEpoch(
@@ -454,19 +511,63 @@ async function computeContainerFingerprint(input: {
   });
 }
 
-export async function grantContainerAccess(input: {
-  containerId: string;
-  subjectType: SubjectType;
-  subjectId: string;
-  accessLevel: AccessLevel;
-}): Promise<number> {
+async function refreshContainerAccessEpoch(
+  containerId: string,
+  executor: ContainerAccessExecutor = db,
+): Promise<number> {
+  const currentEpochRow = await getCurrentEpochRow(containerId, executor);
+  const { ancestorContainerIds, effectiveRecipients, grants } =
+    await resolveContainerRecipients(containerId, executor);
+  const accessFingerprint = await computeContainerFingerprint({
+    containerId,
+    ancestorContainerIds,
+    grants,
+    effectiveRecipients,
+  });
+
+  if (
+    currentEpochRow &&
+    currentEpochRow.accessFingerprint === accessFingerprint
+  ) {
+    return currentEpochRow.epoch;
+  }
+
+  const nextEpoch = currentEpochRow === null ? 1 : currentEpochRow.epoch + 1;
+  await writeEpoch(containerId, nextEpoch, accessFingerprint, executor);
+  return nextEpoch;
+}
+
+async function refreshContainerAccessSubtree(
+  containerId: string,
+  executor: ContainerAccessExecutor = db,
+): Promise<Map<string, number>> {
+  const descendantIds = await listDescendantContainerIds(containerId, executor);
+  const epochByContainerId = new Map<string, number>();
+
+  for (const descendantId of descendantIds) {
+    const epoch = await refreshContainerAccessEpoch(descendantId, executor);
+    epochByContainerId.set(descendantId, epoch);
+  }
+
+  return epochByContainerId;
+}
+
+export async function grantContainerAccess(
+  input: {
+    containerId: string;
+    subjectType: SubjectType;
+    subjectId: string;
+    accessLevel: AccessLevel;
+  },
+  executor: ContainerAccessExecutor = db,
+): Promise<number> {
   if (!isUuidString(input.subjectId)) {
     throw new Error(
       `Container grant subjectId must be a UUID for subjectType ${input.subjectType}`,
     );
   }
 
-  return db.transaction(async (tx) => {
+  const grantAccess = async (tx: ContainerAccessExecutor) => {
     await tx
       .delete(objectAccessGrants)
       .where(
@@ -486,20 +587,19 @@ export async function grantContainerAccess(input: {
       accessLevel: input.accessLevel,
     });
 
-    const currentEpochRow = await getCurrentEpochRow(input.containerId, tx);
-    const nextEpoch = currentEpochRow === null ? 1 : currentEpochRow.epoch + 1;
-    const { ancestorContainerIds, effectiveRecipients, grants } =
-      await resolveContainerRecipients(input.containerId, tx);
-    const accessFingerprint = await computeContainerFingerprint({
-      containerId: input.containerId,
-      ancestorContainerIds,
-      grants,
-      effectiveRecipients,
-    });
+    const epochByContainerId = await refreshContainerAccessSubtree(
+      input.containerId,
+      tx,
+    );
 
-    await writeEpoch(input.containerId, nextEpoch, accessFingerprint, tx);
-    return nextEpoch;
-  });
+    return epochByContainerId.get(input.containerId) ?? 1;
+  };
+
+  if (executor === db) {
+    return db.transaction(grantAccess);
+  }
+
+  return grantAccess(executor);
 }
 
 export async function resolveContainerAccessState(
@@ -546,5 +646,15 @@ export function canWriteContainerAccess(
     (recipient) =>
       recipient.userId === userId &&
       accessLevelRank(recipient.accessLevel) >= accessLevelRank("write"),
+  );
+}
+
+export function canAdminContainerAccess(
+  state: ContainerAccessState,
+  userId: string,
+): boolean {
+  return state.effectiveRecipients.some(
+    (recipient) =>
+      recipient.userId === userId && recipient.accessLevel === "admin",
   );
 }

@@ -15,6 +15,13 @@ export interface CreateContainerResponse {
   metadataRecipientEncapsulationPublicKeys: string[];
 }
 
+export interface ShareContainerResponse {
+  id: string;
+  metadataDocumentId: string;
+  metadataAccessEpoch: number;
+  metadataRecipientEncapsulationPublicKeys: string[];
+}
+
 export interface ContainerSummary {
   id: string;
   organizationId: string;
@@ -51,4 +58,19 @@ export function isListContainersResponse(
   value: unknown,
 ): value is ListContainersResponse {
   return Array.isArray(value) && value.every(isContainerSummary);
+}
+
+export function isShareContainerResponse(
+  value: unknown,
+): value is ShareContainerResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "id") &&
+    hasStringProperty(value, "metadataDocumentId") &&
+    hasNumberProperty(value, "metadataAccessEpoch") &&
+    hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
+    value.metadataRecipientEncapsulationPublicKeys.every(
+      (entry) => typeof entry === "string",
+    )
+  );
 }

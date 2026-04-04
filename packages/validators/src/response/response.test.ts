@@ -7,6 +7,7 @@ import {
   isHealthResponse,
   isListContainersResponse,
   isPublicKeyResponse,
+  isShareContainerResponse,
   isStageBlobResponse,
   isVerifyResponse,
 } from "./index";
@@ -159,4 +160,22 @@ test("isListContainersResponse", () => {
     ]),
   ).toBe(false);
   expect(isListContainersResponse(null)).toBe(false);
+});
+
+test("isShareContainerResponse", () => {
+  expect(
+    isShareContainerResponse({
+      id: "ctr-123",
+      metadataDocumentId: "doc-123",
+      metadataAccessEpoch: 2,
+      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(true);
+  expect(
+    isShareContainerResponse({
+      id: "ctr-123",
+      metadataAccessEpoch: 2,
+    }),
+  ).toBe(false);
+  expect(isShareContainerResponse(null)).toBe(false);
 });
