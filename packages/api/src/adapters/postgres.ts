@@ -16,11 +16,6 @@ await client.exec(`
     default_organization_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  CREATE TABLE IF NOT EXISTS items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    encrypted_data TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-  );
   CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -30,7 +25,6 @@ await client.exec(`
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL,
     parent_id UUID,
-    name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE UNIQUE INDEX IF NOT EXISTS containers_org_root_idx

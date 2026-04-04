@@ -5,6 +5,7 @@ import { parseEnvelope } from "../encryptedUpdate";
 import {
   type CreateDocumentResponse,
   type DocumentSyncUpdate,
+  isCreateDocumentRequest,
   isSyncDocumentRequest,
   type SyncDocumentOutgoingUpdate,
   type SyncDocumentResponse,
@@ -35,6 +36,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     createDocument(input: {
       createdByFingerprint: string;
       createdByUserId: string;
+      linkedContainerIds: string[];
     }): Promise<{
       document: DocumentRecord;
       currentAccessEpoch: number;
@@ -56,9 +58,21 @@ interface LoroRouterDeps<TSession extends SessionLike> {
   requireAuth: MiddlewareHandler<LoroEnv<TSession>>;
 }
 
+interface StatusError extends Error {
+  status: 400 | 403 | 404 | 409;
+}
+
 function uniqueSortedStrings(values: string[]): string[] {
   return Array.from(new Set(values)).sort((left, right) =>
     left.localeCompare(right),
+  );
+}
+
+function isStatusError(error: unknown): error is StatusError {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number"
   );
 }
 
@@ -101,26 +115,56 @@ export function createLoroRouter<TSession extends SessionLike>({
 }: LoroRouterDeps<TSession>) {
   const router = new Hono<LoroEnv<TSession>>();
 
-  router.post("/documents", requireAuth, async (c) => {
-    const session = c.get("session");
+  router.post(
+    "/documents",
+    requireAuth,
+    validator("json", (value, c) => {
+      if (!isCreateDocumentRequest(value)) {
+        return c.json({ error: "Invalid request" }, 400);
+      }
 
-    const created = await store.createDocument({
-      createdByFingerprint: session.fingerprint,
-      createdByUserId: session.userId,
-    });
+      return value;
+    }),
+    async (c) => {
+      const session = c.get("session");
+      const { linkedContainerIds } = c.req.valid("json");
 
-    if (!created) {
-      return c.json({ error: "Failed to create document" }, 500);
-    }
+      try {
+        const created = await store.createDocument({
+          createdByFingerprint: session.fingerprint,
+          createdByUserId: session.userId,
+          linkedContainerIds,
+        });
 
-    return c.json<CreateDocumentResponse>({
-      id: created.document.id,
-      createdAt: created.document.createdAt.toISOString(),
-      currentAccessEpoch: created.currentAccessEpoch,
-      recipientEncapsulationPublicKeys:
-        created.recipientEncapsulationPublicKeys,
-    });
-  });
+        if (!created) {
+          return c.json({ error: "Failed to create document" }, 500);
+        }
+
+        return c.json<CreateDocumentResponse>({
+          id: created.document.id,
+          createdAt: created.document.createdAt.toISOString(),
+          currentAccessEpoch: created.currentAccessEpoch,
+          recipientEncapsulationPublicKeys:
+            created.recipientEncapsulationPublicKeys,
+        });
+      } catch (error) {
+        if (isStatusError(error)) {
+          switch (error.status) {
+            case 400:
+              return c.json({ error: error.message }, 400);
+            case 403:
+              return c.json({ error: error.message }, 403);
+            case 404:
+              return c.json({ error: error.message }, 404);
+            case 409:
+              return c.json({ error: error.message }, 409);
+          }
+        }
+
+        throw error;
+      }
+    },
+  );
 
   router.post(
     "/documents/:documentId/sync",

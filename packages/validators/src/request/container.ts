@@ -4,7 +4,6 @@ import { hasStringProperty } from "../util";
 export interface CreateContainerRequest {
   id: string;
   parentId: string;
-  name: string;
 }
 
 export function isCreateContainerRequest(
@@ -13,7 +12,6 @@ export function isCreateContainerRequest(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
-    hasStringProperty(value, "parentId") &&
-    hasStringProperty(value, "name")
+    hasStringProperty(value, "parentId")
   );
 }

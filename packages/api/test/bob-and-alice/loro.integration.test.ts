@@ -52,7 +52,9 @@ test("Bob authenticates", async () => {
 let documentId = "";
 
 test("Alice and Bob converge through encrypted Loro update streaming", async () => {
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   documentId = createdDocument.id;
@@ -239,7 +241,9 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
 });
 
 test("Large note-style updates stay as a single synced document update", async () => {
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
 

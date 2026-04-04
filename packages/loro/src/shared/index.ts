@@ -1,6 +1,8 @@
 export {
+  type CreateDocumentRequest,
   type CreateDocumentResponse,
   type DocumentSyncUpdate,
+  isCreateDocumentRequest,
   isCreateDocumentResponse,
   isDocumentSyncUpdate,
   isSyncDocumentOutgoingUpdate,

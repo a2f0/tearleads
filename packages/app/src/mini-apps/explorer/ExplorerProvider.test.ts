@@ -30,8 +30,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
 
   return {
     apiClient: {
-      createContainer: async (_id: string, _parentId: string, _name: string) =>
-        null,
+      createContainer: async (_id: string, _parentId: string) => null,
     },
     close: () => db.close(),
     dbStatus: "ready" as const,
@@ -146,18 +145,16 @@ test("explorer store creates authenticated child containers through the API befo
   const createContainerCalls: Array<{
     id: string;
     parentId: string;
-    name: string;
   }> = [];
 
   runtime.isAuthenticated = true;
   runtime.apiClient = {
-    createContainer: async (id: string, parentId: string, name: string) => {
-      createContainerCalls.push({ id, parentId, name });
+    createContainer: async (id: string, parentId: string) => {
+      createContainerCalls.push({ id, parentId });
       return {
         id,
         organizationId: "org-1",
         parentId,
-        name,
       };
     },
   };
@@ -188,7 +185,6 @@ test("explorer store creates authenticated child containers through the API befo
       {
         id: childNode.id,
         parentId: "root-container",
-        name: "Docs",
       },
     ]);
 

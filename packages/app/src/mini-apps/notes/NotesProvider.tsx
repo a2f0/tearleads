@@ -37,6 +37,7 @@ type NotesAppData = ReturnType<typeof useAppData>;
 
 export interface NotesRuntime {
   apiClient: Pick<NotesAppData["apiClient"], "createDocument" | "syncDocument">;
+  containerId: NotesAppData["containerId"];
   dbStatus: NotesAppData["dbStatus"];
   domainScope: NotesAppData["domainScope"];
   encapsulationKeyPair: NotesAppData["encapsulationKeyPair"];
@@ -284,7 +285,13 @@ export function createNotesStore(
           let documentId = nextRecord.documentId;
 
           if (!documentId && pendingUpdates.length > 0) {
-            const created = await runtime.apiClient.createDocument();
+            if (!runtime.containerId) {
+              continue;
+            }
+
+            const created = await runtime.apiClient.createDocument([
+              runtime.containerId,
+            ]);
             if (!created) {
               continue;
             }

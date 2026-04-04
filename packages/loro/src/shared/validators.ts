@@ -12,6 +12,10 @@ export interface SyncDocumentOutgoingUpdate {
   partialEndVersionVector: string;
 }
 
+export interface CreateDocumentRequest {
+  linkedContainerIds: string[];
+}
+
 export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
@@ -80,6 +84,16 @@ export function isSyncDocumentOutgoingUpdate(
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector")
+  );
+}
+
+export function isCreateDocumentRequest(
+  value: unknown,
+): value is CreateDocumentRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringArrayProperty(value, "linkedContainerIds") &&
+    value.linkedContainerIds.length > 0
   );
 }
 

@@ -168,16 +168,11 @@ export function createExplorerStore(
 
           const childId = crypto.randomUUID();
           const createdRecord = runtime.isAuthenticated
-            ? await runtime.apiClient.createContainer(
-                childId,
-                parent.id,
-                trimmedName,
-              )
+            ? await runtime.apiClient.createContainer(childId, parent.id)
             : {
                 id: childId,
                 organizationId: parent.organizationId,
                 parentId: parent.id,
-                name: trimmedName,
               };
 
           if (!createdRecord) {
@@ -187,7 +182,7 @@ export function createExplorerStore(
           const childNode: ContainerNode = {
             id: createdRecord.id,
             kind: "container",
-            name: createdRecord.name,
+            name: trimmedName,
             organizationId: createdRecord.organizationId,
             parentId: createdRecord.parentId,
           };

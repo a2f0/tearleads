@@ -58,7 +58,6 @@ test("POST /containers creates a child container under a writable parent", async
     body: JSON.stringify({
       id: childId,
       parentId: rootContainer.id,
-      name: "Docs",
     }),
   });
 
@@ -67,7 +66,6 @@ test("POST /containers creates a child container under a writable parent", async
     id: childId,
     organizationId: rootContainer.organizationId,
     parentId: rootContainer.id,
-    name: "Docs",
   });
 
   const [createdContainer] = await db
@@ -105,7 +103,6 @@ test("POST /containers rejects creating a child container under a parent without
     body: JSON.stringify({
       id: crypto.randomUUID(),
       parentId: ownerRootContainer.id,
-      name: "Nope",
     }),
   });
 

@@ -107,7 +107,6 @@ registerRoute.post(
             id: rootContainerId,
             organizationId: org.id,
             parentId: null,
-            name: "/",
           })
           .returning({ id: containers.id });
 

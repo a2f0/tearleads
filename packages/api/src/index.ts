@@ -4,7 +4,6 @@ import { auth } from "./routes/auth";
 import { containersRouter } from "./routes/containers";
 import { documentsRouter } from "./routes/documents";
 import { health } from "./routes/health";
-import { itemsRouter } from "./routes/items";
 import { websocket } from "./ws";
 
 const app = new Hono();
@@ -15,7 +14,6 @@ app.route("/", auth);
 app.route("/", containersRouter);
 app.route("/", documentsRouter);
 app.route("/", health);
-app.route("/", itemsRouter);
 
 const server = {
   port: 3001,

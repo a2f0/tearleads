@@ -23,7 +23,9 @@ test("blob access is derived from linked document access", async () => {
   await registerUser(bob);
   await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
@@ -69,7 +71,9 @@ test("initializeBlobAccess does not rewrite recipient envelopes when access is u
   await registerUser(alice);
   await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");

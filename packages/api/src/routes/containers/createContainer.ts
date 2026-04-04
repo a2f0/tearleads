@@ -38,8 +38,7 @@ createContainerRoute.post(
   }),
   async (c) => {
     const session = c.get("session");
-    const { id, parentId, name } = c.req.valid("json");
-    const trimmedName = name.trim();
+    const { id, parentId } = c.req.valid("json");
 
     if (!UUID_V4_REGEX.test(id)) {
       return c.json({ error: "Invalid id: must be a valid UUIDv4" }, 400);
@@ -47,10 +46,6 @@ createContainerRoute.post(
 
     if (!UUID_V4_REGEX.test(parentId)) {
       return c.json({ error: "Invalid parentId: must be a valid UUIDv4" }, 400);
-    }
-
-    if (trimmedName.length === 0) {
-      return c.json({ error: "Container name is required" }, 400);
     }
 
     try {
@@ -86,14 +81,12 @@ createContainerRoute.post(
             id,
             organizationId: parent.organizationId,
             parentId: parent.id,
-            name: trimmedName,
           })
           .onConflictDoNothing({ target: containers.id })
           .returning({
             id: containers.id,
             organizationId: containers.organizationId,
             parentId: containers.parentId,
-            name: containers.name,
           });
 
         if (!container) {
@@ -106,7 +99,6 @@ createContainerRoute.post(
           id: container.id,
           organizationId: container.organizationId,
           parentId: container.parentId ?? parent.id,
-          name: container.name,
         };
       });
 

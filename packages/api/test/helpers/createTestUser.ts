@@ -7,6 +7,7 @@ export type TestUser = {
   signing: ReturnType<typeof generateSigningSeedAndKeyPair>;
   kem: ReturnType<typeof generateKemSeedAndKeyPair>;
   fingerprint: string;
+  rootContainerId: string;
   userId: string;
   token: string;
 };
@@ -16,6 +17,7 @@ export function createTestUser(): TestUser {
     signing: generateSigningSeedAndKeyPair(),
     kem: generateKemSeedAndKeyPair(),
     fingerprint: "",
+    rootContainerId: "",
     userId: "",
     token: "",
   };

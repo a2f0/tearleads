@@ -59,7 +59,9 @@ test("POST /blobs/stage stores a staged encrypted blob for the authenticated use
 });
 
 test("POST /documents/:documentId/commit-change atomically commits a blob attachment and document update", async () => {
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
@@ -147,7 +149,9 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
 });
 
 test("POST /documents/:documentId/commit-change rejects Loro references to unbound slots", async () => {
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");

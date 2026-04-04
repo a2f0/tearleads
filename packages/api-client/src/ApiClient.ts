@@ -12,7 +12,6 @@ import { stageBlob } from "./routes/blobs";
 import { createContainer } from "./routes/containers";
 import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
-import { getItem, postItem } from "./routes/items";
 import { postPublicKey } from "./routes/register";
 import type { HttpMethod, RequestFn } from "./types";
 
@@ -141,12 +140,12 @@ export class ApiClient {
     return getEncapsulationKey(this.request, userId);
   }
 
-  createDocument() {
-    return createDocument(this.request);
+  createDocument(linkedContainerIds: string[]) {
+    return createDocument(this.request, linkedContainerIds);
   }
 
-  createContainer(id: string, parentId: string, name: string) {
-    return createContainer(this.request, id, parentId, name);
+  createContainer(id: string, parentId: string) {
+    return createContainer(this.request, id, parentId);
   }
 
   syncDocument(
@@ -170,13 +169,5 @@ export class ApiClient {
 
   commitDocumentChange(documentId: string, input: CommitDocumentChangeRequest) {
     return commitDocumentChange(this.request, documentId, input);
-  }
-
-  getItem(itemId: string) {
-    return getItem(this.request, itemId);
-  }
-
-  postItem(encryptedData: string) {
-    return postItem(this.request, encryptedData);
   }
 }

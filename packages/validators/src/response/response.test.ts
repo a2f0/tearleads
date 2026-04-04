@@ -116,14 +116,12 @@ test("isCreateContainerResponse", () => {
       id: "ctr-123",
       organizationId: "org-123",
       parentId: "ctr-root",
-      name: "Docs",
     }),
   ).toBe(true);
   expect(
     isCreateContainerResponse({
       id: "ctr-123",
       organizationId: "org-123",
-      name: "Docs",
     }),
   ).toBe(false);
   expect(isCreateContainerResponse(null)).toBe(false);

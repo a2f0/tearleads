@@ -18,6 +18,7 @@ import type { SqlRow, SqlRowValue } from "./sqlSchema";
 interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;
   authToken: string | null;
+  containerId: string | null;
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
   domainScope: object;
@@ -40,7 +41,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
-  const { encapsulationKeyPair, authToken, isAuthenticated } =
+  const { encapsulationKeyPair, authToken, containerId, isAuthenticated } =
     useCryptoSession();
   const { events } = useEvents();
   const { log } = useLog();
@@ -62,6 +63,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     () => ({
       apiClient,
       authToken,
+      containerId,
       dbId,
       dbStatus,
       domainScope: domainScopeRef.current,
@@ -75,6 +77,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [
       apiClient,
       authToken,
+      containerId,
       dbId,
       dbStatus,
       domainScopeRef,

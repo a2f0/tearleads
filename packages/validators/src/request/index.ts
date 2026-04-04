@@ -18,4 +18,3 @@ export {
   type PublicKeyRequest,
   type WrappedDekEnvelope,
 } from "./publicKey";
-export { isSetItemRequest, type SetItemRequest } from "./setItem";

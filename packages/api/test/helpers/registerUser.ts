@@ -1,5 +1,5 @@
 import { toFingerprint } from "@tearleads/crypto";
-import { isChallengeResponse } from "@tearleads/validators/response";
+import { isPublicKeyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { uploadKey } from "./api";
 import type { TestUser } from "./createTestUser";
@@ -16,11 +16,8 @@ export async function registerUser(user: TestUser): Promise<string> {
   }
 
   const body = await res.json();
+  invariant(isPublicKeyResponse(body), "expected register response");
   user.userId = body.userId;
-
-  invariant(
-    isChallengeResponse(body),
-    "expected challenge in register response",
-  );
+  user.rootContainerId = body.rootContainerId;
   return body.challenge;
 }

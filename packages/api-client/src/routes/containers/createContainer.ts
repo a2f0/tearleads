@@ -5,12 +5,11 @@ export function createContainer(
   request: RequestFn,
   id: string,
   parentId: string,
-  name: string,
 ) {
   return request(
     "/containers",
     isCreateContainerResponse,
     "POST",
-    JSON.stringify({ id, parentId, name }),
+    JSON.stringify({ id, parentId }),
   );
 }

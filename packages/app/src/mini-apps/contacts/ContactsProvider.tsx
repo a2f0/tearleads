@@ -62,6 +62,7 @@ export interface ContactsRuntime {
     ContactsAppData["apiClient"],
     "createDocument" | "getEncapsulationKey" | "syncDocument"
   >;
+  containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
   encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
@@ -358,7 +359,13 @@ export function createContactsStore(
             let documentId = contact.record.documentId;
 
             if (!documentId && pendingUpdates.length > 0) {
-              const created = await runtime.apiClient.createDocument();
+              if (!runtime.containerId) {
+                continue;
+              }
+
+              const created = await runtime.apiClient.createDocument([
+                runtime.containerId,
+              ]);
               if (!created) {
                 continue;
               }
