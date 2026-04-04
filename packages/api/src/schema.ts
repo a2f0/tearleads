@@ -1,5 +1,12 @@
 import { documents, documentUpdates } from "@tearleads/loro/server";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -17,12 +24,16 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const containers = pgTable("containers", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id").notNull(),
-  parentId: uuid("parent_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const containers = pgTable(
+  "containers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    parentId: uuid("parent_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("containers_parent_id_idx").on(table.parentId)],
+);
 
 export const groups = pgTable("groups", {
   id: uuid("id").defaultRandom().primaryKey(),

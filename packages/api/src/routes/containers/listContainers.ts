@@ -14,6 +14,7 @@ import {
   objectAccessGrants,
   organizationMembers,
 } from "../../schema";
+import { uniqueSortedStrings } from "../../utils/array";
 
 const CONTAINER_OBJECT_TYPE = "container";
 
@@ -25,6 +26,10 @@ interface AccessibleContainerRow {
 }
 
 export const listContainersRoute = new Hono();
+
+interface SqlNamedColumn {
+  name: string;
+}
 
 function isAccessibleContainerRow(
   value: unknown,
@@ -46,52 +51,87 @@ function isAccessibleContainerRow(
   );
 }
 
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
+function aliasedColumn(alias: string, column: SqlNamedColumn) {
+  return sql.raw(`${alias}.${column.name}`);
 }
 
 async function listAccessibleContainersForUser(
   userId: string,
 ): Promise<AccessibleContainerRow[]> {
+  const containerId = aliasedColumn("c", containers.id);
+  const containerOrganizationId = aliasedColumn("c", containers.organizationId);
+  const containerParentId = aliasedColumn("c", containers.parentId);
+  const grantObjectType = aliasedColumn("g", objectAccessGrants.objectType);
+  const grantObjectId = aliasedColumn("g", objectAccessGrants.objectId);
+  const grantSubjectType = aliasedColumn("g", objectAccessGrants.subjectType);
+  const grantSubjectId = aliasedColumn("g", objectAccessGrants.subjectId);
+  const organizationMemberId = aliasedColumn("om", organizationMembers.id);
+  const organizationMemberOrganizationId = aliasedColumn(
+    "om",
+    organizationMembers.organizationId,
+  );
+  const organizationMemberUserId = aliasedColumn(
+    "om",
+    organizationMembers.userId,
+  );
+  const groupMemberId = aliasedColumn("gm", groupMembers.id);
+  const groupMemberGroupId = aliasedColumn("gm", groupMembers.groupId);
+  const groupMemberUserId = aliasedColumn("gm", groupMembers.userId);
+  const childId = aliasedColumn("child", containers.id);
+  const childOrganizationId = aliasedColumn("child", containers.organizationId);
+  const childParentId = aliasedColumn("child", containers.parentId);
+  const metadataDocumentId = aliasedColumn(
+    "cmd",
+    containerMetadataDocuments.documentId,
+  );
+  const metadataContainerId = aliasedColumn(
+    "cmd",
+    containerMetadataDocuments.containerId,
+  );
+
   const result = await db.execute(sql`
     with recursive seed_containers as (
-      select distinct c.id
+      select distinct ${containerId} as id
       from ${containers} c
       inner join ${objectAccessGrants} g
-        on g.object_type = ${CONTAINER_OBJECT_TYPE}
-       and g.object_id = c.id::text
+        on ${grantObjectType} = ${CONTAINER_OBJECT_TYPE}
+       and ${grantObjectId} = ${containerId}::text
       left join ${organizationMembers} om
-        on g.subject_type = ${"organization"}
-       and g.subject_id = om.organization_id::text
-       and om.user_id::text = ${userId}
+        on ${grantSubjectType} = ${"organization"}
+       and ${grantSubjectId} = ${organizationMemberOrganizationId}::text
+       and ${organizationMemberUserId}::text = ${userId}
       left join ${groupMembers} gm
-        on g.subject_type = ${"group"}
-       and g.subject_id = gm.group_id::text
-       and gm.user_id::text = ${userId}
+        on ${grantSubjectType} = ${"group"}
+       and ${grantSubjectId} = ${groupMemberGroupId}::text
+       and ${groupMemberUserId}::text = ${userId}
       where
-        (g.subject_type = ${"user"} and g.subject_id = ${userId})
-        or (g.subject_type = ${"organization"} and om.id is not null)
-        or (g.subject_type = ${"group"} and gm.id is not null)
+        (${grantSubjectType} = ${"user"} and ${grantSubjectId} = ${userId})
+        or (${grantSubjectType} = ${"organization"} and ${organizationMemberId} is not null)
+        or (${grantSubjectType} = ${"group"} and ${groupMemberId} is not null)
     ),
     accessible_containers as (
-      select c.id, c.organization_id, c.parent_id
+      select
+        ${containerId} as id,
+        ${containerOrganizationId} as organization_id,
+        ${containerParentId} as parent_id
       from ${containers} c
       inner join seed_containers seed on seed.id = c.id
       union
-      select child.id, child.organization_id, child.parent_id
+      select
+        ${childId} as id,
+        ${childOrganizationId} as organization_id,
+        ${childParentId} as parent_id
       from ${containers} child
-      inner join accessible_containers parent on child.parent_id = parent.id
+      inner join accessible_containers parent on ${childParentId} = parent.id
     )
     select
       accessible.id::text as "id",
-      cmd.document_id::text as "metadataDocumentId",
+      ${metadataDocumentId}::text as "metadataDocumentId",
       accessible.organization_id::text as "organizationId",
       accessible.parent_id::text as "parentId"
     from accessible_containers accessible
     left join ${containerMetadataDocuments} cmd
-      on cmd.container_id = accessible.id
+      on ${metadataContainerId} = accessible.id
     order by
       accessible.organization_id asc,
       accessible.parent_id asc nulls first,

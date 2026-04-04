@@ -31,12 +31,7 @@ import {
   documents,
   documentUpdates,
 } from "../../schema";
-
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
+import { uniqueSortedStrings } from "../../utils/array";
 
 function matchesRecipients(
   encryptedData: string,

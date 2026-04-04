@@ -29,6 +29,8 @@ await client.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS containers_org_root_idx
     ON containers (organization_id) WHERE parent_id IS NULL;
+  CREATE INDEX IF NOT EXISTS containers_parent_id_idx
+    ON containers (parent_id);
   CREATE TABLE IF NOT EXISTS groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID,
