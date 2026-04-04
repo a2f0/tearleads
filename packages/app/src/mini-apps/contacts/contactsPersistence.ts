@@ -58,6 +58,7 @@ export interface ContactsPersistence {
     pendingUpdate: ContactPendingUpdateInsert,
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
+  deletePendingUpdates: (execSql: ExecSql, userId: string) => Promise<void>;
 }
 
 const CONTACTS_APP_KIND = "contacts";
@@ -232,6 +233,14 @@ export const sqlContactsPersistence: ContactsPersistence = {
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
+    });
+  },
+  async deletePendingUpdates(execSql, userId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await deleteDocumentPendingUpdates(
+        lockedExecSql,
+        getContactScope(userId),
+      );
     });
   },
 };

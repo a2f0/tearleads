@@ -1,7 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  decryptLoroUpdate,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
@@ -20,6 +19,7 @@ import { useAppData } from "../../data/AppDataProvider";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
+  decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
@@ -187,6 +187,11 @@ export function createNotesStore(
     await persistence.deletePendingUpdate(runtime.execSql, id);
   }
 
+  async function replacePendingUpdatesWithBaseline(currentDoc: NotesDocument) {
+    await persistence.deletePendingUpdates(runtime.execSql, noteId);
+    await enqueuePendingUpdate(exportAllUpdates(currentDoc));
+  }
+
   async function initialize() {
     if (runtime.dbStatus !== "ready") {
       return;
@@ -329,20 +334,19 @@ export function createNotesStore(
             }
 
             if (synced.updates.length > 0) {
-              const decrypted = await Promise.all(
-                synced.updates.map((update) =>
-                  decryptLoroUpdate(
-                    update.encryptedData,
-                    encapsulationKeyPair.secretKey,
-                  ),
-                ),
+              const decrypted = await decryptIncomingUpdates(
+                synced.updates,
+                encapsulationKeyPair.secretKey,
+                (message) => runtime.log(`Notes: ${message}`),
               );
-              importUpdates(doc, decrypted);
-              setSnapshot({
-                ready: true,
-                text: getTextValue(doc),
-                syncing: true,
-              });
+              if (decrypted.length > 0) {
+                importUpdates(doc, decrypted);
+                setSnapshot({
+                  ready: true,
+                  text: getTextValue(doc),
+                  syncing: true,
+                });
+              }
             }
 
             const previousAccessEpoch = nextRecord.accessEpoch;
@@ -351,10 +355,8 @@ export function createNotesStore(
               accessEpoch: synced.currentAccessEpoch,
             });
 
-            if (
-              pendingUpdates.length > 0 &&
-              synced.currentAccessEpoch !== previousAccessEpoch
-            ) {
+            if (synced.currentAccessEpoch !== previousAccessEpoch) {
+              await replacePendingUpdatesWithBaseline(doc);
               syncRequested = true;
             }
           }

@@ -105,6 +105,9 @@ function createContactsPersistence(): ContactsPersistence & {
         }
       }
     },
+    async deletePendingUpdates(_execSql, userId) {
+      pendingUpdatesByUserId.delete(userId);
+    },
   };
 }
 
@@ -319,4 +322,117 @@ test("contacts store creates and syncs a contact document", async () => {
     },
   ]);
   expect(createDocumentCalls).toEqual([["root-container"]]);
+});
+
+test("contacts store enqueues a full baseline when document access expands", async () => {
+  const persistence = createContactsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const createDocumentCalls: string[][] = [];
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    outgoingUpdateCount: number;
+  }> = [];
+  let importedEncapsulationPublicKey = "peer-user-1-key";
+  let syncCallCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const instrumentedRuntime: ContactsRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      createDocument: async (linkedContainerIds) => {
+        createDocumentCalls.push(linkedContainerIds);
+        return runtime.apiClient.createDocument(linkedContainerIds);
+      },
+      getEncapsulationKey: async (userId: string) => ({
+        encapsulationPublicKey: importedEncapsulationPublicKey,
+        userId,
+      }),
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+      ) => {
+        syncCallCount += 1;
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (syncCallCount === 2) {
+          return {
+            acceptedOutgoingUpdateIds: outgoingUpdates.map(
+              (update) => update.id,
+            ),
+            currentAccessEpoch: 2,
+            documentId,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            updates: [],
+          };
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+        );
+      },
+    },
+  };
+  const store = createContactsStore(instrumentedRuntime, persistence);
+
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Contacts sync store did not become ready.",
+  );
+
+  await store.importKey("peer-user-1");
+
+  await waitForCondition(
+    () =>
+      createDocumentCalls.length === 1 &&
+      syncDocumentCalls.length === 1 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0 &&
+      persistence.getContact("peer-user-1")?.record?.documentId ===
+        "contacts-document-1",
+    "Initial contact document sync did not complete.",
+  );
+
+  importedEncapsulationPublicKey = "peer-user-1-key-2";
+  await store.importKey("peer-user-1");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 3 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0 &&
+      persistence.getContact("peer-user-1")?.record?.accessEpoch === 2,
+    "Expanded access epoch did not trigger a full baseline resync for contacts.",
+  );
+
+  expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(syncDocumentCalls).toEqual([
+    {
+      accessEpoch: 1,
+      documentId: "contacts-document-1",
+      outgoingUpdateCount: 1,
+    },
+    {
+      accessEpoch: 1,
+      documentId: "contacts-document-1",
+      outgoingUpdateCount: 1,
+    },
+    {
+      accessEpoch: 2,
+      documentId: "contacts-document-1",
+      outgoingUpdateCount: 1,
+    },
+  ]);
 });

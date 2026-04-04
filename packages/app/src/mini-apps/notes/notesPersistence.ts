@@ -2,6 +2,7 @@ import {
   type DocumentRecord,
   type DocumentScope,
   deleteDocumentPendingUpdate,
+  deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
@@ -43,6 +44,7 @@ export interface NotesPersistence {
     pendingUpdate: PendingUpdateInsert,
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
+  deletePendingUpdates: (execSql: ExecSql, noteId: string) => Promise<void>;
 }
 
 const NOTES_APP_KIND = "notes";
@@ -155,6 +157,11 @@ export const sqlNotesPersistence: NotesPersistence = {
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
+    });
+  },
+  async deletePendingUpdates(execSql, noteId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await deleteDocumentPendingUpdates(lockedExecSql, getNoteScope(noteId));
     });
   },
 };

@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -113,6 +115,9 @@ function createNotesPersistence(): NotesPersistence & {
         (pendingUpdate) => pendingUpdate.id !== id,
       );
     },
+    async deletePendingUpdates() {
+      pendingUpdates = [];
+    },
   };
 }
 
@@ -131,6 +136,46 @@ function createRuntime(): NotesRuntime {
     isAuthenticated: false,
     log: () => {},
     online: false,
+  };
+}
+
+function createSyncRuntime(
+  encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
+): NotesRuntime {
+  return {
+    apiClient: {
+      createDocument: async (_linkedContainerIds) => ({
+        id: "notes-document-1",
+        createdAt: "2026-03-31T00:00:00.000Z",
+        currentAccessEpoch: 1,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(encapsulationKeyPair.publicKey),
+        ],
+      }),
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+      ) => ({
+        documentId,
+        acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+        updates: [],
+        currentAccessEpoch: accessEpoch,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(encapsulationKeyPair.publicKey),
+        ],
+      }),
+    },
+    containerId: "root-container",
+    dbStatus: "ready",
+    domainScope: {},
+    encapsulationKeyPair,
+    events: [],
+    execSql: async () => [],
+    isAuthenticated: true,
+    log: () => {},
+    online: true,
   };
 }
 
@@ -301,4 +346,110 @@ test("large note edits remain a single pending update row before sync", async ()
   } finally {
     runtime.close();
   }
+});
+
+test("notes store enqueues a full baseline when document access expands", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const createDocumentCalls: string[][] = [];
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    outgoingUpdateCount: number;
+  }> = [];
+  let syncCallCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      createDocument: async (linkedContainerIds) => {
+        createDocumentCalls.push(linkedContainerIds);
+        return runtime.apiClient.createDocument(linkedContainerIds);
+      },
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+      ) => {
+        syncCallCount += 1;
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (syncCallCount === 2) {
+          return {
+            acceptedOutgoingUpdateIds: outgoingUpdates.map(
+              (update) => update.id,
+            ),
+            currentAccessEpoch: 2,
+            documentId,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            updates: [],
+          };
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore("default", instrumentedRuntime, persistence);
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Notes sync store did not become ready.",
+  );
+
+  store.setText("hello");
+
+  await waitForCondition(
+    () =>
+      createDocumentCalls.length === 1 &&
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.documentId === "notes-document-1",
+    "Initial note document sync did not complete.",
+  );
+
+  store.setText("hello again");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 3 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.accessEpoch === 2,
+    "Expanded access epoch did not trigger a full baseline resync.",
+  );
+
+  expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(syncDocumentCalls).toEqual([
+    {
+      accessEpoch: 1,
+      documentId: "notes-document-1",
+      outgoingUpdateCount: 1,
+    },
+    {
+      accessEpoch: 1,
+      documentId: "notes-document-1",
+      outgoingUpdateCount: 1,
+    },
+    {
+      accessEpoch: 2,
+      documentId: "notes-document-1",
+      outgoingUpdateCount: 1,
+    },
+  ]);
 });
