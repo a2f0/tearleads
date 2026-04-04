@@ -149,16 +149,7 @@ export function createLoroRouter<TSession extends SessionLike>({
         });
       } catch (error) {
         if (isStatusError(error)) {
-          switch (error.status) {
-            case 400:
-              return c.json({ error: error.message }, 400);
-            case 403:
-              return c.json({ error: error.message }, 403);
-            case 404:
-              return c.json({ error: error.message }, 404);
-            case 409:
-              return c.json({ error: error.message }, 409);
-          }
+          return c.json({ error: error.message }, error.status);
         }
 
         throw error;

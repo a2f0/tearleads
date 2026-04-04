@@ -85,7 +85,7 @@ export const documentsRouter = createLoroRouter({
     async createDocument(input) {
       const linkedContainerIds = uniqueSortedStrings(input.linkedContainerIds);
 
-      if (hasDuplicateValues(input.linkedContainerIds)) {
+      if (input.linkedContainerIds.length !== linkedContainerIds.length) {
         throw new CreateDocumentError(
           "linkedContainerIds must not contain duplicates",
           400,
