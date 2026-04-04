@@ -87,17 +87,25 @@ export async function decryptIncomingUpdates(
   secretKey: Uint8Array,
   logSkippedUpdates?: (message: string) => void,
 ): Promise<Uint8Array[]> {
+  const decryptedResults = await Promise.all(
+    encryptedUpdates.map(async (update) => {
+      try {
+        return await decryptLoroUpdate(update.encryptedData, secretKey);
+      } catch {
+        return null;
+      }
+    }),
+  );
   const decryptedUpdates: Uint8Array[] = [];
   let skippedUpdateCount = 0;
 
-  for (const update of encryptedUpdates) {
-    try {
-      decryptedUpdates.push(
-        await decryptLoroUpdate(update.encryptedData, secretKey),
-      );
-    } catch {
-      skippedUpdateCount += 1;
+  for (const decryptedUpdate of decryptedResults) {
+    if (decryptedUpdate) {
+      decryptedUpdates.push(decryptedUpdate);
+      continue;
     }
+
+    skippedUpdateCount += 1;
   }
 
   if (skippedUpdateCount > 0 && logSkippedUpdates) {
