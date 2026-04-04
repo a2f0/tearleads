@@ -31,6 +31,10 @@ interface GrantedRecipientRow {
   encapsulationKeyFingerprint: string;
 }
 
+interface GrantedRecipientWithObjectIdRow extends GrantedRecipientRow {
+  objectId: string;
+}
+
 interface AncestorContainerRow {
   id: string;
   cycleDetected: boolean;
@@ -38,8 +42,21 @@ interface AncestorContainerRow {
 
 interface DescendantContainerRow {
   id: string;
+  parentId: string | null;
   depth: number;
 }
+
+type ContainerGrantRow = {
+  objectId: string;
+  subjectType: string;
+  subjectId: string;
+  accessLevel: string;
+};
+
+type CurrentEpochRow = {
+  epoch: number;
+  accessFingerprint: string;
+};
 
 interface ContainerAccessState {
   currentAccessEpoch: number;
@@ -104,6 +121,19 @@ function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
   );
 }
 
+function isGrantedRecipientWithObjectIdRow(
+  value: unknown,
+): value is GrantedRecipientWithObjectIdRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    typeof Reflect.get(value, "objectId") === "string" &&
+    isGrantedRecipientRow(value)
+  );
+}
+
 function isAncestorContainerRow(value: unknown): value is AncestorContainerRow {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -124,6 +154,8 @@ function isDescendantContainerRow(
 
   return (
     typeof Reflect.get(value, "id") === "string" &&
+    (typeof Reflect.get(value, "parentId") === "string" ||
+      Reflect.get(value, "parentId") === null) &&
     typeof Reflect.get(value, "depth") === "number"
   );
 }
@@ -131,7 +163,7 @@ function isDescendantContainerRow(
 async function getCurrentEpochRow(
   containerId: string,
   executor: ContainerAccessExecutor = db,
-): Promise<{ epoch: number; accessFingerprint: string } | null> {
+): Promise<CurrentEpochRow | null> {
   const [row] = await executor
     .select({
       epoch: objectAccessEpochs.epoch,
@@ -150,20 +182,63 @@ async function getCurrentEpochRow(
   return row ?? null;
 }
 
-async function listDescendantContainerIds(
+async function getCurrentEpochRows(
+  containerIds: string[],
+  executor: ContainerAccessExecutor = db,
+): Promise<Map<string, CurrentEpochRow>> {
+  const uniqueContainerIds = uniqueSortedStrings(containerIds);
+
+  if (uniqueContainerIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      containerId: objectAccessEpochs.objectId,
+      epoch: objectAccessEpochs.epoch,
+      accessFingerprint: objectAccessEpochs.accessFingerprint,
+    })
+    .from(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, CONTAINER_OBJECT_TYPE),
+        inArray(objectAccessEpochs.objectId, uniqueContainerIds),
+      ),
+    )
+    .orderBy(desc(objectAccessEpochs.epoch));
+
+  const currentEpochByContainerId = new Map<string, CurrentEpochRow>();
+
+  for (const row of rows) {
+    if (currentEpochByContainerId.has(row.containerId)) {
+      continue;
+    }
+
+    currentEpochByContainerId.set(row.containerId, {
+      epoch: row.epoch,
+      accessFingerprint: row.accessFingerprint,
+    });
+  }
+
+  return currentEpochByContainerId;
+}
+
+async function listDescendantContainers(
   containerId: string,
   executor: ContainerAccessExecutor = db,
-): Promise<string[]> {
+): Promise<DescendantContainerRow[]> {
   const result = await executor.execute(sql`
     with recursive descendants as (
       select
         c.id,
+        c.parent_id,
         0 as depth
       from ${containers} c
       where c.id = ${containerId}
       union all
       select
         child.id,
+        child.parent_id,
         descendants.depth + 1 as depth
       from ${containers} child
       inner join descendants on child.parent_id = descendants.id
@@ -171,22 +246,23 @@ async function listDescendantContainerIds(
     )
     select
       id::text as "id",
+      parent_id::text as "parentId",
       depth as "depth"
     from descendants
     order by depth asc, id asc
   `);
 
-  const descendantIds: string[] = [];
+  const descendantContainers: DescendantContainerRow[] = [];
 
   for (const row of result.rows) {
     if (!isDescendantContainerRow(row)) {
       throw new Error("Unexpected row shape from descendants CTE");
     }
 
-    descendantIds.push(row.id);
+    descendantContainers.push(row);
   }
 
-  return descendantIds;
+  return descendantContainers;
 }
 
 async function writeEpoch(
@@ -295,7 +371,7 @@ async function listAncestorContainerIds(
 async function loadContainerGrantRows(
   containerIds: string[],
   executor: ContainerAccessExecutor = db,
-) {
+): Promise<ContainerGrantRow[]> {
   if (containerIds.length === 0) {
     return [];
   }
@@ -316,10 +392,10 @@ async function loadContainerGrantRows(
     );
 }
 
-async function loadGrantedRecipients(
+async function loadGrantedRecipientsByObjectId(
   containerIds: string[],
   executor: ContainerAccessExecutor = db,
-) {
+): Promise<GrantedRecipientWithObjectIdRow[]> {
   if (containerIds.length === 0) {
     return [];
   }
@@ -332,6 +408,7 @@ async function loadGrantedRecipients(
 
   const result = await executor.execute(sql`
     select
+      g.object_id as "objectId",
       u.id as "userId",
       g.access_level as "accessLevel",
       u.encapsulation_public_key as "encapsulationPublicKey",
@@ -344,6 +421,7 @@ async function loadGrantedRecipients(
       and g.object_id in (${objectIdList})
     union all
     select
+      g.object_id as "objectId",
       u.id as "userId",
       g.access_level as "accessLevel",
       u.encapsulation_public_key as "encapsulationPublicKey",
@@ -357,6 +435,7 @@ async function loadGrantedRecipients(
       and g.object_id in (${objectIdList})
     union all
     select
+      g.object_id as "objectId",
       u.id as "userId",
       g.access_level as "accessLevel",
       u.encapsulation_public_key as "encapsulationPublicKey",
@@ -370,14 +449,15 @@ async function loadGrantedRecipients(
       and g.object_id in (${objectIdList})
   `);
 
-  const grantedRecipients: GrantedRecipientRow[] = [];
+  const grantedRecipients: GrantedRecipientWithObjectIdRow[] = [];
 
   for (const row of result.rows) {
-    if (!isGrantedRecipientRow(row)) {
+    if (!isGrantedRecipientWithObjectIdRow(row)) {
       continue;
     }
 
     grantedRecipients.push({
+      objectId: Reflect.get(row, "objectId"),
       userId: Reflect.get(row, "userId"),
       accessLevel: Reflect.get(row, "accessLevel"),
       encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
@@ -391,18 +471,30 @@ async function loadGrantedRecipients(
   return grantedRecipients;
 }
 
+async function loadGrantedRecipients(
+  containerIds: string[],
+  executor: ContainerAccessExecutor = db,
+) {
+  const grantedRecipients = await loadGrantedRecipientsByObjectId(
+    containerIds,
+    executor,
+  );
+
+  return grantedRecipients.map((row) => ({
+    userId: row.userId,
+    accessLevel: row.accessLevel,
+    encapsulationPublicKey: row.encapsulationPublicKey,
+    encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
+  }));
+}
+
 async function resolveContainerRecipients(
   containerId: string,
   executor: ContainerAccessExecutor = db,
 ): Promise<{
   ancestorContainerIds: string[];
   effectiveRecipients: EffectiveContainerRecipient[];
-  grants: Array<{
-    objectId: string;
-    subjectType: string;
-    subjectId: string;
-    accessLevel: string;
-  }>;
+  grants: ContainerGrantRow[];
 }> {
   const ancestorContainerIds = await listAncestorContainerIds(
     containerId,
@@ -414,6 +506,17 @@ async function resolveContainerRecipients(
     executor,
   );
 
+  return {
+    ancestorContainerIds,
+    effectiveRecipients:
+      buildEffectiveRecipientsFromGrantedRecipients(grantedRecipients),
+    grants,
+  };
+}
+
+function buildEffectiveRecipientsFromGrantedRecipients(
+  grantedRecipients: ReadonlyArray<GrantedRecipientRow>,
+): EffectiveContainerRecipient[] {
   const effectiveAccessByUserId = new Map<string, AccessLevel>();
   const encapsulationPublicKeyByUserId = new Map<string, string>();
   const keyFingerprintByUserId = new Map<string, string>();
@@ -449,44 +552,66 @@ async function resolveContainerRecipients(
     Array.from(effectiveAccessByUserId.keys()),
   );
 
-  const effectiveRecipients = (
-    await Promise.all(
-      effectiveUserIds.map(async (userId) => {
-        const accessLevel = effectiveAccessByUserId.get(userId);
-        const encapsulationPublicKey =
-          encapsulationPublicKeyByUserId.get(userId);
-        const keyFingerprint = keyFingerprintByUserId.get(userId);
+  const effectiveRecipients = effectiveUserIds
+    .map((userId) => {
+      const accessLevel = effectiveAccessByUserId.get(userId);
+      const encapsulationPublicKey = encapsulationPublicKeyByUserId.get(userId);
+      const keyFingerprint = keyFingerprintByUserId.get(userId);
 
-        if (!accessLevel || !encapsulationPublicKey || !keyFingerprint) {
-          return null;
-        }
+      if (!accessLevel || !encapsulationPublicKey || !keyFingerprint) {
+        return null;
+      }
 
-        return {
-          userId,
-          accessLevel,
-          encapsulationPublicKey,
-          keyFingerprint,
-        };
-      }),
-    )
-  ).filter(isPresent);
+      return {
+        userId,
+        accessLevel,
+        encapsulationPublicKey,
+        keyFingerprint,
+      };
+    })
+    .filter(isPresent);
 
   effectiveRecipients.sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
   );
 
-  return { ancestorContainerIds, effectiveRecipients, grants };
+  return effectiveRecipients;
+}
+
+function mergeEffectiveRecipients(
+  inheritedRecipients: ReadonlyArray<EffectiveContainerRecipient>,
+  directGrantedRecipients: ReadonlyArray<GrantedRecipientRow>,
+): EffectiveContainerRecipient[] {
+  const recipientsByUserId = new Map<string, EffectiveContainerRecipient>();
+
+  for (const recipient of inheritedRecipients) {
+    recipientsByUserId.set(recipient.userId, recipient);
+  }
+
+  for (const recipient of buildEffectiveRecipientsFromGrantedRecipients(
+    directGrantedRecipients,
+  )) {
+    const existingRecipient = recipientsByUserId.get(recipient.userId);
+
+    recipientsByUserId.set(recipient.userId, {
+      userId: recipient.userId,
+      accessLevel: existingRecipient
+        ? mergeAccessLevel(existingRecipient.accessLevel, recipient.accessLevel)
+        : recipient.accessLevel,
+      encapsulationPublicKey: recipient.encapsulationPublicKey,
+      keyFingerprint: recipient.keyFingerprint,
+    });
+  }
+
+  return Array.from(recipientsByUserId.values()).sort((left, right) =>
+    left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
 }
 
 async function computeContainerFingerprint(input: {
   containerId: string;
   ancestorContainerIds: string[];
-  grants: Array<{
-    objectId: string;
-    subjectType: string;
-    subjectId: string;
-    accessLevel: string;
-  }>;
+  grants: ContainerGrantRow[];
   effectiveRecipients: EffectiveContainerRecipient[];
 }) {
   return computeAccessFingerprint({
@@ -511,42 +636,140 @@ async function computeContainerFingerprint(input: {
   });
 }
 
-async function refreshContainerAccessEpoch(
-  containerId: string,
-  executor: ContainerAccessExecutor = db,
-): Promise<number> {
-  const currentEpochRow = await getCurrentEpochRow(containerId, executor);
-  const { ancestorContainerIds, effectiveRecipients, grants } =
-    await resolveContainerRecipients(containerId, executor);
-  const accessFingerprint = await computeContainerFingerprint({
-    containerId,
-    ancestorContainerIds,
-    grants,
-    effectiveRecipients,
-  });
-
-  if (
-    currentEpochRow &&
-    currentEpochRow.accessFingerprint === accessFingerprint
-  ) {
-    return currentEpochRow.epoch;
-  }
-
-  const nextEpoch = currentEpochRow === null ? 1 : currentEpochRow.epoch + 1;
-  await writeEpoch(containerId, nextEpoch, accessFingerprint, executor);
-  return nextEpoch;
-}
-
 async function refreshContainerAccessSubtree(
   containerId: string,
   executor: ContainerAccessExecutor = db,
 ): Promise<Map<string, number>> {
-  const descendantIds = await listDescendantContainerIds(containerId, executor);
+  const descendantContainers = await listDescendantContainers(
+    containerId,
+    executor,
+  );
+  const descendantIds = descendantContainers.map((container) => container.id);
+  const currentEpochByContainerId = await getCurrentEpochRows(
+    descendantIds,
+    executor,
+  );
+  const directGrants = await loadContainerGrantRows(descendantIds, executor);
+  const directGrantedRecipients = await loadGrantedRecipientsByObjectId(
+    descendantIds,
+    executor,
+  );
   const epochByContainerId = new Map<string, number>();
+  const directGrantsByContainerId = new Map<string, ContainerGrantRow[]>();
+  const directGrantedRecipientsByContainerId = new Map<
+    string,
+    GrantedRecipientRow[]
+  >();
+  const resolvedInputsByContainerId = new Map<
+    string,
+    {
+      ancestorContainerIds: string[];
+      effectiveRecipients: EffectiveContainerRecipient[];
+      grants: ContainerGrantRow[];
+    }
+  >();
 
-  for (const descendantId of descendantIds) {
-    const epoch = await refreshContainerAccessEpoch(descendantId, executor);
-    epochByContainerId.set(descendantId, epoch);
+  for (const grant of directGrants) {
+    const grants = directGrantsByContainerId.get(grant.objectId);
+    if (grants) {
+      grants.push(grant);
+      continue;
+    }
+
+    directGrantsByContainerId.set(grant.objectId, [grant]);
+  }
+
+  for (const recipient of directGrantedRecipients) {
+    const recipients = directGrantedRecipientsByContainerId.get(
+      recipient.objectId,
+    );
+    const nextRecipient = {
+      userId: recipient.userId,
+      accessLevel: recipient.accessLevel,
+      encapsulationPublicKey: recipient.encapsulationPublicKey,
+      encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
+    };
+
+    if (recipients) {
+      recipients.push(nextRecipient);
+      continue;
+    }
+
+    directGrantedRecipientsByContainerId.set(recipient.objectId, [
+      nextRecipient,
+    ]);
+  }
+
+  const rootResolvedInputs = await resolveContainerRecipients(
+    containerId,
+    executor,
+  );
+
+  for (const descendantContainer of descendantContainers) {
+    const currentEpochRow =
+      currentEpochByContainerId.get(descendantContainer.id) ?? null;
+    const resolvedInputs =
+      descendantContainer.id === containerId
+        ? rootResolvedInputs
+        : (() => {
+            const parentId = descendantContainer.parentId;
+            if (!parentId) {
+              throw new Error(
+                `Descendant container ${descendantContainer.id} is missing parent`,
+              );
+            }
+
+            const parentResolvedInputs =
+              resolvedInputsByContainerId.get(parentId);
+            if (!parentResolvedInputs) {
+              throw new Error(
+                `Parent container ${parentId} was not resolved before child ${descendantContainer.id}`,
+              );
+            }
+
+            return {
+              ancestorContainerIds: [
+                ...parentResolvedInputs.ancestorContainerIds,
+                descendantContainer.id,
+              ],
+              effectiveRecipients: mergeEffectiveRecipients(
+                parentResolvedInputs.effectiveRecipients,
+                directGrantedRecipientsByContainerId.get(
+                  descendantContainer.id,
+                ) ?? [],
+              ),
+              grants: [
+                ...parentResolvedInputs.grants,
+                ...(directGrantsByContainerId.get(descendantContainer.id) ??
+                  []),
+              ],
+            };
+          })();
+    const accessFingerprint = await computeContainerFingerprint({
+      containerId: descendantContainer.id,
+      ancestorContainerIds: resolvedInputs.ancestorContainerIds,
+      grants: resolvedInputs.grants,
+      effectiveRecipients: resolvedInputs.effectiveRecipients,
+    });
+
+    resolvedInputsByContainerId.set(descendantContainer.id, resolvedInputs);
+
+    if (
+      currentEpochRow &&
+      currentEpochRow.accessFingerprint === accessFingerprint
+    ) {
+      epochByContainerId.set(descendantContainer.id, currentEpochRow.epoch);
+      continue;
+    }
+
+    const nextEpoch = currentEpochRow === null ? 1 : currentEpochRow.epoch + 1;
+    await writeEpoch(
+      descendantContainer.id,
+      nextEpoch,
+      accessFingerprint,
+      executor,
+    );
+    epochByContainerId.set(descendantContainer.id, nextEpoch);
   }
 
   return epochByContainerId;
