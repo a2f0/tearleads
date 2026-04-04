@@ -33,6 +33,13 @@ export function hasOptionalStringProperty<Key extends string>(
   return value[key] === undefined || typeof value[key] === "string";
 }
 
+export function hasNullableStringProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, string | null> {
+  return value[key] === null || typeof value[key] === "string";
+}
+
 export function hasArrayProperty<Key extends string>(
   value: Record<string, unknown>,
   key: Key,

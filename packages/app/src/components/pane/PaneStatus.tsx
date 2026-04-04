@@ -1,27 +1,18 @@
-import { toFingerprint } from "@tearleads/crypto";
 import { isUserEvent } from "@tearleads/validators/event";
-import { useEffect, useState } from "react";
 import { useNetworkState } from "../../api/NetworkStateProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useEvents } from "../../events/EventsProvider";
+import { usePersona } from "../../persona/PersonaProvider";
 import { usePeerUserId } from "./DualPaneProvider";
 
 export function PaneStatus() {
   const { id, status } = useDatabase();
-  const { signingKeyPair, userId, authToken } = useCryptoSession();
+  const { userId, authToken } = useCryptoSession();
+  const { signingFingerprint } = usePersona();
   const { events, connected } = useEvents();
   const { online } = useNetworkState();
   const peerUserId = usePeerUserId();
-  const [fingerprint, setFingerprint] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (signingKeyPair) {
-      toFingerprint(signingKeyPair.signingPublicKey).then(setFingerprint);
-    } else {
-      setFingerprint(null);
-    }
-  }, [signingKeyPair]);
 
   return (
     <div className="pane-content">
@@ -29,7 +20,7 @@ export function PaneStatus() {
       <br />
       id: {id}
       <br />
-      publicKey: {fingerprint ?? "none"}
+      publicKey: {signingFingerprint ?? "none"}
       <br />
       userId: {userId ?? "none"}
       <br />

@@ -2,6 +2,7 @@ export {
   hasArrayProperty,
   hasBooleanProperty,
   hasNullableNumberProperty,
+  hasNullableStringProperty,
   hasNumberProperty,
   hasObjectProperty,
   hasOptionalStringProperty,

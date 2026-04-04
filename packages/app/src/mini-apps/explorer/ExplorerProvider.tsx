@@ -67,7 +67,7 @@ interface ExplorerSnapshot {
 interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
-    "createContainer" | "syncDocument"
+    "createContainer" | "listContainers" | "syncDocument"
   >;
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
@@ -139,6 +139,7 @@ export function createExplorerStore(
   let initialized = false;
   let initializePromise: Promise<void> | null = null;
   let syncPromise: Promise<void> | null = null;
+  let remoteHydrationPromise: Promise<void> | null = null;
   let syncRequested = false;
   let writeChain = Promise.resolve<ContainerNode | null>(null);
   let lastEventCount = 0;
@@ -176,6 +177,7 @@ export function createExplorerStore(
     initialized = false;
     initializePromise = null;
     syncPromise = null;
+    remoteHydrationPromise = null;
     syncRequested = false;
     writeChain = Promise.resolve<ContainerNode | null>(null);
     setSnapshot({
@@ -193,6 +195,8 @@ export function createExplorerStore(
       metadataDocumentId: string | null;
       loroSnapshot: string;
       name: string;
+      organizationId: string;
+      parentId: string | null;
     }> = {},
   ): Promise<DocumentRecord> {
     const metadata = readContainerMetadataValue(
@@ -201,6 +205,9 @@ export function createExplorerStore(
     );
     const nextContainer: ContainerRecord = {
       ...containerState.container,
+      organizationId:
+        patch.organizationId ?? containerState.container.organizationId,
+      parentId: patch.parentId ?? containerState.container.parentId,
       metadataDocumentId:
         patch.metadataDocumentId ??
         patch.documentId ??
@@ -244,6 +251,107 @@ export function createExplorerStore(
 
   async function deletePendingUpdate(id: string) {
     await persistence.deletePendingUpdate(runtime.execSql, id);
+  }
+
+  async function hydrateRemoteContainers(): Promise<void> {
+    if (
+      !runtime.isAuthenticated ||
+      !runtime.online ||
+      runtime.dbStatus !== "ready"
+    ) {
+      return;
+    }
+
+    const remoteContainers = await runtime.apiClient.listContainers();
+    if (!remoteContainers) {
+      return;
+    }
+
+    const localRecipientPublicKeys = getLocalRecipientPublicKeys(
+      runtime.encapsulationKeyPair,
+    );
+
+    for (const remoteContainer of remoteContainers) {
+      const existingState = containersById.get(remoteContainer.id);
+
+      if (existingState) {
+        existingState.recipientPublicKeys = resolveRecipientPublicKeys(
+          remoteContainer.metadataRecipientEncapsulationPublicKeys,
+          localRecipientPublicKeys,
+        );
+        await persistContainerState(existingState, {
+          accessEpoch: remoteContainer.metadataAccessEpoch,
+          documentId: remoteContainer.metadataDocumentId,
+          metadataDocumentId: remoteContainer.metadataDocumentId,
+          organizationId: remoteContainer.organizationId,
+          parentId: remoteContainer.parentId,
+        });
+        continue;
+      }
+
+      const doc = await createContainerMetadataDocument(remoteContainer.id);
+      const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
+      const containerState: ContainerState = {
+        container: {
+          id: remoteContainer.id,
+          organizationId: remoteContainer.organizationId,
+          parentId: remoteContainer.parentId,
+          metadataDocumentId: remoteContainer.metadataDocumentId,
+          name: getFallbackContainerName(remoteContainer.parentId),
+          icon: null,
+        },
+        doc,
+        recipientPublicKeys: resolveRecipientPublicKeys(
+          remoteContainer.metadataRecipientEncapsulationPublicKeys,
+          localRecipientPublicKeys,
+        ),
+        record: {
+          accessEpoch: remoteContainer.metadataAccessEpoch,
+          documentId: remoteContainer.metadataDocumentId,
+          id: remoteContainer.id,
+          loroSnapshot: initialSnapshot,
+        },
+      };
+
+      await persistence.saveContainer(
+        runtime.execSql,
+        containerState.container,
+        containerState.record,
+      );
+      containersById.set(remoteContainer.id, containerState);
+    }
+
+    if (remoteContainers.length > 0) {
+      updateSnapshot();
+      runtime.log(
+        `Explorer: hydrated ${remoteContainers.length} remote container(s)`,
+      );
+    }
+  }
+
+  function scheduleRemoteHydration() {
+    if (remoteHydrationPromise) {
+      return;
+    }
+
+    remoteHydrationPromise = hydrateRemoteContainers()
+      .catch((error: unknown) => {
+        if (
+          error instanceof Error &&
+          error.message === "Database worker client has been destroyed."
+        ) {
+          return;
+        }
+
+        throw error;
+      })
+      .finally(() => {
+        remoteHydrationPromise = null;
+
+        if (snapshot.ready && runtime.isAuthenticated && runtime.online) {
+          scheduleSync();
+        }
+      });
   }
 
   async function initialize() {
@@ -315,7 +423,14 @@ export function createExplorerStore(
 
     runtime.log(`Explorer: loaded ${containersById.size} container(s)`);
 
-    if (containersById.size > 0) {
+    if (runtime.isAuthenticated && runtime.online) {
+      await hydrateRemoteContainers();
+    }
+
+    if (
+      containersById.size > 0 ||
+      (runtime.isAuthenticated && runtime.online)
+    ) {
       scheduleSync();
     }
   }
@@ -695,7 +810,7 @@ export function createExplorerStore(
       handleRemoteEvents();
 
       if (snapshot.ready && regainedSyncPrerequisites) {
-        scheduleSync();
+        scheduleRemoteHydration();
       }
     },
   };

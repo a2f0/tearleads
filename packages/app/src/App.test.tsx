@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../test/helpers/mswServer";
 import { App } from "./App";
@@ -26,6 +26,23 @@ test("renders App", async () => {
       }
     />,
   );
+
+  expect(
+    view.getAllByText(/sqlite worker: idle/).length,
+  ).toBeGreaterThanOrEqual(1);
+  expect(
+    view.getAllByText(
+      /Generate a key pair from the pane menu to boot this pane\./,
+    ).length,
+  ).toBeGreaterThanOrEqual(1);
+
+  const firstMenuButton = view.getAllByText("Menu")[0];
+  if (!firstMenuButton) {
+    throw new Error("Expected a pane menu button.");
+  }
+
+  fireEvent.click(firstMenuButton);
+  fireEvent.click(view.getByText("Generate Key Pair"));
 
   await waitFor(() => {
     expect(

@@ -1,5 +1,4 @@
 import {
-  type CSSProperties,
   type FormEvent,
   Fragment,
   type ReactNode,
@@ -80,7 +79,9 @@ function renderTreeEntries(
       <Fragment key={entry.node.id}>
         <div
           className="explorer-sidebar-row"
-          style={{ "--explorer-depth": depth } as CSSProperties}
+          style={{
+            paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
+          }}
         >
           {hasChildren ? (
             <button

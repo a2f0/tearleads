@@ -12,6 +12,7 @@ import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPe
 import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useLog } from "../../logging/LogProvider";
+import { usePersona } from "../../persona/PersonaProvider";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -24,23 +25,21 @@ export function PaneMenu({
 }) {
   const { client: dbClient, killWorker, spawnWorker, status } = useDatabase();
   const {
-    signingKeyPair,
-    encapsulationKeyPair,
     userId,
     containerId,
-    generateKey,
-    destroyKey,
     setUserId,
     setOrganizationId,
     loginWithChallenge,
   } = useCryptoSession();
+  const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
+    usePersona();
   const { log } = useLog();
   const apiClient = useApiClient();
   const isTerminated = status === "terminated";
 
   return (
     <Menu position={position} onClose={onClose}>
-      {!isTerminated && (
+      {signingKeyPair && !isTerminated && (
         <MenuItem
           label="Kill Worker"
           onClick={() => {
@@ -49,7 +48,7 @@ export function PaneMenu({
           }}
         />
       )}
-      {isTerminated && (
+      {signingKeyPair && isTerminated && (
         <MenuItem
           label="Spawn Worker"
           onClick={() => {
