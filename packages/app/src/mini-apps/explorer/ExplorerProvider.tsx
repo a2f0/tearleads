@@ -55,6 +55,7 @@ interface ExplorerContextValue {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
 }
@@ -67,7 +68,7 @@ interface ExplorerSnapshot {
 interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
-    "createContainer" | "listContainers" | "syncDocument"
+    "createContainer" | "listContainers" | "shareContainer" | "syncDocument"
   >;
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
@@ -89,6 +90,7 @@ interface ExplorerStore {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   getSnapshot: () => ExplorerSnapshot;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: ExplorerRuntime) => void;
@@ -254,6 +256,32 @@ export function createExplorerStore(
 
   async function deletePendingUpdate(id: string) {
     await persistence.deletePendingUpdate(runtime.execSql, id);
+  }
+
+  async function decryptMetadataUpdates(
+    encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
+    secretKey: Uint8Array,
+  ): Promise<Uint8Array[]> {
+    const decryptedUpdates: Uint8Array[] = [];
+    let skippedUpdateCount = 0;
+
+    for (const update of encryptedUpdates) {
+      try {
+        decryptedUpdates.push(
+          await decryptLoroUpdate(update.encryptedData, secretKey),
+        );
+      } catch {
+        skippedUpdateCount += 1;
+      }
+    }
+
+    if (skippedUpdateCount > 0) {
+      runtime.log(
+        `Explorer: skipped ${skippedUpdateCount} undecryptable metadata update(s)`,
+      );
+    }
+
+    return decryptedUpdates;
   }
 
   async function hydrateRemoteContainers(): Promise<void> {
@@ -523,15 +551,13 @@ export function createExplorerStore(
           }
 
           if (synced.updates.length > 0) {
-            const decryptedUpdates = await Promise.all(
-              synced.updates.map((update) =>
-                decryptLoroUpdate(
-                  update.encryptedData,
-                  encapsulationKeyPair.secretKey,
-                ),
-              ),
+            const decryptedUpdates = await decryptMetadataUpdates(
+              synced.updates,
+              encapsulationKeyPair.secretKey,
             );
-            importUpdates(containerState.doc, decryptedUpdates);
+            if (decryptedUpdates.length > 0) {
+              importUpdates(containerState.doc, decryptedUpdates);
+            }
           }
 
           const previousAccessEpoch = containerState.record.accessEpoch;
@@ -772,6 +798,59 @@ export function createExplorerStore(
       return writeChain;
     },
 
+    shareWithUser(containerId, userId) {
+      if (
+        runtime.dbStatus !== "ready" ||
+        !snapshot.ready ||
+        !runtime.isAuthenticated ||
+        !runtime.online
+      ) {
+        return Promise.resolve(false);
+      }
+
+      writeChain = writeChain
+        .catch(() => null)
+        .then(async () => {
+          const existingState = containersById.get(containerId);
+          if (!existingState?.record.documentId) {
+            return null;
+          }
+
+          const shared = await runtime.apiClient.shareContainer(
+            containerId,
+            "user",
+            userId,
+            "write",
+          );
+
+          if (!shared) {
+            return null;
+          }
+
+          existingState.recipientPublicKeys = resolveRecipientPublicKeys(
+            shared.metadataRecipientEncapsulationPublicKeys,
+            getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+          );
+          await persistContainerState(existingState, {
+            accessEpoch: shared.metadataAccessEpoch,
+            documentId: shared.metadataDocumentId,
+            metadataDocumentId: shared.metadataDocumentId,
+          });
+
+          await enqueuePendingUpdate(
+            containerId,
+            exportAllUpdates(existingState.doc),
+          );
+          scheduleSync();
+          runtime.log(
+            `Explorer: shared container ${containerId} with ${userId}`,
+          );
+          return toContainerNode(existingState.container);
+        });
+
+      return writeChain.then((sharedNode) => sharedNode !== null);
+    },
+
     getSnapshot() {
       return snapshot;
     },
@@ -867,6 +946,7 @@ export function useExplorer(): ExplorerContextValue {
     createChild: store.createChild,
     deleteContainer: store.deleteContainer,
     renameContainer: store.renameContainer,
+    shareWithUser: store.shareWithUser,
     nodes: snapshot.nodes,
     ready: snapshot.ready,
   };

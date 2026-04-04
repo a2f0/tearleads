@@ -1,0 +1,173 @@
+import { expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import invariant from "invariant";
+import { authenticate } from "../../../test/helpers/authenticate";
+import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { db } from "../../adapters/postgres";
+import { app } from "../../index";
+import { containers, users } from "../../schema";
+
+async function getRootContainerIdForUser(userId: string): Promise<string> {
+  const [user] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  invariant(user, "expected user row");
+
+  const [rootContainer] = await db
+    .select({
+      id: containers.id,
+    })
+    .from(containers)
+    .where(eq(containers.organizationId, user.defaultOrganizationId))
+    .limit(1);
+
+  invariant(rootContainer, "expected root container row");
+  return rootContainer.id;
+}
+
+test("POST /containers/:containerId/share grants direct user access and bumps descendant metadata epochs", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const recipient = createTestUser();
+  await registerUser(recipient);
+  await authenticate(recipient);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+  const descendantContainerId = crypto.randomUUID();
+
+  const sharedCreateResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: ownerRootId,
+    }),
+  });
+
+  expect(sharedCreateResponse.status).toBe(200);
+
+  const descendantCreateResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: descendantContainerId,
+      initialMetadataUpdates: [],
+      parentId: sharedContainerId,
+    }),
+  });
+
+  expect(descendantCreateResponse.status).toBe(200);
+
+  const shareResponse = await app.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        accessLevel: "write",
+        subjectId: recipient.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  expect(shared.id).toBe(sharedContainerId);
+  expect(shared.metadataAccessEpoch).toBe(2);
+  expect(shared.metadataRecipientEncapsulationPublicKeys).toHaveLength(2);
+
+  const listResponse = await app.request("/containers", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${recipient.token}`,
+    },
+  });
+
+  expect(listResponse.status).toBe(200);
+  const listedContainers = await listResponse.json();
+  expect(listedContainers).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: sharedContainerId,
+        metadataAccessEpoch: 2,
+        parentId: ownerRootId,
+      }),
+      expect.objectContaining({
+        id: descendantContainerId,
+        metadataAccessEpoch: 2,
+        parentId: sharedContainerId,
+      }),
+    ]),
+  );
+});
+
+test("POST /containers/:containerId/share rejects callers without admin access", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const recipient = createTestUser();
+  await registerUser(recipient);
+  await authenticate(recipient);
+
+  const intruder = createTestUser();
+  await registerUser(intruder);
+  await authenticate(intruder);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+
+  const createResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: ownerRootId,
+    }),
+  });
+
+  expect(createResponse.status).toBe(200);
+
+  const shareResponse = await app.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${intruder.token}`,
+      },
+      body: JSON.stringify({
+        accessLevel: "write",
+        subjectId: recipient.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+
+  expect(shareResponse.status).toBe(403);
+  expect(await shareResponse.json()).toEqual({ error: "Forbidden" });
+});

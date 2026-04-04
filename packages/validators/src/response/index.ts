@@ -21,7 +21,9 @@ export {
   type CreateContainerResponse,
   isCreateContainerResponse,
   isListContainersResponse,
+  isShareContainerResponse,
   type ListContainersResponse,
+  type ShareContainerResponse,
 } from "./container";
 export { type HealthResponse, isHealthResponse } from "./health";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";

@@ -72,6 +72,36 @@ async function appendDocumentUpdates(
   }
 }
 
+async function validateMetadataRecipients(
+  encryptedUpdates: ReadonlyArray<SyncDocumentOutgoingUpdate>,
+  expectedRecipientKeyFingerprints: string[],
+): Promise<void> {
+  for (const update of encryptedUpdates) {
+    try {
+      if (
+        !matchesRecipients(
+          update.encryptedData,
+          expectedRecipientKeyFingerprints,
+        )
+      ) {
+        throw new ContainerMetadataError(
+          "Encrypted metadata update recipients mismatch",
+          400,
+        );
+      }
+    } catch (error) {
+      if (error instanceof ContainerMetadataError) {
+        throw error;
+      }
+
+      throw new ContainerMetadataError(
+        "Invalid encrypted metadata update envelope",
+        400,
+      );
+    }
+  }
+}
+
 export class ContainerMetadataError extends Error {
   constructor(
     message: string,
@@ -134,31 +164,10 @@ export async function createContainerMetadataDocument(
   const expectedRecipientKeyFingerprints = uniqueSortedStrings(
     listRecipientKeyFingerprints(access),
   );
-
-  for (const update of input.initialMetadataUpdates) {
-    try {
-      if (
-        !matchesRecipients(
-          update.encryptedData,
-          expectedRecipientKeyFingerprints,
-        )
-      ) {
-        throw new ContainerMetadataError(
-          "Encrypted metadata update recipients mismatch",
-          400,
-        );
-      }
-    } catch (error) {
-      if (error instanceof ContainerMetadataError) {
-        throw error;
-      }
-
-      throw new ContainerMetadataError(
-        "Invalid encrypted metadata update envelope",
-        400,
-      );
-    }
-  }
+  await validateMetadataRecipients(
+    input.initialMetadataUpdates,
+    expectedRecipientKeyFingerprints,
+  );
 
   await appendDocumentUpdates(
     tx,

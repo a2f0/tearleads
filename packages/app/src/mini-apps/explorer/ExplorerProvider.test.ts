@@ -39,6 +39,12 @@ async function createSqlRuntime(): Promise<TestRuntime> {
         _initialMetadataUpdates,
       ) => null,
       listContainers: async () => [],
+      shareContainer: async (
+        _containerId: string,
+        _subjectType: "user" | "group" | "organization",
+        _subjectId: string,
+        _accessLevel: "read" | "write" | "admin",
+      ) => null,
       syncDocument: async () => null,
     },
     close: () => db.close(),
@@ -185,6 +191,7 @@ test("explorer store creates authenticated child containers through the API befo
       };
     },
     listContainers: async () => [],
+    shareContainer: async () => null,
     syncDocument: async () => null,
   };
 
@@ -231,6 +238,138 @@ test("explorer store creates authenticated child containers through the API befo
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
   } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store shares an authenticated container and enqueues a full metadata baseline", async () => {
+  const runtime = await createSqlRuntime();
+  const shareContainerCalls: Array<{
+    accessLevel: "read" | "write" | "admin";
+    containerId: string;
+    subjectId: string;
+    subjectType: "user" | "group" | "organization";
+  }> = [];
+  const syncCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    outgoingUpdateCount: number;
+  }> = [];
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.apiClient = {
+    createContainer: async () => null,
+    listContainers: async () => [],
+    shareContainer: async (
+      containerId: string,
+      subjectType: "user" | "group" | "organization",
+      subjectId: string,
+      accessLevel: "read" | "write" | "admin",
+    ) => {
+      shareContainerCalls.push({
+        accessLevel,
+        containerId,
+        subjectId,
+        subjectType,
+      });
+      return {
+        id: containerId,
+        metadataAccessEpoch: 2,
+        metadataDocumentId: "metadata-document-1",
+        metadataRecipientEncapsulationPublicKeys: [],
+      };
+    },
+    syncDocument: async (
+      documentId,
+      accessEpoch,
+      _localVersionVector,
+      updates,
+    ) => {
+      syncCalls.push({
+        accessEpoch,
+        documentId,
+        outgoingUpdateCount: updates.length,
+      });
+      return {
+        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
+        currentAccessEpoch: accessEpoch,
+        documentId,
+        recipientEncapsulationPublicKeys: [],
+        updates: [],
+      };
+    },
+  };
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "child-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "metadata-document-1",
+      name: "Docs",
+      icon: null,
+    });
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const shared = await createdStore.shareWithUser(
+      "child-container",
+      "550e8400-e29b-41d4-a716-446655440000",
+    );
+
+    expect(shared).toBe(true);
+
+    await waitForCondition(
+      () =>
+        syncCalls.some(
+          (call) =>
+            call.accessEpoch === 2 &&
+            call.documentId === "metadata-document-1" &&
+            call.outgoingUpdateCount === 1,
+        ),
+      "Explorer store did not sync shared metadata baseline.",
+    );
+
+    expect(shareContainerCalls).toEqual([
+      {
+        accessLevel: "write",
+        containerId: "child-container",
+        subjectId: "550e8400-e29b-41d4-a716-446655440000",
+        subjectType: "user",
+      },
+    ]);
+    expect(
+      syncCalls.some(
+        (call) =>
+          call.accessEpoch === 2 &&
+          call.documentId === "metadata-document-1" &&
+          call.outgoingUpdateCount === 1,
+      ),
+    ).toBe(true);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
     runtime.close();
   }
 });

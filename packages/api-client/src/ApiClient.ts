@@ -9,7 +9,11 @@ import {
   getEncapsulationKey,
 } from "./routes/auth";
 import { stageBlob } from "./routes/blobs";
-import { createContainer, listContainers } from "./routes/containers";
+import {
+  createContainer,
+  listContainers,
+  shareContainer,
+} from "./routes/containers";
 import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { postPublicKey } from "./routes/register";
@@ -156,6 +160,21 @@ export class ApiClient {
 
   listContainers() {
     return listContainers(this.request);
+  }
+
+  shareContainer(
+    containerId: string,
+    subjectType: "user" | "group" | "organization",
+    subjectId: string,
+    accessLevel: "read" | "write" | "admin",
+  ) {
+    return shareContainer(
+      this.request,
+      containerId,
+      subjectType,
+      subjectId,
+      accessLevel,
+    );
   }
 
   syncDocument(

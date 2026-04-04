@@ -12,6 +12,8 @@ export {
 export {
   type CreateContainerRequest,
   isCreateContainerRequest,
+  isShareContainerRequest,
+  type ShareContainerRequest,
 } from "./container";
 export {
   isPublicKeyRequest,

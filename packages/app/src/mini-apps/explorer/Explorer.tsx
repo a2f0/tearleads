@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
@@ -23,7 +24,8 @@ interface ExplorerTreeEntry {
 type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
-  | { mode: "rename"; nodeId: string };
+  | { mode: "rename"; nodeId: string }
+  | { mode: "share-peer"; nodeId: string };
 
 function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
@@ -135,9 +137,16 @@ function renderTreeEntries(
 }
 
 export function Explorer() {
-  const { createChild, deleteContainer, nodes, ready, renameContainer } =
-    useExplorer();
+  const {
+    createChild,
+    deleteContainer,
+    nodes,
+    ready,
+    renameContainer,
+    shareWithUser,
+  } = useExplorer();
   const { setSidebar } = useWindowSidebar();
+  const peerUserId = usePeerUserId();
   const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -293,8 +302,18 @@ export function Explorer() {
     setDraftName("");
   }, []);
 
+  const openSharePeerModal = useCallback((containerId: string) => {
+    setModalState({ mode: "share-peer", nodeId: containerId });
+    setModalError(null);
+    setDraftName("");
+  }, []);
+
   useEffect(() => {
-    if (!modalState || modalState.mode === "delete") {
+    if (
+      !modalState ||
+      modalState.mode === "delete" ||
+      modalState.mode === "share-peer"
+    ) {
       return;
     }
 
@@ -346,6 +365,24 @@ export function Explorer() {
           return;
         }
 
+        if (modalState.mode === "share-peer") {
+          if (!peerUserId) {
+            setModalError("No peer user is available.");
+            return;
+          }
+
+          const shared = await shareWithUser(modalState.nodeId, peerUserId);
+          if (!shared) {
+            setModalError("Failed to share container with peer.");
+            return;
+          }
+
+          setModalState(null);
+          setModalError(null);
+          setDraftName("");
+          return;
+        }
+
         const nextNode =
           modalState.mode === "create-child"
             ? await createChild(modalState.nodeId, draftName)
@@ -372,7 +409,9 @@ export function Explorer() {
             ? "Failed to create child container:"
             : modalState.mode === "rename"
               ? "Failed to rename container:"
-              : "Failed to delete container:",
+              : modalState.mode === "delete"
+                ? "Failed to delete container:"
+                : "Failed to share container with peer:",
           error,
         );
         setModalError(
@@ -380,7 +419,9 @@ export function Explorer() {
             ? "Failed to create child container."
             : modalState.mode === "rename"
               ? "Failed to rename container."
-              : "Failed to delete container.",
+              : modalState.mode === "delete"
+                ? "Failed to delete container."
+                : "Failed to share container with peer.",
         );
       } finally {
         setIsSubmittingModal(false);
@@ -394,7 +435,9 @@ export function Explorer() {
       isSubmittingModal,
       modalState,
       nodes,
+      peerUserId,
       renameContainer,
+      shareWithUser,
     ],
   );
 
@@ -409,6 +452,7 @@ export function Explorer() {
     !contextMenuNodeHasChildren;
   const isDeleteModal = modalState?.mode === "delete";
   const isRenameModal = modalState?.mode === "rename";
+  const isSharePeerModal = modalState?.mode === "share-peer";
 
   return (
     <div className="explorer">
@@ -452,6 +496,14 @@ export function Explorer() {
             }}
           />
           <MenuItem
+            label="Share With Peer"
+            disabled={!peerUserId}
+            onClick={() => {
+              closeContextMenu();
+              openSharePeerModal(contextMenu.nodeId);
+            }}
+          />
+          <MenuItem
             label="Delete"
             disabled={!canDeleteContextMenuNode}
             onClick={() => {
@@ -473,13 +525,21 @@ export function Explorer() {
               <h2 id="explorer-modal-title">
                 {isDeleteModal
                   ? "Delete Container"
-                  : isRenameModal
-                    ? "Rename Container"
-                    : "Create Child"}
+                  : isSharePeerModal
+                    ? "Share Container"
+                    : isRenameModal
+                      ? "Rename Container"
+                      : "Create Child"}
               </h2>
               {isDeleteModal ? (
                 <div className="explorer-modal-copy">
                   Delete this container?
+                </div>
+              ) : isSharePeerModal ? (
+                <div className="explorer-modal-copy">
+                  {peerUserId
+                    ? `Share this container with peer user ${peerUserId}?`
+                    : "No peer user is available."}
                 </div>
               ) : (
                 <label className="explorer-modal-field">
@@ -511,20 +571,27 @@ export function Explorer() {
                   type="submit"
                   disabled={
                     isSubmittingModal ||
-                    (!isDeleteModal && draftName.trim().length === 0)
+                    (!isDeleteModal &&
+                      !isSharePeerModal &&
+                      draftName.trim().length === 0) ||
+                    (isSharePeerModal && !peerUserId)
                   }
                 >
                   {isSubmittingModal
                     ? isDeleteModal
                       ? "Deleting..."
-                      : isRenameModal
-                        ? "Renaming..."
-                        : "Creating..."
+                      : isSharePeerModal
+                        ? "Sharing..."
+                        : isRenameModal
+                          ? "Renaming..."
+                          : "Creating..."
                     : isDeleteModal
                       ? "Delete"
-                      : isRenameModal
-                        ? "Rename"
-                        : "Create"}
+                      : isSharePeerModal
+                        ? "Share"
+                        : isRenameModal
+                          ? "Rename"
+                          : "Create"}
                 </button>
               </div>
             </form>
