@@ -8,3 +8,4 @@ export {
   hasPropertyValue,
   hasStringProperty,
 } from "./properties";
+export { isUuidV4String } from "./uuid";

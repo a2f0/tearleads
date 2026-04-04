@@ -1,5 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasArrayProperty, hasStringProperty } from "../util";
+import { hasArrayProperty, hasStringProperty, isUuidV4String } from "../util";
 import {
   type EncryptedDocumentUpdate,
   isEncryptedDocumentUpdate,
@@ -17,7 +17,9 @@ export function isCreateContainerRequest(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
+    isUuidV4String(value.id) &&
     hasStringProperty(value, "parentId") &&
+    isUuidV4String(value.parentId) &&
     hasArrayProperty(value, "initialMetadataUpdates") &&
     value.initialMetadataUpdates.every(isEncryptedDocumentUpdate)
   );

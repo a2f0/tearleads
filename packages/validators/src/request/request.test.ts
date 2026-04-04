@@ -25,6 +25,15 @@ test("isPublicKeyRequest", () => {
   ).toBe(true);
   expect(
     isPublicKeyRequest({
+      rootContainerId: "not-a-uuid",
+      signingPublicKey: [1, 2, 3],
+      encapsulationPublicKey: [4, 5, 6],
+      initialRootMetadataUpdates: [],
+      wrappedDekEnvelope: validEnvelope,
+    }),
+  ).toBe(false);
+  expect(
+    isPublicKeyRequest({
       rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
       signingPublicKey: [],
       encapsulationPublicKey: [],
@@ -150,6 +159,13 @@ test("isCreateContainerRequest", () => {
   expect(
     isCreateContainerRequest({
       id: "550e8400-e29b-41d4-a716-446655440000",
+      initialMetadataUpdates: [],
+    }),
+  ).toBe(false);
+  expect(
+    isCreateContainerRequest({
+      id: "not-a-uuid",
+      parentId: "550e8400-e29b-41d4-a716-446655440001",
       initialMetadataUpdates: [],
     }),
   ).toBe(false);

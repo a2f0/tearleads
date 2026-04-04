@@ -39,6 +39,12 @@ interface ContainerAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
   ancestorContainerIds: string[];
+  grants: Array<{
+    objectId: string;
+    subjectType: string;
+    subjectId: string;
+    accessLevel: string;
+  }>;
   effectiveRecipients: EffectiveContainerRecipient[];
 }
 
@@ -149,14 +155,26 @@ async function writeEpoch(
 export async function initializeContainerAccess(
   containerId: string,
   executor: ContainerAccessExecutor = db,
+  options: {
+    inheritedFrom?: ContainerAccessState;
+  } = {},
 ): Promise<number> {
   const currentEpochRow = await getCurrentEpochRow(containerId, executor);
   if (currentEpochRow) {
     return currentEpochRow.epoch;
   }
 
-  const { ancestorContainerIds, effectiveRecipients, grants } =
-    await resolveContainerRecipients(containerId, executor);
+  const inheritedState = options.inheritedFrom;
+  const { ancestorContainerIds, effectiveRecipients, grants } = inheritedState
+    ? {
+        ancestorContainerIds: [
+          ...inheritedState.ancestorContainerIds,
+          containerId,
+        ],
+        effectiveRecipients: inheritedState.effectiveRecipients,
+        grants: inheritedState.grants,
+      }
+    : await resolveContainerRecipients(containerId, executor);
   const accessFingerprint = await computeContainerFingerprint({
     containerId,
     ancestorContainerIds,
@@ -511,6 +529,7 @@ export async function resolveContainerAccessState(
     currentAccessEpoch: currentEpochRow.epoch,
     accessFingerprint,
     ancestorContainerIds,
+    grants,
     effectiveRecipients,
   };
 }

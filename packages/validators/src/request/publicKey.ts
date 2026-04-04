@@ -4,6 +4,7 @@ import {
   hasArrayProperty,
   hasObjectProperty,
   hasStringProperty,
+  isUuidV4String,
 } from "../util";
 import {
   type EncryptedDocumentUpdate,
@@ -38,6 +39,7 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "rootContainerId") &&
+    isUuidV4String(value.rootContainerId) &&
     hasArrayProperty(value, "signingPublicKey") &&
     isNumberArray(value.signingPublicKey) &&
     hasArrayProperty(value, "encapsulationPublicKey") &&

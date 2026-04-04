@@ -16,9 +16,6 @@ import {
   createContainerMetadataDocument,
 } from "./containerMetadata";
 
-const UUID_V4_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 class CreateContainerError extends Error {
   constructor(
     message: string,
@@ -43,14 +40,6 @@ createContainerRoute.post(
   async (c) => {
     const session = c.get("session");
     const { id, initialMetadataUpdates, parentId } = c.req.valid("json");
-
-    if (!UUID_V4_REGEX.test(id)) {
-      return c.json({ error: "Invalid id: must be a valid UUIDv4" }, 400);
-    }
-
-    if (!UUID_V4_REGEX.test(parentId)) {
-      return c.json({ error: "Invalid parentId: must be a valid UUIDv4" }, 400);
-    }
 
     try {
       const created = await db.transaction(async (tx) => {
@@ -97,7 +86,9 @@ createContainerRoute.post(
           throw new CreateContainerError("Container already exists", 409);
         }
 
-        await initializeContainerAccess(container.id, tx);
+        await initializeContainerAccess(container.id, tx, {
+          inheritedFrom: parentAccess,
+        });
 
         const metadata = await createContainerMetadataDocument(tx, {
           authorFingerprint: session.fingerprint,
