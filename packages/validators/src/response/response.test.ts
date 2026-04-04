@@ -24,6 +24,9 @@ test("isPublicKeyResponse", () => {
       userId: "abc-123",
       organizationId: "org-456",
       rootContainerId: "ctr-789",
+      rootMetadataDocumentId: "doc-root",
+      rootMetadataAccessEpoch: 1,
+      rootMetadataRecipientEncapsulationPublicKeys: ["pub-key"],
       challenge: "deadbeef",
     }),
   ).toBe(true);
@@ -116,6 +119,9 @@ test("isCreateContainerResponse", () => {
       id: "ctr-123",
       organizationId: "org-123",
       parentId: "ctr-root",
+      metadataDocumentId: "doc-123",
+      metadataAccessEpoch: 1,
+      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(true);
   expect(

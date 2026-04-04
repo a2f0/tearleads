@@ -1,6 +1,13 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
+import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
+import {
+  createPendingUpdateFields,
+  encryptPendingUpdates,
+  getLocalRecipientPublicKeys,
+} from "../../data/documentSync";
 import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
 import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
 import { useDatabase } from "../../db/DatabaseProvider";
@@ -84,11 +91,31 @@ export function PaneMenu({
 
             if (!wrappedEnvelope) return;
 
+            const { initialUpdate } =
+              await createInitializedContainerMetadataDocument(containerId, {
+                icon: null,
+                name: "/",
+              });
+            const pendingUpdateFields =
+              createPendingUpdateFields(initialUpdate);
+            const initialRootMetadataUpdates = pendingUpdateFields
+              ? await encryptPendingUpdates(
+                  [
+                    {
+                      id: crypto.randomUUID(),
+                      ...pendingUpdateFields,
+                    },
+                  ],
+                  getLocalRecipientPublicKeys(encapsulationKeyPair),
+                )
+              : [];
+
             const response = await apiClient.postPublicKey(
               containerId,
               signingKeyPair.signingPublicKey,
               encapsulationKeyPair.publicKey,
               wrappedEnvelope,
+              initialRootMetadataUpdates,
             );
             if (!response) return;
 
@@ -112,6 +139,9 @@ export function PaneMenu({
                   containerId,
                   encapsulationPublicKey: encapsulationKeyPair.publicKey,
                   organizationId: response.organizationId,
+                  rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
+                  rootMetadataDocumentId: response.rootMetadataDocumentId,
+                  rootMetadataSnapshot: bytesToBase64(initialUpdate),
                   userId: response.userId,
                 });
                 log("Local identity and root container persisted");

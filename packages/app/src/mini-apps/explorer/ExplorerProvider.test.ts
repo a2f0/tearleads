@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -6,6 +7,7 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import {
   ensureContainerTables,
+  loadContainers,
   saveContainer,
 } from "../../data/containerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
@@ -30,17 +32,25 @@ async function createSqlRuntime(): Promise<TestRuntime> {
 
   return {
     apiClient: {
-      createContainer: async (_id: string, _parentId: string) => null,
+      createContainer: async (
+        _id: string,
+        _parentId: string,
+        _initialMetadataUpdates,
+      ) => null,
+      syncDocument: async () => null,
     },
     close: () => db.close(),
     dbStatus: "ready" as const,
     domainScope: {},
+    encapsulationKeyPair: null,
+    events: [],
     execSql: async (
       sql: string,
       bind?: Record<string, string | number | null>,
     ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
     isAuthenticated: false,
     log: () => {},
+    online: false,
   };
 }
 
@@ -53,7 +63,9 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
+      metadataDocumentId: null,
       name: "/",
+      icon: null,
     });
 
     const firstStore = createExplorerStore(runtime);
@@ -144,19 +156,33 @@ test("explorer store creates authenticated child containers through the API befo
   const runtime = await createSqlRuntime();
   const createContainerCalls: Array<{
     id: string;
+    initialMetadataUpdateCount: number;
     parentId: string;
   }> = [];
 
   runtime.isAuthenticated = true;
+  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
   runtime.apiClient = {
-    createContainer: async (id: string, parentId: string) => {
-      createContainerCalls.push({ id, parentId });
+    createContainer: async (
+      id: string,
+      parentId: string,
+      initialMetadataUpdates,
+    ) => {
+      createContainerCalls.push({
+        id,
+        initialMetadataUpdateCount: initialMetadataUpdates.length,
+        parentId,
+      });
       return {
         id,
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "metadata-document-1",
+        metadataRecipientEncapsulationPublicKeys: [],
         organizationId: "org-1",
         parentId,
       };
     },
+    syncDocument: async () => null,
   };
 
   try {
@@ -165,7 +191,9 @@ test("explorer store creates authenticated child containers through the API befo
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
+      metadataDocumentId: null,
       name: "/",
+      icon: null,
     });
 
     const store = createExplorerStore(runtime);
@@ -184,20 +212,19 @@ test("explorer store creates authenticated child containers through the API befo
     expect(createContainerCalls).toEqual([
       {
         id: childNode.id,
+        initialMetadataUpdateCount: 1,
         parentId: "root-container",
       },
     ]);
 
-    const persistedRows = await runtime.execSql(
-      `
-        SELECT id, organization_id, parent_id, name
-        FROM containers
-        WHERE id = :id
-      `,
-      { ":id": childNode.id },
+    const persistedContainers = await loadContainers(runtime.execSql);
+    const persistedChild = persistedContainers.find(
+      (container) => container.id === childNode.id,
     );
 
-    expect(persistedRows).toHaveLength(1);
+    expect(persistedChild).not.toBeUndefined();
+    expect(persistedChild?.metadataDocumentId).toBe("metadata-document-1");
+    expect(persistedChild?.name).toBe("Docs");
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
   } finally {

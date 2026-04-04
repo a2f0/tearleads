@@ -84,6 +84,15 @@ export const documentContainerLinks = pgTable("document_container_links", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const containerMetadataDocuments = pgTable(
+  "container_metadata_documents",
+  {
+    containerId: uuid("container_id").primaryKey(),
+    documentId: uuid("document_id").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+);
+
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   storageKey: text("storage_key").notNull(),

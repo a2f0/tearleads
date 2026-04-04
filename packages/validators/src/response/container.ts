@@ -1,10 +1,17 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty } from "../util";
+import {
+  hasArrayProperty,
+  hasNumberProperty,
+  hasStringProperty,
+} from "../util";
 
 export interface CreateContainerResponse {
   id: string;
   organizationId: string;
   parentId: string;
+  metadataDocumentId: string;
+  metadataAccessEpoch: number;
+  metadataRecipientEncapsulationPublicKeys: string[];
 }
 
 export function isCreateContainerResponse(
@@ -14,6 +21,12 @@ export function isCreateContainerResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "parentId")
+    hasStringProperty(value, "parentId") &&
+    hasStringProperty(value, "metadataDocumentId") &&
+    hasNumberProperty(value, "metadataAccessEpoch") &&
+    hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
+    value.metadataRecipientEncapsulationPublicKeys.every(
+      (entry) => typeof entry === "string",
+    )
   );
 }

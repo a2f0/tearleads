@@ -1,3 +1,11 @@
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  decryptLoroUpdate,
+  encodeVersionVector,
+  exportAllUpdates,
+  exportUpdatesSince,
+  importUpdates,
+} from "@tearleads/loro";
 import {
   createContext,
   type PropsWithChildren,
@@ -8,14 +16,33 @@ import {
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import {
-  deleteContainer as deleteContainerRecord,
-  ensureContainerTables,
-  loadContainers,
-  saveContainer,
-} from "../../data/containerPersistence";
+  createContainerMetadataDocument,
+  createInitializedContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containerMetadataDocument";
+import type { ContainerRecord } from "../../data/containerPersistence";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/documentPersistence";
+import {
+  createPendingUpdateFields,
+  encryptPendingUpdates,
+  getLocalRecipientPublicKeys,
+  isDocumentUpdateCreatedEvent,
+  resolveRecipientPublicKeys,
+} from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
+import {
+  type ExplorerPersistence,
+  sqlExplorerPersistence,
+} from "./explorerPersistence";
 import type { ContainerNode } from "./types";
 
+type ContainerMetadataDocument = Awaited<
+  ReturnType<typeof createContainerMetadataDocument>
+>;
 type ExplorerAppData = ReturnType<typeof useAppData>;
 
 interface ExplorerContextValue {
@@ -38,12 +65,18 @@ interface ExplorerSnapshot {
 }
 
 interface ExplorerRuntime {
-  apiClient: Pick<ExplorerAppData["apiClient"], "createContainer">;
+  apiClient: Pick<
+    ExplorerAppData["apiClient"],
+    "createContainer" | "syncDocument"
+  >;
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
+  encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
+  events: ExplorerAppData["events"];
   execSql: ExecSql;
   isAuthenticated: ExplorerAppData["isAuthenticated"];
   log: ExplorerAppData["log"];
+  online: ExplorerAppData["online"];
 }
 
 interface ExplorerStore {
@@ -61,41 +94,54 @@ interface ExplorerStore {
   updateRuntime: (runtime: ExplorerRuntime) => void;
 }
 
+interface ContainerState {
+  container: ContainerRecord;
+  doc: ContainerMetadataDocument;
+  recipientPublicKeys: Uint8Array[];
+  record: DocumentRecord;
+}
+
 const explorerStoresByScope = new WeakMap<object, ExplorerStore>();
 const ExplorerContext = createContext<ExplorerStore | null>(null);
 
-function sortNodes(
-  nodes: ReadonlyArray<ContainerNode>,
+function getFallbackContainerName(parentId: string | null): string {
+  return parentId === null ? "/" : "Untitled";
+}
+
+function toContainerNode(container: ContainerRecord): ContainerNode {
+  return {
+    id: container.id,
+    kind: "container",
+    name: container.name,
+    organizationId: container.organizationId,
+    parentId: container.parentId,
+  };
+}
+
+function getSnapshotNodes(
+  containersById: ReadonlyMap<string, ContainerState>,
 ): ReadonlyArray<ContainerNode> {
-  return [...nodes].sort((left, right) =>
+  return Array.from(containersById.values(), (containerState) =>
+    toContainerNode(containerState.container),
+  ).sort((left, right) =>
     left.name.localeCompare(right.name, undefined, {
       sensitivity: "base",
     }),
   );
 }
 
-function toContainerNode(record: {
-  id: string;
-  organizationId: string;
-  parentId: string | null;
-  name: string;
-}): ContainerNode {
-  return {
-    id: record.id,
-    kind: "container",
-    name: record.name,
-    organizationId: record.organizationId,
-    parentId: record.parentId,
-  };
-}
-
 export function createExplorerStore(
   initialRuntime: ExplorerRuntime,
+  persistence: ExplorerPersistence = sqlExplorerPersistence,
 ): ExplorerStore {
   let runtime = initialRuntime;
+  let containersById = new Map<string, ContainerState>();
   let initialized = false;
   let initializePromise: Promise<void> | null = null;
+  let syncPromise: Promise<void> | null = null;
+  let syncRequested = false;
   let writeChain = Promise.resolve<ContainerNode | null>(null);
+  let lastEventCount = 0;
   const listeners = new Set<() => void>();
 
   let snapshot: ExplorerSnapshot = {
@@ -113,8 +159,91 @@ export function createExplorerStore(
     if (next.ready === snapshot.ready && next.nodes === snapshot.nodes) {
       return;
     }
+
     snapshot = next;
     emit();
+  }
+
+  function updateSnapshot() {
+    setSnapshot({
+      nodes: getSnapshotNodes(containersById),
+      ready: true,
+    });
+  }
+
+  function resetStore() {
+    containersById = new Map();
+    initialized = false;
+    initializePromise = null;
+    syncPromise = null;
+    syncRequested = false;
+    writeChain = Promise.resolve<ContainerNode | null>(null);
+    setSnapshot({
+      nodes: [],
+      ready: false,
+    });
+  }
+
+  async function persistContainerState(
+    containerState: ContainerState,
+    patch: Partial<{
+      accessEpoch: number;
+      documentId: string | null;
+      icon: string | null;
+      metadataDocumentId: string | null;
+      loroSnapshot: string;
+      name: string;
+    }> = {},
+  ): Promise<DocumentRecord> {
+    const metadata = readContainerMetadataValue(
+      containerState.doc,
+      getFallbackContainerName(containerState.container.parentId),
+    );
+    const nextContainer: ContainerRecord = {
+      ...containerState.container,
+      metadataDocumentId:
+        patch.metadataDocumentId ??
+        patch.documentId ??
+        containerState.container.metadataDocumentId,
+      name: patch.name ?? metadata.name,
+      icon: patch.icon ?? metadata.icon,
+    };
+    const nextRecord: DocumentRecord = {
+      id: containerState.container.id,
+      documentId: patch.documentId ?? containerState.record.documentId,
+      loroSnapshot:
+        patch.loroSnapshot ??
+        bytesToBase64(exportAllUpdates(containerState.doc)),
+      accessEpoch: patch.accessEpoch ?? containerState.record.accessEpoch,
+    };
+
+    await persistence.saveContainer(runtime.execSql, nextContainer, nextRecord);
+    containerState.container = nextContainer;
+    containerState.record = nextRecord;
+    updateSnapshot();
+    return nextRecord;
+  }
+
+  async function listPendingUpdates(
+    containerId: string,
+  ): Promise<PendingUpdateRecord[]> {
+    return persistence.listPendingUpdates(runtime.execSql, containerId);
+  }
+
+  async function enqueuePendingUpdate(containerId: string, update: Uint8Array) {
+    const pendingUpdateFields = createPendingUpdateFields(update);
+    if (!pendingUpdateFields) {
+      return;
+    }
+
+    await persistence.enqueuePendingUpdate(runtime.execSql, {
+      containerId,
+      ...pendingUpdateFields,
+    });
+  }
+
+  async function deletePendingUpdate(id: string) {
+    await persistence.deletePendingUpdate(runtime.execSql, id);
   }
 
   async function initialize() {
@@ -122,14 +251,73 @@ export function createExplorerStore(
       return;
     }
 
-    await ensureContainerTables(runtime.execSql);
-    const records = await loadContainers(runtime.execSql);
-    const nodes = sortNodes(records.map((record) => toContainerNode(record)));
+    await persistence.ensureSchema(runtime.execSql);
+    const storedContainers = await persistence.loadContainers(runtime.execSql);
+
+    for (const storedContainer of storedContainers) {
+      const { container } = storedContainer;
+      const doc = await createContainerMetadataDocument(container.id);
+      let nextContainer = container;
+      let nextRecord = storedContainer.record;
+
+      if (nextRecord?.loroSnapshot) {
+        importUpdates(doc, [base64ToBytes(nextRecord.loroSnapshot)]);
+        const metadata = readContainerMetadataValue(
+          doc,
+          getFallbackContainerName(container.parentId),
+        );
+        nextContainer = {
+          ...container,
+          icon: metadata.icon,
+          name: metadata.name,
+        };
+        await persistence.saveContainer(
+          runtime.execSql,
+          nextContainer,
+          nextRecord,
+        );
+      } else {
+        writeContainerMetadataValue(doc, {
+          icon: container.icon,
+          name: container.name,
+        });
+        const initialUpdate = exportAllUpdates(doc);
+        nextRecord = {
+          accessEpoch: 1,
+          documentId: container.metadataDocumentId,
+          id: container.id,
+          loroSnapshot: bytesToBase64(initialUpdate),
+        };
+        await persistence.saveContainer(
+          runtime.execSql,
+          nextContainer,
+          nextRecord,
+        );
+
+        if (!container.metadataDocumentId) {
+          await enqueuePendingUpdate(container.id, initialUpdate);
+        }
+      }
+
+      containersById.set(container.id, {
+        container: nextContainer,
+        doc,
+        recipientPublicKeys: getLocalRecipientPublicKeys(
+          runtime.encapsulationKeyPair,
+        ),
+        record: nextRecord,
+      });
+    }
 
     initialized = true;
     initializePromise = null;
-    runtime.log(`Explorer: loaded ${nodes.length} container(s)`);
-    setSnapshot({ nodes, ready: true });
+    updateSnapshot();
+
+    runtime.log(`Explorer: loaded ${containersById.size} container(s)`);
+
+    if (containersById.size > 0) {
+      scheduleSync();
+    }
   }
 
   function ensureInitialized() {
@@ -151,6 +339,137 @@ export function createExplorerStore(
     });
   }
 
+  function scheduleSync() {
+    syncRequested = true;
+
+    if (syncPromise) {
+      return;
+    }
+
+    syncPromise = (async () => {
+      while (syncRequested) {
+        syncRequested = false;
+
+        if (
+          !snapshot.ready ||
+          !runtime.online ||
+          !runtime.isAuthenticated ||
+          !runtime.encapsulationKeyPair
+        ) {
+          continue;
+        }
+
+        const encapsulationKeyPair = runtime.encapsulationKeyPair;
+
+        if (!encapsulationKeyPair) {
+          continue;
+        }
+
+        for (const containerState of Array.from(containersById.values())) {
+          const pendingUpdates = await listPendingUpdates(
+            containerState.container.id,
+          );
+          const documentId = containerState.record.documentId;
+
+          if (!documentId) {
+            continue;
+          }
+
+          const outgoingUpdates = await encryptPendingUpdates(
+            pendingUpdates,
+            containerState.recipientPublicKeys,
+          );
+
+          const synced = await runtime.apiClient.syncDocument(
+            documentId,
+            containerState.record.accessEpoch,
+            encodeVersionVector(containerState.doc),
+            outgoingUpdates,
+          );
+
+          if (!synced) {
+            continue;
+          }
+
+          containerState.recipientPublicKeys = resolveRecipientPublicKeys(
+            synced.recipientEncapsulationPublicKeys,
+            getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+          );
+
+          for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+            await deletePendingUpdate(acceptedOutgoingUpdateId);
+          }
+
+          if (synced.updates.length > 0) {
+            const decryptedUpdates = await Promise.all(
+              synced.updates.map((update) =>
+                decryptLoroUpdate(
+                  update.encryptedData,
+                  encapsulationKeyPair.secretKey,
+                ),
+              ),
+            );
+            importUpdates(containerState.doc, decryptedUpdates);
+          }
+
+          const previousAccessEpoch = containerState.record.accessEpoch;
+          await persistContainerState(containerState, {
+            accessEpoch: synced.currentAccessEpoch,
+            documentId,
+            metadataDocumentId: documentId,
+          });
+
+          if (
+            pendingUpdates.length > 0 &&
+            synced.currentAccessEpoch !== previousAccessEpoch
+          ) {
+            syncRequested = true;
+          }
+        }
+      }
+
+      syncPromise = null;
+    })().catch((error: unknown) => {
+      syncPromise = null;
+
+      if (
+        error instanceof Error &&
+        error.message === "Database worker client has been destroyed."
+      ) {
+        return;
+      }
+
+      throw error;
+    });
+  }
+
+  function handleRemoteEvents() {
+    const knownDocumentIds = new Set(
+      Array.from(
+        containersById.values(),
+        (containerState) => containerState.record.documentId,
+      ).filter((documentId) => documentId !== null),
+    );
+
+    if (knownDocumentIds.size === 0) {
+      lastEventCount = runtime.events.length;
+      return;
+    }
+
+    const nextEvents = runtime.events.slice(lastEventCount);
+    lastEventCount = runtime.events.length;
+
+    if (
+      nextEvents.some(
+        (event) =>
+          isDocumentUpdateCreatedEvent(event) &&
+          knownDocumentIds.has(event.documentId),
+      )
+    ) {
+      scheduleSync();
+    }
+  }
+
   return {
     createChild(parentId, name) {
       const trimmedName = name.trim();
@@ -161,45 +480,101 @@ export function createExplorerStore(
       writeChain = writeChain
         .catch(() => null)
         .then(async () => {
-          const parent = snapshot.nodes.find((node) => node.id === parentId);
-          if (!parent) {
+          const parentState = containersById.get(parentId);
+          if (!parentState) {
             return null;
           }
 
           const childId = crypto.randomUUID();
-          const createdRecord = runtime.isAuthenticated
-            ? await runtime.apiClient.createContainer(childId, parent.id)
-            : {
-                id: childId,
-                organizationId: parent.organizationId,
-                parentId: parent.id,
-              };
+          const { doc, initialUpdate } =
+            await createInitializedContainerMetadataDocument(childId, {
+              icon: null,
+              name: trimmedName,
+            });
+          const initialRecord: DocumentRecord = {
+            accessEpoch: 1,
+            documentId: null,
+            id: childId,
+            loroSnapshot: bytesToBase64(initialUpdate),
+          };
+          let childState: ContainerState;
 
-          if (!createdRecord) {
-            return null;
+          if (runtime.isAuthenticated && runtime.encapsulationKeyPair) {
+            const pendingUpdateFields =
+              createPendingUpdateFields(initialUpdate);
+            const initialMetadataUpdates = pendingUpdateFields
+              ? await encryptPendingUpdates(
+                  [
+                    {
+                      id: crypto.randomUUID(),
+                      ...pendingUpdateFields,
+                    },
+                  ],
+                  getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+                )
+              : [];
+            const created = await runtime.apiClient.createContainer(
+              childId,
+              parentState.container.id,
+              initialMetadataUpdates,
+            );
+
+            if (!created) {
+              return null;
+            }
+
+            childState = {
+              container: {
+                id: created.id,
+                organizationId: created.organizationId,
+                parentId: created.parentId,
+                metadataDocumentId: created.metadataDocumentId,
+                name: trimmedName,
+                icon: null,
+              },
+              doc,
+              recipientPublicKeys: resolveRecipientPublicKeys(
+                created.metadataRecipientEncapsulationPublicKeys,
+                getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+              ),
+              record: {
+                ...initialRecord,
+                accessEpoch: created.metadataAccessEpoch,
+                documentId: created.metadataDocumentId,
+              },
+            };
+          } else {
+            childState = {
+              container: {
+                id: childId,
+                organizationId: parentState.container.organizationId,
+                parentId: parentState.container.id,
+                metadataDocumentId: null,
+                name: trimmedName,
+                icon: null,
+              },
+              doc,
+              recipientPublicKeys: getLocalRecipientPublicKeys(
+                runtime.encapsulationKeyPair,
+              ),
+              record: initialRecord,
+            };
           }
 
-          const childNode: ContainerNode = {
-            id: createdRecord.id,
-            kind: "container",
-            name: trimmedName,
-            organizationId: createdRecord.organizationId,
-            parentId: createdRecord.parentId,
-          };
+          await persistence.saveContainer(
+            runtime.execSql,
+            childState.container,
+            childState.record,
+          );
 
-          await saveContainer(runtime.execSql, {
-            id: childNode.id,
-            organizationId: childNode.organizationId,
-            parentId: childNode.parentId,
-            name: childNode.name,
-          });
+          if (!childState.record.documentId) {
+            await enqueuePendingUpdate(childState.container.id, initialUpdate);
+          }
 
-          setSnapshot({
-            nodes: sortNodes([...snapshot.nodes, childNode]),
-            ready: true,
-          });
+          containersById.set(childState.container.id, childState);
+          updateSnapshot();
           runtime.log(`Explorer: created container "${trimmedName}"`);
-          return childNode;
+          return toContainerNode(childState.container);
         });
 
       return writeChain;
@@ -213,27 +588,28 @@ export function createExplorerStore(
       writeChain = writeChain
         .catch(() => null)
         .then(async () => {
-          const existingNode = snapshot.nodes.find(
-            (node) => node.id === containerId,
-          );
+          const existingState = containersById.get(containerId);
           if (
-            !existingNode ||
-            existingNode.parentId === null ||
-            snapshot.nodes.some((node) => node.parentId === containerId)
+            !existingState ||
+            existingState.container.parentId === null ||
+            Array.from(containersById.values()).some(
+              (containerState) =>
+                containerState.container.parentId === containerId,
+            )
           ) {
             return null;
           }
 
-          await deleteContainerRecord(runtime.execSql, existingNode.id);
-
-          setSnapshot({
-            nodes: sortNodes(
-              snapshot.nodes.filter((node) => node.id !== existingNode.id),
-            ),
-            ready: true,
-          });
-          runtime.log(`Explorer: deleted container "${existingNode.name}"`);
-          return existingNode;
+          await persistence.deleteContainer(
+            runtime.execSql,
+            existingState.container.id,
+          );
+          containersById.delete(existingState.container.id);
+          updateSnapshot();
+          runtime.log(
+            `Explorer: deleted container "${existingState.container.name}"`,
+          );
+          return toContainerNode(existingState.container);
         });
 
       return writeChain.then((deletedNode) => deletedNode !== null);
@@ -248,39 +624,27 @@ export function createExplorerStore(
       writeChain = writeChain
         .catch(() => null)
         .then(async () => {
-          const existingNode = snapshot.nodes.find(
-            (node) => node.id === containerId,
-          );
-          if (!existingNode) {
+          const existingState = containersById.get(containerId);
+          if (!existingState) {
             return null;
           }
 
-          if (existingNode.name === trimmedName) {
-            return existingNode;
+          if (existingState.container.name === trimmedName) {
+            return toContainerNode(existingState.container);
           }
 
-          const renamedNode: ContainerNode = {
-            ...existingNode,
+          const previousVersion = encodeVersionVector(existingState.doc);
+          writeContainerMetadataValue(existingState.doc, {
+            icon: existingState.container.icon,
             name: trimmedName,
-          };
-
-          await saveContainer(runtime.execSql, {
-            id: renamedNode.id,
-            organizationId: renamedNode.organizationId,
-            parentId: renamedNode.parentId,
-            name: renamedNode.name,
           });
+          const update = exportUpdatesSince(existingState.doc, previousVersion);
 
-          setSnapshot({
-            nodes: sortNodes(
-              snapshot.nodes.map((node) =>
-                node.id === renamedNode.id ? renamedNode : node,
-              ),
-            ),
-            ready: true,
-          });
+          await enqueuePendingUpdate(existingState.container.id, update);
+          await persistContainerState(existingState, { name: trimmedName });
+          scheduleSync();
           runtime.log(`Explorer: renamed container to "${trimmedName}"`);
-          return renamedNode;
+          return toContainerNode(existingState.container);
         });
 
       return writeChain;
@@ -296,8 +660,43 @@ export function createExplorerStore(
     },
 
     updateRuntime(nextRuntime) {
+      const previousRuntime = runtime;
       runtime = nextRuntime;
+
+      if (nextRuntime.dbStatus !== "ready") {
+        if (snapshot.ready || initialized || initializePromise) {
+          resetStore();
+        }
+        lastEventCount = nextRuntime.events.length;
+        return;
+      }
+
+      if (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) {
+        resetStore();
+        lastEventCount = nextRuntime.events.length;
+      }
+
+      for (const containerState of containersById.values()) {
+        if (!containerState.record.documentId) {
+          containerState.recipientPublicKeys = getLocalRecipientPublicKeys(
+            runtime.encapsulationKeyPair,
+          );
+        }
+      }
+
       ensureInitialized();
+
+      const regainedSyncPrerequisites =
+        (!previousRuntime.online && nextRuntime.online) ||
+        (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
+        (!previousRuntime.encapsulationKeyPair &&
+          !!nextRuntime.encapsulationKeyPair);
+
+      handleRemoteEvents();
+
+      if (snapshot.ready && regainedSyncPrerequisites) {
+        scheduleSync();
+      }
     },
   };
 }
@@ -340,20 +739,13 @@ export function useExplorer(): ExplorerContextValue {
     throw new Error("useExplorer must be used within an ExplorerProvider.");
   }
 
-  const snapshot = useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot,
-  );
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return useMemo(
-    () => ({
-      createChild: store.createChild,
-      deleteContainer: store.deleteContainer,
-      nodes: snapshot.nodes,
-      renameContainer: store.renameContainer,
-      ready: snapshot.ready,
-    }),
-    [snapshot, store],
-  );
+  return {
+    createChild: store.createChild,
+    deleteContainer: store.deleteContainer,
+    renameContainer: store.renameContainer,
+    nodes: snapshot.nodes,
+    ready: snapshot.ready,
+  };
 }

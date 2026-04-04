@@ -10,7 +10,7 @@ import {
 } from "../../access/containerAccess";
 import { db } from "../../adapters/postgres";
 import { app } from "../../index";
-import { containers, users } from "../../schema";
+import { containerMetadataDocuments, containers, users } from "../../schema";
 
 async function getRootContainerForUser(userId: string) {
   const [user] = await db
@@ -57,16 +57,19 @@ test("POST /containers creates a child container under a writable parent", async
     },
     body: JSON.stringify({
       id: childId,
+      initialMetadataUpdates: [],
       parentId: rootContainer.id,
     }),
   });
 
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({
-    id: childId,
-    organizationId: rootContainer.organizationId,
-    parentId: rootContainer.id,
-  });
+  const body = await response.json();
+  expect(body.id).toBe(childId);
+  expect(body.organizationId).toBe(rootContainer.organizationId);
+  expect(body.parentId).toBe(rootContainer.id);
+  expect(typeof body.metadataDocumentId).toBe("string");
+  expect(body.metadataAccessEpoch).toBe(1);
+  expect(body.metadataRecipientEncapsulationPublicKeys).toHaveLength(1);
 
   const [createdContainer] = await db
     .select()
@@ -77,6 +80,18 @@ test("POST /containers creates a child container under a writable parent", async
   invariant(createdContainer, "expected created child container");
   expect(createdContainer.parentId).toBe(rootContainer.id);
   expect(createdContainer.organizationId).toBe(rootContainer.organizationId);
+
+  const [metadataBinding] = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, childId))
+    .limit(1);
+
+  expect(metadataBinding?.containerId).toBe(childId);
+  expect(metadataBinding?.documentId).toBe(body.metadataDocumentId);
 
   const accessState = await resolveContainerAccessState(childId);
   invariant(accessState, "expected initialized child access state");
@@ -102,6 +117,7 @@ test("POST /containers rejects creating a child container under a parent without
     },
     body: JSON.stringify({
       id: crypto.randomUUID(),
+      initialMetadataUpdates: [],
       parentId: ownerRootContainer.id,
     }),
   });

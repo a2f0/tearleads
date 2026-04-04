@@ -82,6 +82,11 @@ await client.exec(`
     container_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS container_metadata_documents (
+    container_id UUID PRIMARY KEY,
+    document_id UUID NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_key TEXT NOT NULL,

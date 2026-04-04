@@ -1,9 +1,11 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
+import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
 import { app } from "../../../src/index";
 
 export async function uploadKey(
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
+  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[] = [],
 ): Promise<Response> {
   const dek = crypto.getRandomValues(new Uint8Array(32));
   const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
@@ -20,6 +22,7 @@ export async function uploadKey(
       rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
+      initialRootMetadataUpdates,
       wrappedDekEnvelope: {
         keyFingerprint: wrappedEnvelope.keyFingerprint,
         kemCipherText: Array.from(wrappedEnvelope.kemCipherText),

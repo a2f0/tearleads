@@ -44,6 +44,9 @@ test("displays userId after uploading public key", async () => {
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
   fireEvent.click(view.getByText("Upload Public Key"));
 
   await waitFor(() => {
@@ -77,6 +80,9 @@ test("userId resets to none when key pair is destroyed", async () => {
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
   fireEvent.click(view.getByText("Upload Public Key"));
 
   await waitFor(() => {
@@ -165,6 +171,9 @@ test("contacts windows in the same pane share live address book state", async ()
   fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByText("Generate Key Pair"));
   fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
   fireEvent.click(view.getByText("Upload Public Key"));
 
   await waitFor(() => {

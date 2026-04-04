@@ -109,6 +109,7 @@ export class ApiClient {
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
     wrappedDekEnvelope: Parameters<typeof postPublicKey>[4],
+    initialRootMetadataUpdates: Parameters<typeof postPublicKey>[5],
   ) {
     return postPublicKey(
       this.request,
@@ -116,6 +117,7 @@ export class ApiClient {
       signingPublicKey,
       encapsulationPublicKey,
       wrappedDekEnvelope,
+      initialRootMetadataUpdates,
     );
   }
 
@@ -144,8 +146,12 @@ export class ApiClient {
     return createDocument(this.request, linkedContainerIds);
   }
 
-  createContainer(id: string, parentId: string) {
-    return createContainer(this.request, id, parentId);
+  createContainer(
+    id: string,
+    parentId: string,
+    initialMetadataUpdates: Parameters<typeof createContainer>[3],
+  ) {
+    return createContainer(this.request, id, parentId, initialMetadataUpdates);
   }
 
   syncDocument(

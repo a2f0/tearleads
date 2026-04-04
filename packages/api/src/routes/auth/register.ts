@@ -22,6 +22,10 @@ import {
   organizations,
   users,
 } from "../../schema";
+import {
+  ContainerMetadataError,
+  createContainerMetadataDocument,
+} from "../containers/containerMetadata";
 
 const CONTAINER_OBJECT_TYPE = "container";
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
@@ -45,6 +49,7 @@ registerRoute.post(
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
+      initialRootMetadataUpdates,
       wrappedDekEnvelope,
     } = c.req.valid("json");
     const signingKeyBytes = new Uint8Array(signingPublicKey);
@@ -89,6 +94,9 @@ registerRoute.post(
       userId: string;
       organizationId: string;
       rootContainerId: string;
+      rootMetadataAccessEpoch: number;
+      rootMetadataDocumentId: string;
+      rootMetadataRecipientEncapsulationPublicKeys: string[];
     };
     try {
       result = await db.transaction(async (tx) => {
@@ -185,10 +193,21 @@ registerRoute.post(
           ),
         });
 
+        const rootMetadata = await createContainerMetadataDocument(tx, {
+          authorFingerprint: fingerprint,
+          containerId: container.id,
+          createdByFingerprint: fingerprint,
+          initialMetadataUpdates: initialRootMetadataUpdates,
+        });
+
         return {
           userId: user.id,
           organizationId: org.id,
           rootContainerId: container.id,
+          rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
+          rootMetadataDocumentId: rootMetadata.metadataDocumentId,
+          rootMetadataRecipientEncapsulationPublicKeys:
+            rootMetadata.metadataRecipientEncapsulationPublicKeys,
         };
       });
     } catch (error) {
@@ -197,6 +216,10 @@ registerRoute.post(
         error.message === DUPLICATE_FINGERPRINT_ERROR
       ) {
         return c.json({ error: "Key already exists" }, 409);
+      }
+
+      if (error instanceof ContainerMetadataError) {
+        return c.json({ error: error.message }, error.status);
       }
 
       throw error;
@@ -219,6 +242,10 @@ registerRoute.post(
       userId: result.userId,
       organizationId: result.organizationId,
       rootContainerId: result.rootContainerId,
+      rootMetadataDocumentId: result.rootMetadataDocumentId,
+      rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
+      rootMetadataRecipientEncapsulationPublicKeys:
+        result.rootMetadataRecipientEncapsulationPublicKeys,
       challenge: challengeHex,
     });
   },

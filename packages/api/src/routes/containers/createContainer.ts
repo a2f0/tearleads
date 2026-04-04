@@ -11,6 +11,10 @@ import {
 import { db } from "../../adapters/postgres";
 import { requireAuth } from "../../middleware/session";
 import { containers } from "../../schema";
+import {
+  ContainerMetadataError,
+  createContainerMetadataDocument,
+} from "./containerMetadata";
 
 const UUID_V4_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,7 +22,7 @@ const UUID_V4_REGEX =
 class CreateContainerError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404 | 409,
+    readonly status: 400 | 403 | 404 | 409,
   ) {
     super(message);
   }
@@ -38,7 +42,7 @@ createContainerRoute.post(
   }),
   async (c) => {
     const session = c.get("session");
-    const { id, parentId } = c.req.valid("json");
+    const { id, initialMetadataUpdates, parentId } = c.req.valid("json");
 
     if (!UUID_V4_REGEX.test(id)) {
       return c.json({ error: "Invalid id: must be a valid UUIDv4" }, 400);
@@ -95,16 +99,31 @@ createContainerRoute.post(
 
         await initializeContainerAccess(container.id, tx);
 
+        const metadata = await createContainerMetadataDocument(tx, {
+          authorFingerprint: session.fingerprint,
+          containerId: container.id,
+          createdByFingerprint: session.fingerprint,
+          initialMetadataUpdates,
+        });
+
         return {
           id: container.id,
           organizationId: container.organizationId,
           parentId: container.parentId ?? parent.id,
+          metadataAccessEpoch: metadata.metadataAccessEpoch,
+          metadataDocumentId: metadata.metadataDocumentId,
+          metadataRecipientEncapsulationPublicKeys:
+            metadata.metadataRecipientEncapsulationPublicKeys,
         };
       });
 
       return c.json<CreateContainerResponse>(created);
     } catch (error) {
       if (error instanceof CreateContainerError) {
+        return c.json({ error: error.message }, error.status);
+      }
+
+      if (error instanceof ContainerMetadataError) {
         return c.json({ error: error.message }, error.status);
       }
 

@@ -12,7 +12,12 @@ import { uploadKey } from "../../../test/helpers/api";
 import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
 import { app } from "../../index";
-import { containers, organizations, users } from "../../schema";
+import {
+  containerMetadataDocuments,
+  containers,
+  organizations,
+  users,
+} from "../../schema";
 
 let fingerprint: string;
 
@@ -37,6 +42,9 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
   expect(body.message).toBe("ok");
   expect(typeof body.userId).toBe("string");
   expect(body.userId.length).toBeGreaterThan(0);
+  expect(typeof body.rootMetadataDocumentId).toBe("string");
+  expect(body.rootMetadataAccessEpoch).toBe(1);
+  expect(body.rootMetadataRecipientEncapsulationPublicKeys).toHaveLength(1);
 
   const stored = await get(fingerprint);
   invariant(stored, "expected publicKey to be stored in redis by fingerprint");
@@ -119,6 +127,7 @@ test("POST /auth/register rejects a wrapped envelope whose fingerprint does not 
       rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(publicKey),
+      initialRootMetadataUpdates: [],
       wrappedDekEnvelope: {
         keyFingerprint: "mismatch",
         kemCipherText: Array.from(wrappedEnvelope.kemCipherText),
@@ -154,6 +163,7 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
       rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(publicKey),
+      initialRootMetadataUpdates: [],
       wrappedDekEnvelope: {
         keyFingerprint: wrappedEnvelope.keyFingerprint,
         kemCipherText: badKemCipherText,
@@ -166,4 +176,25 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
   expect(await response.json()).toEqual({
     error: "Invalid wrappedDekEnvelope.kemCipherText length",
   });
+});
+
+test("POST /auth/register provisions a root metadata document", async () => {
+  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+
+  const response = await uploadKey(signingPublicKey, publicKey);
+  expect(response.status).toBe(200);
+  const body = await response.json();
+
+  const [metadataBinding] = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, body.rootContainerId))
+    .limit(1);
+
+  expect(metadataBinding?.containerId).toBe(body.rootContainerId);
+  expect(metadataBinding?.documentId).toBe(body.rootMetadataDocumentId);
 });
