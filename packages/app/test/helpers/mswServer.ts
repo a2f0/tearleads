@@ -26,6 +26,9 @@ const server = setupServer(
       userId: crypto.randomUUID(),
       organizationId: crypto.randomUUID(),
       rootContainerId: crypto.randomUUID(),
+      rootMetadataDocumentId: crypto.randomUUID(),
+      rootMetadataAccessEpoch: 1,
+      rootMetadataRecipientEncapsulationPublicKeys: [randomHex(32)],
       challenge: randomHex(32),
     });
   }),

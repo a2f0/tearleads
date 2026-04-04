@@ -57,7 +57,6 @@ test("container access inherits ancestor grants and merges child grants", async 
     .values({
       organizationId: aliceRow.defaultOrganizationId,
       parentId: rootContainer.id,
-      name: "Shared Child",
     })
     .returning({ id: containers.id });
 
@@ -68,7 +67,6 @@ test("container access inherits ancestor grants and merges child grants", async 
     .values({
       organizationId: aliceRow.defaultOrganizationId,
       parentId: childContainer.id,
-      name: "Shared Grandchild",
     })
     .returning({ id: containers.id });
 
@@ -148,7 +146,6 @@ test("container access expands organization and group grants and merges access l
     .values({
       organizationId: aliceRow.defaultOrganizationId,
       parentId: rootContainer.id,
-      name: "Shared Child",
     })
     .returning({ id: containers.id });
 
@@ -159,7 +156,6 @@ test("container access expands organization and group grants and merges access l
     .values({
       organizationId: aliceRow.defaultOrganizationId,
       parentId: childContainer.id,
-      name: "Shared Grandchild",
     })
     .returning({ id: containers.id });
 

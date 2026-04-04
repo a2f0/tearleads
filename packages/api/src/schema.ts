@@ -11,12 +11,6 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const items = pgTable("items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  encryptedData: text("encrypted_data").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -27,7 +21,6 @@ export const containers = pgTable("containers", {
   id: uuid("id").defaultRandom().primaryKey(),
   organizationId: uuid("organization_id").notNull(),
   parentId: uuid("parent_id"),
-  name: text("name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -90,6 +83,15 @@ export const documentContainerLinks = pgTable("document_container_links", {
   containerId: uuid("container_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const containerMetadataDocuments = pgTable(
+  "container_metadata_documents",
+  {
+    containerId: uuid("container_id").primaryKey(),
+    documentId: uuid("document_id").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+);
 
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),

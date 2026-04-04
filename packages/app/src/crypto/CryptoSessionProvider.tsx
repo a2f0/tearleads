@@ -97,7 +97,9 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
             id,
             organizationId: "",
             parentId: null,
+            metadataDocumentId: null,
             name: "/",
+            icon: null,
           });
           setContainerId(id);
           log("Root container created");

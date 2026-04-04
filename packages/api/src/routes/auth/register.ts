@@ -22,13 +22,15 @@ import {
   organizations,
   users,
 } from "../../schema";
+import {
+  ContainerMetadataError,
+  createContainerMetadataDocument,
+} from "../containers/containerMetadata";
 
 const CONTAINER_OBJECT_TYPE = "container";
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
 const ML_KEM1024_CIPHERTEXT_LENGTH = 1568;
 const WRAPPED_DEK_LENGTH = 48;
-const UUID_V4_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const registerRoute = new Hono();
 
@@ -45,19 +47,13 @@ registerRoute.post(
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
+      initialRootMetadataUpdates,
       wrappedDekEnvelope,
     } = c.req.valid("json");
     const signingKeyBytes = new Uint8Array(signingPublicKey);
     const encapsulationKeyBytes = new Uint8Array(encapsulationPublicKey);
     const fingerprint = await toFingerprint(signingKeyBytes);
     const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
-
-    if (!UUID_V4_REGEX.test(rootContainerId)) {
-      return c.json(
-        { error: "Invalid rootContainerId: must be a valid UUIDv4" },
-        400,
-      );
-    }
 
     if (wrappedDekEnvelope.keyFingerprint !== encapsulationFingerprint) {
       return c.json(
@@ -89,6 +85,9 @@ registerRoute.post(
       userId: string;
       organizationId: string;
       rootContainerId: string;
+      rootMetadataAccessEpoch: number;
+      rootMetadataDocumentId: string;
+      rootMetadataRecipientEncapsulationPublicKeys: string[];
     };
     try {
       result = await db.transaction(async (tx) => {
@@ -107,7 +106,6 @@ registerRoute.post(
             id: rootContainerId,
             organizationId: org.id,
             parentId: null,
-            name: "/",
           })
           .returning({ id: containers.id });
 
@@ -186,10 +184,21 @@ registerRoute.post(
           ),
         });
 
+        const rootMetadata = await createContainerMetadataDocument(tx, {
+          authorFingerprint: fingerprint,
+          containerId: container.id,
+          createdByFingerprint: fingerprint,
+          initialMetadataUpdates: initialRootMetadataUpdates,
+        });
+
         return {
           userId: user.id,
           organizationId: org.id,
           rootContainerId: container.id,
+          rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
+          rootMetadataDocumentId: rootMetadata.metadataDocumentId,
+          rootMetadataRecipientEncapsulationPublicKeys:
+            rootMetadata.metadataRecipientEncapsulationPublicKeys,
         };
       });
     } catch (error) {
@@ -198,6 +207,10 @@ registerRoute.post(
         error.message === DUPLICATE_FINGERPRINT_ERROR
       ) {
         return c.json({ error: "Key already exists" }, 409);
+      }
+
+      if (error instanceof ContainerMetadataError) {
+        return c.json({ error: error.message }, error.status);
       }
 
       throw error;
@@ -220,6 +233,10 @@ registerRoute.post(
       userId: result.userId,
       organizationId: result.organizationId,
       rootContainerId: result.rootContainerId,
+      rootMetadataDocumentId: result.rootMetadataDocumentId,
+      rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
+      rootMetadataRecipientEncapsulationPublicKeys:
+        result.rootMetadataRecipientEncapsulationPublicKeys,
       challenge: challengeHex,
     });
   },

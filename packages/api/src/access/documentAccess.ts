@@ -507,8 +507,9 @@ async function writeEpoch(
 
 export async function initializeDocumentAccess(
   documentId: string,
+  executor: DocumentAccessExecutor = db,
 ): Promise<number> {
-  return db.transaction(async (tx) => {
+  const initialize = async (tx: DocumentAccessExecutor) => {
     const {
       linkedContainerIds,
       linkedContainerStates,
@@ -539,5 +540,11 @@ export async function initializeDocumentAccess(
     );
 
     return initialEpoch;
-  });
+  };
+
+  if (executor === db) {
+    return db.transaction(initialize);
+  }
+
+  return initialize(executor);
 }

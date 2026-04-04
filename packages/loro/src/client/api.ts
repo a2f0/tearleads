@@ -1,5 +1,7 @@
 import {
+  type CreateDocumentRequest,
   type CreateDocumentResponse,
+  isCreateDocumentRequest,
   isCreateDocumentResponse,
   isSyncDocumentResponse,
   type SyncDocumentOutgoingUpdate,
@@ -15,8 +17,22 @@ export type LoroRequestFn = <T>(
 
 export function createDocument(
   request: LoroRequestFn,
+  linkedContainerIds: string[],
 ): Promise<CreateDocumentResponse | null> {
-  return request("/documents", isCreateDocumentResponse, "POST");
+  const body: CreateDocumentRequest = {
+    linkedContainerIds,
+  };
+
+  if (!isCreateDocumentRequest(body)) {
+    return Promise.resolve(null);
+  }
+
+  return request(
+    "/documents",
+    isCreateDocumentResponse,
+    "POST",
+    JSON.stringify(body),
+  );
 }
 
 export function syncDocument(

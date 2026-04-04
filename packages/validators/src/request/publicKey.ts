@@ -4,7 +4,12 @@ import {
   hasArrayProperty,
   hasObjectProperty,
   hasStringProperty,
+  isUuidV4String,
 } from "../util";
+import {
+  type EncryptedDocumentUpdate,
+  isEncryptedDocumentUpdate,
+} from "./documentUpdate";
 
 export interface WrappedDekEnvelope {
   keyFingerprint: string;
@@ -17,6 +22,7 @@ export interface PublicKeyRequest {
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
   wrappedDekEnvelope: WrappedDekEnvelope;
+  initialRootMetadataUpdates: EncryptedDocumentUpdate[];
 }
 
 function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
@@ -33,11 +39,14 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "rootContainerId") &&
+    isUuidV4String(value.rootContainerId) &&
     hasArrayProperty(value, "signingPublicKey") &&
     isNumberArray(value.signingPublicKey) &&
     hasArrayProperty(value, "encapsulationPublicKey") &&
     isNumberArray(value.encapsulationPublicKey) &&
     hasObjectProperty(value, "wrappedDekEnvelope") &&
-    isWrappedDekEnvelope(value.wrappedDekEnvelope)
+    isWrappedDekEnvelope(value.wrappedDekEnvelope) &&
+    hasArrayProperty(value, "initialRootMetadataUpdates") &&
+    value.initialRootMetadataUpdates.every(isEncryptedDocumentUpdate)
   );
 }

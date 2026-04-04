@@ -1,11 +1,15 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { sqlContactsPersistence } from "../mini-apps/contacts/contactsPersistence";
-import { ensureContainerTables, saveContainer } from "./containerPersistence";
+import { sqlExplorerPersistence } from "../mini-apps/explorer/explorerPersistence";
+import type { DocumentRecord } from "./documentPersistence";
 import { type ExecSql, runSerializedSqlMutation } from "./sqlSchema";
 
 interface RegistrationBootstrapInput {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
+  rootMetadataAccessEpoch: number;
+  rootMetadataDocumentId: string;
+  rootMetadataSnapshot: string;
   organizationId: string;
   userId: string;
 }
@@ -22,14 +26,26 @@ export async function persistRegistrationBootstrap(
   input: RegistrationBootstrapInput,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureContainerTables(lockedExecSql);
+    await sqlExplorerPersistence.ensureSchema(lockedExecSql);
     await sqlContactsPersistence.ensureSchema(lockedExecSql);
-    await saveContainer(lockedExecSql, {
+    const rootRecord: DocumentRecord = {
+      accessEpoch: input.rootMetadataAccessEpoch,
+      documentId: input.rootMetadataDocumentId,
       id: input.containerId,
-      organizationId: input.organizationId,
-      parentId: null,
-      name: "/",
-    });
+      loroSnapshot: input.rootMetadataSnapshot,
+    };
+    await sqlExplorerPersistence.saveContainer(
+      lockedExecSql,
+      {
+        id: input.containerId,
+        organizationId: input.organizationId,
+        parentId: null,
+        metadataDocumentId: input.rootMetadataDocumentId,
+        name: "/",
+        icon: null,
+      },
+      rootRecord,
+    );
     await lockedExecSql(
       `
         INSERT INTO address_book_projection (

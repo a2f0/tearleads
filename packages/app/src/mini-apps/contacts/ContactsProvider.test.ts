@@ -121,9 +121,10 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
           userId,
         };
       },
-      createDocument: async () => null,
+      createDocument: async (_linkedContainerIds) => null,
       syncDocument: async () => null,
     },
+    containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair: null,
@@ -144,7 +145,7 @@ function createSyncRuntime(
         encapsulationPublicKey: `${userId}-key`,
         userId,
       }),
-      createDocument: async () => ({
+      createDocument: async (_linkedContainerIds) => ({
         id: "contacts-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
@@ -167,6 +168,7 @@ function createSyncRuntime(
         ],
       }),
     },
+    containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair,
@@ -252,7 +254,7 @@ test("contacts store reloads persisted address book entries", async () => {
 test("contacts store creates and syncs a contact document", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const createDocumentCalls: string[] = [];
+  const createDocumentCalls: string[][] = [];
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
@@ -264,9 +266,9 @@ test("contacts store creates and syncs a contact document", async () => {
     ...runtime,
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async () => {
-        createDocumentCalls.push("called");
-        return runtime.apiClient.createDocument();
+      createDocument: async (linkedContainerIds) => {
+        createDocumentCalls.push(linkedContainerIds);
+        return runtime.apiClient.createDocument(linkedContainerIds);
       },
       syncDocument: async (
         documentId,
@@ -316,4 +318,5 @@ test("contacts store creates and syncs a contact document", async () => {
       outgoingUpdateCount: 1,
     },
   ]);
+  expect(createDocumentCalls).toEqual([["root-container"]]);
 });

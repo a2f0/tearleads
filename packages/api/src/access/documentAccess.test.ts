@@ -21,7 +21,9 @@ test("document access includes recipients inherited from its linked root contain
   await registerUser(bob);
   await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token);
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");

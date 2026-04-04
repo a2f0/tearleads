@@ -8,6 +8,10 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
 import { refreshBlobAccesses } from "../../access/blobAccess";
 import {
+  canWriteContainerAccess,
+  resolveContainerAccessState,
+} from "../../access/containerAccess";
+import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
   initializeDocumentAccess,
@@ -26,39 +30,7 @@ import {
   documentContainerLinks,
   documents,
   documentUpdates,
-  users,
 } from "../../schema";
-
-async function getRootContainerIdForUser(
-  userId: string,
-): Promise<string | null> {
-  const [user] = await db
-    .select({
-      defaultOrganizationId: users.defaultOrganizationId,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!user) {
-    return null;
-  }
-
-  const [container] = await db
-    .select({
-      id: containers.id,
-    })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, user.defaultOrganizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-
-  return container?.id ?? null;
-}
 
 function uniqueSortedStrings(values: string[]): string[] {
   return Array.from(new Set(values)).sort((left, right) =>
@@ -99,42 +71,99 @@ class CommitChangeError extends Error {
   }
 }
 
+class CreateDocumentError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 403 | 404 | 409,
+  ) {
+    super(message);
+  }
+}
+
 export const documentsRouter = createLoroRouter({
   store: {
     async createDocument(input) {
-      const [document] = await db
-        .insert(documents)
-        .values({
-          createdByFingerprint: input.createdByFingerprint,
-        })
-        .returning();
-      if (!document) {
-        return null;
+      const linkedContainerIds = uniqueSortedStrings(input.linkedContainerIds);
+
+      if (input.linkedContainerIds.length !== linkedContainerIds.length) {
+        throw new CreateDocumentError(
+          "linkedContainerIds must not contain duplicates",
+          400,
+        );
       }
 
-      const rootContainerId = await getRootContainerIdForUser(
-        input.createdByUserId,
-      );
-      if (!rootContainerId) {
-        return null;
-      }
+      return db.transaction(async (tx) => {
+        const linkedContainers = await tx
+          .select({
+            id: containers.id,
+            organizationId: containers.organizationId,
+          })
+          .from(containers)
+          .where(inArray(containers.id, linkedContainerIds));
 
-      await db.insert(documentContainerLinks).values({
-        documentId: document.id,
-        containerId: rootContainerId,
+        if (linkedContainers.length !== linkedContainerIds.length) {
+          throw new CreateDocumentError("Linked container not found", 404);
+        }
+
+        const organizationIds = uniqueSortedStrings(
+          linkedContainers.map((container) => container.organizationId),
+        );
+
+        if (organizationIds.length !== 1) {
+          throw new CreateDocumentError(
+            "All linked containers must belong to the same organization",
+            400,
+          );
+        }
+
+        for (const container of linkedContainers) {
+          const access = await resolveContainerAccessState(container.id, tx);
+
+          if (!access) {
+            throw new CreateDocumentError(
+              "Linked container access state is unavailable",
+              409,
+            );
+          }
+
+          if (!canWriteContainerAccess(access, input.createdByUserId)) {
+            throw new CreateDocumentError("Forbidden", 403);
+          }
+        }
+
+        const [document] = await tx
+          .insert(documents)
+          .values({
+            createdByFingerprint: input.createdByFingerprint,
+          })
+          .returning();
+        if (!document) {
+          return null;
+        }
+
+        await tx.insert(documentContainerLinks).values(
+          linkedContainerIds.map((containerId) => ({
+            documentId: document.id,
+            containerId,
+          })),
+        );
+
+        const currentAccessEpoch = await initializeDocumentAccess(
+          document.id,
+          tx,
+        );
+        const access = await resolveDocumentAccessState(document.id, tx);
+        if (!access) {
+          return null;
+        }
+
+        return {
+          document,
+          currentAccessEpoch,
+          recipientEncapsulationPublicKeys:
+            listRecipientEncapsulationPublicKeys(access),
+        };
       });
-      const currentAccessEpoch = await initializeDocumentAccess(document.id);
-      const access = await resolveDocumentAccessState(document.id);
-      if (!access) {
-        return null;
-      }
-
-      return {
-        document,
-        currentAccessEpoch,
-        recipientEncapsulationPublicKeys:
-          listRecipientEncapsulationPublicKeys(access),
-      };
     },
     async getDocumentById(documentId) {
       const [document] = await db

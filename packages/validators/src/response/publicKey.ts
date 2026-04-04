@@ -1,11 +1,18 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty } from "../util";
+import {
+  hasArrayProperty,
+  hasNumberProperty,
+  hasStringProperty,
+} from "../util";
 
 export interface PublicKeyResponse {
   message: string;
   userId: string;
   organizationId: string;
   rootContainerId: string;
+  rootMetadataDocumentId: string;
+  rootMetadataAccessEpoch: number;
+  rootMetadataRecipientEncapsulationPublicKeys: string[];
   challenge: string;
 }
 
@@ -18,6 +25,12 @@ export function isPublicKeyResponse(
     hasStringProperty(value, "userId") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "rootContainerId") &&
+    hasStringProperty(value, "rootMetadataDocumentId") &&
+    hasNumberProperty(value, "rootMetadataAccessEpoch") &&
+    hasArrayProperty(value, "rootMetadataRecipientEncapsulationPublicKeys") &&
+    value.rootMetadataRecipientEncapsulationPublicKeys.every(
+      (entry) => typeof entry === "string",
+    ) &&
     hasStringProperty(value, "challenge")
   );
 }

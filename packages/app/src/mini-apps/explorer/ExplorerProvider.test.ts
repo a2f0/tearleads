@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -6,11 +7,15 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import {
   ensureContainerTables,
+  loadContainers,
   saveContainer,
 } from "../../data/containerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
 
-async function createSqlRuntime() {
+type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
+type TestRuntime = ExplorerRuntime & { close: () => void };
+
+async function createSqlRuntime(): Promise<TestRuntime> {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = Bun.fetch;
 
@@ -26,15 +31,26 @@ async function createSqlRuntime() {
   }
 
   return {
+    apiClient: {
+      createContainer: async (
+        _id: string,
+        _parentId: string,
+        _initialMetadataUpdates,
+      ) => null,
+      syncDocument: async () => null,
+    },
     close: () => db.close(),
     dbStatus: "ready" as const,
     domainScope: {},
+    encapsulationKeyPair: null,
+    events: [],
     execSql: async (
       sql: string,
       bind?: Record<string, string | number | null>,
     ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
     isAuthenticated: false,
     log: () => {},
+    online: false,
   };
 }
 
@@ -47,7 +63,9 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
+      metadataDocumentId: null,
       name: "/",
+      icon: null,
     });
 
     const firstStore = createExplorerStore(runtime);
@@ -129,6 +147,86 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(
       secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
     ).toBe(false);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
+  const runtime = await createSqlRuntime();
+  const createContainerCalls: Array<{
+    id: string;
+    initialMetadataUpdateCount: number;
+    parentId: string;
+  }> = [];
+
+  runtime.isAuthenticated = true;
+  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.apiClient = {
+    createContainer: async (
+      id: string,
+      parentId: string,
+      initialMetadataUpdates,
+    ) => {
+      createContainerCalls.push({
+        id,
+        initialMetadataUpdateCount: initialMetadataUpdates.length,
+        parentId,
+      });
+      return {
+        id,
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "metadata-document-1",
+        metadataRecipientEncapsulationPublicKeys: [],
+        organizationId: "org-1",
+        parentId,
+      };
+    },
+    syncDocument: async () => null,
+  };
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const childNode = await store.createChild("root-container", "Docs");
+    if (!childNode) {
+      throw new Error("Expected createChild to return a new container node.");
+    }
+
+    expect(createContainerCalls).toEqual([
+      {
+        id: childNode.id,
+        initialMetadataUpdateCount: 1,
+        parentId: "root-container",
+      },
+    ]);
+
+    const persistedContainers = await loadContainers(runtime.execSql);
+    const persistedChild = persistedContainers.find(
+      (container) => container.id === childNode.id,
+    );
+
+    expect(persistedChild).not.toBeUndefined();
+    expect(persistedChild?.metadataDocumentId).toBe("metadata-document-1");
+    expect(persistedChild?.name).toBe("Docs");
+    expect(childNode.organizationId).toBe("org-1");
+    expect(childNode.parentId).toBe("root-container");
   } finally {
     runtime.close();
   }

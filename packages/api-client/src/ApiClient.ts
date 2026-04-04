@@ -9,9 +9,9 @@ import {
   getEncapsulationKey,
 } from "./routes/auth";
 import { stageBlob } from "./routes/blobs";
+import { createContainer } from "./routes/containers";
 import { commitDocumentChange } from "./routes/documents";
 import { getHealth } from "./routes/health";
-import { getItem, postItem } from "./routes/items";
 import { postPublicKey } from "./routes/register";
 import type { HttpMethod, RequestFn } from "./types";
 
@@ -109,6 +109,7 @@ export class ApiClient {
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
     wrappedDekEnvelope: Parameters<typeof postPublicKey>[4],
+    initialRootMetadataUpdates: Parameters<typeof postPublicKey>[5],
   ) {
     return postPublicKey(
       this.request,
@@ -116,6 +117,7 @@ export class ApiClient {
       signingPublicKey,
       encapsulationPublicKey,
       wrappedDekEnvelope,
+      initialRootMetadataUpdates,
     );
   }
 
@@ -140,8 +142,16 @@ export class ApiClient {
     return getEncapsulationKey(this.request, userId);
   }
 
-  createDocument() {
-    return createDocument(this.request);
+  createDocument(linkedContainerIds: string[]) {
+    return createDocument(this.request, linkedContainerIds);
+  }
+
+  createContainer(
+    id: string,
+    parentId: string,
+    initialMetadataUpdates: Parameters<typeof createContainer>[3],
+  ) {
+    return createContainer(this.request, id, parentId, initialMetadataUpdates);
   }
 
   syncDocument(
@@ -165,13 +175,5 @@ export class ApiClient {
 
   commitDocumentChange(documentId: string, input: CommitDocumentChangeRequest) {
     return commitDocumentChange(this.request, documentId, input);
-  }
-
-  getItem(itemId: string) {
-    return getItem(this.request, itemId);
-  }
-
-  postItem(encryptedData: string) {
-    return postItem(this.request, encryptedData);
   }
 }

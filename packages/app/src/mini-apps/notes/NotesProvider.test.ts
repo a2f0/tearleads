@@ -119,9 +119,10 @@ function createNotesPersistence(): NotesPersistence & {
 function createRuntime(): NotesRuntime {
   return {
     apiClient: {
-      createDocument: async () => null,
+      createDocument: async (_linkedContainerIds) => null,
       syncDocument: async () => null,
     },
+    containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair: null,
@@ -154,10 +155,11 @@ async function createSqlRuntime(): Promise<
 
   return {
     apiClient: {
-      createDocument: async () => null,
+      createDocument: async (_linkedContainerIds) => null,
       syncDocument: async () => null,
     },
     close: () => db.close(),
+    containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair: null,
