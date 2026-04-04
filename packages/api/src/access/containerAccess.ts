@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
+import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -79,12 +80,6 @@ function mergeAccessLevel(
   return accessLevelRank(incoming) > accessLevelRank(current)
     ? incoming
     : current;
-}
-
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
 }
 
 function isPresent<T>(value: T | null): value is T {

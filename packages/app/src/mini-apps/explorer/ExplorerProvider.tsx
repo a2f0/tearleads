@@ -198,6 +198,7 @@ export function createExplorerStore(
       organizationId: string;
       parentId: string | null;
     }> = {},
+    updateView = true,
   ): Promise<DocumentRecord> {
     const metadata = readContainerMetadataValue(
       containerState.doc,
@@ -227,7 +228,9 @@ export function createExplorerStore(
     await persistence.saveContainer(runtime.execSql, nextContainer, nextRecord);
     containerState.container = nextContainer;
     containerState.record = nextRecord;
-    updateSnapshot();
+    if (updateView) {
+      updateSnapshot();
+    }
     return nextRecord;
   }
 
@@ -279,13 +282,17 @@ export function createExplorerStore(
           remoteContainer.metadataRecipientEncapsulationPublicKeys,
           localRecipientPublicKeys,
         );
-        await persistContainerState(existingState, {
-          accessEpoch: remoteContainer.metadataAccessEpoch,
-          documentId: remoteContainer.metadataDocumentId,
-          metadataDocumentId: remoteContainer.metadataDocumentId,
-          organizationId: remoteContainer.organizationId,
-          parentId: remoteContainer.parentId,
-        });
+        await persistContainerState(
+          existingState,
+          {
+            accessEpoch: remoteContainer.metadataAccessEpoch,
+            documentId: remoteContainer.metadataDocumentId,
+            metadataDocumentId: remoteContainer.metadataDocumentId,
+            organizationId: remoteContainer.organizationId,
+            parentId: remoteContainer.parentId,
+          },
+          false,
+        );
         continue;
       }
 

@@ -4,6 +4,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { grantContainerAccess } from "../../access/containerAccess";
 import { db } from "../../adapters/postgres";
 import { app } from "../../index";
 import { containerMetadataDocuments, containers, users } from "../../schema";
@@ -108,4 +109,81 @@ test("GET /containers returns the readable structural forest for the authenticat
   expect(otherListedContainers).toHaveLength(1);
   expect(otherListedContainers[0]?.id).not.toBe(ownerRootId);
   expect(otherListedContainers[0]?.id).not.toBe(childId);
+});
+
+test("GET /containers includes descendants of directly shared containers outside org membership", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const recipient = createTestUser();
+  await registerUser(recipient);
+  await authenticate(recipient);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+  const descendantContainerId = crypto.randomUUID();
+
+  const sharedCreateResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: ownerRootId,
+    }),
+  });
+
+  expect(sharedCreateResponse.status).toBe(200);
+
+  const descendantCreateResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: descendantContainerId,
+      initialMetadataUpdates: [],
+      parentId: sharedContainerId,
+    }),
+  });
+
+  expect(descendantCreateResponse.status).toBe(200);
+
+  await grantContainerAccess({
+    accessLevel: "read",
+    containerId: sharedContainerId,
+    subjectId: recipient.userId,
+    subjectType: "user",
+  });
+
+  const response = await app.request("/containers", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${recipient.token}`,
+    },
+  });
+
+  expect(response.status).toBe(200);
+  const listedContainers = await response.json();
+  expect(listedContainers).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: recipient.rootContainerId,
+        parentId: null,
+      }),
+      expect.objectContaining({
+        id: sharedContainerId,
+        parentId: ownerRootId,
+      }),
+      expect.objectContaining({
+        id: descendantContainerId,
+        parentId: sharedContainerId,
+      }),
+    ]),
+  );
 });

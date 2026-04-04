@@ -6,6 +6,7 @@ import {
   objectAccessEpochs,
   objectRecipientEnvelopes,
 } from "../schema";
+import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import {
   resolveDocumentAccessState,
@@ -62,12 +63,6 @@ function mergeAccessLevel(
   return accessLevelRank(incoming) > accessLevelRank(current)
     ? incoming
     : current;
-}
-
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
 }
 
 async function getCurrentEpochRow(

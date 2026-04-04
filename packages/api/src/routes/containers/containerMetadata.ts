@@ -16,18 +16,13 @@ import {
   documents,
   documentUpdates,
 } from "../../schema";
+import { uniqueSortedStrings } from "../../utils/array";
 
 type DatabaseTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
   tx: infer T,
 ) => Promise<unknown>
   ? T
   : never;
-
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
 
 function matchesRecipients(
   encryptedData: string,
