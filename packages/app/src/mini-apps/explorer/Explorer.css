@@ -20,6 +20,13 @@
   border: 1px solid currentColor;
 }
 
+.explorer-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--padding);
+}
+
 .explorer-detail-copy {
   display: flex;
   flex-direction: column;
@@ -34,6 +41,30 @@
 .explorer-detail span {
   font-size: var(--font-size-sm);
   opacity: 0.8;
+}
+
+.explorer-detail-error {
+  color: currentColor;
+  opacity: 1;
+}
+
+.explorer-refresh-button {
+  padding: calc(var(--padding) / 2) var(--padding);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.explorer-refresh-button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.explorer-refresh-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .explorer-sidebar {

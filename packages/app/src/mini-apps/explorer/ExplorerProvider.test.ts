@@ -194,7 +194,6 @@ test("explorer store creates authenticated child containers through the API befo
     shareContainer: async () => null,
     syncDocument: async () => null,
   };
-
   try {
     await ensureContainerTables(runtime.execSql);
     await saveContainer(runtime.execSql, {
@@ -365,6 +364,72 @@ test("explorer store shares an authenticated container and enqueues a full metad
           call.outgoingUpdateCount === 1,
       ),
     ).toBe(true);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer store refreshes remote containers on demand after initialization", async () => {
+  const runtime = await createSqlRuntime();
+  let listContainersCalls = 0;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.apiClient = {
+    createContainer: async () => null,
+    listContainers: async () => {
+      listContainersCalls += 1;
+
+      if (listContainersCalls === 1) {
+        return [];
+      }
+
+      return [
+        {
+          id: "shared-root-container",
+          metadataAccessEpoch: 1,
+          metadataDocumentId: "shared-root-metadata-document",
+          metadataRecipientEncapsulationPublicKeys: [],
+          organizationId: "org-2",
+          parentId: null,
+        },
+      ];
+    },
+    shareContainer: async () => null,
+    syncDocument: async () => null,
+  };
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    expect(createdStore.getSnapshot().nodes).toEqual([]);
+
+    const refreshed = await createdStore.refresh();
+
+    expect(refreshed).toBe(true);
+
+    await waitForCondition(
+      () =>
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "shared-root-container"),
+      "Explorer refresh did not hydrate shared remote root.",
+    );
+
+    expect(listContainersCalls).toBeGreaterThanOrEqual(2);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
