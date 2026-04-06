@@ -9,7 +9,12 @@ export {
   type VerifyResponse,
 } from "./auth";
 export {
+  type BlobAttachmentSummary,
+  type BlobResponse,
+  isBlobResponse,
+  isListDocumentAttachmentsResponse,
   isStageBlobResponse,
+  type ListDocumentAttachmentsResponse,
   type StageBlobResponse,
 } from "./blob";
 export {

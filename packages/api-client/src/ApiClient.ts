@@ -8,14 +8,17 @@ import {
   authenticateWithChallenge,
   getEncapsulationKey,
 } from "./routes/auth";
-import { stageBlob } from "./routes/blobs";
+import { getBlob, stageBlob } from "./routes/blobs";
 import {
   createContainer,
   listContainerDocuments,
   listContainers,
   shareContainer,
 } from "./routes/containers";
-import { commitDocumentChange } from "./routes/documents";
+import {
+  commitDocumentChange,
+  listDocumentAttachments,
+} from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { postPublicKey } from "./routes/register";
 import type { HttpMethod, RequestFn } from "./types";
@@ -199,6 +202,14 @@ export class ApiClient {
 
   stageBlob(input: StageBlobRequest) {
     return stageBlob(this.request, input);
+  }
+
+  getBlob(blobId: string) {
+    return getBlob(this.request, blobId);
+  }
+
+  listDocumentAttachments(documentId: string) {
+    return listDocumentAttachments(this.request, documentId);
   }
 
   commitDocumentChange(documentId: string, input: CommitDocumentChangeRequest) {

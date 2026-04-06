@@ -391,6 +391,15 @@ export async function resolveBlobAccessState(
   };
 }
 
+export function canReadBlobAccess(
+  state: BlobAccessState,
+  userId: string,
+): boolean {
+  return state.effectiveRecipients.some(
+    (recipient) => recipient.userId === userId,
+  );
+}
+
 export async function initializeBlobAccess(blobId: string): Promise<number> {
   return db.transaction(async (tx) => {
     const [blob] = await tx

@@ -3,6 +3,7 @@ import { ApiClientProvider } from "../../api/ApiClientProvider";
 import { NetworkStateProvider } from "../../api/NetworkStateProvider";
 import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
 import { AppDataProvider } from "../../data/AppDataProvider";
+import { BlobProvider } from "../../data/BlobProvider";
 import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { EventsProvider } from "../../events/EventsProvider";
 import type { AppHostConfig } from "../../host/AppHostConfig";
@@ -21,13 +22,15 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         <ApiClientProvider>
           <NetworkStateProvider>
             <PersonaProvider>
-              <DatabaseProvider>
-                <CryptoSessionProvider>
-                  <EventsProvider>
-                    <AppDataProvider>{children}</AppDataProvider>
-                  </EventsProvider>
-                </CryptoSessionProvider>
-              </DatabaseProvider>
+              <BlobProvider>
+                <DatabaseProvider>
+                  <CryptoSessionProvider>
+                    <EventsProvider>
+                      <AppDataProvider>{children}</AppDataProvider>
+                    </EventsProvider>
+                  </CryptoSessionProvider>
+                </DatabaseProvider>
+              </BlobProvider>
             </PersonaProvider>
           </NetworkStateProvider>
         </ApiClientProvider>

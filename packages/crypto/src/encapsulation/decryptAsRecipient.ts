@@ -13,7 +13,7 @@ const ML_KEM1024_PK_LENGTH = 1568;
 export async function decryptAsRecipient(
   envelope: EncryptedEnvelope,
   secretKey: Uint8Array,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const publicKey = secretKey.slice(
     ML_KEM1024_PK_OFFSET,
     ML_KEM1024_PK_OFFSET + ML_KEM1024_PK_LENGTH,

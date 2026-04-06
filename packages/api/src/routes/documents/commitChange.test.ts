@@ -18,6 +18,7 @@ import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
+import { app } from "../../index";
 import { attachmentBindings, blobStages, documentUpdates } from "../../schema";
 
 const alice = createTestUser();
@@ -31,13 +32,41 @@ afterAll(async () => {
   await del(alice.fingerprint);
 });
 
-test("POST /blobs/stage stores a staged encrypted blob for the authenticated user", async () => {
+async function createStagedBlobInput(encryptedBytes: string) {
+  const encodedBytes = new TextEncoder().encode(encryptedBytes);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", encodedBytes),
+  );
+
+  return {
+    encryptedBytes,
+    byteLength: encodedBytes.byteLength,
+    sha256: Array.from(digest, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join(""),
+  };
+}
+
+test("POST /blobs/stage rejects mismatched blob digests", async () => {
+  const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
   const response = await stageBlob(
     {
-      encryptedBytes: "ZW5jcnlwdGVkLWJ5dGVz",
-      byteLength: 15,
-      sha256: "sha256-stage-1",
+      encryptedBytes: validInput.encryptedBytes,
+      byteLength: validInput.byteLength,
+      sha256: "not-the-real-digest",
     },
+    alice.token,
+  );
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Blob sha256 does not match encryptedBytes",
+  });
+});
+
+test("POST /blobs/stage stores a staged encrypted blob for the authenticated user", async () => {
+  const response = await stageBlob(
+    await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz"),
     alice.token,
   );
 
@@ -67,11 +96,7 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   const documentId = String(createdDocument.id ?? "");
 
   const stageResponse = await stageBlob(
-    {
-      encryptedBytes: "ZW5jcnlwdGVkLWF0dGFjaG1lbnQtMQ==",
-      byteLength: 22,
-      sha256: "sha256-attachment-1",
-    },
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtMQ=="),
     alice.token,
   );
   expect(stageResponse.status).toBe(200);
@@ -188,5 +213,177 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
     error: "Loro update references slot slot_missing without an active binding",
+  });
+});
+
+test("POST /documents/:documentId/commit-change allows a new update to reference existing slots plus a new slot", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const firstStageResponse = await stageBlob(
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtZmlyc3Q="),
+    alice.token,
+  );
+  expect(firstStageResponse.status).toBe(200);
+  const firstStage = await firstStageResponse.json();
+
+  const firstDoc = await createLoroDocument(alice.fingerprint);
+  const firstStartVersion = encodeVersionVector(firstDoc);
+  firstDoc.getText("text").update("first attachment");
+  const firstUpdate = exportUpdatesSince(firstDoc, firstStartVersion);
+  const firstEncryptedUpdate = await encryptLoroUpdate(
+    firstUpdate,
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
+  const firstVectors = getUpdateVersionVectors(firstUpdate);
+
+  const firstCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_01",
+          stageId: firstStage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: firstEncryptedUpdate,
+        partialStartVersionVector: firstVectors.partialStartVersionVector,
+        partialEndVersionVector: firstVectors.partialEndVersionVector,
+        referencedSlotIds: ["slot_01"],
+      },
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+
+  const secondStageResponse = await stageBlob(
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtc2Vjb25k"),
+    alice.token,
+  );
+  expect(secondStageResponse.status).toBe(200);
+  const secondStage = await secondStageResponse.json();
+
+  const secondStartVersion = encodeVersionVector(firstDoc);
+  firstDoc.getText("text").update("first attachment and second attachment");
+  const secondUpdate = exportUpdatesSince(firstDoc, secondStartVersion);
+  const secondEncryptedUpdate = await encryptLoroUpdate(
+    secondUpdate,
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
+  const secondVectors = getUpdateVersionVectors(secondUpdate);
+
+  const secondCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_02",
+          stageId: secondStage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: secondEncryptedUpdate,
+        partialStartVersionVector: secondVectors.partialStartVersionVector,
+        partialEndVersionVector: secondVectors.partialEndVersionVector,
+        referencedSlotIds: ["slot_01", "slot_02"],
+      },
+    },
+    alice.token,
+  );
+
+  expect(secondCommitResponse.status).toBe(200);
+  const secondBody = await secondCommitResponse.json();
+  expect(secondBody.committedBindings).toHaveLength(1);
+
+  const attachmentsResponse = await app.request(
+    `/documents/${documentId}/attachments`,
+    {
+      headers: {
+        Authorization: `Bearer ${alice.token}`,
+      },
+      method: "GET",
+    },
+  );
+  expect(attachmentsResponse.status).toBe(200);
+  const attachmentsBody = await attachmentsResponse.json();
+  expect(attachmentsBody).toHaveLength(2);
+  expect(attachmentsBody).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        blobId: secondBody.committedBindings[0].blobId,
+        slotId: "slot_02",
+      }),
+      expect.objectContaining({
+        slotId: "slot_01",
+      }),
+    ]),
+  );
+});
+
+test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blobs", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const stageResponse = await stageBlob(
+    await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"),
+    alice.token,
+  );
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const commitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_image",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(commitResponse.status).toBe(200);
+  const commitBody = await commitResponse.json();
+  const blobId = String(commitBody.committedBindings[0]?.blobId ?? "");
+
+  const blobResponse = await app.request(`/blobs/${blobId}`, {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+
+  expect(blobResponse.status).toBe(200);
+  expect(await blobResponse.json()).toEqual({
+    blobId,
+    encryptedBytes: "ZW5jcnlwdGVkLWltYWdlLWJ5dGVz",
+    sha256: (await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"))
+      .sha256,
   });
 });

@@ -12,12 +12,14 @@ import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
+import { useBlobStore } from "./BlobProvider";
 
 import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
 interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;
   authToken: string | null;
+  blobStore: ReturnType<typeof useBlobStore>;
   containerId: string | null;
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
@@ -37,6 +39,7 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
+  const blobStore = useBlobStore();
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
   const { authToken, containerId, isAuthenticated } = useCryptoSession();
@@ -61,6 +64,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     () => ({
       apiClient,
       authToken,
+      blobStore,
       containerId,
       dbId,
       dbStatus,
@@ -75,6 +79,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [
       apiClient,
       authToken,
+      blobStore,
       containerId,
       dbId,
       dbStatus,

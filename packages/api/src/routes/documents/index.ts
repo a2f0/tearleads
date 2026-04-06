@@ -4,9 +4,17 @@ import {
   isCommitDocumentChangeRequest,
   isStageBlobRequest,
 } from "@tearleads/validators/request";
+import type {
+  BlobResponse,
+  ListDocumentAttachmentsResponse,
+} from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
-import { refreshBlobAccesses } from "../../access/blobAccess";
+import {
+  canReadBlobAccess,
+  refreshBlobAccesses,
+  resolveBlobAccessState,
+} from "../../access/blobAccess";
 import {
   canWriteContainerAccess,
   resolveContainerAccessState,
@@ -55,6 +63,15 @@ function matchesRecipients(
 
 function hasDuplicateValues(values: string[]): boolean {
   return new Set(values).size !== values.length;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 class CommitChangeError extends Error {
@@ -241,6 +258,22 @@ documentsRouter.post(
   async (c) => {
     const session = c.get("session");
     const { encryptedBytes, byteLength, sha256 } = c.req.valid("json");
+    const encodedBytes = new TextEncoder().encode(encryptedBytes);
+
+    if (encodedBytes.byteLength !== byteLength) {
+      return c.json(
+        { error: "Blob byteLength does not match encryptedBytes" },
+        400,
+      );
+    }
+
+    if ((await sha256Hex(encryptedBytes)) !== sha256) {
+      return c.json(
+        { error: "Blob sha256 does not match encryptedBytes" },
+        400,
+      );
+    }
+
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     const [stage] = await db
@@ -346,8 +379,12 @@ documentsRouter.post(
 
     try {
       const result = await db.transaction(async (tx) => {
+        const activeBindingSlotIds = uniqueSortedStrings([
+          ...touchedSlotIds,
+          ...referencedSlotIds,
+        ]);
         const activeBindings =
-          touchedSlotIds.length === 0
+          activeBindingSlotIds.length === 0
             ? []
             : await tx
                 .select({
@@ -359,7 +396,7 @@ documentsRouter.post(
                 .where(
                   and(
                     eq(attachmentBindings.documentId, documentId),
-                    inArray(attachmentBindings.slotId, touchedSlotIds),
+                    inArray(attachmentBindings.slotId, activeBindingSlotIds),
                     isNull(attachmentBindings.detachedAt),
                   ),
                 );
@@ -477,6 +514,9 @@ documentsRouter.post(
           const [blob] = await tx
             .insert(blobs)
             .values({
+              byteLength: stage.byteLength,
+              encryptedBytes: stage.encryptedBytes,
+              sha256: stage.sha256,
               storageKey: stage.id,
             })
             .returning({ id: blobs.id });
@@ -583,3 +623,75 @@ documentsRouter.post(
     }
   },
 );
+
+documentsRouter.get(
+  "/documents/:documentId/attachments",
+  requireAuth,
+  async (c) => {
+    const documentId = c.req.param("documentId");
+    const session = c.get("session");
+
+    const access = await resolveDocumentAccessState(documentId);
+    if (!access) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    if (!canReadDocumentAccess(access, session.userId)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const rows = await db
+      .select({
+        blobId: attachmentBindings.blobId,
+        slotId: attachmentBindings.slotId,
+      })
+      .from(attachmentBindings)
+      .where(
+        and(
+          eq(attachmentBindings.documentId, documentId),
+          isNull(attachmentBindings.detachedAt),
+        ),
+      );
+
+    return c.json<ListDocumentAttachmentsResponse>(
+      rows.map((row) => ({
+        blobId: row.blobId,
+        slotId: row.slotId,
+      })),
+    );
+  },
+);
+
+documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
+  const blobId = c.req.param("blobId");
+  const session = c.get("session");
+
+  const access = await resolveBlobAccessState(blobId);
+  if (!access) {
+    return c.json({ error: "Blob not found" }, 404);
+  }
+
+  if (!canReadBlobAccess(access, session.userId)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
+  const [row] = await db
+    .select({
+      blobId: blobs.id,
+      encryptedBytes: blobs.encryptedBytes,
+      sha256: blobs.sha256,
+    })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+
+  if (!row) {
+    return c.json({ error: "Blob not found" }, 404);
+  }
+
+  return c.json<BlobResponse>({
+    blobId: row.blobId,
+    encryptedBytes: row.encryptedBytes,
+    sha256: row.sha256,
+  });
+});
