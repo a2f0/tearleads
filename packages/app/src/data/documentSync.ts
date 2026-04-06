@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
+  decryptLoroUpdate,
   encryptLoroUpdate,
   getUpdateVersionVectors,
   type SyncDocumentOutgoingUpdate,
@@ -79,6 +80,41 @@ export async function encryptPendingUpdates(
       };
     }),
   );
+}
+
+export async function decryptIncomingUpdates(
+  encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
+  secretKey: Uint8Array,
+  logSkippedUpdates?: (message: string) => void,
+): Promise<Uint8Array[]> {
+  const decryptedResults = await Promise.all(
+    encryptedUpdates.map(async (update) => {
+      try {
+        return await decryptLoroUpdate(update.encryptedData, secretKey);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const decryptedUpdates: Uint8Array[] = [];
+  let skippedUpdateCount = 0;
+
+  for (const decryptedUpdate of decryptedResults) {
+    if (decryptedUpdate) {
+      decryptedUpdates.push(decryptedUpdate);
+      continue;
+    }
+
+    skippedUpdateCount += 1;
+  }
+
+  if (skippedUpdateCount > 0 && logSkippedUpdates) {
+    logSkippedUpdates(
+      `Skipped ${skippedUpdateCount} undecryptable update(s) during document sync.`,
+    );
+  }
+
+  return decryptedUpdates;
 }
 
 export function isDocumentUpdateCreatedEvent(

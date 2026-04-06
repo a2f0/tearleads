@@ -1,7 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  decryptLoroUpdate,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
@@ -23,6 +22,7 @@ import type {
 } from "../../data/documentPersistence";
 import {
   createPendingUpdateFields,
+  decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
@@ -234,6 +234,17 @@ export function createContactsStore(
     await persistence.deletePendingUpdate(runtime.execSql, id);
   }
 
+  async function replacePendingUpdatesWithBaseline(contact: ContactState) {
+    await persistence.deletePendingUpdates(
+      runtime.execSql,
+      contact.entry.userId,
+    );
+    await enqueuePendingUpdate(
+      contact.entry.userId,
+      exportAllUpdates(contact.doc),
+    );
+  }
+
   async function initialize() {
     if (runtime.dbStatus !== "ready") {
       return;
@@ -414,22 +425,22 @@ export function createContactsStore(
             }
 
             if (synced.updates.length > 0) {
-              const decrypted = await Promise.all(
-                synced.updates.map((update) =>
-                  decryptLoroUpdate(
-                    update.encryptedData,
-                    encapsulationKeyPair.secretKey,
-                  ),
-                ),
+              const decrypted = await decryptIncomingUpdates(
+                synced.updates,
+                encapsulationKeyPair.secretKey,
+                (message) =>
+                  runtime.log(`Contacts (${contact.entry.userId}): ${message}`),
               );
-              importUpdates(contact.doc, decrypted);
-              const updatedEntry = getEntryValue(
-                contact.entry.userId,
-                contact.doc,
-                contact.entry.isSelf,
-              );
-              if (updatedEntry) {
-                contact.entry = updatedEntry;
+              if (decrypted.length > 0) {
+                importUpdates(contact.doc, decrypted);
+                const updatedEntry = getEntryValue(
+                  contact.entry.userId,
+                  contact.doc,
+                  contact.entry.isSelf,
+                );
+                if (updatedEntry) {
+                  contact.entry = updatedEntry;
+                }
               }
             }
 
@@ -439,10 +450,8 @@ export function createContactsStore(
               accessEpoch: synced.currentAccessEpoch,
             });
 
-            if (
-              pendingUpdates.length > 0 &&
-              synced.currentAccessEpoch !== previousAccessEpoch
-            ) {
+            if (synced.currentAccessEpoch !== previousAccessEpoch) {
+              await replacePendingUpdatesWithBaseline(contact);
               syncRequested = true;
             }
           }
