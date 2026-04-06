@@ -141,6 +141,7 @@ export function Explorer() {
     createChild,
     deleteContainer,
     nodes,
+    refresh,
     ready,
     renameContainer,
     shareWithUser,
@@ -158,6 +159,8 @@ export function Explorer() {
   const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -216,6 +219,23 @@ export function Explorer() {
       return nextIds;
     });
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshError(null);
+    setIsRefreshing(true);
+
+    try {
+      const refreshed = await refresh();
+      if (!refreshed) {
+        setRefreshError("Refresh unavailable.");
+      }
+    } catch (error: unknown) {
+      console.error("Failed to refresh explorer:", error);
+      setRefreshError("Failed to refresh explorer.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refresh]);
 
   const expandNode = useCallback((nodeId: string) => {
     setCollapsedIds((currentIds) => {
@@ -458,13 +478,28 @@ export function Explorer() {
     <div className="explorer">
       {selectedNode ? (
         <div className="explorer-detail" key={selectedNode.id}>
-          <div className="explorer-detail-copy">
-            <strong>{selectedNode.name}</strong>
-            <span>{selectedNode.kind}</span>
+          <div className="explorer-detail-header">
+            <div className="explorer-detail-copy">
+              <strong>{selectedNode.name}</strong>
+              <span>{selectedNode.kind}</span>
+            </div>
+            <button
+              type="button"
+              className="explorer-refresh-button"
+              disabled={!ready || isRefreshing}
+              onClick={() => {
+                void handleRefresh();
+              }}
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
           <span>ID: {selectedNode.id}</span>
           <span>Parent: {selectedNode.parentId ?? "(root)"}</span>
           <span>Organization: {selectedNode.organizationId || "(local)"}</span>
+          {refreshError ? (
+            <span className="explorer-detail-error">{refreshError}</span>
+          ) : null}
         </div>
       ) : (
         <div className="explorer-hint">

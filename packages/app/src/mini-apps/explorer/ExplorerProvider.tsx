@@ -51,6 +51,7 @@ interface ExplorerContextValue {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,
     name: string,
@@ -86,6 +87,7 @@ interface ExplorerStore {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,
     name: string,
@@ -364,9 +366,9 @@ export function createExplorerStore(
     }
   }
 
-  function scheduleRemoteHydration() {
+  function requestRemoteHydration(): Promise<void> {
     if (remoteHydrationPromise) {
-      return;
+      return remoteHydrationPromise;
     }
 
     remoteHydrationPromise = hydrateRemoteContainers()
@@ -387,6 +389,12 @@ export function createExplorerStore(
           scheduleSync();
         }
       });
+
+    return remoteHydrationPromise;
+  }
+
+  function scheduleRemoteHydration() {
+    void requestRemoteHydration();
   }
 
   async function initialize() {
@@ -658,7 +666,7 @@ export function createExplorerStore(
                       ...pendingUpdateFields,
                     },
                   ],
-                  getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+                  parentState.recipientPublicKeys,
                 )
               : [];
             const created = await runtime.apiClient.createContainer(
@@ -761,6 +769,19 @@ export function createExplorerStore(
         });
 
       return writeChain.then((deletedNode) => deletedNode !== null);
+    },
+
+    refresh() {
+      if (
+        runtime.dbStatus !== "ready" ||
+        !initialized ||
+        !runtime.isAuthenticated ||
+        !runtime.online
+      ) {
+        return Promise.resolve(false);
+      }
+
+      return requestRemoteHydration().then(() => true);
     },
 
     renameContainer(containerId, name) {
@@ -945,6 +966,7 @@ export function useExplorer(): ExplorerContextValue {
   return {
     createChild: store.createChild,
     deleteContainer: store.deleteContainer,
+    refresh: store.refresh,
     renameContainer: store.renameContainer,
     shareWithUser: store.shareWithUser,
     nodes: snapshot.nodes,
