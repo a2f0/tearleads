@@ -666,7 +666,7 @@ export function createExplorerStore(
                       ...pendingUpdateFields,
                     },
                   ],
-                  getLocalRecipientPublicKeys(runtime.encapsulationKeyPair),
+                  parentState.recipientPublicKeys,
                 )
               : [];
             const created = await runtime.apiClient.createContainer(

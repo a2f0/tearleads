@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { parseEnvelope } from "@tearleads/loro";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -236,6 +238,99 @@ test("explorer store creates authenticated child containers through the API befo
     expect(persistedChild?.name).toBe("Docs");
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store creates a child under a writable shared root using the inherited recipient set", async () => {
+  const runtime = await createSqlRuntime();
+  const ownerKeyPair = generateKemSeedAndKeyPair();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const expectedRecipientFingerprints = [
+    await toFingerprint(ownerKeyPair.publicKey),
+    await toFingerprint(localKeyPair.publicKey),
+  ].sort();
+  const createContainerCalls: Array<{
+    id: string;
+    initialMetadataUpdateRecipientFingerprints: string[];
+    parentId: string;
+  }> = [];
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = {
+    createContainer: async (
+      id: string,
+      parentId: string,
+      initialMetadataUpdates,
+    ) => {
+      createContainerCalls.push({
+        id,
+        initialMetadataUpdateRecipientFingerprints: initialMetadataUpdates
+          .flatMap((update) =>
+            parseEnvelope(update.encryptedData).recipients.map(
+              (recipient) => recipient.keyFingerprint,
+            ),
+          )
+          .sort(),
+        parentId,
+      });
+      return {
+        id,
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "metadata-document-2",
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(ownerKeyPair.publicKey),
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+        organizationId: "org-2",
+        parentId,
+      };
+    },
+    listContainers: async () => [
+      {
+        id: "shared-root-container",
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "shared-root-metadata-document",
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(ownerKeyPair.publicKey),
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+        organizationId: "org-2",
+        parentId: null,
+      },
+    ],
+    shareContainer: async () => null,
+    syncDocument: async () => null,
+  };
+
+  try {
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .nodes.some((node) => node.id === "shared-root-container"),
+      "Explorer store did not hydrate the shared root container.",
+    );
+
+    const childNode = await store.createChild("shared-root-container", "Docs");
+    if (!childNode) {
+      throw new Error("Expected createChild to return a new container node.");
+    }
+
+    expect(createContainerCalls).toEqual([
+      {
+        id: childNode.id,
+        initialMetadataUpdateRecipientFingerprints:
+          expectedRecipientFingerprints,
+        parentId: "shared-root-container",
+      },
+    ]);
   } finally {
     runtime.close();
   }
