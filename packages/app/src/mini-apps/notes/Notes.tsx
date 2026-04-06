@@ -33,14 +33,16 @@ export function Notes() {
   >({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
-  const objectUrlsRef = useRef<string[]>([]);
+  const objectUrlsRef = useRef<
+    Map<string, { storageKey: string; url: string }>
+  >(new Map());
 
   useEffect(() => {
     return () => {
-      for (const objectUrl of objectUrlsRef.current) {
-        URL.revokeObjectURL(objectUrl);
+      for (const entry of objectUrlsRef.current.values()) {
+        URL.revokeObjectURL(entry.url);
       }
-      objectUrlsRef.current = [];
+      objectUrlsRef.current.clear();
     };
   }, []);
 
@@ -55,60 +57,62 @@ export function Notes() {
       );
 
       if (imageAttachments.length === 0) {
-        for (const objectUrl of objectUrlsRef.current) {
-          URL.revokeObjectURL(objectUrl);
+        for (const entry of objectUrlsRef.current.values()) {
+          URL.revokeObjectURL(entry.url);
         }
-        objectUrlsRef.current = [];
+        objectUrlsRef.current.clear();
         setImageUrlBySlotId({});
         return;
       }
 
-      const loadedImages = await Promise.all(
-        imageAttachments.map(async (attachment) => {
-          const storageKey = attachmentStorageKeyBySlotId[attachment.slotId];
-          if (!storageKey) {
-            return null;
-          }
+      const currentObjectUrls = objectUrlsRef.current;
+      const nextObjectUrls = new Map<
+        string,
+        { storageKey: string; url: string }
+      >();
+      const nextImageUrlBySlotId: Record<string, string> = {};
+      const createdObjectUrls: string[] = [];
 
-          const blobBytes = await blobStore.readBytes(storageKey);
-          if (!blobBytes) {
-            return null;
-          }
+      for (const attachment of imageAttachments) {
+        const storageKey = attachmentStorageKeyBySlotId[attachment.slotId];
+        if (!storageKey) {
+          continue;
+        }
 
-          return {
-            slotId: attachment.slotId,
-            url: URL.createObjectURL(
-              new Blob([blobBytes], {
-                type: attachment.mimeType ?? "application/octet-stream",
-              }),
-            ),
-          };
-        }),
-      );
+        const existingEntry = currentObjectUrls.get(attachment.slotId);
+        if (existingEntry && existingEntry.storageKey === storageKey) {
+          nextObjectUrls.set(attachment.slotId, existingEntry);
+          nextImageUrlBySlotId[attachment.slotId] = existingEntry.url;
+          continue;
+        }
+
+        const blobBytes = await blobStore.readBytes(storageKey);
+        if (!blobBytes) {
+          continue;
+        }
+
+        const url = URL.createObjectURL(
+          new Blob([blobBytes], {
+            type: attachment.mimeType ?? "application/octet-stream",
+          }),
+        );
+        createdObjectUrls.push(url);
+        nextObjectUrls.set(attachment.slotId, { storageKey, url });
+        nextImageUrlBySlotId[attachment.slotId] = url;
+      }
 
       if (cancelled) {
-        for (const image of loadedImages) {
-          if (image) {
-            URL.revokeObjectURL(image.url);
-          }
+        for (const url of createdObjectUrls) {
+          URL.revokeObjectURL(url);
         }
         return;
       }
 
-      for (const objectUrl of objectUrlsRef.current) {
-        URL.revokeObjectURL(objectUrl);
-      }
-
-      const nextObjectUrls: string[] = [];
-      const nextImageUrlBySlotId: Record<string, string> = {};
-
-      for (const image of loadedImages) {
-        if (!image) {
-          continue;
+      for (const [slotId, entry] of currentObjectUrls.entries()) {
+        const nextEntry = nextObjectUrls.get(slotId);
+        if (!nextEntry || nextEntry.url !== entry.url) {
+          URL.revokeObjectURL(entry.url);
         }
-
-        nextObjectUrls.push(image.url);
-        nextImageUrlBySlotId[image.slotId] = image.url;
       }
 
       objectUrlsRef.current = nextObjectUrls;

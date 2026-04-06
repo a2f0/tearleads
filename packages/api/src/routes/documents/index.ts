@@ -65,6 +65,15 @@ function hasDuplicateValues(values: string[]): boolean {
   return new Set(values).size !== values.length;
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
 class CommitChangeError extends Error {
   constructor(
     message: string,
@@ -249,6 +258,22 @@ documentsRouter.post(
   async (c) => {
     const session = c.get("session");
     const { encryptedBytes, byteLength, sha256 } = c.req.valid("json");
+    const encodedBytes = new TextEncoder().encode(encryptedBytes);
+
+    if (encodedBytes.byteLength !== byteLength) {
+      return c.json(
+        { error: "Blob byteLength does not match encryptedBytes" },
+        400,
+      );
+    }
+
+    if ((await sha256Hex(encryptedBytes)) !== sha256) {
+      return c.json(
+        { error: "Blob sha256 does not match encryptedBytes" },
+        400,
+      );
+    }
+
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     const [stage] = await db
@@ -654,6 +679,7 @@ documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
     .select({
       blobId: blobs.id,
       encryptedBytes: blobs.encryptedBytes,
+      sha256: blobs.sha256,
     })
     .from(blobs)
     .where(eq(blobs.id, blobId))
@@ -666,5 +692,6 @@ documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
   return c.json<BlobResponse>({
     blobId: row.blobId,
     encryptedBytes: row.encryptedBytes,
+    sha256: row.sha256,
   });
 });

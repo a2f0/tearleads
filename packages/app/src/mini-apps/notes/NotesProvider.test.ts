@@ -696,6 +696,111 @@ test("notes store reloads persisted attachment metadata from the note snapshot",
   ]);
 });
 
+test("notes store skips hydrating attachment blobs whose digest does not match", async () => {
+  const initialPersistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const logMessages: string[] = [];
+  const initialRuntime = createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+  );
+  const initialStore = createNotesStore(
+    "tampered-attachment-note",
+    initialRuntime,
+    initialPersistence,
+  );
+  initialStore.updateRuntime(initialRuntime);
+
+  await waitForCondition(
+    () => initialStore.getSnapshot().ready,
+    "Initial tampered attachment note store did not become ready.",
+  );
+
+  initialStore.attachFiles([
+    {
+      bytes: new TextEncoder().encode("hello attachment"),
+      mimeType: "image/png",
+      name: "hello.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      initialPersistence.getState().note?.documentId === "notes-document-1" &&
+      initialPersistence.getState().pendingAttachments.length === 0,
+    "Initial attachment sync did not complete before tamper check.",
+  );
+
+  const persistedNote = initialPersistence.getState().note;
+  const persistedSlotId = initialStore.getSnapshot().attachments[0]?.slotId;
+  expect(persistedNote).toBeDefined();
+  expect(persistedSlotId).toBeString();
+
+  const hydratedPersistence = createNotesPersistence();
+  if (persistedNote) {
+    await hydratedPersistence.saveNote(async () => [], persistedNote);
+  }
+
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      getBlob: async () => ({
+        blobId: "blob-1",
+        encryptedBytes: "tampered-encrypted-bytes",
+        sha256: "wrong-digest",
+      }),
+      listDocumentAttachments: async () => [
+        {
+          blobId: "blob-1",
+          slotId: persistedSlotId ?? "",
+        },
+      ],
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+      ) => ({
+        documentId,
+        acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+        currentAccessEpoch: accessEpoch,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(encapsulationKeyPair.publicKey),
+        ],
+        updates: [],
+      }),
+    },
+    log: (message) => {
+      logMessages.push(message);
+    },
+  };
+  const store = createNotesStore(
+    "tampered-attachment-note",
+    instrumentedRuntime,
+    hydratedPersistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Tampered attachment note store did not become ready.",
+  );
+
+  await waitForCondition(
+    () =>
+      logMessages.some((message) =>
+        message.includes("sha256 mismatch during hydration"),
+      ),
+    "Tampered blob hydration was not rejected.",
+  );
+
+  expect(
+    store.getSnapshot().attachmentStorageKeyBySlotId[persistedSlotId ?? ""],
+  ).toBe(undefined);
+});
+
 test("large note edits remain a single pending update row before sync", async () => {
   const runtime = await createSqlRuntime();
 

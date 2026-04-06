@@ -252,11 +252,11 @@ export function createNotesStore(
     syncing: boolean,
     text = getTextValue(currentDoc),
   ) {
+    const attachments = getSnapshotAttachments(currentDoc);
+
     setSnapshot({
-      attachments: getSnapshotAttachments(currentDoc),
-      attachmentStorageKeyBySlotId: getAttachmentStorageKeys(
-        getSnapshotAttachments(currentDoc),
-      ),
+      attachments,
+      attachmentStorageKeyBySlotId: getAttachmentStorageKeys(attachments),
       canAttach: canAttachFiles(),
       documentId: record?.documentId ?? null,
       ready: true,
@@ -303,17 +303,14 @@ export function createNotesStore(
   }
 
   async function createEncryptedBlobUpload(
-    upload: NoteAttachmentUpload,
+    bytes: BlobBytes,
     recipientKeys: Uint8Array[],
   ): Promise<{
     byteLength: number;
     encryptedBytes: string;
     sha256: string;
   }> {
-    const encryptedEnvelope = await encryptForRecipients(
-      upload.bytes,
-      recipientKeys,
-    );
+    const encryptedEnvelope = await encryptForRecipients(bytes, recipientKeys);
     const encryptedBytes = serializeBlobEnvelope(encryptedEnvelope);
     const encodedEnvelope = new TextEncoder().encode(encryptedBytes);
     const digest = new Uint8Array(
@@ -452,6 +449,20 @@ export function createNotesStore(
 
       const blob = await runtime.apiClient.getBlob(binding.blobId);
       if (!blob) {
+        continue;
+      }
+
+      const blobDigest = new Uint8Array(
+        await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(blob.encryptedBytes),
+        ),
+      );
+      const blobSha256 = bytesToHex(blobDigest);
+      if (blobSha256 !== blob.sha256) {
+        runtime.log(
+          `Notes: blob ${binding.blobId} sha256 mismatch during hydration.`,
+        );
         continue;
       }
 
@@ -635,11 +646,7 @@ export function createNotesStore(
                   }
 
                   const stagedBlob = await createEncryptedBlobUpload(
-                    {
-                      bytes: localBytes,
-                      mimeType: attachment.mimeType,
-                      name: attachment.name,
-                    },
+                    localBytes,
                     recipientPublicKeys,
                   );
                   const stage = await runtime.apiClient.stageBlob(stagedBlob);

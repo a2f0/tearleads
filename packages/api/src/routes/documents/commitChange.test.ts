@@ -32,13 +32,41 @@ afterAll(async () => {
   await del(alice.fingerprint);
 });
 
-test("POST /blobs/stage stores a staged encrypted blob for the authenticated user", async () => {
+async function createStagedBlobInput(encryptedBytes: string) {
+  const encodedBytes = new TextEncoder().encode(encryptedBytes);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", encodedBytes),
+  );
+
+  return {
+    encryptedBytes,
+    byteLength: encodedBytes.byteLength,
+    sha256: Array.from(digest, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join(""),
+  };
+}
+
+test("POST /blobs/stage rejects mismatched blob digests", async () => {
+  const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
   const response = await stageBlob(
     {
-      encryptedBytes: "ZW5jcnlwdGVkLWJ5dGVz",
-      byteLength: 15,
-      sha256: "sha256-stage-1",
+      encryptedBytes: validInput.encryptedBytes,
+      byteLength: validInput.byteLength,
+      sha256: "not-the-real-digest",
     },
+    alice.token,
+  );
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Blob sha256 does not match encryptedBytes",
+  });
+});
+
+test("POST /blobs/stage stores a staged encrypted blob for the authenticated user", async () => {
+  const response = await stageBlob(
+    await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz"),
     alice.token,
   );
 
@@ -68,11 +96,7 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   const documentId = String(createdDocument.id ?? "");
 
   const stageResponse = await stageBlob(
-    {
-      encryptedBytes: "ZW5jcnlwdGVkLWF0dGFjaG1lbnQtMQ==",
-      byteLength: 22,
-      sha256: "sha256-attachment-1",
-    },
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtMQ=="),
     alice.token,
   );
   expect(stageResponse.status).toBe(200);
@@ -201,11 +225,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const documentId = String(createdDocument.id ?? "");
 
   const firstStageResponse = await stageBlob(
-    {
-      encryptedBytes: "ZW5jcnlwdGVkLWF0dGFjaG1lbnQtZmlyc3Q=",
-      byteLength: 26,
-      sha256: "sha256-attachment-first",
-    },
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtZmlyc3Q="),
     alice.token,
   );
   expect(firstStageResponse.status).toBe(200);
@@ -248,11 +268,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   expect(firstCommitResponse.status).toBe(200);
 
   const secondStageResponse = await stageBlob(
-    {
-      encryptedBytes: "ZW5jcnlwdGVkLWF0dGFjaG1lbnQtc2Vjb25k",
-      byteLength: 27,
-      sha256: "sha256-attachment-second",
-    },
+    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtc2Vjb25k"),
     alice.token,
   );
   expect(secondStageResponse.status).toBe(200);
@@ -330,11 +346,7 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   const documentId = String(createdDocument.id ?? "");
 
   const stageResponse = await stageBlob(
-    {
-      encryptedBytes: "ZW5jcnlwdGVkLWltYWdlLWJ5dGVz",
-      byteLength: 21,
-      sha256: "sha256-image-1",
-    },
+    await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"),
     alice.token,
   );
   expect(stageResponse.status).toBe(200);
@@ -371,5 +383,7 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   expect(await blobResponse.json()).toEqual({
     blobId,
     encryptedBytes: "ZW5jcnlwdGVkLWltYWdlLWJ5dGVz",
+    sha256: (await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"))
+      .sha256,
   });
 });

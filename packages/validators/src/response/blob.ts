@@ -16,6 +16,7 @@ export type ListDocumentAttachmentsResponse = BlobAttachmentSummary[];
 export interface BlobResponse {
   blobId: string;
   encryptedBytes: string;
+  sha256: string;
 }
 
 export function isStageBlobResponse(
@@ -51,6 +52,7 @@ export function isBlobResponse(value: unknown): value is BlobResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "blobId") &&
-    hasStringProperty(value, "encryptedBytes")
+    hasStringProperty(value, "encryptedBytes") &&
+    hasStringProperty(value, "sha256")
   );
 }

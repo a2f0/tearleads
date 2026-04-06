@@ -23,7 +23,6 @@ interface NoteDocumentShape {
 }
 
 const NOTE_MAP_KEY = "note";
-const LEGACY_ATTACHMENTS_KEY = "attachments";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
 function isNoteAttachmentMap(value: unknown): value is NoteDocumentMap {
@@ -39,38 +38,6 @@ function isNoteAttachmentMap(value: unknown): value is NoteDocumentMap {
     "delete" in value &&
     typeof value.delete === "function"
   );
-}
-
-function isNoteAttachment(value: unknown): value is NoteAttachment {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "slotId" in value &&
-    typeof value.slotId === "string" &&
-    value.slotId.length > 0 &&
-    "name" in value &&
-    typeof value.name === "string" &&
-    value.name.length > 0 &&
-    "byteLength" in value &&
-    typeof value.byteLength === "number" &&
-    Number.isInteger(value.byteLength) &&
-    value.byteLength >= 0 &&
-    "mimeType" in value &&
-    (value.mimeType === null || typeof value.mimeType === "string")
-  );
-}
-
-function parseNoteAttachments(value: unknown): NoteAttachment[] {
-  if (typeof value !== "string" || value.length === 0) {
-    return [];
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter(isNoteAttachment) : [];
-  } catch {
-    return [];
-  }
 }
 
 function parseStructuredAttachment(
@@ -118,20 +85,6 @@ function getAttachmentMapKey(slotId: string): string {
   return `${ATTACHMENT_KEY_PREFIX}${slotId}`;
 }
 
-function migrateLegacyAttachments(doc: NoteDocumentShape): void {
-  const noteMap = doc.getMap(NOTE_MAP_KEY);
-  const legacyAttachments = parseNoteAttachments(
-    noteMap.get(LEGACY_ATTACHMENTS_KEY),
-  );
-
-  if (legacyAttachments.length === 0) {
-    return;
-  }
-
-  addNoteAttachments(doc, legacyAttachments);
-  noteMap.delete(LEGACY_ATTACHMENTS_KEY);
-}
-
 function getStructuredNoteAttachments(
   doc: NoteDocumentShape,
 ): NoteAttachment[] {
@@ -169,14 +122,7 @@ function getStructuredNoteAttachments(
 }
 
 export function getNoteAttachments(doc: NoteDocumentShape): NoteAttachment[] {
-  const structuredAttachments = getStructuredNoteAttachments(doc);
-  if (structuredAttachments.length > 0) {
-    return structuredAttachments;
-  }
-
-  return parseNoteAttachments(
-    doc.getMap(NOTE_MAP_KEY).get(LEGACY_ATTACHMENTS_KEY),
-  );
+  return getStructuredNoteAttachments(doc);
 }
 
 export function addNoteAttachments(
@@ -187,7 +133,6 @@ export function addNoteAttachments(
     return;
   }
 
-  migrateLegacyAttachments(doc);
   const noteMap = doc.getMap(NOTE_MAP_KEY);
   const existingAttachments = getStructuredNoteAttachments(doc);
   let nextOrder =
