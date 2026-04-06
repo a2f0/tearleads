@@ -120,6 +120,7 @@ interface NotesSnapshot {
 interface NotesStore {
   attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
   getSnapshot: () => NotesSnapshot;
+  requestSync: () => void;
   setPersistedNoteListener: (
     listener: PersistedNoteListener | undefined,
   ) => void;
@@ -486,6 +487,77 @@ export function createNotesStore(
     }
   }
 
+  async function queueCommittedAttachmentsForRecommit(
+    currentDoc: NotesDocument,
+  ): Promise<boolean> {
+    const currentAttachments = getNoteAttachments(currentDoc);
+    if (currentAttachments.length === 0) {
+      return false;
+    }
+
+    const localAttachments = await listLocalAttachmentRecords();
+    const localAttachmentBySlotId = new Map(
+      localAttachments.map((attachment) => [attachment.slotId, attachment]),
+    );
+    const nextPendingAttachments: PendingAttachmentRecord[] = [];
+
+    for (const attachment of currentAttachments) {
+      if (
+        pendingAttachments.some(
+          (pendingAttachment) => pendingAttachment.slotId === attachment.slotId,
+        )
+      ) {
+        continue;
+      }
+
+      const localAttachment = localAttachmentBySlotId.get(attachment.slotId);
+      if (!localAttachment?.blobId) {
+        continue;
+      }
+
+      const localBytes = await runtime.blobStore.readBytes(
+        localAttachment.storageKey,
+      );
+      if (!localBytes) {
+        runtime.log(
+          `Notes: missing local blob bytes for attachment ${attachment.slotId} during access expansion.`,
+        );
+        continue;
+      }
+
+      const pendingAttachment: PendingAttachmentRecord = {
+        byteLength: attachment.byteLength,
+        mimeType: attachment.mimeType,
+        name: attachment.name,
+        noteId,
+        slotId: attachment.slotId,
+        storageKey: localAttachment.storageKey,
+      };
+      await persistence.savePendingAttachment(
+        runtime.execSql,
+        pendingAttachment,
+      );
+      nextPendingAttachments.push(pendingAttachment);
+    }
+
+    if (nextPendingAttachments.length === 0) {
+      return false;
+    }
+
+    pendingAttachments = [
+      ...pendingAttachments.filter(
+        (existingAttachment) =>
+          !nextPendingAttachments.some(
+            (pendingAttachment) =>
+              pendingAttachment.slotId === existingAttachment.slotId,
+          ),
+      ),
+      ...nextPendingAttachments,
+    ];
+
+    return true;
+  }
+
   async function replacePendingUpdatesWithBaseline(currentDoc: NotesDocument) {
     await persistence.deletePendingUpdates(runtime.execSql, noteId);
     await enqueuePendingUpdate(exportAllUpdates(currentDoc));
@@ -628,8 +700,19 @@ export function createNotesStore(
                   return;
                 }
 
+                const currentBindings =
+                  await runtime.apiClient.listDocumentAttachments(
+                    nextRemoteRecord.documentId,
+                  );
+                if (!currentBindings) {
+                  return;
+                }
+
+                const currentBindingBySlotId = new Map(
+                  currentBindings.map((binding) => [binding.slotId, binding]),
+                );
                 const attachmentCommits: Array<{
-                  expectedBindingId: null;
+                  expectedBindingId: string | null;
                   slotId: string;
                   stageId: string;
                 }> = [];
@@ -656,7 +739,9 @@ export function createNotesStore(
                   }
 
                   attachmentCommits.push({
-                    expectedBindingId: null,
+                    expectedBindingId:
+                      currentBindingBySlotId.get(attachment.slotId)
+                        ?.bindingId ?? null,
                     slotId: attachment.slotId,
                     stageId: stage.stageId,
                   });
@@ -807,7 +892,11 @@ export function createNotesStore(
             });
 
             if (synced.currentAccessEpoch !== previousAccessEpoch) {
-              await replacePendingUpdatesWithBaseline(doc);
+              const queuedAttachmentRecommit =
+                await queueCommittedAttachmentsForRecommit(doc);
+              if (!queuedAttachmentRecommit) {
+                await replacePendingUpdatesWithBaseline(doc);
+              }
               syncRequested = true;
             }
 
@@ -954,6 +1043,9 @@ export function createNotesStore(
     getSnapshot() {
       return snapshot;
     },
+    requestSync() {
+      scheduleSync();
+    },
     setPersistedNoteListener(listener) {
       persistedNoteListener = listener;
     },
@@ -1089,6 +1181,17 @@ export function primeNotesStore(
   );
   store.updateRuntime(runtime);
   return store;
+}
+
+export function requestDomainNotesSync(domainScope: object): void {
+  const stores = notesStoresByScope.get(domainScope);
+  if (!stores) {
+    return;
+  }
+
+  for (const store of stores.values()) {
+    store.requestSync();
+  }
 }
 
 interface NotesProviderProps extends PropsWithChildren {
