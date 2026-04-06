@@ -18,7 +18,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
-import type { BlobStore } from "../../data/blob-store";
+import type { BlobBytes, BlobStore } from "../../data/blob-store";
 import {
   decryptBlobEnvelope,
   serializeBlobEnvelope,
@@ -90,7 +90,7 @@ export interface NotesRuntime {
 }
 
 interface NoteAttachmentUpload {
-  bytes: Uint8Array;
+  bytes: BlobBytes;
   name: string;
   mimeType: string | null;
 }

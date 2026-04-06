@@ -78,7 +78,7 @@ export function Notes() {
           return {
             slotId: attachment.slotId,
             url: URL.createObjectURL(
-              new Blob([Uint8Array.from(blobBytes)], {
+              new Blob([blobBytes], {
                 type: attachment.mimeType ?? "application/octet-stream",
               }),
             ),

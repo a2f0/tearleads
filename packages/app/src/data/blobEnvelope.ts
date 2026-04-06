@@ -1,5 +1,6 @@
 import { decryptAsRecipient, type EncryptedEnvelope } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { BlobBytes } from "./blob-store";
 
 const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
 
@@ -91,6 +92,6 @@ function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
 export async function decryptBlobEnvelope(
   encryptedBytes: string,
   secretKey: Uint8Array,
-): Promise<Uint8Array> {
+): Promise<BlobBytes> {
   return decryptAsRecipient(parseBlobEnvelope(encryptedBytes), secretKey);
 }

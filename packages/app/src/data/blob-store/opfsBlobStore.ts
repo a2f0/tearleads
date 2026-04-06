@@ -1,4 +1,4 @@
-import type { BlobStore } from "./types";
+import type { BlobBytes, BlobStore } from "./types";
 
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;
@@ -41,17 +41,16 @@ class OpfsBlobStore implements BlobStore {
     }
   }
 
-  async writeBytes(storageKey: string, bytes: Uint8Array) {
+  async writeBytes(storageKey: string, bytes: BlobBytes) {
     const directory = await this.getDirectory();
     const fileHandle = await directory.getFileHandle(
       this.getFileName(storageKey),
       { create: true },
     );
     const writable = await fileHandle.createWritable();
-    const copiedBytes = Uint8Array.from(bytes);
 
     try {
-      await writable.write(copiedBytes);
+      await writable.write(bytes);
     } finally {
       await writable.close();
     }
