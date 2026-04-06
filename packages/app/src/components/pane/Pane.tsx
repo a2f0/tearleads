@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
-import { NotesApp } from "../../mini-apps/notes/NotesApp";
+import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
 import { usePersona } from "../../persona/PersonaProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
@@ -47,7 +47,12 @@ function PaneInner({ className }: { className: string }) {
 
   const openNotes = useCallback(() => {
     if (contextMenu) {
-      create("Notes", contextMenu.x, contextMenu.y, NotesApp);
+      create(
+        "Notes",
+        contextMenu.x,
+        contextMenu.y,
+        createNotesWindowComponent(),
+      );
     }
     setContextMenu(null);
   }, [contextMenu, create]);

@@ -26,7 +26,9 @@ import {
   resolveRecipientPublicKeys,
 } from "../../data/documentSync";
 import {
+  deriveNoteTitle,
   type NoteRecord,
+  type NoteSummary,
   type NotesPersistence,
   type PendingUpdateRecord,
   sqlNotesPersistence,
@@ -34,6 +36,7 @@ import {
 
 type NotesDocument = Awaited<ReturnType<typeof createDocument>>;
 type NotesAppData = ReturnType<typeof useAppData>;
+export const DEFAULT_NOTE_ID = "default";
 
 export interface NotesRuntime {
   apiClient: Pick<NotesAppData["apiClient"], "createDocument" | "syncDocument">;
@@ -63,12 +66,16 @@ interface NotesSnapshot {
 
 interface NotesStore {
   getSnapshot: () => NotesSnapshot;
+  setPersistedNoteListener: (
+    listener: PersistedNoteListener | undefined,
+  ) => void;
   setText: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: NotesRuntime) => void;
 }
 
-const NOTE_ID = "default";
+type PersistedNoteListener = (note: NoteSummary) => void;
+
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
 const NotesContext = createContext<NotesStore | null>(null);
 
@@ -76,8 +83,10 @@ export function createNotesStore(
   noteId: string,
   initialRuntime: NotesRuntime,
   persistence: NotesPersistence = sqlNotesPersistence,
+  onPersistedNote?: PersistedNoteListener,
 ): NotesStore {
   let runtime = initialRuntime;
+  let persistedNoteListener = onPersistedNote;
   let snapshot: NotesSnapshot = {
     ready: false,
     text: "",
@@ -143,6 +152,13 @@ export function createNotesStore(
   async function saveNoteRecord(nextRecord: NoteRecord) {
     await persistence.saveNote(runtime.execSql, nextRecord);
     record = nextRecord;
+    persistedNoteListener?.({
+      id: nextRecord.id,
+      containerId: nextRecord.containerId,
+      documentId: nextRecord.documentId,
+      title: deriveNoteTitle(nextRecord.text),
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   async function persistDocument(
@@ -151,6 +167,8 @@ export function createNotesStore(
   ): Promise<NoteRecord> {
     const nextRecord: NoteRecord = {
       id: record?.id ?? noteId,
+      containerId:
+        patch.containerId ?? record?.containerId ?? runtime.containerId ?? null,
       documentId: patch.documentId ?? record?.documentId ?? null,
       text: patch.text ?? getTextValue(currentDoc),
       loroSnapshot:
@@ -202,8 +220,11 @@ export function createNotesStore(
     const nextDoc = await createDocument(getScopedPeerSeed("notes"));
     const existing = await persistence.loadNote(runtime.execSql, noteId);
 
-    if (existing?.loroSnapshot) {
-      importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
+    if (existing) {
+      if (existing.loroSnapshot.length > 0) {
+        importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
+      }
+
       record = existing;
       setSnapshot({
         ready: true,
@@ -213,6 +234,7 @@ export function createNotesStore(
     } else {
       const created: NoteRecord = {
         id: noteId,
+        containerId: runtime.containerId ?? null,
         documentId: null,
         text: "",
         loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
@@ -406,6 +428,9 @@ export function createNotesStore(
     getSnapshot() {
       return snapshot;
     },
+    setPersistedNoteListener(listener) {
+      persistedNoteListener = listener;
+    },
     setText(value: string) {
       if (!doc) {
         return;
@@ -485,27 +510,77 @@ function getOrCreateNotesStore(
   domainScope: object,
   noteId: string,
   runtime: NotesRuntime,
+  onPersistedNote?: PersistedNoteListener,
 ): NotesStore {
   const existingStores = notesStoresByScope.get(domainScope);
   if (existingStores) {
     const existingStore = existingStores.get(noteId);
     if (existingStore) {
+      existingStore.setPersistedNoteListener(onPersistedNote);
       return existingStore;
     }
   }
 
-  const nextStore = createNotesStore(noteId, runtime);
+  const nextStore = createNotesStore(
+    noteId,
+    runtime,
+    sqlNotesPersistence,
+    onPersistedNote,
+  );
   const stores = existingStores ?? new Map<string, NotesStore>();
   stores.set(noteId, nextStore);
   notesStoresByScope.set(domainScope, stores);
   return nextStore;
 }
 
-export function NotesProvider({ children }: PropsWithChildren) {
-  const runtime = useAppData();
+export function primeNotesStore(
+  domainScope: object,
+  noteId: string,
+  runtime: NotesRuntime,
+  onPersistedNote?: PersistedNoteListener,
+): NotesStore {
+  const store = getOrCreateNotesStore(
+    domainScope,
+    noteId,
+    runtime,
+    onPersistedNote,
+  );
+  store.updateRuntime(runtime);
+  return store;
+}
+
+interface NotesProviderProps extends PropsWithChildren {
+  noteId?: string;
+  containerId?: string | null;
+  onPersistedNote?: PersistedNoteListener;
+}
+
+export function NotesProvider({
+  children,
+  noteId = DEFAULT_NOTE_ID,
+  containerId,
+  onPersistedNote,
+}: NotesProviderProps) {
+  const appData = useAppData();
+  const runtime = useMemo(
+    () =>
+      containerId === undefined
+        ? appData
+        : {
+            ...appData,
+            containerId,
+          },
+    [appData, containerId],
+  );
   const store = useMemo(
-    () => getOrCreateNotesStore(runtime.domainScope, NOTE_ID, runtime),
-    [runtime.domainScope],
+    () =>
+      getOrCreateNotesStore(
+        runtime.domainScope,
+        noteId,
+        runtime,
+        onPersistedNote,
+      ),
+    [noteId, onPersistedNote, runtime.domainScope],
   );
 
   useEffect(() => {

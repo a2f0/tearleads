@@ -5,6 +5,7 @@ import {
   isCommitDocumentChangeResponse,
   isCreateContainerResponse,
   isHealthResponse,
+  isListContainerDocumentsResponse,
   isListContainersResponse,
   isPublicKeyResponse,
   isShareContainerResponse,
@@ -178,4 +179,29 @@ test("isShareContainerResponse", () => {
     }),
   ).toBe(false);
   expect(isShareContainerResponse(null)).toBe(false);
+});
+
+test("isListContainerDocumentsResponse", () => {
+  expect(
+    isListContainerDocumentsResponse([
+      {
+        createdAt: new Date().toISOString(),
+        currentAccessEpoch: 2,
+        id: "doc-123",
+        linkedContainerIds: ["ctr-root"],
+        recipientEncapsulationPublicKeys: ["pub-key"],
+      },
+    ]),
+  ).toBe(true);
+  expect(
+    isListContainerDocumentsResponse([
+      {
+        currentAccessEpoch: 2,
+        id: "doc-123",
+        linkedContainerIds: ["ctr-root"],
+        recipientEncapsulationPublicKeys: ["pub-key"],
+      },
+    ]),
+  ).toBe(false);
+  expect(isListContainerDocumentsResponse(null)).toBe(false);
 });

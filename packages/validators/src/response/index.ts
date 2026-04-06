@@ -25,5 +25,10 @@ export {
   type ListContainersResponse,
   type ShareContainerResponse,
 } from "./container";
+export {
+  type ContainerDocumentSummary,
+  isListContainerDocumentsResponse,
+  type ListContainerDocumentsResponse,
+} from "./document";
 export { type HealthResponse, isHealthResponse } from "./health";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";

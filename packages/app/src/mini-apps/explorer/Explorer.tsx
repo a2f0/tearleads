@@ -12,6 +12,15 @@ import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { useAppData } from "../../data/AppDataProvider";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+import { NotesApp } from "../notes/NotesApp";
+import { primeNotesStore } from "../notes/NotesProvider";
+import {
+  type NoteSummary,
+  sqlNotesPersistence,
+  upsertDiscoveredNotes,
+} from "../notes/notesPersistence";
 import { useExplorer } from "./ExplorerProvider";
 import type { ContainerNode } from "./types";
 import "./Explorer.css";
@@ -64,9 +73,12 @@ function buildExplorerTree(
 function renderTreeEntries(
   entries: ReadonlyArray<ExplorerTreeEntry>,
   depth: number,
+  activeContainerId: string | null,
   collapsedIds: ReadonlySet<string>,
+  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>,
   selectedId: string | null,
-  onSelect: (id: string) => void,
+  onSelectContainer: (id: string) => void,
+  onSelectNote: (id: string) => void,
   onToggleCollapsed: (id: string) => void,
   onContextMenu: (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -115,7 +127,7 @@ function renderTreeEntries(
                 ? " explorer-sidebar-item--selected"
                 : "")
             }
-            onClick={() => onSelect(entry.node.id)}
+            onClick={() => onSelectContainer(entry.node.id)}
             onContextMenu={(event) => onContextMenu(event, entry.node.id)}
           >
             {entry.node.name}
@@ -125,18 +137,58 @@ function renderTreeEntries(
           renderTreeEntries(
             entry.children,
             depth + 1,
+            activeContainerId,
             collapsedIds,
+            notesByContainerId,
             selectedId,
-            onSelect,
+            onSelectContainer,
+            onSelectNote,
             onToggleCollapsed,
             onContextMenu,
           )}
+        {!isCollapsed && entry.node.id === activeContainerId
+          ? (notesByContainerId.get(entry.node.id) ?? []).map(
+              ({ id, title }) => (
+                <div
+                  className="explorer-sidebar-row"
+                  key={id}
+                  style={{
+                    paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
+                  }}
+                >
+                  <span className="explorer-node-spacer" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className={
+                      "explorer-sidebar-item explorer-sidebar-item--note" +
+                      (selectedId === id
+                        ? " explorer-sidebar-item--selected"
+                        : "")
+                    }
+                    onClick={() => onSelectNote(id)}
+                  >
+                    {title}
+                  </button>
+                </div>
+              ),
+            )
+          : null}
       </Fragment>
     );
   });
 }
 
 export function Explorer() {
+  const {
+    apiClient,
+    dbStatus,
+    domainScope,
+    encapsulationKeyPair,
+    execSql,
+    isAuthenticated,
+    log,
+    online,
+  } = useAppData();
   const {
     createChild,
     deleteContainer,
@@ -161,10 +213,34 @@ export function Explorer() {
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [noteSummaries, setNoteSummaries] = useState<
+    ReadonlyArray<NoteSummary>
+  >([]);
   const [draftName, setDraftName] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
+  const notesByContainerId = useMemo(() => {
+    const nextNotesByContainerId = new Map<string, NoteSummary[]>();
+
+    for (const note of noteSummaries) {
+      if (!note.containerId) {
+        continue;
+      }
+
+      const existingNotes = nextNotesByContainerId.get(note.containerId) ?? [];
+      existingNotes.push(note);
+      nextNotesByContainerId.set(note.containerId, existingNotes);
+    }
+
+    for (const notes of nextNotesByContainerId.values()) {
+      notes.sort((left, right) =>
+        right.updatedAt.localeCompare(left.updatedAt),
+      );
+    }
+
+    return nextNotesByContainerId;
+  }, [noteSummaries]);
 
   useEffect(() => {
     if (nodes.length === 0) {
@@ -172,10 +248,17 @@ export function Explorer() {
       return;
     }
 
-    if (!selectedId || !nodes.some((node) => node.id === selectedId)) {
+    const selectedMatchesContainer = nodes.some(
+      (node) => node.id === selectedId,
+    );
+    const selectedMatchesNote = noteSummaries.some(
+      (note) => note.id === selectedId,
+    );
+
+    if (!selectedId || (!selectedMatchesContainer && !selectedMatchesNote)) {
       setSelectedId(nodes[0]?.id ?? null);
     }
-  }, [nodes, selectedId]);
+  }, [nodes, noteSummaries, selectedId]);
 
   useEffect(() => {
     setCollapsedIds((currentIds) => {
@@ -194,6 +277,189 @@ export function Explorer() {
       return changed ? nextIds : currentIds;
     });
   }, [nodes]);
+
+  useEffect(() => {
+    if (dbStatus !== "ready") {
+      setNoteSummaries([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      await sqlDocumentContainerProjectionPersistence.ensureSchema(execSql);
+      await sqlNotesPersistence.ensureSchema(execSql);
+      const storedNotes = await sqlNotesPersistence.listNotes(execSql);
+      const validContainerIds = new Set(nodes.map((node) => node.id));
+      const visibleNotes = storedNotes.filter(
+        (note) => note.containerId && validContainerIds.has(note.containerId),
+      );
+
+      if (!cancelled) {
+        setNoteSummaries(visibleNotes);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dbStatus, domainScope, execSql, nodes]);
+
+  const mergeNoteSummary = useCallback((nextNote: NoteSummary) => {
+    setNoteSummaries((currentNoteSummaries) => {
+      const existingNoteIndex = currentNoteSummaries.findIndex(
+        (note) => note.id === nextNote.id,
+      );
+
+      if (existingNoteIndex < 0) {
+        return [...currentNoteSummaries, nextNote];
+      }
+
+      const existingNote = currentNoteSummaries[existingNoteIndex];
+      if (!existingNote) {
+        return currentNoteSummaries;
+      }
+
+      if (
+        existingNote.title === nextNote.title &&
+        existingNote.containerId === nextNote.containerId &&
+        existingNote.documentId === nextNote.documentId
+      ) {
+        return currentNoteSummaries;
+      }
+
+      const nextNoteSummaries = [...currentNoteSummaries];
+      nextNoteSummaries[existingNoteIndex] = nextNote;
+      return nextNoteSummaries;
+    });
+  }, []);
+
+  const mergeNoteSummaries = useCallback(
+    (nextNotes: ReadonlyArray<NoteSummary>) => {
+      if (nextNotes.length === 0) {
+        return;
+      }
+
+      setNoteSummaries((currentNoteSummaries) => {
+        let changed = false;
+        const nextNoteSummaries = [...currentNoteSummaries];
+
+        for (const nextNote of nextNotes) {
+          const existingNoteIndex = nextNoteSummaries.findIndex(
+            (note) => note.id === nextNote.id,
+          );
+
+          if (existingNoteIndex < 0) {
+            nextNoteSummaries.push(nextNote);
+            changed = true;
+            continue;
+          }
+
+          const existingNote = nextNoteSummaries[existingNoteIndex];
+          if (!existingNote) {
+            continue;
+          }
+
+          if (
+            existingNote.title === nextNote.title &&
+            existingNote.containerId === nextNote.containerId &&
+            existingNote.documentId === nextNote.documentId
+          ) {
+            continue;
+          }
+
+          nextNoteSummaries[existingNoteIndex] = nextNote;
+          changed = true;
+        }
+
+        return changed ? nextNoteSummaries : currentNoteSummaries;
+      });
+    },
+    [],
+  );
+
+  const selectedNote = noteSummaries.find((note) => note.id === selectedId);
+  const activeContainerId = selectedNote?.containerId ?? selectedId;
+
+  useEffect(() => {
+    if (
+      !activeContainerId ||
+      dbStatus !== "ready" ||
+      !online ||
+      !isAuthenticated
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const listedDocuments =
+        await apiClient.listContainerDocuments(activeContainerId);
+      if (!listedDocuments || cancelled) {
+        return;
+      }
+
+      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+        execSql,
+        listedDocuments.map((document) => ({
+          documentId: document.id,
+          containerIds: document.linkedContainerIds,
+        })),
+      );
+      const discoveredNoteSummaries = await upsertDiscoveredNotes(
+        execSql,
+        listedDocuments.map((document) => ({
+          accessEpoch: document.currentAccessEpoch,
+          containerId: activeContainerId,
+          createdAt: document.createdAt,
+          documentId: document.id,
+        })),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      mergeNoteSummaries(discoveredNoteSummaries);
+
+      for (const noteSummary of discoveredNoteSummaries) {
+        primeNotesStore(
+          domainScope,
+          noteSummary.id,
+          {
+            apiClient,
+            containerId: activeContainerId,
+            dbStatus,
+            domainScope,
+            encapsulationKeyPair,
+            events: [],
+            execSql,
+            isAuthenticated,
+            log,
+            online,
+          },
+          mergeNoteSummary,
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeContainerId,
+    apiClient,
+    dbStatus,
+    domainScope,
+    encapsulationKeyPair,
+    execSql,
+    isAuthenticated,
+    log,
+    mergeNoteSummary,
+    mergeNoteSummaries,
+    online,
+  ]);
 
   const handleSidebarContextMenu = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>, nodeId: string) => {
@@ -260,8 +526,11 @@ export function Explorer() {
           renderTreeEntries(
             treeEntries,
             0,
+            activeContainerId,
             collapsedIds,
+            notesByContainerId,
             selectedId,
+            setSelectedId,
             setSelectedId,
             toggleCollapsed,
             handleSidebarContextMenu,
@@ -273,6 +542,8 @@ export function Explorer() {
     collapsedIds,
     toggleCollapsed,
     handleSidebarContextMenu,
+    noteSummaries,
+    notesByContainerId,
     nodes.length,
     ready,
     selectedId,
@@ -327,6 +598,26 @@ export function Explorer() {
     setModalError(null);
     setDraftName("");
   }, []);
+
+  const openInlineNote = useCallback(
+    (containerId: string, noteId?: string) => {
+      const nextNoteId = noteId ?? crypto.randomUUID();
+
+      if (!noteId) {
+        mergeNoteSummary({
+          id: nextNoteId,
+          containerId,
+          documentId: null,
+          title: "Untitled note",
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      setSelectedId(nextNoteId);
+      expandNode(containerId);
+    },
+    [expandNode, mergeNoteSummary],
+  );
 
   useEffect(() => {
     if (
@@ -462,6 +753,9 @@ export function Explorer() {
   );
 
   const selectedNode = nodes.find((node) => node.id === selectedId);
+  const selectedNoteContainer = selectedNote?.containerId
+    ? nodes.find((node) => node.id === selectedNote.containerId)
+    : null;
   const contextMenuNode = nodes.find((node) => node.id === contextMenu?.nodeId);
   const contextMenuNodeHasChildren =
     contextMenuNode !== undefined &&
@@ -476,23 +770,86 @@ export function Explorer() {
 
   return (
     <div className="explorer">
-      {selectedNode ? (
+      {selectedNote ? (
+        <div
+          className="explorer-detail explorer-detail--note"
+          key={selectedNote.id}
+        >
+          <div className="explorer-detail-header">
+            <div className="explorer-detail-copy">
+              <strong>{selectedNote.title}</strong>
+              <span>
+                note
+                {selectedNoteContainer
+                  ? ` in ${selectedNoteContainer.name}`
+                  : ""}
+              </span>
+            </div>
+            <div className="explorer-detail-actions">
+              <button
+                type="button"
+                className="explorer-action-button"
+                onClick={() => {
+                  if (selectedNote.containerId) {
+                    setSelectedId(selectedNote.containerId);
+                  }
+                }}
+              >
+                Back to Container
+              </button>
+              <button
+                type="button"
+                className="explorer-action-button"
+                disabled={!ready || isRefreshing}
+                onClick={() => {
+                  void handleRefresh();
+                }}
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+          </div>
+          {refreshError ? (
+            <span className="explorer-detail-error">{refreshError}</span>
+          ) : null}
+          <div className="explorer-inline-note">
+            <NotesApp
+              noteId={selectedNote.id}
+              {...(selectedNote.containerId === undefined
+                ? {}
+                : { containerId: selectedNote.containerId })}
+              onPersistedNote={mergeNoteSummary}
+            />
+          </div>
+        </div>
+      ) : selectedNode ? (
         <div className="explorer-detail" key={selectedNode.id}>
           <div className="explorer-detail-header">
             <div className="explorer-detail-copy">
               <strong>{selectedNode.name}</strong>
               <span>{selectedNode.kind}</span>
             </div>
-            <button
-              type="button"
-              className="explorer-refresh-button"
-              disabled={!ready || isRefreshing}
-              onClick={() => {
-                void handleRefresh();
-              }}
-            >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
+            <div className="explorer-detail-actions">
+              <button
+                type="button"
+                className="explorer-action-button"
+                onClick={() => {
+                  openInlineNote(selectedNode.id);
+                }}
+              >
+                New Note
+              </button>
+              <button
+                type="button"
+                className="explorer-action-button"
+                disabled={!ready || isRefreshing}
+                onClick={() => {
+                  void handleRefresh();
+                }}
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
           </div>
           <span>ID: {selectedNode.id}</span>
           <span>Parent: {selectedNode.parentId ?? "(root)"}</span>
@@ -521,6 +878,15 @@ export function Explorer() {
             onClick={() => {
               closeContextMenu();
               openCreateChildModal(contextMenu.nodeId);
+            }}
+          />
+          <MenuItem
+            label="New Note"
+            onClick={() => {
+              if (contextMenuNode) {
+                openInlineNote(contextMenuNode.id);
+              }
+              closeContextMenu();
             }}
           />
           <MenuItem
