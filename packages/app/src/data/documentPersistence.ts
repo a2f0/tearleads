@@ -122,6 +122,28 @@ export async function loadDocumentRecord(
   return rows[0] ? parseDocumentRecord(rows[0]) : null;
 }
 
+export async function findLocalIdByDocumentId(
+  execSql: ExecSql,
+  appKind: string,
+  documentId: string,
+): Promise<string | null> {
+  const rows = await execSql(
+    `
+      SELECT local_id
+      FROM documents
+      WHERE app_kind = :appKind AND document_id = :documentId
+      LIMIT 1
+    `,
+    {
+      ":appKind": appKind,
+      ":documentId": documentId,
+    },
+  );
+
+  const localId = readSqlRowValue(rows[0] ?? {}, "local_id");
+  return typeof localId === "string" ? localId : null;
+}
+
 export async function saveDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,

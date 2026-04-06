@@ -11,6 +11,7 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import type {
   NoteRecord,
+  NoteSummary,
   NotesPersistence,
   PendingUpdateInsert,
   PendingUpdateRecord,
@@ -18,6 +19,7 @@ import type {
 
 interface StoredNotesState {
   note: NoteRecord | null;
+  noteSummaries: NoteSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
 
@@ -88,13 +90,58 @@ function createNotesPersistence(): NotesPersistence & {
   return {
     async ensureSchema() {},
     getState() {
-      return { note, pendingUpdates };
+      return {
+        note,
+        noteSummaries: note
+          ? [
+              {
+                id: note.id,
+                containerId: note.containerId,
+                documentId: note.documentId,
+                title: note.text.trim() || "Untitled note",
+                updatedAt: "2026-04-06T00:00:00.000Z",
+              },
+            ]
+          : [],
+        pendingUpdates,
+      };
+    },
+    async listNotes() {
+      return note
+        ? [
+            {
+              id: note.id,
+              containerId: note.containerId,
+              documentId: note.documentId,
+              title: note.text.trim() || "Untitled note",
+              updatedAt: "2026-04-06T00:00:00.000Z",
+            },
+          ]
+        : [];
     },
     async loadNote() {
       return note;
     },
     async saveNote(_execSql, nextNote) {
       note = nextNote;
+    },
+    async upsertDiscoveredNote(_execSql, input) {
+      note = {
+        accessEpoch: input.accessEpoch,
+        containerId: input.containerId,
+        documentId: input.documentId,
+        id: note?.id ?? input.documentId,
+        loroSnapshot: note?.loroSnapshot ?? "",
+        text: note?.text ?? "",
+      };
+
+      return {
+        id: note.id,
+        containerId: note.containerId,
+        documentId: note.documentId,
+        title: note.text.trim() || "Untitled note",
+        updatedAt: input.createdAt,
+      };
     },
     async listPendingUpdates() {
       return pendingUpdates;
@@ -121,13 +168,13 @@ function createNotesPersistence(): NotesPersistence & {
   };
 }
 
-function createRuntime(): NotesRuntime {
+function createRuntime(containerId = "root-container"): NotesRuntime {
   return {
     apiClient: {
       createDocument: async (_linkedContainerIds) => null,
       syncDocument: async () => null,
     },
-    containerId: "root-container",
+    containerId,
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair: null,
@@ -141,6 +188,7 @@ function createRuntime(): NotesRuntime {
 
 function createSyncRuntime(
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
+  containerId = "root-container",
 ): NotesRuntime {
   return {
     apiClient: {
@@ -167,7 +215,7 @@ function createSyncRuntime(
         ],
       }),
     },
-    containerId: "root-container",
+    containerId,
     dbStatus: "ready",
     domainScope: {},
     encapsulationKeyPair,
@@ -261,6 +309,48 @@ test("notes store reloads persisted note text and pending updates", async () => 
     syncing: false,
     text: "persisted note",
   });
+});
+
+test("notes store creates a document linked to the configured container", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const createDocumentCalls: string[][] = [];
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      createDocument: async (linkedContainerIds) => {
+        createDocumentCalls.push(linkedContainerIds);
+        return runtime.apiClient.createDocument(linkedContainerIds);
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "container-note",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Container-scoped notes store did not become ready.",
+  );
+
+  store.setText("shared container note");
+
+  await waitForCondition(
+    () =>
+      createDocumentCalls.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.documentId === "notes-document-1" &&
+      persistence.getState().note?.containerId === "shared-container",
+    "Container-scoped note did not create and sync its document.",
+  );
+
+  expect(createDocumentCalls).toEqual([["shared-container"]]);
 });
 
 test("large note edits remain a single pending update row before sync", async () => {

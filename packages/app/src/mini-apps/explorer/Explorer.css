@@ -20,11 +20,22 @@
   border: 1px solid currentColor;
 }
 
+.explorer-detail--note {
+  flex: 1;
+  min-height: 0;
+}
+
 .explorer-detail-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--padding);
+}
+
+.explorer-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--padding) / 2);
 }
 
 .explorer-detail-copy {
@@ -48,7 +59,14 @@
   opacity: 1;
 }
 
-.explorer-refresh-button {
+.explorer-inline-note {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid currentColor;
+  padding-top: calc(var(--padding) / 2);
+}
+
+.explorer-action-button {
   padding: calc(var(--padding) / 2) var(--padding);
   border: 1px solid currentColor;
   background: transparent;
@@ -57,12 +75,12 @@
   cursor: pointer;
 }
 
-.explorer-refresh-button:hover:not(:disabled) {
+.explorer-action-button:hover:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
 }
 
-.explorer-refresh-button:disabled {
+.explorer-action-button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -99,6 +117,10 @@
 .explorer-sidebar-item:hover {
   background: var(--color-dark);
   opacity: 0.8;
+}
+
+.explorer-sidebar-item--note {
+  font-style: italic;
 }
 
 .explorer-node-toggle,

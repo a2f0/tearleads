@@ -11,6 +11,7 @@ import {
 import { stageBlob } from "./routes/blobs";
 import {
   createContainer,
+  listContainerDocuments,
   listContainers,
   shareContainer,
 } from "./routes/containers";
@@ -160,6 +161,10 @@ export class ApiClient {
 
   listContainers() {
     return listContainers(this.request);
+  }
+
+  listContainerDocuments(containerId: string) {
+    return listContainerDocuments(this.request, containerId);
   }
 
   shareContainer(
