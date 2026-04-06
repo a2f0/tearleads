@@ -4,9 +4,17 @@ import {
   isCommitDocumentChangeRequest,
   isStageBlobRequest,
 } from "@tearleads/validators/request";
+import type {
+  BlobResponse,
+  ListDocumentAttachmentsResponse,
+} from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
-import { refreshBlobAccesses } from "../../access/blobAccess";
+import {
+  canReadBlobAccess,
+  refreshBlobAccesses,
+  resolveBlobAccessState,
+} from "../../access/blobAccess";
 import {
   canWriteContainerAccess,
   resolveContainerAccessState,
@@ -346,8 +354,12 @@ documentsRouter.post(
 
     try {
       const result = await db.transaction(async (tx) => {
+        const activeBindingSlotIds = uniqueSortedStrings([
+          ...touchedSlotIds,
+          ...referencedSlotIds,
+        ]);
         const activeBindings =
-          touchedSlotIds.length === 0
+          activeBindingSlotIds.length === 0
             ? []
             : await tx
                 .select({
@@ -359,7 +371,7 @@ documentsRouter.post(
                 .where(
                   and(
                     eq(attachmentBindings.documentId, documentId),
-                    inArray(attachmentBindings.slotId, touchedSlotIds),
+                    inArray(attachmentBindings.slotId, activeBindingSlotIds),
                     isNull(attachmentBindings.detachedAt),
                   ),
                 );
@@ -477,6 +489,9 @@ documentsRouter.post(
           const [blob] = await tx
             .insert(blobs)
             .values({
+              byteLength: stage.byteLength,
+              encryptedBytes: stage.encryptedBytes,
+              sha256: stage.sha256,
               storageKey: stage.id,
             })
             .returning({ id: blobs.id });
@@ -583,3 +598,73 @@ documentsRouter.post(
     }
   },
 );
+
+documentsRouter.get(
+  "/documents/:documentId/attachments",
+  requireAuth,
+  async (c) => {
+    const documentId = c.req.param("documentId");
+    const session = c.get("session");
+
+    const access = await resolveDocumentAccessState(documentId);
+    if (!access) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    if (!canReadDocumentAccess(access, session.userId)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const rows = await db
+      .select({
+        blobId: attachmentBindings.blobId,
+        slotId: attachmentBindings.slotId,
+      })
+      .from(attachmentBindings)
+      .where(
+        and(
+          eq(attachmentBindings.documentId, documentId),
+          isNull(attachmentBindings.detachedAt),
+        ),
+      );
+
+    return c.json<ListDocumentAttachmentsResponse>(
+      rows.map((row) => ({
+        blobId: row.blobId,
+        slotId: row.slotId,
+      })),
+    );
+  },
+);
+
+documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
+  const blobId = c.req.param("blobId");
+  const session = c.get("session");
+
+  const access = await resolveBlobAccessState(blobId);
+  if (!access) {
+    return c.json({ error: "Blob not found" }, 404);
+  }
+
+  if (!canReadBlobAccess(access, session.userId)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
+  const [row] = await db
+    .select({
+      blobId: blobs.id,
+      encryptedBytes: blobs.encryptedBytes,
+    })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+
+  if (!row) {
+    return c.json({ error: "Blob not found" }, 404);
+  }
+
+  return c.json<BlobResponse>({
+    blobId: row.blobId,
+    encryptedBytes: row.encryptedBytes,
+  });
+});

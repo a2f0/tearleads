@@ -41,6 +41,24 @@ export interface PendingUpdateInsert extends PendingUpdateFields {
   noteId: string;
 }
 
+export interface PendingAttachmentRecord {
+  byteLength: number;
+  mimeType: string | null;
+  name: string;
+  noteId: string;
+  slotId: string;
+  storageKey: string;
+}
+
+export interface LocalAttachmentRecord {
+  blobId: string | null;
+  byteLength: number;
+  mimeType: string | null;
+  noteId: string;
+  slotId: string;
+  storageKey: string;
+}
+
 export interface DiscoveredNoteInput {
   accessEpoch: number;
   containerId: string;
@@ -61,12 +79,29 @@ export interface NotesPersistence {
     execSql: ExecSql,
     noteId: string,
   ) => Promise<PendingUpdateRecord[]>;
+  listPendingAttachments: (
+    execSql: ExecSql,
+    noteId: string,
+  ) => Promise<PendingAttachmentRecord[]>;
+  listLocalAttachments: (
+    execSql: ExecSql,
+    noteId: string,
+  ) => Promise<LocalAttachmentRecord[]>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
     pendingUpdate: PendingUpdateInsert,
   ) => Promise<void>;
+  saveLocalAttachment: (
+    execSql: ExecSql,
+    attachment: LocalAttachmentRecord,
+  ) => Promise<void>;
+  savePendingAttachment: (
+    execSql: ExecSql,
+    attachment: PendingAttachmentRecord,
+  ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, noteId: string) => Promise<void>;
+  deletePendingAttachments: (execSql: ExecSql, noteId: string) => Promise<void>;
 }
 
 const NOTES_APP_KIND = "notes";
@@ -81,6 +116,36 @@ const noteProjectionTables: ReadonlyArray<SqlTableSchema> = [
         container_id TEXT,
         text TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      )
+    `,
+  },
+  {
+    name: "note_pending_attachments",
+    createSql: `
+      CREATE TABLE IF NOT EXISTS note_pending_attachments (
+        note_id TEXT NOT NULL,
+        slot_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        mime_type TEXT,
+        storage_key TEXT NOT NULL,
+        byte_length INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (note_id, slot_id)
+      )
+    `,
+  },
+  {
+    name: "note_attachment_blob_projection",
+    createSql: `
+      CREATE TABLE IF NOT EXISTS note_attachment_blob_projection (
+        note_id TEXT NOT NULL,
+        slot_id TEXT NOT NULL,
+        blob_id TEXT,
+        storage_key TEXT NOT NULL,
+        mime_type TEXT,
+        byte_length INTEGER NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (note_id, slot_id)
       )
     `,
   },
@@ -115,6 +180,28 @@ function parseProjectionDocumentId(row: SqlRow | undefined): string | null {
 function parseProjectionUpdatedAt(row: SqlRow | undefined): string {
   const updatedAt = row ? readSqlRowValue(row, "updated_at") : null;
   return String(updatedAt ?? "");
+}
+
+function parsePendingAttachmentMimeType(
+  row: SqlRow | undefined,
+): string | null {
+  const mimeType = row ? readSqlRowValue(row, "mime_type") : null;
+  return mimeType === null || mimeType === undefined ? null : String(mimeType);
+}
+
+function parsePendingAttachmentByteLength(row: SqlRow | undefined): number {
+  const byteLength = row ? readSqlRowValue(row, "byte_length") : null;
+  return Number(byteLength ?? 0);
+}
+
+function parseStorageKey(row: SqlRow | undefined): string {
+  const storageKey = row ? readSqlRowValue(row, "storage_key") : null;
+  return String(storageKey ?? "");
+}
+
+function parseBlobId(row: SqlRow | undefined): string | null {
+  const blobId = row ? readSqlRowValue(row, "blob_id") : null;
+  return blobId === null || blobId === undefined ? null : String(blobId);
 }
 
 export function deriveNoteTitle(text: string): string {
@@ -289,12 +376,152 @@ export const sqlNotesPersistence: NotesPersistence = {
   async listPendingUpdates(execSql, noteId) {
     return listDocumentPendingUpdates(execSql, getNoteScope(noteId));
   },
+  async listPendingAttachments(execSql, noteId) {
+    const rows = await execSql(
+      `
+        SELECT
+          note_id,
+          slot_id,
+          name,
+          mime_type,
+          storage_key,
+          byte_length
+        FROM note_pending_attachments
+        WHERE note_id = :noteId
+        ORDER BY created_at, slot_id
+      `,
+      {
+        ":noteId": noteId,
+      },
+    );
+
+    return rows.map((row) => ({
+      byteLength: parsePendingAttachmentByteLength(row),
+      mimeType: parsePendingAttachmentMimeType(row),
+      name: String(readSqlRowValue(row, "name") ?? ""),
+      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
+      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
+      storageKey: parseStorageKey(row),
+    }));
+  },
+  async listLocalAttachments(execSql, noteId) {
+    const rows = await execSql(
+      `
+        SELECT
+          note_id,
+          slot_id,
+          blob_id,
+          storage_key,
+          mime_type,
+          byte_length
+        FROM note_attachment_blob_projection
+        WHERE note_id = :noteId
+      `,
+      {
+        ":noteId": noteId,
+      },
+    );
+
+    return rows.map((row) => ({
+      blobId: parseBlobId(row),
+      byteLength: parsePendingAttachmentByteLength(row),
+      mimeType: parsePendingAttachmentMimeType(row),
+      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
+      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
+      storageKey: parseStorageKey(row),
+    }));
+  },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await enqueueDocumentPendingUpdate(
         lockedExecSql,
         getNoteScope(pendingUpdate.noteId),
         pendingUpdate,
+      );
+    });
+  },
+  async saveLocalAttachment(execSql, attachment) {
+    const updatedAt = new Date().toISOString();
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          INSERT INTO note_attachment_blob_projection (
+            note_id,
+            slot_id,
+            blob_id,
+            storage_key,
+            mime_type,
+            byte_length,
+            updated_at
+          )
+          VALUES (
+            :noteId,
+            :slotId,
+            :blobId,
+            :storageKey,
+            :mimeType,
+            :byteLength,
+            :updatedAt
+          )
+          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+            blob_id = excluded.blob_id,
+            storage_key = excluded.storage_key,
+            mime_type = excluded.mime_type,
+            byte_length = excluded.byte_length,
+            updated_at = excluded.updated_at
+        `,
+        {
+          ":noteId": attachment.noteId,
+          ":slotId": attachment.slotId,
+          ":blobId": attachment.blobId,
+          ":storageKey": attachment.storageKey,
+          ":mimeType": attachment.mimeType,
+          ":byteLength": attachment.byteLength,
+          ":updatedAt": updatedAt,
+        },
+      );
+    });
+  },
+  async savePendingAttachment(execSql, attachment) {
+    const createdAt = new Date().toISOString();
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          INSERT INTO note_pending_attachments (
+            note_id,
+            slot_id,
+            name,
+            mime_type,
+            storage_key,
+            byte_length,
+            created_at
+          )
+          VALUES (
+            :noteId,
+            :slotId,
+            :name,
+            :mimeType,
+            :storageKey,
+            :byteLength,
+            :createdAt
+          )
+          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+            name = excluded.name,
+            mime_type = excluded.mime_type,
+            storage_key = excluded.storage_key,
+            byte_length = excluded.byte_length
+        `,
+        {
+          ":noteId": attachment.noteId,
+          ":slotId": attachment.slotId,
+          ":name": attachment.name,
+          ":mimeType": attachment.mimeType,
+          ":storageKey": attachment.storageKey,
+          ":byteLength": attachment.byteLength,
+          ":createdAt": createdAt,
+        },
       );
     });
   },
@@ -306,6 +533,19 @@ export const sqlNotesPersistence: NotesPersistence = {
   async deletePendingUpdates(execSql, noteId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdates(lockedExecSql, getNoteScope(noteId));
+    });
+  },
+  async deletePendingAttachments(execSql, noteId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          DELETE FROM note_pending_attachments
+          WHERE note_id = :noteId
+        `,
+        {
+          ":noteId": noteId,
+        },
+      );
     });
   },
 };

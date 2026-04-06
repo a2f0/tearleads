@@ -107,6 +107,9 @@ export const containerMetadataDocuments = pgTable(
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   storageKey: text("storage_key").notNull(),
+  encryptedBytes: text("encrypted_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  byteLength: integer("byte_length").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

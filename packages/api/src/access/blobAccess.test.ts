@@ -33,6 +33,9 @@ test("blob access is derived from linked document access", async () => {
   const [blob] = await db
     .insert(blobs)
     .values({
+      byteLength: 1,
+      encryptedBytes: "blob-1-bytes",
+      sha256: "blob-1-sha256",
       storageKey: "blob-1",
     })
     .returning({ id: blobs.id });
@@ -81,6 +84,9 @@ test("initializeBlobAccess does not rewrite recipient envelopes when access is u
   const [blob] = await db
     .insert(blobs)
     .values({
+      byteLength: 1,
+      encryptedBytes: "blob-static-recipients-bytes",
+      sha256: "blob-static-recipients-sha256",
       storageKey: "blob-static-recipients",
     })
     .returning({ id: blobs.id });

@@ -186,6 +186,7 @@ function renderTreeEntries(
 export function Explorer() {
   const {
     apiClient,
+    blobStore,
     dbStatus,
     domainScope,
     encapsulationKeyPair,
@@ -407,6 +408,7 @@ export function Explorer() {
           noteSummary.id,
           {
             apiClient,
+            blobStore,
             containerId: noteSummary.containerId,
             dbStatus,
             domainScope,
@@ -423,6 +425,7 @@ export function Explorer() {
     },
     [
       apiClient,
+      blobStore,
       dbStatus,
       domainScope,
       encapsulationKeyPair,

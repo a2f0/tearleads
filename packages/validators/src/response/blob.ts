@@ -6,6 +6,18 @@ export interface StageBlobResponse {
   expiresAt: string;
 }
 
+export interface BlobAttachmentSummary {
+  blobId: string;
+  slotId: string;
+}
+
+export type ListDocumentAttachmentsResponse = BlobAttachmentSummary[];
+
+export interface BlobResponse {
+  blobId: string;
+  encryptedBytes: string;
+}
+
 export function isStageBlobResponse(
   value: unknown,
 ): value is StageBlobResponse {
@@ -13,5 +25,32 @@ export function isStageBlobResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "stageId") &&
     hasStringProperty(value, "expiresAt")
+  );
+}
+
+function isBlobAttachmentSummary(
+  value: unknown,
+): value is BlobAttachmentSummary {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "blobId") &&
+    hasStringProperty(value, "slotId")
+  );
+}
+
+export function isListDocumentAttachmentsResponse(
+  value: unknown,
+): value is ListDocumentAttachmentsResponse {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => isBlobAttachmentSummary(entry))
+  );
+}
+
+export function isBlobResponse(value: unknown): value is BlobResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "blobId") &&
+    hasStringProperty(value, "encryptedBytes")
   );
 }

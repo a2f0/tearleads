@@ -92,6 +92,9 @@ await client.exec(`
   CREATE TABLE IF NOT EXISTS blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_key TEXT NOT NULL,
+    encrypted_bytes TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    byte_length INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS blob_stages (
