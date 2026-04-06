@@ -33,10 +33,11 @@ import {
   resolveRecipientPublicKeys,
 } from "../../data/documentSync";
 import {
+  addNoteAttachments,
+  ensureNoteAttachmentStructure,
   getNoteAttachments,
   type NoteAttachment,
   sameNoteAttachments,
-  setNoteAttachments,
 } from "./noteDocument";
 import {
   deriveNoteTitle,
@@ -265,7 +266,9 @@ export function createNotesStore(
   }
 
   async function createNotesDocument() {
-    return createDocument(getScopedPeerSeed("notes"));
+    const createdDoc = await createDocument(getScopedPeerSeed("notes"));
+    ensureNoteAttachmentStructure(createdDoc);
+    return createdDoc;
   }
 
   async function ensureRemoteDocument(
@@ -866,9 +869,8 @@ export function createNotesStore(
             return;
           }
 
-          const currentAttachments = getNoteAttachments(currentDoc);
-          const nextAttachments = [...currentAttachments];
           const nextPendingAttachments: PendingAttachmentRecord[] = [];
+          const nextAttachments: NoteAttachment[] = [];
 
           for (const file of files) {
             const slotId = crypto.randomUUID();
@@ -890,7 +892,7 @@ export function createNotesStore(
           }
 
           const previousVersion = encodeVersionVector(currentDoc);
-          setNoteAttachments(currentDoc, nextAttachments);
+          addNoteAttachments(currentDoc, nextAttachments);
           const attachmentUpdate = exportUpdatesSince(
             currentDoc,
             previousVersion,
