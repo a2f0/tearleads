@@ -19,6 +19,7 @@ import { primeNotesStore } from "../notes/NotesProvider";
 import {
   type NoteSummary,
   sqlNotesPersistence,
+  upsertDiscoveredNotes,
 } from "../notes/notesPersistence";
 import { useExplorer } from "./ExplorerProvider";
 import type { ContainerNode } from "./types";
@@ -314,11 +315,68 @@ export function Explorer() {
         return [...currentNoteSummaries, nextNote];
       }
 
+      const existingNote = currentNoteSummaries[existingNoteIndex];
+      if (!existingNote) {
+        return currentNoteSummaries;
+      }
+
+      if (
+        existingNote.title === nextNote.title &&
+        existingNote.containerId === nextNote.containerId &&
+        existingNote.documentId === nextNote.documentId
+      ) {
+        return currentNoteSummaries;
+      }
+
       const nextNoteSummaries = [...currentNoteSummaries];
       nextNoteSummaries[existingNoteIndex] = nextNote;
       return nextNoteSummaries;
     });
   }, []);
+
+  const mergeNoteSummaries = useCallback(
+    (nextNotes: ReadonlyArray<NoteSummary>) => {
+      if (nextNotes.length === 0) {
+        return;
+      }
+
+      setNoteSummaries((currentNoteSummaries) => {
+        let changed = false;
+        const nextNoteSummaries = [...currentNoteSummaries];
+
+        for (const nextNote of nextNotes) {
+          const existingNoteIndex = nextNoteSummaries.findIndex(
+            (note) => note.id === nextNote.id,
+          );
+
+          if (existingNoteIndex < 0) {
+            nextNoteSummaries.push(nextNote);
+            changed = true;
+            continue;
+          }
+
+          const existingNote = nextNoteSummaries[existingNoteIndex];
+          if (!existingNote) {
+            continue;
+          }
+
+          if (
+            existingNote.title === nextNote.title &&
+            existingNote.containerId === nextNote.containerId &&
+            existingNote.documentId === nextNote.documentId
+          ) {
+            continue;
+          }
+
+          nextNoteSummaries[existingNoteIndex] = nextNote;
+          changed = true;
+        }
+
+        return changed ? nextNoteSummaries : currentNoteSummaries;
+      });
+    },
+    [],
+  );
 
   const selectedNote = noteSummaries.find((note) => note.id === selectedId);
   const activeContainerId = selectedNote?.containerId ?? selectedId;
@@ -342,27 +400,30 @@ export function Explorer() {
         return;
       }
 
-      for (const document of listedDocuments) {
-        await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-          execSql,
-          document.id,
-          document.linkedContainerIds,
-        );
-        const noteSummary = await sqlNotesPersistence.upsertDiscoveredNote(
-          execSql,
-          {
-            accessEpoch: document.currentAccessEpoch,
-            containerId: activeContainerId,
-            createdAt: document.createdAt,
-            documentId: document.id,
-          },
-        );
+      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+        execSql,
+        listedDocuments.map((document) => ({
+          documentId: document.id,
+          containerIds: document.linkedContainerIds,
+        })),
+      );
+      const discoveredNoteSummaries = await upsertDiscoveredNotes(
+        execSql,
+        listedDocuments.map((document) => ({
+          accessEpoch: document.currentAccessEpoch,
+          containerId: activeContainerId,
+          createdAt: document.createdAt,
+          documentId: document.id,
+        })),
+      );
 
-        if (cancelled) {
-          return;
-        }
+      if (cancelled) {
+        return;
+      }
 
-        mergeNoteSummary(noteSummary);
+      mergeNoteSummaries(discoveredNoteSummaries);
+
+      for (const noteSummary of discoveredNoteSummaries) {
         primeNotesStore(
           domainScope,
           noteSummary.id,
@@ -396,6 +457,7 @@ export function Explorer() {
     isAuthenticated,
     log,
     mergeNoteSummary,
+    mergeNoteSummaries,
     online,
   ]);
 

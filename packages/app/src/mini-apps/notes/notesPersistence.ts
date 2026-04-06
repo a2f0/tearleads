@@ -128,6 +128,55 @@ export function deriveNoteTitle(text: string): string {
   return "Untitled note";
 }
 
+async function upsertDiscoveredNoteWithExec(
+  execSql: ExecSql,
+  input: DiscoveredNoteInput,
+): Promise<NoteSummary> {
+  const existingLocalId = await findLocalIdByDocumentId(
+    execSql,
+    NOTES_APP_KIND,
+    input.documentId,
+  );
+  const noteId = existingLocalId ?? input.documentId;
+  const existingNote = await sqlNotesPersistence.loadNote(execSql, noteId);
+
+  const nextNote: NoteRecord = {
+    id: noteId,
+    containerId: input.containerId,
+    documentId: input.documentId,
+    text: existingNote?.text ?? "",
+    loroSnapshot: existingNote?.loroSnapshot ?? "",
+    accessEpoch: Math.max(existingNote?.accessEpoch ?? 1, input.accessEpoch),
+  };
+
+  await sqlNotesPersistence.saveNote(execSql, nextNote);
+
+  return {
+    id: noteId,
+    containerId: nextNote.containerId,
+    documentId: nextNote.documentId,
+    title: deriveNoteTitle(nextNote.text),
+    updatedAt: input.createdAt,
+  };
+}
+
+export async function upsertDiscoveredNotes(
+  execSql: ExecSql,
+  inputs: ReadonlyArray<DiscoveredNoteInput>,
+): Promise<NoteSummary[]> {
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const nextSummaries: NoteSummary[] = [];
+
+    for (const input of inputs) {
+      nextSummaries.push(
+        await upsertDiscoveredNoteWithExec(lockedExecSql, input),
+      );
+    }
+
+    return nextSummaries;
+  });
+}
+
 export const sqlNotesPersistence: NotesPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -230,37 +279,12 @@ export const sqlNotesPersistence: NotesPersistence = {
     });
   },
   async upsertDiscoveredNote(execSql, input) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureDocumentTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, noteProjectionTables);
-    });
+    const [nextSummary] = await upsertDiscoveredNotes(execSql, [input]);
+    if (!nextSummary) {
+      throw new Error("Failed to upsert discovered note");
+    }
 
-    const existingLocalId = await findLocalIdByDocumentId(
-      execSql,
-      NOTES_APP_KIND,
-      input.documentId,
-    );
-    const noteId = existingLocalId ?? input.documentId;
-    const existingNote = await sqlNotesPersistence.loadNote(execSql, noteId);
-
-    const nextNote: NoteRecord = {
-      id: noteId,
-      containerId: input.containerId,
-      documentId: input.documentId,
-      text: existingNote?.text ?? "",
-      loroSnapshot: existingNote?.loroSnapshot ?? "",
-      accessEpoch: Math.max(existingNote?.accessEpoch ?? 1, input.accessEpoch),
-    };
-
-    await sqlNotesPersistence.saveNote(execSql, nextNote);
-
-    return {
-      id: noteId,
-      containerId: nextNote.containerId,
-      documentId: nextNote.documentId,
-      title: deriveNoteTitle(nextNote.text),
-      updatedAt: input.createdAt,
-    };
+    return nextSummary;
   },
   async listPendingUpdates(execSql, noteId) {
     return listDocumentPendingUpdates(execSql, getNoteScope(noteId));

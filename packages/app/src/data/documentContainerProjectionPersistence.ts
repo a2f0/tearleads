@@ -27,6 +27,13 @@ interface DocumentContainerProjectionPersistence {
     documentId: string,
     containerIds: ReadonlyArray<string>,
   ) => Promise<void>;
+  replaceDocumentLinksBatch: (
+    execSql: ExecSql,
+    inputs: ReadonlyArray<{
+      documentId: string;
+      containerIds: ReadonlyArray<string>;
+    }>,
+  ) => Promise<void>;
 }
 
 export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =
@@ -35,41 +42,51 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       await ensureSqlTables(execSql, documentContainerProjectionTables);
     },
     async replaceDocumentLinks(execSql, documentId, containerIds) {
-      const uniqueContainerIds = Array.from(new Set(containerIds)).sort();
-      const updatedAt = new Date().toISOString();
-
+      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+        execSql,
+        [{ documentId, containerIds }],
+      );
+    },
+    async replaceDocumentLinksBatch(execSql, inputs) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
         await runSqlTransaction(lockedExecSql, async () => {
-          await lockedExecSql(
-            `
-              DELETE FROM document_container_projection
-              WHERE document_id = :documentId
-            `,
-            {
-              ":documentId": documentId,
-            },
-          );
+          for (const input of inputs) {
+            const uniqueContainerIds = Array.from(
+              new Set(input.containerIds),
+            ).sort();
+            const updatedAt = new Date().toISOString();
 
-          for (const containerId of uniqueContainerIds) {
             await lockedExecSql(
               `
-                INSERT INTO document_container_projection (
-                  document_id,
-                  container_id,
-                  updated_at
-                )
-                VALUES (
-                  :documentId,
-                  :containerId,
-                  :updatedAt
-                )
+                DELETE FROM document_container_projection
+                WHERE document_id = :documentId
               `,
               {
-                ":documentId": documentId,
-                ":containerId": containerId,
-                ":updatedAt": updatedAt,
+                ":documentId": input.documentId,
               },
             );
+
+            for (const containerId of uniqueContainerIds) {
+              await lockedExecSql(
+                `
+                  INSERT INTO document_container_projection (
+                    document_id,
+                    container_id,
+                    updated_at
+                  )
+                  VALUES (
+                    :documentId,
+                    :containerId,
+                    :updatedAt
+                  )
+                `,
+                {
+                  ":documentId": input.documentId,
+                  ":containerId": containerId,
+                  ":updatedAt": updatedAt,
+                },
+              );
+            }
           }
         });
       });
