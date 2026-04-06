@@ -21,6 +21,11 @@ import {
   sqlNotesPersistence,
   upsertDiscoveredNotes,
 } from "../notes/notesPersistence";
+import {
+  discoverAllContainerDocuments,
+  discoverContainerDocuments,
+  hasUndiscoveredDocumentUpdateEvent,
+} from "./documentDiscovery";
 import { useExplorer } from "./ExplorerProvider";
 import type { ContainerNode } from "./types";
 import "./Explorer.css";
@@ -184,6 +189,7 @@ export function Explorer() {
     dbStatus,
     domainScope,
     encapsulationKeyPair,
+    events,
     execSql,
     isAuthenticated,
     log,
@@ -241,6 +247,15 @@ export function Explorer() {
 
     return nextNotesByContainerId;
   }, [noteSummaries]);
+  const knownDocumentIds = useMemo(
+    () =>
+      new Set(
+        noteSummaries.flatMap((note) =>
+          note.documentId ? [note.documentId] : [],
+        ),
+      ),
+    [noteSummaries],
+  );
 
   useEffect(() => {
     if (nodes.length === 0) {
@@ -380,56 +395,19 @@ export function Explorer() {
 
   const selectedNote = noteSummaries.find((note) => note.id === selectedId);
   const activeContainerId = selectedNote?.containerId ?? selectedId;
-
-  useEffect(() => {
-    if (
-      !activeContainerId ||
-      dbStatus !== "ready" ||
-      !online ||
-      !isAuthenticated
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void (async () => {
-      const listedDocuments =
-        await apiClient.listContainerDocuments(activeContainerId);
-      if (!listedDocuments || cancelled) {
-        return;
-      }
-
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-        execSql,
-        listedDocuments.map((document) => ({
-          documentId: document.id,
-          containerIds: document.linkedContainerIds,
-        })),
-      );
-      const discoveredNoteSummaries = await upsertDiscoveredNotes(
-        execSql,
-        listedDocuments.map((document) => ({
-          accessEpoch: document.currentAccessEpoch,
-          containerId: activeContainerId,
-          createdAt: document.createdAt,
-          documentId: document.id,
-        })),
-      );
-
-      if (cancelled) {
-        return;
-      }
-
-      mergeNoteSummaries(discoveredNoteSummaries);
-
+  const primeDiscoveredNotes = useCallback(
+    (discoveredNoteSummaries: ReadonlyArray<NoteSummary>) => {
       for (const noteSummary of discoveredNoteSummaries) {
+        if (!noteSummary.containerId) {
+          continue;
+        }
+
         primeNotesStore(
           domainScope,
           noteSummary.id,
           {
             apiClient,
-            containerId: activeContainerId,
+            containerId: noteSummary.containerId,
             dbStatus,
             domainScope,
             encapsulationKeyPair,
@@ -442,22 +420,90 @@ export function Explorer() {
           mergeNoteSummary,
         );
       }
-    })();
+    },
+    [
+      apiClient,
+      dbStatus,
+      domainScope,
+      encapsulationKeyPair,
+      execSql,
+      isAuthenticated,
+      log,
+      mergeNoteSummary,
+      online,
+    ],
+  );
+  const discoverDocumentsForContainer = useCallback(
+    (containerId: string) => {
+      let cancelled = false;
 
-    return () => {
-      cancelled = true;
-    };
+      void (async () => {
+        const discoveredNoteSummaries = await discoverContainerDocuments({
+          containerId,
+          listContainerDocuments: (nextContainerId) =>
+            apiClient.listContainerDocuments(nextContainerId),
+          replaceDocumentLinksBatch: (inputs) =>
+            sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+              execSql,
+              inputs,
+            ),
+          upsertDiscoveredNotes: (inputs) =>
+            upsertDiscoveredNotes(execSql, inputs),
+        });
+
+        if (!discoveredNoteSummaries || cancelled) {
+          return;
+        }
+
+        mergeNoteSummaries(discoveredNoteSummaries);
+        primeDiscoveredNotes(discoveredNoteSummaries);
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    },
+    [apiClient, dbStatus, mergeNoteSummaries, primeDiscoveredNotes],
+  );
+
+  useEffect(() => {
+    if (
+      !activeContainerId ||
+      dbStatus !== "ready" ||
+      !online ||
+      !isAuthenticated
+    ) {
+      return;
+    }
+
+    return discoverDocumentsForContainer(activeContainerId);
   }, [
     activeContainerId,
-    apiClient,
     dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    execSql,
+    discoverDocumentsForContainer,
     isAuthenticated,
-    log,
-    mergeNoteSummary,
-    mergeNoteSummaries,
+    online,
+  ]);
+
+  useEffect(() => {
+    if (
+      !activeContainerId ||
+      dbStatus !== "ready" ||
+      !online ||
+      !isAuthenticated ||
+      !hasUndiscoveredDocumentUpdateEvent(events, knownDocumentIds)
+    ) {
+      return;
+    }
+
+    return discoverDocumentsForContainer(activeContainerId);
+  }, [
+    activeContainerId,
+    dbStatus,
+    discoverDocumentsForContainer,
+    events,
+    isAuthenticated,
+    knownDocumentIds,
     online,
   ]);
 
@@ -494,14 +540,44 @@ export function Explorer() {
       const refreshed = await refresh();
       if (!refreshed) {
         setRefreshError("Refresh unavailable.");
+        return;
       }
+
+      const remoteContainers = await apiClient.listContainers();
+      if (!remoteContainers) {
+        setRefreshError("Failed to refresh documents.");
+        return;
+      }
+
+      const discoveredNoteSummaries = await discoverAllContainerDocuments({
+        containerIds: remoteContainers.map((container) => container.id),
+        listContainerDocuments: (containerId) =>
+          apiClient.listContainerDocuments(containerId),
+        replaceDocumentLinksBatch: (inputs) =>
+          sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+            execSql,
+            inputs,
+          ),
+        upsertDiscoveredNotes: (inputs) =>
+          upsertDiscoveredNotes(execSql, inputs),
+      });
+
+      mergeNoteSummaries(discoveredNoteSummaries);
+      primeDiscoveredNotes(discoveredNoteSummaries);
     } catch (error: unknown) {
       console.error("Failed to refresh explorer:", error);
       setRefreshError("Failed to refresh explorer.");
     } finally {
       setIsRefreshing(false);
     }
-  }, [refresh]);
+  }, [
+    apiClient.listContainerDocuments,
+    apiClient.listContainers,
+    execSql,
+    mergeNoteSummaries,
+    primeDiscoveredNotes,
+    refresh,
+  ]);
 
   const expandNode = useCallback((nodeId: string) => {
     setCollapsedIds((currentIds) => {
