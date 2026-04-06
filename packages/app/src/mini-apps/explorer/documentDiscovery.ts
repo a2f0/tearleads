@@ -84,20 +84,40 @@ export async function discoverAllContainerDocuments({
   replaceDocumentLinksBatch,
   upsertDiscoveredNotes,
 }: DiscoverAllContainerDocumentsOptions): Promise<ReadonlyArray<NoteSummary>> {
-  const discoveredNotes: NoteSummary[] = [];
   const uniqueContainerIds = Array.from(new Set(containerIds));
-
-  for (const containerId of uniqueContainerIds) {
-    const nextNotes = await discoverContainerDocuments({
+  const listedDocumentsByContainer = await Promise.all(
+    uniqueContainerIds.map(async (containerId) => ({
       containerId,
-      listContainerDocuments,
-      replaceDocumentLinksBatch,
-      upsertDiscoveredNotes,
-    });
-    if (nextNotes) {
-      discoveredNotes.push(...nextNotes);
+      listedDocuments: await listContainerDocuments(containerId),
+    })),
+  );
+  const documentLinks: DocumentLinkInput[] = [];
+  const discoveredNoteInputs: DiscoveredNoteInput[] = [];
+
+  for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
+    if (!listedDocuments) {
+      continue;
+    }
+
+    for (const document of listedDocuments) {
+      documentLinks.push({
+        documentId: document.id,
+        containerIds: document.linkedContainerIds,
+      });
+      discoveredNoteInputs.push({
+        accessEpoch: document.currentAccessEpoch,
+        containerId,
+        createdAt: document.createdAt,
+        documentId: document.id,
+      });
     }
   }
 
-  return discoveredNotes;
+  await replaceDocumentLinksBatch(documentLinks);
+
+  if (discoveredNoteInputs.length === 0) {
+    return [];
+  }
+
+  return upsertDiscoveredNotes(discoveredNoteInputs);
 }
