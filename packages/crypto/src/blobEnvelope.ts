@@ -1,7 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 
-const ENCRYPTED_BLOB_FORMAT_V1 = "tearleads.blob.v1";
 const ENCRYPTED_BLOB_FORMAT_V2 = "tearleads.blob.v2";
 const ENCRYPTED_BLOB_PREFIX_V2 = `${ENCRYPTED_BLOB_FORMAT_V2}\n`;
 
@@ -14,11 +13,6 @@ export interface SerializedBlobRecipientEntry {
 export interface SerializedBlobEnvelopeHeader {
   iv: string;
   recipients: SerializedBlobRecipientEntry[];
-}
-
-interface SerializedBlobEnvelopeV1 extends SerializedBlobEnvelopeHeader {
-  format: typeof ENCRYPTED_BLOB_FORMAT_V1;
-  ciphertext: string;
 }
 
 function isSerializedBlobRecipientEntry(
@@ -49,18 +43,6 @@ function isSerializedBlobEnvelopeHeader(
     value.recipients.every((recipient) =>
       isSerializedBlobRecipientEntry(recipient),
     )
-  );
-}
-
-function isSerializedBlobEnvelopeV1(
-  value: unknown,
-): value is SerializedBlobEnvelopeV1 {
-  return (
-    isSerializedBlobEnvelopeHeader(value) &&
-    "format" in value &&
-    value.format === ENCRYPTED_BLOB_FORMAT_V1 &&
-    "ciphertext" in value &&
-    typeof value.ciphertext === "string"
   );
 }
 
@@ -109,18 +91,6 @@ function parseV2WireParts(encryptedBytes: string): {
   };
 }
 
-function parseLegacyBlobEnvelope(
-  encryptedBytes: string,
-): SerializedBlobEnvelopeV1 {
-  const parsed: unknown = JSON.parse(encryptedBytes);
-
-  if (!isSerializedBlobEnvelopeV1(parsed)) {
-    throw new Error("Invalid encrypted blob envelope");
-  }
-
-  return parsed;
-}
-
 export function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
   return [
     ENCRYPTED_BLOB_FORMAT_V2,
@@ -135,34 +105,23 @@ export function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
 export function parseBlobEnvelopeHeader(
   encryptedBytes: string,
 ): SerializedBlobEnvelopeHeader {
-  if (encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
-    return parseV2WireParts(encryptedBytes).header;
+  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
+    throw new Error("Invalid encrypted blob envelope");
   }
 
-  const legacyEnvelope = parseLegacyBlobEnvelope(encryptedBytes);
-
-  return {
-    iv: legacyEnvelope.iv,
-    recipients: legacyEnvelope.recipients,
-  };
+  return parseV2WireParts(encryptedBytes).header;
 }
 
 export function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
-  if (encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
-    const { header, ciphertext } = parseV2WireParts(encryptedBytes);
-
-    return {
-      iv: base64ToBytes(header.iv),
-      ciphertext: base64ToBytes(ciphertext),
-      recipients: decodeRecipients(header.recipients),
-    };
+  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
+    throw new Error("Invalid encrypted blob envelope");
   }
 
-  const legacyEnvelope = parseLegacyBlobEnvelope(encryptedBytes);
+  const { header, ciphertext } = parseV2WireParts(encryptedBytes);
 
   return {
-    iv: base64ToBytes(legacyEnvelope.iv),
-    ciphertext: base64ToBytes(legacyEnvelope.ciphertext),
-    recipients: decodeRecipients(legacyEnvelope.recipients),
+    iv: base64ToBytes(header.iv),
+    ciphertext: base64ToBytes(ciphertext),
+    recipients: decodeRecipients(header.recipients),
   };
 }

@@ -53,7 +53,7 @@ test("blob envelope headers can be read without ciphertext JSON parsing", () => 
   expect(parseBlobEnvelopeHeader(encryptedBytes)).toEqual(header);
 });
 
-test("legacy v1 blob envelopes remain readable", async () => {
+test("legacy v1 blob envelopes are rejected", async () => {
   const alice = generateKemSeedAndKeyPair();
   const plaintext = new TextEncoder().encode("legacy blob bytes");
   const envelope = await encryptForRecipients(plaintext, [alice.publicKey]);
@@ -68,13 +68,10 @@ test("legacy v1 blob envelopes remain readable", async () => {
     })),
   });
 
-  expect(parseBlobEnvelopeHeader(legacyEncryptedBytes).recipients).toHaveLength(
-    1,
+  expect(() => parseBlobEnvelopeHeader(legacyEncryptedBytes)).toThrow(
+    "Invalid encrypted blob envelope",
   );
-  expect(
-    await decryptAsRecipient(
-      parseBlobEnvelope(legacyEncryptedBytes),
-      alice.secretKey,
-    ),
-  ).toEqual(plaintext);
+  expect(() => parseBlobEnvelope(legacyEncryptedBytes)).toThrow(
+    "Invalid encrypted blob envelope",
+  );
 });
