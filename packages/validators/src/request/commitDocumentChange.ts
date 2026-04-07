@@ -19,6 +19,12 @@ export interface AttachmentDetachRequest {
   expectedBindingId: string;
 }
 
+export interface AttachmentRewrapRequest {
+  slotId: string;
+  expectedBindingId: string;
+  recipientEnvelopes: SerializedRecipientEnvelope[];
+}
+
 export interface CommitDocumentChangeLoroUpdate {
   id: string;
   encryptedData: string;
@@ -31,6 +37,7 @@ export interface CommitDocumentChangeRequest {
   accessEpoch: number;
   attachmentCommits: AttachmentCommitRequest[];
   attachmentDetaches: AttachmentDetachRequest[];
+  attachmentRewraps: AttachmentRewrapRequest[];
   documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
   loroUpdate: CommitDocumentChangeLoroUpdate | null;
 }
@@ -74,6 +81,20 @@ function isAttachmentDetachRequest(
   );
 }
 
+function isAttachmentRewrapRequest(
+  value: unknown,
+): value is AttachmentRewrapRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "slotId") &&
+    value.slotId.length > 0 &&
+    hasStringProperty(value, "expectedBindingId") &&
+    value.expectedBindingId.length > 0 &&
+    hasArrayProperty(value, "recipientEnvelopes") &&
+    isSerializedRecipientEnvelopeArray(value.recipientEnvelopes)
+  );
+}
+
 function isCommitDocumentChangeLoroUpdate(
   value: unknown,
 ): value is CommitDocumentChangeLoroUpdate {
@@ -107,6 +128,8 @@ export function isCommitDocumentChangeRequest(
     value.attachmentCommits.every(isAttachmentCommitRequest) &&
     hasArrayProperty(value, "attachmentDetaches") &&
     value.attachmentDetaches.every(isAttachmentDetachRequest) &&
+    hasArrayProperty(value, "attachmentRewraps") &&
+    value.attachmentRewraps.every(isAttachmentRewrapRequest) &&
     (documentRecipientEnvelopes === undefined ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     ((hasObjectProperty(value, "loroUpdate") &&

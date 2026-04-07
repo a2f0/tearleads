@@ -16,6 +16,7 @@ import type {
   NoteSummary,
   NotesPersistence,
   PendingAttachmentRecord,
+  PendingAttachmentRewrapRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "./notesPersistence";
@@ -24,6 +25,7 @@ interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
   note: NoteRecord | null;
   pendingAttachments: PendingAttachmentRecord[];
+  pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   noteSummaries: NoteSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
@@ -92,6 +94,7 @@ function createNotesPersistence(): NotesPersistence & {
   let note: NoteRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
+  let pendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
 
   return {
@@ -101,6 +104,7 @@ function createNotesPersistence(): NotesPersistence & {
         localAttachments,
         note,
         pendingAttachments,
+        pendingAttachmentRewraps,
         noteSummaries: note
           ? [
               {
@@ -160,6 +164,9 @@ function createNotesPersistence(): NotesPersistence & {
     async listPendingAttachments() {
       return pendingAttachments;
     },
+    async listPendingAttachmentRewraps() {
+      return pendingAttachmentRewraps;
+    },
     async listLocalAttachments() {
       return localAttachments;
     },
@@ -206,9 +213,26 @@ function createNotesPersistence(): NotesPersistence & {
         attachment,
       ];
     },
+    async savePendingAttachmentRewrap(_execSql, attachment) {
+      pendingAttachmentRewraps = [
+        ...pendingAttachmentRewraps.filter(
+          (existingAttachmentRewrap) =>
+            !(
+              existingAttachmentRewrap.noteId === attachment.noteId &&
+              existingAttachmentRewrap.slotId === attachment.slotId
+            ),
+        ),
+        attachment,
+      ];
+    },
     async deletePendingAttachments(_execSql, noteId) {
       pendingAttachments = pendingAttachments.filter(
         (attachment) => attachment.noteId !== noteId,
+      );
+    },
+    async deletePendingAttachmentRewraps(_execSql, noteId) {
+      pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
+        (attachmentRewrap) => attachmentRewrap.noteId !== noteId,
       );
     },
   };
@@ -1010,7 +1034,7 @@ test("notes store enqueues a full baseline when document access expands", async 
   ]);
 });
 
-test("notes store re-commits committed attachments when document access expands", async () => {
+test("notes store rewraps committed attachments when document access expands", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const stageBlobCalls: Array<{
@@ -1021,6 +1045,7 @@ test("notes store re-commits committed attachments when document access expands"
   const commitChangeCalls: Array<{
     accessEpoch: number;
     attachmentCommitCount: number;
+    attachmentRewrapCount: number;
     documentId: string;
     documentRecipientEnvelopeCount: number;
     expectedBindingIds: Array<string | null>;
@@ -1042,12 +1067,18 @@ test("notes store re-commits committed attachments when document access expands"
         commitChangeCalls.push({
           accessEpoch: input.accessEpoch,
           attachmentCommitCount: input.attachmentCommits.length,
+          attachmentRewrapCount: input.attachmentRewraps.length,
           documentId,
           documentRecipientEnvelopeCount:
             input.documentRecipientEnvelopes?.length ?? 0,
-          expectedBindingIds: input.attachmentCommits.map(
-            (commit) => commit.expectedBindingId,
-          ),
+          expectedBindingIds: [
+            ...input.attachmentCommits.map(
+              (commit) => commit.expectedBindingId,
+            ),
+            ...input.attachmentRewraps.map(
+              (attachmentRewrap) => attachmentRewrap.expectedBindingId,
+            ),
+          ],
           referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
         });
 
@@ -1074,6 +1105,17 @@ test("notes store re-commits committed attachments when document access expands"
           currentAccessEpoch: input.accessEpoch,
           documentRecipientEnvelopes: null,
           detachedBindingIds: [],
+        };
+      },
+      getBlob: async (blobId) => {
+        if (!currentBlobId || blobId !== currentBlobId || !stageBlobCalls[0]) {
+          return null;
+        }
+
+        return {
+          blobId,
+          encryptedBytes: stageBlobCalls[0].encryptedBytes,
+          sha256: stageBlobCalls[0].sha256,
         };
       },
       listDocumentAttachments: async () => {
@@ -1164,15 +1206,17 @@ test("notes store re-commits committed attachments when document access expands"
     () =>
       commitChangeCalls.length === 2 &&
       persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().pendingAttachmentRewraps.length === 0 &&
       persistence.getState().note?.accessEpoch === 2,
-    "Access expansion did not trigger attachment re-commit.",
+    "Access expansion did not trigger attachment rewrap.",
   );
 
-  expect(stageBlobCalls).toHaveLength(2);
+  expect(stageBlobCalls).toHaveLength(1);
   expect(commitChangeCalls).toEqual([
     {
       accessEpoch: 1,
       attachmentCommitCount: 1,
+      attachmentRewrapCount: 0,
       documentId: "notes-document-1",
       documentRecipientEnvelopeCount: 1,
       expectedBindingIds: [null],
@@ -1180,7 +1224,8 @@ test("notes store re-commits committed attachments when document access expands"
     },
     {
       accessEpoch: 2,
-      attachmentCommitCount: 1,
+      attachmentCommitCount: 0,
+      attachmentRewrapCount: 1,
       documentId: "notes-document-1",
       documentRecipientEnvelopeCount: 1,
       expectedBindingIds: ["binding-1-1"],

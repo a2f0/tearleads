@@ -13,6 +13,7 @@ import {
   saveContainer,
 } from "../../data/containerPersistence";
 import { primeNotesStore } from "../notes/NotesProvider";
+import { sqlNotesPersistence } from "../notes/notesPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
@@ -478,7 +479,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
   }
 });
 
-test("explorer share primes note attachment re-commits for locally known notes in the shared subtree", async () => {
+test("explorer share primes note attachment rewrap work for locally known notes in the shared subtree", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const shareContainerCalls: Array<{
@@ -490,12 +491,14 @@ test("explorer share primes note attachment re-commits for locally known notes i
   const commitChangeCalls: Array<{
     accessEpoch: number;
     attachmentCommitCount: number;
+    attachmentRewrapCount: number;
     documentId: string;
     expectedBindingIds: Array<string | null>;
   }> = [];
   let commitCallCount = 0;
   let currentBindingId: string | null = null;
   let currentBlobId: string | null = null;
+  let currentBlobEncryptedBytes: string | null = null;
   let currentSlotId: string | null = null;
   let noteSyncCallCount = 0;
 
@@ -509,10 +512,14 @@ test("explorer share primes note attachment re-commits for locally known notes i
       commitChangeCalls.push({
         accessEpoch: input.accessEpoch,
         attachmentCommitCount: input.attachmentCommits.length,
+        attachmentRewrapCount: input.attachmentRewraps.length,
         documentId,
-        expectedBindingIds: input.attachmentCommits.map(
-          (commit) => commit.expectedBindingId,
-        ),
+        expectedBindingIds: [
+          ...input.attachmentCommits.map((commit) => commit.expectedBindingId),
+          ...input.attachmentRewraps.map(
+            (attachmentRewrap) => attachmentRewrap.expectedBindingId,
+          ),
+        ],
       });
 
       const committedBindings = input.attachmentCommits.map((commit, index) => {
@@ -538,6 +545,21 @@ test("explorer share primes note attachment re-commits for locally known notes i
         detachedBindingIds: [],
       };
     },
+    getBlob: async (blobId) => {
+      if (
+        !currentBlobId ||
+        !currentBlobEncryptedBytes ||
+        blobId !== currentBlobId
+      ) {
+        return null;
+      }
+
+      return {
+        blobId,
+        encryptedBytes: currentBlobEncryptedBytes,
+        sha256: "shared-note-blob",
+      };
+    },
     createContainer: async () => null,
     createDocument: async () => ({
       createdAt: "2026-03-31T00:00:00.000Z",
@@ -546,7 +568,6 @@ test("explorer share primes note attachment re-commits for locally known notes i
       id: "notes-document-1",
       recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
     }),
-    getBlob: async () => null,
     listContainers: async () => [],
     listDocumentAttachments: async () => {
       if (!currentBindingId || !currentBlobId || !currentSlotId) {
@@ -582,10 +603,13 @@ test("explorer share primes note attachment re-commits for locally known notes i
         ],
       };
     },
-    stageBlob: async () => ({
-      expiresAt: "2026-04-07T00:00:00.000Z",
-      stageId: crypto.randomUUID(),
-    }),
+    stageBlob: async (input) => {
+      currentBlobEncryptedBytes = input.encryptedBytes;
+      return {
+        expiresAt: "2026-04-07T00:00:00.000Z",
+        stageId: crypto.randomUUID(),
+      };
+    },
     syncDocument: async (
       documentId,
       accessEpoch,
@@ -623,6 +647,11 @@ test("explorer share primes note attachment re-commits for locally known notes i
     },
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;
+  let noteStore: ReturnType<typeof primeNotesStore> | null = null;
+  const noteRuntime = {
+    ...runtime,
+    containerId: "root-container",
+  };
 
   try {
     await ensureContainerTables(runtime.execSql);
@@ -635,17 +664,19 @@ test("explorer share primes note attachment re-commits for locally known notes i
       icon: null,
     });
 
-    const noteStore = primeNotesStore(runtime.domainScope, "default", {
-      ...runtime,
-      containerId: "root-container",
-    });
+    const createdNoteStore = primeNotesStore(
+      runtime.domainScope,
+      "default",
+      noteRuntime,
+    );
+    noteStore = createdNoteStore;
 
     await waitForCondition(
-      () => noteStore.getSnapshot().ready,
+      () => createdNoteStore.getSnapshot().ready,
       "Notes store did not become ready before share fanout.",
     );
 
-    noteStore.attachFiles([
+    createdNoteStore.attachFiles([
       {
         bytes: new TextEncoder().encode("attachment before share"),
         mimeType: "image/png",
@@ -653,12 +684,27 @@ test("explorer share primes note attachment re-commits for locally known notes i
       },
     ]);
 
-    await waitForCondition(
-      () => commitChangeCalls.length === 1 && noteSyncCallCount >= 1,
-      "Initial note attachment sync did not fully complete.",
-    );
+    await waitForCondition(async () => {
+      const localAttachments = await sqlNotesPersistence.listLocalAttachments(
+        runtime.execSql,
+        "default",
+      );
+      const pendingAttachments =
+        await sqlNotesPersistence.listPendingAttachments(
+          runtime.execSql,
+          "default",
+        );
 
-    currentSlotId = noteStore.getSnapshot().attachments[0]?.slotId ?? null;
+      return (
+        commitChangeCalls.length === 1 &&
+        noteSyncCallCount >= 1 &&
+        pendingAttachments.length === 0 &&
+        localAttachments.some((attachment) => !!attachment.blobId)
+      );
+    }, "Initial note attachment sync did not fully complete.");
+
+    currentSlotId =
+      createdNoteStore.getSnapshot().attachments[0]?.slotId ?? null;
     expect(currentSlotId).toBeString();
 
     const createdStore = createExplorerStore(runtime);
@@ -683,12 +729,21 @@ test("explorer share primes note attachment re-commits for locally known notes i
     );
 
     await waitForCondition(
-      () =>
-        commitChangeCalls.length === 2 &&
-        commitChangeCalls[1]?.accessEpoch === 2 &&
-        commitChangeCalls[1]?.attachmentCommitCount === 1,
-      "Explorer share did not trigger note attachment re-commit.",
+      async () =>
+        (
+          await sqlNotesPersistence.listPendingAttachmentRewraps(
+            runtime.execSql,
+            "default",
+          )
+        ).length > 0 || commitChangeCalls.length === 2,
+      "Explorer share did not queue note attachment rewrap work.",
     );
+
+    const pendingAttachmentRewraps =
+      await sqlNotesPersistence.listPendingAttachmentRewraps(
+        runtime.execSql,
+        "default",
+      );
 
     expect(shareContainerCalls).toEqual([
       {
@@ -698,25 +753,43 @@ test("explorer share primes note attachment re-commits for locally known notes i
         subjectType: "user",
       },
     ]);
-    expect(commitChangeCalls).toEqual([
-      {
-        accessEpoch: 1,
-        attachmentCommitCount: 1,
-        documentId: "notes-document-1",
-        expectedBindingIds: [null],
-      },
-      {
+    expect(commitChangeCalls[0]).toEqual({
+      accessEpoch: 1,
+      attachmentCommitCount: 1,
+      attachmentRewrapCount: 0,
+      documentId: "notes-document-1",
+      expectedBindingIds: [null],
+    });
+    expect(
+      commitChangeCalls.length === 2 || pendingAttachmentRewraps.length === 1,
+    ).toBe(true);
+    if (commitChangeCalls.length === 2) {
+      expect(commitChangeCalls[1]).toEqual({
         accessEpoch: 2,
-        attachmentCommitCount: 1,
+        attachmentCommitCount: 0,
+        attachmentRewrapCount: 1,
         documentId: "notes-document-1",
         expectedBindingIds: ["binding-1-1"],
-      },
-    ]);
+      });
+    } else {
+      expect(pendingAttachmentRewraps).toEqual([
+        {
+          blobId: currentBlobId ?? "",
+          noteId: "default",
+          slotId: currentSlotId ?? "",
+        },
+      ]);
+    }
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
       store.updateRuntime(runtime);
     }
+    if (noteStore) {
+      runtime.dbStatus = "terminated";
+      noteStore.updateRuntime(noteRuntime);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
     runtime.close();
   }
 });

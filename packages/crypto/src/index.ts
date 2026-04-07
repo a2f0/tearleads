@@ -5,6 +5,7 @@ export type {
 export {
   parseBlobEnvelope,
   parseBlobEnvelopeHeader,
+  replaceBlobEnvelopeRecipients,
   serializeBlobEnvelope,
 } from "./blobEnvelope";
 export { CHALLENGE_TTL_SECONDS, generateChallenge } from "./challenge";

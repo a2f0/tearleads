@@ -1,3 +1,4 @@
+import { replaceBlobEnvelopeRecipients } from "@tearleads/crypto";
 import { createLoroRouter } from "@tearleads/loro/server";
 import {
   isCommitDocumentChangeRequest,
@@ -10,8 +11,11 @@ import type {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
 import {
+  blobRecipientEnvelopesMatchRecipients,
   canReadBlobAccess,
+  listBlobRecipientEnvelopes,
   refreshBlobAccesses,
+  replaceBlobRecipientEnvelopes,
   resolveBlobAccessState,
 } from "../../access/blobAccess";
 import {
@@ -434,6 +438,7 @@ documentsRouter.post(
       accessEpoch,
       attachmentCommits,
       attachmentDetaches,
+      attachmentRewraps,
       documentRecipientEnvelopes,
       loroUpdate,
     } = c.req.valid("json");
@@ -441,6 +446,7 @@ documentsRouter.post(
     const touchedSlotIds = [
       ...attachmentCommits.map((commit) => commit.slotId),
       ...attachmentDetaches.map((detach) => detach.slotId),
+      ...attachmentRewraps.map((rewrap) => rewrap.slotId),
     ];
     if (hasDuplicateValues(touchedSlotIds)) {
       return c.json({ error: "Duplicate slotId in attachment mutations" }, 400);
@@ -538,6 +544,11 @@ documentsRouter.post(
         const activeBindingBySlotId = new Map(
           activeBindings.map((binding) => [binding.slotId, binding]),
         );
+        type ActiveBinding = (typeof activeBindings)[number];
+        const validatedRewraps: Array<{
+          rewrap: (typeof attachmentRewraps)[number];
+          currentBinding: ActiveBinding;
+        }> = [];
 
         for (const detach of attachmentDetaches) {
           const currentBinding = activeBindingBySlotId.get(detach.slotId);
@@ -549,6 +560,29 @@ documentsRouter.post(
               `Attachment slot ${detach.slotId} is not bound to the expected binding`,
             );
           }
+        }
+
+        for (const rewrap of attachmentRewraps) {
+          const currentBinding = activeBindingBySlotId.get(rewrap.slotId);
+          if (
+            !currentBinding ||
+            currentBinding.id !== rewrap.expectedBindingId
+          ) {
+            throw new CommitChangeError(
+              `Attachment slot ${rewrap.slotId} is not bound to the expected binding`,
+            );
+          }
+
+          if (
+            !blobRecipientEnvelopesMatchRecipients(
+              rewrap.recipientEnvelopes,
+              access.effectiveRecipients,
+            )
+          ) {
+            throw new CommitChangeError("Blob recipient envelopes mismatch");
+          }
+
+          validatedRewraps.push({ rewrap, currentBinding });
         }
 
         const stageRows =
@@ -641,6 +675,10 @@ documentsRouter.post(
           detachedBindingIds.push(currentBinding.id);
           affectedBlobIds.add(currentBinding.blobId);
           activeBindingBySlotId.delete(detach.slotId);
+        }
+
+        for (const { currentBinding } of validatedRewraps) {
+          affectedBlobIds.add(currentBinding.blobId);
         }
 
         for (const commit of attachmentCommits) {
@@ -774,6 +812,24 @@ documentsRouter.post(
         );
         await refreshBlobAccesses(activeBlobIds, tx);
 
+        for (const { rewrap, currentBinding } of validatedRewraps) {
+          const blobAccess = await resolveBlobAccessState(
+            currentBinding.blobId,
+            tx,
+          );
+          if (!blobAccess) {
+            throw new CommitChangeError("Blob access state not found", 409);
+          }
+
+          await replaceBlobRecipientEnvelopes(
+            currentBinding.blobId,
+            blobAccess.currentAccessEpoch,
+            blobAccess.effectiveRecipients,
+            rewrap.recipientEnvelopes,
+            tx,
+          );
+        }
+
         return {
           acceptedOutgoingUpdateIds,
           committedBindings,
@@ -874,9 +930,23 @@ documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
     return c.json({ error: "Blob not found" }, 404);
   }
 
+  const currentRecipientEnvelopes = await listBlobRecipientEnvelopes(
+    blobId,
+    access.currentAccessEpoch,
+  );
+  const encryptedBytes = currentRecipientEnvelopes
+    ? replaceBlobEnvelopeRecipients(
+        row.encryptedBytes,
+        currentRecipientEnvelopes,
+      )
+    : row.encryptedBytes;
+
   return c.json<BlobResponse>({
     blobId: row.blobId,
-    encryptedBytes: row.encryptedBytes,
-    sha256: row.sha256,
+    encryptedBytes,
+    sha256:
+      encryptedBytes === row.encryptedBytes
+        ? row.sha256
+        : await sha256Hex(encryptedBytes),
   });
 });

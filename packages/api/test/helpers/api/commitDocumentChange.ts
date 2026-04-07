@@ -14,6 +14,11 @@ export async function commitDocumentChange(
       slotId: string;
       expectedBindingId: string;
     }>;
+    attachmentRewraps: Array<{
+      slotId: string;
+      expectedBindingId: string;
+      recipientEnvelopes: SerializedRecipientEnvelope[];
+    }>;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     loroUpdate: {
       id: string;

@@ -21,6 +21,7 @@ import { useAppData } from "../../data/AppDataProvider";
 import type { BlobBytes, BlobStore } from "../../data/blob-store";
 import {
   decryptBlobEnvelope,
+  rewrapBlobRecipientEnvelopes,
   serializeBlobEnvelope,
 } from "../../data/blobEnvelope";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
@@ -49,6 +50,7 @@ import {
   type NoteSummary,
   type NotesPersistence,
   type PendingAttachmentRecord,
+  type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
   sqlNotesPersistence,
 } from "./notesPersistence";
@@ -163,6 +165,7 @@ export function createNotesStore(
   let writeChain = Promise.resolve();
   let lastEventCount = 0;
   let pendingAttachments: PendingAttachmentRecord[] = [];
+  let pendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
   let attachmentStorageKeyBySlotId: Record<string, string> = {};
   let recipientPublicKeys = getLocalRecipientPublicKeys(
     runtime.encapsulationKeyPair,
@@ -206,6 +209,7 @@ export function createNotesStore(
     doc = null;
     record = null;
     pendingAttachments = [];
+    pendingAttachmentRewraps = [];
     attachmentStorageKeyBySlotId = {};
     initialized = false;
     initializePromise = null;
@@ -500,7 +504,7 @@ export function createNotesStore(
     }
   }
 
-  async function queueCommittedAttachmentsForRecommit(
+  async function queueCommittedAttachmentsForRewrap(
     currentDoc: NotesDocument,
   ): Promise<boolean> {
     const currentAttachments = getNoteAttachments(currentDoc);
@@ -512,10 +516,14 @@ export function createNotesStore(
     const localAttachmentBySlotId = new Map(
       localAttachments.map((attachment) => [attachment.slotId, attachment]),
     );
-    const nextPendingAttachments: PendingAttachmentRecord[] = [];
+    const nextPendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
 
     for (const attachment of currentAttachments) {
       if (
+        pendingAttachmentRewraps.some(
+          (pendingAttachmentRewrap) =>
+            pendingAttachmentRewrap.slotId === attachment.slotId,
+        ) ||
         pendingAttachments.some(
           (pendingAttachment) => pendingAttachment.slotId === attachment.slotId,
         )
@@ -528,44 +536,32 @@ export function createNotesStore(
         continue;
       }
 
-      const localBytes = await runtime.blobStore.readBytes(
-        localAttachment.storageKey,
-      );
-      if (!localBytes) {
-        runtime.log(
-          `Notes: missing local blob bytes for attachment ${attachment.slotId} during access expansion.`,
-        );
-        continue;
-      }
-
-      const pendingAttachment: PendingAttachmentRecord = {
-        byteLength: attachment.byteLength,
-        mimeType: attachment.mimeType,
-        name: attachment.name,
+      const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
+        blobId: localAttachment.blobId,
         noteId,
         slotId: attachment.slotId,
-        storageKey: localAttachment.storageKey,
       };
-      await persistence.savePendingAttachment(
+      await persistence.savePendingAttachmentRewrap(
         runtime.execSql,
-        pendingAttachment,
+        pendingAttachmentRewrap,
       );
-      nextPendingAttachments.push(pendingAttachment);
+      nextPendingAttachmentRewraps.push(pendingAttachmentRewrap);
     }
 
-    if (nextPendingAttachments.length === 0) {
+    if (nextPendingAttachmentRewraps.length === 0) {
       return false;
     }
 
-    pendingAttachments = [
-      ...pendingAttachments.filter(
-        (existingAttachment) =>
-          !nextPendingAttachments.some(
-            (pendingAttachment) =>
-              pendingAttachment.slotId === existingAttachment.slotId,
+    pendingAttachmentRewraps = [
+      ...pendingAttachmentRewraps.filter(
+        (existingAttachmentRewrap) =>
+          !nextPendingAttachmentRewraps.some(
+            (pendingAttachmentRewrap) =>
+              pendingAttachmentRewrap.slotId ===
+              existingAttachmentRewrap.slotId,
           ),
       ),
-      ...nextPendingAttachments,
+      ...nextPendingAttachmentRewraps,
     ];
 
     return true;
@@ -584,13 +580,19 @@ export function createNotesStore(
     await persistence.ensureSchema(runtime.execSql);
 
     const nextDoc = await createNotesDocument();
-    const [existing, loadedPendingAttachments, localAttachments] =
-      await Promise.all([
-        persistence.loadNote(runtime.execSql, noteId),
-        listPendingAttachmentRecords(),
-        listLocalAttachmentRecords(),
-      ]);
+    const [
+      existing,
+      loadedPendingAttachments,
+      loadedPendingAttachmentRewraps,
+      localAttachments,
+    ] = await Promise.all([
+      persistence.loadNote(runtime.execSql, noteId),
+      listPendingAttachmentRecords(),
+      persistence.listPendingAttachmentRewraps(runtime.execSql, noteId),
+      listLocalAttachmentRecords(),
+    ]);
     pendingAttachments = loadedPendingAttachments;
+    pendingAttachmentRewraps = loadedPendingAttachmentRewraps;
     attachmentStorageKeyBySlotId = Object.fromEntries(
       localAttachments.map((attachment) => [
         attachment.slotId,
@@ -790,6 +792,7 @@ export function createNotesStore(
                     accessEpoch: nextRemoteRecord.accessEpoch,
                     attachmentCommits,
                     attachmentDetaches: [],
+                    attachmentRewraps: [],
                     documentRecipientEnvelopes,
                     loroUpdate: {
                       encryptedData: encryptedBaseline,
@@ -860,6 +863,184 @@ export function createNotesStore(
             await writeChain;
 
             if (attachmentSyncCompleted) {
+              syncRequested = true;
+              continue;
+            }
+          }
+
+          if (pendingAttachmentRewraps.length > 0) {
+            let attachmentRewrapSyncCompleted = false;
+
+            writeChain = writeChain
+              .catch(() => undefined)
+              .then(async () => {
+                const currentDoc = doc;
+                const currentRecord = record;
+
+                if (
+                  !currentDoc ||
+                  !currentRecord ||
+                  !runtime.online ||
+                  !runtime.isAuthenticated
+                ) {
+                  return;
+                }
+
+                const nextRemoteRecord = await ensureRemoteDocument(
+                  currentDoc,
+                  currentRecord,
+                );
+                if (!nextRemoteRecord?.documentId) {
+                  return;
+                }
+
+                const attachmentsToRewrap = [...pendingAttachmentRewraps];
+                if (attachmentsToRewrap.length === 0) {
+                  return;
+                }
+
+                const currentBindings =
+                  await runtime.apiClient.listDocumentAttachments(
+                    nextRemoteRecord.documentId,
+                  );
+                if (!currentBindings) {
+                  return;
+                }
+
+                const currentBindingBySlotId = new Map(
+                  currentBindings.map((binding) => [binding.slotId, binding]),
+                );
+                const attachmentRewraps: Array<{
+                  expectedBindingId: string;
+                  recipientEnvelopes: Awaited<
+                    ReturnType<typeof rewrapBlobRecipientEnvelopes>
+                  >;
+                  slotId: string;
+                }> = [];
+                const blobById = new Map<
+                  string,
+                  Awaited<ReturnType<NotesRuntime["apiClient"]["getBlob"]>>
+                >();
+
+                for (const attachment of attachmentsToRewrap) {
+                  const currentBinding = currentBindingBySlotId.get(
+                    attachment.slotId,
+                  );
+                  if (
+                    !currentBinding ||
+                    currentBinding.blobId !== attachment.blobId
+                  ) {
+                    continue;
+                  }
+
+                  let blob = blobById.get(attachment.blobId);
+                  if (!blob) {
+                    blob = await runtime.apiClient.getBlob(attachment.blobId);
+                    if (!blob) {
+                      return;
+                    }
+                    blobById.set(attachment.blobId, blob);
+                  }
+
+                  attachmentRewraps.push({
+                    expectedBindingId: currentBinding.bindingId,
+                    recipientEnvelopes: await rewrapBlobRecipientEnvelopes({
+                      encryptedBytes: blob.encryptedBytes,
+                      recipientPublicKeys,
+                      secretKey: encapsulationKeyPair.secretKey,
+                    }),
+                    slotId: attachment.slotId,
+                  });
+                }
+
+                if (attachmentRewraps.length === 0) {
+                  pendingAttachmentRewraps = [];
+                  await persistence.deletePendingAttachmentRewraps(
+                    runtime.execSql,
+                    noteId,
+                  );
+                  return;
+                }
+
+                const baselineUpdate = exportAllUpdates(currentDoc);
+                const baselineUpdateFields =
+                  createPendingUpdateFields(baselineUpdate);
+                if (!baselineUpdateFields) {
+                  return;
+                }
+
+                const currentDocumentRecipientEnvelopes =
+                  parseDocumentRecipientEnvelopes(
+                    nextRemoteRecord.documentRecipientEnvelopes,
+                  );
+                const { documentKey, documentRecipientEnvelopes } =
+                  await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes:
+                      currentDocumentRecipientEnvelopes,
+                    recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  });
+                const encryptedBaseline = await encryptLoroUpdate(
+                  baselineUpdate,
+                  nextRemoteRecord.accessEpoch,
+                  documentKey,
+                );
+                const committed = await runtime.apiClient.commitDocumentChange(
+                  nextRemoteRecord.documentId,
+                  {
+                    accessEpoch: nextRemoteRecord.accessEpoch,
+                    attachmentCommits: [],
+                    attachmentDetaches: [],
+                    attachmentRewraps,
+                    documentRecipientEnvelopes,
+                    loroUpdate: {
+                      encryptedData: encryptedBaseline,
+                      id: crypto.randomUUID(),
+                      partialEndVersionVector:
+                        baselineUpdateFields.partialEndVersionVector,
+                      partialStartVersionVector:
+                        baselineUpdateFields.partialStartVersionVector,
+                      referencedSlotIds: getNoteAttachments(currentDoc).map(
+                        (attachment) => attachment.slotId,
+                      ),
+                    },
+                  },
+                );
+
+                if (!committed) {
+                  return;
+                }
+
+                pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
+                  (pendingAttachmentRewrap) =>
+                    !attachmentsToRewrap.some(
+                      (attachmentToRewrap) =>
+                        attachmentToRewrap.slotId ===
+                        pendingAttachmentRewrap.slotId,
+                    ),
+                );
+                await persistence.deletePendingAttachmentRewraps(
+                  runtime.execSql,
+                  noteId,
+                );
+                await persistence.deletePendingUpdates(runtime.execSql, noteId);
+                nextRecord = await persistDocument(currentDoc, {
+                  accessEpoch: committed.currentAccessEpoch,
+                  documentId: nextRemoteRecord.documentId,
+                  documentRecipientEnvelopes:
+                    serializeDocumentRecipientEnvelopes(
+                      committed.documentRecipientEnvelopes,
+                    ),
+                });
+                attachmentRewrapSyncCompleted = true;
+              })
+              .catch((error: unknown) => {
+                console.error("Failed to rewrap note attachments:", error);
+              });
+
+            await writeChain;
+
+            if (attachmentRewrapSyncCompleted) {
               syncRequested = true;
               continue;
             }
@@ -966,9 +1147,9 @@ export function createNotesStore(
             });
 
             if (synced.currentAccessEpoch !== previousAccessEpoch) {
-              const queuedAttachmentRecommit =
-                await queueCommittedAttachmentsForRecommit(doc);
-              if (!queuedAttachmentRecommit) {
+              const queuedAttachmentRewrap =
+                await queueCommittedAttachmentsForRewrap(doc);
+              if (!queuedAttachmentRewrap) {
                 await replacePendingUpdatesWithBaseline(doc);
               }
               syncRequested = true;

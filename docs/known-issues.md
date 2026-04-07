@@ -71,7 +71,8 @@ Current recommendation:
 
 Remaining implementation work:
 
-- implement additive rewrap / subtractive rotation for document epochs
+- implement additive rewrap / subtractive rotation for document epochs and
+  remaining object paths
 - continue wiring structural mutation routes and client flows
 - decide detached-binding retention / GC policy separately from blob GC
 
@@ -86,8 +87,11 @@ The docs now specify the intended rule:
 
 The access-plane resolver chain exists, and attachment binding mutations now
 recompute blob access state. Document and blob ciphertext commits now persist
-real wrapped key rows for the current epoch. The remaining work is implementing
-the rewrap vs rotate decision consistently when recipient sets expand or shrink.
+real wrapped key rows for the current epoch. Notes/blob additive access growth
+can now rewrap existing committed blob bindings in place without creating a new
+blob row. The remaining work is implementing the rewrap vs rotate decision
+consistently for document epochs and the remaining hierarchy edges when
+recipient sets expand or shrink.
 
 Implementation questions:
 
@@ -99,5 +103,6 @@ Implementation questions:
 
 Recommended next step:
 
-- implement the resolver chain and mutation entry points described in
+- implement document-epoch additive rewrap / subtractive rotation using the
+  resolver chain and mutation entry points described in
   `docs/access-plane-v1.md`

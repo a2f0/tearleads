@@ -520,6 +520,7 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: null,
     },
     alice.token,
