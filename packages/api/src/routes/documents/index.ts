@@ -544,6 +544,11 @@ documentsRouter.post(
         const activeBindingBySlotId = new Map(
           activeBindings.map((binding) => [binding.slotId, binding]),
         );
+        type ActiveBinding = (typeof activeBindings)[number];
+        const validatedRewraps: Array<{
+          rewrap: (typeof attachmentRewraps)[number];
+          currentBinding: ActiveBinding;
+        }> = [];
 
         for (const detach of attachmentDetaches) {
           const currentBinding = activeBindingBySlotId.get(detach.slotId);
@@ -576,6 +581,8 @@ documentsRouter.post(
           ) {
             throw new CommitChangeError("Blob recipient envelopes mismatch");
           }
+
+          validatedRewraps.push({ rewrap, currentBinding });
         }
 
         const stageRows =
@@ -670,14 +677,7 @@ documentsRouter.post(
           activeBindingBySlotId.delete(detach.slotId);
         }
 
-        for (const rewrap of attachmentRewraps) {
-          const currentBinding = activeBindingBySlotId.get(rewrap.slotId);
-          if (!currentBinding) {
-            throw new CommitChangeError(
-              `Attachment slot ${rewrap.slotId} is not bound to the expected binding`,
-            );
-          }
-
+        for (const { currentBinding } of validatedRewraps) {
           affectedBlobIds.add(currentBinding.blobId);
         }
 
@@ -812,14 +812,7 @@ documentsRouter.post(
         );
         await refreshBlobAccesses(activeBlobIds, tx);
 
-        for (const rewrap of attachmentRewraps) {
-          const currentBinding = activeBindingBySlotId.get(rewrap.slotId);
-          if (!currentBinding) {
-            throw new CommitChangeError(
-              `Attachment slot ${rewrap.slotId} is not bound to the expected binding`,
-            );
-          }
-
+        for (const { rewrap, currentBinding } of validatedRewraps) {
           const blobAccess = await resolveBlobAccessState(
             currentBinding.blobId,
             tx,
