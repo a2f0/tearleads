@@ -430,15 +430,19 @@ At minimum, clients need one or both of:
 The API may store and distribute access metadata, but it must not be able to
 invent authoritative membership state on its own.
 
-### Signed Group State
+### Signed Principal State
 
-One workable shape is a signed snapshot for each group version.
+One workable shape is a signed snapshot for each group or organization version.
 
 ```ts
-interface SignedGroupState {
-  groupId: string;
+interface SignedPrincipalState {
+  principalType: "group" | "organization";
+  principalId: string;
   version: number;
   prevStateHash: string | null;
+  keyEpoch: number;
+  encapsulationPublicKey: string;
+  keyFingerprint: string;
   members: Array<
     | { principalType: "user"; principalId: string }
     | { principalType: "group"; principalId: string }
@@ -455,10 +459,28 @@ Rules:
 - `members` must be canonically sorted before hashing or signing
 - `membershipRoot` is the hash of the normalized member list
 - `prevStateHash` forms a hash chain so rollback is detectable
+- `encapsulationPublicKey` and `keyFingerprint` bind the current principal epoch
+  key to the signed policy state
 - `signature` must verify against a trusted admin or policy key
 
-If the API adds `mallory` to a group without a valid signature from the group's
-authorized signer, clients reject the new group state.
+If the API adds `mallory` to a group without a valid signature from the
+principal's authorized signer, clients reject the new principal state.
+
+### Principal Epoch Keys
+
+The signed snapshot should remain the trust root, but the API still needs an
+indexed table for principal epoch keys so object-envelope lookup is efficient.
+
+- `principal_epoch_keys`
+  - `principal_type`
+  - `principal_id`
+  - `epoch`
+  - `introduced_by_state_hash`
+  - `encapsulation_public_key`
+  - `key_fingerprint`
+
+This is the public-key side of the principal-recipient model. The member-wrap
+side for distributing principal keys to current members is separate work.
 
 ### Signed Access Manifest
 
@@ -583,6 +605,15 @@ Persist the effective recipient set used for a given encrypted object version.
 
 In the current transition state, the schema is principal-shaped even though the
 runtime still mostly emits `user` principals.
+
+The principal-recipient pivot now also has schema support for signed principal
+snapshots and indexed principal epoch keys:
+
+- `principal_states`
+- `principal_epoch_keys`
+
+Those tables are foundation only in the current implementation. They do not yet
+drive effective-recipient expansion or object rewrap decisions.
 
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.

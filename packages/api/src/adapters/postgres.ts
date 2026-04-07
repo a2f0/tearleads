@@ -56,6 +56,33 @@ await client.exec(`
     user_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS principal_states (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    prev_state_hash TEXT,
+    key_epoch INTEGER NOT NULL,
+    encapsulation_public_key TEXT NOT NULL,
+    key_fingerprint TEXT NOT NULL,
+    members_json TEXT NOT NULL,
+    membership_root TEXT NOT NULL,
+    state_hash TEXT NOT NULL,
+    signed_at TIMESTAMP NOT NULL,
+    signer_key_id TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS principal_epoch_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    introduced_by_state_hash TEXT NOT NULL,
+    encapsulation_public_key TEXT NOT NULL,
+    key_fingerprint TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS object_access_grants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     object_type TEXT NOT NULL,
@@ -126,6 +153,16 @@ await client.exec(`
     ON organization_members (organization_id);
   CREATE INDEX IF NOT EXISTS group_members_group_id_idx
     ON group_members (group_id);
+  CREATE INDEX IF NOT EXISTS principal_states_principal_idx
+    ON principal_states (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_version_idx
+    ON principal_states (principal_type, principal_id, version);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_state_hash_idx
+    ON principal_states (principal_type, principal_id, state_hash);
+  CREATE INDEX IF NOT EXISTS principal_epoch_keys_principal_idx
+    ON principal_epoch_keys (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_epoch_keys_principal_epoch_idx
+    ON principal_epoch_keys (principal_type, principal_id, epoch);
   CREATE INDEX IF NOT EXISTS object_access_grants_object_idx
     ON object_access_grants (object_type, object_id);
   CREATE INDEX IF NOT EXISTS object_access_epochs_object_idx
