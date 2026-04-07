@@ -39,7 +39,10 @@ import {
   primeNotesStore,
   requestDomainNotesSync,
 } from "../notes/NotesProvider";
-import { sqlNotesPersistence } from "../notes/notesPersistence";
+import {
+  listNotesByContainerIds,
+  sqlNotesPersistence,
+} from "../notes/notesPersistence";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
@@ -143,11 +146,17 @@ function isContainerInSubtree(
   rootContainerId: string,
 ): boolean {
   let currentContainerId: string | null = containerId;
+  const visitedContainerIds = new Set<string>();
 
   while (currentContainerId !== null) {
     if (currentContainerId === rootContainerId) {
       return true;
     }
+
+    if (visitedContainerIds.has(currentContainerId)) {
+      return false;
+    }
+    visitedContainerIds.add(currentContainerId);
 
     const currentContainerState = containersById.get(currentContainerId);
     currentContainerId = currentContainerState?.container.parentId ?? null;
@@ -290,7 +299,10 @@ export function createExplorerStore(
     }
 
     await sqlNotesPersistence.ensureSchema(runtime.execSql);
-    const noteSummaries = await sqlNotesPersistence.listNotes(runtime.execSql);
+    const noteSummaries = await listNotesByContainerIds(
+      runtime.execSql,
+      Array.from(sharedContainerIds),
+    );
 
     for (const noteSummary of noteSummaries) {
       if (

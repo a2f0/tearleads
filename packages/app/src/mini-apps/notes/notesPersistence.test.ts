@@ -3,7 +3,10 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
-import { sqlNotesPersistence } from "./notesPersistence";
+import {
+  listNotesByContainerIds,
+  sqlNotesPersistence,
+} from "./notesPersistence";
 
 async function createExecSql() {
   const previousFetch = globalThis.fetch;
@@ -115,6 +118,60 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     await expect(
       sqlNotesPersistence.loadNote(execSql, "remote-document"),
     ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("listNotesByContainerIds only returns notes for the requested containers", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "note-a",
+      containerId: "container-a",
+      documentId: "document-a",
+      text: "Note A",
+      loroSnapshot: "snapshot-a",
+      accessEpoch: 1,
+    });
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "note-b",
+      containerId: "container-b",
+      documentId: "document-b",
+      text: "Note B",
+      loroSnapshot: "snapshot-b",
+      accessEpoch: 1,
+    });
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "note-c",
+      containerId: "container-c",
+      documentId: "document-c",
+      text: "Note C",
+      loroSnapshot: "snapshot-c",
+      accessEpoch: 1,
+    });
+
+    await expect(
+      listNotesByContainerIds(execSql, ["container-a", "container-c"]),
+    ).resolves.toEqual([
+      {
+        id: "note-c",
+        containerId: "container-c",
+        documentId: "document-c",
+        title: "Note C",
+        updatedAt: expect.any(String),
+      },
+      {
+        id: "note-a",
+        containerId: "container-a",
+        documentId: "document-a",
+        title: "Note A",
+        updatedAt: expect.any(String),
+      },
+    ]);
   } finally {
     close();
   }
