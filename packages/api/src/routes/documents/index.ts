@@ -1,4 +1,3 @@
-import { parseEnvelope } from "@tearleads/loro";
 import { createLoroRouter } from "@tearleads/loro/server";
 import {
   isCommitDocumentChangeRequest,
@@ -42,23 +41,21 @@ import {
   objectRecipientEnvelopes,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
+import {
+  listBlobRecipientKeyFingerprints,
+  listLoroRecipientKeyFingerprints,
+} from "../../utils/recipientEnvelopes";
 
 type DocumentRouteExecutor = DatabaseExecutor;
 
-function matchesRecipients(
-  encryptedData: string,
+function matchesRecipientKeyFingerprints(
+  actualRecipientKeyFingerprints: string[],
   expectedRecipientKeyFingerprints: string[],
 ): boolean {
-  const recipientKeyFingerprints = uniqueSortedStrings(
-    parseEnvelope(encryptedData).recipients.map(
-      (recipient) => recipient.keyFingerprint,
-    ),
-  );
-
   return (
-    recipientKeyFingerprints.length ===
+    actualRecipientKeyFingerprints.length ===
       expectedRecipientKeyFingerprints.length &&
-    recipientKeyFingerprints.every(
+    actualRecipientKeyFingerprints.every(
       (fingerprint, index) =>
         fingerprint === expectedRecipientKeyFingerprints[index],
     )
@@ -414,15 +411,15 @@ documentsRouter.post(
       );
     }
 
-    if (loroUpdate) {
-      const expectedRecipientKeyFingerprints = uniqueSortedStrings(
-        listRecipientKeyFingerprints(access),
-      );
+    const expectedRecipientKeyFingerprints = uniqueSortedStrings(
+      listRecipientKeyFingerprints(access),
+    );
 
+    if (loroUpdate) {
       try {
         if (
-          !matchesRecipients(
-            loroUpdate.encryptedData,
+          !matchesRecipientKeyFingerprints(
+            listLoroRecipientKeyFingerprints(loroUpdate.encryptedData),
             expectedRecipientKeyFingerprints,
           )
         ) {
@@ -521,6 +518,23 @@ documentsRouter.post(
             throw new CommitChangeError(
               `Attachment slot ${commit.slotId} is not bound to the expected binding`,
             );
+          }
+
+          try {
+            if (
+              !matchesRecipientKeyFingerprints(
+                listBlobRecipientKeyFingerprints(stage.encryptedBytes),
+                expectedRecipientKeyFingerprints,
+              )
+            ) {
+              throw new CommitChangeError("Encrypted blob recipients mismatch");
+            }
+          } catch (error) {
+            if (error instanceof CommitChangeError) {
+              throw error;
+            }
+
+            throw new CommitChangeError("Invalid encrypted blob envelope");
           }
         }
 

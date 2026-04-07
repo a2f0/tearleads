@@ -10,6 +10,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@tearleads/encoding": "workspace:*",
     "@noble/post-quantum": "0.5.4"
   },
   "devDependencies": {

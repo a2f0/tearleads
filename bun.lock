@@ -111,6 +111,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@noble/post-quantum": "0.5.4",
+        "@tearleads/encoding": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",

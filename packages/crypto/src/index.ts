@@ -1,3 +1,12 @@
+export type {
+  SerializedBlobEnvelopeHeader,
+  SerializedBlobRecipientEntry,
+} from "./blobEnvelope";
+export {
+  parseBlobEnvelope,
+  parseBlobEnvelopeHeader,
+  serializeBlobEnvelope,
+} from "./blobEnvelope";
 export { CHALLENGE_TTL_SECONDS, generateChallenge } from "./challenge";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";

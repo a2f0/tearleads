@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import {
+  encryptForRecipients,
+  generateKemSeedAndKeyPair,
+  serializeBlobEnvelope,
+} from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
@@ -54,6 +59,30 @@ async function createStagedBlobInput(encryptedBytes: string) {
   };
 }
 
+async function createEncryptedBlobInput(
+  plaintext: string,
+  encodedRecipientPublicKeys: string[],
+) {
+  const envelope = await encryptForRecipients(
+    new TextEncoder().encode(plaintext),
+    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
+  );
+
+  return createStagedBlobInput(serializeBlobEnvelope(envelope));
+}
+
+async function createEncryptedBlobInputForRecipientKeys(
+  plaintext: string,
+  recipientPublicKeys: Uint8Array[],
+) {
+  const envelope = await encryptForRecipients(
+    new TextEncoder().encode(plaintext),
+    recipientPublicKeys,
+  );
+
+  return createStagedBlobInput(serializeBlobEnvelope(envelope));
+}
+
 test("POST /blobs/stage rejects mismatched blob digests", async () => {
   const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
   const response = await stageBlob(
@@ -103,7 +132,10 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   const documentId = String(createdDocument.id ?? "");
 
   const stageResponse = await stageBlob(
-    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtMQ=="),
+    await createEncryptedBlobInput(
+      "encrypted-attachment-1",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
     alice.token,
   );
   expect(stageResponse.status).toBe(200);
@@ -180,6 +212,47 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   expect(deletedStage).toBeUndefined();
 });
 
+test("POST /documents/:documentId/commit-change rejects blob recipients that do not match document access", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+  const unrelatedRecipient = generateKemSeedAndKeyPair();
+
+  const stageResponse = await stageBlob(
+    await createEncryptedBlobInputForRecipientKeys("wrong-recipient-blob", [
+      unrelatedRecipient.publicKey,
+    ]),
+    alice.token,
+  );
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const response = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_mismatch",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Encrypted blob recipients mismatch",
+  });
+});
+
 test("POST /documents/:documentId/commit-change rejects Loro references to unbound slots", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
@@ -232,7 +305,10 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const documentId = String(createdDocument.id ?? "");
 
   const firstStageResponse = await stageBlob(
-    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtZmlyc3Q="),
+    await createEncryptedBlobInput(
+      "encrypted-attachment-first",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
     alice.token,
   );
   expect(firstStageResponse.status).toBe(200);
@@ -275,7 +351,10 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   expect(firstCommitResponse.status).toBe(200);
 
   const secondStageResponse = await stageBlob(
-    await createStagedBlobInput("ZW5jcnlwdGVkLWF0dGFjaG1lbnQtc2Vjb25k"),
+    await createEncryptedBlobInput(
+      "encrypted-attachment-second",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
     alice.token,
   );
   expect(secondStageResponse.status).toBe(200);
@@ -351,11 +430,12 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
-
-  const stageResponse = await stageBlob(
-    await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"),
-    alice.token,
+  const stagedBlobInput = await createEncryptedBlobInput(
+    "encrypted-image-bytes",
+    createdDocument.recipientEncapsulationPublicKeys,
   );
+
+  const stageResponse = await stageBlob(stagedBlobInput, alice.token);
   expect(stageResponse.status).toBe(200);
   const stage = await stageResponse.json();
 
@@ -389,9 +469,8 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   expect(blobResponse.status).toBe(200);
   expect(await blobResponse.json()).toEqual({
     blobId,
-    encryptedBytes: "ZW5jcnlwdGVkLWltYWdlLWJ5dGVz",
-    sha256: (await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"))
-      .sha256,
+    encryptedBytes: stagedBlobInput.encryptedBytes,
+    sha256: stagedBlobInput.sha256,
   });
 });
 
@@ -404,7 +483,10 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
   const documentId = String(createdDocument.id ?? "");
 
   const firstStageResponse = await stageBlob(
-    await createStagedBlobInput("Zmlyc3QtZW5jcnlwdGVkLWltYWdl"),
+    await createEncryptedBlobInput(
+      "first-encrypted-image",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
     alice.token,
   );
   expect(firstStageResponse.status).toBe(200);
@@ -436,7 +518,10 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
   );
 
   const secondStageResponse = await stageBlob(
-    await createStagedBlobInput("c2Vjb25kLWVuY3J5cHRlZC1pbWFnZQ=="),
+    await createEncryptedBlobInput(
+      "second-encrypted-image",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
     alice.token,
   );
   expect(secondStageResponse.status).toBe(200);

@@ -6,7 +6,12 @@ import { authenticate } from "../../test/helpers/authenticate";
 import { createTestUser } from "../../test/helpers/createTestUser";
 import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
-import { containers, documentContainerLinks, users } from "../schema";
+import {
+  containers,
+  documentContainerLinks,
+  objectRecipientEnvelopes,
+  users,
+} from "../schema";
 import {
   grantContainerAccess,
   resolveContainerAccessState,
@@ -60,6 +65,12 @@ test("document access includes recipients inherited from its linked root contain
     .where(eq(documentContainerLinks.documentId, documentId))
     .limit(1);
   expect(link?.containerId).toBe(rootContainer.id);
+
+  const documentEnvelopes = await db
+    .select({ id: objectRecipientEnvelopes.id })
+    .from(objectRecipientEnvelopes)
+    .where(eq(objectRecipientEnvelopes.objectId, documentId));
+  expect(documentEnvelopes).toHaveLength(0);
 
   const beforeShare = await resolveDocumentAccessState(documentId);
   invariant(beforeShare, "expected document access state");

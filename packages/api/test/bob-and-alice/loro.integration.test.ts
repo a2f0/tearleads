@@ -1,10 +1,11 @@
 import { afterAll, expect, test } from "bun:test";
 import {
   decryptAsRecipient,
-  type EncryptedEnvelope,
   encryptForRecipients,
+  parseBlobEnvelope,
+  serializeBlobEnvelope,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   decryptLoroUpdate,
@@ -34,61 +35,6 @@ import { registerUser } from "../helpers/registerUser";
 
 const alice = createTestUser();
 const bob = createTestUser();
-
-const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
-
-function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
-  return JSON.stringify({
-    format: ENCRYPTED_BLOB_FORMAT,
-    iv: bytesToBase64(envelope.iv),
-    ciphertext: bytesToBase64(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
-  });
-}
-
-function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
-  const parsed = JSON.parse(encryptedBytes);
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    parsed.format !== ENCRYPTED_BLOB_FORMAT ||
-    typeof parsed.iv !== "string" ||
-    typeof parsed.ciphertext !== "string" ||
-    !Array.isArray(parsed.recipients)
-  ) {
-    throw new Error("Invalid encrypted blob envelope");
-  }
-
-  return {
-    ciphertext: base64ToBytes(parsed.ciphertext),
-    iv: base64ToBytes(parsed.iv),
-    recipients: parsed.recipients.map((recipient: unknown) => {
-      if (
-        typeof recipient !== "object" ||
-        recipient === null ||
-        !("keyFingerprint" in recipient) ||
-        typeof recipient.keyFingerprint !== "string" ||
-        !("kemCipherText" in recipient) ||
-        typeof recipient.kemCipherText !== "string" ||
-        !("wrappedKey" in recipient) ||
-        typeof recipient.wrappedKey !== "string"
-      ) {
-        throw new Error("Invalid encrypted blob recipient");
-      }
-
-      return {
-        keyFingerprint: recipient.keyFingerprint,
-        kemCipherText: base64ToBytes(recipient.kemCipherText),
-        wrappedKey: base64ToBytes(recipient.wrappedKey),
-      };
-    }),
-  };
-}
 
 async function createStagedBlobInput(encryptedBytes: string): Promise<{
   encryptedBytes: string;
@@ -379,7 +325,7 @@ test("Large note-style updates stay as a single synced document update", async (
   expect(storedUpdates[0]?.encryptedData.length).toBeGreaterThan(256 * 1024);
 });
 
-test("Bob can read a rebaselined note after share but cannot decrypt a pre-share attachment blob", async () => {
+test("Bob can read a rebaselined note after share and decrypt a correctly wrapped attachment blob", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
   ]);
@@ -419,7 +365,9 @@ test("Bob can read a rebaselined note after share but cannot decrypt a pre-share
 
   const blobEnvelope = await encryptForRecipients(
     new TextEncoder().encode("drivers-license-front-image"),
-    [alice.kem.publicKey],
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
   );
   const serializedBlobEnvelope = serializeBlobEnvelope(blobEnvelope);
   const stageResponse = await stageBlob(
@@ -541,10 +489,10 @@ test("Bob can read a rebaselined note after share but cannot decrypt a pre-share
   expect(bobBlobResponse.status).toBe(200);
   const bobBlob = await bobBlobResponse.json();
 
-  await expect(
-    decryptAsRecipient(
+  expect(
+    await decryptAsRecipient(
       parseBlobEnvelope(bobBlob.encryptedBytes),
       bob.kem.secretKey,
     ),
-  ).rejects.toThrow();
+  ).toEqual(new TextEncoder().encode("drivers-license-front-image"));
 });
