@@ -9,6 +9,10 @@ import {
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
+import {
+  toUserPrincipalEnvelopeRecipient,
+  toUserPrincipalFingerprintRecipient,
+} from "./recipientPrincipals";
 
 const DOCUMENT_OBJECT_TYPE = "document";
 
@@ -296,9 +300,7 @@ async function computeDocumentAccessFingerprint(input: {
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
     recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
+      ...toUserPrincipalFingerprintRecipient(recipient),
     })),
   });
 }
@@ -564,11 +566,14 @@ export async function replaceDocumentRecipientEnvelopes(
         );
       }
 
+      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+
       return {
         objectType: DOCUMENT_OBJECT_TYPE,
         objectId: documentId,
         epoch,
-        recipientUserId: recipient.userId,
+        recipientPrincipalType: principalRecipient.principalType,
+        recipientPrincipalId: principalRecipient.principalId,
         recipientKeyFingerprint: envelope.keyFingerprint,
         kemCipherText: envelope.kemCipherText,
         wrappedKey: envelope.wrappedKey,

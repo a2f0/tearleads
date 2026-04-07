@@ -10,6 +10,10 @@ import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { computeAccessFingerprint } from "../../access/accessFingerprint";
+import {
+  toUserPrincipalEnvelopeRecipient,
+  toUserPrincipalFingerprintRecipient,
+} from "../../access/recipientPrincipals";
 import { db } from "../../adapters/postgres";
 import { set } from "../../adapters/redis";
 import { publish } from "../../adapters/redisPubSub";
@@ -161,21 +165,26 @@ registerRoute.post(
               },
             ],
             recipients: [
-              {
+              toUserPrincipalFingerprintRecipient({
                 userId: user.id,
                 accessLevel: "admin",
                 keyFingerprint: wrappedDekEnvelope.keyFingerprint,
-              },
+              }),
             ],
           }),
           updatedAt: new Date(),
         });
 
+        const principalRecipient = toUserPrincipalEnvelopeRecipient({
+          userId: user.id,
+          keyFingerprint: wrappedDekEnvelope.keyFingerprint,
+        });
         await tx.insert(objectRecipientEnvelopes).values({
           objectType: CONTAINER_OBJECT_TYPE,
           objectId: container.id,
           epoch: 1,
-          recipientUserId: user.id,
+          recipientPrincipalType: principalRecipient.principalType,
+          recipientPrincipalId: principalRecipient.principalId,
           recipientKeyFingerprint: wrappedDekEnvelope.keyFingerprint,
           kemCipherText: bytesToBase64(
             new Uint8Array(wrappedDekEnvelope.kemCipherText),

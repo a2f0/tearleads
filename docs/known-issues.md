@@ -16,6 +16,8 @@ The current table no longer means the same thing for every object type:
   client seeds or updates the current document bundle
 - blobs now store actual wrapped-DEK material when the blob ciphertext carries a
   valid blob envelope
+- recipient identity rows are now principal-shaped in schema terms, even though
+  the current runtime still mostly emits `user` principals
 
 This is why `kem_cipher_text` and `wrapped_key` remain nullable in the current
 schema even though some object types conceptually want them present.
@@ -71,8 +73,10 @@ Current recommendation:
 
 Remaining implementation work:
 
+- finish the principal-recipient pivot beyond the current user-principal-only
+  runtime behavior
 - implement additive rewrap / subtractive rotation for document epochs and
-  remaining object paths
+  remaining object paths under that principal-based model
 - continue wiring structural mutation routes and client flows
 - decide detached-binding retention / GC policy separately from blob GC
 
@@ -91,7 +95,8 @@ real wrapped key rows for the current epoch. Notes/blob additive access growth
 can now rewrap existing committed blob bindings in place without creating a new
 blob row. The remaining work is implementing the rewrap vs rotate decision
 consistently for document epochs and the remaining hierarchy edges when
-recipient sets expand or shrink.
+recipient sets expand or shrink, using the new principal-based recipient model
+rather than the old fully flattened per-user model.
 
 Implementation questions:
 
@@ -103,6 +108,6 @@ Implementation questions:
 
 Recommended next step:
 
-- implement document-epoch additive rewrap / subtractive rotation using the
-  resolver chain and mutation entry points described in
-  `docs/access-plane-v1.md`
+- finish the principal-recipient schema/key-distribution pivot and signed
+  membership-state design before implementing more of the old per-user
+  document-epoch rewrap path

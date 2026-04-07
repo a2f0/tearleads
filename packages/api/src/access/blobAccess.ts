@@ -17,6 +17,10 @@ import {
   resolveDocumentAccessState,
   resolveDocumentAccessStates,
 } from "./documentAccess";
+import {
+  toUserPrincipalEnvelopeRecipient,
+  toUserPrincipalFingerprintRecipient,
+} from "./recipientPrincipals";
 
 const BLOB_OBJECT_TYPE = "blob";
 
@@ -264,9 +268,7 @@ async function computeBlobAccessFingerprint(input: {
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
     recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
+      ...toUserPrincipalFingerprintRecipient(recipient),
     })),
   });
 }
@@ -297,17 +299,29 @@ async function replaceRecipientEnvelopes(
   );
 
   await executor.insert(objectRecipientEnvelopes).values(
-    envelopeEntries.map((envelopeEntry) => ({
-      objectType: BLOB_OBJECT_TYPE,
-      objectId: blobId,
-      epoch,
-      recipientUserId:
-        recipientByKeyFingerprint.get(envelopeEntry.keyFingerprint)?.userId ??
-        "",
-      recipientKeyFingerprint: envelopeEntry.keyFingerprint,
-      kemCipherText: envelopeEntry.kemCipherText,
-      wrappedKey: envelopeEntry.wrappedKey,
-    })),
+    envelopeEntries.map((envelopeEntry) => {
+      const recipient = recipientByKeyFingerprint.get(
+        envelopeEntry.keyFingerprint,
+      );
+      if (!recipient) {
+        throw new Error(
+          `Invariant violation: recipient not found for key fingerprint ${envelopeEntry.keyFingerprint}`,
+        );
+      }
+
+      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+
+      return {
+        objectType: BLOB_OBJECT_TYPE,
+        objectId: blobId,
+        epoch,
+        recipientPrincipalType: principalRecipient.principalType,
+        recipientPrincipalId: principalRecipient.principalId,
+        recipientKeyFingerprint: envelopeEntry.keyFingerprint,
+        kemCipherText: envelopeEntry.kemCipherText,
+        wrappedKey: envelopeEntry.wrappedKey,
+      };
+    }),
   );
 }
 

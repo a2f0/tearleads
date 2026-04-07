@@ -575,9 +575,13 @@ Persist the effective recipient set used for a given encrypted object version.
   - `object_type`
   - `object_id`
   - `epoch`
-  - `recipient_user_id`
+  - `recipient_principal_type`
+  - `recipient_principal_id`
   - `recipient_key_fingerprint`
   - wrapped key material or reference to it
+
+In the current transition state, the schema is principal-shaped even though the
+runtime still mostly emits `user` principals.
 
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.

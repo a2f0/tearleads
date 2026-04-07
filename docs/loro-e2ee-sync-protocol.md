@@ -63,6 +63,8 @@ Current implementation:
   - AES-GCM ciphertext encrypted with the current document DEK
 - the current document-DEK bundle can now be materialized in
   `object_recipient_envelopes`
+- recipient-envelope identity rows are now principal-shaped in schema terms,
+  although the current runtime still mostly emits `user` principals
 - `POST /auth/register` and `POST /containers` can seed initial metadata
   document bundles atomically
 - blob payloads are further along: committed blob envelopes now carry real
@@ -77,6 +79,8 @@ Current implementation:
 
 Important remaining limitation:
 
+- the runtime still flattens effective crypto recipients to users even though
+  the envelope storage model is pivoting toward principals
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

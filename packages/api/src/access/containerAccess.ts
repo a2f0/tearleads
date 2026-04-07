@@ -3,6 +3,7 @@ import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
+import { toUserPrincipalFingerprintRecipient } from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
 const UUID_PATTERN =
@@ -624,9 +625,7 @@ async function computeContainerFingerprint(input: {
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
     recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
+      ...toUserPrincipalFingerprintRecipient(recipient),
     })),
   });
 }
