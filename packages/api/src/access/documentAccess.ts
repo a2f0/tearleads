@@ -1,6 +1,11 @@
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { documentContainerLinks, objectAccessEpochs } from "../schema";
+import {
+  documentContainerLinks,
+  objectAccessEpochs,
+  objectRecipientEnvelopes,
+} from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
@@ -442,6 +447,133 @@ export function listRecipientEncapsulationPublicKeys(
 ): string[] {
   return state.effectiveRecipients.map(
     (recipient) => recipient.encapsulationPublicKey,
+  );
+}
+
+function envelopeFingerprintsMatchRecipients(
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  recipients: ReadonlyArray<EffectiveDocumentRecipient>,
+): boolean {
+  const envelopeFingerprints = uniqueSortedStrings(
+    envelopes.map((envelope) => envelope.keyFingerprint),
+  );
+  const recipientFingerprints = uniqueSortedStrings(
+    recipients.map((recipient) => recipient.keyFingerprint),
+  );
+
+  return (
+    envelopeFingerprints.length === recipientFingerprints.length &&
+    envelopeFingerprints.every(
+      (fingerprint, index) => fingerprint === recipientFingerprints[index],
+    )
+  );
+}
+
+export function documentRecipientEnvelopesMatchRecipients(
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  state: DocumentAccessState,
+): boolean {
+  return envelopeFingerprintsMatchRecipients(
+    envelopes,
+    state.effectiveRecipients,
+  );
+}
+
+export async function listDocumentRecipientEnvelopes(
+  documentId: string,
+  epoch: number,
+  executor: DocumentAccessExecutor = db,
+): Promise<SerializedRecipientEnvelope[] | null> {
+  const rows = await executor
+    .select({
+      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
+      kemCipherText: objectRecipientEnvelopes.kemCipherText,
+      wrappedKey: objectRecipientEnvelopes.wrappedKey,
+    })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
+        eq(objectRecipientEnvelopes.objectId, documentId),
+        eq(objectRecipientEnvelopes.epoch, epoch),
+      ),
+    );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows
+    .filter(
+      (
+        row,
+      ): row is {
+        keyFingerprint: string;
+        kemCipherText: string;
+        wrappedKey: string;
+      } => !!row.kemCipherText && !!row.wrappedKey,
+    )
+    .sort((left, right) =>
+      left.keyFingerprint.localeCompare(right.keyFingerprint),
+    )
+    .map((row) => ({
+      keyFingerprint: row.keyFingerprint,
+      kemCipherText: row.kemCipherText,
+      wrappedKey: row.wrappedKey,
+    }));
+}
+
+export async function replaceDocumentRecipientEnvelopes(
+  documentId: string,
+  epoch: number,
+  state: DocumentAccessState,
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  executor: DocumentAccessExecutor = db,
+): Promise<void> {
+  if (!documentRecipientEnvelopesMatchRecipients(envelopes, state)) {
+    throw new Error("Document recipient envelopes mismatch");
+  }
+
+  await executor
+    .delete(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
+        eq(objectRecipientEnvelopes.objectId, documentId),
+        eq(objectRecipientEnvelopes.epoch, epoch),
+      ),
+    );
+
+  if (envelopes.length === 0) {
+    return;
+  }
+
+  const recipientByKeyFingerprint = new Map(
+    state.effectiveRecipients.map((recipient) => [
+      recipient.keyFingerprint,
+      recipient,
+    ]),
+  );
+
+  await executor.insert(objectRecipientEnvelopes).values(
+    envelopes.map((envelope) => {
+      const recipient = recipientByKeyFingerprint.get(envelope.keyFingerprint);
+      if (!recipient) {
+        throw new Error(
+          `Invariant violation: recipient not found for key fingerprint ${envelope.keyFingerprint}`,
+        );
+      }
+
+      return {
+        objectType: DOCUMENT_OBJECT_TYPE,
+        objectId: documentId,
+        epoch,
+        recipientUserId: recipient.userId,
+        recipientKeyFingerprint: envelope.keyFingerprint,
+        kemCipherText: envelope.kemCipherText,
+        wrappedKey: envelope.wrappedKey,
+      };
+    }),
   );
 }
 

@@ -4,6 +4,7 @@ import {
   isCreateDocumentRequest,
   isCreateDocumentResponse,
   isSyncDocumentResponse,
+  type SerializedRecipientEnvelope,
   type SyncDocumentOutgoingUpdate,
   type SyncDocumentResponse,
 } from "../shared";
@@ -41,6 +42,7 @@ export function syncDocument(
   accessEpoch: number,
   localVersionVector: string | null,
   outgoingUpdates: SyncDocumentOutgoingUpdate[],
+  documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
 ): Promise<SyncDocumentResponse | null> {
   return request(
     `/documents/${documentId}/sync`,
@@ -48,6 +50,7 @@ export function syncDocument(
     "POST",
     JSON.stringify({
       accessEpoch,
+      documentRecipientEnvelopes,
       localVersionVector,
       outgoingUpdates,
     }),

@@ -47,6 +47,7 @@ registerRoute.post(
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
+      initialRootMetadataRecipientEnvelopes,
       initialRootMetadataUpdates,
       wrappedDekEnvelope,
     } = c.req.valid("json");
@@ -189,6 +190,12 @@ registerRoute.post(
           containerId: container.id,
           createdByFingerprint: fingerprint,
           initialMetadataUpdates: initialRootMetadataUpdates,
+          ...(initialRootMetadataRecipientEnvelopes
+            ? {
+                initialMetadataRecipientEnvelopes:
+                  initialRootMetadataRecipientEnvelopes,
+              }
+            : {}),
         });
 
         return {

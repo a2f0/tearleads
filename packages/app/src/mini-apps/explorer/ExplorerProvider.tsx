@@ -1,6 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
-  decryptLoroUpdate,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
@@ -28,11 +27,16 @@ import type {
   PendingUpdateRecord,
 } from "../../data/documentPersistence";
 import {
+  createDocumentEncryptionMaterial,
   createPendingUpdateFields,
+  decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
+  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
 import {
@@ -238,6 +242,7 @@ export function createExplorerStore(
     patch: Partial<{
       accessEpoch: number;
       documentId: string | null;
+      documentRecipientEnvelopes: string | null;
       icon: string | null;
       metadataDocumentId: string | null;
       loroSnapshot: string;
@@ -247,6 +252,12 @@ export function createExplorerStore(
     }> = {},
     updateView = true,
   ): Promise<DocumentRecord> {
+    const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
+      patch,
+      "documentRecipientEnvelopes",
+    );
+    const nextAccessEpoch =
+      patch.accessEpoch ?? containerState.record.accessEpoch;
     const metadata = readContainerMetadataValue(
       containerState.doc,
       getFallbackContainerName(containerState.container.parentId),
@@ -266,10 +277,15 @@ export function createExplorerStore(
     const nextRecord: DocumentRecord = {
       id: containerState.container.id,
       documentId: patch.documentId ?? containerState.record.documentId,
+      documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
+        ? (patch.documentRecipientEnvelopes ?? null)
+        : nextAccessEpoch !== containerState.record.accessEpoch
+          ? null
+          : containerState.record.documentRecipientEnvelopes,
       loroSnapshot:
         patch.loroSnapshot ??
         bytesToBase64(exportAllUpdates(containerState.doc)),
-      accessEpoch: patch.accessEpoch ?? containerState.record.accessEpoch,
+      accessEpoch: nextAccessEpoch,
     };
 
     await persistence.saveContainer(runtime.execSql, nextContainer, nextRecord);
@@ -327,12 +343,14 @@ export function createExplorerStore(
             accessEpoch,
             localVersionVector,
             outgoingUpdates,
+            documentRecipientEnvelopes,
           ) =>
             runtime.apiClient.syncDocument(
               documentId,
               accessEpoch,
               localVersionVector,
               outgoingUpdates,
+              documentRecipientEnvelopes,
             ),
         },
         blobStore: runtime.blobStore,
@@ -374,28 +392,15 @@ export function createExplorerStore(
 
   async function decryptMetadataUpdates(
     encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
-    secretKey: Uint8Array,
+    accessEpoch: number,
+    documentKey: Uint8Array,
   ): Promise<Uint8Array[]> {
-    const decryptedUpdates: Uint8Array[] = [];
-    let skippedUpdateCount = 0;
-
-    for (const update of encryptedUpdates) {
-      try {
-        decryptedUpdates.push(
-          await decryptLoroUpdate(update.encryptedData, secretKey),
-        );
-      } catch {
-        skippedUpdateCount += 1;
-      }
-    }
-
-    if (skippedUpdateCount > 0) {
-      runtime.log(
-        `Explorer: skipped ${skippedUpdateCount} undecryptable metadata update(s)`,
-      );
-    }
-
-    return decryptedUpdates;
+    return decryptIncomingUpdates(
+      encryptedUpdates,
+      accessEpoch,
+      documentKey,
+      (message) => runtime.log(`Explorer: ${message}`),
+    );
   }
 
   async function hydrateRemoteContainers(): Promise<void> {
@@ -457,6 +462,7 @@ export function createExplorerStore(
         record: {
           accessEpoch: remoteContainer.metadataAccessEpoch,
           documentId: remoteContainer.metadataDocumentId,
+          documentRecipientEnvelopes: null,
           id: remoteContainer.id,
           loroSnapshot: initialSnapshot,
         },
@@ -548,6 +554,7 @@ export function createExplorerStore(
         nextRecord = {
           accessEpoch: 1,
           documentId: container.metadataDocumentId,
+          documentRecipientEnvelopes: null,
           id: container.id,
           loroSnapshot: bytesToBase64(initialUpdate),
         };
@@ -645,16 +652,34 @@ export function createExplorerStore(
             continue;
           }
 
-          const outgoingUpdates = await encryptPendingUpdates(
-            pendingUpdates,
-            containerState.recipientPublicKeys,
-          );
+          const currentDocumentRecipientEnvelopes =
+            parseDocumentRecipientEnvelopes(
+              containerState.record.documentRecipientEnvelopes,
+            );
+          const encryptionMaterial =
+            pendingUpdates.length > 0
+              ? await getOrCreateDocumentEncryptionMaterial({
+                  documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+                  recipientPublicKeys: containerState.recipientPublicKeys,
+                  secretKey: encapsulationKeyPair.secretKey,
+                })
+              : null;
+          const outgoingUpdates = encryptionMaterial
+            ? await encryptPendingUpdates(
+                pendingUpdates,
+                containerState.record.accessEpoch,
+                encryptionMaterial.documentKey,
+              )
+            : [];
 
           const synced = await runtime.apiClient.syncDocument(
             documentId,
             containerState.record.accessEpoch,
             encodeVersionVector(containerState.doc),
             outgoingUpdates,
+            encryptionMaterial && currentDocumentRecipientEnvelopes === null
+              ? encryptionMaterial.documentRecipientEnvelopes
+              : undefined,
           );
 
           if (!synced) {
@@ -670,13 +695,31 @@ export function createExplorerStore(
             await deletePendingUpdate(acceptedOutgoingUpdateId);
           }
 
+          const nextDocumentRecipientEnvelopes =
+            synced.documentRecipientEnvelopes ??
+            (encryptionMaterial && currentDocumentRecipientEnvelopes === null
+              ? encryptionMaterial.documentRecipientEnvelopes
+              : currentDocumentRecipientEnvelopes);
           if (synced.updates.length > 0) {
-            const decryptedUpdates = await decryptMetadataUpdates(
-              synced.updates,
-              encapsulationKeyPair.secretKey,
-            );
-            if (decryptedUpdates.length > 0) {
-              importUpdates(containerState.doc, decryptedUpdates);
+            if (!nextDocumentRecipientEnvelopes) {
+              runtime.log(
+                `Explorer: skipped metadata updates for container ${containerState.container.id} because the current document key bundle is missing.`,
+              );
+            } else {
+              const { documentKey } =
+                await getOrCreateDocumentEncryptionMaterial({
+                  documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+                  recipientPublicKeys: containerState.recipientPublicKeys,
+                  secretKey: encapsulationKeyPair.secretKey,
+                });
+              const decryptedUpdates = await decryptMetadataUpdates(
+                synced.updates,
+                synced.currentAccessEpoch,
+                documentKey,
+              );
+              if (decryptedUpdates.length > 0) {
+                importUpdates(containerState.doc, decryptedUpdates);
+              }
             }
           }
 
@@ -684,6 +727,9 @@ export function createExplorerStore(
           await persistContainerState(containerState, {
             accessEpoch: synced.currentAccessEpoch,
             documentId,
+            documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+              nextDocumentRecipientEnvelopes,
+            ),
             metadataDocumentId: documentId,
           });
 
@@ -762,12 +808,17 @@ export function createExplorerStore(
           const initialRecord: DocumentRecord = {
             accessEpoch: 1,
             documentId: null,
+            documentRecipientEnvelopes: null,
             id: childId,
             loroSnapshot: bytesToBase64(initialUpdate),
           };
           let childState: ContainerState;
 
           if (runtime.isAuthenticated && runtime.encapsulationKeyPair) {
+            const initialDocumentEncryption =
+              await createDocumentEncryptionMaterial(
+                parentState.recipientPublicKeys,
+              );
             const pendingUpdateFields =
               createPendingUpdateFields(initialUpdate);
             const initialMetadataUpdates = pendingUpdateFields
@@ -778,13 +829,15 @@ export function createExplorerStore(
                       ...pendingUpdateFields,
                     },
                   ],
-                  parentState.recipientPublicKeys,
+                  initialRecord.accessEpoch,
+                  initialDocumentEncryption.documentKey,
                 )
               : [];
             const created = await runtime.apiClient.createContainer(
               childId,
               parentState.container.id,
               initialMetadataUpdates,
+              initialDocumentEncryption.documentRecipientEnvelopes,
             );
 
             if (!created) {
@@ -809,6 +862,9 @@ export function createExplorerStore(
                 ...initialRecord,
                 accessEpoch: created.metadataAccessEpoch,
                 documentId: created.metadataDocumentId,
+                documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+                  initialDocumentEncryption.documentRecipientEnvelopes,
+                ),
               },
             };
           } else {

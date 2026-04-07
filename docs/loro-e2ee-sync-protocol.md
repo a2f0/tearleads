@@ -31,9 +31,14 @@ Current shape:
 
 - `POST /documents`
   - creates a document and initializes access state
+  - response includes:
+    - `currentAccessEpoch`
+    - `recipientEncapsulationPublicKeys[]`
+    - `documentRecipientEnvelopes | null`
 - `POST /documents/:documentId/sync`
   - request includes:
     - `accessEpoch`
+    - optional `documentRecipientEnvelopes[]`
     - `localVersionVector`
     - `outgoingUpdates[]`
   - each outgoing update includes:
@@ -43,6 +48,7 @@ Current shape:
     - visible `partialEndVersionVector`
   - response includes:
     - `currentAccessEpoch`
+    - `documentRecipientEnvelopes | null`
     - `acceptedOutgoingUpdateIds[]`
     - encrypted updates whose visible causal metadata is not yet covered by the
       client version vector
@@ -50,17 +56,28 @@ Current shape:
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
 
-Important current limitation:
+Current implementation:
 
-- each encrypted Loro update currently carries its own recipient envelope with
-  a fresh per-update payload key
-- the system does not yet materialize a stable per-document DEK bundle in
+- each encrypted Loro update now carries:
+  - an inline `accessEpoch`
+  - AES-GCM ciphertext encrypted with the current document DEK
+- the current document-DEK bundle can now be materialized in
   `object_recipient_envelopes`
+- `POST /auth/register` and `POST /containers` can seed initial metadata
+  document bundles atomically
 - blob payloads are further along: committed blob envelopes now carry real
   wrapped-key material that the API can persist for blob objects when the blob
   recipient set matches current access
 - blob envelopes now use a header-delimited wire format so recipient metadata
   can be read without JSON-parsing the ciphertext body
+
+Important remaining limitation:
+
+- additive rewrap / subtractive rotation across recipient-set changes is still
+  not implemented
+- when a document enters a new access epoch, clients still rely on the current
+  "full baseline on epoch change" behavior and may generate a fresh bundle on
+  the first write of that epoch
 
 ## Why This Boundary Matters
 
@@ -194,6 +211,7 @@ layer:
 - `accessEpoch`
 - `attachmentCommits[]`
 - `attachmentDetaches[]`
+- optional `documentRecipientEnvelopes[]`
 - optional `loroUpdate`
 
 Each attachment commit contains:
@@ -221,7 +239,9 @@ The server must reject `commit-change` if:
 - the caller cannot write the document
 - a `stageId` does not exist, expired, or belongs to another user
 - a `slotId` is not currently bound to the `expectedBindingId`
-- the encrypted Loro update recipient set does not match the current document
+- the encrypted Loro update `accessEpoch` does not match the current document
+  access epoch
+- provided `documentRecipientEnvelopes[]` do not match the current document
   recipient set
 - `referencedSlotIds[]` includes a slot without an active binding after the
   requested attachment mutations are applied

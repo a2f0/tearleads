@@ -21,9 +21,12 @@ import {
 import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
+  documentRecipientEnvelopesMatchRecipients,
   initializeDocumentAccess,
+  listDocumentRecipientEnvelopes,
   listRecipientEncapsulationPublicKeys,
   listRecipientKeyFingerprints,
+  replaceDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
 import { type DatabaseExecutor, db } from "../../adapters/postgres";
@@ -43,7 +46,7 @@ import {
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   listBlobRecipientKeyFingerprints,
-  listLoroRecipientKeyFingerprints,
+  readLoroUpdateAccessEpoch,
 } from "../../utils/recipientEnvelopes";
 
 type DocumentRouteExecutor = DatabaseExecutor;
@@ -145,6 +148,15 @@ class CreateDocumentError extends Error {
   }
 }
 
+class DocumentUpdateError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 409,
+  ) {
+    super(message);
+  }
+}
+
 export const documentsRouter = createLoroRouter({
   store: {
     async createDocument(input) {
@@ -225,6 +237,11 @@ export const documentsRouter = createLoroRouter({
         return {
           document,
           currentAccessEpoch,
+          documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
+            document.id,
+            currentAccessEpoch,
+            tx,
+          ),
           recipientEncapsulationPublicKeys:
             listRecipientEncapsulationPublicKeys(access),
         };
@@ -247,12 +264,61 @@ export const documentsRouter = createLoroRouter({
         canRead: canReadDocumentAccess(access, userId),
         canWrite: canWriteDocumentAccess(access, userId),
         currentAccessEpoch: access.currentAccessEpoch,
+        documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
+          documentId,
+          access.currentAccessEpoch,
+        ),
         recipientKeyFingerprints: listRecipientKeyFingerprints(access),
         recipientEncapsulationPublicKeys:
           listRecipientEncapsulationPublicKeys(access),
       };
     },
-    async appendDocumentUpdates({ documentId, authorFingerprint, updates }) {
+    async appendDocumentUpdates({
+      documentId,
+      authorFingerprint,
+      documentRecipientEnvelopes,
+      updates,
+    }) {
+      const access = await resolveDocumentAccessState(documentId);
+      if (!access) {
+        throw new DocumentUpdateError("Document access state not found", 409);
+      }
+
+      const existingEnvelopes = await listDocumentRecipientEnvelopes(
+        documentId,
+        access.currentAccessEpoch,
+      );
+      const nextEnvelopes = documentRecipientEnvelopes ?? existingEnvelopes;
+
+      if (!nextEnvelopes || nextEnvelopes.length === 0) {
+        throw new DocumentUpdateError(
+          "Missing document recipient envelopes for current epoch",
+          400,
+        );
+      }
+
+      if (
+        documentRecipientEnvelopes &&
+        !documentRecipientEnvelopesMatchRecipients(
+          documentRecipientEnvelopes,
+          access,
+        )
+      ) {
+        throw new DocumentUpdateError(
+          "Document recipient envelopes mismatch",
+          400,
+        );
+      }
+
+      if (documentRecipientEnvelopes) {
+        await replaceDocumentRecipientEnvelopes(
+          documentId,
+          access.currentAccessEpoch,
+          access,
+          documentRecipientEnvelopes,
+        );
+      }
+
       const acceptedUpdateIds: string[] = [];
 
       for (const update of updates) {
@@ -364,8 +430,13 @@ documentsRouter.post(
   async (c) => {
     const documentId = c.req.param("documentId");
     const session = c.get("session");
-    const { accessEpoch, attachmentCommits, attachmentDetaches, loroUpdate } =
-      c.req.valid("json");
+    const {
+      accessEpoch,
+      attachmentCommits,
+      attachmentDetaches,
+      documentRecipientEnvelopes,
+      loroUpdate,
+    } = c.req.valid("json");
 
     const touchedSlotIds = [
       ...attachmentCommits.map((commit) => commit.slotId),
@@ -418,16 +489,26 @@ documentsRouter.post(
     if (loroUpdate) {
       try {
         if (
-          !matchesRecipientKeyFingerprints(
-            listLoroRecipientKeyFingerprints(loroUpdate.encryptedData),
-            expectedRecipientKeyFingerprints,
-          )
+          readLoroUpdateAccessEpoch(loroUpdate.encryptedData) !== accessEpoch
         ) {
-          return c.json({ error: "Encrypted update recipients mismatch" }, 400);
+          return c.json(
+            { error: "Encrypted update access epoch mismatch" },
+            400,
+          );
         }
       } catch {
         return c.json({ error: "Invalid encrypted update envelope" }, 400);
       }
+    }
+
+    if (
+      documentRecipientEnvelopes &&
+      !documentRecipientEnvelopesMatchRecipients(
+        documentRecipientEnvelopes,
+        access,
+      )
+    ) {
+      return c.json({ error: "Document recipient envelopes mismatch" }, 400);
     }
 
     try {
@@ -633,7 +714,33 @@ documentsRouter.post(
         }
 
         const acceptedOutgoingUpdateIds: string[] = [];
+        let currentDocumentRecipientEnvelopes =
+          await listDocumentRecipientEnvelopes(
+            documentId,
+            access.currentAccessEpoch,
+            tx,
+          );
         if (loroUpdate) {
+          if (documentRecipientEnvelopes) {
+            await replaceDocumentRecipientEnvelopes(
+              documentId,
+              access.currentAccessEpoch,
+              access,
+              documentRecipientEnvelopes,
+              tx,
+            );
+            currentDocumentRecipientEnvelopes = documentRecipientEnvelopes;
+          }
+
+          if (
+            !currentDocumentRecipientEnvelopes ||
+            currentDocumentRecipientEnvelopes.length === 0
+          ) {
+            throw new CommitChangeError(
+              "Missing document recipient envelopes for current epoch",
+            );
+          }
+
           const [existing] = await tx
             .select({ id: documentUpdates.id })
             .from(documentUpdates)
@@ -671,6 +778,7 @@ documentsRouter.post(
           acceptedOutgoingUpdateIds,
           committedBindings,
           detachedBindingIds,
+          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
         };
       });
 
@@ -687,6 +795,7 @@ documentsRouter.post(
         acceptedOutgoingUpdateIds: result.acceptedOutgoingUpdateIds,
         committedBindings: result.committedBindings,
         detachedBindingIds: result.detachedBindingIds,
+        documentRecipientEnvelopes: result.documentRecipientEnvelopes,
       });
     } catch (error) {
       if (error instanceof CommitChangeError) {

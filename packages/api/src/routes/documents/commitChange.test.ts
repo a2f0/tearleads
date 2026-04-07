@@ -3,8 +3,9 @@ import {
   encryptForRecipients,
   generateKemSeedAndKeyPair,
   serializeBlobEnvelope,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
@@ -83,6 +84,32 @@ async function createEncryptedBlobInputForRecipientKeys(
   return createStagedBlobInput(serializeBlobEnvelope(envelope));
 }
 
+async function createDocumentEncryption(
+  encodedRecipientPublicKeys: string[],
+): Promise<{
+  documentKey: Uint8Array;
+  documentRecipientEnvelopes: Array<{
+    keyFingerprint: string;
+    kemCipherText: string;
+    wrappedKey: string;
+  }>;
+}> {
+  const documentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrappedRecipients = await wrapDekForRecipients(
+    documentKey,
+    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
+  );
+
+  return {
+    documentKey,
+    documentRecipientEnvelopes: wrappedRecipients.map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+    })),
+  };
+}
+
 test("POST /blobs/stage rejects mismatched blob digests", async () => {
   const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
   const response = await stageBlob(
@@ -130,6 +157,10 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
+  const { documentKey, documentRecipientEnvelopes } =
+    await createDocumentEncryption(
+      createdDocument.recipientEncapsulationPublicKeys,
+    );
 
   const stageResponse = await stageBlob(
     await createEncryptedBlobInput(
@@ -147,9 +178,8 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   const update = exportUpdatesSince(doc, startVersion);
   const encryptedUpdate = await encryptLoroUpdate(
     update,
-    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
-      base64ToBytes(publicKey),
-    ),
+    createdDocument.currentAccessEpoch,
+    documentKey,
   );
   const vectors = getUpdateVersionVectors(update);
 
@@ -165,6 +195,7 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
         },
       ],
       attachmentDetaches: [],
+      documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
         encryptedData: encryptedUpdate,
@@ -260,6 +291,10 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
+  const { documentKey, documentRecipientEnvelopes } =
+    await createDocumentEncryption(
+      createdDocument.recipientEncapsulationPublicKeys,
+    );
 
   const doc = await createLoroDocument(alice.fingerprint);
   const startVersion = encodeVersionVector(doc);
@@ -267,9 +302,8 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
   const update = exportUpdatesSince(doc, startVersion);
   const encryptedUpdate = await encryptLoroUpdate(
     update,
-    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
-      base64ToBytes(publicKey),
-    ),
+    createdDocument.currentAccessEpoch,
+    documentKey,
   );
   const vectors = getUpdateVersionVectors(update);
 
@@ -279,6 +313,7 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
       accessEpoch: createdDocument.currentAccessEpoch,
       attachmentCommits: [],
       attachmentDetaches: [],
+      documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
         encryptedData: encryptedUpdate,
@@ -303,6 +338,10 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
+  const { documentKey, documentRecipientEnvelopes } =
+    await createDocumentEncryption(
+      createdDocument.recipientEncapsulationPublicKeys,
+    );
 
   const firstStageResponse = await stageBlob(
     await createEncryptedBlobInput(
@@ -320,9 +359,8 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const firstUpdate = exportUpdatesSince(firstDoc, firstStartVersion);
   const firstEncryptedUpdate = await encryptLoroUpdate(
     firstUpdate,
-    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
-      base64ToBytes(publicKey),
-    ),
+    createdDocument.currentAccessEpoch,
+    documentKey,
   );
   const firstVectors = getUpdateVersionVectors(firstUpdate);
 
@@ -338,6 +376,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
         },
       ],
       attachmentDetaches: [],
+      documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
         encryptedData: firstEncryptedUpdate,
@@ -365,9 +404,8 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const secondUpdate = exportUpdatesSince(firstDoc, secondStartVersion);
   const secondEncryptedUpdate = await encryptLoroUpdate(
     secondUpdate,
-    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
-      base64ToBytes(publicKey),
-    ),
+    createdDocument.currentAccessEpoch,
+    documentKey,
   );
   const secondVectors = getUpdateVersionVectors(secondUpdate);
 
@@ -383,6 +421,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
         },
       ],
       attachmentDetaches: [],
+      documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
         encryptedData: secondEncryptedUpdate,

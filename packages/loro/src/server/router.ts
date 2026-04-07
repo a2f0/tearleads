@@ -1,12 +1,13 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
 import { satisfiesVersionVector } from "../document";
-import { parseEnvelope } from "../encryptedUpdate";
+import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
 import {
   type CreateDocumentResponse,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,
   isSyncDocumentRequest,
+  type SerializedRecipientEnvelope,
   type SyncDocumentOutgoingUpdate,
   type SyncDocumentResponse,
 } from "../shared";
@@ -27,6 +28,7 @@ interface DocumentAccessState {
   canRead: boolean;
   canWrite: boolean;
   currentAccessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientKeyFingerprints: string[];
   recipientEncapsulationPublicKeys: string[];
 }
@@ -40,6 +42,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     }): Promise<{
       document: DocumentRecord;
       currentAccessEpoch: number;
+      documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
       recipientEncapsulationPublicKeys: string[];
     } | null>;
     getDocumentById(documentId: string): Promise<DocumentRecord | null>;
@@ -50,6 +53,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     appendDocumentUpdates(input: {
       documentId: string;
       authorFingerprint: string;
+      documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
       updates: SyncDocumentOutgoingUpdate[];
     }): Promise<string[]>;
     listDocumentUpdates(documentId: string): Promise<DocumentUpdateRecord[]>;
@@ -62,12 +66,6 @@ interface StatusError extends Error {
   status: 400 | 403 | 404 | 409;
 }
 
-function uniqueSortedStrings(values: string[]): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
-
 function isStatusError(error: unknown): error is StatusError {
   return (
     error instanceof Error &&
@@ -76,24 +74,11 @@ function isStatusError(error: unknown): error is StatusError {
   );
 }
 
-function matchesRecipients(
+function matchesAccessEpoch(
   encryptedData: string,
-  expectedRecipientKeyFingerprints: string[],
+  expectedAccessEpoch: number,
 ): boolean {
-  const recipientKeyFingerprints = uniqueSortedStrings(
-    parseEnvelope(encryptedData).recipients.map(
-      (recipient) => recipient.keyFingerprint,
-    ),
-  );
-
-  return (
-    recipientKeyFingerprints.length ===
-      expectedRecipientKeyFingerprints.length &&
-    recipientKeyFingerprints.every(
-      (fingerprint, index) =>
-        fingerprint === expectedRecipientKeyFingerprints[index],
-    )
-  );
+  return readEncryptedUpdateAccessEpoch(encryptedData) === expectedAccessEpoch;
 }
 
 function toSyncUpdate(update: DocumentUpdateRecord): DocumentSyncUpdate {
@@ -144,6 +129,7 @@ export function createLoroRouter<TSession extends SessionLike>({
           id: created.document.id,
           createdAt: created.document.createdAt.toISOString(),
           currentAccessEpoch: created.currentAccessEpoch,
+          documentRecipientEnvelopes: created.documentRecipientEnvelopes,
           recipientEncapsulationPublicKeys:
             created.recipientEncapsulationPublicKeys,
         });
@@ -171,6 +157,7 @@ export function createLoroRouter<TSession extends SessionLike>({
       const documentId = c.req.param("documentId");
       const { accessEpoch, localVersionVector, outgoingUpdates } =
         c.req.valid("json");
+      const { documentRecipientEnvelopes } = c.req.valid("json");
       const session = c.get("session");
 
       const document = await store.getDocumentById(documentId);
@@ -196,22 +183,17 @@ export function createLoroRouter<TSession extends SessionLike>({
       }
 
       let acceptedOutgoingUpdateIds: string[] = [];
+      let responseDocumentRecipientEnvelopes =
+        access.documentRecipientEnvelopes;
 
       if (accessEpoch === access.currentAccessEpoch) {
-        const expectedRecipientKeyFingerprints = uniqueSortedStrings(
-          access.recipientKeyFingerprints,
-        );
-
         for (const outgoingUpdate of outgoingUpdates) {
           try {
             if (
-              !matchesRecipients(
-                outgoingUpdate.encryptedData,
-                expectedRecipientKeyFingerprints,
-              )
+              !matchesAccessEpoch(outgoingUpdate.encryptedData, accessEpoch)
             ) {
               return c.json(
-                { error: "Encrypted update recipients mismatch" },
+                { error: "Encrypted update access epoch mismatch" },
                 400,
               );
             }
@@ -224,7 +206,11 @@ export function createLoroRouter<TSession extends SessionLike>({
           documentId,
           authorFingerprint: session.fingerprint,
           updates: outgoingUpdates,
+          ...(documentRecipientEnvelopes ? { documentRecipientEnvelopes } : {}),
         });
+        if (documentRecipientEnvelopes) {
+          responseDocumentRecipientEnvelopes = documentRecipientEnvelopes;
+        }
       }
 
       const updates = await store.listDocumentUpdates(documentId);
@@ -251,6 +237,7 @@ export function createLoroRouter<TSession extends SessionLike>({
         acceptedOutgoingUpdateIds,
         updates: missingUpdates,
         currentAccessEpoch: access.currentAccessEpoch,
+        documentRecipientEnvelopes: responseDocumentRecipientEnvelopes,
         recipientEncapsulationPublicKeys:
           access.recipientEncapsulationPublicKeys,
       });

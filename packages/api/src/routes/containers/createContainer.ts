@@ -39,7 +39,12 @@ createContainerRoute.post(
   }),
   async (c) => {
     const session = c.get("session");
-    const { id, initialMetadataUpdates, parentId } = c.req.valid("json");
+    const {
+      id,
+      initialMetadataRecipientEnvelopes,
+      initialMetadataUpdates,
+      parentId,
+    } = c.req.valid("json");
 
     try {
       const created = await db.transaction(async (tx) => {
@@ -95,6 +100,9 @@ createContainerRoute.post(
           containerId: container.id,
           createdByFingerprint: session.fingerprint,
           initialMetadataUpdates,
+          ...(initialMetadataRecipientEnvelopes
+            ? { initialMetadataRecipientEnvelopes }
+            : {}),
         });
 
         return {

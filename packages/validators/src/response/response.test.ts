@@ -98,6 +98,7 @@ test("isCommitDocumentChangeResponse", () => {
         },
       ],
       detachedBindingIds: ["binding_old"],
+      documentRecipientEnvelopes: null,
     }),
   ).toBe(true);
   expect(

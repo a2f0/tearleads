@@ -1,5 +1,5 @@
 import { parseBlobEnvelopeHeader } from "@tearleads/crypto";
-import { parseEnvelope } from "@tearleads/loro";
+import { readEncryptedUpdateAccessEpoch } from "@tearleads/loro";
 import { uniqueSortedStrings } from "./array";
 
 export interface PersistedRecipientEnvelopeEntry {
@@ -8,14 +8,8 @@ export interface PersistedRecipientEnvelopeEntry {
   wrappedKey: string;
 }
 
-export function listLoroRecipientKeyFingerprints(
-  encryptedData: string,
-): string[] {
-  return uniqueSortedStrings(
-    parseEnvelope(encryptedData).recipients.map(
-      (recipient) => recipient.keyFingerprint,
-    ),
-  );
+export function readLoroUpdateAccessEpoch(encryptedData: string): number {
+  return readEncryptedUpdateAccessEpoch(encryptedData);
 }
 
 export function extractBlobRecipientEnvelopeEntries(

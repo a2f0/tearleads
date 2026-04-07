@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { parseEnvelope } from "@tearleads/loro";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -262,7 +261,7 @@ test("explorer store creates a child under a writable shared root using the inhe
   ].sort();
   const createContainerCalls: Array<{
     id: string;
-    initialMetadataUpdateRecipientFingerprints: string[];
+    initialMetadataRecipientFingerprints: string[];
     parentId: string;
   }> = [];
 
@@ -274,16 +273,15 @@ test("explorer store creates a child under a writable shared root using the inhe
     createContainer: async (
       id: string,
       parentId: string,
-      initialMetadataUpdates,
+      _initialMetadataUpdates,
+      initialMetadataRecipientEnvelopes,
     ) => {
       createContainerCalls.push({
         id,
-        initialMetadataUpdateRecipientFingerprints: initialMetadataUpdates
-          .flatMap((update) =>
-            parseEnvelope(update.encryptedData).recipients.map(
-              (recipient) => recipient.keyFingerprint,
-            ),
-          )
+        initialMetadataRecipientFingerprints: [
+          ...(initialMetadataRecipientEnvelopes ?? []),
+        ]
+          .map((recipient) => recipient.keyFingerprint)
           .sort(),
         parentId,
       });
@@ -336,8 +334,7 @@ test("explorer store creates a child under a writable shared root using the inhe
     expect(createContainerCalls).toEqual([
       {
         id: childNode.id,
-        initialMetadataUpdateRecipientFingerprints:
-          expectedRecipientFingerprints,
+        initialMetadataRecipientFingerprints: expectedRecipientFingerprints,
         parentId: "shared-root-container",
       },
     ]);
@@ -391,6 +388,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
       accessEpoch,
       _localVersionVector,
       updates,
+      _documentRecipientEnvelopes,
     ) => {
       syncCalls.push({
         accessEpoch,
@@ -401,6 +399,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
         currentAccessEpoch: accessEpoch,
         documentId,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [],
         updates: [],
       };
@@ -535,6 +534,7 @@ test("explorer share primes note attachment re-commits for locally known notes i
           : [],
         committedBindings,
         currentAccessEpoch: input.accessEpoch,
+        documentRecipientEnvelopes: null,
         detachedBindingIds: [],
       };
     },
@@ -542,6 +542,7 @@ test("explorer share primes note attachment re-commits for locally known notes i
     createDocument: async () => ({
       createdAt: "2026-03-31T00:00:00.000Z",
       currentAccessEpoch: 1,
+      documentRecipientEnvelopes: null,
       id: "notes-document-1",
       recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
     }),
@@ -590,6 +591,7 @@ test("explorer share primes note attachment re-commits for locally known notes i
       accessEpoch,
       _localVersionVector,
       updates,
+      _documentRecipientEnvelopes,
     ) => {
       if (documentId === "notes-document-1") {
         noteSyncCallCount += 1;
@@ -599,6 +601,7 @@ test("explorer share primes note attachment re-commits for locally known notes i
             acceptedOutgoingUpdateIds: updates.map((update) => update.id),
             currentAccessEpoch: 2,
             documentId,
+            documentRecipientEnvelopes: null,
             recipientEncapsulationPublicKeys: [
               bytesToBase64(localKeyPair.publicKey),
             ],
@@ -611,6 +614,7 @@ test("explorer share primes note attachment re-commits for locally known notes i
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
         currentAccessEpoch: accessEpoch,
         documentId,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
         ],

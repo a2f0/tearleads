@@ -3,6 +3,7 @@ import type {
   CommitDocumentChangeRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import {
   authenticate,
   authenticateWithChallenge,
@@ -118,6 +119,7 @@ export class ApiClient {
     encapsulationPublicKey: Uint8Array,
     wrappedDekEnvelope: Parameters<typeof postPublicKey>[4],
     initialRootMetadataUpdates: Parameters<typeof postPublicKey>[5],
+    initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
   ) {
     return postPublicKey(
       this.request,
@@ -126,6 +128,7 @@ export class ApiClient {
       encapsulationPublicKey,
       wrappedDekEnvelope,
       initialRootMetadataUpdates,
+      initialRootMetadataRecipientEnvelopes,
     );
   }
 
@@ -158,8 +161,15 @@ export class ApiClient {
     id: string,
     parentId: string,
     initialMetadataUpdates: Parameters<typeof createContainer>[3],
+    initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
   ) {
-    return createContainer(this.request, id, parentId, initialMetadataUpdates);
+    return createContainer(
+      this.request,
+      id,
+      parentId,
+      initialMetadataUpdates,
+      initialMetadataRecipientEnvelopes,
+    );
   }
 
   listContainers() {
@@ -190,6 +200,7 @@ export class ApiClient {
     accessEpoch: number,
     localVersionVector: string | null,
     outgoingUpdates: Parameters<typeof syncDocument>[4],
+    documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
   ) {
     return syncDocument(
       this.request,
@@ -197,6 +208,7 @@ export class ApiClient {
       accessEpoch,
       localVersionVector,
       outgoingUpdates,
+      documentRecipientEnvelopes,
     );
   }
 

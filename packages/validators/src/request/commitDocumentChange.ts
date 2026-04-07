@@ -4,6 +4,8 @@ import {
   hasNumberProperty,
   hasObjectProperty,
   hasStringProperty,
+  isSerializedRecipientEnvelopeArray,
+  type SerializedRecipientEnvelope,
 } from "../util";
 
 export interface AttachmentCommitRequest {
@@ -29,6 +31,7 @@ export interface CommitDocumentChangeRequest {
   accessEpoch: number;
   attachmentCommits: AttachmentCommitRequest[];
   attachmentDetaches: AttachmentDetachRequest[];
+  documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
   loroUpdate: CommitDocumentChangeLoroUpdate | null;
 }
 
@@ -88,6 +91,9 @@ function isCommitDocumentChangeLoroUpdate(
 export function isCommitDocumentChangeRequest(
   value: unknown,
 ): value is CommitDocumentChangeRequest {
+  const documentRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopes")
+    : undefined;
   const loroUpdate = isPlainObject(value)
     ? Reflect.get(value, "loroUpdate")
     : undefined;
@@ -101,6 +107,8 @@ export function isCommitDocumentChangeRequest(
     value.attachmentCommits.every(isAttachmentCommitRequest) &&
     hasArrayProperty(value, "attachmentDetaches") &&
     value.attachmentDetaches.every(isAttachmentDetachRequest) &&
+    (documentRecipientEnvelopes === undefined ||
+      isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     ((hasObjectProperty(value, "loroUpdate") &&
       isCommitDocumentChangeLoroUpdate(loroUpdate)) ||
       loroUpdate === null)

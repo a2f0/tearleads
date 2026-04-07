@@ -1,12 +1,14 @@
 import {
-  parseEnvelope,
+  readEncryptedUpdateAccessEpoch,
   type SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro";
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import {
+  documentRecipientEnvelopesMatchRecipients,
   initializeDocumentAccess,
   listRecipientEncapsulationPublicKeys,
-  listRecipientKeyFingerprints,
+  replaceDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
 import type { DatabaseTransaction } from "../../adapters/postgres";
@@ -16,26 +18,12 @@ import {
   documents,
   documentUpdates,
 } from "../../schema";
-import { uniqueSortedStrings } from "../../utils/array";
 
-function matchesRecipients(
+function matchesAccessEpoch(
   encryptedData: string,
-  expectedRecipientKeyFingerprints: string[],
+  expectedAccessEpoch: number,
 ): boolean {
-  const recipientKeyFingerprints = uniqueSortedStrings(
-    parseEnvelope(encryptedData).recipients.map(
-      (recipient) => recipient.keyFingerprint,
-    ),
-  );
-
-  return (
-    recipientKeyFingerprints.length ===
-      expectedRecipientKeyFingerprints.length &&
-    recipientKeyFingerprints.every(
-      (fingerprint, index) =>
-        fingerprint === expectedRecipientKeyFingerprints[index],
-    )
-  );
+  return readEncryptedUpdateAccessEpoch(encryptedData) === expectedAccessEpoch;
 }
 
 async function appendDocumentUpdates(
@@ -68,18 +56,13 @@ async function appendDocumentUpdates(
 
 async function validateMetadataRecipients(
   encryptedUpdates: ReadonlyArray<SyncDocumentOutgoingUpdate>,
-  expectedRecipientKeyFingerprints: string[],
+  expectedAccessEpoch: number,
 ): Promise<void> {
   for (const update of encryptedUpdates) {
     try {
-      if (
-        !matchesRecipients(
-          update.encryptedData,
-          expectedRecipientKeyFingerprints,
-        )
-      ) {
+      if (!matchesAccessEpoch(update.encryptedData, expectedAccessEpoch)) {
         throw new ContainerMetadataError(
-          "Encrypted metadata update recipients mismatch",
+          "Encrypted metadata update access epoch mismatch",
           400,
         );
       }
@@ -111,6 +94,7 @@ export async function createContainerMetadataDocument(
     authorFingerprint: string;
     containerId: string;
     createdByFingerprint: string;
+    initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
     initialMetadataUpdates: ReadonlyArray<SyncDocumentOutgoingUpdate>;
   },
 ): Promise<{
@@ -155,12 +139,42 @@ export async function createContainerMetadataDocument(
     );
   }
 
-  const expectedRecipientKeyFingerprints = uniqueSortedStrings(
-    listRecipientKeyFingerprints(access),
-  );
+  if (
+    input.initialMetadataRecipientEnvelopes &&
+    !documentRecipientEnvelopesMatchRecipients(
+      input.initialMetadataRecipientEnvelopes,
+      access,
+    )
+  ) {
+    throw new ContainerMetadataError(
+      "Metadata document recipient envelopes mismatch",
+      400,
+    );
+  }
+
+  if (input.initialMetadataRecipientEnvelopes) {
+    await replaceDocumentRecipientEnvelopes(
+      metadataDocument.id,
+      metadataAccessEpoch,
+      access,
+      input.initialMetadataRecipientEnvelopes,
+      tx,
+    );
+  }
+
+  if (
+    input.initialMetadataUpdates.length > 0 &&
+    !input.initialMetadataRecipientEnvelopes
+  ) {
+    throw new ContainerMetadataError(
+      "Missing metadata document recipient envelopes for current epoch",
+      400,
+    );
+  }
+
   await validateMetadataRecipients(
     input.initialMetadataUpdates,
-    expectedRecipientKeyFingerprints,
+    metadataAccessEpoch,
   );
 
   await appendDocumentUpdates(

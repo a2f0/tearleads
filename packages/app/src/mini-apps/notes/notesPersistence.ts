@@ -231,6 +231,10 @@ async function upsertDiscoveredNoteWithExec(
     id: noteId,
     containerId: input.containerId,
     documentId: input.documentId,
+    documentRecipientEnvelopes:
+      input.accessEpoch > (existingNote?.accessEpoch ?? 1)
+        ? null
+        : (existingNote?.documentRecipientEnvelopes ?? null),
     text: existingNote?.text ?? "",
     loroSnapshot: existingNote?.loroSnapshot ?? "",
     accessEpoch: Math.max(existingNote?.accessEpoch ?? 1, input.accessEpoch),

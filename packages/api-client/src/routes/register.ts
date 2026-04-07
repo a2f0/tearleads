@@ -1,6 +1,7 @@
 import type { RecipientEntry } from "@tearleads/crypto";
 import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import type { RequestFn } from "../types";
 
 export function postPublicKey(
@@ -10,6 +11,7 @@ export function postPublicKey(
   encapsulationPublicKey: Uint8Array,
   wrappedDekEnvelope: RecipientEntry,
   initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[],
+  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
 ) {
   return request(
     "/auth/register",
@@ -19,6 +21,7 @@ export function postPublicKey(
       rootContainerId,
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
+      initialRootMetadataRecipientEnvelopes,
       initialRootMetadataUpdates,
       wrappedDekEnvelope: {
         keyFingerprint: wrappedDekEnvelope.keyFingerprint,

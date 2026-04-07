@@ -135,20 +135,22 @@ function createNotesPersistence(): NotesPersistence & {
       note = nextNote;
     },
     async upsertDiscoveredNote(_execSql, input) {
-      note = {
+      const nextNote = {
         accessEpoch: input.accessEpoch,
         containerId: input.containerId,
         documentId: input.documentId,
+        documentRecipientEnvelopes: note?.documentRecipientEnvelopes ?? null,
         id: note?.id ?? input.documentId,
         loroSnapshot: note?.loroSnapshot ?? "",
         text: note?.text ?? "",
       };
+      note = nextNote;
 
       return {
-        id: note.id,
-        containerId: note.containerId,
-        documentId: note.documentId,
-        title: note.text.trim() || "Untitled note",
+        id: nextNote.id,
+        containerId: nextNote.containerId,
+        documentId: nextNote.documentId,
+        title: nextNote.text.trim() || "Untitled note",
         updatedAt: input.createdAt,
       };
     },
@@ -252,12 +254,14 @@ function createSyncRuntime(
           slotId: commit.slotId,
         })),
         currentAccessEpoch: 1,
+        documentRecipientEnvelopes: null,
         detachedBindingIds: [],
       }),
       createDocument: async (_linkedContainerIds) => ({
         id: "notes-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
@@ -273,11 +277,13 @@ function createSyncRuntime(
         accessEpoch,
         _localVersionVector,
         outgoingUpdates,
+        _documentRecipientEnvelopes,
       ) => ({
         documentId,
         acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
         updates: [],
         currentAccessEpoch: accessEpoch,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
@@ -763,10 +769,12 @@ test("notes store skips hydrating attachment blobs whose digest does not match",
         accessEpoch,
         _localVersionVector,
         outgoingUpdates,
+        _documentRecipientEnvelopes,
       ) => ({
         documentId,
         acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
         currentAccessEpoch: accessEpoch,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
@@ -894,6 +902,7 @@ test("notes store enqueues a full baseline when document access expands", async 
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
+    documentRecipientEnvelopeCount: number;
     outgoingUpdateCount: number;
   }> = [];
   let syncCallCount = 0;
@@ -912,11 +921,14 @@ test("notes store enqueues a full baseline when document access expands", async 
         accessEpoch,
         localVersionVector,
         outgoingUpdates,
+        documentRecipientEnvelopes,
       ) => {
         syncCallCount += 1;
         syncDocumentCalls.push({
           accessEpoch,
           documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
           outgoingUpdateCount: outgoingUpdates.length,
         });
 
@@ -927,6 +939,7 @@ test("notes store enqueues a full baseline when document access expands", async 
             ),
             currentAccessEpoch: 2,
             documentId,
+            documentRecipientEnvelopes: null,
             recipientEncapsulationPublicKeys: [
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
@@ -939,6 +952,7 @@ test("notes store enqueues a full baseline when document access expands", async 
           accessEpoch,
           localVersionVector,
           outgoingUpdates,
+          documentRecipientEnvelopes,
         );
       },
     },
@@ -978,16 +992,19 @@ test("notes store enqueues a full baseline when document access expands", async 
     {
       accessEpoch: 1,
       documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
       outgoingUpdateCount: 1,
     },
     {
       accessEpoch: 1,
       documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 0,
       outgoingUpdateCount: 1,
     },
     {
       accessEpoch: 2,
       documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
       outgoingUpdateCount: 1,
     },
   ]);
@@ -1005,6 +1022,7 @@ test("notes store re-commits committed attachments when document access expands"
     accessEpoch: number;
     attachmentCommitCount: number;
     documentId: string;
+    documentRecipientEnvelopeCount: number;
     expectedBindingIds: Array<string | null>;
     referencedSlotIds: string[];
   }> = [];
@@ -1025,6 +1043,8 @@ test("notes store re-commits committed attachments when document access expands"
           accessEpoch: input.accessEpoch,
           attachmentCommitCount: input.attachmentCommits.length,
           documentId,
+          documentRecipientEnvelopeCount:
+            input.documentRecipientEnvelopes?.length ?? 0,
           expectedBindingIds: input.attachmentCommits.map(
             (commit) => commit.expectedBindingId,
           ),
@@ -1052,6 +1072,7 @@ test("notes store re-commits committed attachments when document access expands"
             : [],
           committedBindings,
           currentAccessEpoch: input.accessEpoch,
+          documentRecipientEnvelopes: null,
           detachedBindingIds: [],
         };
       },
@@ -1077,6 +1098,7 @@ test("notes store re-commits committed attachments when document access expands"
         accessEpoch,
         localVersionVector,
         outgoingUpdates,
+        documentRecipientEnvelopes,
       ) => {
         syncCallCount += 1;
 
@@ -1087,6 +1109,7 @@ test("notes store re-commits committed attachments when document access expands"
             ),
             currentAccessEpoch: 2,
             documentId,
+            documentRecipientEnvelopes: null,
             recipientEncapsulationPublicKeys: [
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
@@ -1099,6 +1122,7 @@ test("notes store re-commits committed attachments when document access expands"
           accessEpoch,
           localVersionVector,
           outgoingUpdates,
+          documentRecipientEnvelopes,
         );
       },
     },
@@ -1150,6 +1174,7 @@ test("notes store re-commits committed attachments when document access expands"
       accessEpoch: 1,
       attachmentCommitCount: 1,
       documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
       expectedBindingIds: [null],
       referencedSlotIds: [currentSlotId ?? ""],
     },
@@ -1157,6 +1182,7 @@ test("notes store re-commits committed attachments when document access expands"
       accessEpoch: 2,
       attachmentCommitCount: 1,
       documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
       expectedBindingIds: ["binding-1-1"],
       referencedSlotIds: [currentSlotId ?? ""],
     },

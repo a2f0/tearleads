@@ -4,7 +4,9 @@ import {
   hasArrayProperty,
   hasObjectProperty,
   hasStringProperty,
+  isSerializedRecipientEnvelopeArray,
   isUuidV4String,
+  type SerializedRecipientEnvelope,
 } from "../util";
 import {
   type EncryptedDocumentUpdate,
@@ -22,6 +24,7 @@ export interface PublicKeyRequest {
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
   wrappedDekEnvelope: WrappedDekEnvelope;
+  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
   initialRootMetadataUpdates: EncryptedDocumentUpdate[];
 }
 
@@ -36,6 +39,10 @@ function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
 }
 
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
+  const initialRootMetadataRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "initialRootMetadataRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "rootContainerId") &&
@@ -46,6 +53,10 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     isNumberArray(value.encapsulationPublicKey) &&
     hasObjectProperty(value, "wrappedDekEnvelope") &&
     isWrappedDekEnvelope(value.wrappedDekEnvelope) &&
+    (initialRootMetadataRecipientEnvelopes === undefined ||
+      isSerializedRecipientEnvelopeArray(
+        initialRootMetadataRecipientEnvelopes,
+      )) &&
     hasArrayProperty(value, "initialRootMetadataUpdates") &&
     value.initialRootMetadataUpdates.every(isEncryptedDocumentUpdate)
   );

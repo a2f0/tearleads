@@ -1,8 +1,14 @@
+import {
+  type RecipientEntry,
+  unwrapDek,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   decryptLoroUpdate,
   encryptLoroUpdate,
   getUpdateVersionVectors,
+  type SerializedRecipientEnvelope,
   type SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro";
 import type {
@@ -13,6 +19,54 @@ import type {
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";
   documentId: string;
+}
+
+interface DocumentEncryptionMaterial {
+  documentKey: Uint8Array;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
+}
+
+function isSerializedRecipientEnvelope(
+  value: unknown,
+): value is SerializedRecipientEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "keyFingerprint" in value &&
+    typeof value.keyFingerprint === "string" &&
+    "kemCipherText" in value &&
+    typeof value.kemCipherText === "string" &&
+    "wrappedKey" in value &&
+    typeof value.wrappedKey === "string"
+  );
+}
+
+function sortDocumentRecipientEnvelopes(
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+): SerializedRecipientEnvelope[] {
+  return [...envelopes].sort((left, right) =>
+    left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
+}
+
+function serializeRecipientEntry(
+  recipient: RecipientEntry,
+): SerializedRecipientEnvelope {
+  return {
+    keyFingerprint: recipient.keyFingerprint,
+    kemCipherText: bytesToBase64(recipient.kemCipherText),
+    wrappedKey: bytesToBase64(recipient.wrappedKey),
+  };
+}
+
+function parseRecipientEntry(
+  envelope: SerializedRecipientEnvelope,
+): RecipientEntry {
+  return {
+    keyFingerprint: envelope.keyFingerprint,
+    kemCipherText: base64ToBytes(envelope.kemCipherText),
+    wrappedKey: base64ToBytes(envelope.wrappedKey),
+  };
 }
 
 export function getLocalRecipientPublicKeys(
@@ -52,9 +106,102 @@ export function createPendingUpdateFields(
   };
 }
 
+export function serializeDocumentRecipientEnvelopes(
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope> | null,
+): string | null {
+  if (!envelopes || envelopes.length === 0) {
+    return null;
+  }
+
+  return JSON.stringify(sortDocumentRecipientEnvelopes(envelopes));
+}
+
+export function parseDocumentRecipientEnvelopes(
+  serializedEnvelopes: string | null | undefined,
+): SerializedRecipientEnvelope[] | null {
+  if (!serializedEnvelopes) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(serializedEnvelopes);
+    if (
+      !Array.isArray(parsed) ||
+      !parsed.every(isSerializedRecipientEnvelope)
+    ) {
+      return null;
+    }
+
+    return sortDocumentRecipientEnvelopes(parsed);
+  } catch {
+    return null;
+  }
+}
+
+export async function createDocumentEncryptionMaterial(
+  recipientPublicKeys: Uint8Array[],
+): Promise<DocumentEncryptionMaterial> {
+  if (recipientPublicKeys.length === 0) {
+    throw new Error("Cannot create a document key without recipients");
+  }
+
+  const documentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrappedRecipients = await wrapDekForRecipients(
+    documentKey,
+    recipientPublicKeys,
+  );
+
+  return {
+    documentKey,
+    documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+      wrappedRecipients.map((recipient) => serializeRecipientEntry(recipient)),
+    ),
+  };
+}
+
+async function unwrapDocumentKey(
+  documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  secretKey: Uint8Array,
+): Promise<Uint8Array> {
+  return unwrapDek(
+    sortDocumentRecipientEnvelopes(documentRecipientEnvelopes).map((envelope) =>
+      parseRecipientEntry(envelope),
+    ),
+    secretKey,
+  );
+}
+
+export async function getOrCreateDocumentEncryptionMaterial(input: {
+  documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  recipientPublicKeys: Uint8Array[];
+  secretKey: Uint8Array;
+}): Promise<DocumentEncryptionMaterial & { generated: boolean }> {
+  if (
+    input.documentRecipientEnvelopes &&
+    input.documentRecipientEnvelopes.length > 0
+  ) {
+    return {
+      documentKey: await unwrapDocumentKey(
+        input.documentRecipientEnvelopes,
+        input.secretKey,
+      ),
+      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+        input.documentRecipientEnvelopes,
+      ),
+      generated: false,
+    };
+  }
+
+  return {
+    ...(await createDocumentEncryptionMaterial(input.recipientPublicKeys)),
+    generated: true,
+  };
+}
+
 export async function encryptPendingUpdates(
   pendingUpdates: ReadonlyArray<PendingUpdateRecord>,
-  recipientPublicKeys: Uint8Array[],
+  accessEpoch: number,
+  documentKey: Uint8Array,
 ): Promise<SyncDocumentOutgoingUpdate[]> {
   return Promise.all(
     pendingUpdates.map(async (pendingUpdate) => {
@@ -73,7 +220,8 @@ export async function encryptPendingUpdates(
         id: pendingUpdate.id,
         encryptedData: await encryptLoroUpdate(
           updateBytes,
-          recipientPublicKeys,
+          accessEpoch,
+          documentKey,
         ),
         partialStartVersionVector: versionVectors.partialStartVersionVector,
         partialEndVersionVector: versionVectors.partialEndVersionVector,
@@ -84,13 +232,18 @@ export async function encryptPendingUpdates(
 
 export async function decryptIncomingUpdates(
   encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
-  secretKey: Uint8Array,
+  accessEpoch: number,
+  documentKey: Uint8Array,
   logSkippedUpdates?: (message: string) => void,
 ): Promise<Uint8Array[]> {
   const decryptedResults = await Promise.all(
     encryptedUpdates.map(async (update) => {
       try {
-        return await decryptLoroUpdate(update.encryptedData, secretKey);
+        return await decryptLoroUpdate(
+          update.encryptedData,
+          accessEpoch,
+          documentKey,
+        );
       } catch {
         return null;
       }

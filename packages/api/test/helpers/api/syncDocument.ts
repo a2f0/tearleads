@@ -1,10 +1,12 @@
 import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { app } from "../../../src/index";
 
 export async function syncDocument(
   documentId: string,
   input: {
     accessEpoch: number;
+    documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     localVersionVector: string | null;
     outgoingUpdates: SyncDocumentOutgoingUpdate[];
   },

@@ -21,6 +21,7 @@ After registration, every user has:
 - a root container for that organization
 - a DEK for the root container, wrapped for the user's own encapsulation key
 - an access grant, epoch, and recipient envelope for the container
+- an initialized root metadata document with its own document-DEK bundle
 - a local "me" contact and persisted root container in SQLite
 
 The server never sees the plaintext DEK.
@@ -52,7 +53,10 @@ This avoids a circular foreign key between organizations and containers.
 1. Generate signing and encapsulation key pairs (already existed).
 2. Generate a 32-byte DEK: `crypto.getRandomValues(new Uint8Array(32))`.
 3. Wrap the DEK for self using `wrapDekForRecipients(dek, [encapsulationPublicKey])`.
-4. Send all material in a single `POST /auth/register`.
+4. Create the initial root metadata Loro update locally.
+5. Generate a root-metadata document DEK and wrap it for self.
+6. Encrypt the initial root metadata update with that document DEK.
+7. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
 
@@ -71,11 +75,12 @@ transaction rolls back and the endpoint returns 409.
 
 ### Client Side (after response)
 
-The response includes `userId`, `organizationId`, `containerId`, and
-`challenge`.
+The response includes `userId`, `organizationId`, `rootContainerId`,
+`rootMetadataDocumentId`, `rootMetadataAccessEpoch`,
+`rootMetadataRecipientEncapsulationPublicKeys`, and `challenge`.
 
-1. Set `userId`, `organizationId`, and `containerId` in session state.
-2. Persist the root container to local SQLite (`containers` table).
+1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
+2. Persist the root container and root metadata document state to local SQLite.
 3. Persist a "me" contact in `address_book_projection` with `is_self = 1`.
 4. Authenticate using the challenge.
 
@@ -128,6 +133,7 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 
 ```ts
 interface PublicKeyRequest {
+  rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
   wrappedDekEnvelope: {
@@ -135,6 +141,8 @@ interface PublicKeyRequest {
     kemCipherText: number[];
     wrappedKey: number[];
   };
+  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
+  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[];
 }
 ```
 
@@ -145,7 +153,10 @@ interface PublicKeyResponse {
   message: string;
   userId: string;
   organizationId: string;
-  containerId: string;
+  rootContainerId: string;
+  rootMetadataDocumentId: string;
+  rootMetadataAccessEpoch: number;
+  rootMetadataRecipientEncapsulationPublicKeys: string[];
   challenge: string;
 }
 ```
