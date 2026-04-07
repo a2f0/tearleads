@@ -124,6 +124,7 @@ test("isCommitDocumentChangeRequest", () => {
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: {
         id: "update_01",
         encryptedData: "encrypted",
@@ -138,6 +139,7 @@ test("isCommitDocumentChangeRequest", () => {
       accessEpoch: 1,
       attachmentCommits: [],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: {
         id: "update_01",
         encryptedData: "encrypted",

@@ -70,11 +70,15 @@ Current implementation:
   recipient set matches current access
 - blob envelopes now use a header-delimited wire format so recipient metadata
   can be read without JSON-parsing the ciphertext body
+- committed attachments can now update current blob recipient wraps in place
+  for additive access growth, and `GET /blobs/:blobId` serves the current
+  wrapped-recipient header from sidecar metadata without creating a new blob
+  row
 
 Important remaining limitation:
 
-- additive rewrap / subtractive rotation across recipient-set changes is still
-  not implemented
+- additive rewrap / subtractive rotation for document epochs is still not
+  implemented
 - when a document enters a new access epoch, clients still rely on the current
   "full baseline on epoch change" behavior and may generate a fresh bundle on
   the first write of that epoch
@@ -225,6 +229,12 @@ Each attachment detach contains:
 - opaque `slotId`
 - `expectedBindingId`
 
+Each attachment rewrap contains:
+
+- opaque `slotId`
+- `expectedBindingId`
+- replacement recipient envelopes for the current bound blob
+
 The optional `loroUpdate` contains:
 
 - encrypted update envelope
@@ -239,6 +249,8 @@ The server must reject `commit-change` if:
 - the caller cannot write the document
 - a `stageId` does not exist, expired, or belongs to another user
 - a `slotId` is not currently bound to the `expectedBindingId`
+- provided attachment rewrap envelopes do not match the current document/blob
+  recipient set
 - the encrypted Loro update `accessEpoch` does not match the current document
   access epoch
 - provided `documentRecipientEnvelopes[]` do not match the current document
@@ -250,6 +262,8 @@ If the request succeeds:
 
 - staged blobs are promoted to committed blob objects
 - requested binding replacements/detaches are persisted
+- requested attachment rewraps update the current bound blob's wrapped-key
+  header material without creating a new blob row
 - the optional Loro update is appended
 - affected blob access state is recomputed
 - all of the above happen in one transaction

@@ -286,6 +286,10 @@ Current implementation note:
   a valid blob envelope for the current effective recipient set
 - blob envelopes delimit header metadata from ciphertext bytes so blob recipient
   inspection does not require parsing the full ciphertext payload as JSON
+- committed note attachments can now update current-epoch blob recipient wraps
+  in place, and `GET /blobs/:blobId` serves the current wrapped-recipient
+  header from sidecar envelope rows so additive access growth does not require
+  a new blob row
 - encrypted Loro updates now use the current epoch's document DEK plus an
   inline `accessEpoch`, not a per-update recipient bundle
 - newly created documents may still have no persisted bundle until the client

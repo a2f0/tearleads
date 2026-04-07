@@ -50,6 +50,12 @@ export interface PendingAttachmentRecord {
   storageKey: string;
 }
 
+export interface PendingAttachmentRewrapRecord {
+  blobId: string;
+  noteId: string;
+  slotId: string;
+}
+
 export interface LocalAttachmentRecord {
   blobId: string | null;
   byteLength: number;
@@ -83,6 +89,10 @@ export interface NotesPersistence {
     execSql: ExecSql,
     noteId: string,
   ) => Promise<PendingAttachmentRecord[]>;
+  listPendingAttachmentRewraps: (
+    execSql: ExecSql,
+    noteId: string,
+  ) => Promise<PendingAttachmentRewrapRecord[]>;
   listLocalAttachments: (
     execSql: ExecSql,
     noteId: string,
@@ -99,9 +109,17 @@ export interface NotesPersistence {
     execSql: ExecSql,
     attachment: PendingAttachmentRecord,
   ) => Promise<void>;
+  savePendingAttachmentRewrap: (
+    execSql: ExecSql,
+    attachment: PendingAttachmentRewrapRecord,
+  ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, noteId: string) => Promise<void>;
   deletePendingAttachments: (execSql: ExecSql, noteId: string) => Promise<void>;
+  deletePendingAttachmentRewraps: (
+    execSql: ExecSql,
+    noteId: string,
+  ) => Promise<void>;
 }
 
 const NOTES_APP_KIND = "notes";
@@ -145,6 +163,18 @@ const noteProjectionTables: ReadonlyArray<SqlTableSchema> = [
         mime_type TEXT,
         byte_length INTEGER NOT NULL,
         updated_at TEXT NOT NULL,
+        PRIMARY KEY (note_id, slot_id)
+      )
+    `,
+  },
+  {
+    name: "note_pending_attachment_rewraps",
+    createSql: `
+      CREATE TABLE IF NOT EXISTS note_pending_attachment_rewraps (
+        note_id TEXT NOT NULL,
+        slot_id TEXT NOT NULL,
+        blob_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
         PRIMARY KEY (note_id, slot_id)
       )
     `,
@@ -449,6 +479,28 @@ export const sqlNotesPersistence: NotesPersistence = {
       storageKey: parseStorageKey(row),
     }));
   },
+  async listPendingAttachmentRewraps(execSql, noteId) {
+    const rows = await execSql(
+      `
+        SELECT
+          note_id,
+          slot_id,
+          blob_id
+        FROM note_pending_attachment_rewraps
+        WHERE note_id = :noteId
+        ORDER BY created_at, slot_id
+      `,
+      {
+        ":noteId": noteId,
+      },
+    );
+
+    return rows.map((row) => ({
+      blobId: String(readSqlRowValue(row, "blob_id") ?? ""),
+      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
+      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
+    }));
+  },
   async listLocalAttachments(execSql, noteId) {
     const rows = await execSql(
       `
@@ -570,6 +622,36 @@ export const sqlNotesPersistence: NotesPersistence = {
       );
     });
   },
+  async savePendingAttachmentRewrap(execSql, attachment) {
+    const createdAt = new Date().toISOString();
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          INSERT INTO note_pending_attachment_rewraps (
+            note_id,
+            slot_id,
+            blob_id,
+            created_at
+          )
+          VALUES (
+            :noteId,
+            :slotId,
+            :blobId,
+            :createdAt
+          )
+          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+            blob_id = excluded.blob_id
+        `,
+        {
+          ":noteId": attachment.noteId,
+          ":slotId": attachment.slotId,
+          ":blobId": attachment.blobId,
+          ":createdAt": createdAt,
+        },
+      );
+    });
+  },
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
@@ -585,6 +667,19 @@ export const sqlNotesPersistence: NotesPersistence = {
       await lockedExecSql(
         `
           DELETE FROM note_pending_attachments
+          WHERE note_id = :noteId
+        `,
+        {
+          ":noteId": noteId,
+        },
+      );
+    });
+  },
+  async deletePendingAttachmentRewraps(execSql, noteId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          DELETE FROM note_pending_attachment_rewraps
           WHERE note_id = :noteId
         `,
         {

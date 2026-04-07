@@ -3,6 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   parseBlobEnvelope,
   parseBlobEnvelopeHeader,
+  replaceBlobEnvelopeRecipients,
   serializeBlobEnvelope,
 } from "./blobEnvelope";
 import { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
@@ -51,6 +52,29 @@ test("blob envelope headers can be read without ciphertext JSON parsing", () => 
   ].join("\n");
 
   expect(parseBlobEnvelopeHeader(encryptedBytes)).toEqual(header);
+});
+
+test("blob envelope recipients can be replaced without rewriting ciphertext", async () => {
+  const alice = generateKemSeedAndKeyPair();
+  const plaintext = new TextEncoder().encode("replace recipients");
+  const envelope = await encryptForRecipients(plaintext, [alice.publicKey]);
+  const serialized = serializeBlobEnvelope(envelope);
+  const replacement = {
+    keyFingerprint: "fp_02",
+    kemCipherText: "cmV3cmFwLWtlbQ==",
+    wrappedKey: "cmV3cmFwLXdyYXA=",
+  };
+
+  const replaced = replaceBlobEnvelopeRecipients(serialized, [replacement]);
+  const replacedHeader = parseBlobEnvelopeHeader(replaced);
+  const [, , originalCiphertext] = serialized.split("\n");
+  const [, , replacedCiphertext] = replaced.split("\n");
+
+  expect(replacedHeader).toEqual({
+    iv: bytesToBase64(envelope.iv),
+    recipients: [replacement],
+  });
+  expect(replacedCiphertext).toBe(originalCiphertext);
 });
 
 test("legacy v1 blob envelopes are rejected", async () => {

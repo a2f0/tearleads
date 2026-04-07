@@ -1,8 +1,12 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
+  decryptAsRecipient,
   encryptForRecipients,
   generateKemSeedAndKeyPair,
+  parseBlobEnvelope,
+  parseBlobEnvelopeHeader,
   serializeBlobEnvelope,
+  unwrapDek,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -21,6 +25,7 @@ import {
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
+import { grantRootContainerWriteAccessToUser } from "../../../test/helpers/grantContainerAccess";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
@@ -110,6 +115,38 @@ async function createDocumentEncryption(
   };
 }
 
+async function createRewrappedBlobRecipientEnvelopes(
+  encryptedBytes: string,
+  recipientPublicKeys: Uint8Array[],
+  secretKey: Uint8Array,
+): Promise<
+  Array<{
+    keyFingerprint: string;
+    kemCipherText: string;
+    wrappedKey: string;
+  }>
+> {
+  const header = parseBlobEnvelopeHeader(encryptedBytes);
+  const blobKey = await unwrapDek(
+    header.recipients.map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: base64ToBytes(recipient.kemCipherText),
+      wrappedKey: base64ToBytes(recipient.wrappedKey),
+    })),
+    secretKey,
+  );
+  const wrappedRecipients = await wrapDekForRecipients(
+    blobKey,
+    recipientPublicKeys,
+  );
+
+  return wrappedRecipients.map((recipient) => ({
+    keyFingerprint: recipient.keyFingerprint,
+    kemCipherText: bytesToBase64(recipient.kemCipherText),
+    wrappedKey: bytesToBase64(recipient.wrappedKey),
+  }));
+}
+
 test("POST /blobs/stage rejects mismatched blob digests", async () => {
   const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
   const response = await stageBlob(
@@ -195,6 +232,7 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
@@ -273,6 +311,7 @@ test("POST /documents/:documentId/commit-change rejects blob recipients that do 
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: null,
     },
     alice.token,
@@ -313,6 +352,7 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
       accessEpoch: createdDocument.currentAccessEpoch,
       attachmentCommits: [],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
@@ -376,6 +416,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
@@ -421,6 +462,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       documentRecipientEnvelopes,
       loroUpdate: {
         id: crypto.randomUUID(),
@@ -490,6 +532,7 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: null,
     },
     alice.token,
@@ -511,6 +554,111 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
     encryptedBytes: stagedBlobInput.encryptedBytes,
     sha256: stagedBlobInput.sha256,
   });
+});
+
+test("POST /documents/:documentId/commit-change rewraps an existing blob without creating a new blob row", async () => {
+  const bob = createTestUser();
+  await registerUser(bob);
+  await authenticate(bob);
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+  const stagedBlobInput = await createEncryptedBlobInput(
+    "blob-bytes-before-share",
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
+
+  const stageResponse = await stageBlob(stagedBlobInput, alice.token);
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const firstCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_rewrap",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+  const firstCommitBody = await firstCommitResponse.json();
+  const blobId = String(firstCommitBody.committedBindings[0]?.blobId ?? "");
+  const bindingId = String(
+    firstCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+
+  const sharedAccessEpoch = await grantRootContainerWriteAccessToUser(
+    alice.userId,
+    bob.userId,
+  );
+  expect(sharedAccessEpoch).toBeGreaterThan(createdDocument.currentAccessEpoch);
+
+  const rewrappedBlobRecipients = await createRewrappedBlobRecipientEnvelopes(
+    stagedBlobInput.encryptedBytes,
+    [alice.kem.publicKey, bob.kem.publicKey],
+    alice.kem.secretKey,
+  );
+  const rewrapResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: sharedAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [
+        {
+          slotId: "slot_rewrap",
+          expectedBindingId: bindingId,
+          recipientEnvelopes: rewrappedBlobRecipients,
+        },
+      ],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(rewrapResponse.status).toBe(200);
+  expect((await rewrapResponse.json()).committedBindings).toEqual([]);
+
+  const blobResponse = await app.request(`/blobs/${blobId}`, {
+    headers: {
+      Authorization: `Bearer ${bob.token}`,
+    },
+    method: "GET",
+  });
+  expect(blobResponse.status).toBe(200);
+  const blobBody = await blobResponse.json();
+  const parsedEnvelope = parseBlobEnvelope(blobBody.encryptedBytes);
+  expect(
+    parsedEnvelope.recipients
+      .map((recipient) => recipient.keyFingerprint)
+      .sort(),
+  ).toEqual(
+    rewrappedBlobRecipients.map((recipient) => recipient.keyFingerprint).sort(),
+  );
+  expect(
+    new TextDecoder().decode(
+      await decryptAsRecipient(parsedEnvelope, bob.kem.secretKey),
+    ),
+  ).toBe("blob-bytes-before-share");
+
+  const [storedBlob] = await db
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+  expect(storedBlob?.id).toBe(blobId);
 });
 
 test("POST /documents/:documentId/commit-change deletes the replaced blob when a slot is rebound", async () => {
@@ -543,6 +691,7 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: null,
     },
     alice.token,
@@ -578,6 +727,7 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
         },
       ],
       attachmentDetaches: [],
+      attachmentRewraps: [],
       loroUpdate: null,
     },
     alice.token,

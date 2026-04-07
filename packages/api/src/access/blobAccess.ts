@@ -1,3 +1,4 @@
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
@@ -273,8 +274,8 @@ async function computeBlobAccessFingerprint(input: {
 async function replaceRecipientEnvelopes(
   blobId: string,
   epoch: number,
-  recipients: EffectiveBlobRecipient[],
-  envelopeEntries: PersistedRecipientEnvelopeEntry[],
+  recipients: ReadonlyArray<{ userId: string; keyFingerprint: string }>,
+  envelopeEntries: ReadonlyArray<SerializedRecipientEnvelope>,
   executor: BlobAccessExecutor = db,
 ) {
   await executor
@@ -332,8 +333,8 @@ async function getBlobRecipientEnvelopeEntries(
 }
 
 function envelopeEntriesMatchRecipients(
-  envelopeEntries: ReadonlyArray<PersistedRecipientEnvelopeEntry>,
-  recipients: ReadonlyArray<EffectiveBlobRecipient>,
+  envelopeEntries: ReadonlyArray<{ keyFingerprint: string }>,
+  recipients: ReadonlyArray<{ keyFingerprint: string }>,
 ): boolean {
   const envelopeFingerprints = uniqueSortedStrings(
     envelopeEntries.map((entry) => entry.keyFingerprint),
@@ -348,6 +349,108 @@ function envelopeEntriesMatchRecipients(
       (fingerprint, index) => fingerprint === recipientFingerprints[index],
     )
   );
+}
+
+export function blobRecipientEnvelopesMatchRecipients(
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  recipients: ReadonlyArray<{ keyFingerprint: string }>,
+): boolean {
+  return envelopeEntriesMatchRecipients(envelopes, recipients);
+}
+
+export async function listBlobRecipientEnvelopes(
+  blobId: string,
+  epoch: number,
+  executor: BlobAccessExecutor = db,
+): Promise<SerializedRecipientEnvelope[] | null> {
+  const rows = await executor
+    .select({
+      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
+      kemCipherText: objectRecipientEnvelopes.kemCipherText,
+      wrappedKey: objectRecipientEnvelopes.wrappedKey,
+    })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
+        eq(objectRecipientEnvelopes.objectId, blobId),
+        eq(objectRecipientEnvelopes.epoch, epoch),
+      ),
+    );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows
+    .filter(
+      (
+        row,
+      ): row is {
+        keyFingerprint: string;
+        kemCipherText: string;
+        wrappedKey: string;
+      } => !!row.kemCipherText && !!row.wrappedKey,
+    )
+    .sort((left, right) =>
+      left.keyFingerprint.localeCompare(right.keyFingerprint),
+    )
+    .map((row) => ({
+      keyFingerprint: row.keyFingerprint,
+      kemCipherText: row.kemCipherText,
+      wrappedKey: row.wrappedKey,
+    }));
+}
+
+export async function replaceBlobRecipientEnvelopes(
+  blobId: string,
+  epoch: number,
+  recipients: ReadonlyArray<{ userId: string; keyFingerprint: string }>,
+  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  executor: BlobAccessExecutor = db,
+): Promise<void> {
+  if (!blobRecipientEnvelopesMatchRecipients(envelopes, recipients)) {
+    throw new Error("Blob recipient envelopes mismatch");
+  }
+
+  await replaceRecipientEnvelopes(
+    blobId,
+    epoch,
+    recipients,
+    envelopes,
+    executor,
+  );
+}
+
+async function resolveMaterializedRecipientEnvelopes(
+  blobId: string,
+  epoch: number,
+  effectiveRecipients: ReadonlyArray<EffectiveBlobRecipient>,
+  executor: BlobAccessExecutor = db,
+): Promise<SerializedRecipientEnvelope[]> {
+  const persistedEnvelopeEntries = await listBlobRecipientEnvelopes(
+    blobId,
+    epoch,
+    executor,
+  );
+  if (
+    persistedEnvelopeEntries &&
+    envelopeEntriesMatchRecipients(
+      persistedEnvelopeEntries,
+      effectiveRecipients,
+    )
+  ) {
+    return persistedEnvelopeEntries;
+  }
+
+  const blobEnvelopeEntries = await getBlobRecipientEnvelopeEntries(
+    blobId,
+    executor,
+  );
+  return blobEnvelopeEntries &&
+    envelopeEntriesMatchRecipients(blobEnvelopeEntries, effectiveRecipients)
+    ? blobEnvelopeEntries
+    : [];
 }
 
 async function materializeBlobAccessState(
@@ -389,15 +492,12 @@ async function materializeBlobAccessState(
       : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint
         ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
         : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
-  const envelopeEntries = await getBlobRecipientEnvelopeEntries(
+  const persistedEnvelopeEntries = await resolveMaterializedRecipientEnvelopes(
     blobId,
+    nextEpoch,
+    effectiveRecipients,
     executor,
   );
-  const persistedEnvelopeEntries =
-    envelopeEntries &&
-    envelopeEntriesMatchRecipients(envelopeEntries, effectiveRecipients)
-      ? envelopeEntries
-      : [];
 
   if (
     resolvedCurrentEpochRow === null ||
