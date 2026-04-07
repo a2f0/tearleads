@@ -17,10 +17,14 @@ import {
   resolveDocumentAccessState,
   resolveDocumentAccessStates,
 } from "./documentAccess";
+import {
+  type AccessLevel,
+  toUserPrincipalEnvelopeRecipient,
+  toUserPrincipalFingerprintRecipient,
+} from "./recipientPrincipals";
 
 const BLOB_OBJECT_TYPE = "blob";
 
-type AccessLevel = "read" | "write" | "admin";
 type BlobAccessExecutor = DatabaseExecutor;
 type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedDocumentAccessState = Awaited<
@@ -263,11 +267,9 @@ async function computeBlobAccessFingerprint(input: {
     blobId: input.blobId,
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
-    recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
-    })),
+    recipients: input.effectiveRecipients.map(
+      toUserPrincipalFingerprintRecipient,
+    ),
   });
 }
 
@@ -297,17 +299,29 @@ async function replaceRecipientEnvelopes(
   );
 
   await executor.insert(objectRecipientEnvelopes).values(
-    envelopeEntries.map((envelopeEntry) => ({
-      objectType: BLOB_OBJECT_TYPE,
-      objectId: blobId,
-      epoch,
-      recipientUserId:
-        recipientByKeyFingerprint.get(envelopeEntry.keyFingerprint)?.userId ??
-        "",
-      recipientKeyFingerprint: envelopeEntry.keyFingerprint,
-      kemCipherText: envelopeEntry.kemCipherText,
-      wrappedKey: envelopeEntry.wrappedKey,
-    })),
+    envelopeEntries.map((envelopeEntry) => {
+      const recipient = recipientByKeyFingerprint.get(
+        envelopeEntry.keyFingerprint,
+      );
+      if (!recipient) {
+        throw new Error(
+          `Invariant violation: recipient not found for key fingerprint ${envelopeEntry.keyFingerprint}`,
+        );
+      }
+
+      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+
+      return {
+        objectType: BLOB_OBJECT_TYPE,
+        objectId: blobId,
+        epoch,
+        recipientPrincipalType: principalRecipient.principalType,
+        recipientPrincipalId: principalRecipient.principalId,
+        recipientKeyFingerprint: envelopeEntry.keyFingerprint,
+        kemCipherText: envelopeEntry.kemCipherText,
+        wrappedKey: envelopeEntry.wrappedKey,
+      };
+    }),
   );
 }
 

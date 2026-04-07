@@ -9,10 +9,14 @@ import {
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
+import {
+  type AccessLevel,
+  toUserPrincipalEnvelopeRecipient,
+  toUserPrincipalFingerprintRecipient,
+} from "./recipientPrincipals";
 
 const DOCUMENT_OBJECT_TYPE = "document";
 
-type AccessLevel = "read" | "write" | "admin";
 type DocumentAccessExecutor = DatabaseExecutor;
 type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedContainerAccessState = Awaited<
@@ -295,11 +299,9 @@ async function computeDocumentAccessFingerprint(input: {
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
-    recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
-    })),
+    recipients: input.effectiveRecipients.map(
+      toUserPrincipalFingerprintRecipient,
+    ),
   });
 }
 
@@ -564,11 +566,14 @@ export async function replaceDocumentRecipientEnvelopes(
         );
       }
 
+      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+
       return {
         objectType: DOCUMENT_OBJECT_TYPE,
         objectId: documentId,
         epoch,
-        recipientUserId: recipient.userId,
+        recipientPrincipalType: principalRecipient.principalType,
+        recipientPrincipalId: principalRecipient.principalId,
         recipientKeyFingerprint: envelope.keyFingerprint,
         kemCipherText: envelope.kemCipherText,
         wrappedKey: envelope.wrappedKey,

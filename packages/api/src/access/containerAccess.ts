@@ -3,12 +3,15 @@ import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
+import {
+  type AccessLevel,
+  toUserPrincipalFingerprintRecipient,
+} from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
 const UUID_PATTERN =
   "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 
-type AccessLevel = "read" | "write" | "admin";
 type SubjectType = "user" | "group" | "organization";
 type ContainerAccessExecutor = DatabaseExecutor;
 
@@ -623,11 +626,9 @@ async function computeContainerFingerprint(input: {
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
-    recipients: input.effectiveRecipients.map((recipient) => ({
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      keyFingerprint: recipient.keyFingerprint,
-    })),
+    recipients: input.effectiveRecipients.map(
+      toUserPrincipalFingerprintRecipient,
+    ),
   });
 }
 
