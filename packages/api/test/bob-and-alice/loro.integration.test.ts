@@ -596,3 +596,197 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
     ),
   ).toEqual(new TextEncoder().encode("drivers-license-front-image"));
 });
+
+test("Bob can discover and read a note after Alice shares its container through the HTTP share route", async () => {
+  const sharedContainerId = crypto.randomUUID();
+  const createContainerResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: alice.rootContainerId,
+    }),
+  });
+  expect(createContainerResponse.status).toBe(200);
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    sharedContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const sharedDocumentId = String(createdDocument.id ?? "");
+  const initialDocumentEncryption = await createDocumentEncryption(
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
+
+  const aliceDoc = await createLoroDocument(alice.fingerprint);
+  const initialVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("shared through http route");
+  const initialUpdate = exportUpdatesSince(aliceDoc, initialVersion);
+  const initialEncryptedUpdate = await encryptLoroUpdate(
+    initialUpdate,
+    createdDocument.currentAccessEpoch,
+    initialDocumentEncryption.documentKey,
+  );
+  const initialVectors = getUpdateVersionVectors(initialUpdate);
+
+  const initialSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        initialDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: initialEncryptedUpdate,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(initialSyncResponse.status).toBe(200);
+
+  const shareResponse = await app.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${alice.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        accessLevel: "write",
+        subjectId: bob.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  expect(shared.id).toBe(sharedContainerId);
+  expect(shared.metadataAccessEpoch).toBe(2);
+  expect(shared.metadataRecipientEncapsulationPublicKeys).toHaveLength(2);
+
+  const staleEpochResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [],
+    },
+    alice.token,
+  );
+  expect(staleEpochResponse.status).toBe(200);
+  const staleEpochSync = await staleEpochResponse.json();
+  expect(staleEpochSync.currentAccessEpoch).toBe(2);
+  expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
+  const rebasedDocumentEncryption = await createDocumentEncryption(
+    staleEpochSync.recipientEncapsulationPublicKeys,
+  );
+
+  const rebasedEncryptedUpdate = await encryptLoroUpdate(
+    initialUpdate,
+    staleEpochSync.currentAccessEpoch,
+    rebasedDocumentEncryption.documentKey,
+  );
+  const rebasedSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: staleEpochSync.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        rebasedDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rebasedEncryptedUpdate,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(rebasedSyncResponse.status).toBe(200);
+
+  const bobContainersResponse = await app.request("/containers", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${bob.token}`,
+    },
+  });
+  expect(bobContainersResponse.status).toBe(200);
+  const bobContainers = await bobContainersResponse.json();
+  expect(bobContainers).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: sharedContainerId,
+        metadataAccessEpoch: 2,
+        metadataDocumentId: shared.metadataDocumentId,
+      }),
+    ]),
+  );
+
+  const bobDocumentsResponse = await app.request(
+    `/containers/${sharedContainerId}/documents`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${bob.token}`,
+      },
+    },
+  );
+  expect(bobDocumentsResponse.status).toBe(200);
+  const bobDocuments = await bobDocumentsResponse.json();
+  expect(bobDocuments).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        currentAccessEpoch: 2,
+        id: sharedDocumentId,
+        linkedContainerIds: [sharedContainerId],
+      }),
+    ]),
+  );
+
+  const bobDoc = await createLoroDocument(bob.fingerprint);
+  const bobSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: 2,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [],
+    },
+    bob.token,
+  );
+  expect(bobSyncResponse.status).toBe(200);
+  const bobFetched = await bobSyncResponse.json();
+  const bobDocumentKey = await unwrapDocumentKeyFromEnvelopes(
+    bobFetched.documentRecipientEnvelopes,
+    bob.kem.secretKey,
+  );
+  const decryptedForBob = (
+    await Promise.all(
+      bobFetched.updates.map(async (update: { encryptedData: string }) => {
+        try {
+          return await decryptLoroUpdate(
+            update.encryptedData,
+            bobFetched.currentAccessEpoch,
+            bobDocumentKey,
+          );
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((update): update is Uint8Array => update !== null);
+  importUpdates(bobDoc, decryptedForBob);
+  expect(getTextValue(bobDoc)).toBe("shared through http route");
+});
