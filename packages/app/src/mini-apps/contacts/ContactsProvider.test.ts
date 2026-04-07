@@ -152,6 +152,7 @@ function createSyncRuntime(
         id: "contacts-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
@@ -161,11 +162,13 @@ function createSyncRuntime(
         accessEpoch,
         _localVersionVector,
         outgoingUpdates,
+        _documentRecipientEnvelopes,
       ) => ({
         documentId,
         acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
         updates: [],
         currentAccessEpoch: accessEpoch,
+        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
@@ -261,6 +264,7 @@ test("contacts store creates and syncs a contact document", async () => {
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
+    documentRecipientEnvelopeCount: number;
     outgoingUpdateCount: number;
   }> = [];
 
@@ -278,10 +282,13 @@ test("contacts store creates and syncs a contact document", async () => {
         accessEpoch,
         localVersionVector,
         outgoingUpdates,
+        documentRecipientEnvelopes,
       ) => {
         syncDocumentCalls.push({
           accessEpoch,
           documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
           outgoingUpdateCount: outgoingUpdates.length,
         });
         return runtime.apiClient.syncDocument(
@@ -289,6 +296,7 @@ test("contacts store creates and syncs a contact document", async () => {
           accessEpoch,
           localVersionVector,
           outgoingUpdates,
+          documentRecipientEnvelopes,
         );
       },
     },
@@ -318,6 +326,7 @@ test("contacts store creates and syncs a contact document", async () => {
     {
       accessEpoch: 1,
       documentId: "contacts-document-1",
+      documentRecipientEnvelopeCount: 1,
       outgoingUpdateCount: 1,
     },
   ]);
@@ -331,6 +340,7 @@ test("contacts store enqueues a full baseline when document access expands", asy
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
+    documentRecipientEnvelopeCount: number;
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
@@ -354,11 +364,14 @@ test("contacts store enqueues a full baseline when document access expands", asy
         accessEpoch,
         localVersionVector,
         outgoingUpdates,
+        documentRecipientEnvelopes,
       ) => {
         syncCallCount += 1;
         syncDocumentCalls.push({
           accessEpoch,
           documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
           outgoingUpdateCount: outgoingUpdates.length,
         });
 
@@ -369,6 +382,7 @@ test("contacts store enqueues a full baseline when document access expands", asy
             ),
             currentAccessEpoch: 2,
             documentId,
+            documentRecipientEnvelopes: null,
             recipientEncapsulationPublicKeys: [
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
@@ -381,6 +395,7 @@ test("contacts store enqueues a full baseline when document access expands", asy
           accessEpoch,
           localVersionVector,
           outgoingUpdates,
+          documentRecipientEnvelopes,
         );
       },
     },
@@ -422,16 +437,19 @@ test("contacts store enqueues a full baseline when document access expands", asy
     {
       accessEpoch: 1,
       documentId: "contacts-document-1",
+      documentRecipientEnvelopeCount: 1,
       outgoingUpdateCount: 1,
     },
     {
       accessEpoch: 1,
       documentId: "contacts-document-1",
+      documentRecipientEnvelopeCount: 0,
       outgoingUpdateCount: 1,
     },
     {
       accessEpoch: 2,
       documentId: "contacts-document-1",
+      documentRecipientEnvelopeCount: 1,
       outgoingUpdateCount: 1,
     },
   ]);

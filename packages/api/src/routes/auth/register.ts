@@ -47,6 +47,7 @@ registerRoute.post(
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
+      initialRootMetadataRecipientEnvelopes,
       initialRootMetadataUpdates,
       wrappedDekEnvelope,
     } = c.req.valid("json");
@@ -184,12 +185,24 @@ registerRoute.post(
           ),
         });
 
-        const rootMetadata = await createContainerMetadataDocument(tx, {
-          authorFingerprint: fingerprint,
-          containerId: container.id,
-          createdByFingerprint: fingerprint,
-          initialMetadataUpdates: initialRootMetadataUpdates,
-        });
+        const rootMetadata = await createContainerMetadataDocument(
+          tx,
+          initialRootMetadataRecipientEnvelopes
+            ? {
+                authorFingerprint: fingerprint,
+                containerId: container.id,
+                createdByFingerprint: fingerprint,
+                initialMetadataRecipientEnvelopes:
+                  initialRootMetadataRecipientEnvelopes,
+                initialMetadataUpdates: initialRootMetadataUpdates,
+              }
+            : {
+                authorFingerprint: fingerprint,
+                containerId: container.id,
+                createdByFingerprint: fingerprint,
+                initialMetadataUpdates: initialRootMetadataUpdates,
+              },
+        );
 
         return {
           userId: user.id,

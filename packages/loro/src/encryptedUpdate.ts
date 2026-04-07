@@ -1,40 +1,27 @@
 import {
-  decryptAsRecipient,
-  type EncryptedEnvelope,
-  encryptForRecipients,
+  decryptWithDek,
+  encryptWithDek,
+  type SymmetricCiphertext,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
-  hasArrayProperty,
+  hasNumberProperty,
   hasPropertyValue,
   hasStringProperty,
 } from "@tearleads/validators/util";
 
-const ENCRYPTED_UPDATE_FORMAT = "tearleads.loro.update.v1";
-
-export interface SerializedRecipientEntry {
-  keyFingerprint: string;
-  kemCipherText: string;
-  wrappedKey: string;
-}
+const ENCRYPTED_UPDATE_FORMAT = "tearleads.loro.update.v2";
 
 export interface SerializedEncryptedUpdate {
   format: typeof ENCRYPTED_UPDATE_FORMAT;
+  accessEpoch: number;
   iv: string;
   ciphertext: string;
-  recipients: SerializedRecipientEntry[];
 }
 
-function isSerializedRecipientEntry(
-  value: unknown,
-): value is SerializedRecipientEntry {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "keyFingerprint") &&
-    hasStringProperty(value, "kemCipherText") &&
-    hasStringProperty(value, "wrappedKey")
-  );
+interface ParsedEncryptedUpdate extends SymmetricCiphertext {
+  accessEpoch: number;
 }
 
 function isSerializedEncryptedUpdate(
@@ -43,66 +30,76 @@ function isSerializedEncryptedUpdate(
   return (
     isPlainObject(value) &&
     hasPropertyValue(value, "format", ENCRYPTED_UPDATE_FORMAT) &&
+    hasNumberProperty(value, "accessEpoch") &&
+    Number.isInteger(value.accessEpoch) &&
+    value.accessEpoch > 0 &&
     hasStringProperty(value, "iv") &&
-    hasStringProperty(value, "ciphertext") &&
-    hasArrayProperty(value, "recipients") &&
-    value.recipients.every(isSerializedRecipientEntry)
+    hasStringProperty(value, "ciphertext")
   );
 }
 
 function decodeEnvelope(
   envelope: SerializedEncryptedUpdate,
-): EncryptedEnvelope {
+): ParsedEncryptedUpdate {
   return {
+    accessEpoch: envelope.accessEpoch,
     iv: base64ToBytes(envelope.iv),
     ciphertext: base64ToBytes(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: base64ToBytes(recipient.kemCipherText),
-      wrappedKey: base64ToBytes(recipient.wrappedKey),
-    })),
   };
 }
 
 export async function encryptLoroUpdate(
   plaintext: Uint8Array,
-  recipientPublicKeys: Uint8Array[],
+  accessEpoch: number,
+  documentKey: Uint8Array,
 ): Promise<string> {
-  const envelope = await encryptForRecipients(plaintext, recipientPublicKeys);
-  return JSON.stringify(serializeEnvelope(envelope));
+  const envelope = await encryptWithDek(plaintext, documentKey);
+
+  return JSON.stringify(
+    serializeEnvelope({
+      accessEpoch,
+      ciphertext: envelope.ciphertext,
+      iv: envelope.iv,
+    }),
+  );
 }
 
 export async function decryptLoroUpdate(
   encryptedData: string,
-  secretKey: Uint8Array,
+  accessEpoch: number,
+  documentKey: Uint8Array,
 ): Promise<Uint8Array> {
-  return decryptAsRecipient(parseEnvelope(encryptedData), secretKey);
+  const parsed = parseEncryptedUpdate(encryptedData);
+
+  if (parsed.accessEpoch !== accessEpoch) {
+    throw new Error("Encrypted Loro update access epoch mismatch");
+  }
+
+  return decryptWithDek(parsed, documentKey);
 }
 
 export function serializeEnvelope(
-  envelope: EncryptedEnvelope,
+  envelope: ParsedEncryptedUpdate,
 ): SerializedEncryptedUpdate {
   return {
     format: ENCRYPTED_UPDATE_FORMAT,
+    accessEpoch: envelope.accessEpoch,
     iv: bytesToBase64(envelope.iv),
     ciphertext: bytesToBase64(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
   };
 }
 
 /**
  * Parse the JSON wire format used by encrypted Loro updates and decode it into
- * the binary envelope expected by `@tearleads/crypto`.
+ * the symmetric ciphertext expected by the document sync layer.
  *
  * This stays in `packages/loro` rather than the generic validators package
  * because the serialized format is feature-local and the final output type is a
- * crypto envelope, not an API request/response contract.
+ * sync-local ciphertext descriptor, not an API request/response contract.
  */
-export function parseEnvelope(encryptedData: string): EncryptedEnvelope {
+export function parseEncryptedUpdate(
+  encryptedData: string,
+): ParsedEncryptedUpdate {
   const value: unknown = JSON.parse(encryptedData);
 
   if (!isSerializedEncryptedUpdate(value)) {
@@ -110,4 +107,8 @@ export function parseEnvelope(encryptedData: string): EncryptedEnvelope {
   }
 
   return decodeEnvelope(value);
+}
+
+export function readEncryptedUpdateAccessEpoch(encryptedData: string): number {
+  return parseEncryptedUpdate(encryptedData).accessEpoch;
 }

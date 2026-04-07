@@ -1,5 +1,11 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasArrayProperty, hasStringProperty, isUuidV4String } from "../util";
+import {
+  hasArrayProperty,
+  hasStringProperty,
+  isSerializedRecipientEnvelopeArray,
+  isUuidV4String,
+  type SerializedRecipientEnvelope,
+} from "../util";
 import {
   type EncryptedDocumentUpdate,
   isEncryptedDocumentUpdate,
@@ -7,6 +13,7 @@ import {
 
 export interface CreateContainerRequest {
   id: string;
+  initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
   parentId: string;
   initialMetadataUpdates: EncryptedDocumentUpdate[];
 }
@@ -32,12 +39,18 @@ function isShareAccessLevel(
 export function isCreateContainerRequest(
   value: unknown,
 ): value is CreateContainerRequest {
+  const initialMetadataRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "initialMetadataRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     isUuidV4String(value.id) &&
     hasStringProperty(value, "parentId") &&
     isUuidV4String(value.parentId) &&
+    (initialMetadataRecipientEnvelopes === undefined ||
+      isSerializedRecipientEnvelopeArray(initialMetadataRecipientEnvelopes)) &&
     hasArrayProperty(value, "initialMetadataUpdates") &&
     value.initialMetadataUpdates.every(isEncryptedDocumentUpdate)
   );

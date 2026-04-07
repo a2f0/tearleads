@@ -4,9 +4,9 @@ import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
 import {
+  createDocumentEncryptionMaterial,
   createPendingUpdateFields,
   encryptPendingUpdates,
-  getLocalRecipientPublicKeys,
 } from "../../data/documentSync";
 import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
 import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
@@ -95,6 +95,10 @@ export function PaneMenu({
                 icon: null,
                 name: "/",
               });
+            const initialMetadataDocumentEncryption =
+              await createDocumentEncryptionMaterial([
+                encapsulationKeyPair.publicKey,
+              ]);
             const pendingUpdateFields =
               createPendingUpdateFields(initialUpdate);
             const initialRootMetadataUpdates = pendingUpdateFields
@@ -105,7 +109,8 @@ export function PaneMenu({
                       ...pendingUpdateFields,
                     },
                   ],
-                  getLocalRecipientPublicKeys(encapsulationKeyPair),
+                  1,
+                  initialMetadataDocumentEncryption.documentKey,
                 )
               : [];
 
@@ -115,6 +120,7 @@ export function PaneMenu({
               encapsulationKeyPair.publicKey,
               wrappedEnvelope,
               initialRootMetadataUpdates,
+              initialMetadataDocumentEncryption.documentRecipientEnvelopes,
             );
             if (!response) return;
 
@@ -140,6 +146,8 @@ export function PaneMenu({
                   organizationId: response.organizationId,
                   rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
                   rootMetadataDocumentId: response.rootMetadataDocumentId,
+                  rootMetadataRecipientEnvelopes:
+                    initialMetadataDocumentEncryption.documentRecipientEnvelopes,
                   rootMetadataSnapshot: bytesToBase64(initialUpdate),
                   userId: response.userId,
                 });

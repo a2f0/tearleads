@@ -16,9 +16,9 @@ export {
 export {
   decryptLoroUpdate,
   encryptLoroUpdate,
-  parseEnvelope,
+  parseEncryptedUpdate,
+  readEncryptedUpdateAccessEpoch,
   type SerializedEncryptedUpdate,
-  type SerializedRecipientEntry,
   serializeEnvelope,
 } from "./encryptedUpdate";
 export * from "./server";

@@ -1,3 +1,4 @@
+import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { app } from "../../../src/index";
 
 export async function commitDocumentChange(
@@ -13,6 +14,7 @@ export async function commitDocumentChange(
       slotId: string;
       expectedBindingId: string;
     }>;
+    documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     loroUpdate: {
       id: string;
       encryptedData: string;

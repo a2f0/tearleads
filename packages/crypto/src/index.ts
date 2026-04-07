@@ -25,3 +25,5 @@ export {
 } from "./signing/generateKeyPair";
 export { sign } from "./signing/sign";
 export { verify } from "./signing/verify";
+export type { SymmetricCiphertext } from "./symmetric";
+export { decryptWithDek, encryptWithDek } from "./symmetric";

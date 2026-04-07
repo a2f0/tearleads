@@ -280,13 +280,17 @@ V1 direction:
 Current implementation note:
 
 - containers persist real wrapped key material
+- documents persist real wrapped key material for the current access epoch once
+  a client supplies or initializes the current document-DEK bundle
 - blobs persist real wrapped key material when the committed blob ciphertext is
   a valid blob envelope for the current effective recipient set
 - blob envelopes delimit header metadata from ciphertext bytes so blob recipient
   inspection does not require parsing the full ciphertext payload as JSON
-- documents do not yet have an authoritative per-document wrapped-DEK bundle in
-  `object_recipient_envelopes` because the current Loro sync model encrypts
-  each update with a fresh payload key rather than a stable document DEK
+- encrypted Loro updates now use the current epoch's document DEK plus an
+  inline `accessEpoch`, not a per-update recipient bundle
+- newly created documents may still have no persisted bundle until the client
+  seeds one during initial metadata creation or the first document write of the
+  epoch
 
 The important distinction is:
 

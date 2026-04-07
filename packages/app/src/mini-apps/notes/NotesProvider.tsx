@@ -29,8 +29,11 @@ import {
   decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
+  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import {
   addNoteAttachments,
@@ -299,6 +302,9 @@ export function createNotesStore(
 
     return persistDocument(currentDoc, {
       documentId: created.id,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        created.documentRecipientEnvelopes,
+      ),
       accessEpoch: created.currentAccessEpoch,
     });
   }
@@ -341,11 +347,18 @@ export function createNotesStore(
     currentDoc: NotesDocument,
     patch: Partial<NoteRecord> = {},
   ): Promise<NoteRecord> {
+    const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
+      patch,
+      "documentRecipientEnvelopes",
+    );
     const nextRecord: NoteRecord = {
       id: record?.id ?? noteId,
       containerId:
         patch.containerId ?? record?.containerId ?? runtime.containerId ?? null,
       documentId: patch.documentId ?? record?.documentId ?? null,
+      documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
+        ? (patch.documentRecipientEnvelopes ?? null)
+        : (record?.documentRecipientEnvelopes ?? null),
       text: patch.text ?? getTextValue(currentDoc),
       loroSnapshot:
         patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
@@ -597,6 +610,7 @@ export function createNotesStore(
         id: noteId,
         containerId: runtime.containerId ?? null,
         documentId: null,
+        documentRecipientEnvelopes: null,
         text: "",
         loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
         accessEpoch: 1,
@@ -754,9 +768,21 @@ export function createNotesStore(
                   return;
                 }
 
+                const currentDocumentRecipientEnvelopes =
+                  parseDocumentRecipientEnvelopes(
+                    nextRemoteRecord.documentRecipientEnvelopes,
+                  );
+                const { documentKey, documentRecipientEnvelopes } =
+                  await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes:
+                      currentDocumentRecipientEnvelopes,
+                    recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  });
                 const encryptedBaseline = await encryptLoroUpdate(
                   baselineUpdate,
-                  recipientPublicKeys,
+                  nextRemoteRecord.accessEpoch,
+                  documentKey,
                 );
                 const committed = await runtime.apiClient.commitDocumentChange(
                   nextRemoteRecord.documentId,
@@ -764,6 +790,7 @@ export function createNotesStore(
                     accessEpoch: nextRemoteRecord.accessEpoch,
                     attachmentCommits,
                     attachmentDetaches: [],
+                    documentRecipientEnvelopes,
                     loroUpdate: {
                       encryptedData: encryptedBaseline,
                       id: crypto.randomUUID(),
@@ -819,6 +846,10 @@ export function createNotesStore(
                 nextRecord = await persistDocument(currentDoc, {
                   accessEpoch: committed.currentAccessEpoch,
                   documentId: nextRemoteRecord.documentId,
+                  documentRecipientEnvelopes:
+                    serializeDocumentRecipientEnvelopes(
+                      committed.documentRecipientEnvelopes,
+                    ),
                 });
                 attachmentSyncCompleted = true;
               })
@@ -851,16 +882,35 @@ export function createNotesStore(
               continue;
             }
 
-            const outgoingUpdates = await encryptPendingUpdates(
-              pendingUpdates,
-              recipientPublicKeys,
-            );
+            const currentDocumentRecipientEnvelopes =
+              parseDocumentRecipientEnvelopes(
+                currentRecord.documentRecipientEnvelopes,
+              );
+            const encryptionMaterial =
+              pendingUpdates.length > 0
+                ? await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes:
+                      currentDocumentRecipientEnvelopes,
+                    recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  })
+                : null;
+            const outgoingUpdates = encryptionMaterial
+              ? await encryptPendingUpdates(
+                  pendingUpdates,
+                  currentRecord.accessEpoch,
+                  encryptionMaterial.documentKey,
+                )
+              : [];
 
             const synced = await runtime.apiClient.syncDocument(
               documentId,
               currentRecord.accessEpoch,
               encodeVersionVector(doc),
               outgoingUpdates,
+              encryptionMaterial && currentDocumentRecipientEnvelopes === null
+                ? encryptionMaterial.documentRecipientEnvelopes
+                : undefined,
             );
 
             if (!synced) {
@@ -873,22 +923,46 @@ export function createNotesStore(
               await deletePendingUpdate(acceptedOutgoingUpdateId);
             }
 
+            const previousAccessEpoch = currentRecord.accessEpoch;
+            const nextDocumentRecipientEnvelopes =
+              synced.currentAccessEpoch !== previousAccessEpoch
+                ? (synced.documentRecipientEnvelopes ?? null)
+                : (synced.documentRecipientEnvelopes ??
+                  (encryptionMaterial &&
+                  currentDocumentRecipientEnvelopes === null
+                    ? encryptionMaterial.documentRecipientEnvelopes
+                    : currentDocumentRecipientEnvelopes));
             if (synced.updates.length > 0) {
-              const decrypted = await decryptIncomingUpdates(
-                synced.updates,
-                encapsulationKeyPair.secretKey,
-                (message) => runtime.log(`Notes: ${message}`),
-              );
-              if (decrypted.length > 0) {
-                importUpdates(doc, decrypted);
-                setReadySnapshot(doc, true);
+              if (!nextDocumentRecipientEnvelopes) {
+                runtime.log(
+                  "Notes: skipped incoming updates because the current document key bundle is missing.",
+                );
+              } else {
+                const { documentKey } =
+                  await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+                    recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  });
+                const decrypted = await decryptIncomingUpdates(
+                  synced.updates,
+                  synced.currentAccessEpoch,
+                  documentKey,
+                  (message) => runtime.log(`Notes: ${message}`),
+                );
+                if (decrypted.length > 0) {
+                  importUpdates(doc, decrypted);
+                  setReadySnapshot(doc, true);
+                }
               }
             }
 
-            const previousAccessEpoch = currentRecord.accessEpoch;
             nextRecord = await persistDocument(doc, {
               documentId,
               accessEpoch: synced.currentAccessEpoch,
+              documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+                nextDocumentRecipientEnvelopes,
+              ),
             });
 
             if (synced.currentAccessEpoch !== previousAccessEpoch) {

@@ -3,6 +3,8 @@ import {
   hasArrayProperty,
   hasNumberProperty,
   hasStringProperty,
+  isSerializedRecipientEnvelopeArray,
+  type SerializedRecipientEnvelope,
 } from "@tearleads/validators/util";
 
 export interface SyncDocumentOutgoingUpdate {
@@ -20,11 +22,13 @@ export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
   currentAccessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
 }
 
 export interface SyncDocumentRequest {
   accessEpoch: number;
+  documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
   localVersionVector: string | null;
   outgoingUpdates: SyncDocumentOutgoingUpdate[];
 }
@@ -44,6 +48,7 @@ export interface SyncDocumentResponse {
   acceptedOutgoingUpdateIds: string[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
 }
 
@@ -100,11 +105,17 @@ export function isCreateDocumentRequest(
 export function isCreateDocumentResponse(
   value: unknown,
 ): value is CreateDocumentResponse {
+  const documentRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    (documentRecipientEnvelopes === null ||
+      isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }
@@ -112,9 +123,15 @@ export function isCreateDocumentResponse(
 export function isSyncDocumentRequest(
   value: unknown,
 ): value is SyncDocumentRequest {
+  const documentRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasPositiveNumberProperty(value, "accessEpoch") &&
+    (documentRecipientEnvelopes === undefined ||
+      isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasNullableStringProperty(value, "localVersionVector") &&
     hasArrayProperty(value, "outgoingUpdates") &&
     value.outgoingUpdates.every(isSyncDocumentOutgoingUpdate)
@@ -139,6 +156,10 @@ export function isDocumentSyncUpdate(
 export function isSyncDocumentResponse(
   value: unknown,
 ): value is SyncDocumentResponse {
+  const documentRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
@@ -149,6 +170,8 @@ export function isSyncDocumentResponse(
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    (documentRecipientEnvelopes === null ||
+      isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
   );
 }

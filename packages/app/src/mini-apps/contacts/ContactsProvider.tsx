@@ -25,8 +25,11 @@ import {
   decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
+  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
 import {
@@ -190,9 +193,16 @@ export function createContactsStore(
     contact: ContactState,
     patch: Partial<DocumentRecord> = {},
   ): Promise<DocumentRecord> {
+    const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
+      patch,
+      "documentRecipientEnvelopes",
+    );
     const nextRecord: DocumentRecord = {
       id: contact.entry.userId,
       documentId: patch.documentId ?? contact.record.documentId ?? null,
+      documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
+        ? (patch.documentRecipientEnvelopes ?? null)
+        : (contact.record.documentRecipientEnvelopes ?? null),
       loroSnapshot:
         patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
       accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
@@ -274,6 +284,7 @@ export function createContactsStore(
         record = {
           id: entry.userId,
           documentId: null,
+          documentRecipientEnvelopes: null,
           loroSnapshot: bytesToBase64(initialUpdate),
           accessEpoch: 1,
         };
@@ -388,6 +399,9 @@ export function createContactsStore(
               documentId = created.id;
               await persistContact(contact, {
                 documentId,
+                documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+                  created.documentRecipientEnvelopes,
+                ),
                 accessEpoch: created.currentAccessEpoch,
               });
               runtime.log(
@@ -399,16 +413,35 @@ export function createContactsStore(
               continue;
             }
 
-            const outgoingUpdates = await encryptPendingUpdates(
-              pendingUpdates,
-              contact.recipientPublicKeys,
-            );
+            const currentDocumentRecipientEnvelopes =
+              parseDocumentRecipientEnvelopes(
+                contact.record.documentRecipientEnvelopes,
+              );
+            const encryptionMaterial =
+              pendingUpdates.length > 0
+                ? await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes:
+                      currentDocumentRecipientEnvelopes,
+                    recipientPublicKeys: contact.recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  })
+                : null;
+            const outgoingUpdates = encryptionMaterial
+              ? await encryptPendingUpdates(
+                  pendingUpdates,
+                  contact.record.accessEpoch,
+                  encryptionMaterial.documentKey,
+                )
+              : [];
 
             const synced = await runtime.apiClient.syncDocument(
               documentId,
               contact.record.accessEpoch,
               encodeVersionVector(contact.doc),
               outgoingUpdates,
+              encryptionMaterial && currentDocumentRecipientEnvelopes === null
+                ? encryptionMaterial.documentRecipientEnvelopes
+                : undefined,
             );
 
             if (!synced) {
@@ -424,30 +457,56 @@ export function createContactsStore(
               await deletePendingUpdate(acceptedOutgoingUpdateId);
             }
 
+            const previousAccessEpoch = contact.record.accessEpoch;
+            const nextDocumentRecipientEnvelopes =
+              synced.currentAccessEpoch !== previousAccessEpoch
+                ? (synced.documentRecipientEnvelopes ?? null)
+                : (synced.documentRecipientEnvelopes ??
+                  (encryptionMaterial &&
+                  currentDocumentRecipientEnvelopes === null
+                    ? encryptionMaterial.documentRecipientEnvelopes
+                    : currentDocumentRecipientEnvelopes));
             if (synced.updates.length > 0) {
-              const decrypted = await decryptIncomingUpdates(
-                synced.updates,
-                encapsulationKeyPair.secretKey,
-                (message) =>
-                  runtime.log(`Contacts (${contact.entry.userId}): ${message}`),
-              );
-              if (decrypted.length > 0) {
-                importUpdates(contact.doc, decrypted);
-                const updatedEntry = getEntryValue(
-                  contact.entry.userId,
-                  contact.doc,
-                  contact.entry.isSelf,
+              if (!nextDocumentRecipientEnvelopes) {
+                runtime.log(
+                  `Contacts (${contact.entry.userId}): skipped incoming updates because the current document key bundle is missing.`,
                 );
-                if (updatedEntry) {
-                  contact.entry = updatedEntry;
+              } else {
+                const { documentKey } =
+                  await getOrCreateDocumentEncryptionMaterial({
+                    documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+                    recipientPublicKeys: contact.recipientPublicKeys,
+                    secretKey: encapsulationKeyPair.secretKey,
+                  });
+                const decrypted = await decryptIncomingUpdates(
+                  synced.updates,
+                  synced.currentAccessEpoch,
+                  documentKey,
+                  (message) =>
+                    runtime.log(
+                      `Contacts (${contact.entry.userId}): ${message}`,
+                    ),
+                );
+                if (decrypted.length > 0) {
+                  importUpdates(contact.doc, decrypted);
+                  const updatedEntry = getEntryValue(
+                    contact.entry.userId,
+                    contact.doc,
+                    contact.entry.isSelf,
+                  );
+                  if (updatedEntry) {
+                    contact.entry = updatedEntry;
+                  }
                 }
               }
             }
 
-            const previousAccessEpoch = contact.record.accessEpoch;
             await persistContact(contact, {
               documentId,
               accessEpoch: synced.currentAccessEpoch,
+              documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+                nextDocumentRecipientEnvelopes,
+              ),
             });
 
             if (synced.currentAccessEpoch !== previousAccessEpoch) {
@@ -546,6 +605,7 @@ export function createContactsStore(
               record: {
                 id: entry.userId,
                 documentId: null,
+                documentRecipientEnvelopes: null,
                 loroSnapshot: bytesToBase64(initialUpdate),
                 accessEpoch: 1,
               },

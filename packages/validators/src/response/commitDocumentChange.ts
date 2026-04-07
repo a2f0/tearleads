@@ -3,6 +3,8 @@ import {
   hasArrayProperty,
   hasNumberProperty,
   hasStringProperty,
+  isSerializedRecipientEnvelopeArray,
+  type SerializedRecipientEnvelope,
 } from "../util";
 
 interface CommittedBindingResponse {
@@ -16,6 +18,7 @@ export interface CommitDocumentChangeResponse {
   acceptedOutgoingUpdateIds: string[];
   committedBindings: CommittedBindingResponse[];
   detachedBindingIds: string[];
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
 }
 
 function isCommittedBindingResponse(
@@ -38,6 +41,10 @@ function isStringArray(value: unknown): value is string[] {
 export function isCommitDocumentChangeResponse(
   value: unknown,
 ): value is CommitDocumentChangeResponse {
+  const documentRecipientEnvelopes = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasNumberProperty(value, "currentAccessEpoch") &&
@@ -48,6 +55,8 @@ export function isCommitDocumentChangeResponse(
     hasArrayProperty(value, "committedBindings") &&
     value.committedBindings.every(isCommittedBindingResponse) &&
     hasArrayProperty(value, "detachedBindingIds") &&
-    isStringArray(value.detachedBindingIds)
+    isStringArray(value.detachedBindingIds) &&
+    (documentRecipientEnvelopes === null ||
+      isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes))
   );
 }
