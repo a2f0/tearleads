@@ -16,6 +16,17 @@ import {
   resolveBlobAccessState,
 } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
+import type { RecipientPrincipalType } from "./recipientPrincipals";
+
+function userPrincipal(userId: string): {
+  principalId: string;
+  principalType: RecipientPrincipalType;
+} {
+  return {
+    principalId: userId,
+    principalType: "user",
+  };
+}
 
 async function createEncryptedBlobBytes(
   plaintext: string,
@@ -66,8 +77,11 @@ test("blob access is derived from linked document access", async () => {
   const beforeShare = await resolveBlobAccessState(blob.id);
   invariant(beforeShare, "expected blob access state");
   expect(
-    beforeShare.effectiveRecipients.map((recipient) => recipient.userId),
-  ).toEqual([alice.userId]);
+    beforeShare.effectiveRecipients.map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    })),
+  ).toEqual([userPrincipal(alice.userId)]);
 
   await grantRootContainerWriteAccessToUser(alice.userId, bob.userId);
 
@@ -77,11 +91,16 @@ test("blob access is derived from linked document access", async () => {
   const afterShare = await resolveBlobAccessState(blob.id);
   invariant(afterShare, "expected blob access state after share");
   expect(afterShare.currentAccessEpoch).toBe(documentState.currentAccessEpoch);
-  const recipientUserIds = afterShare.effectiveRecipients
-    .map((recipient) => recipient.userId)
-    .sort((left, right) => left.localeCompare(right));
-  expect(recipientUserIds).toEqual(
-    [alice.userId, bob.userId].sort((left, right) => left.localeCompare(right)),
+  const recipientPrincipals = afterShare.effectiveRecipients
+    .map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    }))
+    .sort((left, right) => left.principalId.localeCompare(right.principalId));
+  expect(recipientPrincipals).toEqual(
+    [userPrincipal(alice.userId), userPrincipal(bob.userId)].sort(
+      (left, right) => left.principalId.localeCompare(right.principalId),
+    ),
   );
 });
 

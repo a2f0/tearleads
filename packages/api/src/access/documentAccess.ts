@@ -11,8 +11,11 @@ import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
 import {
   type AccessLevel,
-  toUserPrincipalEnvelopeRecipient,
-  toUserPrincipalFingerprintRecipient,
+  type EffectivePrincipalRecipient,
+  isUserPrincipalRecipient,
+  principalRecipientKey,
+  toPrincipalEnvelopeRecipient,
+  toPrincipalFingerprintRecipient,
 } from "./recipientPrincipals";
 
 const DOCUMENT_OBJECT_TYPE = "document";
@@ -29,12 +32,7 @@ interface GrantRow {
   accessLevel: string;
 }
 
-interface EffectiveDocumentRecipient {
-  userId: string;
-  accessLevel: AccessLevel;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-}
+type EffectiveDocumentRecipient = EffectivePrincipalRecipient;
 
 interface DocumentAccessState {
   currentAccessEpoch: number;
@@ -202,13 +200,18 @@ async function resolveContainerAccessStates(
 function mergeRecipientsFromLinkedContainerStates(
   linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[],
 ): EffectiveDocumentRecipient[] {
-  const recipientsByUserId = new Map<string, EffectiveDocumentRecipient>();
+  const recipientsByPrincipalKey = new Map<
+    string,
+    EffectiveDocumentRecipient
+  >();
 
   for (const state of linkedContainerStates) {
     for (const recipient of state.effectiveRecipients) {
-      const existing = recipientsByUserId.get(recipient.userId);
-      recipientsByUserId.set(recipient.userId, {
-        userId: recipient.userId,
+      const principalKey = principalRecipientKey(recipient);
+      const existing = recipientsByPrincipalKey.get(principalKey);
+      recipientsByPrincipalKey.set(principalKey, {
+        principalType: recipient.principalType,
+        principalId: recipient.principalId,
         accessLevel: existing
           ? mergeAccessLevel(existing.accessLevel, recipient.accessLevel)
           : recipient.accessLevel,
@@ -218,7 +221,7 @@ function mergeRecipientsFromLinkedContainerStates(
     }
   }
 
-  return Array.from(recipientsByUserId.values()).sort((left, right) =>
+  return Array.from(recipientsByPrincipalKey.values()).sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
   );
 }
@@ -299,9 +302,7 @@ async function computeDocumentAccessFingerprint(input: {
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
-    recipients: input.effectiveRecipients.map(
-      toUserPrincipalFingerprintRecipient,
-    ),
+    recipients: input.effectiveRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
 
@@ -422,8 +423,8 @@ export function canReadDocumentAccess(
   state: DocumentAccessState,
   userId: string,
 ): boolean {
-  return state.effectiveRecipients.some(
-    (recipient) => recipient.userId === userId,
+  return state.effectiveRecipients.some((recipient) =>
+    isUserPrincipalRecipient(recipient, userId),
   );
 }
 
@@ -433,7 +434,7 @@ export function canWriteDocumentAccess(
 ): boolean {
   return state.effectiveRecipients.some(
     (recipient) =>
-      recipient.userId === userId &&
+      isUserPrincipalRecipient(recipient, userId) &&
       accessLevelRank(recipient.accessLevel) >= accessLevelRank("write"),
   );
 }
@@ -566,7 +567,7 @@ export async function replaceDocumentRecipientEnvelopes(
         );
       }
 
-      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+      const principalRecipient = toPrincipalEnvelopeRecipient(recipient);
 
       return {
         objectType: DOCUMENT_OBJECT_TYPE,

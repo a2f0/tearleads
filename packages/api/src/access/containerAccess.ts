@@ -5,7 +5,11 @@ import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import {
   type AccessLevel,
-  toUserPrincipalFingerprintRecipient,
+  type EffectivePrincipalRecipient,
+  isUserPrincipalRecipient,
+  principalRecipientKey,
+  toEffectiveUserPrincipalRecipient,
+  toPrincipalFingerprintRecipient,
 } from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -15,12 +19,7 @@ const UUID_PATTERN =
 type SubjectType = "user" | "group" | "organization";
 type ContainerAccessExecutor = DatabaseExecutor;
 
-interface EffectiveContainerRecipient {
-  userId: string;
-  accessLevel: AccessLevel;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-}
+type EffectiveContainerRecipient = EffectivePrincipalRecipient;
 
 interface GrantedRecipientRow {
   userId: string;
@@ -100,10 +99,6 @@ function mergeAccessLevel(
   return accessLevelRank(incoming) > accessLevelRank(current)
     ? incoming
     : current;
-}
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
 }
 
 function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
@@ -515,59 +510,41 @@ async function resolveContainerRecipients(
 function buildEffectiveRecipientsFromGrantedRecipients(
   grantedRecipients: ReadonlyArray<GrantedRecipientRow>,
 ): EffectiveContainerRecipient[] {
-  const effectiveAccessByUserId = new Map<string, AccessLevel>();
-  const encapsulationPublicKeyByUserId = new Map<string, string>();
-  const keyFingerprintByUserId = new Map<string, string>();
+  const recipientsByPrincipalKey = new Map<
+    string,
+    EffectiveContainerRecipient
+  >();
 
   for (const recipient of grantedRecipients) {
     if (
       !isAccessLevel(recipient.accessLevel) ||
-      recipient.encapsulationPublicKey.length === 0
+      recipient.encapsulationPublicKey.length === 0 ||
+      recipient.encapsulationKeyFingerprint.length === 0
     ) {
       continue;
     }
 
-    effectiveAccessByUserId.set(
-      recipient.userId,
-      mergeAccessLevel(
-        effectiveAccessByUserId.get(recipient.userId),
-        recipient.accessLevel,
-      ),
-    );
-    encapsulationPublicKeyByUserId.set(
-      recipient.userId,
-      recipient.encapsulationPublicKey,
-    );
-    if (recipient.encapsulationKeyFingerprint.length > 0) {
-      keyFingerprintByUserId.set(
-        recipient.userId,
-        recipient.encapsulationKeyFingerprint,
-      );
-    }
+    const nextRecipient = toEffectiveUserPrincipalRecipient({
+      userId: recipient.userId,
+      accessLevel: recipient.accessLevel,
+      encapsulationPublicKey: recipient.encapsulationPublicKey,
+      keyFingerprint: recipient.encapsulationKeyFingerprint,
+    });
+    const principalKey = principalRecipientKey(nextRecipient);
+    const existingRecipient = recipientsByPrincipalKey.get(principalKey);
+
+    recipientsByPrincipalKey.set(principalKey, {
+      ...nextRecipient,
+      accessLevel: existingRecipient
+        ? mergeAccessLevel(
+            existingRecipient.accessLevel,
+            nextRecipient.accessLevel,
+          )
+        : nextRecipient.accessLevel,
+    });
   }
 
-  const effectiveUserIds = uniqueSortedStrings(
-    Array.from(effectiveAccessByUserId.keys()),
-  );
-
-  const effectiveRecipients = effectiveUserIds
-    .map((userId) => {
-      const accessLevel = effectiveAccessByUserId.get(userId);
-      const encapsulationPublicKey = encapsulationPublicKeyByUserId.get(userId);
-      const keyFingerprint = keyFingerprintByUserId.get(userId);
-
-      if (!accessLevel || !encapsulationPublicKey || !keyFingerprint) {
-        return null;
-      }
-
-      return {
-        userId,
-        accessLevel,
-        encapsulationPublicKey,
-        keyFingerprint,
-      };
-    })
-    .filter(isPresent);
+  const effectiveRecipients = Array.from(recipientsByPrincipalKey.values());
 
   effectiveRecipients.sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
@@ -580,19 +557,24 @@ function mergeEffectiveRecipients(
   inheritedRecipients: ReadonlyArray<EffectiveContainerRecipient>,
   directGrantedRecipients: ReadonlyArray<GrantedRecipientRow>,
 ): EffectiveContainerRecipient[] {
-  const recipientsByUserId = new Map<string, EffectiveContainerRecipient>();
+  const recipientsByPrincipalKey = new Map<
+    string,
+    EffectiveContainerRecipient
+  >();
 
   for (const recipient of inheritedRecipients) {
-    recipientsByUserId.set(recipient.userId, recipient);
+    recipientsByPrincipalKey.set(principalRecipientKey(recipient), recipient);
   }
 
   for (const recipient of buildEffectiveRecipientsFromGrantedRecipients(
     directGrantedRecipients,
   )) {
-    const existingRecipient = recipientsByUserId.get(recipient.userId);
+    const principalKey = principalRecipientKey(recipient);
+    const existingRecipient = recipientsByPrincipalKey.get(principalKey);
 
-    recipientsByUserId.set(recipient.userId, {
-      userId: recipient.userId,
+    recipientsByPrincipalKey.set(principalKey, {
+      principalType: recipient.principalType,
+      principalId: recipient.principalId,
       accessLevel: existingRecipient
         ? mergeAccessLevel(existingRecipient.accessLevel, recipient.accessLevel)
         : recipient.accessLevel,
@@ -601,7 +583,7 @@ function mergeEffectiveRecipients(
     });
   }
 
-  return Array.from(recipientsByUserId.values()).sort((left, right) =>
+  return Array.from(recipientsByPrincipalKey.values()).sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
   );
 }
@@ -626,9 +608,7 @@ async function computeContainerFingerprint(input: {
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
-    recipients: input.effectiveRecipients.map(
-      toUserPrincipalFingerprintRecipient,
-    ),
+    recipients: input.effectiveRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
 
@@ -852,8 +832,8 @@ export function canReadContainerAccess(
   state: ContainerAccessState,
   userId: string,
 ): boolean {
-  return state.effectiveRecipients.some(
-    (recipient) => recipient.userId === userId,
+  return state.effectiveRecipients.some((recipient) =>
+    isUserPrincipalRecipient(recipient, userId),
   );
 }
 
@@ -863,7 +843,7 @@ export function canWriteContainerAccess(
 ): boolean {
   return state.effectiveRecipients.some(
     (recipient) =>
-      recipient.userId === userId &&
+      isUserPrincipalRecipient(recipient, userId) &&
       accessLevelRank(recipient.accessLevel) >= accessLevelRank("write"),
   );
 }
@@ -874,6 +854,7 @@ export function canAdminContainerAccess(
 ): boolean {
   return state.effectiveRecipients.some(
     (recipient) =>
-      recipient.userId === userId && recipient.accessLevel === "admin",
+      isUserPrincipalRecipient(recipient, userId) &&
+      recipient.accessLevel === "admin",
   );
 }
