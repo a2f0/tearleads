@@ -19,7 +19,14 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
 import { app } from "../../index";
-import { attachmentBindings, blobStages, documentUpdates } from "../../schema";
+import {
+  attachmentBindings,
+  blobStages,
+  blobs,
+  documentUpdates,
+  objectAccessEpochs,
+  objectRecipientEnvelopes,
+} from "../../schema";
 
 const alice = createTestUser();
 
@@ -386,4 +393,105 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
     sha256: (await createStagedBlobInput("ZW5jcnlwdGVkLWltYWdlLWJ5dGVz"))
       .sha256,
   });
+});
+
+test("POST /documents/:documentId/commit-change deletes the replaced blob when a slot is rebound", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const firstStageResponse = await stageBlob(
+    await createStagedBlobInput("Zmlyc3QtZW5jcnlwdGVkLWltYWdl"),
+    alice.token,
+  );
+  expect(firstStageResponse.status).toBe(200);
+  const firstStage = await firstStageResponse.json();
+
+  const firstCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_replace",
+          stageId: firstStage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+  const firstCommitBody = await firstCommitResponse.json();
+  const firstBlobId = String(
+    firstCommitBody.committedBindings[0]?.blobId ?? "",
+  );
+  const firstBindingId = String(
+    firstCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+
+  const secondStageResponse = await stageBlob(
+    await createStagedBlobInput("c2Vjb25kLWVuY3J5cHRlZC1pbWFnZQ=="),
+    alice.token,
+  );
+  expect(secondStageResponse.status).toBe(200);
+  const secondStage = await secondStageResponse.json();
+
+  const secondCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_replace",
+          stageId: secondStage.stageId,
+          expectedBindingId: firstBindingId,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(secondCommitResponse.status).toBe(200);
+  const secondCommitBody = await secondCommitResponse.json();
+  const secondBlobId = String(
+    secondCommitBody.committedBindings[0]?.blobId ?? "",
+  );
+
+  expect(secondBlobId).not.toBe(firstBlobId);
+
+  const [deletedBlob] = await db
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, firstBlobId))
+    .limit(1);
+  expect(deletedBlob).toBeUndefined();
+
+  const [deletedBlobEpoch] = await db
+    .select({ id: objectAccessEpochs.id })
+    .from(objectAccessEpochs)
+    .where(eq(objectAccessEpochs.objectId, firstBlobId))
+    .limit(1);
+  expect(deletedBlobEpoch).toBeUndefined();
+
+  const [deletedBlobEnvelope] = await db
+    .select({ id: objectRecipientEnvelopes.id })
+    .from(objectRecipientEnvelopes)
+    .where(eq(objectRecipientEnvelopes.objectId, firstBlobId))
+    .limit(1);
+  expect(deletedBlobEnvelope).toBeUndefined();
+
+  const staleBlobResponse = await app.request(`/blobs/${firstBlobId}`, {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+  expect(staleBlobResponse.status).toBe(404);
 });

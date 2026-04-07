@@ -38,8 +38,17 @@ import {
   documentContainerLinks,
   documents,
   documentUpdates,
+  objectAccessEpochs,
+  objectRecipientEnvelopes,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
+
+type DocumentRouteTransaction = Parameters<
+  (typeof db)["transaction"]
+>[0] extends (tx: infer T) => Promise<unknown>
+  ? T
+  : never;
+type DocumentRouteExecutor = typeof db | DocumentRouteTransaction;
 
 function matchesRecipients(
   encryptedData: string,
@@ -72,6 +81,53 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
     "",
   );
+}
+
+async function deleteOrphanedBlobs(
+  blobIds: string[],
+  executor: DocumentRouteExecutor = db,
+): Promise<void> {
+  const uniqueBlobIds = uniqueSortedStrings(blobIds);
+
+  if (uniqueBlobIds.length === 0) {
+    return;
+  }
+
+  const activeRows = await executor
+    .select({ blobId: attachmentBindings.blobId })
+    .from(attachmentBindings)
+    .where(
+      and(
+        inArray(attachmentBindings.blobId, uniqueBlobIds),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    );
+  const activeBlobIds = new Set(activeRows.map((row) => row.blobId));
+  const orphanedBlobIds = uniqueBlobIds.filter(
+    (blobId) => !activeBlobIds.has(blobId),
+  );
+
+  if (orphanedBlobIds.length === 0) {
+    return;
+  }
+
+  await executor
+    .delete(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "blob"),
+        inArray(objectRecipientEnvelopes.objectId, orphanedBlobIds),
+      ),
+    );
+  await executor
+    .delete(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, "blob"),
+        inArray(objectAccessEpochs.objectId, orphanedBlobIds),
+      ),
+    );
+  await executor.delete(blobs).where(inArray(blobs.id, orphanedBlobIds));
 }
 
 class CommitChangeError extends Error {
@@ -591,7 +647,10 @@ documentsRouter.post(
           }
         }
 
-        await refreshBlobAccesses(Array.from(affectedBlobIds), tx);
+        const refreshedBlobIds = Array.from(affectedBlobIds);
+
+        await refreshBlobAccesses(refreshedBlobIds, tx);
+        await deleteOrphanedBlobs(refreshedBlobIds, tx);
 
         return {
           acceptedOutgoingUpdateIds,
