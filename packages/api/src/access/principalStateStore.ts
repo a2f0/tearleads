@@ -45,13 +45,19 @@ function isPrincipalStateMember(value: unknown): value is PrincipalStateMember {
 }
 
 function parsePrincipalStateMembers(value: string): PrincipalStateMember[] {
-  const parsedValue: unknown = JSON.parse(value);
+  let parsedValue: unknown;
+
+  try {
+    parsedValue = JSON.parse(value);
+  } catch {
+    throw new Error("Invalid JSON for principal state members");
+  }
 
   if (
     !Array.isArray(parsedValue) ||
     !parsedValue.every(isPrincipalStateMember)
   ) {
-    throw new Error("Stored principal state members are invalid");
+    throw new Error("Invalid principal state members structure");
   }
 
   return normalizePrincipalStateMembers(parsedValue);
