@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../adapters/postgres";
+import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
@@ -10,12 +10,7 @@ const UUID_PATTERN =
 
 type AccessLevel = "read" | "write" | "admin";
 type SubjectType = "user" | "group" | "organization";
-type ContainerAccessTransaction = Parameters<
-  (typeof db)["transaction"]
->[0] extends (tx: infer T) => Promise<unknown>
-  ? T
-  : never;
-type ContainerAccessExecutor = typeof db | ContainerAccessTransaction;
+type ContainerAccessExecutor = DatabaseExecutor;
 
 interface EffectiveContainerRecipient {
   userId: string;

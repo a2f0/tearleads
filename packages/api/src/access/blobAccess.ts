@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import { db } from "../adapters/postgres";
+import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   attachmentBindings,
   blobs,
@@ -16,12 +16,7 @@ import {
 const BLOB_OBJECT_TYPE = "blob";
 
 type AccessLevel = "read" | "write" | "admin";
-type BlobAccessTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
-  tx: infer T,
-) => Promise<unknown>
-  ? T
-  : never;
-type BlobAccessExecutor = typeof db | BlobAccessTransaction;
+type BlobAccessExecutor = DatabaseExecutor;
 type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedDocumentAccessState = Awaited<
   ReturnType<typeof resolveDocumentAccessState>

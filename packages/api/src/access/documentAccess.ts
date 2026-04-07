@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { db } from "../adapters/postgres";
+import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   documentContainerLinks,
   objectAccessEpochs,
@@ -12,12 +12,7 @@ import { resolveContainerAccessState } from "./containerAccess";
 const DOCUMENT_OBJECT_TYPE = "document";
 
 type AccessLevel = "read" | "write" | "admin";
-type DocumentAccessTransaction = Parameters<
-  (typeof db)["transaction"]
->[0] extends (tx: infer T) => Promise<unknown>
-  ? T
-  : never;
-type DocumentAccessExecutor = typeof db | DocumentAccessTransaction;
+type DocumentAccessExecutor = DatabaseExecutor;
 type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedContainerAccessState = Awaited<
   ReturnType<typeof resolveContainerAccessState>
