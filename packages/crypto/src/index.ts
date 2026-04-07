@@ -20,6 +20,24 @@ export { unwrapDek } from "./encapsulation/unwrapDek";
 export { wrapDekForRecipients } from "./encapsulation/wrapDek";
 export { toFingerprint } from "./fingerprint";
 export { bytesToHex, hexToBytes } from "./hex";
+export type {
+  ManagedRecipientPrincipalType,
+  PrincipalStateMember,
+  PrincipalStateMemberType,
+  PrincipalStateSigningInput,
+  SignedPrincipalState,
+  UnsignedPrincipalState,
+} from "./principalState";
+export {
+  computePrincipalMembershipRoot,
+  computePrincipalStateHash,
+  isManagedRecipientPrincipalType,
+  isPrincipalStateMemberType,
+  normalizePrincipalStateMembers,
+  serializeUnsignedPrincipalState,
+  signPrincipalState,
+  verifySignedPrincipalState,
+} from "./principalState";
 export {
   generateSigningKeyPair,
   generateSigningSeedAndKeyPair,

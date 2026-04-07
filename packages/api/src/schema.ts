@@ -1,3 +1,4 @@
+import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { documents, documentUpdates } from "@tearleads/loro/server";
 import {
   index,
@@ -5,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { RecipientPrincipalType } from "./access/recipientPrincipals";
@@ -57,6 +59,72 @@ export const groupMembers = pgTable("group_members", {
   userId: uuid("user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const principalStates = pgTable(
+  "principal_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    version: integer("version").notNull(),
+    prevStateHash: text("prev_state_hash"),
+    keyEpoch: integer("key_epoch").notNull(),
+    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    membersJson: text("members_json").notNull(),
+    membershipRoot: text("membership_root").notNull(),
+    stateHash: text("state_hash").notNull(),
+    signedAt: timestamp("signed_at").notNull(),
+    signerKeyId: text("signer_key_id").notNull(),
+    signature: text("signature").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_states_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("principal_states_principal_version_idx").on(
+      table.principalType,
+      table.principalId,
+      table.version,
+    ),
+    uniqueIndex("principal_states_principal_state_hash_idx").on(
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+    ),
+  ],
+);
+
+export const principalEpochKeys = pgTable(
+  "principal_epoch_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    introducedByStateHash: text("introduced_by_state_hash").notNull(),
+    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_epoch_keys_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("principal_epoch_keys_principal_epoch_idx").on(
+      table.principalType,
+      table.principalId,
+      table.epoch,
+    ),
+  ],
+);
 
 export const objectAccessGrants = pgTable("object_access_grants", {
   id: uuid("id").defaultRandom().primaryKey(),
