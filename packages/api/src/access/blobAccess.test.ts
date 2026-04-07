@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import {
+  type EncryptedEnvelope,
+  encryptForRecipients,
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../test/helpers/api/createDocument";
@@ -15,6 +20,33 @@ import {
 } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
 
+const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
+
+function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
+  return JSON.stringify({
+    format: ENCRYPTED_BLOB_FORMAT,
+    iv: bytesToBase64(envelope.iv),
+    ciphertext: bytesToBase64(envelope.ciphertext),
+    recipients: envelope.recipients.map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+    })),
+  });
+}
+
+async function createEncryptedBlobBytes(
+  plaintext: string,
+  encodedRecipientPublicKeys: string[],
+): Promise<string> {
+  const envelope = await encryptForRecipients(
+    new TextEncoder().encode(plaintext),
+    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
+  );
+
+  return serializeBlobEnvelope(envelope);
+}
+
 test("blob access is derived from linked document access", async () => {
   const alice = createTestUser();
   const bob = createTestUser();
@@ -29,12 +61,15 @@ test("blob access is derived from linked document access", async () => {
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
+  const encryptedBytes = await createEncryptedBlobBytes("blob-1-bytes", [
+    createdDocument.recipientEncapsulationPublicKeys[0],
+  ]);
 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: 1,
-      encryptedBytes: "blob-1-bytes",
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      encryptedBytes,
       sha256: "blob-1-sha256",
       storageKey: "blob-1",
     })
@@ -80,12 +115,16 @@ test("initializeBlobAccess does not rewrite recipient envelopes when access is u
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
+  const encryptedBytes = await createEncryptedBlobBytes(
+    "blob-static-recipients-bytes",
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: 1,
-      encryptedBytes: "blob-static-recipients-bytes",
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      encryptedBytes,
       sha256: "blob-static-recipients-sha256",
       storageKey: "blob-static-recipients",
     })
@@ -100,11 +139,15 @@ test("initializeBlobAccess does not rewrite recipient envelopes when access is u
   const initialEnvelopes = await db
     .select({
       id: objectRecipientEnvelopes.id,
+      kemCipherText: objectRecipientEnvelopes.kemCipherText,
+      wrappedKey: objectRecipientEnvelopes.wrappedKey,
     })
     .from(objectRecipientEnvelopes)
     .where(eq(objectRecipientEnvelopes.objectId, blob.id));
 
   expect(initialEnvelopes.length).toBeGreaterThan(0);
+  expect(initialEnvelopes.every((row) => !!row.kemCipherText)).toBe(true);
+  expect(initialEnvelopes.every((row) => !!row.wrappedKey)).toBe(true);
 
   const recomputedEpoch = await initializeBlobAccess(blob.id);
   expect(recomputedEpoch).toBe(initialEpoch);

@@ -277,6 +277,15 @@ V1 direction:
 - documents have wrapped key bundles for document DEKs
 - blobs have wrapped key bundles for blob DEKs
 
+Current implementation note:
+
+- containers persist real wrapped key material
+- blobs persist real wrapped key material when the committed blob ciphertext is
+  a valid blob envelope for the current effective recipient set
+- documents do not yet have an authoritative per-document wrapped-DEK bundle in
+  `object_recipient_envelopes` because the current Loro sync model encrypts
+  each update with a fresh payload key rather than a stable document DEK
+
 The important distinction is:
 
 - grants and memberships answer who should have access

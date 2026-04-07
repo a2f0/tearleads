@@ -50,6 +50,16 @@ Current shape:
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
 
+Important current limitation:
+
+- each encrypted Loro update currently carries its own recipient envelope with
+  a fresh per-update payload key
+- the system does not yet materialize a stable per-document DEK bundle in
+  `object_recipient_envelopes`
+- blob payloads are further along: committed blob envelopes now carry real
+  wrapped-key material that the API can persist for blob objects when the blob
+  recipient set matches current access
+
 ## Why This Boundary Matters
 
 Issue `#82` is about replacing the current sequence-oriented update fetch with a

@@ -1,10 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import {
-  documentContainerLinks,
-  objectAccessEpochs,
-  objectRecipientEnvelopes,
-} from "../schema";
+import { documentContainerLinks, objectAccessEpochs } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
@@ -449,37 +445,6 @@ export function listRecipientEncapsulationPublicKeys(
   );
 }
 
-async function replaceRecipientEnvelopes(
-  documentId: string,
-  epoch: number,
-  recipients: EffectiveDocumentRecipient[],
-  executor: DocumentAccessExecutor = db,
-) {
-  await executor
-    .delete(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, documentId),
-        eq(objectRecipientEnvelopes.epoch, epoch),
-      ),
-    );
-
-  if (recipients.length === 0) {
-    return;
-  }
-
-  await executor.insert(objectRecipientEnvelopes).values(
-    recipients.map((recipient) => ({
-      objectType: DOCUMENT_OBJECT_TYPE,
-      objectId: documentId,
-      epoch,
-      recipientUserId: recipient.userId,
-      recipientKeyFingerprint: recipient.keyFingerprint,
-    })),
-  );
-}
-
 async function writeEpoch(
   documentId: string,
   epoch: number,
@@ -521,13 +486,6 @@ export async function initializeDocumentAccess(
     );
 
     await writeEpoch(documentId, initialEpoch, accessFingerprint, tx);
-
-    await replaceRecipientEnvelopes(
-      documentId,
-      initialEpoch,
-      effectiveRecipients,
-      tx,
-    );
 
     return initialEpoch;
   };

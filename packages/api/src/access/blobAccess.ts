@@ -7,6 +7,10 @@ import {
   objectRecipientEnvelopes,
 } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
+import {
+  extractBlobRecipientEnvelopeEntries,
+  type PersistedRecipientEnvelopeEntry,
+} from "../utils/recipientEnvelopes";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import {
   resolveDocumentAccessState,
@@ -270,6 +274,7 @@ async function replaceRecipientEnvelopes(
   blobId: string,
   epoch: number,
   recipients: EffectiveBlobRecipient[],
+  envelopeEntries: PersistedRecipientEnvelopeEntry[],
   executor: BlobAccessExecutor = db,
 ) {
   await executor
@@ -282,18 +287,66 @@ async function replaceRecipientEnvelopes(
       ),
     );
 
-  if (recipients.length === 0) {
+  if (envelopeEntries.length === 0) {
     return;
   }
 
+  const recipientByKeyFingerprint = new Map(
+    recipients.map((recipient) => [recipient.keyFingerprint, recipient]),
+  );
+
   await executor.insert(objectRecipientEnvelopes).values(
-    recipients.map((recipient) => ({
+    envelopeEntries.map((envelopeEntry) => ({
       objectType: BLOB_OBJECT_TYPE,
       objectId: blobId,
       epoch,
-      recipientUserId: recipient.userId,
-      recipientKeyFingerprint: recipient.keyFingerprint,
+      recipientUserId:
+        recipientByKeyFingerprint.get(envelopeEntry.keyFingerprint)?.userId ??
+        "",
+      recipientKeyFingerprint: envelopeEntry.keyFingerprint,
+      kemCipherText: envelopeEntry.kemCipherText,
+      wrappedKey: envelopeEntry.wrappedKey,
     })),
+  );
+}
+
+async function getBlobRecipientEnvelopeEntries(
+  blobId: string,
+  executor: BlobAccessExecutor = db,
+): Promise<PersistedRecipientEnvelopeEntry[] | null> {
+  const [blob] = await executor
+    .select({ encryptedBytes: blobs.encryptedBytes })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+
+  if (!blob) {
+    return null;
+  }
+
+  try {
+    return extractBlobRecipientEnvelopeEntries(blob.encryptedBytes);
+  } catch {
+    return null;
+  }
+}
+
+function envelopeEntriesMatchRecipients(
+  envelopeEntries: ReadonlyArray<PersistedRecipientEnvelopeEntry>,
+  recipients: ReadonlyArray<EffectiveBlobRecipient>,
+): boolean {
+  const envelopeFingerprints = uniqueSortedStrings(
+    envelopeEntries.map((entry) => entry.keyFingerprint),
+  );
+  const recipientFingerprints = uniqueSortedStrings(
+    recipients.map((recipient) => recipient.keyFingerprint),
+  );
+
+  return (
+    envelopeFingerprints.length === recipientFingerprints.length &&
+    envelopeFingerprints.every(
+      (fingerprint, index) => fingerprint === recipientFingerprints[index],
+    )
   );
 }
 
@@ -336,6 +389,15 @@ async function materializeBlobAccessState(
       : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint
         ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
         : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
+  const envelopeEntries = await getBlobRecipientEnvelopeEntries(
+    blobId,
+    executor,
+  );
+  const persistedEnvelopeEntries =
+    envelopeEntries &&
+    envelopeEntriesMatchRecipients(envelopeEntries, effectiveRecipients)
+      ? envelopeEntries
+      : [];
 
   if (
     resolvedCurrentEpochRow === null ||
@@ -347,6 +409,7 @@ async function materializeBlobAccessState(
       blobId,
       nextEpoch,
       effectiveRecipients,
+      persistedEnvelopeEntries,
       executor,
     );
   }
