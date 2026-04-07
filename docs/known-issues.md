@@ -75,8 +75,9 @@ Remaining implementation work:
 
 - finish the principal-recipient pivot beyond the current user-principal-only
   runtime behavior
-- wire the new `principal_states` / `principal_epoch_keys` foundation into real
-  principal recipient expansion and member key distribution
+- wire the new `principal_states` / `principal_epoch_keys` /
+  `principal_member_envelopes` foundation into real principal recipient
+  expansion and member key distribution
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
 - continue wiring structural mutation routes and client flows

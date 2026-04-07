@@ -83,6 +83,19 @@ await client.exec(`
     key_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS principal_member_envelopes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    state_hash TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    member_principal_type TEXT NOT NULL,
+    member_principal_id TEXT NOT NULL,
+    member_key_fingerprint TEXT NOT NULL,
+    kem_cipher_text TEXT NOT NULL,
+    wrapped_key TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS object_access_grants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     object_type TEXT NOT NULL,
@@ -163,6 +176,16 @@ await client.exec(`
     ON principal_epoch_keys (principal_type, principal_id);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_epoch_keys_principal_epoch_idx
     ON principal_epoch_keys (principal_type, principal_id, epoch);
+  CREATE INDEX IF NOT EXISTS principal_member_envelopes_principal_idx
+    ON principal_member_envelopes (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_member_envelopes_state_member_idx
+    ON principal_member_envelopes (
+      principal_type,
+      principal_id,
+      state_hash,
+      member_principal_type,
+      member_principal_id
+    );
   CREATE INDEX IF NOT EXISTS object_access_grants_object_idx
     ON object_access_grants (object_type, object_id);
   CREATE INDEX IF NOT EXISTS object_access_epochs_object_idx

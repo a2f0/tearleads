@@ -1,4 +1,7 @@
-import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
+import type {
+  ManagedRecipientPrincipalType,
+  PrincipalStateMemberType,
+} from "@tearleads/crypto";
 import { documents, documentUpdates } from "@tearleads/loro/server";
 import {
   index,
@@ -122,6 +125,40 @@ export const principalEpochKeys = pgTable(
       table.principalType,
       table.principalId,
       table.epoch,
+    ),
+  ],
+);
+
+export const principalMemberEnvelopes = pgTable(
+  "principal_member_envelopes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    stateHash: text("state_hash").notNull(),
+    epoch: integer("epoch").notNull(),
+    memberPrincipalType: text("member_principal_type")
+      .$type<PrincipalStateMemberType>()
+      .notNull(),
+    memberPrincipalId: text("member_principal_id").notNull(),
+    memberKeyFingerprint: text("member_key_fingerprint").notNull(),
+    kemCipherText: text("kem_cipher_text").notNull(),
+    wrappedKey: text("wrapped_key").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_member_envelopes_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("principal_member_envelopes_state_member_idx").on(
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+      table.memberPrincipalType,
+      table.memberPrincipalId,
     ),
   ],
 );
