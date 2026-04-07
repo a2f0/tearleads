@@ -7,11 +7,13 @@ import {
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { createMemoryBlobStore } from "../../data/blob-store";
 import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
 } from "../../data/containerPersistence";
+import { primeNotesStore } from "../notes/NotesProvider";
 import { createExplorerStore } from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
@@ -35,20 +37,26 @@ async function createSqlRuntime(): Promise<TestRuntime> {
 
   return {
     apiClient: {
+      commitDocumentChange: async () => null,
       createContainer: async (
         _id: string,
         _parentId: string,
         _initialMetadataUpdates,
       ) => null,
+      createDocument: async () => null,
+      getBlob: async () => null,
       listContainers: async () => [],
+      listDocumentAttachments: async () => null,
       shareContainer: async (
         _containerId: string,
         _subjectType: "user" | "group" | "organization",
         _subjectId: string,
         _accessLevel: "read" | "write" | "admin",
       ) => null,
+      stageBlob: async () => null,
       syncDocument: async () => null,
     },
+    blobStore: createMemoryBlobStore(),
     close: () => db.close(),
     dbStatus,
     domainScope: {},
@@ -173,6 +181,7 @@ test("explorer store creates authenticated child containers through the API befo
   runtime.isAuthenticated = true;
   runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
   runtime.apiClient = {
+    ...runtime.apiClient,
     createContainer: async (
       id: string,
       parentId: string,
@@ -261,6 +270,7 @@ test("explorer store creates a child under a writable shared root using the inhe
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
+    ...runtime.apiClient,
     createContainer: async (
       id: string,
       parentId: string,
@@ -354,6 +364,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
   runtime.online = true;
   runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
   runtime.apiClient = {
+    ...runtime.apiClient,
     createContainer: async () => null,
     listContainers: async () => [],
     shareContainer: async (
@@ -468,6 +479,244 @@ test("explorer store shares an authenticated container and enqueues a full metad
   }
 });
 
+test("explorer share primes note attachment re-commits for locally known notes in the shared subtree", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const shareContainerCalls: Array<{
+    accessLevel: "read" | "write" | "admin";
+    containerId: string;
+    subjectId: string;
+    subjectType: "user" | "group" | "organization";
+  }> = [];
+  const commitChangeCalls: Array<{
+    accessEpoch: number;
+    attachmentCommitCount: number;
+    documentId: string;
+    expectedBindingIds: Array<string | null>;
+  }> = [];
+  let commitCallCount = 0;
+  let currentBindingId: string | null = null;
+  let currentBlobId: string | null = null;
+  let currentSlotId: string | null = null;
+  let noteSyncCallCount = 0;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = {
+    ...runtime.apiClient,
+    commitDocumentChange: async (documentId, input) => {
+      commitCallCount += 1;
+      commitChangeCalls.push({
+        accessEpoch: input.accessEpoch,
+        attachmentCommitCount: input.attachmentCommits.length,
+        documentId,
+        expectedBindingIds: input.attachmentCommits.map(
+          (commit) => commit.expectedBindingId,
+        ),
+      });
+
+      const committedBindings = input.attachmentCommits.map((commit, index) => {
+        const bindingId = `binding-${commitCallCount}-${index + 1}`;
+        const blobId = `blob-${commitCallCount}-${index + 1}`;
+        currentBindingId = bindingId;
+        currentBlobId = blobId;
+
+        return {
+          bindingId,
+          blobId,
+          slotId: commit.slotId,
+        };
+      });
+
+      return {
+        acceptedOutgoingUpdateIds: input.loroUpdate
+          ? [input.loroUpdate.id]
+          : [],
+        committedBindings,
+        currentAccessEpoch: input.accessEpoch,
+        detachedBindingIds: [],
+      };
+    },
+    createContainer: async () => null,
+    createDocument: async () => ({
+      createdAt: "2026-03-31T00:00:00.000Z",
+      currentAccessEpoch: 1,
+      id: "notes-document-1",
+      recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
+    }),
+    getBlob: async () => null,
+    listContainers: async () => [],
+    listDocumentAttachments: async () => {
+      if (!currentBindingId || !currentBlobId || !currentSlotId) {
+        return [];
+      }
+
+      return [
+        {
+          bindingId: currentBindingId,
+          blobId: currentBlobId,
+          slotId: currentSlotId,
+        },
+      ];
+    },
+    shareContainer: async (
+      containerId: string,
+      subjectType: "user" | "group" | "organization",
+      subjectId: string,
+      accessLevel: "read" | "write" | "admin",
+    ) => {
+      shareContainerCalls.push({
+        accessLevel,
+        containerId,
+        subjectId,
+        subjectType,
+      });
+      return {
+        id: containerId,
+        metadataAccessEpoch: 2,
+        metadataDocumentId: "root-metadata-document",
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+      };
+    },
+    stageBlob: async () => ({
+      expiresAt: "2026-04-07T00:00:00.000Z",
+      stageId: crypto.randomUUID(),
+    }),
+    syncDocument: async (
+      documentId,
+      accessEpoch,
+      _localVersionVector,
+      updates,
+    ) => {
+      if (documentId === "notes-document-1") {
+        noteSyncCallCount += 1;
+
+        if (noteSyncCallCount === 2) {
+          return {
+            acceptedOutgoingUpdateIds: updates.map((update) => update.id),
+            currentAccessEpoch: 2,
+            documentId,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(localKeyPair.publicKey),
+            ],
+            updates: [],
+          };
+        }
+      }
+
+      return {
+        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
+        currentAccessEpoch: accessEpoch,
+        documentId,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+        updates: [],
+      };
+    },
+  };
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+
+    const noteStore = primeNotesStore(runtime.domainScope, "default", {
+      ...runtime,
+      containerId: "root-container",
+    });
+
+    await waitForCondition(
+      () => noteStore.getSnapshot().ready,
+      "Notes store did not become ready before share fanout.",
+    );
+
+    noteStore.attachFiles([
+      {
+        bytes: new TextEncoder().encode("attachment before share"),
+        mimeType: "image/png",
+        name: "before-share.png",
+      },
+    ]);
+
+    await waitForCondition(
+      () => commitChangeCalls.length === 1 && noteSyncCallCount >= 1,
+      "Initial note attachment sync did not fully complete.",
+    );
+
+    currentSlotId = noteStore.getSnapshot().attachments[0]?.slotId ?? null;
+    expect(currentSlotId).toBeString();
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready before share fanout.",
+    );
+
+    const shared = await createdStore.shareWithUser(
+      "root-container",
+      "550e8400-e29b-41d4-a716-446655440000",
+    );
+
+    expect(shared).toBe(true);
+
+    await waitForCondition(
+      () => noteSyncCallCount >= 2,
+      "Explorer share did not trigger a note resync.",
+    );
+
+    await waitForCondition(
+      () =>
+        commitChangeCalls.length === 2 &&
+        commitChangeCalls[1]?.accessEpoch === 2 &&
+        commitChangeCalls[1]?.attachmentCommitCount === 1,
+      "Explorer share did not trigger note attachment re-commit.",
+    );
+
+    expect(shareContainerCalls).toEqual([
+      {
+        accessLevel: "write",
+        containerId: "root-container",
+        subjectId: "550e8400-e29b-41d4-a716-446655440000",
+        subjectType: "user",
+      },
+    ]);
+    expect(commitChangeCalls).toEqual([
+      {
+        accessEpoch: 1,
+        attachmentCommitCount: 1,
+        documentId: "notes-document-1",
+        expectedBindingIds: [null],
+      },
+      {
+        accessEpoch: 2,
+        attachmentCommitCount: 1,
+        documentId: "notes-document-1",
+        expectedBindingIds: ["binding-1-1"],
+      },
+    ]);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
 test("explorer store refreshes remote containers on demand after initialization", async () => {
   const runtime = await createSqlRuntime();
   let listContainersCalls = 0;
@@ -476,6 +725,7 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime.online = true;
   runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
   runtime.apiClient = {
+    ...runtime.apiClient,
     createContainer: async () => null,
     listContainers: async () => {
       listContainersCalls += 1;

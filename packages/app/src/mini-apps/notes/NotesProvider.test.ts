@@ -263,7 +263,7 @@ function createSyncRuntime(
         ],
       }),
       getBlob: async () => null,
-      listDocumentAttachments: async () => null,
+      listDocumentAttachments: async () => [],
       stageBlob: async () => ({
         expiresAt: "2026-04-07T00:00:00.000Z",
         stageId: crypto.randomUUID(),
@@ -753,6 +753,7 @@ test("notes store skips hydrating attachment blobs whose digest does not match",
       }),
       listDocumentAttachments: async () => [
         {
+          bindingId: "binding-1",
           blobId: "blob-1",
           slotId: persistedSlotId ?? "",
         },
@@ -988,6 +989,176 @@ test("notes store enqueues a full baseline when document access expands", async 
       accessEpoch: 2,
       documentId: "notes-document-1",
       outgoingUpdateCount: 1,
+    },
+  ]);
+});
+
+test("notes store re-commits committed attachments when document access expands", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const stageBlobCalls: Array<{
+    byteLength: number;
+    encryptedBytes: string;
+    sha256: string;
+  }> = [];
+  const commitChangeCalls: Array<{
+    accessEpoch: number;
+    attachmentCommitCount: number;
+    documentId: string;
+    expectedBindingIds: Array<string | null>;
+    referencedSlotIds: string[];
+  }> = [];
+  let currentBindingId: string | null = null;
+  let currentBlobId: string | null = null;
+  let currentSlotId: string | null = null;
+  let syncCallCount = 0;
+  let commitCallCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      commitDocumentChange: async (documentId, input) => {
+        commitCallCount += 1;
+        commitChangeCalls.push({
+          accessEpoch: input.accessEpoch,
+          attachmentCommitCount: input.attachmentCommits.length,
+          documentId,
+          expectedBindingIds: input.attachmentCommits.map(
+            (commit) => commit.expectedBindingId,
+          ),
+          referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+        });
+
+        const committedBindings = input.attachmentCommits.map(
+          (commit, index) => {
+            const bindingId = `binding-${commitCallCount}-${index + 1}`;
+            const blobId = `blob-${commitCallCount}-${index + 1}`;
+            currentBindingId = bindingId;
+            currentBlobId = blobId;
+
+            return {
+              bindingId,
+              blobId,
+              slotId: commit.slotId,
+            };
+          },
+        );
+
+        return {
+          acceptedOutgoingUpdateIds: input.loroUpdate
+            ? [input.loroUpdate.id]
+            : [],
+          committedBindings,
+          currentAccessEpoch: input.accessEpoch,
+          detachedBindingIds: [],
+        };
+      },
+      listDocumentAttachments: async () => {
+        if (!currentBindingId || !currentBlobId || !currentSlotId) {
+          return [];
+        }
+
+        return [
+          {
+            bindingId: currentBindingId,
+            blobId: currentBlobId,
+            slotId: currentSlotId,
+          },
+        ];
+      },
+      stageBlob: async (input) => {
+        stageBlobCalls.push(input);
+        return runtime.apiClient.stageBlob(input);
+      },
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+      ) => {
+        syncCallCount += 1;
+
+        if (syncCallCount === 2) {
+          return {
+            acceptedOutgoingUpdateIds: outgoingUpdates.map(
+              (update) => update.id,
+            ),
+            currentAccessEpoch: 2,
+            documentId,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            updates: [],
+          };
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "attachment-access-expansion",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment re-commit notes store did not become ready.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("attachment before share"),
+      mimeType: "image/png",
+      name: "before-share.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 1 &&
+      persistence.getState().pendingAttachments.length === 0,
+    "Initial attachment commit did not complete.",
+  );
+
+  currentSlotId = store.getSnapshot().attachments[0]?.slotId ?? null;
+  expect(currentSlotId).toBeString();
+
+  store.setText("hello again");
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 2 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().note?.accessEpoch === 2,
+    "Access expansion did not trigger attachment re-commit.",
+  );
+
+  expect(stageBlobCalls).toHaveLength(2);
+  expect(commitChangeCalls).toEqual([
+    {
+      accessEpoch: 1,
+      attachmentCommitCount: 1,
+      documentId: "notes-document-1",
+      expectedBindingIds: [null],
+      referencedSlotIds: [currentSlotId ?? ""],
+    },
+    {
+      accessEpoch: 2,
+      attachmentCommitCount: 1,
+      documentId: "notes-document-1",
+      expectedBindingIds: ["binding-1-1"],
+      referencedSlotIds: [currentSlotId ?? ""],
     },
   ]);
 });

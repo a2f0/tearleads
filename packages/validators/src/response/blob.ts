@@ -7,6 +7,7 @@ export interface StageBlobResponse {
 }
 
 export interface BlobAttachmentSummary {
+  bindingId: string;
   blobId: string;
   slotId: string;
 }
@@ -34,6 +35,7 @@ function isBlobAttachmentSummary(
 ): value is BlobAttachmentSummary {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "bindingId") &&
     hasStringProperty(value, "blobId") &&
     hasStringProperty(value, "slotId")
   );

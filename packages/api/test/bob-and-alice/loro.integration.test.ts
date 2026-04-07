@@ -1,5 +1,10 @@
 import { afterAll, expect, test } from "bun:test";
-import { base64ToBytes } from "@tearleads/encoding";
+import {
+  decryptAsRecipient,
+  type EncryptedEnvelope,
+  encryptForRecipients,
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   decryptLoroUpdate,
@@ -14,8 +19,14 @@ import { createLargeText } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { db } from "../../src/adapters/postgres";
 import { del } from "../../src/adapters/redis";
+import { app } from "../../src/index";
 import { documentUpdates } from "../../src/schema";
-import { createDocument, syncDocument } from "../helpers/api";
+import {
+  commitDocumentChange,
+  createDocument,
+  stageBlob,
+  syncDocument,
+} from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
 import { createTestUser } from "../helpers/createTestUser";
 import { grantRootContainerWriteAccessToUser } from "../helpers/grantContainerAccess";
@@ -23,6 +34,80 @@ import { registerUser } from "../helpers/registerUser";
 
 const alice = createTestUser();
 const bob = createTestUser();
+
+const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
+
+function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
+  return JSON.stringify({
+    format: ENCRYPTED_BLOB_FORMAT,
+    iv: bytesToBase64(envelope.iv),
+    ciphertext: bytesToBase64(envelope.ciphertext),
+    recipients: envelope.recipients.map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+    })),
+  });
+}
+
+function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
+  const parsed = JSON.parse(encryptedBytes);
+
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    parsed.format !== ENCRYPTED_BLOB_FORMAT ||
+    typeof parsed.iv !== "string" ||
+    typeof parsed.ciphertext !== "string" ||
+    !Array.isArray(parsed.recipients)
+  ) {
+    throw new Error("Invalid encrypted blob envelope");
+  }
+
+  return {
+    ciphertext: base64ToBytes(parsed.ciphertext),
+    iv: base64ToBytes(parsed.iv),
+    recipients: parsed.recipients.map((recipient: unknown) => {
+      if (
+        typeof recipient !== "object" ||
+        recipient === null ||
+        !("keyFingerprint" in recipient) ||
+        typeof recipient.keyFingerprint !== "string" ||
+        !("kemCipherText" in recipient) ||
+        typeof recipient.kemCipherText !== "string" ||
+        !("wrappedKey" in recipient) ||
+        typeof recipient.wrappedKey !== "string"
+      ) {
+        throw new Error("Invalid encrypted blob recipient");
+      }
+
+      return {
+        keyFingerprint: recipient.keyFingerprint,
+        kemCipherText: base64ToBytes(recipient.kemCipherText),
+        wrappedKey: base64ToBytes(recipient.wrappedKey),
+      };
+    }),
+  };
+}
+
+async function createStagedBlobInput(encryptedBytes: string): Promise<{
+  encryptedBytes: string;
+  byteLength: number;
+  sha256: string;
+}> {
+  const encodedBytes = new TextEncoder().encode(encryptedBytes);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", encodedBytes),
+  );
+
+  return {
+    encryptedBytes,
+    byteLength: encodedBytes.byteLength,
+    sha256: Array.from(digest, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join(""),
+  };
+}
 
 afterAll(async () => {
   await del(alice.fingerprint);
@@ -292,4 +377,174 @@ test("Large note-style updates stay as a single synced document update", async (
 
   expect(storedUpdates).toHaveLength(1);
   expect(storedUpdates[0]?.encryptedData.length).toBeGreaterThan(256 * 1024);
+});
+
+test("Bob can read a rebaselined note after share but cannot decrypt a pre-share attachment blob", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const sharedDocumentId = String(createdDocument.id ?? "");
+
+  const aliceDoc = await createLoroDocument(alice.fingerprint);
+  const initialVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("note created before share");
+  const initialUpdate = exportUpdatesSince(aliceDoc, initialVersion);
+  const initialEncryptedUpdate = await encryptLoroUpdate(
+    initialUpdate,
+    createdDocument.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
+  const initialVectors = getUpdateVersionVectors(initialUpdate);
+
+  const initialSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: initialEncryptedUpdate,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(initialSyncResponse.status).toBe(200);
+
+  const blobEnvelope = await encryptForRecipients(
+    new TextEncoder().encode("drivers-license-front-image"),
+    [alice.kem.publicKey],
+  );
+  const serializedBlobEnvelope = serializeBlobEnvelope(blobEnvelope);
+  const stageResponse = await stageBlob(
+    await createStagedBlobInput(serializedBlobEnvelope),
+    alice.token,
+  );
+  expect(stageResponse.status).toBe(200);
+  const stagedBlob = await stageResponse.json();
+
+  const attachResponse = await commitDocumentChange(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_front",
+          stageId: stagedBlob.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(attachResponse.status).toBe(200);
+  const attached = await attachResponse.json();
+  const blobId = String(attached.committedBindings[0]?.blobId ?? "");
+  expect(blobId.length).toBeGreaterThan(0);
+
+  const grantedAccessEpoch = await grantRootContainerWriteAccessToUser(
+    alice.userId,
+    bob.userId,
+  );
+  expect(grantedAccessEpoch).toBe(2);
+
+  const staleEpochResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [],
+    },
+    alice.token,
+  );
+  expect(staleEpochResponse.status).toBe(200);
+  const staleEpochSync = await staleEpochResponse.json();
+  expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
+  expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
+
+  const rebasedEncryptedUpdate = await encryptLoroUpdate(
+    initialUpdate,
+    staleEpochSync.recipientEncapsulationPublicKeys.map((publicKey: string) =>
+      base64ToBytes(publicKey),
+    ),
+  );
+  const rebasedVectors = getUpdateVersionVectors(initialUpdate);
+
+  const rebasedSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rebasedEncryptedUpdate,
+          partialStartVersionVector: rebasedVectors.partialStartVersionVector,
+          partialEndVersionVector: rebasedVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(rebasedSyncResponse.status).toBe(200);
+
+  const bobDoc = await createLoroDocument(bob.fingerprint);
+  const bobSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: grantedAccessEpoch,
+      localVersionVector: encodeVersionVector(bobDoc),
+      outgoingUpdates: [],
+    },
+    bob.token,
+  );
+  expect(bobSyncResponse.status).toBe(200);
+  const bobFetched = await bobSyncResponse.json();
+  const decryptedForBob = await Promise.all(
+    bobFetched.updates.map((update: { encryptedData: string }) =>
+      decryptLoroUpdate(update.encryptedData, bob.kem.secretKey),
+    ),
+  );
+  importUpdates(bobDoc, decryptedForBob);
+  expect(getTextValue(bobDoc)).toBe("note created before share");
+
+  const bobAttachmentsResponse = await app.request(
+    `/documents/${sharedDocumentId}/attachments`,
+    {
+      headers: {
+        Authorization: `Bearer ${bob.token}`,
+      },
+      method: "GET",
+    },
+  );
+  expect(bobAttachmentsResponse.status).toBe(200);
+  const bobAttachments = await bobAttachmentsResponse.json();
+  expect(bobAttachments).toHaveLength(1);
+  expect(bobAttachments[0]?.blobId).toBe(blobId);
+  expect(bobAttachments[0]?.slotId).toBe("slot_front");
+  expect(typeof bobAttachments[0]?.bindingId).toBe("string");
+
+  const bobBlobResponse = await app.request(`/blobs/${blobId}`, {
+    headers: {
+      Authorization: `Bearer ${bob.token}`,
+    },
+    method: "GET",
+  });
+  expect(bobBlobResponse.status).toBe(200);
+  const bobBlob = await bobBlobResponse.json();
+
+  await expect(
+    decryptAsRecipient(
+      parseBlobEnvelope(bobBlob.encryptedBytes),
+      bob.kem.secretKey,
+    ),
+  ).rejects.toThrow();
 });

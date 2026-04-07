@@ -642,6 +642,7 @@ documentsRouter.get(
 
     const rows = await db
       .select({
+        bindingId: attachmentBindings.id,
         blobId: attachmentBindings.blobId,
         slotId: attachmentBindings.slotId,
       })
@@ -655,6 +656,7 @@ documentsRouter.get(
 
     return c.json<ListDocumentAttachmentsResponse>(
       rows.map((row) => ({
+        bindingId: row.bindingId,
         blobId: row.blobId,
         slotId: row.slotId,
       })),

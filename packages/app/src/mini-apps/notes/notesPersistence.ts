@@ -264,6 +264,47 @@ export async function upsertDiscoveredNotes(
   });
 }
 
+export async function listNotesByContainerIds(
+  execSql: ExecSql,
+  containerIds: ReadonlyArray<string>,
+): Promise<NoteSummary[]> {
+  const uniqueContainerIds = [...new Set(containerIds)];
+
+  if (uniqueContainerIds.length === 0) {
+    return [];
+  }
+
+  const bind: Record<string, string> = {};
+  const placeholders = uniqueContainerIds.map((containerId, index) => {
+    const key = `:containerId${index}`;
+    bind[key] = containerId;
+    return key;
+  });
+
+  const rows = await execSql(
+    `
+      SELECT
+        note_id,
+        document_id,
+        container_id,
+        text,
+        updated_at
+      FROM note_projection
+      WHERE container_id IN (${placeholders.join(", ")})
+      ORDER BY updated_at DESC
+    `,
+    bind,
+  );
+
+  return rows.map((row) => ({
+    id: String(readSqlRowValue(row, "note_id") ?? ""),
+    containerId: parseProjectionContainerId(row),
+    documentId: parseProjectionDocumentId(row),
+    title: deriveNoteTitle(parseProjectionText(row)),
+    updatedAt: parseProjectionUpdatedAt(row),
+  }));
+}
+
 export const sqlNotesPersistence: NotesPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {

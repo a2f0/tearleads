@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
+import type { BlobStore } from "../../data/blob-store";
 import {
   createContainerMetadataDocument,
   createInitializedContainerMetadataDocument,
@@ -34,6 +35,14 @@ import {
   resolveRecipientPublicKeys,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
+import {
+  primeNotesStore,
+  requestDomainNotesSync,
+} from "../notes/NotesProvider";
+import {
+  listNotesByContainerIds,
+  sqlNotesPersistence,
+} from "../notes/notesPersistence";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
@@ -69,8 +78,17 @@ interface ExplorerSnapshot {
 interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
-    "createContainer" | "listContainers" | "shareContainer" | "syncDocument"
+    | "commitDocumentChange"
+    | "createContainer"
+    | "createDocument"
+    | "getBlob"
+    | "listContainers"
+    | "listDocumentAttachments"
+    | "shareContainer"
+    | "stageBlob"
+    | "syncDocument"
   >;
+  blobStore: BlobStore;
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
   encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
@@ -120,6 +138,31 @@ function toContainerNode(container: ContainerRecord): ContainerNode {
     organizationId: container.organizationId,
     parentId: container.parentId,
   };
+}
+
+function isContainerInSubtree(
+  containersById: ReadonlyMap<string, ContainerState>,
+  containerId: string,
+  rootContainerId: string,
+): boolean {
+  let currentContainerId: string | null = containerId;
+  const visitedContainerIds = new Set<string>();
+
+  while (currentContainerId !== null) {
+    if (currentContainerId === rootContainerId) {
+      return true;
+    }
+
+    if (visitedContainerIds.has(currentContainerId)) {
+      return false;
+    }
+    visitedContainerIds.add(currentContainerId);
+
+    const currentContainerState = containersById.get(currentContainerId);
+    currentContainerId = currentContainerState?.container.parentId ?? null;
+  }
+
+  return false;
 }
 
 function getSnapshotNodes(
@@ -236,6 +279,75 @@ export function createExplorerStore(
       updateSnapshot();
     }
     return nextRecord;
+  }
+
+  async function primeNotesForSharedSubtree(rootContainerId: string) {
+    const sharedContainerIds = new Set(
+      Array.from(containersById.values())
+        .filter((containerState) =>
+          isContainerInSubtree(
+            containersById,
+            containerState.container.id,
+            rootContainerId,
+          ),
+        )
+        .map((containerState) => containerState.container.id),
+    );
+
+    if (sharedContainerIds.size === 0) {
+      return;
+    }
+
+    await sqlNotesPersistence.ensureSchema(runtime.execSql);
+    const noteSummaries = await listNotesByContainerIds(
+      runtime.execSql,
+      Array.from(sharedContainerIds),
+    );
+
+    for (const noteSummary of noteSummaries) {
+      if (
+        !noteSummary.containerId ||
+        !sharedContainerIds.has(noteSummary.containerId)
+      ) {
+        continue;
+      }
+
+      const notesStore = primeNotesStore(runtime.domainScope, noteSummary.id, {
+        apiClient: {
+          commitDocumentChange: (documentId, input) =>
+            runtime.apiClient.commitDocumentChange(documentId, input),
+          createDocument: (linkedContainerIds) =>
+            runtime.apiClient.createDocument(linkedContainerIds),
+          getBlob: (blobId) => runtime.apiClient.getBlob(blobId),
+          listDocumentAttachments: (documentId) =>
+            runtime.apiClient.listDocumentAttachments(documentId),
+          stageBlob: (input) => runtime.apiClient.stageBlob(input),
+          syncDocument: (
+            documentId,
+            accessEpoch,
+            localVersionVector,
+            outgoingUpdates,
+          ) =>
+            runtime.apiClient.syncDocument(
+              documentId,
+              accessEpoch,
+              localVersionVector,
+              outgoingUpdates,
+            ),
+        },
+        blobStore: runtime.blobStore,
+        containerId: noteSummary.containerId,
+        dbStatus: runtime.dbStatus,
+        domainScope: runtime.domainScope,
+        encapsulationKeyPair: runtime.encapsulationKeyPair,
+        events: runtime.events,
+        execSql: runtime.execSql,
+        isAuthenticated: runtime.isAuthenticated,
+        log: runtime.log,
+        online: runtime.online,
+      });
+      notesStore.requestSync();
+    }
   }
 
   async function listPendingUpdates(
@@ -862,6 +974,8 @@ export function createExplorerStore(
             containerId,
             exportAllUpdates(existingState.doc),
           );
+          await primeNotesForSharedSubtree(containerId);
+          requestDomainNotesSync(runtime.domainScope);
           scheduleSync();
           runtime.log(
             `Explorer: shared container ${containerId} with ${userId}`,
