@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  type EncryptedEnvelope,
-  encryptForRecipients,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../test/helpers/api/createDocument";
@@ -19,21 +16,6 @@ import {
   resolveBlobAccessState,
 } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
-
-const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
-
-function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
-  return JSON.stringify({
-    format: ENCRYPTED_BLOB_FORMAT,
-    iv: bytesToBase64(envelope.iv),
-    ciphertext: bytesToBase64(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
-  });
-}
 
 async function createEncryptedBlobBytes(
   plaintext: string,

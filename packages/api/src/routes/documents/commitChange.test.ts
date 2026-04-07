@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
-  type EncryptedEnvelope,
   encryptForRecipients,
   generateKemSeedAndKeyPair,
+  serializeBlobEnvelope,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
@@ -34,7 +34,6 @@ import {
 } from "../../schema";
 
 const alice = createTestUser();
-const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
 
 beforeAll(async () => {
   await registerUser(alice);
@@ -44,19 +43,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await del(alice.fingerprint);
 });
-
-function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
-  return JSON.stringify({
-    format: ENCRYPTED_BLOB_FORMAT,
-    iv: bytesToBase64(envelope.iv),
-    ciphertext: bytesToBase64(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
-  });
-}
 
 async function createStagedBlobInput(encryptedBytes: string) {
   const encodedBytes = new TextEncoder().encode(encryptedBytes);

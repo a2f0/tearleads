@@ -59,6 +59,8 @@ Important current limitation:
 - blob payloads are further along: committed blob envelopes now carry real
   wrapped-key material that the API can persist for blob objects when the blob
   recipient set matches current access
+- blob envelopes now use a header-delimited wire format so recipient metadata
+  can be read without JSON-parsing the ciphertext body
 
 ## Why This Boundary Matters
 

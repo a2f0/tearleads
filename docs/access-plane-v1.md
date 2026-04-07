@@ -282,6 +282,8 @@ Current implementation note:
 - containers persist real wrapped key material
 - blobs persist real wrapped key material when the committed blob ciphertext is
   a valid blob envelope for the current effective recipient set
+- blob envelopes delimit header metadata from ciphertext bytes so blob recipient
+  inspection does not require parsing the full ciphertext payload as JSON
 - documents do not yet have an authoritative per-document wrapped-DEK bundle in
   `object_recipient_envelopes` because the current Loro sync model encrypts
   each update with a fresh payload key rather than a stable document DEK
