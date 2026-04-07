@@ -9,7 +9,7 @@ import {
   listRecipientKeyFingerprints,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
-import type { db } from "../../adapters/postgres";
+import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,
   documentContainerLinks,
@@ -17,12 +17,6 @@ import {
   documentUpdates,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
-
-type DatabaseTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
-  tx: infer T,
-) => Promise<unknown>
-  ? T
-  : never;
 
 function matchesRecipients(
   encryptedData: string,
