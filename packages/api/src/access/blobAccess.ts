@@ -19,8 +19,12 @@ import {
 } from "./documentAccess";
 import {
   type AccessLevel,
-  toUserPrincipalEnvelopeRecipient,
-  toUserPrincipalFingerprintRecipient,
+  type EffectivePrincipalRecipient,
+  isUserPrincipalRecipient,
+  type PrincipalEnvelopeRecipient,
+  principalRecipientKey,
+  toPrincipalEnvelopeRecipient,
+  toPrincipalFingerprintRecipient,
 } from "./recipientPrincipals";
 
 const BLOB_OBJECT_TYPE = "blob";
@@ -31,12 +35,7 @@ type ResolvedDocumentAccessState = Awaited<
   ReturnType<typeof resolveDocumentAccessState>
 >;
 
-interface EffectiveBlobRecipient {
-  userId: string;
-  accessLevel: AccessLevel;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-}
+type EffectiveBlobRecipient = EffectivePrincipalRecipient;
 
 interface BlobAccessState {
   currentAccessEpoch: number;
@@ -229,13 +228,15 @@ async function resolveBlobAccessInputs(
     )
   ).filter((state) => state !== null);
 
-  const recipientsByUserId = new Map<string, EffectiveBlobRecipient>();
+  const recipientsByPrincipalKey = new Map<string, EffectiveBlobRecipient>();
 
   for (const state of linkedDocumentStates) {
     for (const recipient of state.effectiveRecipients) {
-      const existing = recipientsByUserId.get(recipient.userId);
-      recipientsByUserId.set(recipient.userId, {
-        userId: recipient.userId,
+      const principalKey = principalRecipientKey(recipient);
+      const existing = recipientsByPrincipalKey.get(principalKey);
+      recipientsByPrincipalKey.set(principalKey, {
+        principalType: recipient.principalType,
+        principalId: recipient.principalId,
         accessLevel: existing
           ? mergeAccessLevel(existing.accessLevel, recipient.accessLevel)
           : recipient.accessLevel,
@@ -245,8 +246,10 @@ async function resolveBlobAccessInputs(
     }
   }
 
-  const effectiveRecipients = Array.from(recipientsByUserId.values()).sort(
-    (left, right) => left.keyFingerprint.localeCompare(right.keyFingerprint),
+  const effectiveRecipients = Array.from(
+    recipientsByPrincipalKey.values(),
+  ).sort((left, right) =>
+    left.keyFingerprint.localeCompare(right.keyFingerprint),
   );
 
   return {
@@ -267,16 +270,14 @@ async function computeBlobAccessFingerprint(input: {
     blobId: input.blobId,
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
-    recipients: input.effectiveRecipients.map(
-      toUserPrincipalFingerprintRecipient,
-    ),
+    recipients: input.effectiveRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
 
 async function replaceRecipientEnvelopes(
   blobId: string,
   epoch: number,
-  recipients: ReadonlyArray<{ userId: string; keyFingerprint: string }>,
+  recipients: ReadonlyArray<PrincipalEnvelopeRecipient>,
   envelopeEntries: ReadonlyArray<SerializedRecipientEnvelope>,
   executor: BlobAccessExecutor = db,
 ) {
@@ -309,7 +310,7 @@ async function replaceRecipientEnvelopes(
         );
       }
 
-      const principalRecipient = toUserPrincipalEnvelopeRecipient(recipient);
+      const principalRecipient = toPrincipalEnvelopeRecipient(recipient);
 
       return {
         objectType: BLOB_OBJECT_TYPE,
@@ -419,7 +420,7 @@ export async function listBlobRecipientEnvelopes(
 export async function replaceBlobRecipientEnvelopes(
   blobId: string,
   epoch: number,
-  recipients: ReadonlyArray<{ userId: string; keyFingerprint: string }>,
+  recipients: ReadonlyArray<PrincipalEnvelopeRecipient>,
   envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
   executor: BlobAccessExecutor = db,
 ): Promise<void> {
@@ -567,8 +568,8 @@ export function canReadBlobAccess(
   state: BlobAccessState,
   userId: string,
 ): boolean {
-  return state.effectiveRecipients.some(
-    (recipient) => recipient.userId === userId,
+  return state.effectiveRecipients.some((recipient) =>
+    isUserPrincipalRecipient(recipient, userId),
   );
 }
 

@@ -17,6 +17,17 @@ import {
   resolveContainerAccessState,
 } from "./containerAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
+import type { RecipientPrincipalType } from "./recipientPrincipals";
+
+function userPrincipal(userId: string): {
+  principalId: string;
+  principalType: RecipientPrincipalType;
+} {
+  return {
+    principalId: userId,
+    principalType: "user",
+  };
+}
 
 test("document access includes recipients inherited from its linked root container", async () => {
   const alice = createTestUser();
@@ -76,8 +87,11 @@ test("document access includes recipients inherited from its linked root contain
   invariant(beforeShare, "expected document access state");
   expect(beforeShare.currentAccessEpoch).toBe(1);
   expect(
-    beforeShare.effectiveRecipients.map((recipient) => recipient.userId),
-  ).toEqual([alice.userId]);
+    beforeShare.effectiveRecipients.map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    })),
+  ).toEqual([userPrincipal(alice.userId)]);
 
   const containerEpoch = await grantContainerAccess({
     containerId: rootContainer.id,
@@ -93,10 +107,15 @@ test("document access includes recipients inherited from its linked root contain
   const afterShare = await resolveDocumentAccessState(documentId);
   invariant(afterShare, "expected document access state after share");
   expect(afterShare.currentAccessEpoch).toBe(containerState.currentAccessEpoch);
-  const recipientUserIds = afterShare.effectiveRecipients
-    .map((recipient) => recipient.userId)
-    .sort((left, right) => left.localeCompare(right));
-  expect(recipientUserIds).toEqual(
-    [alice.userId, bob.userId].sort((left, right) => left.localeCompare(right)),
+  const recipientPrincipals = afterShare.effectiveRecipients
+    .map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    }))
+    .sort((left, right) => left.principalId.localeCompare(right.principalId));
+  expect(recipientPrincipals).toEqual(
+    [userPrincipal(alice.userId), userPrincipal(bob.userId)].sort(
+      (left, right) => left.principalId.localeCompare(right.principalId),
+    ),
   );
 });

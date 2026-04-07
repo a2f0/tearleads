@@ -11,33 +11,90 @@ interface UserRecipientFingerprintInput extends UserRecipientKeyIdentity {
   accessLevel: AccessLevel;
 }
 
-interface PrincipalEnvelopeRecipient {
+export interface PrincipalEnvelopeRecipient {
   principalType: RecipientPrincipalType;
   principalId: string;
   keyFingerprint: string;
 }
 
-interface PrincipalFingerprintRecipient extends PrincipalEnvelopeRecipient {
+export interface PrincipalFingerprintRecipient
+  extends PrincipalEnvelopeRecipient {
   accessLevel: AccessLevel;
+}
+
+export interface EffectivePrincipalRecipient
+  extends PrincipalFingerprintRecipient {
+  encapsulationPublicKey: string;
+}
+
+export function principalRecipientKey(
+  recipient: Pick<PrincipalEnvelopeRecipient, "principalType" | "principalId">,
+): string {
+  return `${recipient.principalType}:${recipient.principalId}`;
+}
+
+export function isUserPrincipalRecipient(
+  recipient: Pick<PrincipalEnvelopeRecipient, "principalType" | "principalId">,
+  userId: string,
+): boolean {
+  return recipient.principalType === "user" && recipient.principalId === userId;
+}
+
+export function toPrincipalEnvelopeRecipient(
+  recipient: Pick<
+    PrincipalEnvelopeRecipient,
+    "principalType" | "principalId" | "keyFingerprint"
+  >,
+): PrincipalEnvelopeRecipient {
+  return {
+    principalType: recipient.principalType,
+    principalId: recipient.principalId,
+    keyFingerprint: recipient.keyFingerprint,
+  };
+}
+
+export function toPrincipalFingerprintRecipient(
+  recipient: Pick<
+    PrincipalFingerprintRecipient,
+    "principalType" | "principalId" | "accessLevel" | "keyFingerprint"
+  >,
+): PrincipalFingerprintRecipient {
+  return {
+    principalType: recipient.principalType,
+    principalId: recipient.principalId,
+    accessLevel: recipient.accessLevel,
+    keyFingerprint: recipient.keyFingerprint,
+  };
+}
+
+export function toEffectiveUserPrincipalRecipient(
+  recipient: UserRecipientFingerprintInput & {
+    encapsulationPublicKey: string;
+  },
+): EffectivePrincipalRecipient {
+  return {
+    ...toUserPrincipalFingerprintRecipient(recipient),
+    encapsulationPublicKey: recipient.encapsulationPublicKey,
+  };
 }
 
 export function toUserPrincipalEnvelopeRecipient(
   recipient: UserRecipientKeyIdentity,
 ): PrincipalEnvelopeRecipient {
-  return {
+  return toPrincipalEnvelopeRecipient({
     principalType: "user",
     principalId: recipient.userId,
     keyFingerprint: recipient.keyFingerprint,
-  };
+  });
 }
 
 export function toUserPrincipalFingerprintRecipient(
   recipient: UserRecipientFingerprintInput,
 ): PrincipalFingerprintRecipient {
-  return {
+  return toPrincipalFingerprintRecipient({
     principalType: "user",
     principalId: recipient.userId,
     accessLevel: recipient.accessLevel,
     keyFingerprint: recipient.keyFingerprint,
-  };
+  });
 }

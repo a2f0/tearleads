@@ -487,7 +487,8 @@ interface SignedAccessManifest {
     stateHash: string;
   }>;
   effectiveRecipients: Array<{
-    userId: string;
+    principalType: "user" | "group" | "organization";
+    principalId: string;
     recipientKeyFingerprint: string;
   }>;
   issuedAt: string;

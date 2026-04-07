@@ -18,8 +18,19 @@ import {
   canWriteContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
+import type { RecipientPrincipalType } from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
+
+function userPrincipal(userId: string): {
+  principalId: string;
+  principalType: RecipientPrincipalType;
+} {
+  return {
+    principalId: userId,
+    principalType: "user",
+  };
+}
 
 test("container access inherits ancestor grants and merges child grants", async () => {
   const alice = createTestUser();
@@ -96,11 +107,16 @@ test("container access inherits ancestor grants and merges child grants", async 
     childContainer.id,
     grandchildContainer.id,
   ]);
-  const userIds = state.effectiveRecipients
-    .map((recipient) => recipient.userId)
-    .sort((left, right) => left.localeCompare(right));
-  expect(userIds).toEqual(
-    [alice.userId, bob.userId].sort((left, right) => left.localeCompare(right)),
+  const recipientPrincipals = state.effectiveRecipients
+    .map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    }))
+    .sort((left, right) => left.principalId.localeCompare(right.principalId));
+  expect(recipientPrincipals).toEqual(
+    [userPrincipal(alice.userId), userPrincipal(bob.userId)].sort(
+      (left, right) => left.principalId.localeCompare(right.principalId),
+    ),
   );
   expect(canReadContainerAccess(state, alice.userId)).toBe(true);
   expect(canReadContainerAccess(state, bob.userId)).toBe(true);
@@ -223,13 +239,18 @@ test("container access expands organization and group grants and merges access l
   const state = await resolveContainerAccessState(grandchildContainer.id);
   invariant(state, "expected container access state");
 
-  const userIds = state.effectiveRecipients
-    .map((recipient) => recipient.userId)
-    .sort((left, right) => left.localeCompare(right));
-  expect(userIds).toEqual(
-    [alice.userId, bob.userId, charlie.userId].sort((left, right) =>
-      left.localeCompare(right),
-    ),
+  const recipientPrincipals = state.effectiveRecipients
+    .map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+    }))
+    .sort((left, right) => left.principalId.localeCompare(right.principalId));
+  expect(recipientPrincipals).toEqual(
+    [
+      userPrincipal(alice.userId),
+      userPrincipal(bob.userId),
+      userPrincipal(charlie.userId),
+    ].sort((left, right) => left.principalId.localeCompare(right.principalId)),
   );
 
   expect(canReadContainerAccess(state, alice.userId)).toBe(true);
@@ -240,10 +261,10 @@ test("container access expands organization and group grants and merges access l
   expect(canWriteContainerAccess(state, charlie.userId)).toBe(true);
 
   const bobRecipient = state.effectiveRecipients.find(
-    (recipient) => recipient.userId === bob.userId,
+    (recipient) => recipient.principalId === bob.userId,
   );
   const charlieRecipient = state.effectiveRecipients.find(
-    (recipient) => recipient.userId === charlie.userId,
+    (recipient) => recipient.principalId === charlie.userId,
   );
 
   expect(bobRecipient?.accessLevel).toBe("write");
@@ -257,7 +278,7 @@ test("container access expands organization and group grants and merges access l
   expect(canWriteContainerAccess(state, outsider.userId)).toBe(false);
   expect(
     state.effectiveRecipients.find(
-      (recipient) => recipient.userId === outsider.userId,
+      (recipient) => recipient.principalId === outsider.userId,
     ),
   ).toBeUndefined();
 });
@@ -314,7 +335,7 @@ test("container access uses stored recipient key fingerprints", async () => {
   invariant(state, "expected container access state");
 
   const bobRecipient = state.effectiveRecipients.find(
-    (recipient) => recipient.userId === bob.userId,
+    (recipient) => recipient.principalId === bob.userId,
   );
 
   expect(bobRecipient?.keyFingerprint).toBe(persistedFingerprint);
