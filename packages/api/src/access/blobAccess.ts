@@ -18,13 +18,13 @@ import {
   resolveDocumentAccessStates,
 } from "./documentAccess";
 import {
+  type AccessLevel,
   toUserPrincipalEnvelopeRecipient,
   toUserPrincipalFingerprintRecipient,
 } from "./recipientPrincipals";
 
 const BLOB_OBJECT_TYPE = "blob";
 
-type AccessLevel = "read" | "write" | "admin";
 type BlobAccessExecutor = DatabaseExecutor;
 type CurrentEpochRow = { epoch: number; accessFingerprint: string };
 type ResolvedDocumentAccessState = Awaited<
@@ -267,9 +267,9 @@ async function computeBlobAccessFingerprint(input: {
     blobId: input.blobId,
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
-    recipients: input.effectiveRecipients.map((recipient) => ({
-      ...toUserPrincipalFingerprintRecipient(recipient),
-    })),
+    recipients: input.effectiveRecipients.map(
+      toUserPrincipalFingerprintRecipient,
+    ),
   });
 }
 

@@ -1,6 +1,6 @@
-type RecipientPrincipalType = "user" | "group" | "organization";
+export type RecipientPrincipalType = "user" | "group" | "organization";
 
-type AccessLevel = "read" | "write" | "admin";
+export type AccessLevel = "read" | "write" | "admin";
 
 interface UserRecipientKeyIdentity {
   userId: string;

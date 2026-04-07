@@ -7,6 +7,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { RecipientPrincipalType } from "./access/recipientPrincipals";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -81,7 +82,9 @@ export const objectRecipientEnvelopes = pgTable("object_recipient_envelopes", {
   objectType: text("object_type").notNull(),
   objectId: text("object_id").notNull(),
   epoch: integer("epoch").notNull(),
-  recipientPrincipalType: text("recipient_principal_type").notNull(),
+  recipientPrincipalType: text("recipient_principal_type")
+    .$type<RecipientPrincipalType>()
+    .notNull(),
   recipientPrincipalId: text("recipient_principal_id").notNull(),
   recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
   kemCipherText: text("kem_cipher_text"),
