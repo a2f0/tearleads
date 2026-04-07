@@ -6,7 +6,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { principalMemberEnvelopes, users } from "../schema";
 import {
-  getCurrentPrincipalEpochKey,
+  getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
 } from "./principalStateStore";
 
@@ -101,6 +101,14 @@ async function loadCurrentPrincipalMemberRecipientsForState(
     userMemberIds,
     executor,
   );
+  const groupMemberIds = currentState.members
+    .filter((member) => member.principalType === "group")
+    .map((member) => member.principalId);
+  const groupRecipientsById = await getCurrentPrincipalEpochKeys(
+    "group",
+    groupMemberIds,
+    executor,
+  );
 
   const recipients: PrincipalMemberRecipient[] = [];
 
@@ -118,11 +126,7 @@ async function loadCurrentPrincipalMemberRecipientsForState(
       continue;
     }
 
-    const nestedPrincipalEpochKey = await getCurrentPrincipalEpochKey(
-      "group",
-      member.principalId,
-      executor,
-    );
+    const nestedPrincipalEpochKey = groupRecipientsById.get(member.principalId);
 
     if (!nestedPrincipalEpochKey) {
       throw new Error(
@@ -171,11 +175,13 @@ async function listPrincipalMemberEnvelopesForState(
         eq(principalMemberEnvelopes.principalId, principalId),
         eq(principalMemberEnvelopes.stateHash, stateHash),
       ),
+    )
+    .orderBy(
+      principalMemberEnvelopes.memberPrincipalType,
+      principalMemberEnvelopes.memberPrincipalId,
     );
 
-  return rows.sort((left, right) =>
-    memberRecipientKey(left).localeCompare(memberRecipientKey(right)),
-  );
+  return rows;
 }
 
 export async function listCurrentPrincipalMemberRecipients(

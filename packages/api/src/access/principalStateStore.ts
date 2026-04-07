@@ -7,9 +7,10 @@ import {
   type SignedPrincipalState,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { principalEpochKeys, principalStates } from "../schema";
+import { uniqueSortedStrings } from "../utils/array";
 
 type PrincipalStateExecutor = DatabaseExecutor;
 
@@ -326,4 +327,53 @@ export async function getCurrentPrincipalEpochKey(
     .limit(1);
 
   return row ?? null;
+}
+
+export async function getCurrentPrincipalEpochKeys(
+  principalType: ManagedRecipientPrincipalType,
+  principalIds: string[],
+  executor: PrincipalStateExecutor = db,
+): Promise<Map<string, StoredPrincipalEpochKey>> {
+  const uniquePrincipalIds = uniqueSortedStrings(principalIds);
+
+  if (uniquePrincipalIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      principalType: principalEpochKeys.principalType,
+      principalId: principalEpochKeys.principalId,
+      epoch: principalEpochKeys.epoch,
+      introducedByStateHash: principalEpochKeys.introducedByStateHash,
+      encapsulationPublicKey: principalEpochKeys.encapsulationPublicKey,
+      keyFingerprint: principalEpochKeys.keyFingerprint,
+      createdAt: principalEpochKeys.createdAt,
+    })
+    .from(principalEpochKeys)
+    .where(
+      and(
+        eq(principalEpochKeys.principalType, principalType),
+        inArray(principalEpochKeys.principalId, uniquePrincipalIds),
+      ),
+    )
+    .orderBy(
+      asc(principalEpochKeys.principalId),
+      desc(principalEpochKeys.epoch),
+    );
+
+  const currentEpochKeysByPrincipalId = new Map<
+    string,
+    StoredPrincipalEpochKey
+  >();
+
+  for (const row of rows) {
+    if (currentEpochKeysByPrincipalId.has(row.principalId)) {
+      continue;
+    }
+
+    currentEpochKeysByPrincipalId.set(row.principalId, row);
+  }
+
+  return currentEpochKeysByPrincipalId;
 }
