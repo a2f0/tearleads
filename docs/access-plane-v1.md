@@ -482,6 +482,26 @@ indexed table for principal epoch keys so object-envelope lookup is efficient.
 This is the public-key side of the principal-recipient model. The member-wrap
 side for distributing principal keys to current members is separate work.
 
+### Principal Member Envelopes
+
+The API also needs a state-scoped table for distributing the current principal
+epoch secret to the principal's direct members.
+
+- `principal_member_envelopes`
+  - `principal_type`
+  - `principal_id`
+  - `state_hash`
+  - `epoch`
+  - `member_principal_type`
+  - `member_principal_id`
+  - `member_key_fingerprint`
+  - `kem_cipher_text`
+  - `wrapped_key`
+
+`state_hash` is required here, not just `epoch`, because additive membership
+changes may keep the same principal epoch key while changing the direct member
+set that needs fresh wrapped copies.
+
 ### Signed Access Manifest
 
 The server can still materialize a per-object access view, but clients should
