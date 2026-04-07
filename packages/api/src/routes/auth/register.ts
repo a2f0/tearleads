@@ -185,24 +185,18 @@ registerRoute.post(
           ),
         });
 
-        const rootMetadata = await createContainerMetadataDocument(
-          tx,
-          initialRootMetadataRecipientEnvelopes
+        const rootMetadata = await createContainerMetadataDocument(tx, {
+          authorFingerprint: fingerprint,
+          containerId: container.id,
+          createdByFingerprint: fingerprint,
+          initialMetadataUpdates: initialRootMetadataUpdates,
+          ...(initialRootMetadataRecipientEnvelopes
             ? {
-                authorFingerprint: fingerprint,
-                containerId: container.id,
-                createdByFingerprint: fingerprint,
                 initialMetadataRecipientEnvelopes:
                   initialRootMetadataRecipientEnvelopes,
-                initialMetadataUpdates: initialRootMetadataUpdates,
               }
-            : {
-                authorFingerprint: fingerprint,
-                containerId: container.id,
-                createdByFingerprint: fingerprint,
-                initialMetadataUpdates: initialRootMetadataUpdates,
-              },
-        );
+            : {}),
+        });
 
         return {
           userId: user.id,

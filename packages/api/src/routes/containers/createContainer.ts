@@ -95,23 +95,15 @@ createContainerRoute.post(
           inheritedFrom: parentAccess,
         });
 
-        const metadata = await createContainerMetadataDocument(
-          tx,
-          initialMetadataRecipientEnvelopes
-            ? {
-                authorFingerprint: session.fingerprint,
-                containerId: container.id,
-                createdByFingerprint: session.fingerprint,
-                initialMetadataRecipientEnvelopes,
-                initialMetadataUpdates,
-              }
-            : {
-                authorFingerprint: session.fingerprint,
-                containerId: container.id,
-                createdByFingerprint: session.fingerprint,
-                initialMetadataUpdates,
-              },
-        );
+        const metadata = await createContainerMetadataDocument(tx, {
+          authorFingerprint: session.fingerprint,
+          containerId: container.id,
+          createdByFingerprint: session.fingerprint,
+          initialMetadataUpdates,
+          ...(initialMetadataRecipientEnvelopes
+            ? { initialMetadataRecipientEnvelopes }
+            : {}),
+        });
 
         return {
           id: container.id,

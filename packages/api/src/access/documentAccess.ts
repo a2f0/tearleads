@@ -556,16 +556,24 @@ export async function replaceDocumentRecipientEnvelopes(
   );
 
   await executor.insert(objectRecipientEnvelopes).values(
-    envelopes.map((envelope) => ({
-      objectType: DOCUMENT_OBJECT_TYPE,
-      objectId: documentId,
-      epoch,
-      recipientUserId:
-        recipientByKeyFingerprint.get(envelope.keyFingerprint)?.userId ?? "",
-      recipientKeyFingerprint: envelope.keyFingerprint,
-      kemCipherText: envelope.kemCipherText,
-      wrappedKey: envelope.wrappedKey,
-    })),
+    envelopes.map((envelope) => {
+      const recipient = recipientByKeyFingerprint.get(envelope.keyFingerprint);
+      if (!recipient) {
+        throw new Error(
+          `Invariant violation: recipient not found for key fingerprint ${envelope.keyFingerprint}`,
+        );
+      }
+
+      return {
+        objectType: DOCUMENT_OBJECT_TYPE,
+        objectId: documentId,
+        epoch,
+        recipientUserId: recipient.userId,
+        recipientKeyFingerprint: envelope.keyFingerprint,
+        kemCipherText: envelope.kemCipherText,
+        wrappedKey: envelope.wrappedKey,
+      };
+    }),
   );
 }
 

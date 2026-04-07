@@ -202,20 +202,12 @@ export function createLoroRouter<TSession extends SessionLike>({
           }
         }
 
-        acceptedOutgoingUpdateIds = await store.appendDocumentUpdates(
-          documentRecipientEnvelopes
-            ? {
-                documentId,
-                authorFingerprint: session.fingerprint,
-                documentRecipientEnvelopes,
-                updates: outgoingUpdates,
-              }
-            : {
-                documentId,
-                authorFingerprint: session.fingerprint,
-                updates: outgoingUpdates,
-              },
-        );
+        acceptedOutgoingUpdateIds = await store.appendDocumentUpdates({
+          documentId,
+          authorFingerprint: session.fingerprint,
+          updates: outgoingUpdates,
+          ...(documentRecipientEnvelopes ? { documentRecipientEnvelopes } : {}),
+        });
         if (documentRecipientEnvelopes) {
           responseDocumentRecipientEnvelopes = documentRecipientEnvelopes;
         }
