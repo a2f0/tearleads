@@ -65,23 +65,6 @@
           }
         }
       }
-    },
-    {
-      "includes": [
-        "packages/api/src/routes/documents/index.ts",
-        "packages/app/src/mini-apps/contacts/ContactsProvider.tsx",
-        "packages/app/src/mini-apps/explorer/Explorer.tsx",
-        "packages/app/src/mini-apps/explorer/ExplorerProvider.tsx",
-        "packages/app/src/mini-apps/notes/NotesProvider.tsx"
-      ],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "noExcessiveCognitiveComplexity": "off",
-            "noExcessiveLinesPerFunction": "off"
-          }
-        }
-      }
     }
   ],
   "javascript": {
