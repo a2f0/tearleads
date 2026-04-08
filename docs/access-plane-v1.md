@@ -440,8 +440,13 @@ bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
 The app explorer now uses `POST /containers/:containerId/move` for container
-reparenting. The document `link` / `unlink` routes remain available in the API
-and client, but note/document relink UI is still future work.
+reparenting, and it now moves notes between containers by calling
+`POST /documents/:documentId/link` followed by
+`POST /documents/:documentId/unlink` while updating the local note/container
+projection from the authoritative mutation response. The broader document
+`link` / `unlink` surface is still intentionally narrower than the API:
+documents are still projected as single-container notes in the current app UI,
+so true multi-container document management remains future work.
 
 ## Zero-Trust Extension For Membership Changes
 
@@ -555,9 +560,11 @@ authenticated API routes:
   Returns the current signed principal state plus the current state-scoped
   member envelopes.
 
-This is still policy-metadata plumbing, not the full runtime principal
-recipient pivot. Container/document/blob access resolution continues to flatten
-effective crypto recipients to users until the later `#105` slices land.
+This is no longer only policy-metadata plumbing. Container/document/blob
+access resolution now prefers current group/org principal keys when verified
+signed policy state exists, while still falling back to expanded user
+recipients for managed grants that do not yet have current signed policy
+metadata.
 
 ### Signed Access Manifest
 

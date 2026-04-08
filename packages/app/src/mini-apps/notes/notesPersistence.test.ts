@@ -128,6 +128,53 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
   }
 });
 
+test("relinkPersistedNote updates the stored container and clears stale bundles on epoch change", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "local-note",
+      containerId: "container-a",
+      documentId: "remote-document",
+      documentRecipientEnvelopes: '{"wrapped":true}',
+      text: "Existing local note",
+      loroSnapshot: "snapshot-1",
+      accessEpoch: 2,
+    });
+
+    await expect(
+      sqlNotesPersistence.relinkPersistedNote(execSql, {
+        accessEpoch: 3,
+        containerId: "container-b",
+        documentId: "remote-document",
+        noteId: "local-note",
+      }),
+    ).resolves.toEqual({
+      id: "local-note",
+      containerId: "container-b",
+      documentId: "remote-document",
+      title: "Existing local note",
+      updatedAt: expect.any(String),
+    });
+
+    await expect(
+      sqlNotesPersistence.loadNote(execSql, "local-note"),
+    ).resolves.toEqual({
+      id: "local-note",
+      containerId: "container-b",
+      documentId: "remote-document",
+      documentRecipientEnvelopes: null,
+      text: "Existing local note",
+      loroSnapshot: "snapshot-1",
+      accessEpoch: 3,
+    });
+  } finally {
+    close();
+  }
+});
+
 test("listNotesByContainerIds only returns notes for the requested containers", async () => {
   const { close, execSql } = await createExecSql();
 

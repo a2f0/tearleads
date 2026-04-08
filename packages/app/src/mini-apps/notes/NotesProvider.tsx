@@ -130,6 +130,35 @@ export interface NotesRuntime {
   online: NotesAppData["online"];
 }
 
+function createNotesRuntimeApiClient(
+  apiClient: NotesAppData["apiClient"],
+): NotesRuntime["apiClient"] {
+  return {
+    commitDocumentChange: (documentId, input) =>
+      apiClient.commitDocumentChange(documentId, input),
+    createDocument: (linkedContainerIds) =>
+      apiClient.createDocument(linkedContainerIds),
+    getBlob: (blobId) => apiClient.getBlob(blobId),
+    listDocumentAttachments: (documentId) =>
+      apiClient.listDocumentAttachments(documentId),
+    stageBlob: (input) => apiClient.stageBlob(input),
+    syncDocument: (
+      documentId,
+      accessEpoch,
+      localVersionVector,
+      outgoingUpdates,
+      documentRecipientEnvelopes,
+    ) =>
+      apiClient.syncDocument(
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ),
+  };
+}
+
 interface NoteAttachmentUpload {
   bytes: BlobBytes;
   name: string;
@@ -2052,14 +2081,23 @@ export function NotesProvider({
   onPersistedNote,
 }: NotesProviderProps) {
   const appData = useAppData();
-  const runtime = useMemo(
-    () =>
-      containerId === undefined
-        ? appData
-        : {
-            ...appData,
-            containerId,
-          },
+  const runtime = useMemo<NotesRuntime>(
+    () => ({
+      apiClient: createNotesRuntimeApiClient(appData.apiClient),
+      blobStore: appData.blobStore,
+      cacheReferencedPrincipalPolicies:
+        appData.cacheReferencedPrincipalPolicies,
+      containerId:
+        containerId === undefined ? appData.containerId : containerId,
+      dbStatus: appData.dbStatus,
+      domainScope: appData.domainScope,
+      encapsulationKeyPair: appData.encapsulationKeyPair,
+      events: appData.events,
+      execSql: appData.execSql,
+      isAuthenticated: appData.isAuthenticated,
+      log: appData.log,
+      online: appData.online,
+    }),
     [appData, containerId],
   );
   const store = useMemo(

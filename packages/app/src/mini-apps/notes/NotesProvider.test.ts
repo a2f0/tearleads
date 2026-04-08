@@ -180,6 +180,30 @@ function createNotesPersistence(): NotesPersistence & {
         updatedAt: input.createdAt,
       };
     },
+    async relinkPersistedNote(_execSql, input) {
+      if (!note || note.id !== input.noteId) {
+        return null;
+      }
+
+      note = {
+        ...note,
+        accessEpoch: Math.max(note.accessEpoch, input.accessEpoch),
+        containerId: input.containerId,
+        documentId: input.documentId,
+        documentRecipientEnvelopes:
+          input.accessEpoch > note.accessEpoch
+            ? null
+            : note.documentRecipientEnvelopes,
+      };
+
+      return {
+        id: note.id,
+        containerId: note.containerId,
+        documentId: note.documentId,
+        title: note.text.trim() || "Untitled note",
+        updatedAt: "2026-04-06T00:00:00.000Z",
+      };
+    },
     async listPendingUpdates() {
       return pendingUpdates;
     },

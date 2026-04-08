@@ -273,6 +273,51 @@ async function moveContainer(
   );
 }
 
+async function moveOpenNoteToContainer(
+  pane: HTMLElement,
+  destinationName: string,
+) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByRole("button", { name: "Move" }));
+  });
+
+  const dialog = await screen.findByRole("dialog");
+  const destinationSelect = within(dialog).getByLabelText(
+    "Destination container",
+  );
+  invariant(
+    destinationSelect instanceof HTMLSelectElement,
+    "Expected note destination container select.",
+  );
+  const destinationOption = Array.from(destinationSelect.options).find(
+    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  );
+  invariant(
+    destinationOption,
+    `Expected note destination option for "${destinationName}".`,
+  );
+
+  await interact(() => {
+    fireEvent.change(destinationSelect, {
+      target: { value: destinationOption.value },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
+  });
+
+  const summarizeRequests = () =>
+    listProxiedApiRequests()
+      .map(
+        (request) =>
+          `${request.method} ${request.status} ${request.url}\nauthorization=${request.authorization ?? "null"}\nrequest=${request.requestBody ?? "null"}\nresponse=${request.responseBody}`,
+      )
+      .join("\n");
+
+  await waitForCondition(
+    () => screen.queryByRole("dialog") === null,
+    `Note move did not finish.\nrequests=\n${summarizeRequests()}\npane=${pane.textContent ?? ""}`,
+  );
+}
+
 function createFileList(file: File): FileList {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
@@ -605,6 +650,76 @@ test(
 
     await waitFor(() => {
       expect(within(leftPane).getByText(`Parent: ${targetId}`)).toBeTruthy();
+    });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer can move a note between sibling containers",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Source");
+    await createChildContainer(leftPane, "Target");
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "Movable note",
+      "move-note.png",
+    );
+    await waitForInlineNoteToSettle(leftPane, "Movable note", "move-note.png");
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Source")).toBeTruthy();
+    });
+
+    await moveOpenNoteToContainer(leftPane, "Target");
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Target")).toBeTruthy();
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(leftPane).getByRole("button", { name: "Back to Container" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        getExplorerSidebarItem(leftPane, "Target").classList.contains(
+          "explorer-sidebar-item--selected",
+        ),
+      ).toBe(true);
+    });
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+    await waitFor(() => {
+      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+    });
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Target"));
+    });
+    await waitFor(() => {
+      expect(listExplorerNoteItems(leftPane).length).toBeGreaterThan(0);
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
