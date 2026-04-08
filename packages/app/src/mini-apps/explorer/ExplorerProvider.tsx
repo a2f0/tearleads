@@ -34,6 +34,7 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
   serializeDocumentRecipientEnvelopes,
@@ -826,7 +827,7 @@ async function syncSingleContainerMetadata(
     encapsulationKeyPair.secretKey,
   );
 
-  const synced = await state.runtime.apiClient.syncDocument(
+  let synced = await state.runtime.apiClient.syncDocument(
     documentId,
     containerState.record.accessEpoch,
     encodeVersionVector(containerState.doc),
@@ -839,6 +840,18 @@ async function syncSingleContainerMetadata(
   if (!synced) {
     return;
   }
+
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: containerState.record.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(containerState.doc),
+    recipientPublicKeys: containerState.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   await state.runtime.cacheReferencedPrincipalPolicies(
     synced.referencedPrincipals,

@@ -25,7 +25,10 @@ import {
   grantContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
-import { resolveDocumentAccessState } from "./documentAccess";
+import {
+  getDocumentRecipientEnvelopeAction,
+  resolveDocumentAccessState,
+} from "./documentAccess";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
@@ -137,6 +140,9 @@ test("document access includes recipients inherited from its linked root contain
   invariant(beforeShare, "expected document access state");
   expect(beforeShare.currentAccessEpoch).toBe(1);
   expect(
+    await getDocumentRecipientEnvelopeAction(documentId, beforeShare),
+  ).toBe("none");
+  expect(
     beforeShare.effectiveRecipients.map((recipient) => ({
       principalId: recipient.principalId,
       principalType: recipient.principalType,
@@ -157,6 +163,9 @@ test("document access includes recipients inherited from its linked root contain
   const afterShare = await resolveDocumentAccessState(documentId);
   invariant(afterShare, "expected document access state after share");
   expect(afterShare.currentAccessEpoch).toBe(containerState.currentAccessEpoch);
+  expect(await getDocumentRecipientEnvelopeAction(documentId, afterShare)).toBe(
+    "rewrap",
+  );
   const recipientPrincipals = afterShare.effectiveRecipients
     .map((recipient) => ({
       principalId: recipient.principalId,

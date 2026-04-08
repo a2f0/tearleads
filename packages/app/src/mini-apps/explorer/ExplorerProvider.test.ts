@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { SyncDocumentResponse } from "@tearleads/loro";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -18,6 +19,27 @@ import { createExplorerStore } from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
+
+function createSyncDocumentResponse(input: {
+  accessEpoch: number;
+  documentId: string;
+  recipientEncapsulationPublicKeys: string[];
+  acceptedOutgoingUpdateIds?: string[];
+  documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
+  documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  updates?: SyncDocumentResponse["updates"];
+}): SyncDocumentResponse {
+  return {
+    acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
+    currentAccessEpoch: input.accessEpoch,
+    documentId: input.documentId,
+    documentRecipientEnvelopeAction:
+      input.documentRecipientEnvelopeAction ?? "none",
+    documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
+    updates: input.updates ?? [],
+  };
+}
 
 async function createSqlRuntime(): Promise<TestRuntime> {
   const previousFetch = globalThis.fetch;
@@ -436,14 +458,12 @@ test("explorer store shares an authenticated container and enqueues a full metad
         documentId,
         outgoingUpdateCount: updates.length,
       });
-      return {
+      return createSyncDocumentResponse({
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-        currentAccessEpoch: accessEpoch,
+        accessEpoch,
         documentId,
-        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [],
-        updates: [],
-      };
+      });
     },
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;
@@ -661,29 +681,26 @@ test("explorer share primes note attachment rewrap work for locally known notes 
         noteSyncCallCount += 1;
 
         if (noteSyncCallCount === 2) {
-          return {
+          return createSyncDocumentResponse({
             acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-            currentAccessEpoch: 2,
+            accessEpoch: 2,
             documentId,
-            documentRecipientEnvelopes: null,
+            documentRecipientEnvelopeAction: "rewrap",
             recipientEncapsulationPublicKeys: [
               bytesToBase64(localKeyPair.publicKey),
             ],
-            updates: [],
-          };
+          });
         }
       }
 
-      return {
+      return createSyncDocumentResponse({
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-        currentAccessEpoch: accessEpoch,
+        accessEpoch,
         documentId,
-        documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
         ],
-        updates: [],
-      };
+      });
     },
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;

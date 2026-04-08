@@ -28,6 +28,7 @@ import {
   canWriteDocumentAccess,
   createDocumentRecipientEnvelopes,
   documentRecipientEnvelopesMatchRecipients,
+  getDocumentRecipientEnvelopeAction,
   initializeDocumentAccess,
   listDocumentRecipientEnvelopes,
   listRecipientEncapsulationPublicKeys,
@@ -867,6 +868,8 @@ export const documentsRouter = createLoroRouter({
         canRead: canReadDocumentAccess(access, userId),
         canWrite: canWriteDocumentAccess(access, userId),
         currentAccessEpoch: access.currentAccessEpoch,
+        documentRecipientEnvelopeAction:
+          await getDocumentRecipientEnvelopeAction(documentId, access),
         documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
           documentId,
           access.currentAccessEpoch,

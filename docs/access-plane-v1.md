@@ -358,6 +358,16 @@ Any fingerprint change should bump `accessEpoch`, even if the final recipient
 set happens to be unchanged, because upstream security-relevant structure may
 have changed.
 
+The current sync path now exposes that server-side decision explicitly through
+`documentRecipientEnvelopeAction` on `POST /documents/:documentId/sync`:
+
+- `none`
+- `rewrap`
+- `rotate`
+
+Clients use `rewrap` to seed a missing current-epoch document bundle before
+sending the rebased baseline that new recipients need.
+
 ## Implementation Plan
 
 V1 should build on the existing generic object-access tables rather than

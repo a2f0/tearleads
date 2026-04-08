@@ -32,6 +32,7 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
   serializeDocumentRecipientEnvelopes,
@@ -1420,7 +1421,7 @@ async function requestDocumentSync(
         encryptionMaterial.documentKey,
       )
     : [];
-  const synced = await state.runtime.apiClient.syncDocument(
+  let synced = await state.runtime.apiClient.syncDocument(
     currentRecord.documentId,
     currentRecord.accessEpoch,
     encodeVersionVector(currentDoc),
@@ -1432,6 +1433,18 @@ async function requestDocumentSync(
   if (!synced) {
     return null;
   }
+
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: currentRecord.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId: currentRecord.documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(currentDoc),
+    recipientPublicKeys: state.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   return {
     currentDocumentRecipientEnvelopes,

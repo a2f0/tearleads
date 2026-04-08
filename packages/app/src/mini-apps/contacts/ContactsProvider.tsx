@@ -27,6 +27,7 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
   serializeDocumentRecipientEnvelopes,
@@ -580,7 +581,7 @@ async function syncSingleContact(
     pendingUpdates,
     secretKey,
   );
-  const synced = await state.runtime.apiClient.syncDocument(
+  let synced = await state.runtime.apiClient.syncDocument(
     documentId,
     contact.record.accessEpoch,
     encodeVersionVector(contact.doc),
@@ -593,6 +594,18 @@ async function syncSingleContact(
   if (!synced) {
     return;
   }
+
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: contact.record.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(contact.doc),
+    recipientPublicKeys: contact.recipientPublicKeys,
+    secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   await state.runtime.cacheReferencedPrincipalPolicies(
     synced.referencedPrincipals,

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { SyncDocumentResponse } from "@tearleads/loro";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import type {
   DocumentRecord,
@@ -19,6 +20,27 @@ interface StoredContactState {
     userId: string;
   };
   record: DocumentRecord | null;
+}
+
+function createSyncDocumentResponse(input: {
+  accessEpoch: number;
+  documentId: string;
+  recipientEncapsulationPublicKeys: string[];
+  acceptedOutgoingUpdateIds?: string[];
+  documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
+  documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  updates?: SyncDocumentResponse["updates"];
+}): SyncDocumentResponse {
+  return {
+    acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
+    currentAccessEpoch: input.accessEpoch,
+    documentId: input.documentId,
+    documentRecipientEnvelopeAction:
+      input.documentRecipientEnvelopeAction ?? "none",
+    documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
+    updates: input.updates ?? [],
+  };
 }
 
 function sortContacts(
@@ -163,17 +185,17 @@ function createSyncRuntime(
         accessEpoch,
         _localVersionVector,
         outgoingUpdates,
-        _documentRecipientEnvelopes,
-      ) => ({
-        documentId,
-        acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
-        updates: [],
-        currentAccessEpoch: accessEpoch,
-        documentRecipientEnvelopes: null,
-        recipientEncapsulationPublicKeys: [
-          bytesToBase64(encapsulationKeyPair.publicKey),
-        ],
-      }),
+        documentRecipientEnvelopes,
+      ) =>
+        createSyncDocumentResponse({
+          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(encapsulationKeyPair.publicKey),
+          ],
+        }),
     },
     cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
@@ -416,18 +438,17 @@ test("contacts store enqueues a full baseline when document access expands", asy
         });
 
         if (syncCallCount === 2) {
-          return {
+          return createSyncDocumentResponse({
             acceptedOutgoingUpdateIds: outgoingUpdates.map(
               (update) => update.id,
             ),
-            currentAccessEpoch: 2,
+            accessEpoch: 2,
             documentId,
-            documentRecipientEnvelopes: null,
+            documentRecipientEnvelopeAction: "rewrap",
             recipientEncapsulationPublicKeys: [
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
-            updates: [],
-          };
+          });
         }
 
         return runtime.apiClient.syncDocument(
@@ -466,7 +487,7 @@ test("contacts store enqueues a full baseline when document access expands", asy
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 3 &&
+      syncDocumentCalls.length === 4 &&
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
       persistence.getContact("peer-user-1")?.record?.accessEpoch === 2,
     "Expanded access epoch did not trigger a full baseline resync for contacts.",
@@ -490,6 +511,12 @@ test("contacts store enqueues a full baseline when document access expands", asy
       accessEpoch: 2,
       documentId: "contacts-document-1",
       documentRecipientEnvelopeCount: 1,
+      outgoingUpdateCount: 0,
+    },
+    {
+      accessEpoch: 2,
+      documentId: "contacts-document-1",
+      documentRecipientEnvelopeCount: 0,
       outgoingUpdateCount: 1,
     },
   ]);

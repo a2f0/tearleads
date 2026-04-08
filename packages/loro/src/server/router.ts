@@ -5,6 +5,7 @@ import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
 import {
   type CreateDocumentRequest,
   type CreateDocumentResponse,
+  type DocumentRecipientEnvelopeAction,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,
   isSyncDocumentRequest,
@@ -30,6 +31,7 @@ interface DocumentAccessState {
   canRead: boolean;
   canWrite: boolean;
   currentAccessEpoch: number;
+  documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientKeyFingerprints: string[];
   recipientEncapsulationPublicKeys: string[];
@@ -344,6 +346,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       acceptedOutgoingUpdateIds,
       updates: missingUpdates,
       currentAccessEpoch: access.currentAccessEpoch,
+      documentRecipientEnvelopeAction: access.documentRecipientEnvelopeAction,
       documentRecipientEnvelopes: responseDocumentRecipientEnvelopes,
       recipientEncapsulationPublicKeys: access.recipientEncapsulationPublicKeys,
       referencedPrincipals: access.referencedPrincipals,
