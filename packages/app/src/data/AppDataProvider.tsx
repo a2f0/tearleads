@@ -66,7 +66,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     },
     [dbClient],
   );
-  const cacheKnownPrincipalPolicies = useCallback(
+  const cacheReferencedPrincipalPoliciesCallback = useCallback(
     async (
       references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
     ) => {
@@ -87,7 +87,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       apiClient,
       authToken,
       blobStore,
-      cacheReferencedPrincipalPolicies: cacheKnownPrincipalPolicies,
+      cacheReferencedPrincipalPolicies:
+        cacheReferencedPrincipalPoliciesCallback,
       containerId,
       dbId,
       dbStatus,
@@ -104,7 +105,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       apiClient,
       authToken,
       blobStore,
-      cacheKnownPrincipalPolicies,
+      cacheReferencedPrincipalPoliciesCallback,
       containerId,
       dbId,
       dbStatus,
