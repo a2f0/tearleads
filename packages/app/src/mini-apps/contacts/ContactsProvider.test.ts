@@ -127,6 +127,7 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
       createDocument: async (_linkedContainerIds) => null,
       syncDocument: async () => null,
     },
+    cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
@@ -174,6 +175,7 @@ function createSyncRuntime(
         ],
       }),
     },
+    cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
@@ -260,6 +262,15 @@ test("contacts store reloads persisted address book entries", async () => {
 test("contacts store creates and syncs a contact document", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>
+  > = [];
   const createDocumentCalls: string[][] = [];
   const syncDocumentCalls: Array<{
     accessEpoch: number;
@@ -271,11 +282,31 @@ test("contacts store creates and syncs a contact document", async () => {
   const runtime = createSyncRuntime(encapsulationKeyPair);
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references ?? []);
+    },
     apiClient: {
       ...runtime.apiClient,
       createDocument: async (linkedContainerIds) => {
         createDocumentCalls.push(linkedContainerIds);
-        return runtime.apiClient.createDocument(linkedContainerIds);
+        const created =
+          await runtime.apiClient.createDocument(linkedContainerIds);
+        if (!created) {
+          return null;
+        }
+
+        return {
+          ...created,
+          referencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-1",
+              principalType: "group",
+              stateHash: "state-hash-1",
+              version: 1,
+            },
+          ],
+        };
       },
       syncDocument: async (
         documentId,
@@ -331,6 +362,15 @@ test("contacts store creates and syncs a contact document", async () => {
     },
   ]);
   expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(cachedPrincipalReferences).toContainEqual([
+    {
+      keyEpoch: 1,
+      principalId: "group-1",
+      principalType: "group",
+      stateHash: "state-hash-1",
+      version: 1,
+    },
+  ]);
 });
 
 test("contacts store enqueues a full baseline when document access expands", async () => {

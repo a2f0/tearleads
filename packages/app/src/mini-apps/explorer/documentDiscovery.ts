@@ -1,3 +1,4 @@
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 
 import type { NoteSummary } from "../notes/notesPersistence";
@@ -7,6 +8,7 @@ interface ExplorerListedDocument {
   currentAccessEpoch: number;
   id: string;
   linkedContainerIds: string[];
+  referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 interface DiscoveredNoteInput {
@@ -22,6 +24,9 @@ interface DocumentLinkInput {
 }
 
 interface DiscoverContainerDocumentsOptions {
+  cacheReferencedPrincipalPolicies?: (
+    references: ReadonlyArray<ReferencedPrincipalStateResponse>,
+  ) => Promise<void>;
   containerId: string;
   listContainerDocuments: (
     containerId: string,
@@ -51,6 +56,7 @@ export function hasUndiscoveredDocumentUpdateEvent(
 }
 
 export async function discoverContainerDocuments({
+  cacheReferencedPrincipalPolicies,
   containerId,
   listContainerDocuments,
   replaceDocumentLinksBatch,
@@ -60,6 +66,10 @@ export async function discoverContainerDocuments({
   if (!listedDocuments) {
     return null;
   }
+
+  await cacheReferencedPrincipalPolicies?.(
+    listedDocuments.flatMap((document) => document.referencedPrincipals ?? []),
+  );
 
   await replaceDocumentLinksBatch(
     listedDocuments.map((document) => ({
@@ -79,6 +89,7 @@ export async function discoverContainerDocuments({
 }
 
 export async function discoverAllContainerDocuments({
+  cacheReferencedPrincipalPolicies,
   containerIds,
   listContainerDocuments,
   replaceDocumentLinksBatch,
@@ -90,6 +101,14 @@ export async function discoverAllContainerDocuments({
       containerId,
       listedDocuments: await listContainerDocuments(containerId),
     })),
+  );
+  await cacheReferencedPrincipalPolicies?.(
+    listedDocumentsByContainer.flatMap(
+      ({ listedDocuments }) =>
+        listedDocuments?.flatMap(
+          (document) => document.referencedPrincipals ?? [],
+        ) ?? [],
+    ),
   );
   const documentLinks: DocumentLinkInput[] = [];
   const discoveredNoteInputs: DiscoveredNoteInput[] = [];

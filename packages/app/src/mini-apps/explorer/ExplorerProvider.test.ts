@@ -57,6 +57,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       syncDocument: async () => null,
     },
     blobStore: createMemoryBlobStore(),
+    cacheReferencedPrincipalPolicies: async () => {},
     close: () => db.close(),
     dbStatus,
     domainScope: {},
@@ -254,6 +255,15 @@ test("explorer store creates authenticated child containers through the API befo
 
 test("explorer store creates a child under a writable shared root using the inherited recipient set", async () => {
   const runtime = await createSqlRuntime();
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>
+  > = [];
   const ownerKeyPair = generateKemSeedAndKeyPair();
   const localKeyPair = generateKemSeedAndKeyPair();
   const expectedRecipientFingerprints = [
@@ -269,6 +279,9 @@ test("explorer store creates a child under a writable shared root using the inhe
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.cacheReferencedPrincipalPolicies = async (references) => {
+    cachedPrincipalReferences.push(references ?? []);
+  };
   runtime.apiClient = {
     ...runtime.apiClient,
     createContainer: async (
@@ -294,6 +307,15 @@ test("explorer store creates a child under a writable shared root using the inhe
           bytesToBase64(ownerKeyPair.publicKey),
           bytesToBase64(localKeyPair.publicKey),
         ],
+        metadataReferencedPrincipals: [
+          {
+            keyEpoch: 1,
+            principalId: "group-1",
+            principalType: "group",
+            stateHash: "state-hash-1",
+            version: 1,
+          },
+        ],
         organizationId: "org-2",
         parentId,
       };
@@ -306,6 +328,15 @@ test("explorer store creates a child under a writable shared root using the inhe
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(ownerKeyPair.publicKey),
           bytesToBase64(localKeyPair.publicKey),
+        ],
+        metadataReferencedPrincipals: [
+          {
+            keyEpoch: 1,
+            principalId: "group-1",
+            principalType: "group",
+            stateHash: "state-hash-1",
+            version: 1,
+          },
         ],
         organizationId: "org-2",
         parentId: null,
@@ -337,6 +368,15 @@ test("explorer store creates a child under a writable shared root using the inhe
         id: childNode.id,
         initialMetadataRecipientFingerprints: expectedRecipientFingerprints,
         parentId: "shared-root-container",
+      },
+    ]);
+    expect(cachedPrincipalReferences).toContainEqual([
+      {
+        keyEpoch: 1,
+        principalId: "group-1",
+        principalType: "group",
+        stateHash: "state-hash-1",
+        version: 1,
       },
     ]);
   } finally {

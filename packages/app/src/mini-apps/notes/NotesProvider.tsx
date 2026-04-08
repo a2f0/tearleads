@@ -117,6 +117,7 @@ export interface NotesRuntime {
     | "syncDocument"
   >;
   blobStore: BlobStore;
+  cacheReferencedPrincipalPolicies: NotesAppData["cacheReferencedPrincipalPolicies"];
   containerId: NotesAppData["containerId"];
   dbStatus: NotesAppData["dbStatus"];
   domainScope: NotesAppData["domainScope"];
@@ -437,6 +438,10 @@ async function ensureRemoteDocument(
   if (!created) {
     return nextRecord;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    created.referencedPrincipals,
+  );
 
   updateNoteRecipientPublicKeys(
     state,
@@ -1564,6 +1569,10 @@ async function syncDocumentState(
   if (!syncAttempt) {
     return nextRemoteRecord;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    syncAttempt.synced.referencedPrincipals,
+  );
 
   return finalizeDocumentSync(
     state,

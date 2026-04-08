@@ -249,6 +249,7 @@ function createRuntime(containerId = "root-container"): NotesRuntime {
       syncDocument: async () => null,
     },
     blobStore: createMemoryBlobStore(),
+    cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
     domainScope: {},
@@ -314,6 +315,7 @@ function createSyncRuntime(
       }),
     },
     blobStore: createMemoryBlobStore(),
+    cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
     domainScope: {},
@@ -340,6 +342,7 @@ function createOfflineAttachmentRuntime(
       syncDocument: async () => null,
     },
     blobStore: createMemoryBlobStore(),
+    cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
     domainScope: {},
@@ -381,6 +384,7 @@ async function createSqlRuntime(): Promise<
       syncDocument: async () => null,
     },
     blobStore: createMemoryBlobStore(),
+    cacheReferencedPrincipalPolicies: async () => {},
     close: () => db.close(),
     containerId: "root-container",
     dbStatus: "ready",
@@ -452,15 +456,44 @@ test("notes store reloads persisted note text and pending updates", async () => 
 test("notes store creates a document linked to the configured container", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>
+  > = [];
   const createDocumentCalls: string[][] = [];
   const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
   const instrumentedRuntime: NotesRuntime = {
     ...runtime,
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references ?? []);
+    },
     apiClient: {
       ...runtime.apiClient,
       createDocument: async (linkedContainerIds) => {
         createDocumentCalls.push(linkedContainerIds);
-        return runtime.apiClient.createDocument(linkedContainerIds);
+        const created =
+          await runtime.apiClient.createDocument(linkedContainerIds);
+        if (!created) {
+          return null;
+        }
+
+        return {
+          ...created,
+          referencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-1",
+              principalType: "group",
+              stateHash: "state-hash-1",
+              version: 1,
+            },
+          ],
+        };
       },
     },
   };
@@ -489,6 +522,15 @@ test("notes store creates a document linked to the configured container", async 
   );
 
   expect(createDocumentCalls).toEqual([["shared-container"]]);
+  expect(cachedPrincipalReferences).toContainEqual([
+    {
+      keyEpoch: 1,
+      principalId: "group-1",
+      principalType: "group",
+      stateHash: "state-hash-1",
+      version: 1,
+    },
+  ]);
 });
 
 test("notes store stages and commits attachments against the note document", async () => {

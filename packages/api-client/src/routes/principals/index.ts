@@ -1,0 +1,1 @@
+export { getCurrentPrincipalPolicy } from "./getCurrentPolicy";

@@ -1,3 +1,4 @@
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {
   createContext,
   type PropsWithChildren,
@@ -10,16 +11,20 @@ import { useNetworkState } from "../api/NetworkStateProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
 import { useBlobStore } from "./BlobProvider";
-
+import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
 interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;
   authToken: string | null;
   blobStore: ReturnType<typeof useBlobStore>;
+  cacheReferencedPrincipalPolicies: (
+    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
+  ) => Promise<void>;
   containerId: string | null;
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
@@ -33,6 +38,7 @@ interface AppDataContextValue {
   isAuthenticated: boolean;
   log: ReturnType<typeof useLog>["log"];
   online: boolean;
+  trustedPolicySigners: ReadonlyMap<string, Uint8Array>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -44,6 +50,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
   const { authToken, containerId, isAuthenticated } = useCryptoSession();
   const { encapsulationKeyPair, signingFingerprint } = usePersona();
+  const { trustedPolicySigners } = useAppHostConfig();
   const { events } = useEvents();
   const { log } = useLog();
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
@@ -59,12 +66,29 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     },
     [dbClient],
   );
+  const cacheReferencedPrincipalPoliciesCallback = useCallback(
+    async (
+      references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
+    ) => {
+      await cacheReferencedPrincipalPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: (principalType, principalId) =>
+          apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+        log,
+        references,
+        trustedPolicySigners,
+      });
+    },
+    [apiClient, execSql, log, trustedPolicySigners],
+  );
 
   const value = useMemo(
     () => ({
       apiClient,
       authToken,
       blobStore,
+      cacheReferencedPrincipalPolicies:
+        cacheReferencedPrincipalPoliciesCallback,
       containerId,
       dbId,
       dbStatus,
@@ -75,11 +99,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       isAuthenticated,
       log,
       online,
+      trustedPolicySigners,
     }),
     [
       apiClient,
       authToken,
       blobStore,
+      cacheReferencedPrincipalPoliciesCallback,
       containerId,
       dbId,
       dbStatus,
@@ -91,6 +117,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       log,
       online,
       signingFingerprint,
+      trustedPolicySigners,
     ],
   );
 

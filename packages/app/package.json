@@ -9,7 +9,8 @@
     "./db/createModuleWorker": "./src/db/createModuleWorker.ts",
     "./db/sqliteWorker": "./src/db/sqliteWorker.ts",
     "./db/sqliteWorkerThread": "./src/db/sqliteWorkerThread.ts",
-    "./host/AppHostConfig": "./src/host/AppHostConfig.ts"
+    "./host/AppHostConfig": "./src/host/AppHostConfig.ts",
+    "./host/trustedPolicySigners": "./src/host/trustedPolicySigners.ts"
   },
   "scripts": {
     "test": "bun test src --max-concurrency=1"
