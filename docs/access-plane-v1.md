@@ -298,6 +298,9 @@ Current implementation note:
 - container listings, container document listings, and Loro create/sync
   responses now surface `referencedPrincipals[]` summaries for the current
   signed group/org policy states that contributed to derived access
+- app clients can now fetch, verify, and cache the current principal policy
+  bundle for those references when a trusted policy signer set is configured
+  out of band
 
 The important distinction is:
 

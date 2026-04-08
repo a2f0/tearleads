@@ -3,6 +3,10 @@ import { renderApp } from "app/client";
 import { createModuleWorker } from "app/db/createModuleWorker";
 import type { AppDatabaseWorker } from "app/db/sqliteWorker";
 import { AppHostConfig } from "app/host/AppHostConfig";
+import {
+  parseTrustedPolicySigners,
+  readTrustedPolicySignersPublicEnv,
+} from "app/host/trustedPolicySigners";
 import { createRoot } from "react-dom/client";
 
 function createElectrobunDatabaseWorker(): AppDatabaseWorker {
@@ -29,5 +33,6 @@ renderApp(createRoot(elem), {
     "http://localhost:3001",
     "ws://localhost:3001",
     createElectrobunDatabaseWorker,
+    parseTrustedPolicySigners(readTrustedPolicySignersPublicEnv(import.meta)),
   ),
 });

@@ -88,6 +88,9 @@ Important remaining limitation:
   `referencedPrincipals[]` summaries so clients can discover the current signed
   group/org policy states they will need before object encryption pivots to
   principal recipients
+- app clients now have a verified local cache for those referenced principal
+  policy bundles, keyed by `(principalType, principalId)` and refreshed only
+  when the referenced `stateHash` changes
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

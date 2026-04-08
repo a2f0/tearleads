@@ -21,6 +21,7 @@ import {
   listDocumentAttachments,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
+import { getCurrentPrincipalPolicy } from "./routes/principals";
 import { postPublicKey } from "./routes/register";
 import type { HttpMethod, RequestFn } from "./types";
 
@@ -151,6 +152,13 @@ export class ApiClient {
 
   getEncapsulationKey(userId: string) {
     return getEncapsulationKey(this.request, userId);
+  }
+
+  getCurrentPrincipalPolicy(
+    principalType: "group" | "organization",
+    principalId: string,
+  ) {
+    return getCurrentPrincipalPolicy(this.request, principalType, principalId);
   }
 
   createDocument(linkedContainerIds: string[]) {

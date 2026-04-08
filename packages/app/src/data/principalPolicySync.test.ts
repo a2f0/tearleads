@@ -1,0 +1,188 @@
+import { expect, test } from "bun:test";
+import {
+  computePrincipalStateHash,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  signPrincipalState,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  execDatabaseStatement,
+  initDatabase,
+} from "@tearleads/sqlite-worker/load-sqlite3";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import {
+  ensurePrincipalPolicyTables,
+  loadPrincipalPolicyBundle,
+  loadPrincipalPolicyStateHash,
+} from "./principalPolicyPersistence";
+import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
+
+async function createExecSql() {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = Bun.fetch;
+
+  let db: Awaited<ReturnType<typeof initDatabase>>;
+  try {
+    db = await initDatabase({
+      dbName: `/${crypto.randomUUID()}.db`,
+      cipher: "chacha20",
+      key: "principal-policy-sync-test",
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  return {
+    close: () => db.close(),
+    execSql: async (
+      sql: string,
+      bind?: Record<string, string | number | null>,
+    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
+  };
+}
+
+async function createPrincipalPolicyBundle(): Promise<{
+  bundle: PrincipalPolicyBundleResponse;
+  signerPublicKey: Uint8Array;
+}> {
+  const principalKem = generateKemSeedAndKeyPair();
+  const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
+  const { signingPublicKey: signerPublicKey, signingPrivateKey } =
+    generateSigningSeedAndKeyPair();
+  const signedState = await signPrincipalState(
+    {
+      principalType: "group",
+      principalId: "group-1",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      keyFingerprint: principalKeyFingerprint,
+      members: [
+        {
+          principalType: "user",
+          principalId: "alice",
+        },
+      ],
+      signedAt: "2026-04-08T00:00:00.000Z",
+      signerKeyId: "signer-1",
+    },
+    signingPrivateKey,
+  );
+  const stateHash = await computePrincipalStateHash(signedState);
+  const bundle: PrincipalPolicyBundleResponse = {
+    currentMemberEnvelopes: {
+      principalType: "group",
+      principalId: "group-1",
+      stateHash,
+      epoch: 1,
+      envelopes: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: "alice",
+          memberKeyFingerprint: "member-key-1",
+          kemCipherText: "kem-cipher-text-1",
+          wrappedKey: "wrapped-key-1",
+        },
+      ],
+    },
+    currentState: {
+      ...signedState,
+      createdAt: "2026-04-08T00:00:00.000Z",
+      stateHash,
+    },
+  };
+
+  return {
+    bundle,
+    signerPublicKey,
+  };
+}
+
+test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    const { bundle, signerPublicKey } = await createPrincipalPolicyBundle();
+    let getCurrentPrincipalPolicyCallCount = 0;
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        getCurrentPrincipalPolicyCallCount += 1;
+        return bundle;
+      },
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+      trustedPolicySigners: new Map([["signer-1", signerPublicKey]]),
+    });
+
+    await expect(
+      loadPrincipalPolicyStateHash(execSql, "group", "group-1"),
+    ).resolves.toBe(bundle.currentState.stateHash);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(bundle);
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        getCurrentPrincipalPolicyCallCount += 1;
+        return bundle;
+      },
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+      trustedPolicySigners: new Map([["signer-1", signerPublicKey]]),
+    });
+
+    expect(getCurrentPrincipalPolicyCallCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips untrusted bundles without persisting them", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    const { bundle } = await createPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => bundle,
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+      trustedPolicySigners: new Map(),
+    });
+
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});

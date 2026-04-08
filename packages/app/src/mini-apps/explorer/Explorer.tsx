@@ -293,6 +293,9 @@ function mergeNoteSummaryLists(
 function createNotesRuntimeFromExplorer(
   apiClient: ReturnType<typeof useAppData>["apiClient"],
   blobStore: ReturnType<typeof useAppData>["blobStore"],
+  cacheReferencedPrincipalPolicies: ReturnType<
+    typeof useAppData
+  >["cacheReferencedPrincipalPolicies"],
   containerId: string,
   dbStatus: ReturnType<typeof useAppData>["dbStatus"],
   domainScope: ReturnType<typeof useAppData>["domainScope"],
@@ -305,6 +308,7 @@ function createNotesRuntimeFromExplorer(
   return {
     apiClient,
     blobStore,
+    cacheReferencedPrincipalPolicies,
     containerId,
     dbStatus,
     domainScope,
@@ -472,6 +476,9 @@ function useDiscoveredNotesSync(params: {
   activeContainerId: string | null;
   apiClient: ReturnType<typeof useAppData>["apiClient"];
   blobStore: ReturnType<typeof useAppData>["blobStore"];
+  cacheReferencedPrincipalPolicies: ReturnType<
+    typeof useAppData
+  >["cacheReferencedPrincipalPolicies"];
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];
   domainScope: ReturnType<typeof useAppData>["domainScope"];
   encapsulationKeyPair: ReturnType<typeof useAppData>["encapsulationKeyPair"];
@@ -488,6 +495,7 @@ function useDiscoveredNotesSync(params: {
     activeContainerId,
     apiClient,
     blobStore,
+    cacheReferencedPrincipalPolicies,
     dbStatus,
     domainScope,
     encapsulationKeyPair,
@@ -503,6 +511,7 @@ function useDiscoveredNotesSync(params: {
   const { primeDiscoveredNotes } = usePrimeDiscoveredNotes({
     apiClient,
     blobStore,
+    cacheReferencedPrincipalPolicies,
     dbStatus,
     domainScope,
     encapsulationKeyPair,
@@ -520,6 +529,7 @@ function useDiscoveredNotesSync(params: {
       void (async () => {
         try {
           const discoveredNoteSummaries = await discoverContainerDocuments({
+            cacheReferencedPrincipalPolicies,
             containerId,
             listContainerDocuments: (nextContainerId) =>
               apiClient.listContainerDocuments(nextContainerId),
@@ -549,7 +559,13 @@ function useDiscoveredNotesSync(params: {
         cancelled = true;
       };
     },
-    [apiClient, execSql, mergeNoteSummaries, primeDiscoveredNotes],
+    [
+      apiClient,
+      cacheReferencedPrincipalPolicies,
+      execSql,
+      mergeNoteSummaries,
+      primeDiscoveredNotes,
+    ],
   );
 
   useContainerDiscoveryEffects({
@@ -631,6 +647,9 @@ function useContainerDiscoveryEffects(params: {
 function usePrimeDiscoveredNotes(params: {
   apiClient: ReturnType<typeof useAppData>["apiClient"];
   blobStore: ReturnType<typeof useAppData>["blobStore"];
+  cacheReferencedPrincipalPolicies: ReturnType<
+    typeof useAppData
+  >["cacheReferencedPrincipalPolicies"];
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];
   domainScope: ReturnType<typeof useAppData>["domainScope"];
   encapsulationKeyPair: ReturnType<typeof useAppData>["encapsulationKeyPair"];
@@ -643,6 +662,7 @@ function usePrimeDiscoveredNotes(params: {
   const {
     apiClient,
     blobStore,
+    cacheReferencedPrincipalPolicies,
     dbStatus,
     domainScope,
     encapsulationKeyPair,
@@ -666,6 +686,7 @@ function usePrimeDiscoveredNotes(params: {
           createNotesRuntimeFromExplorer(
             apiClient,
             blobStore,
+            cacheReferencedPrincipalPolicies,
             noteSummary.containerId,
             dbStatus,
             domainScope,
@@ -684,6 +705,7 @@ function usePrimeDiscoveredNotes(params: {
     [
       apiClient,
       blobStore,
+      cacheReferencedPrincipalPolicies,
       dbStatus,
       domainScope,
       encapsulationKeyPair,
@@ -700,6 +722,9 @@ function usePrimeDiscoveredNotes(params: {
 
 function useExplorerRefreshAction(params: {
   apiClient: ReturnType<typeof useAppData>["apiClient"];
+  cacheReferencedPrincipalPolicies: ReturnType<
+    typeof useAppData
+  >["cacheReferencedPrincipalPolicies"];
   execSql: ReturnType<typeof useAppData>["execSql"];
   mergeNoteSummaries: (nextNotes: ReadonlyArray<NoteSummary>) => void;
   primeDiscoveredNotes: (nextNotes: ReadonlyArray<NoteSummary>) => void;
@@ -707,6 +732,7 @@ function useExplorerRefreshAction(params: {
 }) {
   const {
     apiClient,
+    cacheReferencedPrincipalPolicies,
     execSql,
     mergeNoteSummaries,
     primeDiscoveredNotes,
@@ -733,6 +759,7 @@ function useExplorerRefreshAction(params: {
       }
 
       const discoveredNoteSummaries = await discoverAllContainerDocuments({
+        cacheReferencedPrincipalPolicies,
         containerIds: remoteContainers.map((container) => container.id),
         listContainerDocuments: (containerId) =>
           apiClient.listContainerDocuments(containerId),
@@ -755,7 +782,14 @@ function useExplorerRefreshAction(params: {
     } finally {
       setIsRefreshing(false);
     }
-  }, [apiClient, execSql, mergeNoteSummaries, primeDiscoveredNotes, refresh]);
+  }, [
+    apiClient,
+    cacheReferencedPrincipalPolicies,
+    execSql,
+    mergeNoteSummaries,
+    primeDiscoveredNotes,
+    refresh,
+  ]);
 
   return { handleRefresh, isRefreshing, refreshError };
 }
@@ -1767,6 +1801,7 @@ function useExplorerModel(
     activeContainerId: selection.activeContainerId,
     apiClient: appData.apiClient,
     blobStore: appData.blobStore,
+    cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
     dbStatus: appData.dbStatus,
     domainScope: appData.domainScope,
     encapsulationKeyPair: appData.encapsulationKeyPair,
@@ -1782,6 +1817,8 @@ function useExplorerModel(
   const { handleRefresh, isRefreshing, refreshError } =
     useExplorerRefreshAction({
       apiClient: appData.apiClient,
+      cacheReferencedPrincipalPolicies:
+        appData.cacheReferencedPrincipalPolicies,
       execSql: appData.execSql,
       mergeNoteSummaries,
       primeDiscoveredNotes,

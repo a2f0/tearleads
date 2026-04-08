@@ -103,6 +103,7 @@ interface ExplorerRuntime {
     | "syncDocument"
   >;
   blobStore: BlobStore;
+  cacheReferencedPrincipalPolicies: ExplorerAppData["cacheReferencedPrincipalPolicies"];
   dbStatus: ExplorerAppData["dbStatus"];
   domainScope: ExplorerAppData["domainScope"];
   encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
@@ -365,6 +366,8 @@ function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
         ),
     },
     blobStore: state.runtime.blobStore,
+    cacheReferencedPrincipalPolicies:
+      state.runtime.cacheReferencedPrincipalPolicies,
     containerId,
     dbStatus: state.runtime.dbStatus,
     domainScope: state.runtime.domainScope,
@@ -484,6 +487,12 @@ async function hydrateRemoteContainers(
   if (!remoteContainers) {
     return;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    remoteContainers.flatMap(
+      (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
+    ),
+  );
 
   const localRecipientPublicKeys = getLocalRecipientPublicKeys(
     state.runtime.encapsulationKeyPair,
@@ -827,6 +836,10 @@ async function syncSingleContainerMetadata(
     return;
   }
 
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    synced.referencedPrincipals,
+  );
+
   await applySyncedContainerUpdates(
     state,
     containerState,
@@ -973,6 +986,10 @@ async function buildRemoteChildContainerState(
   if (!created) {
     return null;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    created.metadataReferencedPrincipals,
+  );
 
   return {
     container: {
@@ -1215,6 +1232,10 @@ async function shareExplorerContainerWithUser(
   if (!shared) {
     return null;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    shared.metadataReferencedPrincipals,
+  );
 
   existingState.recipientPublicKeys = resolveRecipientPublicKeys(
     shared.metadataRecipientEncapsulationPublicKeys,

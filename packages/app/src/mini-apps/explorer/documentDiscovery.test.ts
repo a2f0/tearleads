@@ -7,6 +7,15 @@ import {
 } from "./documentDiscovery";
 
 test("unknown document update events trigger rediscovery for shared container notes", async () => {
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>
+  > = [];
   const replaceDocumentLinksBatchCalls: Array<
     ReadonlyArray<{
       containerIds: ReadonlyArray<string>;
@@ -35,6 +44,9 @@ test("unknown document update events trigger rediscovery for shared container no
   );
 
   const discovered = await discoverContainerDocuments({
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references);
+    },
     containerId: "shared-container",
     listContainerDocuments: async () => [
       {
@@ -42,6 +54,15 @@ test("unknown document update events trigger rediscovery for shared container no
         currentAccessEpoch: 1,
         id: "peer-note-document",
         linkedContainerIds: ["shared-container"],
+        referencedPrincipals: [
+          {
+            keyEpoch: 1,
+            principalId: "group-1",
+            principalType: "group",
+            stateHash: "state-hash-1",
+            version: 1,
+          },
+        ],
       },
     ],
     replaceDocumentLinksBatch: async (inputs) => {
@@ -78,6 +99,17 @@ test("unknown document update events trigger rediscovery for shared container no
       },
     ],
   ]);
+  expect(cachedPrincipalReferences).toEqual([
+    [
+      {
+        keyEpoch: 1,
+        principalId: "group-1",
+        principalType: "group",
+        stateHash: "state-hash-1",
+        version: 1,
+      },
+    ],
+  ]);
   expect(discovered).toEqual([
     {
       id: "note-peer-note-document",
@@ -90,6 +122,15 @@ test("unknown document update events trigger rediscovery for shared container no
 });
 
 test("manual refresh can discover documents across all visible containers", async () => {
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>
+  > = [];
   const listContainerDocumentsCalls: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
     ReadonlyArray<{
@@ -106,6 +147,9 @@ test("manual refresh can discover documents across all visible containers", asyn
     }>
   > = [];
   const discovered = await discoverAllContainerDocuments({
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references);
+    },
     containerIds: ["container-a", "container-b", "container-a"],
     listContainerDocuments: async (containerId) => {
       listContainerDocumentsCalls.push(containerId);
@@ -116,6 +160,15 @@ test("manual refresh can discover documents across all visible containers", asyn
             currentAccessEpoch: 1,
             id: "document-a",
             linkedContainerIds: ["container-a"],
+            referencedPrincipals: [
+              {
+                keyEpoch: 1,
+                principalId: "group-a",
+                principalType: "group",
+                stateHash: "state-hash-a",
+                version: 1,
+              },
+            ],
           },
         ];
       }
@@ -126,6 +179,15 @@ test("manual refresh can discover documents across all visible containers", asyn
           currentAccessEpoch: 2,
           id: "document-b",
           linkedContainerIds: ["container-b"],
+          referencedPrincipals: [
+            {
+              keyEpoch: 2,
+              principalId: "organization-b",
+              principalType: "organization",
+              stateHash: "state-hash-b",
+              version: 3,
+            },
+          ],
         },
       ];
     },
@@ -170,6 +232,24 @@ test("manual refresh can discover documents across all visible containers", asyn
         containerId: "container-b",
         createdAt: "2026-04-06T12:05:00.000Z",
         documentId: "document-b",
+      },
+    ],
+  ]);
+  expect(cachedPrincipalReferences).toEqual([
+    [
+      {
+        keyEpoch: 1,
+        principalId: "group-a",
+        principalType: "group",
+        stateHash: "state-hash-a",
+        version: 1,
+      },
+      {
+        keyEpoch: 2,
+        principalId: "organization-b",
+        principalType: "organization",
+        stateHash: "state-hash-b",
+        version: 3,
       },
     ],
   ]);

@@ -1,5 +1,9 @@
 import { renderApp } from "app/client";
 import { AppHostConfig } from "app/host/AppHostConfig";
+import {
+  parseTrustedPolicySigners,
+  readTrustedPolicySignersPublicEnv,
+} from "app/host/trustedPolicySigners";
 import { createRoot } from "react-dom/client";
 
 const elem = document.getElementById("root");
@@ -13,6 +17,8 @@ if (import.meta.hot) {
     hostConfig: new AppHostConfig(
       "http://localhost:3001",
       "ws://localhost:3001",
+      undefined,
+      parseTrustedPolicySigners(readTrustedPolicySignersPublicEnv(import.meta)),
     ),
   });
 } else {
@@ -20,6 +26,8 @@ if (import.meta.hot) {
     hostConfig: new AppHostConfig(
       "http://localhost:3001",
       "ws://localhost:3001",
+      undefined,
+      parseTrustedPolicySigners(readTrustedPolicySignersPublicEnv(import.meta)),
     ),
   });
 }

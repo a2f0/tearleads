@@ -65,6 +65,7 @@ export interface ContactsRuntime {
     ContactsAppData["apiClient"],
     "createDocument" | "getEncapsulationKey" | "syncDocument"
   >;
+  cacheReferencedPrincipalPolicies: ContactsAppData["cacheReferencedPrincipalPolicies"];
   containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
@@ -415,6 +416,10 @@ async function ensureContactDocumentForSync(
       return null;
     }
 
+    await state.runtime.cacheReferencedPrincipalPolicies(
+      created.referencedPrincipals,
+    );
+
     contact.recipientPublicKeys = resolveRecipientPublicKeys(
       created.recipientEncapsulationPublicKeys,
       getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
@@ -580,6 +585,10 @@ async function syncSingleContact(
   if (!synced) {
     return;
   }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    synced.referencedPrincipals,
+  );
 
   await applySyncedContactUpdates(
     state,

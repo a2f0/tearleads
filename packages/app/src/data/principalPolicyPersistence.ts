@@ -1,0 +1,192 @@
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalStateResponse,
+} from "@tearleads/validators/response";
+import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { SqlRow } from "./sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  readSqlRowValue,
+  runSerializedSqlMutation,
+  type SqlTableSchema,
+} from "./sqlSchema";
+
+interface PrincipalPolicyRow {
+  principalType: "group" | "organization";
+  principalId: string;
+  stateHash: string;
+  currentStateJson: string;
+  currentMemberEnvelopesJson: string;
+}
+
+const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
+  {
+    name: "principal_policies",
+    createSql: `
+      CREATE TABLE IF NOT EXISTS principal_policies (
+        principal_type TEXT NOT NULL,
+        principal_id TEXT NOT NULL,
+        state_hash TEXT NOT NULL,
+        current_state_json TEXT NOT NULL,
+        current_member_envelopes_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (principal_type, principal_id)
+      )
+    `,
+  },
+];
+
+function isManagedPrincipalType(
+  value: string,
+): value is PrincipalStateResponse["principalType"] {
+  return value === "group" || value === "organization";
+}
+
+function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
+  const principalType = readSqlRowValue(row, "principal_type");
+  const principalId = readSqlRowValue(row, "principal_id");
+  const stateHash = readSqlRowValue(row, "state_hash");
+  const currentStateJson = readSqlRowValue(row, "current_state_json");
+  const currentMemberEnvelopesJson = readSqlRowValue(
+    row,
+    "current_member_envelopes_json",
+  );
+
+  if (
+    typeof principalType !== "string" ||
+    !isManagedPrincipalType(principalType) ||
+    typeof principalId !== "string" ||
+    typeof stateHash !== "string" ||
+    typeof currentStateJson !== "string" ||
+    typeof currentMemberEnvelopesJson !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    principalType,
+    principalId,
+    stateHash,
+    currentStateJson,
+    currentMemberEnvelopesJson,
+  };
+}
+
+function parsePrincipalPolicyBundle(
+  row: PrincipalPolicyRow,
+): PrincipalPolicyBundleResponse {
+  const currentState = JSON.parse(row.currentStateJson);
+  const currentMemberEnvelopes = JSON.parse(row.currentMemberEnvelopesJson);
+  const bundle = {
+    currentState,
+    currentMemberEnvelopes,
+  };
+
+  if (!isPrincipalPolicyBundleResponse(bundle)) {
+    throw new Error("Stored principal policy bundle is invalid");
+  }
+
+  return bundle;
+}
+
+export async function ensurePrincipalPolicyTables(
+  execSql: ExecSql,
+): Promise<void> {
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await ensureSqlTables(lockedExecSql, principalPolicyTables);
+  });
+}
+
+export async function loadPrincipalPolicyBundle(
+  execSql: ExecSql,
+  principalType: PrincipalStateResponse["principalType"],
+  principalId: string,
+): Promise<PrincipalPolicyBundleResponse | null> {
+  const rows = await execSql(
+    `
+      SELECT
+        principal_type,
+        principal_id,
+        state_hash,
+        current_state_json,
+        current_member_envelopes_json
+      FROM principal_policies
+      WHERE principal_type = :principalType AND principal_id = :principalId
+      LIMIT 1
+    `,
+    {
+      ":principalType": principalType,
+      ":principalId": principalId,
+    },
+  );
+
+  const row = rows[0] ? parsePrincipalPolicyRow(rows[0]) : null;
+  return row ? parsePrincipalPolicyBundle(row) : null;
+}
+
+export async function loadPrincipalPolicyStateHash(
+  execSql: ExecSql,
+  principalType: PrincipalStateResponse["principalType"],
+  principalId: string,
+): Promise<string | null> {
+  const rows = await execSql(
+    `
+      SELECT state_hash
+      FROM principal_policies
+      WHERE principal_type = :principalType AND principal_id = :principalId
+      LIMIT 1
+    `,
+    {
+      ":principalType": principalType,
+      ":principalId": principalId,
+    },
+  );
+
+  const stateHash = readSqlRowValue(rows[0] ?? {}, "state_hash");
+  return typeof stateHash === "string" ? stateHash : null;
+}
+
+export async function savePrincipalPolicyBundle(
+  execSql: ExecSql,
+  bundle: PrincipalPolicyBundleResponse,
+  updatedAt: string,
+): Promise<void> {
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await lockedExecSql(
+      `
+        INSERT INTO principal_policies (
+          principal_type,
+          principal_id,
+          state_hash,
+          current_state_json,
+          current_member_envelopes_json,
+          updated_at
+        )
+        VALUES (
+          :principalType,
+          :principalId,
+          :stateHash,
+          :currentStateJson,
+          :currentMemberEnvelopesJson,
+          :updatedAt
+        )
+        ON CONFLICT(principal_type, principal_id) DO UPDATE SET
+          state_hash = excluded.state_hash,
+          current_state_json = excluded.current_state_json,
+          current_member_envelopes_json = excluded.current_member_envelopes_json,
+          updated_at = excluded.updated_at
+      `,
+      {
+        ":principalType": bundle.currentState.principalType,
+        ":principalId": bundle.currentState.principalId,
+        ":stateHash": bundle.currentState.stateHash,
+        ":currentStateJson": JSON.stringify(bundle.currentState),
+        ":currentMemberEnvelopesJson": JSON.stringify(
+          bundle.currentMemberEnvelopes,
+        ),
+        ":updatedAt": updatedAt,
+      },
+    );
+  });
+}
