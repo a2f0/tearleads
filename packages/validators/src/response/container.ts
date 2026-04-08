@@ -5,6 +5,10 @@ import {
   hasNumberProperty,
   hasStringProperty,
 } from "../util";
+import {
+  isReferencedPrincipalStateResponse,
+  type ReferencedPrincipalStateResponse,
+} from "./principal";
 
 export interface CreateContainerResponse {
   id: string;
@@ -13,6 +17,7 @@ export interface CreateContainerResponse {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataRecipientEncapsulationPublicKeys: string[];
+  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 export interface ShareContainerResponse {
@@ -20,6 +25,7 @@ export interface ShareContainerResponse {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataRecipientEncapsulationPublicKeys: string[];
+  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 export interface ContainerSummary {
@@ -29,11 +35,16 @@ export interface ContainerSummary {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataRecipientEncapsulationPublicKeys: string[];
+  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 export type ListContainersResponse = ContainerSummary[];
 
 function isContainerSummary(value: unknown): value is ContainerSummary {
+  const metadataReferencedPrincipals = isPlainObject(value)
+    ? Reflect.get(value, "metadataReferencedPrincipals")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
@@ -44,7 +55,10 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
     value.metadataRecipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",
-    )
+    ) &&
+    (metadataReferencedPrincipals === undefined ||
+      (Array.isArray(metadataReferencedPrincipals) &&
+        metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }
 
@@ -63,6 +77,10 @@ export function isListContainersResponse(
 export function isShareContainerResponse(
   value: unknown,
 ): value is ShareContainerResponse {
+  const metadataReferencedPrincipals = isPlainObject(value)
+    ? Reflect.get(value, "metadataReferencedPrincipals")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
@@ -71,6 +89,9 @@ export function isShareContainerResponse(
     hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
     value.metadataRecipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",
-    )
+    ) &&
+    (metadataReferencedPrincipals === undefined ||
+      (Array.isArray(metadataReferencedPrincipals) &&
+        metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }

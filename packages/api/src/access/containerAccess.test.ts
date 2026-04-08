@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  signPrincipalState,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, sql } from "drizzle-orm";
 import invariant from "invariant";
 import { createTestUser } from "../../test/helpers/createTestUser";
@@ -18,9 +25,17 @@ import {
   canWriteContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
+import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
+const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
+
+function principalStateSignedAt(offsetMinutes: number): string {
+  return new Date(
+    PRINCIPAL_STATE_BASE_TIME_MS + offsetMinutes * 60 * 1000,
+  ).toISOString();
+}
 
 function userPrincipal(userId: string): {
   principalId: string;
@@ -30,6 +45,35 @@ function userPrincipal(userId: string): {
     principalId: userId,
     principalType: "user",
   };
+}
+
+async function storeCurrentPrincipalState(input: {
+  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  principalId: string;
+  principalType: "group" | "organization";
+}): Promise<void> {
+  const principalKem = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+
+  await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: input.principalType,
+        principalId: input.principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        keyFingerprint: await toFingerprint(principalKem.publicKey),
+        members: input.members,
+        signedAt: principalStateSignedAt(0),
+        signerKeyId: `${input.principalType}-policy-key`,
+      },
+      signingPrivateKey,
+    ),
+    signingPublicKey,
+  );
 }
 
 test("container access inherits ancestor grants and merges child grants", async () => {
@@ -211,6 +255,24 @@ test("container access expands organization and group grants and merges access l
     },
   ]);
 
+  await storeCurrentPrincipalState({
+    principalType: "organization",
+    principalId: aliceRow.defaultOrganizationId,
+    members: [
+      { principalType: "user", principalId: alice.userId },
+      { principalType: "user", principalId: bob.userId },
+      { principalType: "user", principalId: charlie.userId },
+    ],
+  });
+  await storeCurrentPrincipalState({
+    principalType: "group",
+    principalId: group.id,
+    members: [
+      { principalType: "user", principalId: bob.userId },
+      { principalType: "user", principalId: charlie.userId },
+    ],
+  });
+
   await db.insert(objectAccessGrants).values([
     {
       objectType: CONTAINER_OBJECT_TYPE,
@@ -269,6 +331,22 @@ test("container access expands organization and group grants and merges access l
 
   expect(bobRecipient?.accessLevel).toBe("write");
   expect(charlieRecipient?.accessLevel).toBe("write");
+  expect(state.referencedPrincipals).toEqual([
+    {
+      principalType: "group",
+      principalId: group.id,
+      version: 1,
+      keyEpoch: 1,
+      stateHash: expect.any(String),
+    },
+    {
+      principalType: "organization",
+      principalId: aliceRow.defaultOrganizationId,
+      version: 1,
+      keyEpoch: 1,
+      stateHash: expect.any(String),
+    },
+  ]);
 
   // A user who is not a member of the org or group should not have access
   const outsider = createTestUser();

@@ -1,5 +1,9 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
+  isReferencedPrincipalStateResponse,
+  type ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
+import {
   hasArrayProperty,
   hasNumberProperty,
   hasStringProperty,
@@ -24,6 +28,7 @@ export interface CreateDocumentResponse {
   currentAccessEpoch: number;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
+  referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 export interface SyncDocumentRequest {
@@ -50,6 +55,7 @@ export interface SyncDocumentResponse {
   currentAccessEpoch: number;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
+  referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 function hasPositiveNumberProperty<Key extends string>(
@@ -108,6 +114,9 @@ export function isCreateDocumentResponse(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const referencedPrincipals = isPlainObject(value)
+    ? Reflect.get(value, "referencedPrincipals")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -116,7 +125,10 @@ export function isCreateDocumentResponse(
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
-    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&
+    (referencedPrincipals === undefined ||
+      (Array.isArray(referencedPrincipals) &&
+        referencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }
 
@@ -159,6 +171,9 @@ export function isSyncDocumentResponse(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const referencedPrincipals = isPlainObject(value)
+    ? Reflect.get(value, "referencedPrincipals")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -172,6 +187,9 @@ export function isSyncDocumentResponse(
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
-    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys")
+    hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&
+    (referencedPrincipals === undefined ||
+      (Array.isArray(referencedPrincipals) &&
+        referencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }

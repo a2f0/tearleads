@@ -165,6 +165,7 @@ export async function listContainerDocuments(
       linkedContainerIds: linkedContainerIdsByDocumentId.get(documentId) ?? [],
       recipientEncapsulationPublicKeys:
         listRecipientEncapsulationPublicKeys(accessState),
+      referencedPrincipals: accessState.referencedPrincipals,
     });
   }
 

@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  signPrincipalState,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../test/helpers/api/createDocument";
@@ -9,6 +16,8 @@ import { db } from "../adapters/postgres";
 import {
   containers,
   documentContainerLinks,
+  groupMembers,
+  groups,
   objectRecipientEnvelopes,
   users,
 } from "../schema";
@@ -17,7 +26,16 @@ import {
   resolveContainerAccessState,
 } from "./containerAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
+import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
+
+const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
+
+function principalStateSignedAt(offsetMinutes: number): string {
+  return new Date(
+    PRINCIPAL_STATE_BASE_TIME_MS + offsetMinutes * 60 * 1000,
+  ).toISOString();
+}
 
 function userPrincipal(userId: string): {
   principalId: string;
@@ -27,6 +45,37 @@ function userPrincipal(userId: string): {
     principalId: userId,
     principalType: "user",
   };
+}
+
+async function storeCurrentGroupState(
+  groupId: string,
+  memberUserIds: string[],
+): Promise<void> {
+  const principalKem = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+
+  await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId: groupId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        keyFingerprint: await toFingerprint(principalKem.publicKey),
+        members: memberUserIds.map((userId) => ({
+          principalType: "user",
+          principalId: userId,
+        })),
+        signedAt: principalStateSignedAt(15),
+        signerKeyId: "group-policy-key",
+      },
+      signingPrivateKey,
+    ),
+    signingPublicKey,
+  );
 }
 
 test("document access includes recipients inherited from its linked root container", async () => {
@@ -119,4 +168,85 @@ test("document access includes recipients inherited from its linked root contain
       (left, right) => left.principalId.localeCompare(right.principalId),
     ),
   );
+});
+
+test("document access includes referenced principal policy states from linked containers", async () => {
+  const owner = createTestUser();
+  const bob = createTestUser();
+  const charlie = createTestUser();
+
+  await registerUser(owner);
+  await registerUser(bob);
+  await registerUser(charlie);
+  await authenticate(owner);
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const [rootContainer] = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, ownerRow.defaultOrganizationId),
+        isNull(containers.parentId),
+      ),
+    )
+    .limit(1);
+  invariant(rootContainer, "expected root container");
+
+  const [childContainer] = await db
+    .insert(containers)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      parentId: rootContainer.id,
+    })
+    .returning({ id: containers.id });
+  invariant(childContainer, "expected child container");
+
+  const [group] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Readers",
+    })
+    .returning({ id: groups.id });
+  invariant(group, "expected group");
+
+  await db.insert(groupMembers).values([
+    { groupId: group.id, userId: bob.userId },
+    { groupId: group.id, userId: charlie.userId },
+  ]);
+  await storeCurrentGroupState(group.id, [bob.userId, charlie.userId]);
+
+  await grantContainerAccess({
+    containerId: childContainer.id,
+    subjectType: "group",
+    subjectId: group.id,
+    accessLevel: "read",
+  });
+
+  const createDocumentResponse = await createDocument(owner.token, [
+    childContainer.id,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+
+  const accessState = await resolveDocumentAccessState(createdDocument.id);
+  invariant(accessState, "expected document access state");
+  expect(accessState.referencedPrincipals).toEqual([
+    {
+      principalType: "group",
+      principalId: group.id,
+      version: 1,
+      keyEpoch: 1,
+      stateHash: expect.any(String),
+    },
+  ]);
 });

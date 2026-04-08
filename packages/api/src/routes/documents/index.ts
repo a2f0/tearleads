@@ -846,6 +846,7 @@ export const documentsRouter = createLoroRouter({
           documentRecipientEnvelopes: initialDocumentRecipientEnvelopes,
           recipientEncapsulationPublicKeys:
             listRecipientEncapsulationPublicKeys(access),
+          referencedPrincipals: access.referencedPrincipals,
         };
       });
     },
@@ -873,6 +874,7 @@ export const documentsRouter = createLoroRouter({
         recipientKeyFingerprints: listRecipientKeyFingerprints(access),
         recipientEncapsulationPublicKeys:
           listRecipientEncapsulationPublicKeys(access),
+        referencedPrincipals: access.referencedPrincipals,
       };
     },
     async appendDocumentUpdates({

@@ -2,6 +2,7 @@ import {
   readEncryptedUpdateAccessEpoch,
   type SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import {
@@ -101,6 +102,7 @@ export async function createContainerMetadataDocument(
   metadataAccessEpoch: number;
   metadataDocumentId: string;
   metadataRecipientEncapsulationPublicKeys: string[];
+  metadataReferencedPrincipals: ReferencedPrincipalStateResponse[];
 }> {
   const [metadataDocument] = await tx
     .insert(documents)
@@ -189,5 +191,6 @@ export async function createContainerMetadataDocument(
     metadataDocumentId: metadataDocument.id,
     metadataRecipientEncapsulationPublicKeys:
       listRecipientEncapsulationPublicKeys(access),
+    metadataReferencedPrincipals: access.referencedPrincipals,
   };
 }

@@ -129,6 +129,15 @@ test("isCreateContainerResponse", () => {
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 1,
       metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+      metadataReferencedPrincipals: [
+        {
+          principalType: "group",
+          principalId: "group-123",
+          version: 1,
+          keyEpoch: 1,
+          stateHash: "state-hash",
+        },
+      ],
     }),
   ).toBe(true);
   expect(
@@ -150,6 +159,15 @@ test("isListContainersResponse", () => {
         metadataDocumentId: "doc-root",
         metadataAccessEpoch: 1,
         metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+        metadataReferencedPrincipals: [
+          {
+            principalType: "organization",
+            principalId: "org-123",
+            version: 2,
+            keyEpoch: 1,
+            stateHash: "state-hash",
+          },
+        ],
       },
     ]),
   ).toBe(true);
@@ -174,6 +192,15 @@ test("isShareContainerResponse", () => {
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
       metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+      metadataReferencedPrincipals: [
+        {
+          principalType: "group",
+          principalId: "group-123",
+          version: 1,
+          keyEpoch: 1,
+          stateHash: "state-hash",
+        },
+      ],
     }),
   ).toBe(true);
   expect(
@@ -194,6 +221,15 @@ test("isListContainerDocumentsResponse", () => {
         id: "doc-123",
         linkedContainerIds: ["ctr-root"],
         recipientEncapsulationPublicKeys: ["pub-key"],
+        referencedPrincipals: [
+          {
+            principalType: "group",
+            principalId: "group-123",
+            version: 1,
+            keyEpoch: 1,
+            stateHash: "state-hash",
+          },
+        ],
       },
     ]),
   ).toBe(true);

@@ -41,9 +41,11 @@ export {
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
+  isReferencedPrincipalStateResponse,
   type PrincipalMemberEnvelopeResponse,
   type PrincipalPolicyBundleResponse,
   type PrincipalStateMemberResponse,
   type PrincipalStateResponse,
+  type ReferencedPrincipalStateResponse,
 } from "./principal";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";
