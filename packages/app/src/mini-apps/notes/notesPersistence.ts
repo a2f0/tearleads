@@ -72,6 +72,13 @@ export interface DiscoveredNoteInput {
   documentId: string;
 }
 
+export interface RelinkPersistedNoteInput {
+  accessEpoch: number;
+  containerId: string;
+  documentId: string;
+  noteId: string;
+}
+
 export interface NotesPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   listNotes: (execSql: ExecSql) => Promise<NoteSummary[]>;
@@ -81,6 +88,10 @@ export interface NotesPersistence {
     execSql: ExecSql,
     input: DiscoveredNoteInput,
   ) => Promise<NoteSummary>;
+  relinkPersistedNote: (
+    execSql: ExecSql,
+    input: RelinkPersistedNoteInput,
+  ) => Promise<NoteSummary | null>;
   listPendingUpdates: (
     execSql: ExecSql,
     noteId: string,
@@ -281,6 +292,53 @@ async function upsertDiscoveredNoteWithExec(
   };
 }
 
+async function relinkPersistedNoteWithExec(
+  execSql: ExecSql,
+  input: RelinkPersistedNoteInput,
+): Promise<NoteSummary | null> {
+  const existingNote = await sqlNotesPersistence.loadNote(
+    execSql,
+    input.noteId,
+  );
+  if (!existingNote) {
+    return null;
+  }
+
+  const nextAccessEpoch = Math.max(existingNote.accessEpoch, input.accessEpoch);
+  const nextNote: NoteRecord = {
+    ...existingNote,
+    accessEpoch: nextAccessEpoch,
+    containerId: input.containerId,
+    documentId: input.documentId,
+    documentRecipientEnvelopes:
+      input.accessEpoch > existingNote.accessEpoch
+        ? null
+        : existingNote.documentRecipientEnvelopes,
+  };
+
+  await sqlNotesPersistence.saveNote(execSql, nextNote);
+
+  const updatedAtRows = await execSql(
+    `
+      SELECT updated_at
+      FROM note_projection
+      WHERE note_id = :noteId
+      LIMIT 1
+    `,
+    {
+      ":noteId": input.noteId,
+    },
+  );
+
+  return {
+    id: nextNote.id,
+    containerId: nextNote.containerId,
+    documentId: nextNote.documentId,
+    title: deriveNoteTitle(nextNote.text),
+    updatedAt: parseProjectionUpdatedAt(updatedAtRows[0]),
+  };
+}
+
 export async function upsertDiscoveredNotes(
   execSql: ExecSql,
   inputs: ReadonlyArray<DiscoveredNoteInput>,
@@ -448,6 +506,12 @@ export const sqlNotesPersistence: NotesPersistence = {
     }
 
     return nextSummary;
+  },
+  async relinkPersistedNote(execSql, input) {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await sqlNotesPersistence.ensureSchema(lockedExecSql);
+      return relinkPersistedNoteWithExec(lockedExecSql, input);
+    });
   },
   async listPendingUpdates(execSql, noteId) {
     return listDocumentPendingUpdates(execSql, getNoteScope(noteId));

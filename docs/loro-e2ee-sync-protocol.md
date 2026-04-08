@@ -91,7 +91,8 @@ Current implementation:
 - those routes now materialize affected document epochs and active blob epochs
   immediately after the container/document graph changes
 - the app explorer now drives the container `move` route directly for
-  reparenting, while document `link` / `unlink` client flows are still pending
+  reparenting and uses `link` + `unlink` to move a note between containers
+  without creating a new document object
 
 Important remaining limitation:
 
@@ -102,6 +103,9 @@ Important remaining limitation:
 - container/document discovery and Loro create/sync responses now expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
+- the current app still projects notes as single-container documents, so the
+  new explorer note move flow is implemented as "relink to a new primary
+  container" rather than a full multi-link document-management UI
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

@@ -79,8 +79,10 @@ Remaining implementation work:
   managed grant has no current principal policy state yet
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
-- continue wiring document link/unlink client flows around the structural
-  mutation routes; explorer container move is now wired through the app
+- keep pushing the document link/unlink client story beyond the current
+  explorer note move flow; the app can now move a note between containers via
+  `link` + `unlink`, but it still does not expose a true multi-container
+  document UI
 - decide detached-binding retention / GC policy separately from blob GC
 
 ### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented

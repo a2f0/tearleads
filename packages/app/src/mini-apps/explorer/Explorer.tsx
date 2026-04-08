@@ -1,3 +1,4 @@
+import type { ContainerDocumentSummary } from "@tearleads/validators/response";
 import {
   type FormEvent,
   Fragment,
@@ -39,6 +40,7 @@ type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
   | { mode: "move"; nodeId: string }
+  | { mode: "move-note"; noteId: string }
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
 
@@ -133,6 +135,113 @@ function getMoveTargetOptions(
   );
 
   return options;
+}
+
+function getNoteMoveTargetOptions(
+  nodes: ReadonlyArray<ContainerNode>,
+  noteSummaries: ReadonlyArray<NoteSummary>,
+  noteId: string,
+): ReadonlyArray<MoveTargetOption> {
+  const movingNote = noteSummaries.find((note) => note.id === noteId);
+  if (!movingNote?.containerId) {
+    return [];
+  }
+
+  const currentContainer = nodes.find(
+    (node) => node.id === movingNote.containerId,
+  );
+  if (!currentContainer) {
+    return [];
+  }
+
+  const options = nodes
+    .filter(
+      (candidateNode) =>
+        candidateNode.id !== currentContainer.id &&
+        candidateNode.organizationId === currentContainer.organizationId,
+    )
+    .map((candidateNode) => ({
+      id: candidateNode.id,
+      label: `${candidateNode.name} (${candidateNode.id})`,
+    }));
+
+  options.sort((left, right) =>
+    left.label.localeCompare(right.label, undefined, {
+      sensitivity: "base",
+    }),
+  );
+
+  return options;
+}
+
+function getMovedNoteContainerId(
+  document: ContainerDocumentSummary,
+  preferredContainerId: string,
+): string | null {
+  if (document.linkedContainerIds.includes(preferredContainerId)) {
+    return preferredContainerId;
+  }
+
+  return document.linkedContainerIds[0] ?? null;
+}
+
+async function moveExplorerNoteDocument(params: {
+  appData: ReturnType<typeof useAppData>;
+  note: NoteSummary;
+  targetContainerId: string;
+}) {
+  const { appData, note, targetContainerId } = params;
+  if (!note.documentId || !note.containerId) {
+    return null;
+  }
+
+  const linkedDocument = await appData.apiClient.linkDocumentToContainer(
+    note.documentId,
+    targetContainerId,
+  );
+  if (!linkedDocument) {
+    appData.log(
+      `Explorer: failed to link note ${note.id} to container ${targetContainerId}`,
+    );
+    return null;
+  }
+  await appData.cacheReferencedPrincipalPolicies(
+    linkedDocument.referencedPrincipals ?? [],
+  );
+
+  const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
+    note.documentId,
+    note.containerId,
+  );
+  if (!unlinkedDocument) {
+    appData.log(
+      `Explorer: note ${note.id} was linked to ${targetContainerId} but failed to unlink from ${note.containerId}`,
+    );
+    return null;
+  }
+
+  await appData.cacheReferencedPrincipalPolicies(
+    unlinkedDocument.referencedPrincipals ?? [],
+  );
+
+  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    appData.execSql,
+    note.documentId,
+    unlinkedDocument.linkedContainerIds,
+  );
+
+  const nextContainerId = getMovedNoteContainerId(
+    unlinkedDocument,
+    targetContainerId,
+  );
+  if (!nextContainerId) {
+    return null;
+  }
+
+  return {
+    currentAccessEpoch: unlinkedDocument.currentAccessEpoch,
+    nextContainerId,
+  };
 }
 
 function renderTreeEntries(
@@ -359,7 +468,15 @@ function createNotesRuntimeFromExplorer(
   online: ReturnType<typeof useAppData>["online"],
 ) {
   return {
-    apiClient,
+    apiClient: {
+      commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
+      createDocument: apiClient.createDocument.bind(apiClient),
+      getBlob: apiClient.getBlob.bind(apiClient),
+      listDocumentAttachments:
+        apiClient.listDocumentAttachments.bind(apiClient),
+      stageBlob: apiClient.stageBlob.bind(apiClient),
+      syncDocument: apiClient.syncDocument.bind(apiClient),
+    },
     blobStore,
     cacheReferencedPrincipalPolicies,
     containerId,
@@ -857,6 +974,8 @@ function getExplorerModalError(mode: ExplorerModalState["mode"]): string {
       return "Failed to delete container.";
     case "move":
       return "Failed to move container.";
+    case "move-note":
+      return "Failed to move note.";
     case "share-peer":
       return "Failed to share container with peer.";
   }
@@ -872,6 +991,8 @@ function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
       return "Failed to delete container:";
     case "move":
       return "Failed to move container:";
+    case "move-note":
+      return "Failed to move note:";
     case "share-peer":
       return "Failed to share container with peer:";
   }
@@ -1031,6 +1152,7 @@ function useExplorerModalEffects(params: {
       !modalState ||
       modalState.mode === "delete" ||
       modalState.mode === "move" ||
+      modalState.mode === "move-note" ||
       modalState.mode === "share-peer"
     ) {
       return;
@@ -1057,8 +1179,79 @@ function useExplorerModalEffects(params: {
   }, [closeModal, isSubmittingModal, modalState]);
 }
 
+function useExplorerTargetModalOpeners(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+}) {
+  const {
+    nodes,
+    noteSummaries,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+  } = params;
+
+  const openMoveModal = useCallback(
+    (containerId: string) => {
+      const moveTargetOptions = getMoveTargetOptions(nodes, containerId);
+      if (moveTargetOptions.length === 0) {
+        return;
+      }
+
+      setModalState({ mode: "move", nodeId: containerId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
+    },
+    [
+      nodes,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+    ],
+  );
+
+  const openMoveNoteModal = useCallback(
+    (noteId: string) => {
+      const moveTargetOptions = getNoteMoveTargetOptions(
+        nodes,
+        noteSummaries,
+        noteId,
+      );
+      if (moveTargetOptions.length === 0) {
+        return;
+      }
+
+      setModalState({ mode: "move-note", noteId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
+    },
+    [
+      nodes,
+      noteSummaries,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+    ],
+  );
+
+  return {
+    openMoveModal,
+    openMoveNoteModal,
+  };
+}
+
 function useExplorerModalOpeners(params: {
   nodes: ReadonlyArray<ContainerNode>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -1071,6 +1264,7 @@ function useExplorerModalOpeners(params: {
     setModalError,
     setModalState,
   } = params;
+  const targetOpeners = useExplorerTargetModalOpeners(params);
 
   const openCreateChildModal = useCallback(
     (parentId: string) => {
@@ -1113,27 +1307,6 @@ function useExplorerModalOpeners(params: {
     [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
   );
 
-  const openMoveModal = useCallback(
-    (containerId: string) => {
-      const moveTargetOptions = getMoveTargetOptions(nodes, containerId);
-      if (moveTargetOptions.length === 0) {
-        return;
-      }
-
-      setModalState({ mode: "move", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
-    },
-    [
-      nodes,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-    ],
-  );
-
   const openSharePeerModal = useCallback(
     (containerId: string) => {
       setModalState({ mode: "share-peer", nodeId: containerId });
@@ -1147,13 +1320,16 @@ function useExplorerModalOpeners(params: {
   return {
     openCreateChildModal,
     openDeleteModal,
-    openMoveModal,
     openRenameModal,
     openSharePeerModal,
+    ...targetOpeners,
   };
 }
 
-function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
+function useExplorerModalState(
+  nodes: ReadonlyArray<ContainerNode>,
+  noteSummaries: ReadonlyArray<NoteSummary>,
+) {
   const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
@@ -1178,6 +1354,7 @@ function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
   }, [clearModal, isSubmittingModal]);
   const openers = useExplorerModalOpeners({
     nodes,
+    noteSummaries,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -1223,7 +1400,12 @@ interface ExplorerModalSubmitParams {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
+  moveNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
   peerUserId: string | null;
   renameContainer: (
     containerId: string,
@@ -1233,6 +1415,109 @@ interface ExplorerModalSubmitParams {
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}
+
+async function submitExplorerMoveNoteModal(params: {
+  clearModal: () => void;
+  modalState: { mode: "move-note"; noteId: string };
+  moveNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  setModalError: (error: string | null) => void;
+  setSelectedId: (id: string | null) => void;
+  targetContainerId: string;
+}) {
+  const {
+    clearModal,
+    modalState,
+    moveNote,
+    setModalError,
+    setSelectedId,
+    targetContainerId,
+  } = params;
+
+  if (!targetContainerId) {
+    setModalError("Choose a destination container.");
+    return;
+  }
+
+  const movedNote = await moveNote(modalState.noteId, targetContainerId);
+  if (!movedNote) {
+    setModalError("Failed to move note.");
+    return;
+  }
+
+  setSelectedId(movedNote.id);
+  clearModal();
+}
+
+async function submitExplorerNonNameModal(params: {
+  clearModal: () => void;
+  deleteContainer: (containerId: string) => Promise<boolean>;
+  draftTargetContainerId: string;
+  modalState:
+    | { mode: "delete"; nodeId: string }
+    | { mode: "move"; nodeId: string }
+    | { mode: "move-note"; noteId: string }
+    | { mode: "share-peer"; nodeId: string };
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
+  moveNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  nodes: ReadonlyArray<ContainerNode>;
+  peerUserId: string | null;
+  setModalError: (error: string | null) => void;
+  setSelectedId: (id: string | null) => void;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}) {
+  const { modalState } = params;
+
+  switch (modalState.mode) {
+    case "delete":
+      await submitExplorerDeleteModal({
+        clearModal: params.clearModal,
+        deleteContainer: params.deleteContainer,
+        modalState,
+        nodes: params.nodes,
+        setModalError: params.setModalError,
+        setSelectedId: params.setSelectedId,
+      });
+      return;
+    case "move":
+      await submitExplorerMoveModal({
+        clearModal: params.clearModal,
+        modalState,
+        moveContainer: params.moveContainer,
+        setModalError: params.setModalError,
+        setSelectedId: params.setSelectedId,
+        targetContainerId: params.draftTargetContainerId,
+      });
+      return;
+    case "move-note":
+      await submitExplorerMoveNoteModal({
+        clearModal: params.clearModal,
+        modalState,
+        moveNote: params.moveNote,
+        setModalError: params.setModalError,
+        setSelectedId: params.setSelectedId,
+        targetContainerId: params.draftTargetContainerId,
+      });
+      return;
+    case "share-peer":
+      await submitExplorerShareModal({
+        clearModal: params.clearModal,
+        modalState,
+        peerUserId: params.peerUserId,
+        setModalError: params.setModalError,
+        shareWithUser: params.shareWithUser,
+      });
+      return;
+  }
 }
 
 function useExplorerModalAction(params: ExplorerModalSubmitParams) {
@@ -1245,6 +1530,7 @@ function useExplorerModalAction(params: ExplorerModalSubmitParams) {
     expandNode,
     modalState,
     moveContainer,
+    moveNote,
     nodes,
     peerUserId,
     renameContainer,
@@ -1258,50 +1544,32 @@ function useExplorerModalAction(params: ExplorerModalSubmitParams) {
       return;
     }
 
-    if (modalState.mode === "delete") {
-      await submitExplorerDeleteModal({
+    if (modalState.mode === "create-child" || modalState.mode === "rename") {
+      await submitExplorerNameModal({
         clearModal,
-        deleteContainer,
+        createChild,
+        draftName,
+        expandNode,
         modalState,
-        nodes,
+        renameContainer,
         setModalError,
         setSelectedId,
       });
       return;
     }
 
-    if (modalState.mode === "move") {
-      await submitExplorerMoveModal({
-        clearModal,
-        modalState,
-        moveContainer,
-        setModalError,
-        setSelectedId,
-        targetContainerId: draftTargetContainerId,
-      });
-      return;
-    }
-
-    if (modalState.mode === "share-peer") {
-      await submitExplorerShareModal({
-        clearModal,
-        modalState,
-        peerUserId,
-        setModalError,
-        shareWithUser,
-      });
-      return;
-    }
-
-    await submitExplorerNameModal({
+    await submitExplorerNonNameModal({
       clearModal,
-      createChild,
-      draftName,
-      expandNode,
+      deleteContainer,
+      draftTargetContainerId,
       modalState,
-      renameContainer,
+      moveContainer,
+      moveNote,
+      nodes,
+      peerUserId,
       setModalError,
       setSelectedId,
+      shareWithUser,
     });
   }, [
     clearModal,
@@ -1312,6 +1580,7 @@ function useExplorerModalAction(params: ExplorerModalSubmitParams) {
     expandNode,
     modalState,
     moveContainer,
+    moveNote,
     nodes,
     peerUserId,
     renameContainer,
@@ -1366,7 +1635,12 @@ function useExplorerModalController(params: {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
+  moveNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
   peerUserId: string | null;
   renameContainer: (
     containerId: string,
@@ -1375,11 +1649,17 @@ function useExplorerModalController(params: {
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }) {
-  const modalState = useExplorerModalState(params.nodes);
+  const modalState = useExplorerModalState(params.nodes, params.noteSummaries);
   const moveTargetOptions =
     modalState.modalState?.mode === "move"
       ? getMoveTargetOptions(params.nodes, modalState.modalState.nodeId)
-      : [];
+      : modalState.modalState?.mode === "move-note"
+        ? getNoteMoveTargetOptions(
+            params.nodes,
+            params.noteSummaries,
+            modalState.modalState.noteId,
+          )
+        : [];
   const handleModalSubmit = useExplorerModalSubmit({
     ...params,
     clearModal: modalState.clearModal,
@@ -1404,6 +1684,7 @@ function useExplorerModalController(params: {
     openCreateChildModal: modalState.openCreateChildModal,
     openDeleteModal: modalState.openDeleteModal,
     openMoveModal: modalState.openMoveModal,
+    openMoveNoteModal: modalState.openMoveNoteModal,
     openRenameModal: modalState.openRenameModal,
     openSharePeerModal: modalState.openSharePeerModal,
     setDraftName: modalState.setDraftName,
@@ -1558,21 +1839,146 @@ function useInlineNoteAction(params: {
   );
 }
 
+async function moveExplorerNote(params: {
+  appData: ReturnType<typeof useAppData>;
+  expandNode: (nodeId: string) => void;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  note: NoteSummary;
+  targetContainerId: string;
+}) {
+  const { appData, expandNode, mergeNoteSummary, note, targetContainerId } =
+    params;
+  if (
+    !note.documentId ||
+    !note.containerId ||
+    note.containerId === targetContainerId
+  ) {
+    return null;
+  }
+  const currentNotesStore = primeNotesStore(
+    appData.domainScope,
+    note.id,
+    createNotesRuntimeFromExplorer(
+      appData.apiClient,
+      appData.blobStore,
+      appData.cacheReferencedPrincipalPolicies,
+      note.containerId,
+      appData.dbStatus,
+      appData.domainScope,
+      appData.encapsulationKeyPair,
+      appData.execSql,
+      appData.isAuthenticated,
+      appData.log,
+      appData.online,
+    ),
+    mergeNoteSummary,
+    note.documentId,
+  );
+  if (!(await currentNotesStore.ensureInitialized())) {
+    appData.log(`Explorer: note ${note.id} is not ready to move locally`);
+    return null;
+  }
+
+  const movedDocument = await moveExplorerNoteDocument({
+    appData,
+    note,
+    targetContainerId,
+  });
+  if (!movedDocument) {
+    return null;
+  }
+  const { currentAccessEpoch, nextContainerId } = movedDocument;
+
+  const movedNote = await currentNotesStore.relink({
+    accessEpoch: currentAccessEpoch,
+    containerId: nextContainerId,
+    documentId: note.documentId,
+    noteId: note.id,
+  });
+
+  if (!movedNote) {
+    appData.log(
+      `Explorer: moved note ${note.id} remotely but could not relink its local projection`,
+    );
+    return null;
+  }
+
+  mergeNoteSummary(movedNote);
+  expandNode(nextContainerId);
+  currentNotesStore.updateRuntime(
+    createNotesRuntimeFromExplorer(
+      appData.apiClient,
+      appData.blobStore,
+      appData.cacheReferencedPrincipalPolicies,
+      nextContainerId,
+      appData.dbStatus,
+      appData.domainScope,
+      appData.encapsulationKeyPair,
+      appData.execSql,
+      appData.isAuthenticated,
+      appData.log,
+      appData.online,
+    ),
+  );
+  currentNotesStore.requestSync();
+  appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
+  return movedNote;
+}
+
+function useMoveNoteAction(params: {
+  appData: ReturnType<typeof useAppData>;
+  expandNode: (nodeId: string) => void;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+}) {
+  const { appData, expandNode, mergeNoteSummary, noteSummaries } = params;
+
+  return useCallback(
+    async (noteId: string, targetContainerId: string) => {
+      if (
+        appData.dbStatus !== "ready" ||
+        !appData.isAuthenticated ||
+        !appData.online
+      ) {
+        return null;
+      }
+
+      const existingNote = noteSummaries.find((note) => note.id === noteId);
+      if (!existingNote) {
+        return null;
+      }
+
+      return moveExplorerNote({
+        appData,
+        expandNode,
+        mergeNoteSummary,
+        note: existingNote,
+        targetContainerId,
+      });
+    },
+    [appData, expandNode, mergeNoteSummary, noteSummaries],
+  );
+}
+
 function ExplorerNoteDetail(params: {
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
+  canMoveSelectedNote: boolean;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
+  openMoveNoteModal: (noteId: string) => void;
   ready: boolean;
   refreshError: string | null;
   selectedNote: NoteSummary;
   setSelectedId: (id: string | null) => void;
 }) {
   const {
+    canMoveSelectedNote,
     handleRefresh,
     isRefreshing,
     mergeNoteSummary,
     nodes,
+    openMoveNoteModal,
     ready,
     refreshError,
     selectedNote,
@@ -1606,6 +2012,16 @@ function ExplorerNoteDetail(params: {
             }}
           >
             Back to Container
+          </button>
+          <button
+            type="button"
+            className="explorer-action-button"
+            disabled={!canMoveSelectedNote}
+            onClick={() => {
+              openMoveNoteModal(selectedNote.id);
+            }}
+          >
+            Move
           </button>
           <button
             type="button"
@@ -1712,11 +2128,13 @@ function ExplorerEmptyDetail(params: {
 }
 
 function ExplorerDetailPanel(params: {
+  canMoveSelectedNote: boolean;
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineNote: (containerId: string, noteId?: string) => void;
+  openMoveNoteModal: (noteId: string) => void;
   ready: boolean;
   refreshError: string | null;
   selectedNode: ContainerNode | undefined;
@@ -1832,6 +2250,8 @@ function getExplorerModalTitle(modalState: ExplorerModalState): string {
       return "Delete Container";
     case "move":
       return "Move Container";
+    case "move-note":
+      return "Move Note";
     case "share-peer":
       return "Share Container";
     case "rename":
@@ -1851,6 +2271,8 @@ function getExplorerModalSubmitLabel(
         return "Delete";
       case "move":
         return "Move";
+      case "move-note":
+        return "Move";
       case "share-peer":
         return "Share";
       case "rename":
@@ -1864,6 +2286,8 @@ function getExplorerModalSubmitLabel(
     case "delete":
       return "Deleting...";
     case "move":
+      return "Moving...";
+    case "move-note":
       return "Moving...";
     case "share-peer":
       return "Sharing...";
@@ -1895,12 +2319,16 @@ function isExplorerModalSubmitDisabled(params: {
   const nameIsRequired =
     modalState.mode !== "delete" &&
     modalState.mode !== "move" &&
+    modalState.mode !== "move-note" &&
     modalState.mode !== "share-peer";
   if (nameIsRequired && draftName.trim().length === 0) {
     return true;
   }
 
-  if (modalState.mode === "move" && draftTargetContainerId.length === 0) {
+  if (
+    (modalState.mode === "move" || modalState.mode === "move-note") &&
+    draftTargetContainerId.length === 0
+  ) {
     return true;
   }
 
@@ -1950,7 +2378,7 @@ function ExplorerModalBody(params: {
     );
   }
 
-  if (modalState.mode === "move") {
+  if (modalState.mode === "move" || modalState.mode === "move-note") {
     return (
       <label className="explorer-modal-field">
         Destination
@@ -2102,37 +2530,30 @@ function useExplorerNoteViewModel(
     knownDocumentIds,
     mergeNoteSummaries,
     mergeNoteSummary,
+    noteSummaries,
     notesByContainerId,
     selection,
   };
 }
 
 function useExplorerInteractionState(params: {
+  activeContainerId: string | null;
   appData: ReturnType<typeof useAppData>;
   explorer: ReturnType<typeof useExplorer>;
   knownDocumentIds: ReadonlySet<string>;
   mergeNoteSummaries: (nextNotes: ReadonlyArray<NoteSummary>) => void;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
-  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>;
-  peerUserId: string | null;
-  selection: ReturnType<typeof useExplorerSelection>;
-  setSidebar: (sidebar: ReactNode | null) => void;
-  treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
   const {
+    activeContainerId,
     appData,
     explorer,
     knownDocumentIds,
     mergeNoteSummaries,
     mergeNoteSummary,
-    notesByContainerId,
-    peerUserId,
-    selection,
-    setSidebar,
-    treeEntries,
   } = params;
   const { primeDiscoveredNotes } = useDiscoveredNotesSync({
-    activeContainerId: selection.activeContainerId,
+    activeContainerId,
     apiClient: appData.apiClient,
     blobStore: appData.blobStore,
     cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
@@ -2148,20 +2569,49 @@ function useExplorerInteractionState(params: {
     mergeNoteSummary,
     online: appData.online,
   });
-  const { handleRefresh, isRefreshing, refreshError } =
-    useExplorerRefreshAction({
-      apiClient: appData.apiClient,
-      cacheReferencedPrincipalPolicies:
-        appData.cacheReferencedPrincipalPolicies,
-      execSql: appData.execSql,
-      mergeNoteSummaries,
-      primeDiscoveredNotes,
-      refresh: explorer.refresh,
-    });
+
+  return useExplorerRefreshAction({
+    apiClient: appData.apiClient,
+    cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
+    execSql: appData.execSql,
+    mergeNoteSummaries,
+    primeDiscoveredNotes,
+    refresh: explorer.refresh,
+  });
+}
+
+function useExplorerPanelState(params: {
+  appData: ReturnType<typeof useAppData>;
+  explorer: ReturnType<typeof useExplorer>;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>;
+  peerUserId: string | null;
+  selection: ReturnType<typeof useExplorerSelection>;
+  setSidebar: (sidebar: ReactNode | null) => void;
+  treeEntries: ReadonlyArray<ExplorerTreeEntry>;
+}) {
+  const {
+    appData,
+    explorer,
+    mergeNoteSummary,
+    noteSummaries,
+    notesByContainerId,
+    peerUserId,
+    selection,
+    setSidebar,
+    treeEntries,
+  } = params;
   const contextMenuState = useExplorerContextMenu(
     explorer.nodes,
     selection.setSelectedId,
   );
+  const moveNote = useMoveNoteAction({
+    appData,
+    expandNode: selection.expandNode,
+    mergeNoteSummary,
+    noteSummaries,
+  });
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
@@ -2180,7 +2630,9 @@ function useExplorerInteractionState(params: {
     deleteContainer: explorer.deleteContainer,
     expandNode: selection.expandNode,
     moveContainer: explorer.moveContainer,
+    moveNote,
     nodes: explorer.nodes,
+    noteSummaries,
     peerUserId,
     renameContainer: explorer.renameContainer,
     setSelectedId: selection.setSelectedId,
@@ -2191,14 +2643,19 @@ function useExplorerInteractionState(params: {
     mergeNoteSummary,
     setSelectedId: selection.setSelectedId,
   });
+  const selectedNoteMoveTargetOptions = selection.selectedNote
+    ? getNoteMoveTargetOptions(
+        explorer.nodes,
+        noteSummaries,
+        selection.selectedNote.id,
+      )
+    : [];
 
   return {
     contextMenuState,
-    handleRefresh,
-    isRefreshing,
     modalState,
     openInlineNote,
-    refreshError,
+    selectedNoteMoveTargetOptions,
   };
 }
 
@@ -2212,6 +2669,7 @@ function useExplorerModel(
     knownDocumentIds,
     mergeNoteSummaries,
     mergeNoteSummary,
+    noteSummaries,
     notesByContainerId,
     selection,
   } = useExplorerNoteViewModel(appData, explorer);
@@ -2219,19 +2677,25 @@ function useExplorerModel(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
   );
+  const { handleRefresh, isRefreshing, refreshError } =
+    useExplorerInteractionState({
+      activeContainerId: selection.activeContainerId,
+      appData,
+      explorer,
+      knownDocumentIds,
+      mergeNoteSummaries,
+      mergeNoteSummary,
+    });
   const {
     contextMenuState,
-    handleRefresh,
-    isRefreshing,
     modalState,
     openInlineNote,
-    refreshError,
-  } = useExplorerInteractionState({
+    selectedNoteMoveTargetOptions,
+  } = useExplorerPanelState({
     appData,
     explorer,
-    knownDocumentIds,
-    mergeNoteSummaries,
     mergeNoteSummary,
+    noteSummaries,
     notesByContainerId,
     peerUserId,
     selection,
@@ -2240,6 +2704,12 @@ function useExplorerModel(
   });
 
   return {
+    canMoveSelectedNote:
+      appData.dbStatus === "ready" &&
+      appData.isAuthenticated &&
+      appData.online &&
+      !!selection.selectedNote?.documentId &&
+      selectedNoteMoveTargetOptions.length > 0,
     contextMenuState,
     explorer,
     handleRefresh,
@@ -2263,11 +2733,13 @@ export function Explorer() {
   return (
     <div className="explorer">
       <ExplorerDetailPanel
+        canMoveSelectedNote={model.canMoveSelectedNote}
         handleRefresh={model.handleRefresh}
         isRefreshing={model.isRefreshing}
         mergeNoteSummary={model.mergeNoteSummary}
         nodes={model.explorer.nodes}
         openInlineNote={model.openInlineNote}
+        openMoveNoteModal={model.modalState.openMoveNoteModal}
         ready={model.explorer.ready}
         refreshError={model.refreshError}
         selectedNode={model.selection.selectedNode}
