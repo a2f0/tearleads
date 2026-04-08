@@ -564,6 +564,7 @@ async function hydrateMissingAttachmentBlob(
   const decryptedBytes = await decryptBlobEnvelope(
     blob.encryptedBytes,
     encapsulationKeyPair.secretKey,
+    state.runtime.execSql,
   );
   const storageKey = `blob-${binding.blobId}`;
   await state.runtime.blobStore.writeBytes(storageKey, decryptedBytes);
@@ -945,6 +946,7 @@ async function buildAttachmentRewraps(
       expectedBindingId: currentBinding.bindingId,
       recipientEnvelopes: await rewrapBlobRecipientEnvelopes({
         encryptedBytes: blob.encryptedBytes,
+        execSql: state.runtime.execSql,
         recipientPublicKeys: state.recipientPublicKeys,
         secretKey: encapsulationKeyPair.secretKey,
       }),
@@ -979,6 +981,7 @@ async function commitBaselineChange(
   const { documentKey, documentRecipientEnvelopes } =
     await getOrCreateDocumentEncryptionMaterial({
       documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+      execSql: state.runtime.execSql,
       recipientPublicKeys: state.recipientPublicKeys,
       secretKey: encapsulationKeyPair.secretKey,
     });
@@ -1405,6 +1408,7 @@ async function requestDocumentSync(
     pendingUpdates.length > 0
       ? await getOrCreateDocumentEncryptionMaterial({
           documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+          execSql: state.runtime.execSql,
           recipientPublicKeys: state.recipientPublicKeys,
           secretKey: encapsulationKeyPair.secretKey,
         })
@@ -1475,6 +1479,7 @@ async function applyIncomingSyncedUpdates(
 
   const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
     documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+    execSql: state.runtime.execSql,
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
   });

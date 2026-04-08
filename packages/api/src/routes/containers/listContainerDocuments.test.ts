@@ -52,10 +52,11 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
 async function storeCurrentGroupState(
   groupId: string,
   memberUserIds: string[],
-): Promise<void> {
+): Promise<{ encapsulationPublicKey: string }> {
   const principalKem = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
+  const encapsulationPublicKey = bytesToBase64(principalKem.publicKey);
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -65,7 +66,7 @@ async function storeCurrentGroupState(
         version: 1,
         prevStateHash: null,
         keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        encapsulationPublicKey,
         keyFingerprint: await toFingerprint(principalKem.publicKey),
         members: memberUserIds.map((userId) => ({
           principalType: "user",
@@ -78,6 +79,8 @@ async function storeCurrentGroupState(
     ),
     signingPublicKey,
   );
+
+  return { encapsulationPublicKey };
 }
 
 test("GET /containers/:containerId/documents lists readable non-metadata documents for the container", async () => {
@@ -224,7 +227,7 @@ test("GET /containers/:containerId/documents includes referenced principal polic
     groupId: group.id,
     userId: recipient.userId,
   });
-  await storeCurrentGroupState(group.id, [recipient.userId]);
+  const groupState = await storeCurrentGroupState(group.id, [recipient.userId]);
 
   const createDocumentResponse = await createDocument(owner.token, [
     sharedContainerId,
@@ -256,6 +259,9 @@ test("GET /containers/:containerId/documents includes referenced principal polic
       expect.objectContaining({
         id: createdDocument.id,
         linkedContainerIds: [sharedContainerId],
+        recipientEncapsulationPublicKeys: expect.arrayContaining([
+          groupState.encapsulationPublicKey,
+        ]),
         referencedPrincipals: [
           expect.objectContaining({
             principalType: "group",

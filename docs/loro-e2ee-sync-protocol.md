@@ -63,8 +63,9 @@ Current implementation:
   - AES-GCM ciphertext encrypted with the current document DEK
 - the current document-DEK bundle can now be materialized in
   `object_recipient_envelopes`
-- recipient-envelope identity rows are now principal-shaped in schema terms,
-  although the current runtime still mostly emits `user` principals
+- recipient-envelope identity rows are principal-shaped, and document/blob
+  wrapped-key material now prefers current group/org principal keys when the
+  relevant signed policy state exists
 - `POST /auth/register` and `POST /containers` can seed initial metadata
   document bundles atomically
 - blob payloads are further along: committed blob envelopes now carry real
@@ -79,18 +80,13 @@ Current implementation:
 
 Important remaining limitation:
 
-- the runtime still flattens effective crypto recipients to users even though
-  the envelope storage model is pivoting toward principals
-- signed principal-state, principal epoch-key, and principal member-envelope
-  storage and policy API routes now exist, but document/blob sync does not
-  consume them yet
+- the runtime is in a hybrid state: document/blob bundle material now consumes
+  cached principal policy bundles and can target current group/org keys, but
+  managed grants without current signed policy state still fall back to
+  expanded user recipients
 - container/document discovery and Loro create/sync responses now expose
-  `referencedPrincipals[]` summaries so clients can discover the current signed
-  group/org policy states they will need before object encryption pivots to
-  principal recipients
-- app clients now have a verified local cache for those referenced principal
-  policy bundles, keyed by `(principalType, principalId)` and refreshed only
-  when the referenced `stateHash` changes
+  `referencedPrincipals[]` summaries so clients can discover and cache the
+  current signed group/org policy states that back those principal recipients
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

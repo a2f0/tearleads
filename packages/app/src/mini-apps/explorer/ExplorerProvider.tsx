@@ -716,6 +716,7 @@ function ensureExplorerStoreInitialized(
 
 async function buildOutgoingContainerSync(
   containerState: ContainerState,
+  execSql: ExplorerRuntime["execSql"],
   pendingUpdates: PendingUpdateRecord[],
   secretKey: Uint8Array,
 ) {
@@ -726,6 +727,7 @@ async function buildOutgoingContainerSync(
     pendingUpdates.length > 0
       ? await getOrCreateDocumentEncryptionMaterial({
           documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+          execSql,
           recipientPublicKeys: containerState.recipientPublicKeys,
           secretKey,
         })
@@ -781,6 +783,7 @@ async function applySyncedContainerUpdates(
     } else {
       const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
         documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        execSql: state.runtime.execSql,
         recipientPublicKeys: containerState.recipientPublicKeys,
         secretKey,
       });
@@ -818,6 +821,7 @@ async function syncSingleContainerMetadata(
     outgoingUpdates,
   } = await buildOutgoingContainerSync(
     containerState,
+    state.runtime.execSql,
     pendingUpdates,
     encapsulationKeyPair.secretKey,
   );

@@ -73,11 +73,10 @@ Current recommendation:
 
 Remaining implementation work:
 
-- finish the principal-recipient pivot beyond the current user-principal-only
-  runtime behavior
-- wire the new `principal_states` / `principal_epoch_keys` /
-  `principal_member_envelopes` foundation into real principal recipient
-  expansion and member key distribution
+- keep pushing the principal-recipient pivot beyond the current hybrid runtime
+  behavior, where object envelopes prefer principal keys when current signed
+  policy state exists but still fall back to expanded user recipients when a
+  managed grant has no current principal policy state yet
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
 - continue wiring structural mutation routes and client flows
@@ -99,14 +98,15 @@ can now rewrap existing committed blob bindings in place without creating a new
 blob row. Signed principal-state and principal member-envelope metadata now
 have real API ingestion/read routes as policy inputs, and container/document
 responses now expose `referencedPrincipals[]` summaries for the current signed
-group/org states that contributed to access. Runtime object access resolution
-still flattens crypto recipients to users, but app clients can now cache the
-current signed principal policy bundle for referenced group/org states when a
-trusted signer set is configured. The remaining work is implementing the
-rewrap vs rotate decision consistently for document epochs and the remaining
-hierarchy edges when recipient sets expand or shrink, using the new
-principal-based recipient model rather than the old fully flattened per-user
-model.
+group/org states that contributed to access. App clients now cache and consume
+those verified principal policy bundles so document/blob decryption can follow
+the current principal member-envelope chain when an object bundle is addressed
+to a group/org key. The runtime is still in a transition state because managed
+grants without current signed policy state fall back to expanded user
+recipients. The remaining work is implementing the rewrap vs rotate decision
+consistently for document epochs and the remaining hierarchy edges when
+recipient sets expand or shrink, using the new principal-based recipient model
+rather than the old fully flattened per-user model.
 
 Implementation questions:
 

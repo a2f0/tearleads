@@ -1,8 +1,4 @@
-import {
-  type RecipientEntry,
-  unwrapDek,
-  wrapDekForRecipients,
-} from "@tearleads/crypto";
+import { type RecipientEntry, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   decryptLoroUpdate,
@@ -15,6 +11,8 @@ import type {
   PendingUpdateFields,
   PendingUpdateRecord,
 } from "./documentPersistence";
+import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
+import type { ExecSql } from "./sqlSchema";
 
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";
@@ -56,16 +54,6 @@ function serializeRecipientEntry(
     keyFingerprint: recipient.keyFingerprint,
     kemCipherText: bytesToBase64(recipient.kemCipherText),
     wrappedKey: bytesToBase64(recipient.wrappedKey),
-  };
-}
-
-function parseRecipientEntry(
-  envelope: SerializedRecipientEnvelope,
-): RecipientEntry {
-  return {
-    keyFingerprint: envelope.keyFingerprint,
-    kemCipherText: base64ToBytes(envelope.kemCipherText),
-    wrappedKey: base64ToBytes(envelope.wrappedKey),
   };
 }
 
@@ -162,17 +150,18 @@ export async function createDocumentEncryptionMaterial(
 async function unwrapDocumentKey(
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope>,
   secretKey: Uint8Array,
+  execSql?: ExecSql,
 ): Promise<Uint8Array> {
-  return unwrapDek(
-    sortDocumentRecipientEnvelopes(documentRecipientEnvelopes).map((envelope) =>
-      parseRecipientEntry(envelope),
-    ),
+  return unwrapRecipientEnvelopesWithPrincipalPolicies({
+    envelopes: sortDocumentRecipientEnvelopes(documentRecipientEnvelopes),
+    execSql,
     secretKey,
-  );
+  });
 }
 
 export async function getOrCreateDocumentEncryptionMaterial(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  execSql?: ExecSql;
   recipientPublicKeys: Uint8Array[];
   secretKey: Uint8Array;
 }): Promise<DocumentEncryptionMaterial & { generated: boolean }> {
@@ -184,6 +173,7 @@ export async function getOrCreateDocumentEncryptionMaterial(input: {
       documentKey: await unwrapDocumentKey(
         input.documentRecipientEnvelopes,
         input.secretKey,
+        input.execSql,
       ),
       documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
         input.documentRecipientEnvelopes,

@@ -43,6 +43,7 @@ interface DocumentAccessState {
   accessFingerprint: string;
   referencedPrincipals: ReferencedPrincipalStateResponse[];
   effectiveRecipients: EffectiveDocumentRecipient[];
+  cryptoRecipients: EffectiveDocumentRecipient[];
 }
 
 function accessLevelRank(accessLevel: AccessLevel): number {
@@ -203,6 +204,9 @@ async function resolveContainerAccessStates(
 }
 
 function mergeRecipientsFromLinkedContainerStates(
+  recipientSelector: (
+    state: Exclude<ResolvedContainerAccessState, null>,
+  ) => ReadonlyArray<EffectiveDocumentRecipient>,
   linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[],
 ): EffectiveDocumentRecipient[] {
   const recipientsByPrincipalKey = new Map<
@@ -211,7 +215,7 @@ function mergeRecipientsFromLinkedContainerStates(
   >();
 
   for (const state of linkedContainerStates) {
-    for (const recipient of state.effectiveRecipients) {
+    for (const recipient of recipientSelector(state)) {
       const principalKey = principalRecipientKey(recipient);
       const existing = recipientsByPrincipalKey.get(principalKey);
       recipientsByPrincipalKey.set(principalKey, {
@@ -256,6 +260,11 @@ async function resolveDocumentRecipientsFromLinkedContainers(
     )
   ).filter((state) => state !== null);
   const effectiveRecipients = mergeRecipientsFromLinkedContainerStates(
+    (state) => state.effectiveRecipients,
+    linkedContainerStates,
+  );
+  const cryptoRecipients = mergeRecipientsFromLinkedContainerStates(
+    (state) => state.cryptoRecipients,
     linkedContainerStates,
   );
 
@@ -266,6 +275,7 @@ async function resolveDocumentRecipientsFromLinkedContainers(
       linkedContainerStates,
     ),
     effectiveRecipients,
+    cryptoRecipients,
   };
 }
 
@@ -281,6 +291,7 @@ async function resolveDocumentAccessInputs(
     linkedContainerStates,
     referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
+    cryptoRecipients: linkedContainerCryptoRecipients,
   } = await resolveDocumentRecipientsFromLinkedContainers(
     documentId,
     executor,
@@ -294,6 +305,7 @@ async function resolveDocumentAccessInputs(
     grants,
     referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
+    cryptoRecipients: linkedContainerCryptoRecipients,
   };
 }
 
@@ -302,7 +314,7 @@ async function computeDocumentAccessFingerprint(input: {
   grants: GrantRow[];
   linkedContainerIds: string[];
   linkedContainerFingerprints: string[];
-  effectiveRecipients: EffectiveDocumentRecipient[];
+  cryptoRecipients: EffectiveDocumentRecipient[];
 }) {
   return computeAccessFingerprint({
     objectType: DOCUMENT_OBJECT_TYPE,
@@ -318,7 +330,7 @@ async function computeDocumentAccessFingerprint(input: {
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       ),
-    recipients: input.effectiveRecipients.map(toPrincipalFingerprintRecipient),
+    recipients: input.cryptoRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
 
@@ -326,6 +338,7 @@ async function buildDocumentAccessState(input: {
   currentEpochRow: CurrentEpochRow | null;
   documentId: string;
   effectiveRecipients: EffectiveDocumentRecipient[];
+  cryptoRecipients: EffectiveDocumentRecipient[];
   grants: GrantRow[];
   linkedContainerIds: string[];
   linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[];
@@ -335,6 +348,7 @@ async function buildDocumentAccessState(input: {
     currentEpochRow,
     documentId,
     effectiveRecipients,
+    cryptoRecipients,
     grants,
     linkedContainerIds,
     linkedContainerStates,
@@ -352,7 +366,7 @@ async function buildDocumentAccessState(input: {
     linkedContainerFingerprints: linkedContainerStates.map(
       (state) => state.accessFingerprint,
     ),
-    effectiveRecipients,
+    cryptoRecipients,
   });
 
   const currentAccessEpoch = Math.max(
@@ -365,6 +379,7 @@ async function buildDocumentAccessState(input: {
     accessFingerprint,
     referencedPrincipals,
     effectiveRecipients,
+    cryptoRecipients,
   };
 }
 
@@ -379,12 +394,14 @@ export async function resolveDocumentAccessState(
     grants,
     referencedPrincipals,
     effectiveRecipients,
+    cryptoRecipients,
   } = await resolveDocumentAccessInputs(documentId, executor);
 
   return buildDocumentAccessState({
     currentEpochRow,
     documentId,
     effectiveRecipients,
+    cryptoRecipients,
     grants,
     linkedContainerIds,
     linkedContainerStates,
@@ -416,6 +433,7 @@ export async function resolveDocumentAccessStates(
           grants,
           referencedPrincipals,
           effectiveRecipients,
+          cryptoRecipients,
         } = await resolveDocumentAccessInputs(
           documentId,
           executor,
@@ -429,6 +447,7 @@ export async function resolveDocumentAccessStates(
             currentEpochRow: currentEpochByDocumentId.get(documentId) ?? null,
             documentId,
             effectiveRecipients,
+            cryptoRecipients,
             grants,
             linkedContainerIds,
             linkedContainerStates,
@@ -465,13 +484,13 @@ export function canWriteDocumentAccess(
 export function listRecipientKeyFingerprints(
   state: DocumentAccessState,
 ): string[] {
-  return state.effectiveRecipients.map((recipient) => recipient.keyFingerprint);
+  return state.cryptoRecipients.map((recipient) => recipient.keyFingerprint);
 }
 
 export function listRecipientEncapsulationPublicKeys(
   state: DocumentAccessState,
 ): string[] {
-  return state.effectiveRecipients.map(
+  return state.cryptoRecipients.map(
     (recipient) => recipient.encapsulationPublicKey,
   );
 }
@@ -479,14 +498,14 @@ export function listRecipientEncapsulationPublicKeys(
 export async function createDocumentRecipientEnvelopes(
   state: DocumentAccessState,
 ): Promise<SerializedRecipientEnvelope[] | null> {
-  if (state.effectiveRecipients.length === 0) {
+  if (state.cryptoRecipients.length === 0) {
     return null;
   }
 
   const documentKey = crypto.getRandomValues(new Uint8Array(32));
   const wrappedRecipients = await wrapDekForRecipients(
     documentKey,
-    state.effectiveRecipients.map((recipient) =>
+    state.cryptoRecipients.map((recipient) =>
       base64ToBytes(recipient.encapsulationPublicKey),
     ),
   );
@@ -525,10 +544,7 @@ export function documentRecipientEnvelopesMatchRecipients(
   envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
   state: DocumentAccessState,
 ): boolean {
-  return envelopeFingerprintsMatchRecipients(
-    envelopes,
-    state.effectiveRecipients,
-  );
+  return envelopeFingerprintsMatchRecipients(envelopes, state.cryptoRecipients);
 }
 
 export async function listDocumentRecipientEnvelopes(
@@ -601,7 +617,7 @@ export async function replaceDocumentRecipientEnvelopes(
   }
 
   const recipientByKeyFingerprint = new Map(
-    state.effectiveRecipients.map((recipient) => [
+    state.cryptoRecipients.map((recipient) => [
       recipient.keyFingerprint,
       recipient,
     ]),
@@ -656,7 +672,7 @@ export async function initializeDocumentAccess(
       linkedContainerIds,
       linkedContainerStates,
       grants,
-      effectiveRecipients,
+      cryptoRecipients,
     } = await resolveDocumentAccessInputs(documentId, tx);
     const accessFingerprint = await computeDocumentAccessFingerprint({
       documentId,
@@ -665,7 +681,7 @@ export async function initializeDocumentAccess(
       linkedContainerFingerprints: linkedContainerStates.map(
         (state) => state.accessFingerprint,
       ),
-      effectiveRecipients,
+      cryptoRecipients,
     });
     const initialEpoch = Math.max(
       1,

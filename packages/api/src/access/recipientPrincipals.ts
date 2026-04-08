@@ -27,6 +27,11 @@ export interface EffectivePrincipalRecipient
   encapsulationPublicKey: string;
 }
 
+interface EffectivePrincipalRecipientInput
+  extends PrincipalFingerprintRecipient {
+  encapsulationPublicKey: string;
+}
+
 export function principalRecipientKey(
   recipient: Pick<PrincipalEnvelopeRecipient, "principalType" | "principalId">,
 ): string {
@@ -67,15 +72,24 @@ export function toPrincipalFingerprintRecipient(
   };
 }
 
+export function toEffectivePrincipalRecipient(
+  recipient: EffectivePrincipalRecipientInput,
+): EffectivePrincipalRecipient {
+  return {
+    ...toPrincipalFingerprintRecipient(recipient),
+    encapsulationPublicKey: recipient.encapsulationPublicKey,
+  };
+}
+
 export function toEffectiveUserPrincipalRecipient(
   recipient: UserRecipientFingerprintInput & {
     encapsulationPublicKey: string;
   },
 ): EffectivePrincipalRecipient {
-  return {
+  return toEffectivePrincipalRecipient({
     ...toUserPrincipalFingerprintRecipient(recipient),
     encapsulationPublicKey: recipient.encapsulationPublicKey,
-  };
+  });
 }
 
 export function toUserPrincipalEnvelopeRecipient(

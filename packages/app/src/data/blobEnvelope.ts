@@ -1,13 +1,15 @@
 import {
   decryptAsRecipient,
+  decryptWithDek,
   parseBlobEnvelope,
   parseBlobEnvelopeHeader,
-  unwrapDek,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { SerializedRecipientEnvelope } from "@tearleads/loro";
 import type { BlobBytes } from "./blob-store";
+import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
+import type { ExecSql } from "./sqlSchema";
 
 export { serializeBlobEnvelope } from "@tearleads/crypto";
 
@@ -22,24 +24,57 @@ function sortRecipientEnvelopes(
 export async function decryptBlobEnvelope(
   encryptedBytes: string,
   secretKey: Uint8Array,
+  execSql?: ExecSql,
 ): Promise<BlobBytes> {
-  return decryptAsRecipient(parseBlobEnvelope(encryptedBytes), secretKey);
+  const parsedEnvelope = parseBlobEnvelope(encryptedBytes);
+
+  try {
+    return await decryptAsRecipient(parsedEnvelope, secretKey);
+  } catch {
+    if (!execSql) {
+      throw new Error(
+        "Blob envelope could not be decrypted with the local user key",
+      );
+    }
+  }
+
+  const blobKey = await unwrapRecipientEnvelopesWithPrincipalPolicies({
+    envelopes: parsedEnvelope.recipients.map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+    })),
+    execSql,
+    secretKey,
+  });
+
+  return new Uint8Array(
+    await decryptWithDek(
+      {
+        iv: parsedEnvelope.iv,
+        ciphertext: parsedEnvelope.ciphertext,
+      },
+      blobKey,
+    ),
+  );
 }
 
 export async function rewrapBlobRecipientEnvelopes(input: {
   encryptedBytes: string;
+  execSql?: ExecSql;
   recipientPublicKeys: Uint8Array[];
   secretKey: Uint8Array;
 }): Promise<SerializedRecipientEnvelope[]> {
   const envelopeHeader = parseBlobEnvelopeHeader(input.encryptedBytes);
-  const blobKey = await unwrapDek(
-    envelopeHeader.recipients.map((recipient) => ({
+  const blobKey = await unwrapRecipientEnvelopesWithPrincipalPolicies({
+    envelopes: envelopeHeader.recipients.map((recipient) => ({
       keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: base64ToBytes(recipient.kemCipherText),
-      wrappedKey: base64ToBytes(recipient.wrappedKey),
+      kemCipherText: recipient.kemCipherText,
+      wrappedKey: recipient.wrappedKey,
     })),
-    input.secretKey,
-  );
+    execSql: input.execSql,
+    secretKey: input.secretKey,
+  });
   const wrappedRecipients = await wrapDekForRecipients(
     blobKey,
     input.recipientPublicKeys,
