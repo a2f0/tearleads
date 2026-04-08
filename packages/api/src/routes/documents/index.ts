@@ -341,7 +341,7 @@ function validateAttachmentRewraps(
     if (
       !blobRecipientEnvelopesMatchRecipients(
         rewrap.recipientEnvelopes,
-        access.effectiveRecipients,
+        access.cryptoRecipients,
       )
     ) {
       throw new CommitChangeError("Blob recipient envelopes mismatch");
@@ -624,7 +624,7 @@ async function applyAttachmentRewraps(
     await replaceBlobRecipientEnvelopes(
       currentBinding.blobId,
       blobAccess.currentAccessEpoch,
-      blobAccess.effectiveRecipients,
+      blobAccess.cryptoRecipients,
       rewrap.recipientEnvelopes,
       tx,
     );

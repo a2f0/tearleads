@@ -41,6 +41,7 @@ interface BlobAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
   effectiveRecipients: EffectiveBlobRecipient[];
+  cryptoRecipients: EffectiveBlobRecipient[];
 }
 
 function accessLevelRank(accessLevel: AccessLevel): number {
@@ -229,12 +230,30 @@ async function resolveBlobAccessInputs(
   ).filter((state) => state !== null);
 
   const recipientsByPrincipalKey = new Map<string, EffectiveBlobRecipient>();
+  const cryptoRecipientsByPrincipalKey = new Map<
+    string,
+    EffectiveBlobRecipient
+  >();
 
   for (const state of linkedDocumentStates) {
     for (const recipient of state.effectiveRecipients) {
       const principalKey = principalRecipientKey(recipient);
       const existing = recipientsByPrincipalKey.get(principalKey);
       recipientsByPrincipalKey.set(principalKey, {
+        principalType: recipient.principalType,
+        principalId: recipient.principalId,
+        accessLevel: existing
+          ? mergeAccessLevel(existing.accessLevel, recipient.accessLevel)
+          : recipient.accessLevel,
+        encapsulationPublicKey: recipient.encapsulationPublicKey,
+        keyFingerprint: recipient.keyFingerprint,
+      });
+    }
+
+    for (const recipient of state.cryptoRecipients) {
+      const principalKey = principalRecipientKey(recipient);
+      const existing = cryptoRecipientsByPrincipalKey.get(principalKey);
+      cryptoRecipientsByPrincipalKey.set(principalKey, {
         principalType: recipient.principalType,
         principalId: recipient.principalId,
         accessLevel: existing
@@ -251,11 +270,17 @@ async function resolveBlobAccessInputs(
   ).sort((left, right) =>
     left.keyFingerprint.localeCompare(right.keyFingerprint),
   );
+  const cryptoRecipients = Array.from(
+    cryptoRecipientsByPrincipalKey.values(),
+  ).sort((left, right) =>
+    left.keyFingerprint.localeCompare(right.keyFingerprint),
+  );
 
   return {
     linkedDocumentIds,
     linkedDocumentStates,
     effectiveRecipients,
+    cryptoRecipients,
   };
 }
 
@@ -263,14 +288,14 @@ async function computeBlobAccessFingerprint(input: {
   blobId: string;
   linkedDocumentIds: string[];
   linkedDocumentFingerprints: string[];
-  effectiveRecipients: EffectiveBlobRecipient[];
+  cryptoRecipients: EffectiveBlobRecipient[];
 }) {
   return computeAccessFingerprint({
     objectType: BLOB_OBJECT_TYPE,
     blobId: input.blobId,
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
-    recipients: input.effectiveRecipients.map(toPrincipalFingerprintRecipient),
+    recipients: input.cryptoRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
 
@@ -440,7 +465,7 @@ export async function replaceBlobRecipientEnvelopes(
 async function resolveMaterializedRecipientEnvelopes(
   blobId: string,
   epoch: number,
-  effectiveRecipients: ReadonlyArray<EffectiveBlobRecipient>,
+  cryptoRecipients: ReadonlyArray<EffectiveBlobRecipient>,
   executor: BlobAccessExecutor = db,
 ): Promise<SerializedRecipientEnvelope[]> {
   const persistedEnvelopeEntries = await listBlobRecipientEnvelopes(
@@ -450,10 +475,7 @@ async function resolveMaterializedRecipientEnvelopes(
   );
   if (
     persistedEnvelopeEntries &&
-    envelopeEntriesMatchRecipients(
-      persistedEnvelopeEntries,
-      effectiveRecipients,
-    )
+    envelopeEntriesMatchRecipients(persistedEnvelopeEntries, cryptoRecipients)
   ) {
     return persistedEnvelopeEntries;
   }
@@ -463,7 +485,7 @@ async function resolveMaterializedRecipientEnvelopes(
     executor,
   );
   return blobEnvelopeEntries &&
-    envelopeEntriesMatchRecipients(blobEnvelopeEntries, effectiveRecipients)
+    envelopeEntriesMatchRecipients(blobEnvelopeEntries, cryptoRecipients)
     ? blobEnvelopeEntries
     : [];
 }
@@ -477,7 +499,7 @@ async function materializeBlobAccessState(
 ): Promise<number | null> {
   const resolvedCurrentEpochRow =
     currentEpochRow ?? (await getCurrentEpochRow(blobId, executor));
-  const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
+  const { linkedDocumentIds, linkedDocumentStates, cryptoRecipients } =
     await resolveBlobAccessInputs(
       blobId,
       executor,
@@ -495,7 +517,7 @@ async function materializeBlobAccessState(
     linkedDocumentFingerprints: linkedDocumentStates.map(
       (state) => state.accessFingerprint,
     ),
-    effectiveRecipients,
+    cryptoRecipients,
   });
   const linkedEpoch = Math.max(
     1,
@@ -510,7 +532,7 @@ async function materializeBlobAccessState(
   const persistedEnvelopeEntries = await resolveMaterializedRecipientEnvelopes(
     blobId,
     nextEpoch,
-    effectiveRecipients,
+    cryptoRecipients,
     executor,
   );
 
@@ -523,7 +545,7 @@ async function materializeBlobAccessState(
     await replaceRecipientEnvelopes(
       blobId,
       nextEpoch,
-      effectiveRecipients,
+      cryptoRecipients,
       persistedEnvelopeEntries,
       executor,
     );
@@ -537,8 +559,12 @@ export async function resolveBlobAccessState(
   executor: BlobAccessExecutor = db,
 ): Promise<BlobAccessState | null> {
   const currentEpochRow = await getCurrentEpochRow(blobId, executor);
-  const { linkedDocumentIds, linkedDocumentStates, effectiveRecipients } =
-    await resolveBlobAccessInputs(blobId, executor);
+  const {
+    linkedDocumentIds,
+    linkedDocumentStates,
+    effectiveRecipients,
+    cryptoRecipients,
+  } = await resolveBlobAccessInputs(blobId, executor);
 
   if (currentEpochRow === null && linkedDocumentStates.length === 0) {
     return null;
@@ -550,7 +576,7 @@ export async function resolveBlobAccessState(
     linkedDocumentFingerprints: linkedDocumentStates.map(
       (state) => state.accessFingerprint,
     ),
-    effectiveRecipients,
+    cryptoRecipients,
   });
   const currentAccessEpoch = Math.max(
     currentEpochRow?.epoch ?? 1,
@@ -561,6 +587,7 @@ export async function resolveBlobAccessState(
     currentAccessEpoch,
     accessFingerprint,
     effectiveRecipients,
+    cryptoRecipients,
   };
 }
 

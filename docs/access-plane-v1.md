@@ -301,6 +301,13 @@ Current implementation note:
 - app clients can now fetch, verify, and cache the current principal policy
   bundle for those references when a trusted policy signer set is configured
   out of band
+- document and blob wrapped-key paths now consume that cache at runtime so a
+  client can unwrap a group/org-addressed object bundle through the current
+  principal member-envelope chain
+- current object recipient material now prefers principal epoch keys for
+  managed grants that have current signed policy state, while falling back to
+  direct user recipient expansion when a managed grant has not been given that
+  policy state yet
 
 The important distinction is:
 

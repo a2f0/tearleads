@@ -125,6 +125,37 @@ export async function loadPrincipalPolicyBundle(
   return row ? parsePrincipalPolicyBundle(row) : null;
 }
 
+export async function loadAllPrincipalPolicyBundles(
+  execSql: ExecSql,
+): Promise<PrincipalPolicyBundleResponse[]> {
+  const rows = await execSql(
+    `
+      SELECT
+        principal_type,
+        principal_id,
+        state_hash,
+        current_state_json,
+        current_member_envelopes_json
+      FROM principal_policies
+      ORDER BY principal_type, principal_id
+    `,
+  );
+
+  const bundles: PrincipalPolicyBundleResponse[] = [];
+
+  for (const rawRow of rows) {
+    const row = parsePrincipalPolicyRow(rawRow);
+
+    if (!row) {
+      continue;
+    }
+
+    bundles.push(parsePrincipalPolicyBundle(row));
+  }
+
+  return bundles;
+}
+
 export async function loadPrincipalPolicyStateHash(
   execSql: ExecSql,
   principalType: PrincipalStateResponse["principalType"],

@@ -442,6 +442,7 @@ async function ensureContactDocumentForSync(
 
 async function buildContactOutgoingSync(
   contact: ContactState,
+  execSql: ContactsRuntime["execSql"],
   pendingUpdates: PendingUpdateRecord[],
   secretKey: Uint8Array,
 ) {
@@ -452,6 +453,7 @@ async function buildContactOutgoingSync(
     pendingUpdates.length > 0
       ? await getOrCreateDocumentEncryptionMaterial({
           documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+          execSql,
           recipientPublicKeys: contact.recipientPublicKeys,
           secretKey,
         })
@@ -512,6 +514,7 @@ async function applySyncedContactUpdates(
     } else {
       const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
         documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        execSql: state.runtime.execSql,
         recipientPublicKeys: contact.recipientPublicKeys,
         secretKey,
       });
@@ -571,7 +574,12 @@ async function syncSingleContact(
     currentDocumentRecipientEnvelopes,
     encryptionMaterial,
     outgoingUpdates,
-  } = await buildContactOutgoingSync(contact, pendingUpdates, secretKey);
+  } = await buildContactOutgoingSync(
+    contact,
+    state.runtime.execSql,
+    pendingUpdates,
+    secretKey,
+  );
   const synced = await state.runtime.apiClient.syncDocument(
     documentId,
     contact.record.accessEpoch,
