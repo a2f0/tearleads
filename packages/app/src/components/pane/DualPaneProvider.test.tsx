@@ -209,6 +209,70 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   );
 }
 
+async function selectContainerAndReadId(
+  pane: HTMLElement,
+  name: string,
+): Promise<string> {
+  await interact(() => {
+    fireEvent.click(getExplorerSidebarItem(pane, name));
+  });
+
+  await waitFor(() => {
+    expect(within(pane).getByText(/^ID:/u)).toBeTruthy();
+  });
+
+  const idLine = within(pane).getByText(/^ID:/u).textContent ?? "";
+  const containerId = idLine.replace(/^ID:\s*/u, "").trim();
+  invariant(containerId.length > 0, `Expected explorer ID for "${name}".`);
+  return containerId;
+}
+
+async function moveContainer(
+  pane: HTMLElement,
+  name: string,
+  destinationName: string,
+) {
+  await interact(() => {
+    fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
+      clientX: 210,
+      clientY: 210,
+    });
+  });
+  const moveButton = await screen.findByRole("button", {
+    name: "Move",
+  });
+  await interact(() => {
+    fireEvent.click(moveButton);
+  });
+
+  const dialog = await screen.findByRole("dialog");
+  const destinationSelect = within(dialog).getByLabelText(
+    "Destination container",
+  );
+  invariant(
+    destinationSelect instanceof HTMLSelectElement,
+    "Expected destination container select.",
+  );
+  const destinationOption = Array.from(destinationSelect.options).find(
+    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  );
+  invariant(
+    destinationOption,
+    `Expected destination option for "${destinationName}".`,
+  );
+  await interact(() => {
+    fireEvent.change(destinationSelect, {
+      target: { value: destinationOption.value },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
+  });
+
+  await waitForCondition(
+    () => screen.queryByRole("dialog") === null,
+    "Container move did not finish.",
+  );
+}
+
 function createFileList(file: File): FileList {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
@@ -510,6 +574,38 @@ test(
       "After share note",
       "after-share.png",
     );
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer can move a child container under another sibling",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Target");
+    await createChildContainer(leftPane, "Moved");
+
+    const targetId = await selectContainerAndReadId(leftPane, "Target");
+    await moveContainer(leftPane, "Moved", "Target");
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Moved"));
+    });
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText(`Parent: ${targetId}`)).toBeTruthy();
+    });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );

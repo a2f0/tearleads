@@ -58,9 +58,15 @@ type ContainerMetadataDocument = Awaited<
   ReturnType<typeof createContainerMetadataDocument>
 >;
 type ExplorerAppData = ReturnType<typeof useAppData>;
+type ListedRemoteContainer = NonNullable<
+  Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
+>[number];
 type CommitDocumentChangeInput = Parameters<
   ExplorerRuntime["apiClient"]["commitDocumentChange"]
 >[1];
+type MovedRemoteContainer = NonNullable<
+  Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
+>;
 type StageBlobInput = Parameters<ExplorerRuntime["apiClient"]["stageBlob"]>[0];
 type SyncDocumentOutgoingUpdates = Parameters<
   ExplorerRuntime["apiClient"]["syncDocument"]
@@ -75,6 +81,10 @@ interface ExplorerContextValue {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
   refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,
@@ -99,6 +109,7 @@ interface ExplorerRuntime {
     | "getBlob"
     | "listContainers"
     | "listDocumentAttachments"
+    | "moveContainer"
     | "shareContainer"
     | "stageBlob"
     | "syncDocument"
@@ -121,6 +132,10 @@ interface ExplorerStore {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
   refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,
@@ -500,59 +515,11 @@ async function hydrateRemoteContainers(
   );
 
   for (const remoteContainer of remoteContainers) {
-    const existingState = state.containersById.get(remoteContainer.id);
-
-    if (existingState) {
-      existingState.recipientPublicKeys = resolveRecipientPublicKeys(
-        remoteContainer.metadataRecipientEncapsulationPublicKeys,
-        localRecipientPublicKeys,
-      );
-      await persistContainerState(
-        state,
-        existingState,
-        {
-          accessEpoch: remoteContainer.metadataAccessEpoch,
-          documentId: remoteContainer.metadataDocumentId,
-          metadataDocumentId: remoteContainer.metadataDocumentId,
-          organizationId: remoteContainer.organizationId,
-          parentId: remoteContainer.parentId,
-        },
-        false,
-      );
-      continue;
-    }
-
-    const doc = await createContainerMetadataDocument(remoteContainer.id);
-    const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
-    const containerState: ContainerState = {
-      container: {
-        id: remoteContainer.id,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        name: getFallbackContainerName(remoteContainer.parentId),
-        icon: null,
-      },
-      doc,
-      recipientPublicKeys: resolveRecipientPublicKeys(
-        remoteContainer.metadataRecipientEncapsulationPublicKeys,
-        localRecipientPublicKeys,
-      ),
-      record: {
-        accessEpoch: remoteContainer.metadataAccessEpoch,
-        documentId: remoteContainer.metadataDocumentId,
-        documentRecipientEnvelopes: null,
-        id: remoteContainer.id,
-        loroSnapshot: initialSnapshot,
-      },
-    };
-
-    await state.persistence.saveContainer(
-      state.runtime.execSql,
-      containerState.container,
-      containerState.record,
+    await upsertRemoteContainerState(
+      state,
+      remoteContainer,
+      localRecipientPublicKeys,
     );
-    state.containersById.set(remoteContainer.id, containerState);
   }
 
   if (remoteContainers.length > 0) {
@@ -561,6 +528,67 @@ async function hydrateRemoteContainers(
       `Explorer: hydrated ${remoteContainers.length} remote container(s)`,
     );
   }
+}
+
+async function upsertRemoteContainerState(
+  state: ExplorerStoreState,
+  remoteContainer: ListedRemoteContainer | MovedRemoteContainer,
+  localRecipientPublicKeys: Uint8Array[],
+): Promise<ContainerState> {
+  const existingState = state.containersById.get(remoteContainer.id);
+
+  if (existingState) {
+    existingState.recipientPublicKeys = resolveRecipientPublicKeys(
+      remoteContainer.metadataRecipientEncapsulationPublicKeys,
+      localRecipientPublicKeys,
+    );
+    await persistContainerState(
+      state,
+      existingState,
+      {
+        accessEpoch: remoteContainer.metadataAccessEpoch,
+        documentId: remoteContainer.metadataDocumentId,
+        metadataDocumentId: remoteContainer.metadataDocumentId,
+        organizationId: remoteContainer.organizationId,
+        parentId: remoteContainer.parentId,
+      },
+      false,
+    );
+    return existingState;
+  }
+
+  const doc = await createContainerMetadataDocument(remoteContainer.id);
+  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
+  const containerState: ContainerState = {
+    container: {
+      id: remoteContainer.id,
+      organizationId: remoteContainer.organizationId,
+      parentId: remoteContainer.parentId,
+      metadataDocumentId: remoteContainer.metadataDocumentId,
+      name: getFallbackContainerName(remoteContainer.parentId),
+      icon: null,
+    },
+    doc,
+    recipientPublicKeys: resolveRecipientPublicKeys(
+      remoteContainer.metadataRecipientEncapsulationPublicKeys,
+      localRecipientPublicKeys,
+    ),
+    record: {
+      accessEpoch: remoteContainer.metadataAccessEpoch,
+      documentId: remoteContainer.metadataDocumentId,
+      documentRecipientEnvelopes: null,
+      id: remoteContainer.id,
+      loroSnapshot: initialSnapshot,
+    },
+  };
+
+  await state.persistence.saveContainer(
+    state.runtime.execSql,
+    containerState.container,
+    containerState.record,
+  );
+  state.containersById.set(remoteContainer.id, containerState);
+  return containerState;
 }
 
 function requestRemoteHydration(state: ExplorerStoreState): Promise<void> {
@@ -1276,6 +1304,58 @@ async function shareExplorerContainerWithUser(
   return toContainerNode(existingState.container);
 }
 
+async function moveExplorerContainer(
+  state: ExplorerStoreState,
+  containerId: string,
+  parentId: string,
+) {
+  if (
+    state.runtime.dbStatus !== "ready" ||
+    !state.snapshot.ready ||
+    !state.runtime.isAuthenticated ||
+    !state.runtime.online
+  ) {
+    return null;
+  }
+
+  const existingState = state.containersById.get(containerId);
+  const targetParentState = state.containersById.get(parentId);
+  if (
+    !existingState ||
+    !targetParentState ||
+    existingState.container.parentId === null ||
+    isContainerInSubtree(state.containersById, parentId, containerId)
+  ) {
+    return null;
+  }
+
+  const moved = await state.runtime.apiClient.moveContainer(
+    containerId,
+    parentId,
+  );
+  if (!moved) {
+    return null;
+  }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    moved.metadataReferencedPrincipals,
+  );
+
+  const localRecipientPublicKeys = getLocalRecipientPublicKeys(
+    state.runtime.encapsulationKeyPair,
+  );
+  await upsertRemoteContainerState(state, moved, localRecipientPublicKeys);
+  updateExplorerSnapshot(state);
+
+  await requestRemoteHydration(state);
+  requestDomainNotesSync(state.runtime.domainScope);
+  scheduleExplorerSync(state);
+  state.runtime.log(
+    `Explorer: moved container ${containerId} under ${parentId}`,
+  );
+  return toContainerNode(existingState.container);
+}
+
 function subscribeToExplorerStore(
   state: ExplorerStoreState,
   listener: () => void,
@@ -1350,6 +1430,12 @@ export function createExplorerStore(
         .then(() => deleteExplorerContainer(state, containerId));
       return state.writeChain.then((deletedNode) => deletedNode !== null);
     },
+    moveContainer: (containerId: string, parentId: string) => {
+      state.writeChain = state.writeChain
+        .catch(() => null)
+        .then(() => moveExplorerContainer(state, containerId, parentId));
+      return state.writeChain;
+    },
     refresh: () => refreshExplorerStore(state),
     renameContainer: (containerId: string, name: string) => {
       state.writeChain = state.writeChain
@@ -1418,6 +1504,7 @@ export function useExplorer(): ExplorerContextValue {
   return {
     createChild: store.createChild,
     deleteContainer: store.deleteContainer,
+    moveContainer: store.moveContainer,
     refresh: store.refresh,
     renameContainer: store.renameContainer,
     shareWithUser: store.shareWithUser,

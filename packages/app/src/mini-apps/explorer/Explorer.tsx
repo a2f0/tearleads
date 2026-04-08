@@ -38,8 +38,14 @@ interface ExplorerTreeEntry {
 type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
+  | { mode: "move"; nodeId: string }
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
+
+interface MoveTargetOption {
+  id: string;
+  label: string;
+}
 
 function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
@@ -80,6 +86,53 @@ function buildExplorerTree(
 
   sortEntries(roots);
   return roots;
+}
+
+function getMoveTargetOptions(
+  nodes: ReadonlyArray<ContainerNode>,
+  movingNodeId: string,
+): ReadonlyArray<MoveTargetOption> {
+  const movingNode = nodes.find((node) => node.id === movingNodeId);
+  if (!movingNode || movingNode.parentId === null) {
+    return [];
+  }
+
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+
+  const options = nodes
+    .filter((candidateNode) => {
+      if (
+        candidateNode.id === movingNode.id ||
+        candidateNode.organizationId !== movingNode.organizationId
+      ) {
+        return false;
+      }
+
+      let currentNode: ContainerNode | undefined = candidateNode;
+      while (currentNode) {
+        if (currentNode.parentId === movingNode.id) {
+          return false;
+        }
+
+        currentNode = currentNode.parentId
+          ? nodesById.get(currentNode.parentId)
+          : undefined;
+      }
+
+      return true;
+    })
+    .map((candidateNode) => ({
+      id: candidateNode.id,
+      label: `${candidateNode.name} (${candidateNode.id})`,
+    }));
+
+  options.sort((left, right) =>
+    left.label.localeCompare(right.label, undefined, {
+      sensitivity: "base",
+    }),
+  );
+
+  return options;
 }
 
 function renderTreeEntries(
@@ -802,6 +855,8 @@ function getExplorerModalError(mode: ExplorerModalState["mode"]): string {
       return "Failed to rename container.";
     case "delete":
       return "Failed to delete container.";
+    case "move":
+      return "Failed to move container.";
     case "share-peer":
       return "Failed to share container with peer.";
   }
@@ -815,6 +870,8 @@ function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
       return "Failed to rename container:";
     case "delete":
       return "Failed to delete container:";
+    case "move":
+      return "Failed to move container:";
     case "share-peer":
       return "Failed to share container with peer:";
   }
@@ -824,10 +881,12 @@ function clearExplorerModalState(
   setModalState: (state: ExplorerModalState | null) => void,
   setModalError: (error: string | null) => void,
   setDraftName: (value: string) => void,
+  setDraftTargetContainerId: (value: string) => void,
 ) {
   setModalState(null);
   setModalError(null);
   setDraftName("");
+  setDraftTargetContainerId("");
 }
 
 async function submitExplorerDeleteModal(params: {
@@ -854,6 +913,41 @@ async function submitExplorerDeleteModal(params: {
   }
 
   setSelectedId(deletingNode?.parentId ?? null);
+  clearModal();
+}
+
+async function submitExplorerMoveModal(params: {
+  modalState: { mode: "move"; nodeId: string };
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
+  setModalError: (error: string | null) => void;
+  setSelectedId: (id: string | null) => void;
+  targetContainerId: string;
+  clearModal: () => void;
+}) {
+  const {
+    clearModal,
+    modalState,
+    moveContainer,
+    setModalError,
+    setSelectedId,
+    targetContainerId,
+  } = params;
+
+  if (!targetContainerId) {
+    setModalError("Choose a destination container.");
+    return;
+  }
+
+  const movedNode = await moveContainer(modalState.nodeId, targetContainerId);
+  if (!movedNode) {
+    setModalError("Failed to move container.");
+    return;
+  }
+
+  setSelectedId(movedNode.id);
   clearModal();
 }
 
@@ -924,59 +1018,19 @@ async function submitExplorerNameModal(params: {
   clearModal();
 }
 
-function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
-  const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const clearModal = useCallback(
-    () => clearExplorerModalState(setModalState, setModalError, setDraftName),
-    [],
-  );
-
-  const closeModal = useCallback(() => {
-    if (!isSubmittingModal) {
-      clearModal();
-    }
-  }, [clearModal, isSubmittingModal]);
-
-  const openCreateChildModal = useCallback((parentId: string) => {
-    setModalState({ mode: "create-child", nodeId: parentId });
-    setModalError(null);
-    setDraftName("");
-  }, []);
-
-  const openRenameModal = useCallback(
-    (containerId: string) => {
-      const container = nodes.find((node) => node.id === containerId);
-      if (!container) {
-        return;
-      }
-
-      setModalState({ mode: "rename", nodeId: containerId });
-      setModalError(null);
-      setDraftName(container.name);
-    },
-    [nodes],
-  );
-
-  const openDeleteModal = useCallback((containerId: string) => {
-    setModalState({ mode: "delete", nodeId: containerId });
-    setModalError(null);
-    setDraftName("");
-  }, []);
-
-  const openSharePeerModal = useCallback((containerId: string) => {
-    setModalState({ mode: "share-peer", nodeId: containerId });
-    setModalError(null);
-    setDraftName("");
-  }, []);
+function useExplorerModalEffects(params: {
+  closeModal: () => void;
+  isSubmittingModal: boolean;
+  modalState: ExplorerModalState | null;
+  nameInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const { closeModal, isSubmittingModal, modalState, nameInputRef } = params;
 
   useEffect(() => {
     if (
       !modalState ||
       modalState.mode === "delete" ||
+      modalState.mode === "move" ||
       modalState.mode === "share-peer"
     ) {
       return;
@@ -984,7 +1038,7 @@ function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
 
     nameInputRef.current?.focus();
     nameInputRef.current?.select();
-  }, [modalState]);
+  }, [modalState, nameInputRef]);
 
   useEffect(() => {
     if (!modalState) {
@@ -1001,26 +1055,159 @@ function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [closeModal, isSubmittingModal, modalState]);
+}
+
+function useExplorerModalOpeners(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+}) {
+  const {
+    nodes,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+  } = params;
+
+  const openCreateChildModal = useCallback(
+    (parentId: string) => {
+      setModalState({ mode: "create-child", nodeId: parentId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId("");
+    },
+    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
+  );
+
+  const openRenameModal = useCallback(
+    (containerId: string) => {
+      const container = nodes.find((node) => node.id === containerId);
+      if (!container) {
+        return;
+      }
+
+      setModalState({ mode: "rename", nodeId: containerId });
+      setModalError(null);
+      setDraftName(container.name);
+      setDraftTargetContainerId("");
+    },
+    [
+      nodes,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+    ],
+  );
+
+  const openDeleteModal = useCallback(
+    (containerId: string) => {
+      setModalState({ mode: "delete", nodeId: containerId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId("");
+    },
+    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
+  );
+
+  const openMoveModal = useCallback(
+    (containerId: string) => {
+      const moveTargetOptions = getMoveTargetOptions(nodes, containerId);
+      if (moveTargetOptions.length === 0) {
+        return;
+      }
+
+      setModalState({ mode: "move", nodeId: containerId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
+    },
+    [
+      nodes,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+    ],
+  );
+
+  const openSharePeerModal = useCallback(
+    (containerId: string) => {
+      setModalState({ mode: "share-peer", nodeId: containerId });
+      setModalError(null);
+      setDraftName("");
+      setDraftTargetContainerId("");
+    },
+    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
+  );
+
+  return {
+    openCreateChildModal,
+    openDeleteModal,
+    openMoveModal,
+    openRenameModal,
+    openSharePeerModal,
+  };
+}
+
+function useExplorerModalState(nodes: ReadonlyArray<ContainerNode>) {
+  const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftTargetContainerId, setDraftTargetContainerId] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const clearModal = useCallback(
+    () =>
+      clearExplorerModalState(
+        setModalState,
+        setModalError,
+        setDraftName,
+        setDraftTargetContainerId,
+      ),
+    [],
+  );
+
+  const closeModal = useCallback(() => {
+    if (!isSubmittingModal) {
+      clearModal();
+    }
+  }, [clearModal, isSubmittingModal]);
+  const openers = useExplorerModalOpeners({
+    nodes,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+  });
+  useExplorerModalEffects({
+    closeModal,
+    isSubmittingModal,
+    modalState,
+    nameInputRef,
+  });
 
   return {
     clearModal,
     closeModal,
     draftName,
+    draftTargetContainerId,
     isSubmittingModal,
     modalError,
     modalState,
     nameInputRef,
-    openCreateChildModal,
-    openDeleteModal,
-    openRenameModal,
-    openSharePeerModal,
+    ...openers,
     setDraftName,
     setIsSubmittingModal,
     setModalError,
+    setDraftTargetContainerId,
   };
 }
 
-function useExplorerModalSubmit(params: {
+interface ExplorerModalSubmitParams {
   createChild: (
     parentId: string,
     name: string,
@@ -1028,9 +1215,14 @@ function useExplorerModalSubmit(params: {
   clearModal: () => void;
   deleteContainer: (containerId: string) => Promise<boolean>;
   draftName: string;
+  draftTargetContainerId: string;
   expandNode: (nodeId: string) => void;
   isSubmittingModal: boolean;
   modalState: ExplorerModalState | null;
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
   renameContainer: (
@@ -1041,23 +1233,99 @@ function useExplorerModalSubmit(params: {
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-}) {
+}
+
+function useExplorerModalAction(params: ExplorerModalSubmitParams) {
   const {
     clearModal,
     createChild,
     deleteContainer,
     draftName,
+    draftTargetContainerId,
     expandNode,
-    isSubmittingModal,
     modalState,
+    moveContainer,
     nodes,
     peerUserId,
     renameContainer,
-    setIsSubmittingModal,
     setModalError,
     setSelectedId,
     shareWithUser,
   } = params;
+
+  return useCallback(async () => {
+    if (!modalState) {
+      return;
+    }
+
+    if (modalState.mode === "delete") {
+      await submitExplorerDeleteModal({
+        clearModal,
+        deleteContainer,
+        modalState,
+        nodes,
+        setModalError,
+        setSelectedId,
+      });
+      return;
+    }
+
+    if (modalState.mode === "move") {
+      await submitExplorerMoveModal({
+        clearModal,
+        modalState,
+        moveContainer,
+        setModalError,
+        setSelectedId,
+        targetContainerId: draftTargetContainerId,
+      });
+      return;
+    }
+
+    if (modalState.mode === "share-peer") {
+      await submitExplorerShareModal({
+        clearModal,
+        modalState,
+        peerUserId,
+        setModalError,
+        shareWithUser,
+      });
+      return;
+    }
+
+    await submitExplorerNameModal({
+      clearModal,
+      createChild,
+      draftName,
+      expandNode,
+      modalState,
+      renameContainer,
+      setModalError,
+      setSelectedId,
+    });
+  }, [
+    clearModal,
+    createChild,
+    deleteContainer,
+    draftName,
+    draftTargetContainerId,
+    expandNode,
+    modalState,
+    moveContainer,
+    nodes,
+    peerUserId,
+    renameContainer,
+    setModalError,
+    setSelectedId,
+    shareWithUser,
+  ]);
+}
+
+function useExplorerModalSubmit(params: ExplorerModalSubmitParams) {
+  const { isSubmittingModal, modalState, setIsSubmittingModal, setModalError } =
+    params;
+  const submitModal = useExplorerModalAction(params);
+
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -1069,35 +1337,7 @@ function useExplorerModalSubmit(params: {
       setIsSubmittingModal(true);
 
       try {
-        if (modalState.mode === "delete") {
-          await submitExplorerDeleteModal({
-            clearModal,
-            deleteContainer,
-            modalState,
-            nodes,
-            setModalError,
-            setSelectedId,
-          });
-        } else if (modalState.mode === "share-peer") {
-          await submitExplorerShareModal({
-            clearModal,
-            modalState,
-            peerUserId,
-            setModalError,
-            shareWithUser,
-          });
-        } else {
-          await submitExplorerNameModal({
-            clearModal,
-            createChild,
-            draftName,
-            expandNode,
-            modalState,
-            renameContainer,
-            setModalError,
-            setSelectedId,
-          });
-        }
+        await submitModal();
       } catch (error: unknown) {
         console.error(getExplorerModalLog(modalState.mode), error);
         setModalError(getExplorerModalError(modalState.mode));
@@ -1106,20 +1346,11 @@ function useExplorerModalSubmit(params: {
       }
     },
     [
-      clearModal,
-      createChild,
-      deleteContainer,
-      draftName,
-      expandNode,
       isSubmittingModal,
       modalState,
-      nodes,
-      peerUserId,
-      renameContainer,
+      submitModal,
       setIsSubmittingModal,
       setModalError,
-      setSelectedId,
-      shareWithUser,
     ],
   );
 }
@@ -1131,6 +1362,10 @@ function useExplorerModalController(params: {
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
   expandNode: (nodeId: string) => void;
+  moveContainer: (
+    containerId: string,
+    parentId: string,
+  ) => Promise<ContainerNode | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
   renameContainer: (
@@ -1141,10 +1376,15 @@ function useExplorerModalController(params: {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }) {
   const modalState = useExplorerModalState(params.nodes);
+  const moveTargetOptions =
+    modalState.modalState?.mode === "move"
+      ? getMoveTargetOptions(params.nodes, modalState.modalState.nodeId)
+      : [];
   const handleModalSubmit = useExplorerModalSubmit({
     ...params,
     clearModal: modalState.clearModal,
     draftName: modalState.draftName,
+    draftTargetContainerId: modalState.draftTargetContainerId,
     isSubmittingModal: modalState.isSubmittingModal,
     modalState: modalState.modalState,
     setIsSubmittingModal: modalState.setIsSubmittingModal,
@@ -1154,17 +1394,21 @@ function useExplorerModalController(params: {
   return {
     closeModal: modalState.closeModal,
     draftName: modalState.draftName,
+    draftTargetContainerId: modalState.draftTargetContainerId,
     handleModalSubmit,
     isSubmittingModal: modalState.isSubmittingModal,
     modalError: modalState.modalError,
     modalState: modalState.modalState,
+    moveTargetOptions,
     nameInputRef: modalState.nameInputRef,
     openCreateChildModal: modalState.openCreateChildModal,
     openDeleteModal: modalState.openDeleteModal,
+    openMoveModal: modalState.openMoveModal,
     openRenameModal: modalState.openRenameModal,
     openSharePeerModal: modalState.openSharePeerModal,
     setDraftName: modalState.setDraftName,
     setModalError: modalState.setModalError,
+    setDraftTargetContainerId: modalState.setDraftTargetContainerId,
   };
 }
 
@@ -1268,12 +1512,17 @@ function useExplorerContextMenu(
   const contextMenuNodeHasChildren =
     contextMenuNode !== undefined &&
     nodes.some((node) => node.parentId === contextMenuNode.id);
+  const contextMenuNodeMoveTargets =
+    contextMenuNode === undefined
+      ? []
+      : getMoveTargetOptions(nodes, contextMenuNode.id);
 
   return {
     canDeleteContextMenuNode:
       contextMenuNode !== undefined &&
       contextMenuNode.parentId !== null &&
       !contextMenuNodeHasChildren,
+    canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     closeContextMenu,
     contextMenu,
     contextMenuNode,
@@ -1489,24 +1738,28 @@ function ExplorerDetailPanel(params: {
 
 function ExplorerContextMenuLayer(params: {
   canDeleteContextMenuNode: boolean;
+  canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: { nodeId: string; position: MenuPosition } | null;
   contextMenuNode: ContainerNode | undefined;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
   openInlineNote: (containerId: string, noteId?: string) => void;
+  openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   openSharePeerModal: (containerId: string) => void;
   peerUserId: string | null;
 }) {
   const {
     canDeleteContextMenuNode,
+    canMoveContextMenuNode,
     closeContextMenu,
     contextMenu,
     contextMenuNode,
     openCreateChildModal,
     openDeleteModal,
     openInlineNote,
+    openMoveModal,
     openRenameModal,
     openSharePeerModal,
     peerUserId,
@@ -1546,6 +1799,14 @@ function ExplorerContextMenuLayer(params: {
         }}
       />
       <MenuItem
+        label="Move"
+        disabled={!canMoveContextMenuNode}
+        onClick={() => {
+          closeContextMenu();
+          openMoveModal(contextMenu.nodeId);
+        }}
+      />
+      <MenuItem
         label="Share With Peer"
         disabled={!peerUserId}
         onClick={() => {
@@ -1569,6 +1830,8 @@ function getExplorerModalTitle(modalState: ExplorerModalState): string {
   switch (modalState.mode) {
     case "delete":
       return "Delete Container";
+    case "move":
+      return "Move Container";
     case "share-peer":
       return "Share Container";
     case "rename":
@@ -1586,6 +1849,8 @@ function getExplorerModalSubmitLabel(
     switch (modalState.mode) {
       case "delete":
         return "Delete";
+      case "move":
+        return "Move";
       case "share-peer":
         return "Share";
       case "rename":
@@ -1598,6 +1863,8 @@ function getExplorerModalSubmitLabel(
   switch (modalState.mode) {
     case "delete":
       return "Deleting...";
+    case "move":
+      return "Moving...";
     case "share-peer":
       return "Sharing...";
     case "rename":
@@ -1609,37 +1876,52 @@ function getExplorerModalSubmitLabel(
 
 function isExplorerModalSubmitDisabled(params: {
   draftName: string;
+  draftTargetContainerId: string;
   isSubmittingModal: boolean;
   modalState: ExplorerModalState;
   peerUserId: string | null;
 }): boolean {
-  const { draftName, isSubmittingModal, modalState, peerUserId } = params;
+  const {
+    draftName,
+    draftTargetContainerId,
+    isSubmittingModal,
+    modalState,
+    peerUserId,
+  } = params;
   return (
     isSubmittingModal ||
     (modalState.mode !== "delete" &&
+      modalState.mode !== "move" &&
       modalState.mode !== "share-peer" &&
       draftName.trim().length === 0) ||
+    (modalState.mode === "move" && draftTargetContainerId.length === 0) ||
     (modalState.mode === "share-peer" && !peerUserId)
   );
 }
 
 function ExplorerModalBody(params: {
   draftName: string;
+  draftTargetContainerId: string;
   isSubmittingModal: boolean;
   modalState: ExplorerModalState;
+  moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: React.RefObject<HTMLInputElement | null>;
   peerUserId: string | null;
   setDraftName: (value: string) => void;
   setModalError: (error: string | null) => void;
+  setDraftTargetContainerId: (value: string) => void;
 }) {
   const {
     draftName,
+    draftTargetContainerId,
     isSubmittingModal,
     modalState,
+    moveTargetOptions,
     nameInputRef,
     peerUserId,
     setDraftName,
     setModalError,
+    setDraftTargetContainerId,
   } = params;
 
   if (modalState.mode === "delete") {
@@ -1653,6 +1935,29 @@ function ExplorerModalBody(params: {
           ? `Share this container with peer user ${peerUserId}?`
           : "No peer user is available."}
       </div>
+    );
+  }
+
+  if (modalState.mode === "move") {
+    return (
+      <label className="explorer-modal-field">
+        Destination
+        <select
+          aria-label="Destination container"
+          disabled={isSubmittingModal}
+          value={draftTargetContainerId}
+          onChange={(event) => {
+            setModalError(null);
+            setDraftTargetContainerId(event.target.value);
+          }}
+        >
+          {moveTargetOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     );
   }
 
@@ -1676,26 +1981,32 @@ function ExplorerModalBody(params: {
 function ExplorerModalLayer(params: {
   closeModal: () => void;
   draftName: string;
+  draftTargetContainerId: string;
   handleModalSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isSubmittingModal: boolean;
   modalError: string | null;
   modalState: ExplorerModalState | null;
+  moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: React.RefObject<HTMLInputElement | null>;
   peerUserId: string | null;
   setDraftName: (value: string) => void;
   setModalError: (error: string | null) => void;
+  setDraftTargetContainerId: (value: string) => void;
 }) {
   const {
     closeModal,
     draftName,
+    draftTargetContainerId,
     handleModalSubmit,
     isSubmittingModal,
     modalError,
     modalState,
+    moveTargetOptions,
     nameInputRef,
     peerUserId,
     setDraftName,
     setModalError,
+    setDraftTargetContainerId,
   } = params;
 
   if (!modalState) {
@@ -1714,12 +2025,15 @@ function ExplorerModalLayer(params: {
           <h2 id="explorer-modal-title">{getExplorerModalTitle(modalState)}</h2>
           <ExplorerModalBody
             draftName={draftName}
+            draftTargetContainerId={draftTargetContainerId}
             isSubmittingModal={isSubmittingModal}
             modalState={modalState}
+            moveTargetOptions={moveTargetOptions}
             nameInputRef={nameInputRef}
             peerUserId={peerUserId}
             setDraftName={setDraftName}
             setModalError={setModalError}
+            setDraftTargetContainerId={setDraftTargetContainerId}
           />
           {modalError && (
             <div className="explorer-modal-error">{modalError}</div>
@@ -1736,6 +2050,7 @@ function ExplorerModalLayer(params: {
               type="submit"
               disabled={isExplorerModalSubmitDisabled({
                 draftName,
+                draftTargetContainerId,
                 isSubmittingModal,
                 modalState,
                 peerUserId,
@@ -1780,23 +2095,30 @@ function useExplorerNoteViewModel(
   };
 }
 
-function useExplorerModel(
-  appData: ReturnType<typeof useAppData>,
-  explorer: ReturnType<typeof useExplorer>,
-  setSidebar: (sidebar: ReactNode | null) => void,
-  peerUserId: string | null,
-) {
+function useExplorerInteractionState(params: {
+  appData: ReturnType<typeof useAppData>;
+  explorer: ReturnType<typeof useExplorer>;
+  knownDocumentIds: ReadonlySet<string>;
+  mergeNoteSummaries: (nextNotes: ReadonlyArray<NoteSummary>) => void;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>;
+  peerUserId: string | null;
+  selection: ReturnType<typeof useExplorerSelection>;
+  setSidebar: (sidebar: ReactNode | null) => void;
+  treeEntries: ReadonlyArray<ExplorerTreeEntry>;
+}) {
   const {
+    appData,
+    explorer,
     knownDocumentIds,
     mergeNoteSummaries,
     mergeNoteSummary,
     notesByContainerId,
+    peerUserId,
     selection,
-  } = useExplorerNoteViewModel(appData, explorer);
-  const treeEntries = useMemo(
-    () => buildExplorerTree(explorer.nodes),
-    [explorer.nodes],
-  );
+    setSidebar,
+    treeEntries,
+  } = params;
   const { primeDiscoveredNotes } = useDiscoveredNotesSync({
     activeContainerId: selection.activeContainerId,
     apiClient: appData.apiClient,
@@ -1845,6 +2167,7 @@ function useExplorerModel(
     createChild: explorer.createChild,
     deleteContainer: explorer.deleteContainer,
     expandNode: selection.expandNode,
+    moveContainer: explorer.moveContainer,
     nodes: explorer.nodes,
     peerUserId,
     renameContainer: explorer.renameContainer,
@@ -1855,6 +2178,53 @@ function useExplorerModel(
     expandNode: selection.expandNode,
     mergeNoteSummary,
     setSelectedId: selection.setSelectedId,
+  });
+
+  return {
+    contextMenuState,
+    handleRefresh,
+    isRefreshing,
+    modalState,
+    openInlineNote,
+    refreshError,
+  };
+}
+
+function useExplorerModel(
+  appData: ReturnType<typeof useAppData>,
+  explorer: ReturnType<typeof useExplorer>,
+  setSidebar: (sidebar: ReactNode | null) => void,
+  peerUserId: string | null,
+) {
+  const {
+    knownDocumentIds,
+    mergeNoteSummaries,
+    mergeNoteSummary,
+    notesByContainerId,
+    selection,
+  } = useExplorerNoteViewModel(appData, explorer);
+  const treeEntries = useMemo(
+    () => buildExplorerTree(explorer.nodes),
+    [explorer.nodes],
+  );
+  const {
+    contextMenuState,
+    handleRefresh,
+    isRefreshing,
+    modalState,
+    openInlineNote,
+    refreshError,
+  } = useExplorerInteractionState({
+    appData,
+    explorer,
+    knownDocumentIds,
+    mergeNoteSummaries,
+    mergeNoteSummary,
+    notesByContainerId,
+    peerUserId,
+    selection,
+    setSidebar,
+    treeEntries,
   });
 
   return {
@@ -1896,12 +2266,14 @@ export function Explorer() {
         canDeleteContextMenuNode={
           model.contextMenuState.canDeleteContextMenuNode
         }
+        canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         contextMenuNode={model.contextMenuState.contextMenuNode}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
         openInlineNote={model.openInlineNote}
+        openMoveModal={model.modalState.openMoveModal}
         openRenameModal={model.modalState.openRenameModal}
         openSharePeerModal={model.modalState.openSharePeerModal}
         peerUserId={model.peerUserId}
@@ -1909,14 +2281,17 @@ export function Explorer() {
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}
         draftName={model.modalState.draftName}
+        draftTargetContainerId={model.modalState.draftTargetContainerId}
         handleModalSubmit={model.modalState.handleModalSubmit}
         isSubmittingModal={model.modalState.isSubmittingModal}
         modalError={model.modalState.modalError}
         modalState={model.modalState.modalState}
+        moveTargetOptions={model.modalState.moveTargetOptions}
         nameInputRef={model.modalState.nameInputRef}
         peerUserId={model.peerUserId}
         setDraftName={model.modalState.setDraftName}
         setModalError={model.modalState.setModalError}
+        setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
       />
     </div>
   );

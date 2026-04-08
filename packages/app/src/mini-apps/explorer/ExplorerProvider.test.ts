@@ -69,6 +69,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       getBlob: async () => null,
       listContainers: async () => [],
       listDocumentAttachments: async () => null,
+      moveContainer: async (_containerId: string, _parentId: string) => null,
       shareContainer: async (
         _containerId: string,
         _subjectType: "user" | "group" | "organization",
@@ -401,6 +402,117 @@ test("explorer store creates a child under a writable shared root using the inhe
         version: 1,
       },
     ]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store moves an authenticated child container through the API and refreshes local state", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const recipientPublicKeys = [bytesToBase64(localKeyPair.publicKey)];
+  const moveContainerCalls: Array<{
+    containerId: string;
+    parentId: string;
+  }> = [];
+  let remoteContainers = [
+    {
+      id: "root-container",
+      metadataAccessEpoch: 1,
+      metadataDocumentId: "root-metadata-document",
+      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
+      organizationId: "org-1",
+      parentId: null,
+    },
+    {
+      id: "parent-a",
+      metadataAccessEpoch: 1,
+      metadataDocumentId: "parent-a-metadata-document",
+      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
+      organizationId: "org-1",
+      parentId: "root-container",
+    },
+    {
+      id: "parent-b",
+      metadataAccessEpoch: 1,
+      metadataDocumentId: "parent-b-metadata-document",
+      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
+      organizationId: "org-1",
+      parentId: "root-container",
+    },
+    {
+      id: "child-container",
+      metadataAccessEpoch: 1,
+      metadataDocumentId: "child-metadata-document",
+      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
+      organizationId: "org-1",
+      parentId: "parent-a",
+    },
+  ];
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = {
+    ...runtime.apiClient,
+    listContainers: async () => remoteContainers,
+    moveContainer: async (containerId, parentId) => {
+      moveContainerCalls.push({ containerId, parentId });
+      remoteContainers = remoteContainers.map((container) =>
+        container.id === containerId
+          ? {
+              ...container,
+              metadataAccessEpoch: container.metadataAccessEpoch + 1,
+              parentId,
+            }
+          : container,
+      );
+      return (
+        remoteContainers.find((container) => container.id === containerId) ??
+        null
+      );
+    },
+    shareContainer: async () => null,
+    syncDocument: async () => null,
+  };
+
+  try {
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        store.getSnapshot().nodes.some((node) => node.id === "child-container"),
+      "Explorer store did not hydrate remote containers before move.",
+    );
+
+    const movedNode = await store.moveContainer("child-container", "parent-b");
+    if (!movedNode) {
+      throw new Error("Expected moveContainer to return the moved node.");
+    }
+
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .nodes.some(
+            (node) =>
+              node.id === "child-container" && node.parentId === "parent-b",
+          ),
+      "Explorer store did not update the moved container parent.",
+    );
+
+    expect(moveContainerCalls).toEqual([
+      { containerId: "child-container", parentId: "parent-b" },
+    ]);
+    expect(movedNode.parentId).toBe("parent-b");
+
+    const persistedContainers = await loadContainers(runtime.execSql);
+    expect(
+      persistedContainers.find(
+        (container) => container.id === "child-container",
+      )?.parentId,
+    ).toBe("parent-b");
   } finally {
     runtime.close();
   }

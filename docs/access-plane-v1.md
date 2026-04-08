@@ -439,6 +439,10 @@ materialize downstream document epochs and active blob epochs so access and
 bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
+The app explorer now uses `POST /containers/:containerId/move` for container
+reparenting. The document `link` / `unlink` routes remain available in the API
+and client, but note/document relink UI is still future work.
+
 ## Zero-Trust Extension For Membership Changes
 
 This section answers the specific concern:

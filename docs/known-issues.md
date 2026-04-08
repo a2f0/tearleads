@@ -79,7 +79,8 @@ Remaining implementation work:
   managed grant has no current principal policy state yet
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
-- continue wiring client flows around the new structural mutation routes
+- continue wiring document link/unlink client flows around the structural
+  mutation routes; explorer container move is now wired through the app
 - decide detached-binding retention / GC policy separately from blob GC
 
 ### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented
