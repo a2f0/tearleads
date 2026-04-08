@@ -185,33 +185,6 @@ function getMovedNoteContainerId(
   return document.linkedContainerIds[0] ?? null;
 }
 
-async function buildFallbackMovedNoteSummary(params: {
-  accessEpoch: number;
-  containerId: string;
-  documentId: string;
-  execSql: ReturnType<typeof useAppData>["execSql"];
-  note: NoteSummary;
-}): Promise<NoteSummary> {
-  const { accessEpoch, containerId, documentId, execSql, note } = params;
-
-  await sqlNotesPersistence.saveNote(execSql, {
-    accessEpoch,
-    containerId,
-    documentId,
-    documentRecipientEnvelopes: null,
-    id: note.id,
-    loroSnapshot: "",
-    text: note.title === "Untitled note" ? "" : note.title,
-  });
-
-  return {
-    ...note,
-    containerId,
-    documentId,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
 async function moveExplorerNoteDocument(params: {
   appData: ReturnType<typeof useAppData>;
   note: NoteSummary;
@@ -232,6 +205,9 @@ async function moveExplorerNoteDocument(params: {
     );
     return null;
   }
+  await appData.cacheReferencedPrincipalPolicies(
+    linkedDocument.referencedPrincipals ?? [],
+  );
 
   const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
     note.documentId,
@@ -239,15 +215,14 @@ async function moveExplorerNoteDocument(params: {
   );
   if (!unlinkedDocument) {
     appData.log(
-      `Explorer: failed to unlink note ${note.id} from container ${note.containerId}`,
+      `Explorer: note ${note.id} was linked to ${targetContainerId} but failed to unlink from ${note.containerId}`,
     );
     return null;
   }
 
-  await appData.cacheReferencedPrincipalPolicies([
-    ...(linkedDocument.referencedPrincipals ?? []),
-    ...(unlinkedDocument.referencedPrincipals ?? []),
-  ]);
+  await appData.cacheReferencedPrincipalPolicies(
+    unlinkedDocument.referencedPrincipals ?? [],
+  );
 
   await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
     appData.execSql,
@@ -494,33 +469,13 @@ function createNotesRuntimeFromExplorer(
 ) {
   return {
     apiClient: {
-      commitDocumentChange: (
-        documentId: string,
-        input: Parameters<typeof apiClient.commitDocumentChange>[1],
-      ) => apiClient.commitDocumentChange(documentId, input),
-      createDocument: (linkedContainerIds: string[]) =>
-        apiClient.createDocument(linkedContainerIds),
-      getBlob: (blobId: string) => apiClient.getBlob(blobId),
-      listDocumentAttachments: (documentId: string) =>
-        apiClient.listDocumentAttachments(documentId),
-      stageBlob: (input: Parameters<typeof apiClient.stageBlob>[0]) =>
-        apiClient.stageBlob(input),
-      syncDocument: (
-        documentId: string,
-        accessEpoch: number,
-        localVersionVector: string | null,
-        outgoingUpdates: Parameters<typeof apiClient.syncDocument>[3],
-        documentRecipientEnvelopes?: Parameters<
-          typeof apiClient.syncDocument
-        >[4],
-      ) =>
-        apiClient.syncDocument(
-          documentId,
-          accessEpoch,
-          localVersionVector,
-          outgoingUpdates,
-          documentRecipientEnvelopes,
-        ),
+      commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
+      createDocument: apiClient.createDocument.bind(apiClient),
+      getBlob: apiClient.getBlob.bind(apiClient),
+      listDocumentAttachments:
+        apiClient.listDocumentAttachments.bind(apiClient),
+      stageBlob: apiClient.stageBlob.bind(apiClient),
+      syncDocument: apiClient.syncDocument.bind(apiClient),
     },
     blobStore,
     cacheReferencedPrincipalPolicies,
@@ -1900,6 +1855,30 @@ async function moveExplorerNote(params: {
   ) {
     return null;
   }
+  const currentNotesStore = primeNotesStore(
+    appData.domainScope,
+    note.id,
+    createNotesRuntimeFromExplorer(
+      appData.apiClient,
+      appData.blobStore,
+      appData.cacheReferencedPrincipalPolicies,
+      note.containerId,
+      appData.dbStatus,
+      appData.domainScope,
+      appData.encapsulationKeyPair,
+      appData.execSql,
+      appData.isAuthenticated,
+      appData.log,
+      appData.online,
+    ),
+    mergeNoteSummary,
+    note.documentId,
+  );
+  if (!(await currentNotesStore.ensureInitialized())) {
+    appData.log(`Explorer: note ${note.id} is not ready to move locally`);
+    return null;
+  }
+
   const movedDocument = await moveExplorerNoteDocument({
     appData,
     note,
@@ -1910,31 +1889,23 @@ async function moveExplorerNote(params: {
   }
   const { currentAccessEpoch, nextContainerId } = movedDocument;
 
-  const movedNote =
-    (await sqlNotesPersistence.relinkPersistedNote(appData.execSql, {
-      accessEpoch: currentAccessEpoch,
-      containerId: nextContainerId,
-      documentId: note.documentId,
-      noteId: note.id,
-    })) ??
-    (await buildFallbackMovedNoteSummary({
-      accessEpoch: currentAccessEpoch,
-      containerId: nextContainerId,
-      documentId: note.documentId,
-      execSql: appData.execSql,
-      note,
-    }));
+  const movedNote = await currentNotesStore.relink({
+    accessEpoch: currentAccessEpoch,
+    containerId: nextContainerId,
+    documentId: note.documentId,
+    noteId: note.id,
+  });
 
   if (!movedNote) {
-    appData.log(`Explorer: failed to persist moved note ${note.id}`);
+    appData.log(
+      `Explorer: moved note ${note.id} remotely but could not relink its local projection`,
+    );
     return null;
   }
 
   mergeNoteSummary(movedNote);
   expandNode(nextContainerId);
-  primeNotesStore(
-    appData.domainScope,
-    movedNote.id,
+  currentNotesStore.updateRuntime(
     createNotesRuntimeFromExplorer(
       appData.apiClient,
       appData.blobStore,
@@ -1948,9 +1919,8 @@ async function moveExplorerNote(params: {
       appData.log,
       appData.online,
     ),
-    mergeNoteSummary,
-    movedNote.documentId,
-  ).requestSync();
+  );
+  currentNotesStore.requestSync();
   appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
   return movedNote;
 }

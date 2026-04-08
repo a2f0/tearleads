@@ -53,6 +53,7 @@ import {
   type PendingAttachmentRecord,
   type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
+  type RelinkPersistedNoteInput,
   sqlNotesPersistence,
 } from "./notesPersistence";
 
@@ -134,28 +135,12 @@ function createNotesRuntimeApiClient(
   apiClient: NotesAppData["apiClient"],
 ): NotesRuntime["apiClient"] {
   return {
-    commitDocumentChange: (documentId, input) =>
-      apiClient.commitDocumentChange(documentId, input),
-    createDocument: (linkedContainerIds) =>
-      apiClient.createDocument(linkedContainerIds),
-    getBlob: (blobId) => apiClient.getBlob(blobId),
-    listDocumentAttachments: (documentId) =>
-      apiClient.listDocumentAttachments(documentId),
-    stageBlob: (input) => apiClient.stageBlob(input),
-    syncDocument: (
-      documentId,
-      accessEpoch,
-      localVersionVector,
-      outgoingUpdates,
-      documentRecipientEnvelopes,
-    ) =>
-      apiClient.syncDocument(
-        documentId,
-        accessEpoch,
-        localVersionVector,
-        outgoingUpdates,
-        documentRecipientEnvelopes,
-      ),
+    commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
+    createDocument: apiClient.createDocument.bind(apiClient),
+    getBlob: apiClient.getBlob.bind(apiClient),
+    listDocumentAttachments: apiClient.listDocumentAttachments.bind(apiClient),
+    stageBlob: apiClient.stageBlob.bind(apiClient),
+    syncDocument: apiClient.syncDocument.bind(apiClient),
   };
 }
 
@@ -189,8 +174,10 @@ interface NotesSnapshot {
 
 interface NotesStore {
   attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
+  ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => NotesSnapshot;
   requestSync: () => void;
+  relink: (input: RelinkPersistedNoteInput) => Promise<NoteSummary | null>;
   setPersistedNoteListener: (
     listener: PersistedNoteListener | undefined,
   ) => void;
@@ -888,6 +875,52 @@ async function awaitInitializationForSync(state: NotesStoreState) {
 
     throw error;
   }
+}
+
+async function ensureNotesStoreReady(
+  state: NotesStoreState,
+  scheduleSync: () => void,
+): Promise<boolean> {
+  ensureNotesStoreInitialized(state, scheduleSync);
+
+  if (state.initialized) {
+    return true;
+  }
+
+  if (!state.initializePromise) {
+    return false;
+  }
+
+  return awaitInitializationForSync(state);
+}
+
+async function relinkNotesStore(
+  state: NotesStoreState,
+  input: RelinkPersistedNoteInput,
+): Promise<NoteSummary | null> {
+  if (!state.doc) {
+    return null;
+  }
+
+  const currentAccessEpoch = state.record?.accessEpoch ?? 1;
+  const patch: Partial<NoteRecord> = {
+    accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
+    containerId: input.containerId,
+    documentId: input.documentId,
+  };
+
+  if (input.accessEpoch > currentAccessEpoch) {
+    patch.documentRecipientEnvelopes = null;
+  }
+
+  const nextRecord = await persistDocument(state, state.doc, patch);
+  return {
+    id: nextRecord.id,
+    containerId: nextRecord.containerId,
+    documentId: nextRecord.documentId,
+    title: deriveNoteTitle(nextRecord.text),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function canRunScheduledSync(state: NotesStoreState): boolean {
@@ -1996,8 +2029,10 @@ export function createNotesStore(
   return {
     attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) =>
       attachFilesToNotesStore(state, files),
+    ensureInitialized: () => ensureNotesStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
     requestSync: () => scheduleSync(),
+    relink: (input) => relinkNotesStore(state, input),
     setPersistedNoteListener: (listener) => {
       state.persistedNoteListener = listener;
     },
