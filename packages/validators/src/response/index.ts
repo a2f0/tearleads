@@ -36,4 +36,14 @@ export {
   type ListContainerDocumentsResponse,
 } from "./document";
 export { type HealthResponse, isHealthResponse } from "./health";
+export {
+  type CurrentPrincipalMemberEnvelopesResponse,
+  isCurrentPrincipalMemberEnvelopesResponse,
+  isPrincipalPolicyBundleResponse,
+  isPrincipalStateResponse,
+  type PrincipalMemberEnvelopeResponse,
+  type PrincipalPolicyBundleResponse,
+  type PrincipalStateMemberResponse,
+  type PrincipalStateResponse,
+} from "./principal";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";

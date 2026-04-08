@@ -335,6 +335,9 @@ async function createInMemoryApiServiceRuntime() {
         return token;
       },
     },
+    principalSignerTrustStore: {
+      getTrustedSignerPublicKey: async () => null,
+    },
   };
 }
 

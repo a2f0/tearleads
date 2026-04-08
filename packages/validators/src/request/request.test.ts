@@ -4,6 +4,8 @@ import {
   isCommitDocumentChangeRequest,
   isCreateContainerRequest,
   isPublicKeyRequest,
+  isPutPrincipalMemberEnvelopesRequest,
+  isPutPrincipalStateRequest,
   isShareContainerRequest,
   isStageBlobRequest,
   isVerifyRequest,
@@ -198,4 +200,77 @@ test("isShareContainerRequest", () => {
     }),
   ).toBe(false);
   expect(isShareContainerRequest(null)).toBe(false);
+});
+
+test("isPutPrincipalStateRequest", () => {
+  expect(
+    isPutPrincipalStateRequest({
+      principalType: "group",
+      principalId: "550e8400-e29b-41d4-a716-446655440000",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "fingerprint",
+      members: [
+        {
+          principalType: "user",
+          principalId: "550e8400-e29b-41d4-a716-446655440001",
+        },
+      ],
+      membershipRoot: "root",
+      signedAt: new Date().toISOString(),
+      signerKeyId: "policy-key-1",
+      signature: "signature",
+    }),
+  ).toBe(true);
+  expect(
+    isPutPrincipalStateRequest({
+      principalType: "team",
+      principalId: "550e8400-e29b-41d4-a716-446655440000",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "fingerprint",
+      members: [],
+      membershipRoot: "root",
+      signedAt: new Date().toISOString(),
+      signerKeyId: "policy-key-1",
+      signature: "signature",
+    }),
+  ).toBe(false);
+  expect(isPutPrincipalStateRequest(null)).toBe(false);
+});
+
+test("isPutPrincipalMemberEnvelopesRequest", () => {
+  expect(
+    isPutPrincipalMemberEnvelopesRequest({
+      stateHash: "state-hash",
+      envelopes: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: "550e8400-e29b-41d4-a716-446655440000",
+          memberKeyFingerprint: "fingerprint",
+          kemCipherText: "cipher",
+          wrappedKey: "wrapped",
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isPutPrincipalMemberEnvelopesRequest({
+      stateHash: "state-hash",
+      envelopes: [
+        {
+          memberPrincipalType: "organization",
+          memberPrincipalId: "550e8400-e29b-41d4-a716-446655440000",
+          memberKeyFingerprint: "fingerprint",
+          kemCipherText: "cipher",
+          wrappedKey: "wrapped",
+        },
+      ],
+    }),
+  ).toBe(false);
+  expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
 });

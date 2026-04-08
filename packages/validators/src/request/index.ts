@@ -16,6 +16,14 @@ export {
   type ShareContainerRequest,
 } from "./container";
 export {
+  isPutPrincipalMemberEnvelopesRequest,
+  isPutPrincipalStateRequest,
+  type PrincipalMemberEnvelopeRequest,
+  type PrincipalStateMemberRequest,
+  type PutPrincipalMemberEnvelopesRequest,
+  type PutPrincipalStateRequest,
+} from "./principal";
+export {
   isPublicKeyRequest,
   type PublicKeyRequest,
   type WrappedDekEnvelope,

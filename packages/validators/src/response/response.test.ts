@@ -4,9 +4,12 @@ import {
   isChallengeResponse,
   isCommitDocumentChangeResponse,
   isCreateContainerResponse,
+  isCurrentPrincipalMemberEnvelopesResponse,
   isHealthResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
+  isPrincipalPolicyBundleResponse,
+  isPrincipalStateResponse,
   isPublicKeyResponse,
   isShareContainerResponse,
   isStageBlobResponse,
@@ -205,4 +208,107 @@ test("isListContainerDocumentsResponse", () => {
     ]),
   ).toBe(false);
   expect(isListContainerDocumentsResponse(null)).toBe(false);
+});
+
+test("isPrincipalStateResponse", () => {
+  expect(
+    isPrincipalStateResponse({
+      principalType: "group",
+      principalId: "group-123",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "fingerprint",
+      members: [{ principalType: "user", principalId: "user-123" }],
+      membershipRoot: "root",
+      signedAt: new Date().toISOString(),
+      signerKeyId: "policy-key-1",
+      signature: "signature",
+      stateHash: "state-hash",
+      createdAt: new Date().toISOString(),
+    }),
+  ).toBe(true);
+  expect(
+    isPrincipalStateResponse({
+      principalType: "group",
+      principalId: "group-123",
+      version: 1,
+    }),
+  ).toBe(false);
+  expect(isPrincipalStateResponse(null)).toBe(false);
+});
+
+test("isCurrentPrincipalMemberEnvelopesResponse", () => {
+  expect(
+    isCurrentPrincipalMemberEnvelopesResponse({
+      principalType: "organization",
+      principalId: "org-123",
+      stateHash: "state-hash",
+      epoch: 2,
+      envelopes: [
+        {
+          memberPrincipalType: "group",
+          memberPrincipalId: "group-234",
+          memberKeyFingerprint: "fingerprint",
+          kemCipherText: "cipher",
+          wrappedKey: "wrapped",
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isCurrentPrincipalMemberEnvelopesResponse({
+      principalType: "organization",
+      principalId: "org-123",
+      stateHash: "state-hash",
+      envelopes: [],
+    }),
+  ).toBe(false);
+  expect(isCurrentPrincipalMemberEnvelopesResponse(null)).toBe(false);
+});
+
+test("isPrincipalPolicyBundleResponse", () => {
+  expect(
+    isPrincipalPolicyBundleResponse({
+      currentState: {
+        principalType: "group",
+        principalId: "group-123",
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: "public-key",
+        keyFingerprint: "fingerprint",
+        members: [{ principalType: "user", principalId: "user-123" }],
+        membershipRoot: "root",
+        signedAt: new Date().toISOString(),
+        signerKeyId: "policy-key-1",
+        signature: "signature",
+        stateHash: "state-hash",
+        createdAt: new Date().toISOString(),
+      },
+      currentMemberEnvelopes: {
+        principalType: "group",
+        principalId: "group-123",
+        stateHash: "state-hash",
+        epoch: 1,
+        envelopes: [],
+      },
+    }),
+  ).toBe(true);
+  expect(
+    isPrincipalPolicyBundleResponse({
+      currentState: {
+        principalType: "group",
+      },
+      currentMemberEnvelopes: {
+        principalType: "group",
+        principalId: "group-123",
+        stateHash: "state-hash",
+        epoch: 1,
+        envelopes: [],
+      },
+    }),
+  ).toBe(false);
+  expect(isPrincipalPolicyBundleResponse(null)).toBe(false);
 });
