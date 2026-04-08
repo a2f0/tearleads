@@ -428,6 +428,17 @@ Important V1 invariant:
 V1 scope should allow offline structural mutations such as move, link, unlink,
 attach, and detach, with authoritative recomputation at sync time.
 
+The current API now exposes the first explicit structural mutation routes:
+
+- `POST /containers/:containerId/move`
+- `POST /documents/:documentId/link`
+- `POST /documents/:documentId/unlink`
+
+These routes now recompute the affected container subtree first, then
+materialize downstream document epochs and active blob epochs so access and
+bundle invalidation move with the structure instead of waiting for an unrelated
+content mutation.
+
 ## Zero-Trust Extension For Membership Changes
 
 This section answers the specific concern:

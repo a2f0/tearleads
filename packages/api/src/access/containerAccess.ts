@@ -312,6 +312,15 @@ async function listDescendantContainers(
   return descendantContainers;
 }
 
+export async function listDescendantContainerIds(
+  containerId: string,
+  executor: ContainerAccessExecutor = db,
+): Promise<string[]> {
+  return (await listDescendantContainers(containerId, executor)).map(
+    (container) => container.id,
+  );
+}
+
 async function writeEpoch(
   containerId: string,
   epoch: number,
@@ -907,7 +916,7 @@ function resolveDescendantContainerInputs(
   };
 }
 
-async function refreshContainerAccessSubtree(
+export async function refreshContainerAccessSubtree(
   containerId: string,
   executor: ContainerAccessExecutor = db,
 ): Promise<Map<string, number>> {

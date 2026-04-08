@@ -79,7 +79,7 @@ Remaining implementation work:
   managed grant has no current principal policy state yet
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
-- continue wiring structural mutation routes and client flows
+- continue wiring client flows around the new structural mutation routes
 - decide detached-binding retention / GC policy separately from blob GC
 
 ### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented
@@ -118,6 +118,11 @@ action over sync responses:
 App clients now use the `rewrap` path to seed missing current-epoch document
 bundles before falling back to the existing rebased-baseline flow for content
 handoff to newly added recipients.
+
+Structural move/link/unlink routes now also materialize the affected document
+and active blob epochs immediately after the container/document graph changes,
+so epoch invalidation no longer waits for a later sync or content commit to
+notice the new structure.
 
 Implementation questions:
 

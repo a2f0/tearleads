@@ -26,14 +26,20 @@ export {
   type CreateContainerResponse,
   isCreateContainerResponse,
   isListContainersResponse,
+  isMoveContainerResponse,
   isShareContainerResponse,
   type ListContainersResponse,
+  type MoveContainerResponse,
   type ShareContainerResponse,
 } from "./container";
 export {
   type ContainerDocumentSummary,
+  isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
+  isUnlinkDocumentFromContainerResponse,
+  type LinkDocumentToContainerResponse,
   type ListContainerDocumentsResponse,
+  type UnlinkDocumentFromContainerResponse,
 } from "./document";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {

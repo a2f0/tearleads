@@ -84,6 +84,12 @@ Current implementation:
   for additive access growth, and `GET /blobs/:blobId` serves the current
   wrapped-recipient header from sidecar metadata without creating a new blob
   row
+- explicit structural mutation routes now exist for:
+  - `POST /containers/:containerId/move`
+  - `POST /documents/:documentId/link`
+  - `POST /documents/:documentId/unlink`
+- those routes now materialize affected document epochs and active blob epochs
+  immediately after the container/document graph changes
 
 Important remaining limitation:
 

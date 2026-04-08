@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   canAdminContainerAccess,
   grantContainerAccess,
+  listDescendantContainerIds,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../../access/documentAccess";
 import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
+import { refreshAccessForLinkedContainers } from "../structural/shared";
 
 interface ShareContainerInput extends ShareContainerRequest {
   containerId: string;
@@ -65,6 +67,11 @@ export async function shareContainer(
         subjectId: input.subjectId,
         subjectType: input.subjectType,
       },
+      tx,
+    );
+
+    await refreshAccessForLinkedContainers(
+      await listDescendantContainerIds(input.containerId, tx),
       tx,
     );
 
