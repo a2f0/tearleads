@@ -100,6 +100,7 @@ export async function createContainer(
       metadataDocumentId: metadata.metadataDocumentId,
       metadataRecipientEncapsulationPublicKeys:
         metadata.metadataRecipientEncapsulationPublicKeys,
+      metadataReferencedPrincipals: metadata.metadataReferencedPrincipals,
     };
   });
 }

@@ -181,6 +181,7 @@ export async function listContainers(
       metadataDocumentId: containerRow.metadataDocumentId,
       metadataRecipientEncapsulationPublicKeys:
         listRecipientEncapsulationPublicKeys(metadataAccess),
+      metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
     });

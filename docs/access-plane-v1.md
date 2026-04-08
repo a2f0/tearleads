@@ -295,6 +295,9 @@ Current implementation note:
 - newly created documents may still have no persisted bundle until the client
   seeds one during initial metadata creation or the first document write of the
   epoch
+- container listings, container document listings, and Loro create/sync
+  responses now surface `referencedPrincipals[]` summaries for the current
+  signed group/org policy states that contributed to derived access
 
 The important distinction is:
 

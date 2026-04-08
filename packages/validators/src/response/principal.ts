@@ -45,6 +45,14 @@ export interface CurrentPrincipalMemberEnvelopesResponse {
   envelopes: PrincipalMemberEnvelopeResponse[];
 }
 
+export interface ReferencedPrincipalStateResponse {
+  principalType: "group" | "organization";
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+}
+
 export interface PrincipalPolicyBundleResponse {
   currentState: PrincipalStateResponse;
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
@@ -123,6 +131,20 @@ export function isCurrentPrincipalMemberEnvelopesResponse(
     hasNumberProperty(value, "epoch") &&
     hasArrayProperty(value, "envelopes") &&
     value.envelopes.every(isPrincipalMemberEnvelopeResponse)
+  );
+}
+
+export function isReferencedPrincipalStateResponse(
+  value: unknown,
+): value is ReferencedPrincipalStateResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "principalType") &&
+    isManagedPrincipalType(value.principalType) &&
+    hasStringProperty(value, "principalId") &&
+    hasNumberProperty(value, "version") &&
+    hasNumberProperty(value, "keyEpoch") &&
+    hasStringProperty(value, "stateHash")
   );
 }
 

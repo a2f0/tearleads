@@ -1,3 +1,4 @@
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { satisfiesVersionVector } from "../document";
 import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
@@ -32,6 +33,7 @@ interface DocumentAccessState {
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientKeyFingerprints: string[];
   recipientEncapsulationPublicKeys: string[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
 interface LoroRouterDeps<TSession extends SessionLike> {
@@ -45,6 +47,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
       currentAccessEpoch: number;
       documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
       recipientEncapsulationPublicKeys: string[];
+      referencedPrincipals: ReferencedPrincipalStateResponse[];
     } | null>;
     getDocumentById(documentId: string): Promise<DocumentRecord | null>;
     getDocumentAccess(input: {
@@ -123,6 +126,7 @@ function createDocumentRouteHandler<TSession extends SessionLike>(
         documentRecipientEnvelopes: created.documentRecipientEnvelopes,
         recipientEncapsulationPublicKeys:
           created.recipientEncapsulationPublicKeys,
+        referencedPrincipals: created.referencedPrincipals,
       });
     } catch (error) {
       if (isStatusError(error)) {
@@ -342,6 +346,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       currentAccessEpoch: access.currentAccessEpoch,
       documentRecipientEnvelopes: responseDocumentRecipientEnvelopes,
       recipientEncapsulationPublicKeys: access.recipientEncapsulationPublicKeys,
+      referencedPrincipals: access.referencedPrincipals,
     });
   };
 }

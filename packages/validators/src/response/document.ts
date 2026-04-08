@@ -4,6 +4,10 @@ import {
   hasNumberProperty,
   hasStringProperty,
 } from "../util";
+import {
+  isReferencedPrincipalStateResponse,
+  type ReferencedPrincipalStateResponse,
+} from "./principal";
 
 export interface ContainerDocumentSummary {
   createdAt: string;
@@ -11,6 +15,7 @@ export interface ContainerDocumentSummary {
   id: string;
   linkedContainerIds: string[];
   recipientEncapsulationPublicKeys: string[];
+  referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
 export type ListContainerDocumentsResponse = ContainerDocumentSummary[];
@@ -18,6 +23,10 @@ export type ListContainerDocumentsResponse = ContainerDocumentSummary[];
 function isContainerDocumentSummary(
   value: unknown,
 ): value is ContainerDocumentSummary {
+  const referencedPrincipals = isPlainObject(value)
+    ? Reflect.get(value, "referencedPrincipals")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "createdAt") &&
@@ -28,7 +37,10 @@ function isContainerDocumentSummary(
     hasArrayProperty(value, "recipientEncapsulationPublicKeys") &&
     value.recipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",
-    )
+    ) &&
+    (referencedPrincipals === undefined ||
+      (Array.isArray(referencedPrincipals) &&
+        referencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }
 

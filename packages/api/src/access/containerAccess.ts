@@ -1,8 +1,10 @@
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { containers, objectAccessEpochs, objectAccessGrants } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
+import { listReferencedPrincipalStatesForGrants } from "./principalReferences";
 import {
   type AccessLevel,
   type EffectivePrincipalRecipient,
@@ -65,6 +67,7 @@ interface ContainerAccessState {
     subjectId: string;
     accessLevel: string;
   }>;
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
   effectiveRecipients: EffectiveContainerRecipient[];
 }
 
@@ -488,6 +491,7 @@ async function resolveContainerRecipients(
   ancestorContainerIds: string[];
   effectiveRecipients: EffectiveContainerRecipient[];
   grants: ContainerGrantRow[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
 }> {
   const ancestorContainerIds = await listAncestorContainerIds(
     containerId,
@@ -501,6 +505,13 @@ async function resolveContainerRecipients(
 
   return {
     ancestorContainerIds,
+    referencedPrincipals: await listReferencedPrincipalStatesForGrants(
+      grants.map((grant) => ({
+        principalId: grant.subjectId,
+        principalType: grant.subjectType,
+      })),
+      executor,
+    ),
     effectiveRecipients:
       buildEffectiveRecipientsFromGrantedRecipients(grantedRecipients),
     grants,
@@ -832,8 +843,12 @@ export async function resolveContainerAccessState(
     return null;
   }
 
-  const { ancestorContainerIds, effectiveRecipients, grants } =
-    await resolveContainerRecipients(containerId, executor);
+  const {
+    ancestorContainerIds,
+    effectiveRecipients,
+    grants,
+    referencedPrincipals,
+  } = await resolveContainerRecipients(containerId, executor);
   const accessFingerprint = await computeContainerFingerprint({
     containerId,
     ancestorContainerIds,
@@ -846,6 +861,7 @@ export async function resolveContainerAccessState(
     accessFingerprint,
     ancestorContainerIds,
     grants,
+    referencedPrincipals,
     effectiveRecipients,
   };
 }

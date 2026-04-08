@@ -14,7 +14,7 @@ import { uniqueSortedStrings } from "../utils/array";
 
 type PrincipalStateExecutor = DatabaseExecutor;
 
-interface StoredPrincipalState extends SignedPrincipalState {
+export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;
   createdAt: Date;
 }
@@ -27,6 +27,40 @@ interface StoredPrincipalEpochKey {
   encapsulationPublicKey: string;
   keyFingerprint: string;
   createdAt: Date;
+}
+
+function toStoredPrincipalState(row: {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  version: number;
+  prevStateHash: string | null;
+  keyEpoch: number;
+  encapsulationPublicKey: string;
+  keyFingerprint: string;
+  membersJson: string;
+  membershipRoot: string;
+  signedAt: Date;
+  signerKeyId: string;
+  signature: string;
+  stateHash: string;
+  createdAt: Date;
+}): StoredPrincipalState {
+  return {
+    principalType: row.principalType,
+    principalId: row.principalId,
+    version: row.version,
+    prevStateHash: row.prevStateHash,
+    keyEpoch: row.keyEpoch,
+    encapsulationPublicKey: row.encapsulationPublicKey,
+    keyFingerprint: row.keyFingerprint,
+    members: parsePrincipalStateMembers(row.membersJson),
+    membershipRoot: row.membershipRoot,
+    signedAt: row.signedAt.toISOString(),
+    signerKeyId: row.signerKeyId,
+    signature: row.signature,
+    stateHash: row.stateHash,
+    createdAt: row.createdAt,
+  };
 }
 
 function isPrincipalStateMember(value: unknown): value is PrincipalStateMember {
@@ -101,22 +135,7 @@ async function getPrincipalStateByVersion(
     return null;
   }
 
-  return {
-    principalType: row.principalType,
-    principalId: row.principalId,
-    version: row.version,
-    prevStateHash: row.prevStateHash,
-    keyEpoch: row.keyEpoch,
-    encapsulationPublicKey: row.encapsulationPublicKey,
-    keyFingerprint: row.keyFingerprint,
-    members: parsePrincipalStateMembers(row.membersJson),
-    membershipRoot: row.membershipRoot,
-    signedAt: row.signedAt.toISOString(),
-    signerKeyId: row.signerKeyId,
-    signature: row.signature,
-    stateHash: row.stateHash,
-    createdAt: row.createdAt,
-  };
+  return toStoredPrincipalState(row);
 }
 
 async function getPrincipalEpochKeyByEpoch(
@@ -283,22 +302,60 @@ export async function getCurrentPrincipalState(
     return null;
   }
 
-  return {
-    principalType: row.principalType,
-    principalId: row.principalId,
-    version: row.version,
-    prevStateHash: row.prevStateHash,
-    keyEpoch: row.keyEpoch,
-    encapsulationPublicKey: row.encapsulationPublicKey,
-    keyFingerprint: row.keyFingerprint,
-    members: parsePrincipalStateMembers(row.membersJson),
-    membershipRoot: row.membershipRoot,
-    signedAt: row.signedAt.toISOString(),
-    signerKeyId: row.signerKeyId,
-    signature: row.signature,
-    stateHash: row.stateHash,
-    createdAt: row.createdAt,
-  };
+  return toStoredPrincipalState(row);
+}
+
+export async function getCurrentPrincipalStates(
+  principalType: ManagedRecipientPrincipalType,
+  principalIds: string[],
+  executor: PrincipalStateExecutor = db,
+): Promise<Map<string, StoredPrincipalState>> {
+  const uniquePrincipalIds = uniqueSortedStrings(principalIds);
+
+  if (uniquePrincipalIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      principalType: principalStates.principalType,
+      principalId: principalStates.principalId,
+      version: principalStates.version,
+      prevStateHash: principalStates.prevStateHash,
+      keyEpoch: principalStates.keyEpoch,
+      encapsulationPublicKey: principalStates.encapsulationPublicKey,
+      keyFingerprint: principalStates.keyFingerprint,
+      membersJson: principalStates.membersJson,
+      membershipRoot: principalStates.membershipRoot,
+      signedAt: principalStates.signedAt,
+      signerKeyId: principalStates.signerKeyId,
+      signature: principalStates.signature,
+      stateHash: principalStates.stateHash,
+      createdAt: principalStates.createdAt,
+    })
+    .from(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, principalType),
+        inArray(principalStates.principalId, uniquePrincipalIds),
+      ),
+    )
+    .orderBy(asc(principalStates.principalId), desc(principalStates.version));
+
+  const currentStatesByPrincipalId = new Map<string, StoredPrincipalState>();
+
+  for (const row of rows) {
+    if (currentStatesByPrincipalId.has(row.principalId)) {
+      continue;
+    }
+
+    currentStatesByPrincipalId.set(
+      row.principalId,
+      toStoredPrincipalState(row),
+    );
+  }
+
+  return currentStatesByPrincipalId;
 }
 
 export async function getCurrentPrincipalEpochKey(

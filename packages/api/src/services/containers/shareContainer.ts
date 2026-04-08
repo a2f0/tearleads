@@ -99,6 +99,7 @@ export async function shareContainer(
       metadataAccessEpoch: metadataAccess.currentAccessEpoch,
       metadataRecipientEncapsulationPublicKeys:
         listRecipientEncapsulationPublicKeys(metadataAccess),
+      metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
     };
   });
 }

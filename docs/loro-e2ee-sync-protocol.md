@@ -84,6 +84,10 @@ Important remaining limitation:
 - signed principal-state, principal epoch-key, and principal member-envelope
   storage and policy API routes now exist, but document/blob sync does not
   consume them yet
+- container/document discovery and Loro create/sync responses now expose
+  `referencedPrincipals[]` summaries so clients can discover the current signed
+  group/org policy states they will need before object encryption pivots to
+  principal recipients
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

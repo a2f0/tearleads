@@ -97,12 +97,14 @@ recompute blob access state. Document and blob ciphertext commits now persist
 real wrapped key rows for the current epoch. Notes/blob additive access growth
 can now rewrap existing committed blob bindings in place without creating a new
 blob row. Signed principal-state and principal member-envelope metadata now
-have real API ingestion/read routes as policy inputs, but runtime object access
-resolution still flattens crypto recipients to users. The remaining work is
-implementing the rewrap vs rotate decision consistently for document epochs and
-the remaining hierarchy edges when recipient sets expand or shrink, using the
-new principal-based recipient model rather than the old fully flattened
-per-user model.
+have real API ingestion/read routes as policy inputs, and container/document
+responses now expose `referencedPrincipals[]` summaries for the current signed
+group/org states that contributed to access. Runtime object access resolution
+still flattens crypto recipients to users. The remaining work is implementing
+the rewrap vs rotate decision consistently for document epochs and the
+remaining hierarchy edges when recipient sets expand or shrink, using the new
+principal-based recipient model rather than the old fully flattened per-user
+model.
 
 Implementation questions:
 

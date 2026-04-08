@@ -1,5 +1,6 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
@@ -11,6 +12,7 @@ import {
 import { uniqueSortedStrings } from "../utils/array";
 import { computeAccessFingerprint } from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
+import { mergeReferencedPrincipals } from "./principalReferences";
 import {
   type AccessLevel,
   type EffectivePrincipalRecipient,
@@ -39,6 +41,7 @@ type EffectiveDocumentRecipient = EffectivePrincipalRecipient;
 interface DocumentAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
   effectiveRecipients: EffectiveDocumentRecipient[];
 }
 
@@ -228,6 +231,12 @@ function mergeRecipientsFromLinkedContainerStates(
   );
 }
 
+function mergeReferencedPrincipalsFromLinkedContainerStates(
+  linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[],
+): ReferencedPrincipalStateResponse[] {
+  return mergeReferencedPrincipals(linkedContainerStates);
+}
+
 async function resolveDocumentRecipientsFromLinkedContainers(
   documentId: string,
   executor: DocumentAccessExecutor = db,
@@ -253,6 +262,9 @@ async function resolveDocumentRecipientsFromLinkedContainers(
   return {
     linkedContainerIds,
     linkedContainerStates,
+    referencedPrincipals: mergeReferencedPrincipalsFromLinkedContainerStates(
+      linkedContainerStates,
+    ),
     effectiveRecipients,
   };
 }
@@ -267,6 +279,7 @@ async function resolveDocumentAccessInputs(
   const {
     linkedContainerIds,
     linkedContainerStates,
+    referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
   } = await resolveDocumentRecipientsFromLinkedContainers(
     documentId,
@@ -279,6 +292,7 @@ async function resolveDocumentAccessInputs(
     linkedContainerIds,
     linkedContainerStates,
     grants,
+    referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
   };
 }
@@ -315,6 +329,7 @@ async function buildDocumentAccessState(input: {
   grants: GrantRow[];
   linkedContainerIds: string[];
   linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
 }): Promise<DocumentAccessState | null> {
   const {
     currentEpochRow,
@@ -323,6 +338,7 @@ async function buildDocumentAccessState(input: {
     grants,
     linkedContainerIds,
     linkedContainerStates,
+    referencedPrincipals,
   } = input;
 
   if (currentEpochRow === null && linkedContainerStates.length === 0) {
@@ -347,6 +363,7 @@ async function buildDocumentAccessState(input: {
   return {
     currentAccessEpoch,
     accessFingerprint,
+    referencedPrincipals,
     effectiveRecipients,
   };
 }
@@ -360,6 +377,7 @@ export async function resolveDocumentAccessState(
     linkedContainerIds,
     linkedContainerStates,
     grants,
+    referencedPrincipals,
     effectiveRecipients,
   } = await resolveDocumentAccessInputs(documentId, executor);
 
@@ -370,6 +388,7 @@ export async function resolveDocumentAccessState(
     grants,
     linkedContainerIds,
     linkedContainerStates,
+    referencedPrincipals,
   });
 }
 
@@ -395,6 +414,7 @@ export async function resolveDocumentAccessStates(
           linkedContainerIds,
           linkedContainerStates,
           grants,
+          referencedPrincipals,
           effectiveRecipients,
         } = await resolveDocumentAccessInputs(
           documentId,
@@ -412,6 +432,7 @@ export async function resolveDocumentAccessStates(
             grants,
             linkedContainerIds,
             linkedContainerStates,
+            referencedPrincipals,
           }),
         ];
       },
