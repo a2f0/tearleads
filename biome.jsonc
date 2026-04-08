@@ -18,7 +18,21 @@
     "rules": {
       "recommended": true,
       "complexity": {
-        "useLiteralKeys": "error"
+        "useLiteralKeys": "error",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 20
+          }
+        },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "maxLines": 75,
+            "skipBlankLines": true,
+            "skipIifes": true
+          }
+        }
       },
       "style": {
         "noRestrictedImports": {
@@ -37,49 +51,16 @@
   "overrides": [
     {
       "includes": [
-        "packages/app/src/mini-apps/notes/**/*.ts",
-        "packages/app/src/mini-apps/notes/**/*.tsx"
-      ],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "noExcessiveCognitiveComplexity": {
-              "level": "error",
-              "options": {
-                "maxAllowedComplexity": 20
-              }
-            },
-            "noExcessiveLinesPerFunction": {
-              "level": "error",
-              "options": {
-                "maxLines": 75,
-                "skipBlankLines": true,
-                "skipIifes": true
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": [
-        "packages/app/src/mini-apps/notes/**/*.test.ts",
-        "packages/app/src/mini-apps/notes/**/*.test.tsx"
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "packages/api/test/**/*.ts",
+        "packages/app/test/helpers/**/*.ts",
+        "packages/app/test/helpers/**/*.tsx"
       ],
       "linter": {
         "rules": {
           "complexity": {
             "noExcessiveCognitiveComplexity": "off",
-            "noExcessiveLinesPerFunction": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["packages/app/src/mini-apps/notes/NotesProvider.tsx"],
-      "linter": {
-        "rules": {
-          "complexity": {
             "noExcessiveLinesPerFunction": "off"
           }
         }

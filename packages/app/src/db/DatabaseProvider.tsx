@@ -1,6 +1,7 @@
 import {
   createContext,
   type PropsWithChildren,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -26,8 +27,94 @@ interface DatabaseContextValue {
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
-export function DatabaseProvider({ children }: PropsWithChildren) {
-  const { createWorker = createAppDatabaseWorker } = useAppHostConfig();
+function destroyWorker(
+  workerRef: RefObject<AppDatabaseWorker | null>,
+  bootingRef: RefObject<boolean>,
+  currentDbNameRef: RefObject<string | null>,
+  setId: (value: string | null) => void,
+  setClient: (value: DatabaseContextValue["client"]) => void,
+  setStatus: (value: WorkerStatus) => void,
+  nextStatus: WorkerStatus,
+) {
+  if (workerRef.current) {
+    workerRef.current.client.destroy();
+    workerRef.current.worker.terminate();
+    workerRef.current = null;
+  }
+
+  bootingRef.current = false;
+  currentDbNameRef.current = null;
+  setId(null);
+  setClient(null);
+  setStatus(nextStatus);
+}
+
+async function bootDatabaseWorker(
+  appWorker: AppDatabaseWorker,
+  dbName: string,
+  log: (message: string) => void,
+) {
+  await appWorker.client.ping();
+  log("Loading SQLite3 WASM module...");
+  log(`Initializing database: ${dbName}`);
+  await appWorker.client.init({
+    dbName,
+    cipher: "chacha20",
+    key: "development-key",
+  });
+}
+
+function useDatabaseWorkerLifecycle(
+  dbName: string | null,
+  status: WorkerStatus,
+  workerRef: RefObject<AppDatabaseWorker | null>,
+  bootingRef: RefObject<boolean>,
+  currentDbNameRef: RefObject<string | null>,
+  killedRef: RefObject<boolean>,
+  destroyCurrentWorker: (nextStatus: WorkerStatus) => void,
+  spawnWorker: () => void,
+) {
+  useEffect(() => {
+    if (!dbName) {
+      if (workerRef.current || status !== "idle") {
+        destroyCurrentWorker("idle");
+      }
+      return;
+    }
+
+    if (currentDbNameRef.current !== dbName) {
+      killedRef.current = false;
+      destroyCurrentWorker("idle");
+      spawnWorker();
+      return;
+    }
+
+    if (!killedRef.current && !workerRef.current && !bootingRef.current) {
+      spawnWorker();
+    }
+  }, [
+    bootingRef,
+    currentDbNameRef,
+    dbName,
+    destroyCurrentWorker,
+    killedRef,
+    spawnWorker,
+    status,
+    workerRef,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      destroyCurrentWorker("idle");
+    };
+  }, [destroyCurrentWorker]);
+}
+
+function useManagedDatabaseWorker(
+  createWorker: () => AppDatabaseWorker,
+  dbName: string | null,
+  log: (message: string) => void,
+): DatabaseContextValue {
   const [status, setStatus] = useState<WorkerStatus>("idle");
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
@@ -35,27 +122,17 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   const bootingRef = useRef(false);
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
-  const { log } = useLog();
-  const { signingFingerprint } = usePersona();
-
-  const dbName =
-    signingFingerprint === null
-      ? null
-      : `/app-persona-${signingFingerprint}.db`;
-
   const destroyCurrentWorker = useCallback(
     (nextStatus: WorkerStatus) => {
-      if (workerRef.current) {
-        workerRef.current.client.destroy();
-        workerRef.current.worker.terminate();
-        workerRef.current = null;
-      }
-
-      bootingRef.current = false;
-      currentDbNameRef.current = null;
-      setId(null);
-      setClient(null);
-      setStatus(nextStatus);
+      destroyWorker(
+        workerRef,
+        bootingRef,
+        currentDbNameRef,
+        setId,
+        setClient,
+        setStatus,
+        nextStatus,
+      );
     },
     [setClient, setId, setStatus],
   );
@@ -75,30 +152,18 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
       setClient(appWorker.client);
       setStatus("idle");
 
-      void appWorker.client
-        .ping()
+      void bootDatabaseWorker(appWorker, dbName, log)
         .then(() => {
           if (workerRef.current !== appWorker) return;
-          log("Loading SQLite3 WASM module...");
-          log(`Initializing database: ${dbName}`);
-          return appWorker.client.init({
-            dbName,
-            cipher: "chacha20",
-            key: "development-key",
-          });
-        })
-        .then(() => {
-          if (workerRef.current === appWorker) {
-            bootingRef.current = false;
-            setStatus("ready");
-            log(`Database initialized successfully: ${dbName}`);
-            log("Worker spawned");
-          }
+          bootingRef.current = false;
+          setStatus("ready");
+          log(`Database initialized successfully: ${dbName}`);
+          log("Worker spawned");
         })
         .catch((error) => {
           if (workerRef.current === appWorker) {
             bootingRef.current = false;
-            console.error("Failed to ping worker:", error);
+            console.error("Failed to initialize database worker:", error);
             setStatus("error");
           }
         });
@@ -119,46 +184,38 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     log("Worker killed");
   }, [destroyCurrentWorker, log]);
 
-  useEffect(() => {
-    if (!dbName) {
-      if (workerRef.current || status !== "idle") {
-        destroyCurrentWorker("idle");
-      }
-      return;
-    }
+  useDatabaseWorkerLifecycle(
+    dbName,
+    status,
+    workerRef,
+    bootingRef,
+    currentDbNameRef,
+    killedRef,
+    destroyCurrentWorker,
+    spawnWorker,
+  );
 
-    if (currentDbNameRef.current !== dbName) {
-      killedRef.current = false;
-      destroyCurrentWorker("idle");
-      spawnWorker();
-      return;
-    }
+  return {
+    id,
+    client,
+    status,
+    killWorker,
+    spawnWorker,
+  };
+}
 
-    if (killedRef.current) {
-      return;
-    }
-
-    if (!workerRef.current && !bootingRef.current) {
-      spawnWorker();
-    }
-  }, [dbName, destroyCurrentWorker, spawnWorker, status]);
-
-  useEffect(() => {
-    return () => {
-      destroyCurrentWorker("idle");
-    };
-  }, [destroyCurrentWorker]);
+export function DatabaseProvider({ children }: PropsWithChildren) {
+  const { createWorker = createAppDatabaseWorker } = useAppHostConfig();
+  const { log } = useLog();
+  const { signingFingerprint } = usePersona();
+  const dbName =
+    signingFingerprint === null
+      ? null
+      : `/app-persona-${signingFingerprint}.db`;
+  const value = useManagedDatabaseWorker(createWorker, dbName, log);
 
   return (
-    <DatabaseContext.Provider
-      value={{
-        id,
-        client,
-        status,
-        killWorker,
-        spawnWorker,
-      }}
-    >
+    <DatabaseContext.Provider value={value}>
       {children}
     </DatabaseContext.Provider>
   );

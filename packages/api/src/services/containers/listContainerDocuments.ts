@@ -27,11 +27,11 @@ export class ListContainerDocumentsError extends Error {
   }
 }
 
-export async function listContainerDocuments(
+async function requireReadableContainer(
   runtime: ApiServiceRuntime,
   containerId: string,
   userId: string,
-): Promise<ListContainerDocumentsResponse> {
+) {
   const [container] = await runtime.db
     .select({ id: containers.id })
     .from(containers)
@@ -46,7 +46,12 @@ export async function listContainerDocuments(
   if (!containerAccess || !canReadContainerAccess(containerAccess, userId)) {
     throw new ListContainerDocumentsError("Forbidden", 403);
   }
+}
 
+async function loadContainerDocumentIds(
+  runtime: ApiServiceRuntime,
+  containerId: string,
+): Promise<string[]> {
   const [metadataDocument] = await runtime.db
     .select({ documentId: containerMetadataDocuments.documentId })
     .from(containerMetadataDocuments)
@@ -63,11 +68,17 @@ export async function listContainerDocuments(
     .from(documentContainerLinks)
     .where(eq(documentContainerLinks.containerId, containerId));
 
-  const documentIds = uniqueSortedStrings(
+  return uniqueSortedStrings(
     linkedDocumentIdRows
       .map((row) => row.documentId)
       .filter((documentId) => documentId !== metadataDocumentId),
   );
+}
+
+async function loadCreatedAtByDocumentId(
+  runtime: ApiServiceRuntime,
+  documentIds: ReadonlyArray<string>,
+) {
   const documentRows =
     documentIds.length === 0
       ? []
@@ -79,11 +90,14 @@ export async function listContainerDocuments(
           .from(documents)
           .where(inArray(documents.id, documentIds))
           .orderBy(desc(documents.createdAt));
-  const createdAtByDocumentId = new Map(
-    documentRows.map((row) => [row.documentId, row.createdAt]),
-  );
-  const accessStateByDocumentId =
-    await resolveDocumentAccessStates(documentIds);
+
+  return new Map(documentRows.map((row) => [row.documentId, row.createdAt]));
+}
+
+async function loadLinkedContainerIdsByDocumentId(
+  runtime: ApiServiceRuntime,
+  documentIds: ReadonlyArray<string>,
+) {
   const linkedContainerRows =
     documentIds.length === 0
       ? []
@@ -114,22 +128,41 @@ export async function listContainerDocuments(
     );
   }
 
+  return linkedContainerIdsByDocumentId;
+}
+
+export async function listContainerDocuments(
+  runtime: ApiServiceRuntime,
+  containerId: string,
+  userId: string,
+): Promise<ListContainerDocumentsResponse> {
+  await requireReadableContainer(runtime, containerId, userId);
+
+  const documentIds = await loadContainerDocumentIds(runtime, containerId);
+  const createdAtByDocumentId = await loadCreatedAtByDocumentId(
+    runtime,
+    documentIds,
+  );
+  const accessStateByDocumentId =
+    await resolveDocumentAccessStates(documentIds);
+  const linkedContainerIdsByDocumentId =
+    await loadLinkedContainerIdsByDocumentId(runtime, documentIds);
+
   const responseBody: ListContainerDocumentsResponse = [];
 
-  for (const documentRow of documentRows) {
-    const accessState = accessStateByDocumentId.get(documentRow.documentId);
+  for (const documentId of documentIds) {
+    const accessState = accessStateByDocumentId.get(documentId);
     if (!accessState || !canReadDocumentAccess(accessState, userId)) {
       continue;
     }
 
     responseBody.push({
       createdAt:
-        createdAtByDocumentId.get(documentRow.documentId)?.toISOString() ??
+        createdAtByDocumentId.get(documentId)?.toISOString() ??
         new Date(0).toISOString(),
       currentAccessEpoch: accessState.currentAccessEpoch,
-      id: documentRow.documentId,
-      linkedContainerIds:
-        linkedContainerIdsByDocumentId.get(documentRow.documentId) ?? [],
+      id: documentId,
+      linkedContainerIds: linkedContainerIdsByDocumentId.get(documentId) ?? [],
       recipientEncapsulationPublicKeys:
         listRecipientEncapsulationPublicKeys(accessState),
     });

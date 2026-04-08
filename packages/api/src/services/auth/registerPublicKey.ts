@@ -12,6 +12,7 @@ import {
   toUserPrincipalEnvelopeRecipient,
   toUserPrincipalFingerprintRecipient,
 } from "../../access/recipientPrincipals";
+import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   ContainerMetadataError,
   createContainerMetadataDocument,
@@ -41,15 +42,10 @@ export class RegisterPublicKeyError extends Error {
   }
 }
 
-export async function registerPublicKey(
-  runtime: ApiServiceRuntime,
+async function validateWrappedDekEnvelope(
   input: PublicKeyRequest,
-): Promise<PublicKeyResponse> {
-  const signingKeyBytes = new Uint8Array(input.signingPublicKey);
-  const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
-  const fingerprint = await toFingerprint(signingKeyBytes);
-  const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
-
+  encapsulationFingerprint: string,
+) {
   if (input.wrappedDekEnvelope.keyFingerprint !== encapsulationFingerprint) {
     throw new RegisterPublicKeyError(
       "wrappedDekEnvelope.keyFingerprint does not match encapsulationPublicKey",
@@ -73,118 +69,203 @@ export async function registerPublicKey(
       400,
     );
   }
+}
 
-  const result = await runtime.db.transaction(async (tx) => {
-    const [org] = await tx
-      .insert(organizations)
-      .values({ name: "Personal" })
-      .returning({ id: organizations.id });
+async function createPersonalOrganization(tx: DatabaseTransaction) {
+  const [org] = await tx
+    .insert(organizations)
+    .values({ name: "Personal" })
+    .returning({ id: organizations.id });
+  if (!org) {
+    throw new Error("Failed to create organization");
+  }
+  return org;
+}
 
-    if (!org) {
-      throw new Error("Failed to create organization");
-    }
+async function createRootContainer(
+  tx: DatabaseTransaction,
+  rootContainerId: string,
+  organizationId: string,
+) {
+  const [container] = await tx
+    .insert(containers)
+    .values({
+      id: rootContainerId,
+      organizationId,
+      parentId: null,
+    })
+    .returning({ id: containers.id });
+  if (!container) {
+    throw new Error("Failed to create root container");
+  }
+  return container;
+}
 
-    const [container] = await tx
-      .insert(containers)
-      .values({
-        id: input.rootContainerId,
-        organizationId: org.id,
-        parentId: null,
-      })
-      .returning({ id: containers.id });
+async function createRegisteredUser(
+  tx: DatabaseTransaction,
+  input: {
+    encapsulationFingerprint: string;
+    encapsulationKeyBytes: Uint8Array;
+    fingerprint: string;
+    organizationId: string;
+    signingKeyBytes: Uint8Array;
+  },
+) {
+  const [user] = await tx
+    .insert(users)
+    .values({
+      fingerprint: input.fingerprint,
+      signingPublicKey: bytesToBase64(input.signingKeyBytes),
+      encapsulationPublicKey: bytesToBase64(input.encapsulationKeyBytes),
+      encapsulationKeyFingerprint: input.encapsulationFingerprint,
+      defaultOrganizationId: input.organizationId,
+    })
+    .onConflictDoNothing({ target: users.fingerprint })
+    .returning({ id: users.id });
+  if (!user) {
+    throw new Error(DUPLICATE_FINGERPRINT_ERROR);
+  }
+  return user;
+}
 
-    if (!container) {
-      throw new Error("Failed to create root container");
-    }
+async function writeInitialRootContainerAccess(
+  tx: DatabaseTransaction,
+  input: {
+    containerId: string;
+    userId: string;
+    wrappedDekEnvelope: PublicKeyRequest["wrappedDekEnvelope"];
+  },
+) {
+  await tx.insert(objectAccessGrants).values({
+    objectType: CONTAINER_OBJECT_TYPE,
+    objectId: input.containerId,
+    subjectType: "user",
+    subjectId: input.userId,
+    accessLevel: "admin",
+  });
 
-    const [user] = await tx
-      .insert(users)
-      .values({
-        fingerprint,
-        signingPublicKey: bytesToBase64(signingKeyBytes),
-        encapsulationPublicKey: bytesToBase64(encapsulationKeyBytes),
-        encapsulationKeyFingerprint: encapsulationFingerprint,
-        defaultOrganizationId: org.id,
-      })
-      .onConflictDoNothing({ target: users.fingerprint })
-      .returning({ id: users.id });
+  await tx.insert(objectAccessEpochs).values({
+    objectType: CONTAINER_OBJECT_TYPE,
+    objectId: input.containerId,
+    epoch: 1,
+    accessFingerprint: await computeAccessFingerprint({
+      objectType: CONTAINER_OBJECT_TYPE,
+      rootContainerId: input.containerId,
+      ancestorContainerIds: [input.containerId],
+      grants: [
+        {
+          objectId: input.containerId,
+          subjectType: "user",
+          subjectId: input.userId,
+          accessLevel: "admin",
+        },
+      ],
+      recipients: [
+        toUserPrincipalFingerprintRecipient({
+          userId: input.userId,
+          accessLevel: "admin",
+          keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
+        }),
+      ],
+    }),
+    updatedAt: new Date(),
+  });
 
-    if (!user) {
-      throw new Error(DUPLICATE_FINGERPRINT_ERROR);
-    }
+  const principalRecipient = toUserPrincipalEnvelopeRecipient({
+    userId: input.userId,
+    keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
+  });
+  await tx.insert(objectRecipientEnvelopes).values({
+    objectType: CONTAINER_OBJECT_TYPE,
+    objectId: input.containerId,
+    epoch: 1,
+    recipientPrincipalType: principalRecipient.principalType,
+    recipientPrincipalId: principalRecipient.principalId,
+    recipientKeyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
+    kemCipherText: bytesToBase64(
+      new Uint8Array(input.wrappedDekEnvelope.kemCipherText),
+    ),
+    wrappedKey: bytesToBase64(
+      new Uint8Array(input.wrappedDekEnvelope.wrappedKey),
+    ),
+  });
+}
 
+async function createInitialRootMetadata(
+  tx: DatabaseTransaction,
+  input: PublicKeyRequest,
+  containerId: string,
+  fingerprint: string,
+) {
+  return createContainerMetadataDocument(tx, {
+    authorFingerprint: fingerprint,
+    containerId,
+    createdByFingerprint: fingerprint,
+    initialMetadataUpdates: input.initialRootMetadataUpdates,
+    ...(input.initialRootMetadataRecipientEnvelopes
+      ? {
+          initialMetadataRecipientEnvelopes:
+            input.initialRootMetadataRecipientEnvelopes,
+        }
+      : {}),
+  });
+}
+
+async function issueRegistrationChallenge(
+  runtime: ApiServiceRuntime,
+  fingerprint: string,
+  signingKeyBytes: Uint8Array,
+) {
+  await runtime.keyValueStore.set(fingerprint, bytesToBase64(signingKeyBytes));
+
+  const challengeBytes = generateChallenge();
+  const challengeHex = bytesToHex(challengeBytes);
+  await runtime.keyValueStore.set(
+    `challenge:${fingerprint}`,
+    challengeHex,
+    CHALLENGE_TTL_SECONDS,
+  );
+  return challengeHex;
+}
+
+async function runRegisterPublicKeyTransaction(
+  runtime: ApiServiceRuntime,
+  input: PublicKeyRequest,
+  fingerprint: string,
+  encapsulationFingerprint: string,
+  signingKeyBytes: Uint8Array,
+  encapsulationKeyBytes: Uint8Array,
+) {
+  return runtime.db.transaction(async (tx) => {
+    const org = await createPersonalOrganization(tx);
+    const container = await createRootContainer(
+      tx,
+      input.rootContainerId,
+      org.id,
+    );
+    const user = await createRegisteredUser(tx, {
+      encapsulationFingerprint,
+      encapsulationKeyBytes,
+      fingerprint,
+      organizationId: org.id,
+      signingKeyBytes,
+    });
     await tx.insert(organizationMembers).values({
       organizationId: org.id,
       userId: user.id,
       role: "owner",
     });
-
-    await tx.insert(objectAccessGrants).values({
-      objectType: CONTAINER_OBJECT_TYPE,
-      objectId: container.id,
-      subjectType: "user",
-      subjectId: user.id,
-      accessLevel: "admin",
-    });
-
-    await tx.insert(objectAccessEpochs).values({
-      objectType: CONTAINER_OBJECT_TYPE,
-      objectId: container.id,
-      epoch: 1,
-      accessFingerprint: await computeAccessFingerprint({
-        objectType: CONTAINER_OBJECT_TYPE,
-        rootContainerId: container.id,
-        ancestorContainerIds: [container.id],
-        grants: [
-          {
-            objectId: container.id,
-            subjectType: "user",
-            subjectId: user.id,
-            accessLevel: "admin",
-          },
-        ],
-        recipients: [
-          toUserPrincipalFingerprintRecipient({
-            userId: user.id,
-            accessLevel: "admin",
-            keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
-          }),
-        ],
-      }),
-      updatedAt: new Date(),
-    });
-
-    const principalRecipient = toUserPrincipalEnvelopeRecipient({
-      userId: user.id,
-      keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
-    });
-    await tx.insert(objectRecipientEnvelopes).values({
-      objectType: CONTAINER_OBJECT_TYPE,
-      objectId: container.id,
-      epoch: 1,
-      recipientPrincipalType: principalRecipient.principalType,
-      recipientPrincipalId: principalRecipient.principalId,
-      recipientKeyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
-      kemCipherText: bytesToBase64(
-        new Uint8Array(input.wrappedDekEnvelope.kemCipherText),
-      ),
-      wrappedKey: bytesToBase64(
-        new Uint8Array(input.wrappedDekEnvelope.wrappedKey),
-      ),
-    });
-
-    const rootMetadata = await createContainerMetadataDocument(tx, {
-      authorFingerprint: fingerprint,
+    await writeInitialRootContainerAccess(tx, {
       containerId: container.id,
-      createdByFingerprint: fingerprint,
-      initialMetadataUpdates: input.initialRootMetadataUpdates,
-      ...(input.initialRootMetadataRecipientEnvelopes
-        ? {
-            initialMetadataRecipientEnvelopes:
-              input.initialRootMetadataRecipientEnvelopes,
-          }
-        : {}),
+      userId: user.id,
+      wrappedDekEnvelope: input.wrappedDekEnvelope,
     });
+    const rootMetadata = await createInitialRootMetadata(
+      tx,
+      input,
+      container.id,
+      fingerprint,
+    );
 
     return {
       userId: user.id,
@@ -196,15 +277,29 @@ export async function registerPublicKey(
         rootMetadata.metadataRecipientEncapsulationPublicKeys,
     };
   });
+}
 
-  await runtime.keyValueStore.set(fingerprint, bytesToBase64(signingKeyBytes));
-
-  const challengeBytes = generateChallenge();
-  const challengeHex = bytesToHex(challengeBytes);
-  await runtime.keyValueStore.set(
-    `challenge:${fingerprint}`,
-    challengeHex,
-    CHALLENGE_TTL_SECONDS,
+export async function registerPublicKey(
+  runtime: ApiServiceRuntime,
+  input: PublicKeyRequest,
+): Promise<PublicKeyResponse> {
+  const signingKeyBytes = new Uint8Array(input.signingPublicKey);
+  const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
+  const fingerprint = await toFingerprint(signingKeyBytes);
+  const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
+  await validateWrappedDekEnvelope(input, encapsulationFingerprint);
+  const result = await runRegisterPublicKeyTransaction(
+    runtime,
+    input,
+    fingerprint,
+    encapsulationFingerprint,
+    signingKeyBytes,
+    encapsulationKeyBytes,
+  );
+  const challengeHex = await issueRegistrationChallenge(
+    runtime,
+    fingerprint,
+    signingKeyBytes,
   );
 
   await runtime.eventPublisher.publish({

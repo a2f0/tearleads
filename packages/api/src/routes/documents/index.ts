@@ -1,6 +1,7 @@
 import { replaceBlobEnvelopeRecipients } from "@tearleads/crypto";
 import { createLoroRouter } from "@tearleads/loro/server";
 import {
+  type CommitDocumentChangeRequest,
   isCommitDocumentChangeRequest,
   isStageBlobRequest,
 } from "@tearleads/validators/request";
@@ -55,6 +56,45 @@ import {
 } from "../../utils/recipientEnvelopes";
 
 type DocumentRouteExecutor = DatabaseExecutor;
+type CommitChangeAccess = NonNullable<
+  Awaited<ReturnType<typeof resolveDocumentAccessState>>
+>;
+
+interface RouteSession {
+  fingerprint: string;
+  userId: string;
+}
+
+interface ActiveAttachmentBinding {
+  blobId: string;
+  id: string;
+  slotId: string;
+}
+
+interface BlobStageRow {
+  byteLength: number;
+  encryptedBytes: string;
+  expiresAt: Date;
+  id: string;
+  ownerUserId: string;
+  sha256: string;
+}
+
+interface ValidatedAttachmentRewrap {
+  currentBinding: ActiveAttachmentBinding;
+  rewrap: CommitDocumentChangeRequest["attachmentRewraps"][number];
+}
+
+interface CommitChangeResult {
+  acceptedOutgoingUpdateIds: string[];
+  committedBindings: Array<{
+    bindingId: string;
+    blobId: string;
+    slotId: string;
+  }>;
+  detachedBindingIds: string[];
+  documentRecipientEnvelopes: CommitDocumentChangeRequest["documentRecipientEnvelopes"];
+}
 
 function matchesRecipientKeyFingerprints(
   actualRecipientKeyFingerprints: string[],
@@ -138,7 +178,7 @@ async function deleteOrphanedBlobs(
 class CommitChangeError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 409 = 400,
+    readonly status: 400 | 403 | 404 | 409 = 400,
   ) {
     super(message);
   }
@@ -160,6 +200,555 @@ class DocumentUpdateError extends Error {
   ) {
     super(message);
   }
+}
+
+async function ensureDocumentExists(documentId: string) {
+  const document = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, documentId))
+    .limit(1);
+  if (document.length === 0) {
+    throw new CommitChangeError("Document not found", 404);
+  }
+}
+
+async function requireWritableCommitChangeAccess(
+  documentId: string,
+  userId: string,
+): Promise<CommitChangeAccess> {
+  const access = await resolveDocumentAccessState(documentId);
+  if (!access) {
+    throw new CommitChangeError("Document access state not found", 409);
+  }
+  if (!canWriteDocumentAccess(access, userId)) {
+    throw new CommitChangeError("Forbidden", 403);
+  }
+  return access;
+}
+
+function validateCommitChangeInput(
+  input: CommitDocumentChangeRequest,
+  access: CommitChangeAccess,
+  expectedRecipientKeyFingerprints: string[],
+) {
+  const touchedSlotIds = [
+    ...input.attachmentCommits.map((commit) => commit.slotId),
+    ...input.attachmentDetaches.map((detach) => detach.slotId),
+    ...input.attachmentRewraps.map((rewrap) => rewrap.slotId),
+  ];
+  if (hasDuplicateValues(touchedSlotIds)) {
+    throw new CommitChangeError("Duplicate slotId in attachment mutations");
+  }
+
+  const referencedSlotIds = input.loroUpdate?.referencedSlotIds ?? [];
+  if (hasDuplicateValues(referencedSlotIds)) {
+    throw new CommitChangeError("Duplicate slotId in loroUpdate references");
+  }
+
+  if (input.accessEpoch !== access.currentAccessEpoch) {
+    throw new CommitChangeError("Stale access epoch", 409);
+  }
+
+  if (input.loroUpdate) {
+    try {
+      if (
+        readLoroUpdateAccessEpoch(input.loroUpdate.encryptedData) !==
+        input.accessEpoch
+      ) {
+        throw new CommitChangeError("Encrypted update access epoch mismatch");
+      }
+    } catch (error) {
+      if (error instanceof CommitChangeError) {
+        throw error;
+      }
+      throw new CommitChangeError("Invalid encrypted update envelope");
+    }
+  }
+
+  if (
+    input.documentRecipientEnvelopes &&
+    !documentRecipientEnvelopesMatchRecipients(
+      input.documentRecipientEnvelopes,
+      access,
+    )
+  ) {
+    throw new CommitChangeError("Document recipient envelopes mismatch");
+  }
+
+  return {
+    referencedSlotIds,
+    touchedSlotIds,
+    expectedRecipientKeyFingerprints,
+  };
+}
+
+async function loadActiveAttachmentBindings(
+  tx: DocumentRouteExecutor,
+  documentId: string,
+  slotIds: string[],
+): Promise<Map<string, ActiveAttachmentBinding>> {
+  if (slotIds.length === 0) {
+    return new Map();
+  }
+
+  const activeBindings = await tx
+    .select({
+      id: attachmentBindings.id,
+      slotId: attachmentBindings.slotId,
+      blobId: attachmentBindings.blobId,
+    })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.documentId, documentId),
+        inArray(attachmentBindings.slotId, slotIds),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    );
+
+  return new Map(activeBindings.map((binding) => [binding.slotId, binding]));
+}
+
+function validateAttachmentDetaches(
+  detaches: CommitDocumentChangeRequest["attachmentDetaches"],
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+) {
+  for (const detach of detaches) {
+    const currentBinding = activeBindingBySlotId.get(detach.slotId);
+    if (!currentBinding || currentBinding.id !== detach.expectedBindingId) {
+      throw new CommitChangeError(
+        `Attachment slot ${detach.slotId} is not bound to the expected binding`,
+      );
+    }
+  }
+}
+
+function validateAttachmentRewraps(
+  rewraps: CommitDocumentChangeRequest["attachmentRewraps"],
+  access: CommitChangeAccess,
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+): ValidatedAttachmentRewrap[] {
+  const validatedRewraps: ValidatedAttachmentRewrap[] = [];
+
+  for (const rewrap of rewraps) {
+    const currentBinding = activeBindingBySlotId.get(rewrap.slotId);
+    if (!currentBinding || currentBinding.id !== rewrap.expectedBindingId) {
+      throw new CommitChangeError(
+        `Attachment slot ${rewrap.slotId} is not bound to the expected binding`,
+      );
+    }
+    if (
+      !blobRecipientEnvelopesMatchRecipients(
+        rewrap.recipientEnvelopes,
+        access.effectiveRecipients,
+      )
+    ) {
+      throw new CommitChangeError("Blob recipient envelopes mismatch");
+    }
+
+    validatedRewraps.push({ rewrap, currentBinding });
+  }
+
+  return validatedRewraps;
+}
+
+async function loadBlobStagesById(
+  tx: DocumentRouteExecutor,
+  commits: CommitDocumentChangeRequest["attachmentCommits"],
+) {
+  if (commits.length === 0) {
+    return new Map<string, BlobStageRow>();
+  }
+
+  const stageRows = await tx
+    .select({
+      id: blobStages.id,
+      ownerUserId: blobStages.ownerUserId,
+      encryptedBytes: blobStages.encryptedBytes,
+      sha256: blobStages.sha256,
+      byteLength: blobStages.byteLength,
+      expiresAt: blobStages.expiresAt,
+    })
+    .from(blobStages)
+    .where(
+      inArray(
+        blobStages.id,
+        commits.map((commit) => commit.stageId),
+      ),
+    );
+
+  return new Map(stageRows.map((stage) => [stage.id, stage]));
+}
+
+function validateAttachmentCommits(
+  commits: CommitDocumentChangeRequest["attachmentCommits"],
+  stageById: Map<string, BlobStageRow>,
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+  expectedRecipientKeyFingerprints: string[],
+  session: RouteSession,
+) {
+  for (const commit of commits) {
+    const stage = stageById.get(commit.stageId);
+    if (!stage) {
+      throw new CommitChangeError(
+        `Blob stage ${commit.stageId} does not exist`,
+      );
+    }
+    if (stage.ownerUserId !== session.userId) {
+      throw new CommitChangeError(
+        `Blob stage ${commit.stageId} does not belong to caller`,
+        403,
+      );
+    }
+    if (stage.expiresAt.getTime() <= Date.now()) {
+      throw new CommitChangeError(`Blob stage ${commit.stageId} has expired`);
+    }
+    if (
+      (activeBindingBySlotId.get(commit.slotId)?.id ?? null) !==
+      commit.expectedBindingId
+    ) {
+      throw new CommitChangeError(
+        `Attachment slot ${commit.slotId} is not bound to the expected binding`,
+      );
+    }
+
+    try {
+      if (
+        !matchesRecipientKeyFingerprints(
+          listBlobRecipientKeyFingerprints(stage.encryptedBytes),
+          expectedRecipientKeyFingerprints,
+        )
+      ) {
+        throw new CommitChangeError("Encrypted blob recipients mismatch");
+      }
+    } catch (error) {
+      if (error instanceof CommitChangeError) {
+        throw error;
+      }
+      throw new CommitChangeError("Invalid encrypted blob envelope");
+    }
+  }
+}
+
+async function applyAttachmentDetaches(
+  tx: DocumentRouteExecutor,
+  detaches: CommitDocumentChangeRequest["attachmentDetaches"],
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+  affectedBlobIds: Set<string>,
+) {
+  const detachedBindingIds: string[] = [];
+
+  for (const detach of detaches) {
+    const currentBinding = activeBindingBySlotId.get(detach.slotId);
+    if (!currentBinding) {
+      continue;
+    }
+
+    await tx
+      .update(attachmentBindings)
+      .set({ detachedAt: new Date() })
+      .where(eq(attachmentBindings.id, currentBinding.id));
+
+    detachedBindingIds.push(currentBinding.id);
+    affectedBlobIds.add(currentBinding.blobId);
+    activeBindingBySlotId.delete(detach.slotId);
+  }
+
+  return detachedBindingIds;
+}
+
+async function applyAttachmentCommits(
+  tx: DocumentRouteExecutor,
+  documentId: string,
+  commits: CommitDocumentChangeRequest["attachmentCommits"],
+  stageById: Map<string, BlobStageRow>,
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+  affectedBlobIds: Set<string>,
+) {
+  const committedBindings: CommitChangeResult["committedBindings"] = [];
+  const detachedBindingIds: string[] = [];
+
+  for (const commit of commits) {
+    const stage = stageById.get(commit.stageId);
+    if (!stage) {
+      throw new CommitChangeError(
+        `Blob stage ${commit.stageId} does not exist`,
+      );
+    }
+
+    const currentBinding = activeBindingBySlotId.get(commit.slotId) ?? null;
+    if (currentBinding) {
+      await tx
+        .update(attachmentBindings)
+        .set({ detachedAt: new Date() })
+        .where(eq(attachmentBindings.id, currentBinding.id));
+      detachedBindingIds.push(currentBinding.id);
+      affectedBlobIds.add(currentBinding.blobId);
+    }
+
+    const [blob] = await tx
+      .insert(blobs)
+      .values({
+        byteLength: stage.byteLength,
+        encryptedBytes: stage.encryptedBytes,
+        sha256: stage.sha256,
+        storageKey: stage.id,
+      })
+      .returning({ id: blobs.id });
+    if (!blob) {
+      throw new Error(`Failed to promote blob stage ${stage.id}`);
+    }
+
+    const [binding] = await tx
+      .insert(attachmentBindings)
+      .values({
+        documentId,
+        slotId: commit.slotId,
+        blobId: blob.id,
+        previousBindingId: currentBinding?.id ?? null,
+      })
+      .returning({ id: attachmentBindings.id });
+    if (!binding) {
+      throw new Error(
+        `Failed to create attachment binding for ${commit.slotId}`,
+      );
+    }
+
+    committedBindings.push({
+      slotId: commit.slotId,
+      bindingId: binding.id,
+      blobId: blob.id,
+    });
+    affectedBlobIds.add(blob.id);
+    activeBindingBySlotId.set(commit.slotId, {
+      id: binding.id,
+      slotId: commit.slotId,
+      blobId: blob.id,
+    });
+    await tx.delete(blobStages).where(eq(blobStages.id, stage.id));
+  }
+
+  return { committedBindings, detachedBindingIds };
+}
+
+function validateReferencedSlots(
+  referencedSlotIds: string[],
+  activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
+) {
+  for (const slotId of referencedSlotIds) {
+    if (!activeBindingBySlotId.has(slotId)) {
+      throw new CommitChangeError(
+        `Loro update references slot ${slotId} without an active binding`,
+      );
+    }
+  }
+}
+
+async function commitDocumentLoroUpdate(
+  tx: DocumentRouteExecutor,
+  input: CommitDocumentChangeRequest,
+  documentId: string,
+  access: CommitChangeAccess,
+  session: RouteSession,
+) {
+  const acceptedOutgoingUpdateIds: string[] = [];
+  let currentDocumentRecipientEnvelopes = await listDocumentRecipientEnvelopes(
+    documentId,
+    access.currentAccessEpoch,
+    tx,
+  );
+
+  if (!input.loroUpdate) {
+    return { acceptedOutgoingUpdateIds, currentDocumentRecipientEnvelopes };
+  }
+
+  if (input.documentRecipientEnvelopes) {
+    await replaceDocumentRecipientEnvelopes(
+      documentId,
+      access.currentAccessEpoch,
+      access,
+      input.documentRecipientEnvelopes,
+      tx,
+    );
+    currentDocumentRecipientEnvelopes = input.documentRecipientEnvelopes;
+  }
+
+  if (
+    !currentDocumentRecipientEnvelopes ||
+    currentDocumentRecipientEnvelopes.length === 0
+  ) {
+    throw new CommitChangeError(
+      "Missing document recipient envelopes for current epoch",
+    );
+  }
+
+  const [existing] = await tx
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.id, input.loroUpdate.id))
+    .limit(1);
+  if (existing) {
+    acceptedOutgoingUpdateIds.push(existing.id);
+    return { acceptedOutgoingUpdateIds, currentDocumentRecipientEnvelopes };
+  }
+
+  const [inserted] = await tx
+    .insert(documentUpdates)
+    .values({
+      id: input.loroUpdate.id,
+      documentId,
+      authorFingerprint: session.fingerprint,
+      encryptedData: input.loroUpdate.encryptedData,
+      partialStartVersionVector: input.loroUpdate.partialStartVersionVector,
+      partialEndVersionVector: input.loroUpdate.partialEndVersionVector,
+    })
+    .returning({ id: documentUpdates.id });
+  if (inserted) {
+    acceptedOutgoingUpdateIds.push(inserted.id);
+  }
+
+  return { acceptedOutgoingUpdateIds, currentDocumentRecipientEnvelopes };
+}
+
+async function applyAttachmentRewraps(
+  tx: DocumentRouteExecutor,
+  validatedRewraps: ValidatedAttachmentRewrap[],
+) {
+  for (const { rewrap, currentBinding } of validatedRewraps) {
+    const blobAccess = await resolveBlobAccessState(currentBinding.blobId, tx);
+    if (!blobAccess) {
+      throw new CommitChangeError("Blob access state not found", 409);
+    }
+
+    await replaceBlobRecipientEnvelopes(
+      currentBinding.blobId,
+      blobAccess.currentAccessEpoch,
+      blobAccess.effectiveRecipients,
+      rewrap.recipientEnvelopes,
+      tx,
+    );
+  }
+}
+
+async function runCommitChangeTransaction(input: {
+  input: CommitDocumentChangeRequest;
+  access: CommitChangeAccess;
+  documentId: string;
+  expectedRecipientKeyFingerprints: string[];
+  referencedSlotIds: string[];
+  session: RouteSession;
+  touchedSlotIds: string[];
+}) {
+  return db.transaction(async (tx) => {
+    const activeBindingSlotIds = uniqueSortedStrings([
+      ...input.touchedSlotIds,
+      ...input.referencedSlotIds,
+    ]);
+    const activeBindingBySlotId = await loadActiveAttachmentBindings(
+      tx,
+      input.documentId,
+      activeBindingSlotIds,
+    );
+
+    validateAttachmentDetaches(
+      input.input.attachmentDetaches,
+      activeBindingBySlotId,
+    );
+    const validatedRewraps = validateAttachmentRewraps(
+      input.input.attachmentRewraps,
+      input.access,
+      activeBindingBySlotId,
+    );
+    const stageById = await loadBlobStagesById(
+      tx,
+      input.input.attachmentCommits,
+    );
+    validateAttachmentCommits(
+      input.input.attachmentCommits,
+      stageById,
+      activeBindingBySlotId,
+      input.expectedRecipientKeyFingerprints,
+      input.session,
+    );
+
+    const affectedBlobIds = new Set<string>();
+    const detachedBindingIds = await applyAttachmentDetaches(
+      tx,
+      input.input.attachmentDetaches,
+      activeBindingBySlotId,
+      affectedBlobIds,
+    );
+    for (const { currentBinding } of validatedRewraps) {
+      affectedBlobIds.add(currentBinding.blobId);
+    }
+
+    const committed = await applyAttachmentCommits(
+      tx,
+      input.documentId,
+      input.input.attachmentCommits,
+      stageById,
+      activeBindingBySlotId,
+      affectedBlobIds,
+    );
+    validateReferencedSlots(input.referencedSlotIds, activeBindingBySlotId);
+    const loroUpdateResult = await commitDocumentLoroUpdate(
+      tx,
+      input.input,
+      input.documentId,
+      input.access,
+      input.session,
+    );
+
+    const activeBlobIds = await deleteOrphanedBlobs(
+      Array.from(affectedBlobIds),
+      tx,
+    );
+    await refreshBlobAccesses(activeBlobIds, tx);
+    await applyAttachmentRewraps(tx, validatedRewraps);
+
+    return {
+      acceptedOutgoingUpdateIds: loroUpdateResult.acceptedOutgoingUpdateIds,
+      committedBindings: committed.committedBindings,
+      detachedBindingIds: [
+        ...detachedBindingIds,
+        ...committed.detachedBindingIds,
+      ],
+      documentRecipientEnvelopes:
+        loroUpdateResult.currentDocumentRecipientEnvelopes,
+    };
+  });
+}
+
+async function processCommitDocumentChange(input: {
+  documentId: string;
+  request: CommitDocumentChangeRequest;
+  session: RouteSession;
+}) {
+  await ensureDocumentExists(input.documentId);
+  const access = await requireWritableCommitChangeAccess(
+    input.documentId,
+    input.session.userId,
+  );
+  const expectedRecipientKeyFingerprints = uniqueSortedStrings(
+    listRecipientKeyFingerprints(access),
+  );
+  const validatedInput = validateCommitChangeInput(
+    input.request,
+    access,
+    expectedRecipientKeyFingerprints,
+  );
+  const result = await runCommitChangeTransaction({
+    input: input.request,
+    access,
+    documentId: input.documentId,
+    expectedRecipientKeyFingerprints,
+    referencedSlotIds: validatedInput.referencedSlotIds,
+    session: input.session,
+    touchedSlotIds: validatedInput.touchedSlotIds,
+  });
+
+  return { access, result };
 }
 
 export const documentsRouter = createLoroRouter({
@@ -443,408 +1032,13 @@ documentsRouter.post(
   async (c) => {
     const documentId = c.req.param("documentId");
     const session = c.get("session");
-    const {
-      accessEpoch,
-      attachmentCommits,
-      attachmentDetaches,
-      attachmentRewraps,
-      documentRecipientEnvelopes,
-      loroUpdate,
-    } = c.req.valid("json");
-
-    const touchedSlotIds = [
-      ...attachmentCommits.map((commit) => commit.slotId),
-      ...attachmentDetaches.map((detach) => detach.slotId),
-      ...attachmentRewraps.map((rewrap) => rewrap.slotId),
-    ];
-    if (hasDuplicateValues(touchedSlotIds)) {
-      return c.json({ error: "Duplicate slotId in attachment mutations" }, 400);
-    }
-
-    const referencedSlotIds = loroUpdate?.referencedSlotIds ?? [];
-    if (hasDuplicateValues(referencedSlotIds)) {
-      return c.json(
-        { error: "Duplicate slotId in loroUpdate references" },
-        400,
-      );
-    }
-
-    const document = await db
-      .select({ id: documents.id })
-      .from(documents)
-      .where(eq(documents.id, documentId))
-      .limit(1);
-    if (document.length === 0) {
-      return c.json({ error: "Document not found" }, 404);
-    }
-
-    const access = await resolveDocumentAccessState(documentId);
-    if (!access) {
-      return c.json({ error: "Document access state not found" }, 500);
-    }
-
-    if (!canWriteDocumentAccess(access, session.userId)) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-
-    if (accessEpoch !== access.currentAccessEpoch) {
-      return c.json(
-        {
-          error: "Stale access epoch",
-          currentAccessEpoch: access.currentAccessEpoch,
-        },
-        409,
-      );
-    }
-
-    const expectedRecipientKeyFingerprints = uniqueSortedStrings(
-      listRecipientKeyFingerprints(access),
-    );
-
-    if (loroUpdate) {
-      try {
-        if (
-          readLoroUpdateAccessEpoch(loroUpdate.encryptedData) !== accessEpoch
-        ) {
-          return c.json(
-            { error: "Encrypted update access epoch mismatch" },
-            400,
-          );
-        }
-      } catch {
-        return c.json({ error: "Invalid encrypted update envelope" }, 400);
-      }
-    }
-
-    if (
-      documentRecipientEnvelopes &&
-      !documentRecipientEnvelopesMatchRecipients(
-        documentRecipientEnvelopes,
-        access,
-      )
-    ) {
-      return c.json({ error: "Document recipient envelopes mismatch" }, 400);
-    }
+    const request = c.req.valid("json");
 
     try {
-      const result = await db.transaction(async (tx) => {
-        const activeBindingSlotIds = uniqueSortedStrings([
-          ...touchedSlotIds,
-          ...referencedSlotIds,
-        ]);
-        const activeBindings =
-          activeBindingSlotIds.length === 0
-            ? []
-            : await tx
-                .select({
-                  id: attachmentBindings.id,
-                  slotId: attachmentBindings.slotId,
-                  blobId: attachmentBindings.blobId,
-                })
-                .from(attachmentBindings)
-                .where(
-                  and(
-                    eq(attachmentBindings.documentId, documentId),
-                    inArray(attachmentBindings.slotId, activeBindingSlotIds),
-                    isNull(attachmentBindings.detachedAt),
-                  ),
-                );
-
-        const activeBindingBySlotId = new Map(
-          activeBindings.map((binding) => [binding.slotId, binding]),
-        );
-        type ActiveBinding = (typeof activeBindings)[number];
-        const validatedRewraps: Array<{
-          rewrap: (typeof attachmentRewraps)[number];
-          currentBinding: ActiveBinding;
-        }> = [];
-
-        for (const detach of attachmentDetaches) {
-          const currentBinding = activeBindingBySlotId.get(detach.slotId);
-          if (
-            !currentBinding ||
-            currentBinding.id !== detach.expectedBindingId
-          ) {
-            throw new CommitChangeError(
-              `Attachment slot ${detach.slotId} is not bound to the expected binding`,
-            );
-          }
-        }
-
-        for (const rewrap of attachmentRewraps) {
-          const currentBinding = activeBindingBySlotId.get(rewrap.slotId);
-          if (
-            !currentBinding ||
-            currentBinding.id !== rewrap.expectedBindingId
-          ) {
-            throw new CommitChangeError(
-              `Attachment slot ${rewrap.slotId} is not bound to the expected binding`,
-            );
-          }
-
-          if (
-            !blobRecipientEnvelopesMatchRecipients(
-              rewrap.recipientEnvelopes,
-              access.effectiveRecipients,
-            )
-          ) {
-            throw new CommitChangeError("Blob recipient envelopes mismatch");
-          }
-
-          validatedRewraps.push({ rewrap, currentBinding });
-        }
-
-        const stageRows =
-          attachmentCommits.length === 0
-            ? []
-            : await tx
-                .select({
-                  id: blobStages.id,
-                  ownerUserId: blobStages.ownerUserId,
-                  encryptedBytes: blobStages.encryptedBytes,
-                  sha256: blobStages.sha256,
-                  byteLength: blobStages.byteLength,
-                  expiresAt: blobStages.expiresAt,
-                })
-                .from(blobStages)
-                .where(
-                  inArray(
-                    blobStages.id,
-                    attachmentCommits.map((commit) => commit.stageId),
-                  ),
-                );
-        const stageById = new Map(stageRows.map((stage) => [stage.id, stage]));
-
-        for (const commit of attachmentCommits) {
-          const stage = stageById.get(commit.stageId);
-          if (!stage) {
-            throw new CommitChangeError(
-              `Blob stage ${commit.stageId} does not exist`,
-            );
-          }
-
-          if (stage.ownerUserId !== session.userId) {
-            throw new CommitChangeError(
-              `Blob stage ${commit.stageId} does not belong to caller`,
-              403,
-            );
-          }
-
-          if (stage.expiresAt.getTime() <= Date.now()) {
-            throw new CommitChangeError(
-              `Blob stage ${commit.stageId} has expired`,
-            );
-          }
-
-          const currentBinding = activeBindingBySlotId.get(commit.slotId);
-          const expectedBindingId = commit.expectedBindingId;
-          if ((currentBinding?.id ?? null) !== expectedBindingId) {
-            throw new CommitChangeError(
-              `Attachment slot ${commit.slotId} is not bound to the expected binding`,
-            );
-          }
-
-          try {
-            if (
-              !matchesRecipientKeyFingerprints(
-                listBlobRecipientKeyFingerprints(stage.encryptedBytes),
-                expectedRecipientKeyFingerprints,
-              )
-            ) {
-              throw new CommitChangeError("Encrypted blob recipients mismatch");
-            }
-          } catch (error) {
-            if (error instanceof CommitChangeError) {
-              throw error;
-            }
-
-            throw new CommitChangeError("Invalid encrypted blob envelope");
-          }
-        }
-
-        const detachedBindingIds: string[] = [];
-        const affectedBlobIds = new Set<string>();
-        const committedBindings: Array<{
-          slotId: string;
-          bindingId: string;
-          blobId: string;
-        }> = [];
-
-        for (const detach of attachmentDetaches) {
-          const currentBinding = activeBindingBySlotId.get(detach.slotId);
-          if (!currentBinding) {
-            continue;
-          }
-
-          await tx
-            .update(attachmentBindings)
-            .set({ detachedAt: new Date() })
-            .where(eq(attachmentBindings.id, currentBinding.id));
-
-          detachedBindingIds.push(currentBinding.id);
-          affectedBlobIds.add(currentBinding.blobId);
-          activeBindingBySlotId.delete(detach.slotId);
-        }
-
-        for (const { currentBinding } of validatedRewraps) {
-          affectedBlobIds.add(currentBinding.blobId);
-        }
-
-        for (const commit of attachmentCommits) {
-          const stage = stageById.get(commit.stageId);
-          if (!stage) {
-            throw new CommitChangeError(
-              `Blob stage ${commit.stageId} does not exist`,
-            );
-          }
-
-          const currentBinding =
-            activeBindingBySlotId.get(commit.slotId) ?? null;
-          if (currentBinding) {
-            await tx
-              .update(attachmentBindings)
-              .set({ detachedAt: new Date() })
-              .where(eq(attachmentBindings.id, currentBinding.id));
-            detachedBindingIds.push(currentBinding.id);
-            affectedBlobIds.add(currentBinding.blobId);
-          }
-
-          const [blob] = await tx
-            .insert(blobs)
-            .values({
-              byteLength: stage.byteLength,
-              encryptedBytes: stage.encryptedBytes,
-              sha256: stage.sha256,
-              storageKey: stage.id,
-            })
-            .returning({ id: blobs.id });
-          if (!blob) {
-            throw new Error(`Failed to promote blob stage ${stage.id}`);
-          }
-
-          const [binding] = await tx
-            .insert(attachmentBindings)
-            .values({
-              documentId,
-              slotId: commit.slotId,
-              blobId: blob.id,
-              previousBindingId: currentBinding?.id ?? null,
-            })
-            .returning({ id: attachmentBindings.id });
-          if (!binding) {
-            throw new Error(
-              `Failed to create attachment binding for ${commit.slotId}`,
-            );
-          }
-
-          committedBindings.push({
-            slotId: commit.slotId,
-            bindingId: binding.id,
-            blobId: blob.id,
-          });
-          affectedBlobIds.add(blob.id);
-          activeBindingBySlotId.set(commit.slotId, {
-            id: binding.id,
-            slotId: commit.slotId,
-            blobId: blob.id,
-          });
-
-          await tx.delete(blobStages).where(eq(blobStages.id, stage.id));
-        }
-
-        for (const slotId of referencedSlotIds) {
-          if (!activeBindingBySlotId.has(slotId)) {
-            throw new CommitChangeError(
-              `Loro update references slot ${slotId} without an active binding`,
-            );
-          }
-        }
-
-        const acceptedOutgoingUpdateIds: string[] = [];
-        let currentDocumentRecipientEnvelopes =
-          await listDocumentRecipientEnvelopes(
-            documentId,
-            access.currentAccessEpoch,
-            tx,
-          );
-        if (loroUpdate) {
-          if (documentRecipientEnvelopes) {
-            await replaceDocumentRecipientEnvelopes(
-              documentId,
-              access.currentAccessEpoch,
-              access,
-              documentRecipientEnvelopes,
-              tx,
-            );
-            currentDocumentRecipientEnvelopes = documentRecipientEnvelopes;
-          }
-
-          if (
-            !currentDocumentRecipientEnvelopes ||
-            currentDocumentRecipientEnvelopes.length === 0
-          ) {
-            throw new CommitChangeError(
-              "Missing document recipient envelopes for current epoch",
-            );
-          }
-
-          const [existing] = await tx
-            .select({ id: documentUpdates.id })
-            .from(documentUpdates)
-            .where(eq(documentUpdates.id, loroUpdate.id))
-            .limit(1);
-
-          if (existing) {
-            acceptedOutgoingUpdateIds.push(existing.id);
-          } else {
-            const [inserted] = await tx
-              .insert(documentUpdates)
-              .values({
-                id: loroUpdate.id,
-                documentId,
-                authorFingerprint: session.fingerprint,
-                encryptedData: loroUpdate.encryptedData,
-                partialStartVersionVector: loroUpdate.partialStartVersionVector,
-                partialEndVersionVector: loroUpdate.partialEndVersionVector,
-              })
-              .returning({ id: documentUpdates.id });
-
-            if (inserted) {
-              acceptedOutgoingUpdateIds.push(inserted.id);
-            }
-          }
-        }
-
-        const activeBlobIds = await deleteOrphanedBlobs(
-          Array.from(affectedBlobIds),
-          tx,
-        );
-        await refreshBlobAccesses(activeBlobIds, tx);
-
-        for (const { rewrap, currentBinding } of validatedRewraps) {
-          const blobAccess = await resolveBlobAccessState(
-            currentBinding.blobId,
-            tx,
-          );
-          if (!blobAccess) {
-            throw new CommitChangeError("Blob access state not found", 409);
-          }
-
-          await replaceBlobRecipientEnvelopes(
-            currentBinding.blobId,
-            blobAccess.currentAccessEpoch,
-            blobAccess.effectiveRecipients,
-            rewrap.recipientEnvelopes,
-            tx,
-          );
-        }
-
-        return {
-          acceptedOutgoingUpdateIds,
-          committedBindings,
-          detachedBindingIds,
-          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-        };
+      const { access, result } = await processCommitDocumentChange({
+        documentId,
+        request,
+        session,
       });
 
       if (result.acceptedOutgoingUpdateIds.length > 0) {
@@ -866,7 +1060,6 @@ documentsRouter.post(
       if (error instanceof CommitChangeError) {
         return c.json({ error: error.message }, error.status);
       }
-
       throw error;
     }
   },

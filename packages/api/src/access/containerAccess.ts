@@ -612,6 +612,93 @@ async function computeContainerFingerprint(input: {
   });
 }
 
+interface ResolvedContainerInputs {
+  ancestorContainerIds: string[];
+  effectiveRecipients: EffectiveContainerRecipient[];
+  grants: ContainerGrantRow[];
+}
+
+function groupContainerGrantsByObjectId(grants: ContainerGrantRow[]) {
+  const directGrantsByContainerId = new Map<string, ContainerGrantRow[]>();
+
+  for (const grant of grants) {
+    const nextGrants = directGrantsByContainerId.get(grant.objectId) ?? [];
+    nextGrants.push(grant);
+    directGrantsByContainerId.set(grant.objectId, nextGrants);
+  }
+
+  return directGrantsByContainerId;
+}
+
+function groupGrantedRecipientsByObjectId(
+  recipients: GrantedRecipientWithObjectIdRow[],
+) {
+  const directGrantedRecipientsByContainerId = new Map<
+    string,
+    GrantedRecipientRow[]
+  >();
+
+  for (const recipient of recipients) {
+    const nextRecipients =
+      directGrantedRecipientsByContainerId.get(recipient.objectId) ?? [];
+    const nextRecipient = {
+      userId: recipient.userId,
+      accessLevel: recipient.accessLevel,
+      encapsulationPublicKey: recipient.encapsulationPublicKey,
+      encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
+    };
+    nextRecipients.push(nextRecipient);
+    directGrantedRecipientsByContainerId.set(
+      recipient.objectId,
+      nextRecipients,
+    );
+  }
+
+  return directGrantedRecipientsByContainerId;
+}
+
+function resolveDescendantContainerInputs(
+  descendantContainer: DescendantContainerRow,
+  rootContainerId: string,
+  rootResolvedInputs: ResolvedContainerInputs,
+  resolvedInputsByContainerId: Map<string, ResolvedContainerInputs>,
+  directGrantsByContainerId: Map<string, ContainerGrantRow[]>,
+  directGrantedRecipientsByContainerId: Map<string, GrantedRecipientRow[]>,
+): ResolvedContainerInputs {
+  if (descendantContainer.id === rootContainerId) {
+    return rootResolvedInputs;
+  }
+
+  const parentId = descendantContainer.parentId;
+  if (!parentId) {
+    throw new Error(
+      `Descendant container ${descendantContainer.id} is missing parent`,
+    );
+  }
+
+  const parentResolvedInputs = resolvedInputsByContainerId.get(parentId);
+  if (!parentResolvedInputs) {
+    throw new Error(
+      `Parent container ${parentId} was not resolved before child ${descendantContainer.id}`,
+    );
+  }
+
+  return {
+    ancestorContainerIds: [
+      ...parentResolvedInputs.ancestorContainerIds,
+      descendantContainer.id,
+    ],
+    effectiveRecipients: mergeEffectiveRecipients(
+      parentResolvedInputs.effectiveRecipients,
+      directGrantedRecipientsByContainerId.get(descendantContainer.id) ?? [],
+    ),
+    grants: [
+      ...parentResolvedInputs.grants,
+      ...(directGrantsByContainerId.get(descendantContainer.id) ?? []),
+    ],
+  };
+}
+
 async function refreshContainerAccessSubtree(
   containerId: string,
   executor: ContainerAccessExecutor = db,
@@ -631,51 +718,15 @@ async function refreshContainerAccessSubtree(
     executor,
   );
   const epochByContainerId = new Map<string, number>();
-  const directGrantsByContainerId = new Map<string, ContainerGrantRow[]>();
-  const directGrantedRecipientsByContainerId = new Map<
-    string,
-    GrantedRecipientRow[]
-  >();
+  const directGrantsByContainerId =
+    groupContainerGrantsByObjectId(directGrants);
+  const directGrantedRecipientsByContainerId = groupGrantedRecipientsByObjectId(
+    directGrantedRecipients,
+  );
   const resolvedInputsByContainerId = new Map<
     string,
-    {
-      ancestorContainerIds: string[];
-      effectiveRecipients: EffectiveContainerRecipient[];
-      grants: ContainerGrantRow[];
-    }
+    ResolvedContainerInputs
   >();
-
-  for (const grant of directGrants) {
-    const grants = directGrantsByContainerId.get(grant.objectId);
-    if (grants) {
-      grants.push(grant);
-      continue;
-    }
-
-    directGrantsByContainerId.set(grant.objectId, [grant]);
-  }
-
-  for (const recipient of directGrantedRecipients) {
-    const recipients = directGrantedRecipientsByContainerId.get(
-      recipient.objectId,
-    );
-    const nextRecipient = {
-      userId: recipient.userId,
-      accessLevel: recipient.accessLevel,
-      encapsulationPublicKey: recipient.encapsulationPublicKey,
-      encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
-    };
-
-    if (recipients) {
-      recipients.push(nextRecipient);
-      continue;
-    }
-
-    directGrantedRecipientsByContainerId.set(recipient.objectId, [
-      nextRecipient,
-    ]);
-  }
-
   const rootResolvedInputs = await resolveContainerRecipients(
     containerId,
     executor,
@@ -684,43 +735,14 @@ async function refreshContainerAccessSubtree(
   for (const descendantContainer of descendantContainers) {
     const currentEpochRow =
       currentEpochByContainerId.get(descendantContainer.id) ?? null;
-    const resolvedInputs =
-      descendantContainer.id === containerId
-        ? rootResolvedInputs
-        : (() => {
-            const parentId = descendantContainer.parentId;
-            if (!parentId) {
-              throw new Error(
-                `Descendant container ${descendantContainer.id} is missing parent`,
-              );
-            }
-
-            const parentResolvedInputs =
-              resolvedInputsByContainerId.get(parentId);
-            if (!parentResolvedInputs) {
-              throw new Error(
-                `Parent container ${parentId} was not resolved before child ${descendantContainer.id}`,
-              );
-            }
-
-            return {
-              ancestorContainerIds: [
-                ...parentResolvedInputs.ancestorContainerIds,
-                descendantContainer.id,
-              ],
-              effectiveRecipients: mergeEffectiveRecipients(
-                parentResolvedInputs.effectiveRecipients,
-                directGrantedRecipientsByContainerId.get(
-                  descendantContainer.id,
-                ) ?? [],
-              ),
-              grants: [
-                ...parentResolvedInputs.grants,
-                ...(directGrantsByContainerId.get(descendantContainer.id) ??
-                  []),
-              ],
-            };
-          })();
+    const resolvedInputs = resolveDescendantContainerInputs(
+      descendantContainer,
+      containerId,
+      rootResolvedInputs,
+      resolvedInputsByContainerId,
+      directGrantsByContainerId,
+      directGrantedRecipientsByContainerId,
+    );
     const accessFingerprint = await computeContainerFingerprint({
       containerId: descendantContainer.id,
       ancestorContainerIds: resolvedInputs.ancestorContainerIds,
