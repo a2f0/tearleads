@@ -1,18 +1,7 @@
-import { wrapDekForRecipients } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { useApiClient } from "../../api/ApiClientProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
-import {
-  createDocumentEncryptionMaterial,
-  createPendingUpdateFields,
-  encryptPendingUpdates,
-} from "../../data/documentSync";
-import { persistRegistrationBootstrap } from "../../data/registrationBootstrapPersistence";
-import type { SqlRow, SqlRowValue } from "../../data/sqlSchema";
 import { useDatabase } from "../../db/DatabaseProvider";
-import { useLog } from "../../logging/LogProvider";
 import { usePersona } from "../../persona/PersonaProvider";
+import { useRegisterCurrentPersona } from "../../persona/useRegisterCurrentPersona";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -23,18 +12,12 @@ export function PaneMenu({
   position: MenuPosition;
   onClose: () => void;
 }) {
-  const { client: dbClient, killWorker, spawnWorker, status } = useDatabase();
-  const {
-    userId,
-    containerId,
-    setUserId,
-    setOrganizationId,
-    loginWithChallenge,
-  } = useCryptoSession();
+  const { killWorker, spawnWorker, status } = useDatabase();
+  const { userId } = useCryptoSession();
   const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
     usePersona();
-  const { log } = useLog();
-  const apiClient = useApiClient();
+  const { canRegisterCurrentPersona, registerCurrentPersona } =
+    useRegisterCurrentPersona();
   const isTerminated = status === "terminated";
 
   return (
@@ -75,92 +58,22 @@ export function PaneMenu({
           }}
         />
       )}
-      {signingKeyPair && encapsulationKeyPair && !userId && containerId && (
-        <MenuItem
-          label="Upload Public Key"
-          onClick={async () => {
-            onClose();
-            log("Uploading public key...");
-
-            const dek = crypto.getRandomValues(new Uint8Array(32));
-            const recipients = await wrapDekForRecipients(dek, [
-              encapsulationKeyPair.publicKey,
-            ]);
-            const wrappedEnvelope = recipients[0];
-
-            if (!wrappedEnvelope) return;
-
-            const { initialUpdate } =
-              await createInitializedContainerMetadataDocument(containerId, {
-                icon: null,
-                name: "/",
-              });
-            const initialMetadataDocumentEncryption =
-              await createDocumentEncryptionMaterial([
-                encapsulationKeyPair.publicKey,
-              ]);
-            const pendingUpdateFields =
-              createPendingUpdateFields(initialUpdate);
-            const initialRootMetadataUpdates = pendingUpdateFields
-              ? await encryptPendingUpdates(
-                  [
-                    {
-                      id: crypto.randomUUID(),
-                      ...pendingUpdateFields,
-                    },
-                  ],
-                  1,
-                  initialMetadataDocumentEncryption.documentKey,
-                )
-              : [];
-
-            const response = await apiClient.postPublicKey(
-              containerId,
-              signingKeyPair.signingPublicKey,
-              encapsulationKeyPair.publicKey,
-              wrappedEnvelope,
-              initialRootMetadataUpdates,
-              initialMetadataDocumentEncryption.documentRecipientEnvelopes,
-            );
-            if (!response) return;
-
-            log(`Key registered (${response.userId})`);
-            setUserId(response.userId);
-            setOrganizationId(response.organizationId);
-
-            if (dbClient) {
-              const execSql = async (
-                sql: string,
-                bind?: Record<string, SqlRowValue>,
-              ): Promise<SqlRow[]> => {
-                const result = await dbClient.exec(
-                  bind ? { sql, bind } : { sql },
-                );
-                return result.rows;
-              };
-
-              try {
-                await persistRegistrationBootstrap(execSql, {
-                  containerId,
-                  encapsulationPublicKey: encapsulationKeyPair.publicKey,
-                  organizationId: response.organizationId,
-                  rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
-                  rootMetadataDocumentId: response.rootMetadataDocumentId,
-                  rootMetadataRecipientEnvelopes:
-                    initialMetadataDocumentEncryption.documentRecipientEnvelopes,
-                  rootMetadataSnapshot: bytesToBase64(initialUpdate),
-                  userId: response.userId,
-                });
-                log("Local identity and root container persisted");
-              } catch (error: unknown) {
-                console.error("Failed to persist registration data:", error);
+      {signingKeyPair &&
+        encapsulationKeyPair &&
+        !userId &&
+        canRegisterCurrentPersona && (
+          <MenuItem
+            label="Upload Public Key"
+            onClick={async () => {
+              onClose();
+              if (!canRegisterCurrentPersona) {
+                return;
               }
-            }
 
-            await loginWithChallenge(response.challenge);
-          }}
-        />
-      )}
+              await registerCurrentPersona();
+            }}
+          />
+        )}
     </Menu>
   );
 }

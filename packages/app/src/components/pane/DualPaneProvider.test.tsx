@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import { useEffect, useRef } from "react";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
   listProxiedApiRequests,
@@ -17,8 +18,12 @@ import {
   wsUrl,
 } from "../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
+import { useDatabase } from "../../db/DatabaseProvider";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
+import { usePersona } from "../../persona/PersonaProvider";
+import { useRegisterCurrentPersona } from "../../persona/useRegisterCurrentPersona";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
@@ -34,6 +39,46 @@ async function interact(operation: () => void): Promise<void> {
   });
 }
 
+function PaneAutoProvisioner() {
+  const { status } = useDatabase();
+  const { containerId, userId } = useCryptoSession();
+  const { generateKey, signingKeyPair } = usePersona();
+  const { canRegisterCurrentPersona, registerCurrentPersona } =
+    useRegisterCurrentPersona();
+  const registrationInFlight = useRef(false);
+
+  useEffect(() => {
+    if (signingKeyPair === null) {
+      generateKey();
+    }
+  }, [generateKey, signingKeyPair]);
+
+  useEffect(() => {
+    if (
+      status !== "ready" ||
+      containerId === null ||
+      userId !== null ||
+      !canRegisterCurrentPersona ||
+      registrationInFlight.current
+    ) {
+      return;
+    }
+
+    registrationInFlight.current = true;
+    void registerCurrentPersona().finally(() => {
+      registrationInFlight.current = false;
+    });
+  }, [
+    canRegisterCurrentPersona,
+    containerId,
+    registerCurrentPersona,
+    status,
+    userId,
+  ]);
+
+  return null;
+}
+
 function renderDualPane() {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
     createAppDatabaseWorker(MockWorker),
@@ -43,11 +88,13 @@ function renderDualPane() {
     <DualPaneProvider>
       <PaneSideProvider side="left">
         <PaneProvider hostConfig={hostConfig}>
+          <PaneAutoProvisioner />
           <Pane className="pane pane-left" />
         </PaneProvider>
       </PaneSideProvider>
       <PaneSideProvider side="right">
         <PaneProvider hostConfig={hostConfig}>
+          <PaneAutoProvisioner />
           <Pane className="pane pane-right" />
         </PaneProvider>
       </PaneSideProvider>
@@ -64,44 +111,6 @@ function getPaneRoot(
   return pane;
 }
 
-async function generateAndUploadKeyPair(pane: HTMLElement) {
-  await interact(() => {
-    fireEvent.click(within(pane).getByRole("button", { name: "Menu" }));
-  });
-  await waitFor(() => {
-    expect(
-      screen.getByRole("button", { name: "Generate Key Pair" }),
-    ).toBeTruthy();
-  });
-  await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Generate Key Pair" }));
-  });
-
-  await waitFor(() => {
-    expect(within(pane).getByText(/sqlite worker: ready/)).toBeTruthy();
-    expect(within(pane).queryByText(/publicKey: none/)).toBeNull();
-  });
-
-  await interact(() => {
-    fireEvent.click(within(pane).getByRole("button", { name: "Menu" }));
-  });
-  await waitFor(() => {
-    expect(
-      screen.getByRole("button", { name: "Upload Public Key" }),
-    ).toBeTruthy();
-  });
-  await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Upload Public Key" }));
-  });
-
-  await waitForCondition(
-    () =>
-      !pane.textContent?.includes("userId: none") &&
-      !pane.textContent?.includes("session: none"),
-    "Pane did not finish registration/authentication.",
-  );
-}
-
 async function openExplorer(pane: HTMLElement) {
   await interact(() => {
     fireEvent.contextMenu(pane, {
@@ -109,11 +118,11 @@ async function openExplorer(pane: HTMLElement) {
       clientY: 160,
     });
   });
-  await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Open Explorer" })).toBeTruthy();
+  const openExplorerButton = await screen.findByRole("button", {
+    name: "Open Explorer",
   });
   await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Open Explorer" }));
+    fireEvent.click(openExplorerButton);
   });
 
   await waitFor(() => {
@@ -156,11 +165,11 @@ async function createChildContainer(pane: HTMLElement, name: string) {
       clientY: 180,
     });
   });
-  await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Create Child" })).toBeTruthy();
+  const createChildButton = await screen.findByRole("button", {
+    name: "Create Child",
   });
   await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Create Child" }));
+    fireEvent.click(createChildButton);
   });
   await interact(() => {
     fireEvent.change(screen.getByLabelText("Container name"), {
@@ -181,19 +190,15 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  await waitFor(() => {
-    expect(
-      screen.getByRole("button", { name: "Share With Peer" }),
-    ).toBeTruthy();
+  const shareWithPeerButton = await screen.findByRole("button", {
+    name: "Share With Peer",
   });
   await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Share With Peer" }));
+    fireEvent.click(shareWithPeerButton);
   });
-  await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
-  });
+  const shareButton = await screen.findByRole("button", { name: "Share" });
   await interact(() => {
-    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    fireEvent.click(shareButton);
   });
 
   await waitForCondition(
@@ -428,13 +433,15 @@ test("dual panes can share a container and refresh peer discovery", async () => 
   const leftPane = getPaneRoot(view, "left");
   const rightPane = getPaneRoot(view, "right");
 
-  await generateAndUploadKeyPair(leftPane);
-  await generateAndUploadKeyPair(rightPane);
   await waitForCondition(
     () =>
+      !leftPane.textContent?.includes("userId: none") &&
+      !leftPane.textContent?.includes("session: none") &&
+      !rightPane.textContent?.includes("userId: none") &&
+      !rightPane.textContent?.includes("session: none") &&
       !leftPane.textContent?.includes("peerUserId: none") &&
       !rightPane.textContent?.includes("peerUserId: none"),
-    "Dual pane peer user ids did not propagate.",
+    "Dual pane identities did not finish provisioning.",
   );
 
   await openExplorer(leftPane);
@@ -453,13 +460,15 @@ test("dual panes can share a container and refresh a post-share note with an ima
   const leftPane = getPaneRoot(view, "left");
   const rightPane = getPaneRoot(view, "right");
 
-  await generateAndUploadKeyPair(leftPane);
-  await generateAndUploadKeyPair(rightPane);
   await waitForCondition(
     () =>
+      !leftPane.textContent?.includes("userId: none") &&
+      !leftPane.textContent?.includes("session: none") &&
+      !rightPane.textContent?.includes("userId: none") &&
+      !rightPane.textContent?.includes("session: none") &&
       !leftPane.textContent?.includes("peerUserId: none") &&
       !rightPane.textContent?.includes("peerUserId: none"),
-    "Dual pane peer user ids did not propagate.",
+    "Dual pane identities did not finish provisioning.",
   );
 
   await openExplorer(leftPane);

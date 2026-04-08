@@ -69,6 +69,11 @@ export function EventsProvider({ children }: PropsWithChildren) {
       setConnected(false);
     });
 
+    ws.addEventListener("error", () => {
+      if (cancelled) return;
+      setConnected(false);
+    });
+
     return () => {
       cancelled = true;
       ws.close();
