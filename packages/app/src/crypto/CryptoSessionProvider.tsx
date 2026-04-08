@@ -1,6 +1,7 @@
 import { toFingerprint } from "@tearleads/crypto";
 import {
   createContext,
+  type MutableRefObject,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -36,32 +37,121 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
 
-export function CryptoSessionProvider({ children }: PropsWithChildren) {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [containerId, setContainerId] = useState<string | null>(null);
-  const [authToken, setStoredAuthToken] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { log, logError } = useLog();
-  const apiClient = useApiClient();
-  const { client: dbClient, status: dbStatus } = useDatabase();
-  const { signingFingerprint, signingKeyPair } = usePersona();
-  const containerBootstrapped = useRef<string | null>(null);
+function resetCryptoSessionState(
+  apiClient: ReturnType<typeof useApiClient>,
+  setUserId: (value: string | null) => void,
+  setOrganizationId: (value: string | null) => void,
+  setContainerId: (value: string | null) => void,
+  setStoredAuthToken: (value: string | null) => void,
+  setIsAuthenticated: (value: boolean) => void,
+) {
+  setUserId(null);
+  setOrganizationId(null);
+  setContainerId(null);
+  setStoredAuthToken(null);
+  setIsAuthenticated(false);
+  apiClient.setAuthToken(null);
+}
 
+async function bootstrapRootContainer(
+  dbClient: NonNullable<ReturnType<typeof useDatabase>["client"]>,
+) {
+  const execSql = async (
+    sql: string,
+    bind?: Record<string, string | number | null>,
+  ) => {
+    const result = await dbClient.exec(bind ? { sql, bind } : { sql });
+    return result.rows;
+  };
+
+  await ensureContainerTables(execSql);
+  const containers = await loadContainers(execSql);
+  const root = containers.find((container) => container.parentId === null);
+
+  if (root) {
+    return {
+      containerId: root.id,
+      created: false,
+    };
+  }
+
+  const containerId = crypto.randomUUID();
+  await saveContainer(execSql, {
+    id: containerId,
+    organizationId: "",
+    parentId: null,
+    metadataDocumentId: null,
+    name: "/",
+    icon: null,
+  });
+  return {
+    containerId,
+    created: true,
+  };
+}
+
+async function authenticateCurrentPersona(
+  apiClient: ReturnType<typeof useApiClient>,
+  fingerprint: string,
+  signingPrivateKey: Uint8Array,
+  log: (message: string) => void,
+  challengeHex?: string,
+) {
+  log(challengeHex ? "Authenticating with challenge..." : "Authenticating...");
+
+  const token = challengeHex
+    ? await apiClient.authenticateWithChallenge(
+        fingerprint,
+        signingPrivateKey,
+        challengeHex,
+      )
+    : await apiClient.authenticate(fingerprint, signingPrivateKey);
+
+  if (!token) {
+    log("Authentication failed");
+    return null;
+  }
+
+  log("Authentication successful");
+  return token;
+}
+
+function useResetCryptoSession(
+  containerBootstrapped: MutableRefObject<string | null>,
+  signingKeyPair: ReturnType<typeof usePersona>["signingKeyPair"],
+  apiClient: ReturnType<typeof useApiClient>,
+  setUserId: (value: string | null) => void,
+  setOrganizationId: (value: string | null) => void,
+  setContainerId: (value: string | null) => void,
+  setStoredAuthToken: (value: string | null) => void,
+  setIsAuthenticated: (value: boolean) => void,
+) {
   useEffect(() => {
     if (signingKeyPair) {
       return;
     }
 
     containerBootstrapped.current = null;
-    setUserId(null);
-    setOrganizationId(null);
-    setContainerId(null);
-    setStoredAuthToken(null);
-    setIsAuthenticated(false);
-    apiClient.setAuthToken(null);
+    resetCryptoSessionState(
+      apiClient,
+      setUserId,
+      setOrganizationId,
+      setContainerId,
+      setStoredAuthToken,
+      setIsAuthenticated,
+    );
   }, [apiClient, signingKeyPair]);
+}
 
+function useBootstrapCryptoSessionContainer(
+  containerBootstrapped: MutableRefObject<string | null>,
+  signingFingerprint: string | null,
+  dbStatus: ReturnType<typeof useDatabase>["status"],
+  dbClient: ReturnType<typeof useDatabase>["client"],
+  log: (message: string) => void,
+  logError: (message: string, error: unknown) => void,
+  setContainerId: (value: string | null) => void,
+) {
   useEffect(() => {
     const bootstrapKey =
       signingFingerprint && dbClient
@@ -78,33 +168,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     }
     containerBootstrapped.current = bootstrapKey;
 
-    const execSql = async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => {
-      const result = await dbClient.exec(bind ? { sql, bind } : { sql });
-      return result.rows;
-    };
-
     void (async () => {
       try {
-        await ensureContainerTables(execSql);
-        const containers = await loadContainers(execSql);
-        const root = containers.find((c) => c.parentId === null);
-
-        if (root) {
-          setContainerId(root.id);
-        } else {
-          const id = crypto.randomUUID();
-          await saveContainer(execSql, {
-            id,
-            organizationId: "",
-            parentId: null,
-            metadataDocumentId: null,
-            name: "/",
-            icon: null,
-          });
-          setContainerId(id);
+        const bootstrap = await bootstrapRootContainer(dbClient);
+        setContainerId(bootstrap.containerId);
+        if (bootstrap.created) {
           log("Root container created");
         }
       } catch (error: unknown) {
@@ -113,55 +181,96 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
       }
     })();
   }, [dbStatus, dbClient, log, logError, signingFingerprint]);
+}
 
+function useCryptoAuthActions(
+  apiClient: ReturnType<typeof useApiClient>,
+  signingKeyPair: ReturnType<typeof usePersona>["signingKeyPair"],
+  log: (message: string) => void,
+  setStoredAuthToken: (value: string | null) => void,
+  setIsAuthenticated: (value: boolean) => void,
+) {
   const logout = useCallback(() => {
     setStoredAuthToken(null);
     setIsAuthenticated(false);
     apiClient.setAuthToken(null);
-  }, [apiClient]);
+  }, [apiClient, setIsAuthenticated, setStoredAuthToken]);
 
-  const login = useCallback(async (): Promise<boolean> => {
-    if (!signingKeyPair) return false;
-    const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
-    log("Authenticating...");
-    const token = await apiClient.authenticate(
-      fingerprint,
-      signingKeyPair.signingPrivateKey,
-    );
-    if (token) {
+  const authenticate = useCallback(
+    async (challengeHex?: string): Promise<boolean> => {
+      if (!signingKeyPair) {
+        return false;
+      }
+      const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
+      const token = await authenticateCurrentPersona(
+        apiClient,
+        fingerprint,
+        signingKeyPair.signingPrivateKey,
+        log,
+        challengeHex,
+      );
+      if (!token) {
+        setIsAuthenticated(false);
+        return false;
+      }
+
       apiClient.setAuthToken(token);
       setStoredAuthToken(token);
       setIsAuthenticated(true);
-      log("Authentication successful");
       return true;
-    }
-    setIsAuthenticated(false);
-    log("Authentication failed");
-    return false;
-  }, [signingKeyPair, log, apiClient]);
+    },
+    [apiClient, log, setIsAuthenticated, setStoredAuthToken, signingKeyPair],
+  );
 
   const loginWithChallenge = useCallback(
-    async (challengeHex: string): Promise<boolean> => {
-      if (!signingKeyPair) return false;
-      const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
-      log("Authenticating with challenge...");
-      const token = await apiClient.authenticateWithChallenge(
-        fingerprint,
-        signingKeyPair.signingPrivateKey,
-        challengeHex,
-      );
-      if (token) {
-        apiClient.setAuthToken(token);
-        setStoredAuthToken(token);
-        setIsAuthenticated(true);
-        log("Authentication successful");
-        return true;
-      }
-      setIsAuthenticated(false);
-      log("Authentication failed");
-      return false;
-    },
-    [signingKeyPair, log, apiClient],
+    (challengeHex: string) => authenticate(challengeHex),
+    [authenticate],
+  );
+
+  return {
+    login: () => authenticate(),
+    loginWithChallenge,
+    logout,
+  };
+}
+
+export function CryptoSessionProvider({ children }: PropsWithChildren) {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [containerId, setContainerId] = useState<string | null>(null);
+  const [authToken, setStoredAuthToken] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { log, logError } = useLog();
+  const apiClient = useApiClient();
+  const { client: dbClient, status: dbStatus } = useDatabase();
+  const { signingFingerprint, signingKeyPair } = usePersona();
+  const containerBootstrapped = useRef<string | null>(null);
+
+  useResetCryptoSession(
+    containerBootstrapped,
+    signingKeyPair,
+    apiClient,
+    setUserId,
+    setOrganizationId,
+    setContainerId,
+    setStoredAuthToken,
+    setIsAuthenticated,
+  );
+  useBootstrapCryptoSessionContainer(
+    containerBootstrapped,
+    signingFingerprint,
+    dbStatus,
+    dbClient,
+    log,
+    logError,
+    setContainerId,
+  );
+  const { login, loginWithChallenge, logout } = useCryptoAuthActions(
+    apiClient,
+    signingKeyPair,
+    log,
+    setStoredAuthToken,
+    setIsAuthenticated,
   );
 
   return (

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PropsWithChildren,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import "./Window.css";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar } from "./WindowMenuBar";
@@ -17,6 +26,40 @@ const MIN_HEIGHT = 100;
 
 interface WindowProps {
   windowId: string;
+}
+
+interface WindowInnerProps {
+  bringToFront: (id: string) => void;
+  close: (id: string) => void;
+  entry: WindowEntry;
+  minimize: (id: string) => void;
+  moveBackward: (id: string) => void;
+  moveForward: (id: string) => void;
+}
+
+interface WindowPosition {
+  x: number;
+  y: number;
+}
+
+interface WindowSize {
+  width: number;
+  height: number;
+}
+
+interface WindowDragState {
+  offsetX: number;
+  offsetY: number;
+}
+
+interface WindowResizeState {
+  corner: ResizeCorner;
+  startHeight: number;
+  startLeft: number;
+  startTop: number;
+  startWidth: number;
+  startX: number;
+  startY: number;
 }
 
 export function Window({ windowId }: WindowProps) {
@@ -44,138 +87,231 @@ export function Window({ windowId }: WindowProps) {
   );
 }
 
-function WindowInner({
-  entry,
-  close,
-  minimize,
-  moveForward,
-  moveBackward,
-  bringToFront,
-}: {
-  entry: WindowEntry;
-  close: (id: string) => void;
-  minimize: (id: string) => void;
-  moveForward: (id: string) => void;
-  moveBackward: (id: string) => void;
-  bringToFront: (id: string) => void;
-}) {
-  const {
-    id: windowId,
-    title,
-    minimized,
-    initialX,
-    initialY,
-    zIndex,
-    component: Component,
-  } = entry;
-  const windowRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const [size, setSize] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-  const [maximized, setMaximized] = useState(false);
-  const dragging = useRef<{ offsetX: number; offsetY: number } | null>(null);
-  const resizing = useRef<{
-    corner: ResizeCorner;
-    startX: number;
-    startY: number;
-    startLeft: number;
-    startTop: number;
-    startWidth: number;
-    startHeight: number;
-  } | null>(null);
+function clampWindowPosition(
+  windowRef: { current: HTMLDivElement | null },
+  x: number,
+  y: number,
+): WindowPosition {
+  const element = windowRef.current;
+  const container = element?.parentElement;
+  if (!element || !container) {
+    return { x, y };
+  }
 
-  // Constrain window position so it stays fully within its parent container.
-  const clamp = useCallback((x: number, y: number) => {
-    const el = windowRef.current;
-    const container = el?.parentElement;
-    if (!el || !container) return { x, y };
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    const ew = el.offsetWidth;
-    const eh = el.offsetHeight;
-    return {
-      x: Math.max(0, Math.min(x, cw - ew)),
-      y: Math.max(0, Math.min(y, ch - eh)),
+  return {
+    x: Math.max(0, Math.min(x, container.clientWidth - element.offsetWidth)),
+    y: Math.max(0, Math.min(y, container.clientHeight - element.offsetHeight)),
+  };
+}
+
+function resizeWindowWithinContainer(
+  resizeState: WindowResizeState,
+  clientX: number,
+  clientY: number,
+  container: HTMLElement | null,
+) {
+  const deltaX = clientX - resizeState.startX;
+  const deltaY = clientY - resizeState.startY;
+  const movesLeft = resizeState.corner.includes("w");
+  const movesUp = resizeState.corner.includes("n");
+  let width = Math.max(
+    MIN_WIDTH,
+    resizeState.startWidth + deltaX * (movesLeft ? -1 : 1),
+  );
+  let height = Math.max(
+    MIN_HEIGHT,
+    resizeState.startHeight + deltaY * (movesUp ? -1 : 1),
+  );
+  let x = movesLeft
+    ? resizeState.startLeft + resizeState.startWidth - width
+    : resizeState.startLeft;
+  let y = movesUp
+    ? resizeState.startTop + resizeState.startHeight - height
+    : resizeState.startTop;
+
+  if (container) {
+    if (x < 0) {
+      width += x;
+      x = 0;
+    }
+    if (y < 0) {
+      height += y;
+      y = 0;
+    }
+    width = Math.min(width, container.clientWidth - x);
+    height = Math.min(height, container.clientHeight - y);
+    width = Math.max(MIN_WIDTH, width);
+    height = Math.max(MIN_HEIGHT, height);
+  }
+
+  return {
+    position: { x, y },
+    size: { width, height },
+  };
+}
+
+function useWindowPointerTracking(
+  windowRef: { current: HTMLDivElement | null },
+  dragging: { current: WindowDragState | null },
+  resizing: { current: WindowResizeState | null },
+  clamp: (x: number, y: number) => WindowPosition,
+  setPosition: (value: WindowPosition) => void,
+  setSize: (value: WindowSize) => void,
+) {
+  useEffect(() => {
+    function handleMouseMove(event: MouseEvent) {
+      if (resizing.current) {
+        const nextFrame = resizeWindowWithinContainer(
+          resizing.current,
+          event.clientX,
+          event.clientY,
+          windowRef.current?.parentElement ?? null,
+        );
+        setPosition(nextFrame.position);
+        setSize(nextFrame.size);
+        return;
+      }
+
+      if (dragging.current) {
+        setPosition(
+          clamp(
+            event.clientX - dragging.current.offsetX,
+            event.clientY - dragging.current.offsetY,
+          ),
+        );
+      }
+    }
+
+    function handleMouseUp() {
+      dragging.current = null;
+      resizing.current = null;
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []);
+  }, [clamp, dragging, resizing, setPosition, setSize, windowRef]);
+}
+
+function useWindowGeometry(
+  entry: WindowEntry,
+  maximized: boolean,
+  windowRef: { current: HTMLDivElement | null },
+) {
+  const [position, setPosition] = useState<WindowPosition | null>(null);
+  const [size, setSize] = useState<WindowSize | null>(null);
+  const dragging = useRef<WindowDragState | null>(null);
+  const resizing = useRef<WindowResizeState | null>(null);
+  const clamp = useCallback(
+    (x: number, y: number) => clampWindowPosition(windowRef, x, y),
+    [windowRef],
+  );
 
   useEffect(() => {
-    const el = windowRef.current;
-    const container = el?.parentElement;
-    if (!el || !container) return;
+    const element = windowRef.current;
+    const container = element?.parentElement;
+    if (!element || !container) {
+      return;
+    }
     const containerRect = container.getBoundingClientRect();
-    const x = initialX - containerRect.left;
-    const y = initialY - containerRect.top;
-    setPosition(clamp(x, y));
-  }, [initialX, initialY, clamp]);
+    setPosition(
+      clamp(
+        entry.initialX - containerRect.left,
+        entry.initialY - containerRect.top,
+      ),
+    );
+  }, [clamp, entry.initialX, entry.initialY, windowRef]);
+
+  useWindowPointerTracking(
+    windowRef,
+    dragging,
+    resizing,
+    clamp,
+    setPosition,
+    setSize,
+  );
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!position || maximized) return;
+    (event: ReactMouseEvent) => {
+      if (!position || maximized) {
+        return;
+      }
       dragging.current = {
-        offsetX: e.clientX - position.x,
-        offsetY: e.clientY - position.y,
+        offsetX: event.clientX - position.x,
+        offsetY: event.clientY - position.y,
       };
     },
-    [position, maximized],
+    [dragging, maximized, position],
   );
 
   const handleResizeMouseDown = useCallback(
-    (e: React.MouseEvent, corner: ResizeCorner) => {
-      if (maximized) return;
-      const el = windowRef.current;
-      if (!el || !position) return;
-      e.stopPropagation();
+    (event: ReactMouseEvent, corner: ResizeCorner) => {
+      if (maximized || !position || !windowRef.current) {
+        return;
+      }
+      event.stopPropagation();
       resizing.current = {
         corner,
-        startX: e.clientX,
-        startY: e.clientY,
+        startX: event.clientX,
+        startY: event.clientY,
         startLeft: position.x,
         startTop: position.y,
-        startWidth: el.offsetWidth,
-        startHeight: el.offsetHeight,
+        startWidth: windowRef.current.offsetWidth,
+        startHeight: windowRef.current.offsetHeight,
       };
     },
-    [position, maximized],
+    [maximized, position, resizing, windowRef],
   );
 
-  const handleMinimize = useCallback(() => {
-    minimize(windowId);
-  }, [minimize, windowId]);
+  return {
+    handleMouseDown,
+    handleResizeMouseDown,
+    position,
+    size,
+  };
+}
 
+function useWindowActions(
+  entry: WindowEntry,
+  bringToFront: (id: string) => void,
+  close: (id: string) => void,
+  minimize: (id: string) => void,
+  moveBackward: (id: string) => void,
+  moveForward: (id: string) => void,
+) {
+  const [maximized, setMaximized] = useState(false);
+  const [showStatusBar, setShowStatusBar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const handleClose = useCallback(() => close(entry.id), [close, entry.id]);
+  const handleMinimize = useCallback(
+    () => minimize(entry.id),
+    [entry.id, minimize],
+  );
+  const handleMoveForward = useCallback(
+    () => moveForward(entry.id),
+    [entry.id, moveForward],
+  );
+  const handleMoveBackward = useCallback(
+    () => moveBackward(entry.id),
+    [entry.id, moveBackward],
+  );
   const handleMaximize = useCallback(() => {
     if (!maximized) {
-      bringToFront(windowId);
+      bringToFront(entry.id);
     }
-    setMaximized((prev) => !prev);
-  }, [bringToFront, maximized, windowId]);
-
-  const handleClose = useCallback(() => {
-    close(windowId);
-  }, [close, windowId]);
-
-  const handleMoveForward = useCallback(() => {
-    moveForward(windowId);
-  }, [moveForward, windowId]);
-
-  const handleMoveBackward = useCallback(() => {
-    moveBackward(windowId);
-  }, [moveBackward, windowId]);
-
-  const [showStatusBar, setShowStatusBar] = useState(true);
-  const toggleStatusBar = useCallback(() => {
-    setShowStatusBar((prev) => !prev);
-  }, []);
-
-  const [showSidebar, setShowSidebar] = useState(true);
-  const toggleSidebar = useCallback(() => {
-    setShowSidebar((prev) => !prev);
-  }, []);
-
+    setMaximized((previous) => !previous);
+  }, [bringToFront, entry.id, maximized]);
+  const toggleStatusBar = useCallback(
+    () => setShowStatusBar((previous) => !previous),
+    [],
+  );
+  const toggleSidebar = useCallback(
+    () => setShowSidebar((previous) => !previous),
+    [],
+  );
   const menus = useMemo(
     () => [
       {
@@ -196,83 +332,93 @@ function WindowInner({
         ],
       },
     ],
-    [handleClose, showStatusBar, toggleStatusBar, showSidebar, toggleSidebar],
+    [handleClose, showSidebar, showStatusBar, toggleSidebar, toggleStatusBar],
   );
 
-  useEffect(() => {
-    function handleMouseMove(e: MouseEvent) {
-      if (resizing.current) {
-        const r = resizing.current;
-        const dx = e.clientX - r.startX;
-        const dy = e.clientY - r.startY;
+  return {
+    handleClose,
+    handleMaximize,
+    handleMinimize,
+    handleMoveBackward,
+    handleMoveForward,
+    maximized,
+    menus,
+    showSidebar,
+    showStatusBar,
+  };
+}
 
-        const movesLeft = r.corner.includes("w");
-        const movesUp = r.corner.includes("n");
+function getWindowStyle(
+  maximized: boolean,
+  position: WindowPosition | null,
+  size: WindowSize | null,
+  zIndex: number,
+): CSSProperties | undefined {
+  if (maximized) {
+    return { top: 0, left: 0, width: "100%", height: "100%", zIndex };
+  }
+  if (!position) {
+    return { visibility: "hidden", zIndex };
+  }
 
-        let newW = Math.max(
-          MIN_WIDTH,
-          r.startWidth + dx * (movesLeft ? -1 : 1),
-        );
-        let newH = Math.max(
-          MIN_HEIGHT,
-          r.startHeight + dy * (movesUp ? -1 : 1),
-        );
-        let newX = movesLeft ? r.startLeft + r.startWidth - newW : r.startLeft;
-        let newY = movesUp ? r.startTop + r.startHeight - newH : r.startTop;
+  return {
+    left: position.x,
+    top: position.y,
+    zIndex,
+    ...(size ? { width: size.width, height: size.height } : {}),
+  };
+}
 
-        const container = windowRef.current?.parentElement;
-        if (container) {
-          const cw = container.clientWidth;
-          const ch = container.clientHeight;
-          if (newX < 0) {
-            newW += newX;
-            newX = 0;
-          }
-          if (newY < 0) {
-            newH += newY;
-            newY = 0;
-          }
-          newW = Math.min(newW, cw - newX);
-          newH = Math.min(newH, ch - newY);
-          newW = Math.max(MIN_WIDTH, newW);
-          newH = Math.max(MIN_HEIGHT, newH);
-        }
+function WindowResizeHandles({
+  handleResizeMouseDown,
+}: {
+  handleResizeMouseDown: (event: ReactMouseEvent, corner: ResizeCorner) => void;
+}) {
+  return (
+    <>
+      <WindowResizeHandle corner="se" onMouseDown={handleResizeMouseDown} />
+      <WindowResizeHandle corner="sw" onMouseDown={handleResizeMouseDown} />
+      <WindowResizeHandle corner="ne" onMouseDown={handleResizeMouseDown} />
+      <WindowResizeHandle corner="nw" onMouseDown={handleResizeMouseDown} />
+    </>
+  );
+}
 
-        setPosition({ x: newX, y: newY });
-        setSize({ width: newW, height: newH });
-        return;
-      }
+function WindowInner({
+  entry,
+  close,
+  minimize,
+  moveForward,
+  moveBackward,
+  bringToFront,
+}: WindowInnerProps) {
+  const { title, minimized, zIndex, component: Component } = entry;
+  const windowRef = useRef<HTMLDivElement>(null);
+  const {
+    handleClose,
+    handleMaximize,
+    handleMinimize,
+    handleMoveBackward,
+    handleMoveForward,
+    maximized,
+    menus,
+    showSidebar,
+    showStatusBar,
+  } = useWindowActions(
+    entry,
+    bringToFront,
+    close,
+    minimize,
+    moveBackward,
+    moveForward,
+  );
+  const { handleMouseDown, handleResizeMouseDown, position, size } =
+    useWindowGeometry(entry, maximized, windowRef);
+  const style = getWindowStyle(maximized, position, size, zIndex);
 
-      if (dragging.current) {
-        const rawX = e.clientX - dragging.current.offsetX;
-        const rawY = e.clientY - dragging.current.offsetY;
-        setPosition(clamp(rawX, rawY));
-      }
-    }
-    function handleMouseUp() {
-      dragging.current = null;
-      resizing.current = null;
-    }
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [clamp]);
-
-  if (minimized) return null;
-
-  const style: React.CSSProperties | undefined = maximized
-    ? { top: 0, left: 0, width: "100%", height: "100%", zIndex }
-    : position
-      ? {
-          left: position.x,
-          top: position.y,
-          zIndex,
-          ...(size ? { width: size.width, height: size.height } : {}),
-        }
-      : { visibility: "hidden", zIndex };
+  if (minimized) {
+    return null;
+  }
 
   return (
     <div
@@ -297,12 +443,7 @@ function WindowInner({
       </WindowSidebarProvider>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (
-        <>
-          <WindowResizeHandle corner="se" onMouseDown={handleResizeMouseDown} />
-          <WindowResizeHandle corner="sw" onMouseDown={handleResizeMouseDown} />
-          <WindowResizeHandle corner="ne" onMouseDown={handleResizeMouseDown} />
-          <WindowResizeHandle corner="nw" onMouseDown={handleResizeMouseDown} />
-        </>
+        <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
       )}
     </div>
   );
@@ -311,7 +452,7 @@ function WindowInner({
 function WindowBodyWithSidebar({
   showSidebar,
   children,
-}: React.PropsWithChildren<{ showSidebar: boolean }>) {
+}: PropsWithChildren<{ showSidebar: boolean }>) {
   const { sidebar } = useWindowSidebar();
   return (
     <WindowBody showSidebar={showSidebar} sidebar={sidebar}>

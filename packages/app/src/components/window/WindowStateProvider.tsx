@@ -66,6 +66,92 @@ function findAdjacentWindow(
   return candidate;
 }
 
+function createWindowEntry(
+  id: string,
+  title: string,
+  x: number,
+  y: number,
+  zIndex: number,
+  component?: React.ComponentType,
+): WindowEntry {
+  return {
+    id,
+    title,
+    initialX: x,
+    initialY: y,
+    minimized: false,
+    zIndex,
+    ...(component ? { component } : {}),
+  };
+}
+
+function updateWindowFlag(
+  windows: WindowEntry[],
+  id: string,
+  patch: Pick<WindowEntry, "minimized">,
+) {
+  return windows.map((windowEntry) =>
+    windowEntry.id === id ? { ...windowEntry, ...patch } : windowEntry,
+  );
+}
+
+function updateWindowTitle(windows: WindowEntry[], id: string, title: string) {
+  return windows.map((windowEntry) =>
+    windowEntry.id === id ? { ...windowEntry, title } : windowEntry,
+  );
+}
+
+function swapWindowZIndexes(
+  windows: WindowEntry[],
+  id: string,
+  direction: "forward" | "backward",
+) {
+  const target = windows.find((windowEntry) => windowEntry.id === id);
+  if (!target) {
+    return windows;
+  }
+
+  const swapWith = findAdjacentWindow(windows, target, direction);
+  if (!swapWith) {
+    return windows;
+  }
+
+  return windows.map((windowEntry) => {
+    if (windowEntry.id === target.id) {
+      return { ...windowEntry, zIndex: swapWith.zIndex };
+    }
+    if (windowEntry.id === swapWith.id) {
+      return { ...windowEntry, zIndex: target.zIndex };
+    }
+    return windowEntry;
+  });
+}
+
+function bringWindowToFront(windows: WindowEntry[], id: string) {
+  const target = windows.find((windowEntry) => windowEntry.id === id);
+  if (!target) {
+    return windows;
+  }
+
+  const topZIndex = windows.reduce(
+    (maxZIndex, windowEntry) => Math.max(maxZIndex, windowEntry.zIndex),
+    0,
+  );
+  if (target.zIndex === topZIndex) {
+    return windows;
+  }
+
+  return windows.map((windowEntry) => {
+    if (windowEntry.id === target.id) {
+      return { ...windowEntry, zIndex: topZIndex };
+    }
+    if (windowEntry.zIndex > target.zIndex) {
+      return { ...windowEntry, zIndex: windowEntry.zIndex - 1 };
+    }
+    return windowEntry;
+  });
+}
+
 export function WindowStateProvider({ children }: PropsWithChildren) {
   const [windows, setWindows] = useState<WindowEntry[]>([]);
   const counter = useRef(0);
@@ -75,16 +161,10 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
       const id = String(++counter.current);
       setWindows((prev) => {
         const maxZ = prev.reduce((m, w) => Math.max(m, w.zIndex), 0);
-        const entry: WindowEntry = {
-          id,
-          title,
-          initialX: x,
-          initialY: y,
-          minimized: false,
-          zIndex: maxZ + 1,
-          ...(component && { component }),
-        };
-        return [...prev, entry];
+        return [
+          ...prev,
+          createWindowEntry(id, title, x, y, maxZ + 1, component),
+        ];
       });
       return id;
     },
@@ -96,63 +176,27 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
   }, []);
 
   const minimize = useCallback((id: string) => {
-    setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, minimized: true } : w)),
-    );
+    setWindows((prev) => updateWindowFlag(prev, id, { minimized: true }));
   }, []);
 
   const restore = useCallback((id: string) => {
-    setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, minimized: false } : w)),
-    );
+    setWindows((prev) => updateWindowFlag(prev, id, { minimized: false }));
   }, []);
 
   const updateTitle = useCallback((id: string, title: string) => {
-    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, title } : w)));
+    setWindows((prev) => updateWindowTitle(prev, id, title));
   }, []);
 
   const moveForward = useCallback((id: string) => {
-    setWindows((prev) => {
-      const target = prev.find((w) => w.id === id);
-      if (!target) return prev;
-      const swapWith = findAdjacentWindow(prev, target, "forward");
-      if (!swapWith) return prev;
-      return prev.map((w) => {
-        if (w.id === target.id) return { ...w, zIndex: swapWith.zIndex };
-        if (w.id === swapWith.id) return { ...w, zIndex: target.zIndex };
-        return w;
-      });
-    });
+    setWindows((prev) => swapWindowZIndexes(prev, id, "forward"));
   }, []);
 
   const moveBackward = useCallback((id: string) => {
-    setWindows((prev) => {
-      const target = prev.find((w) => w.id === id);
-      if (!target) return prev;
-      const swapWith = findAdjacentWindow(prev, target, "backward");
-      if (!swapWith) return prev;
-      return prev.map((w) => {
-        if (w.id === target.id) return { ...w, zIndex: swapWith.zIndex };
-        if (w.id === swapWith.id) return { ...w, zIndex: target.zIndex };
-        return w;
-      });
-    });
+    setWindows((prev) => swapWindowZIndexes(prev, id, "backward"));
   }, []);
 
   const bringToFront = useCallback((id: string) => {
-    setWindows((prev) => {
-      const target = prev.find((w) => w.id === id);
-      if (!target) return prev;
-
-      const topZIndex = prev.reduce((max, w) => Math.max(max, w.zIndex), 0);
-      if (target.zIndex === topZIndex) return prev;
-
-      return prev.map((w) => {
-        if (w.id === target.id) return { ...w, zIndex: topZIndex };
-        if (w.zIndex > target.zIndex) return { ...w, zIndex: w.zIndex - 1 };
-        return w;
-      });
-    });
+    setWindows((prev) => bringWindowToFront(prev, id));
   }, []);
 
   const windowMap = useMemo(
