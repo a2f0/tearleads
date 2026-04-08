@@ -32,9 +32,9 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
-  rewrapDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import {
@@ -1434,32 +1434,17 @@ async function requestDocumentSync(
     return null;
   }
 
-  if (
-    synced.currentAccessEpoch !== currentRecord.accessEpoch &&
-    synced.documentRecipientEnvelopeAction === "rewrap" &&
-    synced.documentRecipientEnvelopes === null &&
-    currentDocumentRecipientEnvelopes &&
-    currentRecord.documentId
-  ) {
-    const rewrappedDocumentRecipientEnvelopes =
-      await rewrapDocumentRecipientEnvelopes({
-        documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: state.recipientPublicKeys,
-        secretKey: encapsulationKeyPair.secretKey,
-      });
-    const rewrappedSync = await state.runtime.apiClient.syncDocument(
-      currentRecord.documentId,
-      synced.currentAccessEpoch,
-      encodeVersionVector(currentDoc),
-      [],
-      rewrappedDocumentRecipientEnvelopes,
-    );
-
-    if (rewrappedSync) {
-      synced = rewrappedSync;
-    }
-  }
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: currentRecord.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId: currentRecord.documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(currentDoc),
+    recipientPublicKeys: state.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   return {
     currentDocumentRecipientEnvelopes,

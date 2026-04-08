@@ -34,9 +34,9 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
-  rewrapDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
@@ -841,31 +841,17 @@ async function syncSingleContainerMetadata(
     return;
   }
 
-  if (
-    synced.currentAccessEpoch !== containerState.record.accessEpoch &&
-    synced.documentRecipientEnvelopeAction === "rewrap" &&
-    synced.documentRecipientEnvelopes === null &&
-    currentDocumentRecipientEnvelopes
-  ) {
-    const rewrappedDocumentRecipientEnvelopes =
-      await rewrapDocumentRecipientEnvelopes({
-        documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: containerState.recipientPublicKeys,
-        secretKey: encapsulationKeyPair.secretKey,
-      });
-    const rewrappedSync = await state.runtime.apiClient.syncDocument(
-      documentId,
-      synced.currentAccessEpoch,
-      encodeVersionVector(containerState.doc),
-      [],
-      rewrappedDocumentRecipientEnvelopes,
-    );
-
-    if (rewrappedSync) {
-      synced = rewrappedSync;
-    }
-  }
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: containerState.record.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(containerState.doc),
+    recipientPublicKeys: containerState.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   await state.runtime.cacheReferencedPrincipalPolicies(
     synced.referencedPrincipals,

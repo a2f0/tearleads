@@ -634,7 +634,7 @@ export async function getDocumentRecipientEnvelopeAction(
   );
 
   if (!latestRecipients) {
-    return "rotate";
+    return state.cryptoRecipients.length === 0 ? "none" : "rotate";
   }
 
   if (latestRecipients[0]?.epoch === state.currentAccessEpoch) {

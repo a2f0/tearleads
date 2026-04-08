@@ -6,6 +6,7 @@ import {
   getUpdateVersionVectors,
   type SerializedRecipientEnvelope,
   type SyncDocumentOutgoingUpdate,
+  type SyncDocumentResponse,
 } from "@tearleads/loro";
 import type {
   PendingUpdateFields,
@@ -161,7 +162,7 @@ async function unwrapDocumentKey(
 
 export async function rewrapDocumentRecipientEnvelopes(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope>;
-  execSql?: ExecSql;
+  execSql?: ExecSql | undefined;
   recipientPublicKeys: Uint8Array[];
   secretKey: Uint8Array;
 }): Promise<SerializedRecipientEnvelope[]> {
@@ -178,6 +179,62 @@ export async function rewrapDocumentRecipientEnvelopes(input: {
   return sortDocumentRecipientEnvelopes(
     wrappedRecipients.map((recipient) => serializeRecipientEntry(recipient)),
   );
+}
+
+export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
+  currentAccessEpoch: number;
+  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  localVersionVector: string | null;
+  recipientPublicKeys: Uint8Array[];
+  secretKey: Uint8Array;
+  syncDocument: (
+    documentId: string,
+    accessEpoch: number,
+    localVersionVector: string | null,
+    outgoingUpdates: SyncDocumentOutgoingUpdate[],
+    documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
+  ) => Promise<SyncDocumentResponse | null>;
+  synced: SyncDocumentResponse;
+}): Promise<SyncDocumentResponse> {
+  const {
+    currentAccessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql,
+    localVersionVector,
+    recipientPublicKeys,
+    secretKey,
+    syncDocument,
+    synced,
+  } = input;
+
+  if (
+    synced.currentAccessEpoch === currentAccessEpoch ||
+    synced.documentRecipientEnvelopeAction !== "rewrap" ||
+    synced.documentRecipientEnvelopes !== null ||
+    !currentDocumentRecipientEnvelopes
+  ) {
+    return synced;
+  }
+
+  const rewrappedDocumentRecipientEnvelopes =
+    await rewrapDocumentRecipientEnvelopes({
+      documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+      execSql,
+      recipientPublicKeys,
+      secretKey,
+    });
+  const rewrappedSync = await syncDocument(
+    documentId,
+    synced.currentAccessEpoch,
+    localVersionVector,
+    [],
+    rewrappedDocumentRecipientEnvelopes,
+  );
+
+  return rewrappedSync ?? synced;
 }
 
 export async function getOrCreateDocumentEncryptionMaterial(input: {

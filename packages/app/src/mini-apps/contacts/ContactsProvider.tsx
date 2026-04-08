@@ -27,9 +27,9 @@ import {
   getLocalRecipientPublicKeys,
   getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
+  maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
-  rewrapDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
@@ -595,31 +595,17 @@ async function syncSingleContact(
     return;
   }
 
-  if (
-    synced.currentAccessEpoch !== contact.record.accessEpoch &&
-    synced.documentRecipientEnvelopeAction === "rewrap" &&
-    synced.documentRecipientEnvelopes === null &&
-    currentDocumentRecipientEnvelopes
-  ) {
-    const rewrappedDocumentRecipientEnvelopes =
-      await rewrapDocumentRecipientEnvelopes({
-        documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: contact.recipientPublicKeys,
-        secretKey,
-      });
-    const rewrappedSync = await state.runtime.apiClient.syncDocument(
-      documentId,
-      synced.currentAccessEpoch,
-      encodeVersionVector(contact.doc),
-      [],
-      rewrappedDocumentRecipientEnvelopes,
-    );
-
-    if (rewrappedSync) {
-      synced = rewrappedSync;
-    }
-  }
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: contact.record.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(contact.doc),
+    recipientPublicKeys: contact.recipientPublicKeys,
+    secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
 
   await state.runtime.cacheReferencedPrincipalPolicies(
     synced.referencedPrincipals,
