@@ -154,7 +154,7 @@ async function unwrapDocumentKey(
 ): Promise<Uint8Array> {
   return unwrapRecipientEnvelopesWithPrincipalPolicies({
     envelopes: sortDocumentRecipientEnvelopes(documentRecipientEnvelopes),
-    ...(execSql ? { execSql } : {}),
+    execSql,
     secretKey,
   });
 }

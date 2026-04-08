@@ -139,6 +139,22 @@ function mergeAccessLevel(
     : current;
 }
 
+function upsertCryptoRecipient(
+  recipientsByPrincipalKey: Map<string, EffectiveContainerRecipient>,
+  nextRecipient: EffectiveContainerRecipient,
+): void {
+  const principalKey = principalRecipientKey(nextRecipient);
+  const existingRecipient = recipientsByPrincipalKey.get(principalKey);
+
+  recipientsByPrincipalKey.set(principalKey, {
+    ...nextRecipient,
+    accessLevel: mergeAccessLevel(
+      existingRecipient?.accessLevel,
+      nextRecipient.accessLevel,
+    ),
+  });
+}
+
 function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -625,18 +641,7 @@ function buildCryptoRecipientsFromGrantRows(
         encapsulationPublicKey: userRecipient.encapsulationPublicKey,
         keyFingerprint: userRecipient.encapsulationKeyFingerprint,
       });
-      const principalKey = principalRecipientKey(nextRecipient);
-      const existingRecipient = recipientsByPrincipalKey.get(principalKey);
-
-      recipientsByPrincipalKey.set(principalKey, {
-        ...nextRecipient,
-        accessLevel: existingRecipient
-          ? mergeAccessLevel(
-              existingRecipient.accessLevel,
-              nextRecipient.accessLevel,
-            )
-          : nextRecipient.accessLevel,
-      });
+      upsertCryptoRecipient(recipientsByPrincipalKey, nextRecipient);
       continue;
     }
 
@@ -659,18 +664,7 @@ function buildCryptoRecipientsFromGrantRows(
       encapsulationPublicKey: currentPrincipalState.encapsulationPublicKey,
       keyFingerprint: currentPrincipalState.keyFingerprint,
     });
-    const principalKey = principalRecipientKey(nextRecipient);
-    const existingRecipient = recipientsByPrincipalKey.get(principalKey);
-
-    recipientsByPrincipalKey.set(principalKey, {
-      ...nextRecipient,
-      accessLevel: existingRecipient
-        ? mergeAccessLevel(
-            existingRecipient.accessLevel,
-            nextRecipient.accessLevel,
-          )
-        : nextRecipient.accessLevel,
-    });
+    upsertCryptoRecipient(recipientsByPrincipalKey, nextRecipient);
   }
 
   return Array.from(recipientsByPrincipalKey.values()).sort((left, right) =>

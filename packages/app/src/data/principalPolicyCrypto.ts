@@ -147,7 +147,7 @@ async function unwrapPrincipalSecretKey(
 
 export async function unwrapRecipientEnvelopesWithPrincipalPolicies(input: {
   envelopes: ReadonlyArray<SerializedRecipientEnvelope>;
-  execSql?: ExecSql;
+  execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
 }): Promise<Uint8Array> {
   const recipientEntries = toRecipientEntries(input.envelopes);

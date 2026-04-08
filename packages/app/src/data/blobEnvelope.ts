@@ -72,7 +72,7 @@ export async function rewrapBlobRecipientEnvelopes(input: {
       kemCipherText: recipient.kemCipherText,
       wrappedKey: recipient.wrappedKey,
     })),
-    ...(input.execSql ? { execSql: input.execSql } : {}),
+    execSql: input.execSql,
     secretKey: input.secretKey,
   });
   const wrappedRecipients = await wrapDekForRecipients(
