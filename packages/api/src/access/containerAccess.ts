@@ -270,7 +270,7 @@ async function getCurrentEpochRows(
   return currentEpochByContainerId;
 }
 
-async function listDescendantContainers(
+export async function listDescendantContainers(
   containerId: string,
   executor: ContainerAccessExecutor = db,
 ): Promise<DescendantContainerRow[]> {
@@ -919,11 +919,13 @@ function resolveDescendantContainerInputs(
 export async function refreshContainerAccessSubtree(
   containerId: string,
   executor: ContainerAccessExecutor = db,
+  options: {
+    descendantContainers?: ReadonlyArray<DescendantContainerRow>;
+  } = {},
 ): Promise<Map<string, number>> {
-  const descendantContainers = await listDescendantContainers(
-    containerId,
-    executor,
-  );
+  const descendantContainers = options.descendantContainers
+    ? [...options.descendantContainers]
+    : await listDescendantContainers(containerId, executor);
   const descendantIds = descendantContainers.map((container) => container.id);
   const currentEpochByContainerId = await getCurrentEpochRows(
     descendantIds,

@@ -5,7 +5,6 @@ import type { ApiServiceRuntime } from "../runtime";
 import { refreshLinkedDocumentAndBlobAccess } from "../structural/shared";
 import {
   buildDocumentMutationResponse,
-  documentLinkExists,
   requireMutableDocumentContext,
   requireWritableContainer,
   StructuralDocumentMutationError,
@@ -39,7 +38,7 @@ export async function linkDocumentToContainer(
       );
     }
 
-    if (await documentLinkExists(tx, input.documentId, input.containerId)) {
+    if (documentContext.linkedContainerIds.includes(input.containerId)) {
       throw new StructuralDocumentMutationError(
         "Document is already linked to the container",
         409,
@@ -53,6 +52,9 @@ export async function linkDocumentToContainer(
 
     await refreshLinkedDocumentAndBlobAccess([input.documentId], tx);
 
-    return buildDocumentMutationResponse(tx, input.documentId);
+    return buildDocumentMutationResponse(tx, input.documentId, [
+      ...documentContext.linkedContainerIds,
+      input.containerId,
+    ]);
   });
 }

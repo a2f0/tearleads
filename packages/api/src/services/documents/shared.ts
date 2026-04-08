@@ -1,5 +1,5 @@
 import type { ContainerDocumentSummary } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   canWriteContainerAccess,
   resolveContainerAccessState,
@@ -95,9 +95,13 @@ export async function requireMutableDocumentContext(
     );
   }
 
-  for (const containerId of linkedContainerIds) {
-    const access = await resolveContainerAccessState(containerId, tx);
+  const linkedContainerAccessStates = await Promise.all(
+    linkedContainerIds.map((containerId) =>
+      resolveContainerAccessState(containerId, tx),
+    ),
+  );
 
+  for (const access of linkedContainerAccessStates) {
     if (!access) {
       throw new StructuralDocumentMutationError(
         "Linked container access state is unavailable",
@@ -155,6 +159,7 @@ export async function requireWritableContainer(
 export async function buildDocumentMutationResponse(
   tx: DatabaseTransaction,
   documentId: string,
+  linkedContainerIds?: ReadonlyArray<string>,
 ): Promise<ContainerDocumentSummary> {
   const [document] = await tx
     .select({
@@ -177,41 +182,24 @@ export async function buildDocumentMutationResponse(
     );
   }
 
-  const linkedContainerRows = await tx
-    .select({
-      containerId: documentContainerLinks.containerId,
-    })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, documentId));
-
   return {
     createdAt: document.createdAt.toISOString(),
     currentAccessEpoch: access.currentAccessEpoch,
     id: document.id,
-    linkedContainerIds: uniqueSortedStrings(
-      linkedContainerRows.map((row) => row.containerId),
-    ),
+    linkedContainerIds: linkedContainerIds
+      ? uniqueSortedStrings([...linkedContainerIds])
+      : uniqueSortedStrings(
+          (
+            await tx
+              .select({
+                containerId: documentContainerLinks.containerId,
+              })
+              .from(documentContainerLinks)
+              .where(eq(documentContainerLinks.documentId, documentId))
+          ).map((row) => row.containerId),
+        ),
     recipientEncapsulationPublicKeys:
       listRecipientEncapsulationPublicKeys(access),
     referencedPrincipals: access.referencedPrincipals,
   };
-}
-
-export async function documentLinkExists(
-  tx: DatabaseTransaction,
-  documentId: string,
-  containerId: string,
-): Promise<boolean> {
-  const [row] = await tx
-    .select({ id: documentContainerLinks.id })
-    .from(documentContainerLinks)
-    .where(
-      and(
-        eq(documentContainerLinks.documentId, documentId),
-        eq(documentContainerLinks.containerId, containerId),
-      ),
-    )
-    .limit(1);
-
-  return !!row;
 }

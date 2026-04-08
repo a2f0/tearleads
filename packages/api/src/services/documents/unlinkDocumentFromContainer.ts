@@ -6,7 +6,6 @@ import type { ApiServiceRuntime } from "../runtime";
 import { refreshLinkedDocumentAndBlobAccess } from "../structural/shared";
 import {
   buildDocumentMutationResponse,
-  documentLinkExists,
   requireMutableDocumentContext,
   requireWritableContainer,
   StructuralDocumentMutationError,
@@ -31,7 +30,7 @@ export async function unlinkDocumentFromContainer(
 
     await requireWritableContainer(tx, input.containerId, input.userId);
 
-    if (!(await documentLinkExists(tx, input.documentId, input.containerId))) {
+    if (!documentContext.linkedContainerIds.includes(input.containerId)) {
       throw new StructuralDocumentMutationError("Document link not found", 404);
     }
 
@@ -53,6 +52,12 @@ export async function unlinkDocumentFromContainer(
 
     await refreshLinkedDocumentAndBlobAccess([input.documentId], tx);
 
-    return buildDocumentMutationResponse(tx, input.documentId);
+    return buildDocumentMutationResponse(
+      tx,
+      input.documentId,
+      documentContext.linkedContainerIds.filter(
+        (containerId) => containerId !== input.containerId,
+      ),
+    );
   });
 }

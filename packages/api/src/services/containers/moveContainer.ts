@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   canAdminContainerAccess,
   canWriteContainerAccess,
-  listDescendantContainerIds,
+  listDescendantContainers,
   refreshContainerAccessSubtree,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
@@ -102,9 +102,12 @@ export async function moveContainer(
       return buildMoveContainerResponse(tx, container.id, parent.id);
     }
 
-    const descendantContainerIds = await listDescendantContainerIds(
+    const descendantContainers = await listDescendantContainers(
       container.id,
       tx,
+    );
+    const descendantContainerIds = descendantContainers.map(
+      (descendantContainer) => descendantContainer.id,
     );
 
     if (descendantContainerIds.includes(parent.id)) {
@@ -122,6 +125,9 @@ export async function moveContainer(
     const refreshedEpochs = await refreshContainerAccessSubtree(
       container.id,
       tx,
+      {
+        descendantContainers,
+      },
     );
     await refreshAccessForLinkedContainers(
       Array.from(refreshedEpochs.keys()),
