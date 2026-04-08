@@ -160,7 +160,7 @@ async function unwrapDocumentKey(
   });
 }
 
-export async function rewrapDocumentRecipientEnvelopes(input: {
+async function rewrapDocumentRecipientEnvelopes(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope>;
   execSql?: ExecSql | undefined;
   recipientPublicKeys: Uint8Array[];
