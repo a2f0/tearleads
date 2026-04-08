@@ -502,6 +502,25 @@ epoch secret to the principal's direct members.
 changes may keep the same principal epoch key while changing the direct member
 set that needs fresh wrapped copies.
 
+### Policy API Surface
+
+The current implementation now exposes the principal-policy foundation through
+authenticated API routes:
+
+- `PUT /principals/:principalType/:principalId/state`
+  Stores a signed current principal state after verifying its signature against
+  a trusted policy signer configured outside the ordinary mutation path.
+- `PUT /principals/:principalType/:principalId/member-envelopes`
+  Stores the current direct-member wrapped copies of the principal epoch secret
+  for the current signed state.
+- `GET /principals/:principalType/:principalId/policy`
+  Returns the current signed principal state plus the current state-scoped
+  member envelopes.
+
+This is still policy-metadata plumbing, not the full runtime principal
+recipient pivot. Container/document/blob access resolution continues to flatten
+effective crypto recipients to users until the later `#105` slices land.
+
 ### Signed Access Manifest
 
 The server can still materialize a per-object access view, but clients should

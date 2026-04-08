@@ -82,8 +82,8 @@ Important remaining limitation:
 - the runtime still flattens effective crypto recipients to users even though
   the envelope storage model is pivoting toward principals
 - signed principal-state, principal epoch-key, and principal member-envelope
-  storage now exist as foundation-only metadata, but document/blob sync does
-  not consume them yet
+  storage and policy API routes now exist, but document/blob sync does not
+  consume them yet
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current
