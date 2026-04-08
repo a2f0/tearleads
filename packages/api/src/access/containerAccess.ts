@@ -622,12 +622,9 @@ function groupContainerGrantsByObjectId(grants: ContainerGrantRow[]) {
   const directGrantsByContainerId = new Map<string, ContainerGrantRow[]>();
 
   for (const grant of grants) {
-    const existing = directGrantsByContainerId.get(grant.objectId);
-    if (existing) {
-      existing.push(grant);
-      continue;
-    }
-    directGrantsByContainerId.set(grant.objectId, [grant]);
+    const nextGrants = directGrantsByContainerId.get(grant.objectId) ?? [];
+    nextGrants.push(grant);
+    directGrantsByContainerId.set(grant.objectId, nextGrants);
   }
 
   return directGrantsByContainerId;
@@ -642,22 +639,19 @@ function groupGrantedRecipientsByObjectId(
   >();
 
   for (const recipient of recipients) {
-    const existing = directGrantedRecipientsByContainerId.get(
-      recipient.objectId,
-    );
+    const nextRecipients =
+      directGrantedRecipientsByContainerId.get(recipient.objectId) ?? [];
     const nextRecipient = {
       userId: recipient.userId,
       accessLevel: recipient.accessLevel,
       encapsulationPublicKey: recipient.encapsulationPublicKey,
       encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
     };
-    if (existing) {
-      existing.push(nextRecipient);
-      continue;
-    }
-    directGrantedRecipientsByContainerId.set(recipient.objectId, [
-      nextRecipient,
-    ]);
+    nextRecipients.push(nextRecipient);
+    directGrantedRecipientsByContainerId.set(
+      recipient.objectId,
+      nextRecipients,
+    );
   }
 
   return directGrantedRecipientsByContainerId;
