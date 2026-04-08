@@ -1888,15 +1888,27 @@ function isExplorerModalSubmitDisabled(params: {
     modalState,
     peerUserId,
   } = params;
-  return (
-    isSubmittingModal ||
-    (modalState.mode !== "delete" &&
-      modalState.mode !== "move" &&
-      modalState.mode !== "share-peer" &&
-      draftName.trim().length === 0) ||
-    (modalState.mode === "move" && draftTargetContainerId.length === 0) ||
-    (modalState.mode === "share-peer" && !peerUserId)
-  );
+  if (isSubmittingModal) {
+    return true;
+  }
+
+  const nameIsRequired =
+    modalState.mode !== "delete" &&
+    modalState.mode !== "move" &&
+    modalState.mode !== "share-peer";
+  if (nameIsRequired && draftName.trim().length === 0) {
+    return true;
+  }
+
+  if (modalState.mode === "move" && draftTargetContainerId.length === 0) {
+    return true;
+  }
+
+  if (modalState.mode === "share-peer" && !peerUserId) {
+    return true;
+  }
+
+  return false;
 }
 
 function ExplorerModalBody(params: {
