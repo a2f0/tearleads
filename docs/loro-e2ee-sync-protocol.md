@@ -90,6 +90,8 @@ Current implementation:
   - `POST /documents/:documentId/unlink`
 - those routes now materialize affected document epochs and active blob epochs
   immediately after the container/document graph changes
+- the app explorer now drives the container `move` route directly for
+  reparenting, while document `link` / `unlink` client flows are still pending
 
 Important remaining limitation:
 
