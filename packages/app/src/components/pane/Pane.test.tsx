@@ -1,7 +1,13 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
-import { fireEvent, render, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
@@ -11,7 +17,10 @@ import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
-afterEach(() => resetMockServer());
+afterEach(async () => {
+  cleanup();
+  await resetMockServer();
+});
 
 function renderPane() {
   return render(

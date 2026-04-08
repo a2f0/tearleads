@@ -1,8 +1,3 @@
-import {
-  bytesToHex,
-  CHALLENGE_TTL_SECONDS,
-  generateChallenge,
-} from "@tearleads/crypto";
 import { isChallengeRequest } from "@tearleads/validators/request";
 import type {
   ChallengeErrorResponse,
@@ -10,7 +5,8 @@ import type {
 } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { get, set } from "../../adapters/redis";
+import { createChallenge } from "../../services/auth/createChallenge";
+import { defaultApiServiceRuntime } from "../../services/runtime";
 
 export const challenge = new Hono();
 
@@ -23,20 +19,14 @@ challenge.post(
     return value;
   }),
   async (c) => {
-    const { fingerprint } = c.req.valid("json");
+    const result = await createChallenge(
+      defaultApiServiceRuntime,
+      c.req.valid("json"),
+    );
 
-    const storedKey = await get(fingerprint);
-    if (!storedKey) {
-      return c.json<ChallengeErrorResponse>(
-        { error: "Unknown fingerprint" },
-        404,
-      );
-    }
-
-    const bytes = generateChallenge();
-    const challengeHex = bytesToHex(bytes);
-    await set(`challenge:${fingerprint}`, challengeHex, CHALLENGE_TTL_SECONDS);
-
-    return c.json<ChallengeResponse>({ challenge: challengeHex });
+    return c.json<ChallengeErrorResponse | ChallengeResponse>(
+      result.body,
+      result.status,
+    );
   },
 );

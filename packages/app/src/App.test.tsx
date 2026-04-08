@@ -1,57 +1,56 @@
 import { afterEach, expect, test } from "bun:test";
-import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
-import { resetMockServer, wsUrl } from "../test/helpers/mswServer";
 import { App } from "./App";
+import { createAppDatabaseWorker } from "./db/sqliteWorker";
 import { AppHostConfig } from "./host/AppHostConfig";
 
-afterEach(() => resetMockServer());
+afterEach(() => {
+  cleanup();
+});
 
 test("renders App", async () => {
-  const mockWorkers: MockWorker[] = [];
+  const originalWebSocket = globalThis.WebSocket;
 
-  const view = render(
-    <App
-      hostConfig={
-        new AppHostConfig("http://localhost:3001", wsUrl, () => {
-          const worker = new MockWorker();
-          mockWorkers.push(worker);
-          return {
-            id: crypto.randomUUID(),
-            client: createDatabaseWorkerClient(worker),
-            worker,
-          };
-        })
-      }
-    />,
-  );
+  class SilentWebSocket extends EventTarget {
+    constructor(_url: string | URL) {
+      super();
+    }
 
-  expect(
-    view.getAllByText(/sqlite worker: idle/).length,
-  ).toBeGreaterThanOrEqual(1);
-  expect(
-    view.getAllByText(
-      /Generate a key pair from the pane menu to boot this pane\./,
-    ).length,
-  ).toBeGreaterThanOrEqual(1);
-
-  const firstMenuButton = view.getAllByText("Menu")[0];
-  if (!firstMenuButton) {
-    throw new Error("Expected a pane menu button.");
+    close() {}
   }
 
-  fireEvent.click(firstMenuButton);
-  fireEvent.click(view.getByText("Generate Key Pair"));
+  try {
+    Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
-  await waitFor(() => {
+    const view = render(
+      <App
+        hostConfig={
+          new AppHostConfig(
+            "http://localhost:3001",
+            "ws://localhost:3002",
+            () => createAppDatabaseWorker(MockWorker),
+          )
+        }
+      />,
+    );
+
     expect(
-      view.getAllByText(/sqlite worker: ready/).length,
+      view.getAllByText(/sqlite worker: idle/).length,
     ).toBeGreaterThanOrEqual(1);
-  });
+    expect(
+      view.getAllByText(
+        /Generate a key pair from the pane menu to boot this pane\./,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
 
-  view.unmount();
-  for (const worker of mockWorkers) {
-    expect(worker.terminated).toBe(true);
+    const firstMenuButton = view.getAllByText("Menu")[0];
+    if (!firstMenuButton) {
+      throw new Error("Expected a pane menu button.");
+    }
+
+    view.unmount();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });

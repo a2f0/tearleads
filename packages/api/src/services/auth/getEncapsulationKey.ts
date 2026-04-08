@@ -1,0 +1,32 @@
+import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
+import { users } from "../../schema";
+import type { ApiServiceRuntime } from "../runtime";
+
+export class GetEncapsulationKeyError extends Error {
+  constructor(
+    message: string,
+    readonly status: 404,
+  ) {
+    super(message);
+  }
+}
+
+export async function getEncapsulationKey(
+  runtime: ApiServiceRuntime,
+  userId: string,
+): Promise<EncapsulationKeyResponse> {
+  const [user] = await runtime.db
+    .select({ encapsulationPublicKey: users.encapsulationPublicKey })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!user) {
+    throw new GetEncapsulationKeyError("User not found", 404);
+  }
+
+  return {
+    userId,
+    encapsulationPublicKey: user.encapsulationPublicKey,
+  };
+}

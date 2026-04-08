@@ -12,7 +12,7 @@
     "./host/AppHostConfig": "./src/host/AppHostConfig.ts"
   },
   "scripts": {
-    "test": "bun test src --max-concurrency=4"
+    "test": "bun test src --max-concurrency=1"
   },
   "dependencies": {
     "@tearleads/api-client": "workspace:*",

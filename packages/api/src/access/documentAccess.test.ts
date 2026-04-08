@@ -44,6 +44,7 @@ test("document access includes recipients inherited from its linked root contain
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
   expect(createdDocument.currentAccessEpoch).toBe(1);
+  expect(createdDocument.documentRecipientEnvelopes).toHaveLength(1);
 
   const [aliceRow] = await db
     .select({
@@ -81,7 +82,7 @@ test("document access includes recipients inherited from its linked root contain
     .select({ id: objectRecipientEnvelopes.id })
     .from(objectRecipientEnvelopes)
     .where(eq(objectRecipientEnvelopes.objectId, documentId));
-  expect(documentEnvelopes).toHaveLength(0);
+  expect(documentEnvelopes).toHaveLength(1);
 
   const beforeShare = await resolveDocumentAccessState(documentId);
   invariant(beforeShare, "expected document access state");

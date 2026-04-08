@@ -25,6 +25,7 @@ import {
 import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
+  createDocumentRecipientEnvelopes,
   documentRecipientEnvelopesMatchRecipients,
   initializeDocumentAccess,
   listDocumentRecipientEnvelopes,
@@ -238,14 +239,22 @@ export const documentsRouter = createLoroRouter({
           return null;
         }
 
+        const initialDocumentRecipientEnvelopes =
+          await createDocumentRecipientEnvelopes(access);
+        if (initialDocumentRecipientEnvelopes) {
+          await replaceDocumentRecipientEnvelopes(
+            document.id,
+            currentAccessEpoch,
+            access,
+            initialDocumentRecipientEnvelopes,
+            tx,
+          );
+        }
+
         return {
           document,
           currentAccessEpoch,
-          documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
-            document.id,
-            currentAccessEpoch,
-            tx,
-          ),
+          documentRecipientEnvelopes: initialDocumentRecipientEnvelopes,
           recipientEncapsulationPublicKeys:
             listRecipientEncapsulationPublicKeys(access),
         };
