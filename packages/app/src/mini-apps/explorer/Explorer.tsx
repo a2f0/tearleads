@@ -41,6 +41,13 @@ type ExplorerModalState =
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
 
+function isDestroyedDatabaseWorkerError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === "Database worker client has been destroyed."
+  );
+}
+
 function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
 ): ExplorerTreeEntry[] {
@@ -164,6 +171,7 @@ function renderTreeEntries(
                   <span className="explorer-node-spacer" aria-hidden="true" />
                   <button
                     type="button"
+                    data-note-id={id}
                     className={
                       "explorer-sidebar-item explorer-sidebar-item--note" +
                       (selectedId === id
@@ -312,7 +320,19 @@ export function Explorer() {
       );
 
       if (!cancelled) {
-        setNoteSummaries(visibleNotes);
+        setNoteSummaries((currentNoteSummaries) => {
+          const visibleNotesById = new Map(
+            visibleNotes.map((note) => [note.id, note]),
+          );
+          const pendingVisibleNotes = currentNoteSummaries.filter(
+            (note) =>
+              note.containerId &&
+              validContainerIds.has(note.containerId) &&
+              !visibleNotesById.has(note.id),
+          );
+
+          return [...visibleNotes, ...pendingVisibleNotes];
+        });
       }
     })();
 
@@ -394,8 +414,10 @@ export function Explorer() {
     [],
   );
 
+  const selectedNode = nodes.find((node) => node.id === selectedId);
   const selectedNote = noteSummaries.find((note) => note.id === selectedId);
-  const activeContainerId = selectedNote?.containerId ?? selectedId;
+  const activeContainerId =
+    selectedNote?.containerId ?? selectedNode?.id ?? null;
   const primeDiscoveredNotes = useCallback(
     (discoveredNoteSummaries: ReadonlyArray<NoteSummary>) => {
       for (const noteSummary of discoveredNoteSummaries) {
@@ -403,7 +425,7 @@ export function Explorer() {
           continue;
         }
 
-        primeNotesStore(
+        const notesStore = primeNotesStore(
           domainScope,
           noteSummary.id,
           {
@@ -420,7 +442,9 @@ export function Explorer() {
             online,
           },
           mergeNoteSummary,
+          noteSummary.documentId,
         );
+        notesStore.requestSync();
       }
     },
     [
@@ -441,25 +465,33 @@ export function Explorer() {
       let cancelled = false;
 
       void (async () => {
-        const discoveredNoteSummaries = await discoverContainerDocuments({
-          containerId,
-          listContainerDocuments: (nextContainerId) =>
-            apiClient.listContainerDocuments(nextContainerId),
-          replaceDocumentLinksBatch: (inputs) =>
-            sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-              execSql,
-              inputs,
-            ),
-          upsertDiscoveredNotes: (inputs) =>
-            upsertDiscoveredNotes(execSql, inputs),
-        });
+        try {
+          const discoveredNoteSummaries = await discoverContainerDocuments({
+            containerId,
+            listContainerDocuments: (nextContainerId) =>
+              apiClient.listContainerDocuments(nextContainerId),
+            replaceDocumentLinksBatch: (inputs) =>
+              sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+                execSql,
+                inputs,
+              ),
+            upsertDiscoveredNotes: (inputs) =>
+              upsertDiscoveredNotes(execSql, inputs),
+          });
 
-        if (!discoveredNoteSummaries || cancelled) {
-          return;
+          if (!discoveredNoteSummaries || cancelled) {
+            return;
+          }
+
+          mergeNoteSummaries(discoveredNoteSummaries);
+          primeDiscoveredNotes(discoveredNoteSummaries);
+        } catch (error: unknown) {
+          if (isDestroyedDatabaseWorkerError(error)) {
+            return;
+          }
+
+          throw error;
         }
-
-        mergeNoteSummaries(discoveredNoteSummaries);
-        primeDiscoveredNotes(discoveredNoteSummaries);
       })();
 
       return () => {
@@ -568,6 +600,10 @@ export function Explorer() {
       mergeNoteSummaries(discoveredNoteSummaries);
       primeDiscoveredNotes(discoveredNoteSummaries);
     } catch (error: unknown) {
+      if (isDestroyedDatabaseWorkerError(error)) {
+        return;
+      }
+
       console.error("Failed to refresh explorer:", error);
       setRefreshError("Failed to refresh explorer.");
     } finally {
@@ -831,7 +867,6 @@ export function Explorer() {
     ],
   );
 
-  const selectedNode = nodes.find((node) => node.id === selectedId);
   const selectedNoteContainer = selectedNote?.containerId
     ? nodes.find((node) => node.id === selectedNote.containerId)
     : null;
@@ -897,6 +932,9 @@ export function Explorer() {
               {...(selectedNote.containerId === undefined
                 ? {}
                 : { containerId: selectedNote.containerId })}
+              {...(selectedNote.documentId === undefined
+                ? {}
+                : { documentId: selectedNote.documentId })}
               onPersistedNote={mergeNoteSummary}
             />
           </div>

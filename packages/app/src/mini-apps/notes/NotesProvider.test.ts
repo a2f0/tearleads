@@ -1034,6 +1034,72 @@ test("notes store enqueues a full baseline when document access expands", async 
   ]);
 });
 
+test("notes store does not invent document recipient envelopes during read-only sync", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const syncDocumentCalls: Array<{
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+  }> = [];
+
+  await persistence.saveNote(async () => [], {
+    accessEpoch: 1,
+    containerId: "root-container",
+    documentId: "notes-document-1",
+    documentRecipientEnvelopes: null,
+    id: "default",
+    loroSnapshot: "",
+    text: "",
+  });
+
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        syncDocumentCalls.push({
+          documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore("default", instrumentedRuntime, persistence);
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => syncDocumentCalls.length === 1,
+    "Read-only notes sync did not run.",
+  );
+
+  expect(syncDocumentCalls).toEqual([
+    {
+      documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 0,
+      outgoingUpdateCount: 0,
+    },
+  ]);
+});
+
 test("notes store rewraps committed attachments when document access expands", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

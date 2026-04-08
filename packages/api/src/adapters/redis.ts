@@ -1,15 +1,48 @@
 import { createClient } from "redis";
 
-const client = createClient();
+type RedisClient = ReturnType<typeof createClient>;
 
-client.on("error", (err) => {
-  console.error("Redis client error:", err);
-});
+let client: RedisClient | null = null;
+let connectPromise: Promise<RedisClient> | null = null;
 
-await client.connect();
+function getClient(): RedisClient {
+  if (client) {
+    return client;
+  }
+
+  const nextClient = createClient();
+  nextClient.on("error", (err) => {
+    console.error("Redis client error:", err);
+  });
+  client = nextClient;
+  return nextClient;
+}
+
+async function ensureClient(): Promise<RedisClient> {
+  const activeClient = getClient();
+  if (activeClient.isOpen) {
+    return activeClient;
+  }
+  if (connectPromise) {
+    return connectPromise;
+  }
+
+  connectPromise = activeClient
+    .connect()
+    .then(() => activeClient)
+    .catch((error) => {
+      connectPromise = null;
+      throw error;
+    });
+
+  const connectedClient = await connectPromise;
+  connectPromise = null;
+  return connectedClient;
+}
 
 export async function get(key: string): Promise<string | null> {
-  return client.get(key);
+  const activeClient = await ensureClient();
+  return activeClient.get(key);
 }
 
 export async function set(
@@ -17,13 +50,27 @@ export async function set(
   value: string,
   ttlSeconds?: number,
 ): Promise<void> {
+  const activeClient = await ensureClient();
   if (ttlSeconds !== undefined) {
-    await client.set(key, value, { EX: ttlSeconds });
+    await activeClient.set(key, value, { EX: ttlSeconds });
   } else {
-    await client.set(key, value);
+    await activeClient.set(key, value);
   }
 }
 
 export async function del(key: string): Promise<void> {
-  await client.del(key);
+  const activeClient = await ensureClient();
+  await activeClient.del(key);
+}
+
+export async function closeRedisClient(): Promise<void> {
+  const activeClient = client;
+  client = null;
+  connectPromise = null;
+
+  if (!activeClient || !activeClient.isOpen) {
+    return;
+  }
+
+  await activeClient.close();
 }

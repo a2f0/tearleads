@@ -1,14 +1,27 @@
+import { waitFor } from "@testing-library/react";
+
 export async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
   message: string,
+  timeoutMs = 10_000,
+  intervalMs = 50,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (await predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  try {
+    await waitFor(
+      async () => {
+        const matched = await predicate();
+        if (!matched) {
+          throw new Error(message);
+        }
+      },
+      {
+        timeout: timeoutMs,
+        interval: intervalMs,
+      },
+    );
+  } catch (error) {
+    throw new Error(message, {
+      cause: error,
+    });
   }
-
-  throw new Error(message);
 }

@@ -142,8 +142,10 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(typeof documentId).toBe("string");
   expect(createdDocument.currentAccessEpoch).toBe(1);
   expect(createdDocument.recipientEncapsulationPublicKeys).toHaveLength(1);
-  const initialDocumentEncryption = await createDocumentEncryption(
-    createdDocument.recipientEncapsulationPublicKeys,
+  expect(createdDocument.documentRecipientEnvelopes).toHaveLength(1);
+  const initialDocumentKey = await unwrapDocumentKeyFromEnvelopes(
+    createdDocument.documentRecipientEnvelopes,
+    alice.kem.secretKey,
   );
 
   const aliceDoc = await createLoroDocument(alice.fingerprint);
@@ -172,7 +174,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const encryptedFirstUpdate = await encryptLoroUpdate(
     firstUpdate,
     createdDocument.currentAccessEpoch,
-    initialDocumentEncryption.documentKey,
+    initialDocumentKey,
   );
   const firstUpdateVersionVectors = getUpdateVersionVectors(firstUpdate);
 
@@ -180,8 +182,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
     documentId,
     {
       accessEpoch: 1,
-      documentRecipientEnvelopes:
-        initialDocumentEncryption.documentRecipientEnvelopes,
+      documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
       localVersionVector: encodeVersionVector(aliceDoc),
       outgoingUpdates: [
         {
@@ -688,6 +689,19 @@ test("Bob can discover and read a note after Alice shares its container through 
   const staleEpochSync = await staleEpochResponse.json();
   expect(staleEpochSync.currentAccessEpoch).toBe(2);
   expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
+  const bobCurrentEpochNoopResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: staleEpochSync.currentAccessEpoch,
+      localVersionVector: "AA==",
+      outgoingUpdates: [],
+    },
+    bob.token,
+  );
+  expect(bobCurrentEpochNoopResponse.status).toBe(200);
+  const bobCurrentEpochNoopSync = await bobCurrentEpochNoopResponse.json();
+  expect(bobCurrentEpochNoopSync.currentAccessEpoch).toBe(2);
+  expect(bobCurrentEpochNoopSync.documentRecipientEnvelopes).toBeNull();
   const rebasedDocumentEncryption = await createDocumentEncryption(
     staleEpochSync.recipientEncapsulationPublicKeys,
   );

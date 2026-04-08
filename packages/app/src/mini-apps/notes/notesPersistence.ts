@@ -286,6 +286,7 @@ export async function upsertDiscoveredNotes(
   inputs: ReadonlyArray<DiscoveredNoteInput>,
 ): Promise<NoteSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await sqlNotesPersistence.ensureSchema(lockedExecSql);
     const nextSummaries: NoteSummary[] = [];
 
     for (const input of inputs) {

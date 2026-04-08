@@ -1,3 +1,5 @@
+import { wrapDekForRecipients } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
@@ -451,6 +453,32 @@ export function listRecipientEncapsulationPublicKeys(
   return state.effectiveRecipients.map(
     (recipient) => recipient.encapsulationPublicKey,
   );
+}
+
+export async function createDocumentRecipientEnvelopes(
+  state: DocumentAccessState,
+): Promise<SerializedRecipientEnvelope[] | null> {
+  if (state.effectiveRecipients.length === 0) {
+    return null;
+  }
+
+  const documentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrappedRecipients = await wrapDekForRecipients(
+    documentKey,
+    state.effectiveRecipients.map((recipient) =>
+      base64ToBytes(recipient.encapsulationPublicKey),
+    ),
+  );
+
+  return wrappedRecipients
+    .map((recipient) => ({
+      keyFingerprint: recipient.keyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+    }))
+    .sort((left, right) =>
+      left.keyFingerprint.localeCompare(right.keyFingerprint),
+    );
 }
 
 function envelopeFingerprintsMatchRecipients(

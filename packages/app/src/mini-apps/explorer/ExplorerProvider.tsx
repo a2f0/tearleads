@@ -328,42 +328,48 @@ export function createExplorerStore(
         continue;
       }
 
-      const notesStore = primeNotesStore(runtime.domainScope, noteSummary.id, {
-        apiClient: {
-          commitDocumentChange: (documentId, input) =>
-            runtime.apiClient.commitDocumentChange(documentId, input),
-          createDocument: (linkedContainerIds) =>
-            runtime.apiClient.createDocument(linkedContainerIds),
-          getBlob: (blobId) => runtime.apiClient.getBlob(blobId),
-          listDocumentAttachments: (documentId) =>
-            runtime.apiClient.listDocumentAttachments(documentId),
-          stageBlob: (input) => runtime.apiClient.stageBlob(input),
-          syncDocument: (
-            documentId,
-            accessEpoch,
-            localVersionVector,
-            outgoingUpdates,
-            documentRecipientEnvelopes,
-          ) =>
-            runtime.apiClient.syncDocument(
+      const notesStore = primeNotesStore(
+        runtime.domainScope,
+        noteSummary.id,
+        {
+          apiClient: {
+            commitDocumentChange: (documentId, input) =>
+              runtime.apiClient.commitDocumentChange(documentId, input),
+            createDocument: (linkedContainerIds) =>
+              runtime.apiClient.createDocument(linkedContainerIds),
+            getBlob: (blobId) => runtime.apiClient.getBlob(blobId),
+            listDocumentAttachments: (documentId) =>
+              runtime.apiClient.listDocumentAttachments(documentId),
+            stageBlob: (input) => runtime.apiClient.stageBlob(input),
+            syncDocument: (
               documentId,
               accessEpoch,
               localVersionVector,
               outgoingUpdates,
               documentRecipientEnvelopes,
-            ),
+            ) =>
+              runtime.apiClient.syncDocument(
+                documentId,
+                accessEpoch,
+                localVersionVector,
+                outgoingUpdates,
+                documentRecipientEnvelopes,
+              ),
+          },
+          blobStore: runtime.blobStore,
+          containerId: noteSummary.containerId,
+          dbStatus: runtime.dbStatus,
+          domainScope: runtime.domainScope,
+          encapsulationKeyPair: runtime.encapsulationKeyPair,
+          events: runtime.events,
+          execSql: runtime.execSql,
+          isAuthenticated: runtime.isAuthenticated,
+          log: runtime.log,
+          online: runtime.online,
         },
-        blobStore: runtime.blobStore,
-        containerId: noteSummary.containerId,
-        dbStatus: runtime.dbStatus,
-        domainScope: runtime.domainScope,
-        encapsulationKeyPair: runtime.encapsulationKeyPair,
-        events: runtime.events,
-        execSql: runtime.execSql,
-        isAuthenticated: runtime.isAuthenticated,
-        log: runtime.log,
-        online: runtime.online,
-      });
+        undefined,
+        noteSummary.documentId,
+      );
       notesStore.requestSync();
     }
   }
