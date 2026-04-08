@@ -48,6 +48,7 @@ Current shape:
     - visible `partialEndVersionVector`
   - response includes:
     - `currentAccessEpoch`
+    - `documentRecipientEnvelopeAction`
     - `documentRecipientEnvelopes | null`
     - `acceptedOutgoingUpdateIds[]`
     - encrypted updates whose visible causal metadata is not yet covered by the
@@ -55,6 +56,12 @@ Current shape:
 
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
+
+The sync response now also tells the client whether the current epoch expects a
+document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
+previous DEK and the server still has no current-epoch bundle, clients seed the
+current bundle with a follow-up sync before sending the rebased baseline that
+new recipients need.
 
 Current implementation:
 

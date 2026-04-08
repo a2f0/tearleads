@@ -688,6 +688,7 @@ test("Bob can discover and read a note after Alice shares its container through 
   expect(staleEpochResponse.status).toBe(200);
   const staleEpochSync = await staleEpochResponse.json();
   expect(staleEpochSync.currentAccessEpoch).toBe(2);
+  expect(staleEpochSync.documentRecipientEnvelopeAction).toBe("rewrap");
   expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
   const bobCurrentEpochNoopResponse = await syncDocument(
     sharedDocumentId,
@@ -701,6 +702,9 @@ test("Bob can discover and read a note after Alice shares its container through 
   expect(bobCurrentEpochNoopResponse.status).toBe(200);
   const bobCurrentEpochNoopSync = await bobCurrentEpochNoopResponse.json();
   expect(bobCurrentEpochNoopSync.currentAccessEpoch).toBe(2);
+  expect(bobCurrentEpochNoopSync.documentRecipientEnvelopeAction).toBe(
+    "rewrap",
+  );
   expect(bobCurrentEpochNoopSync.documentRecipientEnvelopes).toBeNull();
   const rebasedDocumentEncryption = await createDocumentEncryption(
     staleEpochSync.recipientEncapsulationPublicKeys,

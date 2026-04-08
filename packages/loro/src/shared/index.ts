@@ -2,6 +2,7 @@ export type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 export {
   type CreateDocumentRequest,
   type CreateDocumentResponse,
+  type DocumentRecipientEnvelopeAction,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,
   isCreateDocumentResponse,

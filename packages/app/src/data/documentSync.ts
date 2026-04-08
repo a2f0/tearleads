@@ -159,6 +159,27 @@ async function unwrapDocumentKey(
   });
 }
 
+export async function rewrapDocumentRecipientEnvelopes(input: {
+  documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope>;
+  execSql?: ExecSql;
+  recipientPublicKeys: Uint8Array[];
+  secretKey: Uint8Array;
+}): Promise<SerializedRecipientEnvelope[]> {
+  const documentKey = await unwrapDocumentKey(
+    input.documentRecipientEnvelopes,
+    input.secretKey,
+    input.execSql,
+  );
+  const wrappedRecipients = await wrapDekForRecipients(
+    documentKey,
+    input.recipientPublicKeys,
+  );
+
+  return sortDocumentRecipientEnvelopes(
+    wrappedRecipients.map((recipient) => serializeRecipientEntry(recipient)),
+  );
+}
+
 export async function getOrCreateDocumentEncryptionMaterial(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   execSql?: ExecSql;

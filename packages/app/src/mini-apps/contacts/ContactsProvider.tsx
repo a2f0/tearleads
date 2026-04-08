@@ -29,6 +29,7 @@ import {
   isDocumentUpdateCreatedEvent,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  rewrapDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
@@ -580,7 +581,7 @@ async function syncSingleContact(
     pendingUpdates,
     secretKey,
   );
-  const synced = await state.runtime.apiClient.syncDocument(
+  let synced = await state.runtime.apiClient.syncDocument(
     documentId,
     contact.record.accessEpoch,
     encodeVersionVector(contact.doc),
@@ -592,6 +593,32 @@ async function syncSingleContact(
 
   if (!synced) {
     return;
+  }
+
+  if (
+    synced.currentAccessEpoch !== contact.record.accessEpoch &&
+    synced.documentRecipientEnvelopeAction === "rewrap" &&
+    synced.documentRecipientEnvelopes === null &&
+    currentDocumentRecipientEnvelopes
+  ) {
+    const rewrappedDocumentRecipientEnvelopes =
+      await rewrapDocumentRecipientEnvelopes({
+        documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+        execSql: state.runtime.execSql,
+        recipientPublicKeys: contact.recipientPublicKeys,
+        secretKey,
+      });
+    const rewrappedSync = await state.runtime.apiClient.syncDocument(
+      documentId,
+      synced.currentAccessEpoch,
+      encodeVersionVector(contact.doc),
+      [],
+      rewrappedDocumentRecipientEnvelopes,
+    );
+
+    if (rewrappedSync) {
+      synced = rewrappedSync;
+    }
   }
 
   await state.runtime.cacheReferencedPrincipalPolicies(

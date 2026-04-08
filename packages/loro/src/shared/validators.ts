@@ -18,6 +18,8 @@ export interface SyncDocumentOutgoingUpdate {
   partialEndVersionVector: string;
 }
 
+export type DocumentRecipientEnvelopeAction = "none" | "rewrap" | "rotate";
+
 export interface CreateDocumentRequest {
   linkedContainerIds: string[];
 }
@@ -53,6 +55,7 @@ export interface SyncDocumentResponse {
   acceptedOutgoingUpdateIds: string[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
+  documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
@@ -84,6 +87,12 @@ function hasStringArrayProperty<Key extends string>(
     hasArrayProperty(value, key) &&
     value[key].every((entry) => typeof entry === "string")
   );
+}
+
+function isDocumentRecipientEnvelopeAction(
+  value: unknown,
+): value is DocumentRecipientEnvelopeAction {
+  return value === "none" || value === "rewrap" || value === "rotate";
 }
 
 export function isSyncDocumentOutgoingUpdate(
@@ -171,6 +180,9 @@ export function isSyncDocumentResponse(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const documentRecipientEnvelopeAction = isPlainObject(value)
+    ? Reflect.get(value, "documentRecipientEnvelopeAction")
+    : undefined;
   const referencedPrincipals = isPlainObject(value)
     ? Reflect.get(value, "referencedPrincipals")
     : undefined;
@@ -185,6 +197,7 @@ export function isSyncDocumentResponse(
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    isDocumentRecipientEnvelopeAction(documentRecipientEnvelopeAction) &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&

@@ -108,6 +108,17 @@ consistently for document epochs and the remaining hierarchy edges when
 recipient sets expand or shrink, using the new principal-based recipient model
 rather than the old fully flattened per-user model.
 
+The current implementation now exposes a first server-classified document epoch
+action over sync responses:
+
+- `none`: the current epoch already has current document recipient envelopes
+- `rewrap`: the previous DEK can be reused for the current epoch
+- `rotate`: the next write must introduce a new DEK
+
+App clients now use the `rewrap` path to seed missing current-epoch document
+bundles before falling back to the existing rebased-baseline flow for content
+handoff to newly added recipients.
+
 Implementation questions:
 
 - how eager recomputation should be for large subtrees
