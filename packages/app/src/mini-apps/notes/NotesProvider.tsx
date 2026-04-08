@@ -57,6 +57,40 @@ import {
 
 type NotesDocument = Awaited<ReturnType<typeof createDocument>>;
 type NotesAppData = ReturnType<typeof useAppData>;
+type EncapsulationKeyPair = NonNullable<NotesRuntime["encapsulationKeyPair"]>;
+type DocumentAttachmentBinding = NonNullable<
+  Awaited<ReturnType<NotesRuntime["apiClient"]["listDocumentAttachments"]>>
+>[number];
+type DocumentEncryptionMaterial = Awaited<
+  ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
+>;
+type DocumentRecipientEnvelopes = ReturnType<
+  typeof parseDocumentRecipientEnvelopes
+>;
+type CommitDocumentChangeResponse = NonNullable<
+  Awaited<ReturnType<NotesRuntime["apiClient"]["commitDocumentChange"]>>
+>;
+type AttachmentCommitChange = {
+  expectedBindingId: string | null;
+  slotId: string;
+  stageId: string;
+};
+type AttachmentRewrapChange = {
+  expectedBindingId: string;
+  recipientEnvelopes: Awaited<ReturnType<typeof rewrapBlobRecipientEnvelopes>>;
+  slotId: string;
+};
+type PendingMutationSyncResult = {
+  completed: boolean;
+  nextRecord: NoteRecord;
+};
+interface DocumentSyncAttempt {
+  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
+  encryptionMaterial: DocumentEncryptionMaterial | null;
+  synced: NonNullable<
+    Awaited<ReturnType<NotesRuntime["apiClient"]["syncDocument"]>>
+  >;
+}
 export const DEFAULT_NOTE_ID = "default";
 
 function sameAttachmentStorageKeys(
@@ -424,12 +458,65 @@ export function createNotesStore(
     }
   }
 
+  function listAttachmentsMissingLocalBytes(
+    currentDoc: NotesDocument,
+  ): NoteAttachment[] {
+    return getNoteAttachments(currentDoc).filter(
+      (attachment) => !attachmentStorageKeyBySlotId[attachment.slotId],
+    );
+  }
+
+  async function hydrateMissingAttachmentBlob(
+    currentDoc: NotesDocument,
+    attachment: NoteAttachment,
+    binding: DocumentAttachmentBinding,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ) {
+    const blob = await runtime.apiClient.getBlob(binding.blobId);
+    if (!blob) {
+      return;
+    }
+
+    const blobDigest = new Uint8Array(
+      await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(blob.encryptedBytes),
+      ),
+    );
+    const blobSha256 = bytesToHex(blobDigest);
+    if (blobSha256 !== blob.sha256) {
+      runtime.log(
+        `Notes: blob ${binding.blobId} sha256 mismatch during hydration.`,
+      );
+      return;
+    }
+
+    const decryptedBytes = await decryptBlobEnvelope(
+      blob.encryptedBytes,
+      encapsulationKeyPair.secretKey,
+    );
+    const storageKey = `blob-${binding.blobId}`;
+    await runtime.blobStore.writeBytes(storageKey, decryptedBytes);
+    await saveLocalAttachmentRecord(
+      {
+        blobId: binding.blobId,
+        byteLength: attachment.byteLength,
+        mimeType: attachment.mimeType,
+        noteId,
+        slotId: attachment.slotId,
+        storageKey,
+      },
+      currentDoc,
+    );
+  }
+
   async function hydrateAttachmentBlobs(
     currentDoc: NotesDocument,
     currentRecord: NoteRecord | null,
   ) {
+    const encapsulationKeyPair = runtime.encapsulationKeyPair;
     if (
-      !runtime.encapsulationKeyPair ||
+      !encapsulationKeyPair ||
       !runtime.isAuthenticated ||
       !runtime.online ||
       !currentRecord?.documentId
@@ -437,14 +524,8 @@ export function createNotesStore(
       return;
     }
 
-    const currentAttachments = getNoteAttachments(currentDoc);
-    if (currentAttachments.length === 0) {
-      return;
-    }
-
-    const attachmentsMissingLocalBytes = currentAttachments.filter(
-      (attachment) => !attachmentStorageKeyBySlotId[attachment.slotId],
-    );
+    const attachmentsMissingLocalBytes =
+      listAttachmentsMissingLocalBytes(currentDoc);
     if (attachmentsMissingLocalBytes.length === 0) {
       return;
     }
@@ -466,41 +547,11 @@ export function createNotesStore(
         continue;
       }
 
-      const blob = await runtime.apiClient.getBlob(binding.blobId);
-      if (!blob) {
-        continue;
-      }
-
-      const blobDigest = new Uint8Array(
-        await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(blob.encryptedBytes),
-        ),
-      );
-      const blobSha256 = bytesToHex(blobDigest);
-      if (blobSha256 !== blob.sha256) {
-        runtime.log(
-          `Notes: blob ${binding.blobId} sha256 mismatch during hydration.`,
-        );
-        continue;
-      }
-
-      const decryptedBytes = await decryptBlobEnvelope(
-        blob.encryptedBytes,
-        runtime.encapsulationKeyPair.secretKey,
-      );
-      const storageKey = `blob-${binding.blobId}`;
-      await runtime.blobStore.writeBytes(storageKey, decryptedBytes);
-      await saveLocalAttachmentRecord(
-        {
-          blobId: binding.blobId,
-          byteLength: attachment.byteLength,
-          mimeType: attachment.mimeType,
-          noteId,
-          slotId: attachment.slotId,
-          storageKey,
-        },
+      await hydrateMissingAttachmentBlob(
         currentDoc,
+        attachment,
+        binding,
+        encapsulationKeyPair,
       );
     }
   }
@@ -520,15 +571,7 @@ export function createNotesStore(
     const nextPendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
 
     for (const attachment of currentAttachments) {
-      if (
-        pendingAttachmentRewraps.some(
-          (pendingAttachmentRewrap) =>
-            pendingAttachmentRewrap.slotId === attachment.slotId,
-        ) ||
-        pendingAttachments.some(
-          (pendingAttachment) => pendingAttachment.slotId === attachment.slotId,
-        )
-      ) {
+      if (isAttachmentSyncAlreadyPending(attachment.slotId)) {
         continue;
       }
 
@@ -537,35 +580,65 @@ export function createNotesStore(
         continue;
       }
 
-      const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
-        blobId: localAttachment.blobId,
-        noteId,
-        slotId: attachment.slotId,
-      };
-      await persistence.savePendingAttachmentRewrap(
-        runtime.execSql,
-        pendingAttachmentRewrap,
+      nextPendingAttachmentRewraps.push(
+        await createPendingAttachmentRewrap(
+          attachment.slotId,
+          localAttachment.blobId,
+        ),
       );
-      nextPendingAttachmentRewraps.push(pendingAttachmentRewrap);
     }
 
     if (nextPendingAttachmentRewraps.length === 0) {
       return false;
     }
 
+    mergePendingAttachmentRewraps(nextPendingAttachmentRewraps);
+
+    return true;
+  }
+
+  function isAttachmentSyncAlreadyPending(slotId: string): boolean {
+    return (
+      pendingAttachmentRewraps.some(
+        (pendingAttachmentRewrap) => pendingAttachmentRewrap.slotId === slotId,
+      ) ||
+      pendingAttachments.some(
+        (pendingAttachment) => pendingAttachment.slotId === slotId,
+      )
+    );
+  }
+
+  async function createPendingAttachmentRewrap(
+    slotId: string,
+    blobId: string,
+  ): Promise<PendingAttachmentRewrapRecord> {
+    const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
+      blobId,
+      noteId,
+      slotId,
+    };
+    await persistence.savePendingAttachmentRewrap(
+      runtime.execSql,
+      pendingAttachmentRewrap,
+    );
+    return pendingAttachmentRewrap;
+  }
+
+  function mergePendingAttachmentRewraps(
+    nextPendingAttachmentRewraps: ReadonlyArray<PendingAttachmentRewrapRecord>,
+  ) {
+    const nextSlotIds = new Set(
+      nextPendingAttachmentRewraps.map(
+        (pendingAttachmentRewrap) => pendingAttachmentRewrap.slotId,
+      ),
+    );
     pendingAttachmentRewraps = [
       ...pendingAttachmentRewraps.filter(
         (existingAttachmentRewrap) =>
-          !nextPendingAttachmentRewraps.some(
-            (pendingAttachmentRewrap) =>
-              pendingAttachmentRewrap.slotId ===
-              existingAttachmentRewrap.slotId,
-          ),
+          !nextSlotIds.has(existingAttachmentRewrap.slotId),
       ),
       ...nextPendingAttachmentRewraps,
     ];
-
-    return true;
   }
 
   async function replacePendingUpdatesWithBaseline(currentDoc: NotesDocument) {
@@ -647,6 +720,761 @@ export function createNotesStore(
     });
   }
 
+  function isDestroyedDatabaseError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      error.message === "Database worker client has been destroyed."
+    );
+  }
+
+  function setSyncing(syncing: boolean) {
+    setSnapshot({
+      attachments: snapshot.attachments,
+      attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
+      canAttach: snapshot.canAttach,
+      documentId: snapshot.documentId,
+      ready: snapshot.ready,
+      text: snapshot.text,
+      syncing,
+    });
+  }
+
+  async function awaitInitializationForSync(): Promise<boolean> {
+    if (!initializePromise) {
+      return true;
+    }
+
+    try {
+      await initializePromise;
+      return true;
+    } catch (error) {
+      if (isDestroyedDatabaseError(error)) {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
+  function canRunScheduledSync(): boolean {
+    return (
+      doc !== null &&
+      snapshot.ready &&
+      runtime.online &&
+      runtime.isAuthenticated &&
+      runtime.encapsulationKeyPair !== null
+    );
+  }
+
+  async function buildAttachmentCommits(
+    attachmentsToCommit: PendingAttachmentRecord[],
+    currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
+  ): Promise<AttachmentCommitChange[] | null> {
+    const currentBindingBySlotId = new Map(
+      currentBindings.map((binding) => [binding.slotId, binding]),
+    );
+    const attachmentCommits: AttachmentCommitChange[] = [];
+
+    for (const attachment of attachmentsToCommit) {
+      const localBytes = await runtime.blobStore.readBytes(
+        attachment.storageKey,
+      );
+      if (!localBytes) {
+        runtime.log(
+          `Notes: missing local blob bytes for attachment ${attachment.slotId}.`,
+        );
+        return null;
+      }
+
+      const stagedBlob = await createEncryptedBlobUpload(
+        localBytes,
+        recipientPublicKeys,
+      );
+      const stage = await runtime.apiClient.stageBlob(stagedBlob);
+
+      if (!stage) {
+        return null;
+      }
+
+      attachmentCommits.push({
+        expectedBindingId:
+          currentBindingBySlotId.get(attachment.slotId)?.bindingId ?? null,
+        slotId: attachment.slotId,
+        stageId: stage.stageId,
+      });
+    }
+
+    return attachmentCommits;
+  }
+
+  async function buildAttachmentRewraps(
+    attachmentsToRewrap: PendingAttachmentRewrapRecord[],
+    currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<AttachmentRewrapChange[] | null> {
+    const currentBindingBySlotId = new Map(
+      currentBindings.map((binding) => [binding.slotId, binding]),
+    );
+    const blobById = new Map<
+      string,
+      Awaited<ReturnType<NotesRuntime["apiClient"]["getBlob"]>>
+    >();
+    const attachmentRewraps: AttachmentRewrapChange[] = [];
+
+    for (const attachment of attachmentsToRewrap) {
+      const currentBinding = currentBindingBySlotId.get(attachment.slotId);
+      if (!currentBinding || currentBinding.blobId !== attachment.blobId) {
+        continue;
+      }
+
+      let blob = blobById.get(attachment.blobId);
+      if (!blob) {
+        blob = await runtime.apiClient.getBlob(attachment.blobId);
+        if (!blob) {
+          return null;
+        }
+        blobById.set(attachment.blobId, blob);
+      }
+
+      attachmentRewraps.push({
+        expectedBindingId: currentBinding.bindingId,
+        recipientEnvelopes: await rewrapBlobRecipientEnvelopes({
+          encryptedBytes: blob.encryptedBytes,
+          recipientPublicKeys,
+          secretKey: encapsulationKeyPair.secretKey,
+        }),
+        slotId: attachment.slotId,
+      });
+    }
+
+    return attachmentRewraps;
+  }
+
+  async function commitBaselineChange(
+    currentDoc: NotesDocument,
+    nextRemoteRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+    attachmentCommits: AttachmentCommitChange[],
+    attachmentRewraps: AttachmentRewrapChange[],
+  ): Promise<CommitDocumentChangeResponse | null> {
+    if (!nextRemoteRecord.documentId) {
+      return null;
+    }
+
+    const baselineUpdate = exportAllUpdates(currentDoc);
+    const baselineUpdateFields = createPendingUpdateFields(baselineUpdate);
+    if (!baselineUpdateFields) {
+      return null;
+    }
+
+    const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
+      nextRemoteRecord.documentRecipientEnvelopes,
+    );
+    const { documentKey, documentRecipientEnvelopes } =
+      await getOrCreateDocumentEncryptionMaterial({
+        documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+        recipientPublicKeys,
+        secretKey: encapsulationKeyPair.secretKey,
+      });
+    const encryptedBaseline = await encryptLoroUpdate(
+      baselineUpdate,
+      nextRemoteRecord.accessEpoch,
+      documentKey,
+    );
+
+    return runtime.apiClient.commitDocumentChange(nextRemoteRecord.documentId, {
+      accessEpoch: nextRemoteRecord.accessEpoch,
+      attachmentCommits,
+      attachmentDetaches: [],
+      attachmentRewraps,
+      documentRecipientEnvelopes,
+      loroUpdate: {
+        encryptedData: encryptedBaseline,
+        id: crypto.randomUUID(),
+        partialEndVersionVector: baselineUpdateFields.partialEndVersionVector,
+        partialStartVersionVector:
+          baselineUpdateFields.partialStartVersionVector,
+        referencedSlotIds: getNoteAttachments(currentDoc).map(
+          (attachment) => attachment.slotId,
+        ),
+      },
+    });
+  }
+
+  async function saveCommittedAttachmentRecords(
+    currentDoc: NotesDocument,
+    attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
+    committedBindings: CommitDocumentChangeResponse["committedBindings"],
+  ) {
+    const localAttachmentBySlotId = new Map(
+      attachmentsToCommit.map((attachment) => [attachment.slotId, attachment]),
+    );
+
+    for (const committedBinding of committedBindings) {
+      const localAttachment = localAttachmentBySlotId.get(
+        committedBinding.slotId,
+      );
+      if (!localAttachment) {
+        continue;
+      }
+
+      await saveLocalAttachmentRecord(
+        {
+          blobId: committedBinding.blobId,
+          byteLength: localAttachment.byteLength,
+          mimeType: localAttachment.mimeType,
+          noteId,
+          slotId: localAttachment.slotId,
+          storageKey: localAttachment.storageKey,
+        },
+        currentDoc,
+      );
+    }
+  }
+
+  function getCurrentSyncState(): {
+    currentDoc: NotesDocument;
+    currentRecord: NoteRecord;
+  } | null {
+    if (!doc || !record || !runtime.online || !runtime.isAuthenticated) {
+      return null;
+    }
+
+    return {
+      currentDoc: doc,
+      currentRecord: record,
+    };
+  }
+
+  async function listCurrentDocumentBindings(
+    documentId: string,
+  ): Promise<ReadonlyArray<DocumentAttachmentBinding> | null> {
+    return runtime.apiClient.listDocumentAttachments(documentId);
+  }
+
+  async function runSerializedMutation(
+    nextRecord: NoteRecord,
+    onError: string,
+    task: () => Promise<PendingMutationSyncResult>,
+  ): Promise<PendingMutationSyncResult> {
+    let result: PendingMutationSyncResult = {
+      completed: false,
+      nextRecord,
+    };
+
+    writeChain = writeChain
+      .catch(() => undefined)
+      .then(async () => {
+        result = await task();
+      })
+      .catch((error: unknown) => {
+        console.error(onError, error);
+      });
+
+    await writeChain;
+    return result;
+  }
+
+  async function runPendingAttachmentSyncTask(
+    nextRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<PendingMutationSyncResult> {
+    const currentSyncState = getCurrentSyncState();
+    if (!currentSyncState) {
+      return { completed: false, nextRecord };
+    }
+    const { currentDoc, currentRecord } = currentSyncState;
+
+    const nextRemoteRecord = await ensureRemoteDocument(
+      currentDoc,
+      currentRecord,
+    );
+    if (!nextRemoteRecord?.documentId) {
+      return { completed: false, nextRecord };
+    }
+
+    const attachmentsToCommit = [...pendingAttachments];
+    if (attachmentsToCommit.length === 0) {
+      return { completed: false, nextRecord };
+    }
+
+    const currentBindings = await listCurrentDocumentBindings(
+      nextRemoteRecord.documentId,
+    );
+    if (!currentBindings) {
+      return { completed: false, nextRecord };
+    }
+
+    const attachmentCommits = await buildAttachmentCommits(
+      attachmentsToCommit,
+      currentBindings,
+    );
+    if (!attachmentCommits) {
+      return { completed: false, nextRecord };
+    }
+
+    const committed = await commitBaselineChange(
+      currentDoc,
+      nextRemoteRecord,
+      encapsulationKeyPair,
+      attachmentCommits,
+      [],
+    );
+    if (!committed) {
+      return { completed: false, nextRecord };
+    }
+
+    return {
+      completed: true,
+      nextRecord: await finalizePendingAttachmentSync(
+        currentDoc,
+        nextRemoteRecord.documentId,
+        attachmentsToCommit,
+        committed,
+      ),
+    };
+  }
+
+  async function syncPendingAttachments(
+    nextRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<PendingMutationSyncResult> {
+    if (pendingAttachments.length === 0) {
+      return { completed: false, nextRecord };
+    }
+
+    return runSerializedMutation(
+      nextRecord,
+      "Failed to sync note attachments:",
+      () => runPendingAttachmentSyncTask(nextRecord, encapsulationKeyPair),
+    );
+  }
+
+  async function finalizePendingAttachmentSync(
+    currentDoc: NotesDocument,
+    documentId: string,
+    attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
+    committed: CommitDocumentChangeResponse,
+  ): Promise<NoteRecord> {
+    await saveCommittedAttachmentRecords(
+      currentDoc,
+      attachmentsToCommit,
+      committed.committedBindings,
+    );
+    await clearSyncedPendingAttachments(attachmentsToCommit);
+    return persistCommittedDocumentRecord(currentDoc, documentId, committed);
+  }
+
+  async function clearSyncedPendingAttachments(
+    attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
+  ) {
+    const committedSlotIds = new Set(
+      attachmentsToCommit.map(
+        (attachmentToCommit) => attachmentToCommit.slotId,
+      ),
+    );
+    pendingAttachments = pendingAttachments.filter(
+      (pendingAttachment) => !committedSlotIds.has(pendingAttachment.slotId),
+    );
+    await persistence.deletePendingAttachments(runtime.execSql, noteId);
+    await persistence.deletePendingUpdates(runtime.execSql, noteId);
+  }
+
+  async function persistCommittedDocumentRecord(
+    currentDoc: NotesDocument,
+    documentId: string,
+    committed: CommitDocumentChangeResponse,
+  ): Promise<NoteRecord> {
+    return persistDocument(currentDoc, {
+      accessEpoch: committed.currentAccessEpoch,
+      documentId,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        committed.documentRecipientEnvelopes,
+      ),
+    });
+  }
+
+  async function runPendingAttachmentRewrapTask(
+    nextRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<PendingMutationSyncResult> {
+    const currentSyncState = getCurrentSyncState();
+    if (!currentSyncState) {
+      return { completed: false, nextRecord };
+    }
+    const { currentDoc, currentRecord } = currentSyncState;
+
+    const nextRemoteRecord = await ensureRemoteDocument(
+      currentDoc,
+      currentRecord,
+    );
+    if (!nextRemoteRecord?.documentId) {
+      return { completed: false, nextRecord };
+    }
+
+    const attachmentsToRewrap = [...pendingAttachmentRewraps];
+    if (attachmentsToRewrap.length === 0) {
+      return { completed: false, nextRecord };
+    }
+
+    const currentBindings = await listCurrentDocumentBindings(
+      nextRemoteRecord.documentId,
+    );
+    if (!currentBindings) {
+      return { completed: false, nextRecord };
+    }
+
+    const attachmentRewraps = await buildAttachmentRewraps(
+      attachmentsToRewrap,
+      currentBindings,
+      encapsulationKeyPair,
+    );
+    if (!attachmentRewraps) {
+      return { completed: false, nextRecord };
+    }
+    if (attachmentRewraps.length === 0) {
+      return clearEmptyPendingAttachmentRewraps(nextRecord);
+    }
+
+    const committed = await commitBaselineChange(
+      currentDoc,
+      nextRemoteRecord,
+      encapsulationKeyPair,
+      [],
+      attachmentRewraps,
+    );
+    if (!committed) {
+      return { completed: false, nextRecord };
+    }
+
+    return {
+      completed: true,
+      nextRecord: await finalizePendingAttachmentRewrapSync(
+        currentDoc,
+        nextRemoteRecord.documentId,
+        attachmentsToRewrap,
+        committed,
+      ),
+    };
+  }
+
+  async function syncPendingAttachmentRewraps(
+    nextRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<PendingMutationSyncResult> {
+    if (pendingAttachmentRewraps.length === 0) {
+      return { completed: false, nextRecord };
+    }
+
+    return runSerializedMutation(
+      nextRecord,
+      "Failed to rewrap note attachments:",
+      () => runPendingAttachmentRewrapTask(nextRecord, encapsulationKeyPair),
+    );
+  }
+
+  async function clearEmptyPendingAttachmentRewraps(
+    nextRecord: NoteRecord,
+  ): Promise<PendingMutationSyncResult> {
+    await clearPendingAttachmentRewraps();
+    return { completed: false, nextRecord };
+  }
+
+  async function finalizePendingAttachmentRewrapSync(
+    currentDoc: NotesDocument,
+    documentId: string,
+    attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
+    committed: CommitDocumentChangeResponse,
+  ): Promise<NoteRecord> {
+    await clearSyncedPendingAttachmentRewraps(attachmentsToRewrap);
+    return persistCommittedDocumentRecord(currentDoc, documentId, committed);
+  }
+
+  async function clearPendingAttachmentRewraps() {
+    pendingAttachmentRewraps = [];
+    await persistence.deletePendingAttachmentRewraps(runtime.execSql, noteId);
+  }
+
+  async function clearSyncedPendingAttachmentRewraps(
+    attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
+  ) {
+    const syncedSlotIds = new Set(
+      attachmentsToRewrap.map(
+        (attachmentToRewrap) => attachmentToRewrap.slotId,
+      ),
+    );
+    pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
+      (pendingAttachmentRewrap) =>
+        !syncedSlotIds.has(pendingAttachmentRewrap.slotId),
+    );
+    await persistence.deletePendingAttachmentRewraps(runtime.execSql, noteId);
+    await persistence.deletePendingUpdates(runtime.execSql, noteId);
+  }
+
+  async function ensureDocumentRecordForSync(
+    currentDoc: NotesDocument,
+    nextRecord: NoteRecord,
+    pendingUpdates: PendingUpdateRecord[],
+  ): Promise<NoteRecord | null> {
+    if (nextRecord.documentId || pendingUpdates.length === 0) {
+      return nextRecord;
+    }
+
+    return ensureRemoteDocument(currentDoc, nextRecord);
+  }
+
+  async function requestDocumentSync(
+    currentDoc: NotesDocument,
+    currentRecord: NoteRecord,
+    pendingUpdates: PendingUpdateRecord[],
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<DocumentSyncAttempt | null> {
+    if (!currentRecord.documentId) {
+      return null;
+    }
+
+    const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
+      currentRecord.documentRecipientEnvelopes,
+    );
+    const encryptionMaterial =
+      pendingUpdates.length > 0
+        ? await getOrCreateDocumentEncryptionMaterial({
+            documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+            recipientPublicKeys,
+            secretKey: encapsulationKeyPair.secretKey,
+          })
+        : null;
+    const outgoingUpdates = encryptionMaterial
+      ? await encryptPendingUpdates(
+          pendingUpdates,
+          currentRecord.accessEpoch,
+          encryptionMaterial.documentKey,
+        )
+      : [];
+    const synced = await runtime.apiClient.syncDocument(
+      currentRecord.documentId,
+      currentRecord.accessEpoch,
+      encodeVersionVector(currentDoc),
+      outgoingUpdates,
+      encryptionMaterial && currentDocumentRecipientEnvelopes === null
+        ? encryptionMaterial.documentRecipientEnvelopes
+        : undefined,
+    );
+    if (!synced) {
+      return null;
+    }
+
+    return {
+      currentDocumentRecipientEnvelopes,
+      encryptionMaterial,
+      synced,
+    };
+  }
+
+  function resolveNextDocumentRecipientEnvelopes(
+    currentRecord: NoteRecord,
+    syncAttempt: DocumentSyncAttempt,
+  ): DocumentRecipientEnvelopes {
+    const { currentDocumentRecipientEnvelopes, encryptionMaterial, synced } =
+      syncAttempt;
+
+    if (synced.currentAccessEpoch !== currentRecord.accessEpoch) {
+      return synced.documentRecipientEnvelopes ?? null;
+    }
+
+    return (
+      synced.documentRecipientEnvelopes ??
+      (encryptionMaterial && currentDocumentRecipientEnvelopes === null
+        ? encryptionMaterial.documentRecipientEnvelopes
+        : currentDocumentRecipientEnvelopes)
+    );
+  }
+
+  async function applyIncomingSyncedUpdates(
+    currentDoc: NotesDocument,
+    synced: DocumentSyncAttempt["synced"],
+    nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ) {
+    if (synced.updates.length === 0) {
+      return;
+    }
+
+    if (!nextDocumentRecipientEnvelopes) {
+      runtime.log(
+        "Notes: skipped incoming updates because the current document key bundle is missing.",
+      );
+      return;
+    }
+
+    const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
+      documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+      recipientPublicKeys,
+      secretKey: encapsulationKeyPair.secretKey,
+    });
+    const decrypted = await decryptIncomingUpdates(
+      synced.updates,
+      synced.currentAccessEpoch,
+      documentKey,
+      (message) => runtime.log(`Notes: ${message}`),
+    );
+    if (decrypted.length === 0) {
+      return;
+    }
+
+    importUpdates(currentDoc, decrypted);
+    setReadySnapshot(currentDoc, true);
+  }
+
+  async function finalizeDocumentSync(
+    currentDoc: NotesDocument,
+    currentRecord: NoteRecord,
+    syncAttempt: DocumentSyncAttempt,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<NoteRecord> {
+    const { synced } = syncAttempt;
+    updateRecipientPublicKeys(synced.recipientEncapsulationPublicKeys);
+
+    for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+      await deletePendingUpdate(acceptedOutgoingUpdateId);
+    }
+
+    const previousAccessEpoch = currentRecord.accessEpoch;
+    const nextDocumentRecipientEnvelopes =
+      resolveNextDocumentRecipientEnvelopes(currentRecord, syncAttempt);
+    await applyIncomingSyncedUpdates(
+      currentDoc,
+      synced,
+      nextDocumentRecipientEnvelopes,
+      encapsulationKeyPair,
+    );
+
+    const nextRecord = await persistDocument(currentDoc, {
+      documentId: currentRecord.documentId,
+      accessEpoch: synced.currentAccessEpoch,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        nextDocumentRecipientEnvelopes,
+      ),
+    });
+
+    if (synced.currentAccessEpoch !== previousAccessEpoch) {
+      const queuedAttachmentRewrap =
+        await queueCommittedAttachmentsForRewrap(currentDoc);
+      if (!queuedAttachmentRewrap) {
+        await replacePendingUpdatesWithBaseline(currentDoc);
+      }
+      syncRequested = true;
+    }
+
+    await hydrateAttachmentBlobs(currentDoc, nextRecord);
+    return nextRecord;
+  }
+
+  async function syncDocumentState(
+    currentDoc: NotesDocument,
+    nextRecord: NoteRecord,
+    encapsulationKeyPair: EncapsulationKeyPair,
+  ): Promise<NoteRecord> {
+    const pendingUpdates = await listPendingUpdates();
+    const nextRemoteRecord = await ensureDocumentRecordForSync(
+      currentDoc,
+      nextRecord,
+      pendingUpdates,
+    );
+    if (!nextRemoteRecord?.documentId) {
+      return nextRecord;
+    }
+
+    const syncAttempt = await requestDocumentSync(
+      currentDoc,
+      nextRemoteRecord,
+      pendingUpdates,
+      encapsulationKeyPair,
+    );
+    if (!syncAttempt) {
+      return nextRemoteRecord;
+    }
+
+    return finalizeDocumentSync(
+      currentDoc,
+      nextRemoteRecord,
+      syncAttempt,
+      encapsulationKeyPair,
+    );
+  }
+
+  async function runSyncPass() {
+    const currentDoc = doc;
+    const encapsulationKeyPair = runtime.encapsulationKeyPair;
+    let nextRecord = record;
+
+    if (!currentDoc || !nextRecord || !encapsulationKeyPair) {
+      return;
+    }
+
+    const attachmentResult = await syncPendingAttachments(
+      nextRecord,
+      encapsulationKeyPair,
+    );
+    nextRecord = attachmentResult.nextRecord;
+    if (attachmentResult.completed) {
+      syncRequested = true;
+      return;
+    }
+
+    const rewrapResult = await syncPendingAttachmentRewraps(
+      nextRecord,
+      encapsulationKeyPair,
+    );
+    nextRecord = rewrapResult.nextRecord;
+    if (rewrapResult.completed) {
+      syncRequested = true;
+      return;
+    }
+
+    await syncDocumentState(currentDoc, nextRecord, encapsulationKeyPair);
+  }
+
+  async function runScheduledSyncIteration(): Promise<boolean> {
+    if (!(await awaitInitializationForSync())) {
+      return false;
+    }
+
+    if (!canRunScheduledSync()) {
+      return true;
+    }
+
+    try {
+      await runSyncPass();
+      return true;
+    } catch (error) {
+      if (isDestroyedDatabaseError(error)) {
+        return false;
+      }
+
+      throw error;
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function runScheduledSyncLoop() {
+    setSyncing(true);
+
+    try {
+      while (syncRequested) {
+        syncRequested = false;
+
+        const shouldContinue = await runScheduledSyncIteration();
+        if (!shouldContinue) {
+          return;
+        }
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   function scheduleSync() {
     syncRequested = true;
 
@@ -656,556 +1484,7 @@ export function createNotesStore(
 
     syncPromise = (async () => {
       try {
-        while (syncRequested) {
-          syncRequested = false;
-
-          if (initializePromise) {
-            try {
-              await initializePromise;
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message === "Database worker client has been destroyed."
-              ) {
-                return;
-              }
-
-              throw error;
-            }
-          }
-
-          if (
-            !doc ||
-            !snapshot.ready ||
-            !runtime.online ||
-            !runtime.isAuthenticated ||
-            !runtime.encapsulationKeyPair
-          ) {
-            continue;
-          }
-
-          setSnapshot({
-            attachments: snapshot.attachments,
-            attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
-            canAttach: snapshot.canAttach,
-            documentId: snapshot.documentId,
-            ready: snapshot.ready,
-            text: snapshot.text,
-            syncing: true,
-          });
-
-          try {
-            let nextRecord = record;
-            const encapsulationKeyPair = runtime.encapsulationKeyPair;
-
-            if (!nextRecord || !encapsulationKeyPair) {
-              continue;
-            }
-            if (pendingAttachments.length > 0) {
-              let attachmentSyncCompleted = false;
-
-              writeChain = writeChain
-                .catch(() => undefined)
-                .then(async () => {
-                  const currentDoc = doc;
-                  const currentRecord = record;
-
-                  if (
-                    !currentDoc ||
-                    !currentRecord ||
-                    !runtime.online ||
-                    !runtime.isAuthenticated
-                  ) {
-                    return;
-                  }
-
-                  const nextRemoteRecord = await ensureRemoteDocument(
-                    currentDoc,
-                    currentRecord,
-                  );
-                  if (!nextRemoteRecord?.documentId) {
-                    return;
-                  }
-
-                  const attachmentsToCommit = [...pendingAttachments];
-                  if (attachmentsToCommit.length === 0) {
-                    return;
-                  }
-
-                  const currentBindings =
-                    await runtime.apiClient.listDocumentAttachments(
-                      nextRemoteRecord.documentId,
-                    );
-                  if (!currentBindings) {
-                    return;
-                  }
-
-                  const currentBindingBySlotId = new Map(
-                    currentBindings.map((binding) => [binding.slotId, binding]),
-                  );
-                  const attachmentCommits: Array<{
-                    expectedBindingId: string | null;
-                    slotId: string;
-                    stageId: string;
-                  }> = [];
-
-                  for (const attachment of attachmentsToCommit) {
-                    const localBytes = await runtime.blobStore.readBytes(
-                      attachment.storageKey,
-                    );
-                    if (!localBytes) {
-                      runtime.log(
-                        `Notes: missing local blob bytes for attachment ${attachment.slotId}.`,
-                      );
-                      return;
-                    }
-
-                    const stagedBlob = await createEncryptedBlobUpload(
-                      localBytes,
-                      recipientPublicKeys,
-                    );
-                    const stage = await runtime.apiClient.stageBlob(stagedBlob);
-
-                    if (!stage) {
-                      return;
-                    }
-
-                    attachmentCommits.push({
-                      expectedBindingId:
-                        currentBindingBySlotId.get(attachment.slotId)
-                          ?.bindingId ?? null,
-                      slotId: attachment.slotId,
-                      stageId: stage.stageId,
-                    });
-                  }
-
-                  const baselineUpdate = exportAllUpdates(currentDoc);
-                  const baselineUpdateFields =
-                    createPendingUpdateFields(baselineUpdate);
-                  if (!baselineUpdateFields) {
-                    return;
-                  }
-
-                  const currentDocumentRecipientEnvelopes =
-                    parseDocumentRecipientEnvelopes(
-                      nextRemoteRecord.documentRecipientEnvelopes,
-                    );
-                  const { documentKey, documentRecipientEnvelopes } =
-                    await getOrCreateDocumentEncryptionMaterial({
-                      documentRecipientEnvelopes:
-                        currentDocumentRecipientEnvelopes,
-                      recipientPublicKeys,
-                      secretKey: encapsulationKeyPair.secretKey,
-                    });
-                  const encryptedBaseline = await encryptLoroUpdate(
-                    baselineUpdate,
-                    nextRemoteRecord.accessEpoch,
-                    documentKey,
-                  );
-                  const committed =
-                    await runtime.apiClient.commitDocumentChange(
-                      nextRemoteRecord.documentId,
-                      {
-                        accessEpoch: nextRemoteRecord.accessEpoch,
-                        attachmentCommits,
-                        attachmentDetaches: [],
-                        attachmentRewraps: [],
-                        documentRecipientEnvelopes,
-                        loroUpdate: {
-                          encryptedData: encryptedBaseline,
-                          id: crypto.randomUUID(),
-                          partialEndVersionVector:
-                            baselineUpdateFields.partialEndVersionVector,
-                          partialStartVersionVector:
-                            baselineUpdateFields.partialStartVersionVector,
-                          referencedSlotIds: getNoteAttachments(currentDoc).map(
-                            (attachment) => attachment.slotId,
-                          ),
-                        },
-                      },
-                    );
-
-                  if (!committed) {
-                    return;
-                  }
-
-                  for (const committedBinding of committed.committedBindings) {
-                    const localAttachment = attachmentsToCommit.find(
-                      (attachment) =>
-                        attachment.slotId === committedBinding.slotId,
-                    );
-                    if (!localAttachment) {
-                      continue;
-                    }
-
-                    await saveLocalAttachmentRecord(
-                      {
-                        blobId: committedBinding.blobId,
-                        byteLength: localAttachment.byteLength,
-                        mimeType: localAttachment.mimeType,
-                        noteId,
-                        slotId: localAttachment.slotId,
-                        storageKey: localAttachment.storageKey,
-                      },
-                      currentDoc,
-                    );
-                  }
-
-                  pendingAttachments = pendingAttachments.filter(
-                    (pendingAttachment) =>
-                      !attachmentsToCommit.some(
-                        (attachmentToCommit) =>
-                          attachmentToCommit.slotId ===
-                          pendingAttachment.slotId,
-                      ),
-                  );
-                  await persistence.deletePendingAttachments(
-                    runtime.execSql,
-                    noteId,
-                  );
-                  await persistence.deletePendingUpdates(
-                    runtime.execSql,
-                    noteId,
-                  );
-                  nextRecord = await persistDocument(currentDoc, {
-                    accessEpoch: committed.currentAccessEpoch,
-                    documentId: nextRemoteRecord.documentId,
-                    documentRecipientEnvelopes:
-                      serializeDocumentRecipientEnvelopes(
-                        committed.documentRecipientEnvelopes,
-                      ),
-                  });
-                  attachmentSyncCompleted = true;
-                })
-                .catch((error: unknown) => {
-                  console.error("Failed to sync note attachments:", error);
-                });
-
-              await writeChain;
-
-              if (attachmentSyncCompleted) {
-                syncRequested = true;
-                continue;
-              }
-            }
-
-            if (pendingAttachmentRewraps.length > 0) {
-              let attachmentRewrapSyncCompleted = false;
-
-              writeChain = writeChain
-                .catch(() => undefined)
-                .then(async () => {
-                  const currentDoc = doc;
-                  const currentRecord = record;
-
-                  if (
-                    !currentDoc ||
-                    !currentRecord ||
-                    !runtime.online ||
-                    !runtime.isAuthenticated
-                  ) {
-                    return;
-                  }
-
-                  const nextRemoteRecord = await ensureRemoteDocument(
-                    currentDoc,
-                    currentRecord,
-                  );
-                  if (!nextRemoteRecord?.documentId) {
-                    return;
-                  }
-
-                  const attachmentsToRewrap = [...pendingAttachmentRewraps];
-                  if (attachmentsToRewrap.length === 0) {
-                    return;
-                  }
-
-                  const currentBindings =
-                    await runtime.apiClient.listDocumentAttachments(
-                      nextRemoteRecord.documentId,
-                    );
-                  if (!currentBindings) {
-                    return;
-                  }
-
-                  const currentBindingBySlotId = new Map(
-                    currentBindings.map((binding) => [binding.slotId, binding]),
-                  );
-                  const attachmentRewraps: Array<{
-                    expectedBindingId: string;
-                    recipientEnvelopes: Awaited<
-                      ReturnType<typeof rewrapBlobRecipientEnvelopes>
-                    >;
-                    slotId: string;
-                  }> = [];
-                  const blobById = new Map<
-                    string,
-                    Awaited<ReturnType<NotesRuntime["apiClient"]["getBlob"]>>
-                  >();
-
-                  for (const attachment of attachmentsToRewrap) {
-                    const currentBinding = currentBindingBySlotId.get(
-                      attachment.slotId,
-                    );
-                    if (
-                      !currentBinding ||
-                      currentBinding.blobId !== attachment.blobId
-                    ) {
-                      continue;
-                    }
-
-                    let blob = blobById.get(attachment.blobId);
-                    if (!blob) {
-                      blob = await runtime.apiClient.getBlob(attachment.blobId);
-                      if (!blob) {
-                        return;
-                      }
-                      blobById.set(attachment.blobId, blob);
-                    }
-
-                    attachmentRewraps.push({
-                      expectedBindingId: currentBinding.bindingId,
-                      recipientEnvelopes: await rewrapBlobRecipientEnvelopes({
-                        encryptedBytes: blob.encryptedBytes,
-                        recipientPublicKeys,
-                        secretKey: encapsulationKeyPair.secretKey,
-                      }),
-                      slotId: attachment.slotId,
-                    });
-                  }
-
-                  if (attachmentRewraps.length === 0) {
-                    pendingAttachmentRewraps = [];
-                    await persistence.deletePendingAttachmentRewraps(
-                      runtime.execSql,
-                      noteId,
-                    );
-                    return;
-                  }
-
-                  const baselineUpdate = exportAllUpdates(currentDoc);
-                  const baselineUpdateFields =
-                    createPendingUpdateFields(baselineUpdate);
-                  if (!baselineUpdateFields) {
-                    return;
-                  }
-
-                  const currentDocumentRecipientEnvelopes =
-                    parseDocumentRecipientEnvelopes(
-                      nextRemoteRecord.documentRecipientEnvelopes,
-                    );
-                  const { documentKey, documentRecipientEnvelopes } =
-                    await getOrCreateDocumentEncryptionMaterial({
-                      documentRecipientEnvelopes:
-                        currentDocumentRecipientEnvelopes,
-                      recipientPublicKeys,
-                      secretKey: encapsulationKeyPair.secretKey,
-                    });
-                  const encryptedBaseline = await encryptLoroUpdate(
-                    baselineUpdate,
-                    nextRemoteRecord.accessEpoch,
-                    documentKey,
-                  );
-                  const committed =
-                    await runtime.apiClient.commitDocumentChange(
-                      nextRemoteRecord.documentId,
-                      {
-                        accessEpoch: nextRemoteRecord.accessEpoch,
-                        attachmentCommits: [],
-                        attachmentDetaches: [],
-                        attachmentRewraps,
-                        documentRecipientEnvelopes,
-                        loroUpdate: {
-                          encryptedData: encryptedBaseline,
-                          id: crypto.randomUUID(),
-                          partialEndVersionVector:
-                            baselineUpdateFields.partialEndVersionVector,
-                          partialStartVersionVector:
-                            baselineUpdateFields.partialStartVersionVector,
-                          referencedSlotIds: getNoteAttachments(currentDoc).map(
-                            (attachment) => attachment.slotId,
-                          ),
-                        },
-                      },
-                    );
-
-                  if (!committed) {
-                    return;
-                  }
-
-                  pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
-                    (pendingAttachmentRewrap) =>
-                      !attachmentsToRewrap.some(
-                        (attachmentToRewrap) =>
-                          attachmentToRewrap.slotId ===
-                          pendingAttachmentRewrap.slotId,
-                      ),
-                  );
-                  await persistence.deletePendingAttachmentRewraps(
-                    runtime.execSql,
-                    noteId,
-                  );
-                  await persistence.deletePendingUpdates(
-                    runtime.execSql,
-                    noteId,
-                  );
-                  nextRecord = await persistDocument(currentDoc, {
-                    accessEpoch: committed.currentAccessEpoch,
-                    documentId: nextRemoteRecord.documentId,
-                    documentRecipientEnvelopes:
-                      serializeDocumentRecipientEnvelopes(
-                        committed.documentRecipientEnvelopes,
-                      ),
-                  });
-                  attachmentRewrapSyncCompleted = true;
-                })
-                .catch((error: unknown) => {
-                  console.error("Failed to rewrap note attachments:", error);
-                });
-
-              await writeChain;
-
-              if (attachmentRewrapSyncCompleted) {
-                syncRequested = true;
-                continue;
-              }
-            }
-
-            const pendingUpdates = await listPendingUpdates();
-            let documentId = nextRecord.documentId;
-
-            if (!documentId && pendingUpdates.length > 0) {
-              nextRecord = await ensureRemoteDocument(doc, nextRecord);
-              documentId = nextRecord?.documentId ?? null;
-              if (!documentId) {
-                continue;
-              }
-            }
-
-            if (documentId) {
-              const currentRecord = nextRecord;
-              if (!currentRecord) {
-                continue;
-              }
-
-              const currentDocumentRecipientEnvelopes =
-                parseDocumentRecipientEnvelopes(
-                  currentRecord.documentRecipientEnvelopes,
-                );
-              const encryptionMaterial =
-                pendingUpdates.length > 0
-                  ? await getOrCreateDocumentEncryptionMaterial({
-                      documentRecipientEnvelopes:
-                        currentDocumentRecipientEnvelopes,
-                      recipientPublicKeys,
-                      secretKey: encapsulationKeyPair.secretKey,
-                    })
-                  : null;
-              const outgoingUpdates = encryptionMaterial
-                ? await encryptPendingUpdates(
-                    pendingUpdates,
-                    currentRecord.accessEpoch,
-                    encryptionMaterial.documentKey,
-                  )
-                : [];
-
-              const synced = await runtime.apiClient.syncDocument(
-                documentId,
-                currentRecord.accessEpoch,
-                encodeVersionVector(doc),
-                outgoingUpdates,
-                encryptionMaterial && currentDocumentRecipientEnvelopes === null
-                  ? encryptionMaterial.documentRecipientEnvelopes
-                  : undefined,
-              );
-              if (!synced) {
-                continue;
-              }
-
-              updateRecipientPublicKeys(
-                synced.recipientEncapsulationPublicKeys,
-              );
-
-              for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
-                await deletePendingUpdate(acceptedOutgoingUpdateId);
-              }
-
-              const previousAccessEpoch = currentRecord.accessEpoch;
-              const nextDocumentRecipientEnvelopes =
-                synced.currentAccessEpoch !== previousAccessEpoch
-                  ? (synced.documentRecipientEnvelopes ?? null)
-                  : (synced.documentRecipientEnvelopes ??
-                    (encryptionMaterial &&
-                    currentDocumentRecipientEnvelopes === null
-                      ? encryptionMaterial.documentRecipientEnvelopes
-                      : currentDocumentRecipientEnvelopes));
-              if (synced.updates.length > 0) {
-                if (!nextDocumentRecipientEnvelopes) {
-                  runtime.log(
-                    "Notes: skipped incoming updates because the current document key bundle is missing.",
-                  );
-                } else {
-                  const { documentKey } =
-                    await getOrCreateDocumentEncryptionMaterial({
-                      documentRecipientEnvelopes:
-                        nextDocumentRecipientEnvelopes,
-                      recipientPublicKeys,
-                      secretKey: encapsulationKeyPair.secretKey,
-                    });
-                  const decrypted = await decryptIncomingUpdates(
-                    synced.updates,
-                    synced.currentAccessEpoch,
-                    documentKey,
-                    (message) => runtime.log(`Notes: ${message}`),
-                  );
-                  if (decrypted.length > 0) {
-                    importUpdates(doc, decrypted);
-                    setReadySnapshot(doc, true);
-                  }
-                }
-              }
-
-              nextRecord = await persistDocument(doc, {
-                documentId,
-                accessEpoch: synced.currentAccessEpoch,
-                documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-                  nextDocumentRecipientEnvelopes,
-                ),
-              });
-
-              if (synced.currentAccessEpoch !== previousAccessEpoch) {
-                const queuedAttachmentRewrap =
-                  await queueCommittedAttachmentsForRewrap(doc);
-                if (!queuedAttachmentRewrap) {
-                  await replacePendingUpdatesWithBaseline(doc);
-                }
-                syncRequested = true;
-              }
-
-              await hydrateAttachmentBlobs(doc, nextRecord);
-            }
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message === "Database worker client has been destroyed."
-            ) {
-              return;
-            }
-
-            throw error;
-          } finally {
-            setSnapshot({
-              attachments: snapshot.attachments,
-              attachmentStorageKeyBySlotId:
-                snapshot.attachmentStorageKeyBySlotId,
-              canAttach: snapshot.canAttach,
-              documentId: snapshot.documentId,
-              ready: snapshot.ready,
-              text: snapshot.text,
-              syncing: false,
-            });
-          }
-        }
+        await runScheduledSyncLoop();
       } catch (error) {
         console.error("Failed to sync notes:", error);
       } finally {
@@ -1238,6 +1517,130 @@ export function createNotesStore(
     }
   }
 
+  function buildPendingAttachments(
+    files: ReadonlyArray<NoteAttachmentUpload>,
+  ): {
+    nextAttachments: NoteAttachment[];
+    nextPendingAttachments: PendingAttachmentRecord[];
+  } {
+    const nextPendingAttachments: PendingAttachmentRecord[] = [];
+    const nextAttachments: NoteAttachment[] = [];
+
+    for (const file of files) {
+      const slotId = crypto.randomUUID();
+      const storageKey = `${noteId}-${slotId}`;
+      nextPendingAttachments.push({
+        byteLength: file.bytes.byteLength,
+        mimeType: file.mimeType,
+        name: file.name,
+        noteId,
+        slotId,
+        storageKey,
+      });
+      nextAttachments.push({
+        byteLength: file.bytes.byteLength,
+        mimeType: file.mimeType,
+        name: file.name,
+        slotId,
+      });
+    }
+
+    return { nextAttachments, nextPendingAttachments };
+  }
+
+  async function persistPendingAttachments(
+    files: ReadonlyArray<NoteAttachmentUpload>,
+    nextPendingAttachments: PendingAttachmentRecord[],
+  ) {
+    for (const [index, pendingAttachment] of nextPendingAttachments.entries()) {
+      const sourceFile = files[index];
+      if (!sourceFile) {
+        continue;
+      }
+
+      await runtime.blobStore.writeBytes(
+        pendingAttachment.storageKey,
+        sourceFile.bytes,
+      );
+      await saveLocalAttachmentRecord({
+        blobId: null,
+        byteLength: pendingAttachment.byteLength,
+        mimeType: pendingAttachment.mimeType,
+        noteId,
+        slotId: pendingAttachment.slotId,
+        storageKey: pendingAttachment.storageKey,
+      });
+      await persistence.savePendingAttachment(
+        runtime.execSql,
+        pendingAttachment,
+      );
+    }
+  }
+
+  function logAttachedFiles(count: number) {
+    runtime.log(
+      runtime.online && runtime.isAuthenticated
+        ? `Attached ${count} file${count === 1 ? "" : "s"} to note ${noteId}.`
+        : `Stored ${count} attachment${count === 1 ? "" : "s"} locally for note ${noteId}.`,
+    );
+  }
+
+  async function persistAttachedFiles(
+    files: ReadonlyArray<NoteAttachmentUpload>,
+  ) {
+    const currentDoc = doc;
+    const encapsulationKeyPair = runtime.encapsulationKeyPair;
+
+    if (!currentDoc || !canAttachFiles() || !encapsulationKeyPair) {
+      runtime.log("Notes: attachments require a local key package.");
+      return;
+    }
+
+    const { nextAttachments, nextPendingAttachments } =
+      buildPendingAttachments(files);
+    const previousVersion = encodeVersionVector(currentDoc);
+    addNoteAttachments(currentDoc, nextAttachments);
+    const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+    if (attachmentUpdate.byteLength > 0) {
+      await enqueuePendingUpdate(attachmentUpdate);
+    }
+
+    await persistPendingAttachments(files, nextPendingAttachments);
+
+    pendingAttachments = [...pendingAttachments, ...nextPendingAttachments];
+    await persistDocument(currentDoc);
+    logAttachedFiles(files.length);
+    scheduleSync();
+  }
+
+  function refreshAttachabilitySnapshot() {
+    if (!snapshot.ready) {
+      return;
+    }
+
+    setSnapshot({
+      attachments: snapshot.attachments,
+      attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
+      canAttach: canAttachFiles(),
+      documentId: snapshot.documentId,
+      ready: snapshot.ready,
+      text: snapshot.text,
+      syncing: snapshot.syncing,
+    });
+  }
+
+  function regainedSyncPrerequisites(
+    previousRuntime: NotesRuntime,
+    nextRuntime: NotesRuntime,
+  ): boolean {
+    return (
+      (!previousRuntime.online && nextRuntime.online) ||
+      (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
+      (!previousRuntime.encapsulationKeyPair &&
+        !!nextRuntime.encapsulationKeyPair)
+    );
+  }
+
   return {
     attachFiles(files: ReadonlyArray<NoteAttachmentUpload>) {
       if (files.length === 0 || !doc) {
@@ -1246,86 +1649,7 @@ export function createNotesStore(
 
       writeChain = writeChain
         .catch(() => undefined)
-        .then(async () => {
-          const currentDoc = doc;
-          const encapsulationKeyPair = runtime.encapsulationKeyPair;
-
-          if (!currentDoc || !canAttachFiles() || !encapsulationKeyPair) {
-            runtime.log("Notes: attachments require a local key package.");
-            return;
-          }
-
-          const nextPendingAttachments: PendingAttachmentRecord[] = [];
-          const nextAttachments: NoteAttachment[] = [];
-
-          for (const file of files) {
-            const slotId = crypto.randomUUID();
-            const storageKey = `${noteId}-${slotId}`;
-            nextPendingAttachments.push({
-              byteLength: file.bytes.byteLength,
-              mimeType: file.mimeType,
-              name: file.name,
-              noteId,
-              slotId,
-              storageKey,
-            });
-            nextAttachments.push({
-              byteLength: file.bytes.byteLength,
-              mimeType: file.mimeType,
-              name: file.name,
-              slotId,
-            });
-          }
-
-          const previousVersion = encodeVersionVector(currentDoc);
-          addNoteAttachments(currentDoc, nextAttachments);
-          const attachmentUpdate = exportUpdatesSince(
-            currentDoc,
-            previousVersion,
-          );
-          if (attachmentUpdate.byteLength > 0) {
-            await enqueuePendingUpdate(attachmentUpdate);
-          }
-
-          for (const [
-            index,
-            pendingAttachment,
-          ] of nextPendingAttachments.entries()) {
-            const sourceFile = files[index];
-            if (!sourceFile) {
-              continue;
-            }
-
-            await runtime.blobStore.writeBytes(
-              pendingAttachment.storageKey,
-              sourceFile.bytes,
-            );
-            await saveLocalAttachmentRecord({
-              blobId: null,
-              byteLength: pendingAttachment.byteLength,
-              mimeType: pendingAttachment.mimeType,
-              noteId,
-              slotId: pendingAttachment.slotId,
-              storageKey: pendingAttachment.storageKey,
-            });
-            await persistence.savePendingAttachment(
-              runtime.execSql,
-              pendingAttachment,
-            );
-          }
-
-          pendingAttachments = [
-            ...pendingAttachments,
-            ...nextPendingAttachments,
-          ];
-          await persistDocument(currentDoc);
-          runtime.log(
-            runtime.online && runtime.isAuthenticated
-              ? `Attached ${files.length} file${files.length === 1 ? "" : "s"} to note ${noteId}.`
-              : `Stored ${files.length} attachment${files.length === 1 ? "" : "s"} locally for note ${noteId}.`,
-          );
-          scheduleSync();
-        })
+        .then(async () => persistAttachedFiles(files))
         .catch((error: unknown) => {
           console.error("Failed to attach note files:", error);
         });
@@ -1401,29 +1725,14 @@ export function createNotesStore(
         return;
       }
 
-      if (snapshot.ready) {
-        setSnapshot({
-          attachments: snapshot.attachments,
-          attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
-          canAttach: canAttachFiles(),
-          documentId: snapshot.documentId,
-          ready: snapshot.ready,
-          text: snapshot.text,
-          syncing: snapshot.syncing,
-        });
-      }
-
+      refreshAttachabilitySnapshot();
       ensureInitialized();
-
-      const regainedSyncPrerequisites =
-        (!previousRuntime.online && nextRuntime.online) ||
-        (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-        (!previousRuntime.encapsulationKeyPair &&
-          !!nextRuntime.encapsulationKeyPair);
-
       handleRemoteEvents();
 
-      if (snapshot.ready && regainedSyncPrerequisites) {
+      if (
+        snapshot.ready &&
+        regainedSyncPrerequisites(previousRuntime, runtime)
+      ) {
         scheduleSync();
       }
     },

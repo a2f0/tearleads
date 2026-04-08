@@ -28,6 +28,8 @@ import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
+const DUAL_PANE_TEST_TIMEOUT_MS = 10_000;
+
 afterEach(async () => {
   cleanup();
   await resetMockServer();
@@ -427,79 +429,87 @@ async function openPeerNoteAndAssertAttachment(
   });
 }
 
-test("dual panes can share a container and refresh peer discovery", async () => {
-  useRealApiHandlers();
-  const view = renderDualPane();
-  const leftPane = getPaneRoot(view, "left");
-  const rightPane = getPaneRoot(view, "right");
+test(
+  "dual panes can share a container and refresh peer discovery",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
 
-  await waitForCondition(
-    () =>
-      !leftPane.textContent?.includes("userId: none") &&
-      !leftPane.textContent?.includes("session: none") &&
-      !rightPane.textContent?.includes("userId: none") &&
-      !rightPane.textContent?.includes("session: none") &&
-      !leftPane.textContent?.includes("peerUserId: none") &&
-      !rightPane.textContent?.includes("peerUserId: none"),
-    "Dual pane identities did not finish provisioning.",
-  );
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none") &&
+        !rightPane.textContent?.includes("userId: none") &&
+        !rightPane.textContent?.includes("session: none") &&
+        !leftPane.textContent?.includes("peerUserId: none") &&
+        !rightPane.textContent?.includes("peerUserId: none"),
+      "Dual pane identities did not finish provisioning.",
+    );
 
-  await openExplorer(leftPane);
-  await openExplorer(rightPane);
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
 
-  await createChildContainer(leftPane, "Shared");
-  await shareContainerWithPeer(leftPane, "Shared");
-  await selectPeerSharedContainer(rightPane, "Shared");
+    await createChildContainer(leftPane, "Shared");
+    await shareContainerWithPeer(leftPane, "Shared");
+    await selectPeerSharedContainer(rightPane, "Shared");
 
-  expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
-});
+    expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
 
-test("dual panes can share a container and refresh a post-share note with an image attachment once current-epoch document recipient envelopes are materialized", async () => {
-  useRealApiHandlers();
-  const view = renderDualPane();
-  const leftPane = getPaneRoot(view, "left");
-  const rightPane = getPaneRoot(view, "right");
+test(
+  "dual panes can share a container and refresh a post-share note with an image attachment once current-epoch document recipient envelopes are materialized",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
 
-  await waitForCondition(
-    () =>
-      !leftPane.textContent?.includes("userId: none") &&
-      !leftPane.textContent?.includes("session: none") &&
-      !rightPane.textContent?.includes("userId: none") &&
-      !rightPane.textContent?.includes("session: none") &&
-      !leftPane.textContent?.includes("peerUserId: none") &&
-      !rightPane.textContent?.includes("peerUserId: none"),
-    "Dual pane identities did not finish provisioning.",
-  );
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none") &&
+        !rightPane.textContent?.includes("userId: none") &&
+        !rightPane.textContent?.includes("session: none") &&
+        !leftPane.textContent?.includes("peerUserId: none") &&
+        !rightPane.textContent?.includes("peerUserId: none"),
+      "Dual pane identities did not finish provisioning.",
+    );
 
-  await openExplorer(leftPane);
-  await openExplorer(rightPane);
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
 
-  await createChildContainer(leftPane, "Shared");
-  await interact(() => {
-    fireEvent.click(getExplorerSidebarItem(leftPane, "Shared"));
-  });
+    await createChildContainer(leftPane, "Shared");
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Shared"));
+    });
 
-  await shareContainerWithPeer(leftPane, "Shared");
-  await selectPeerSharedContainer(rightPane, "Shared");
-  await interact(() => {
-    fireEvent.click(getExplorerSidebarItem(leftPane, "Shared"));
-  });
+    await shareContainerWithPeer(leftPane, "Shared");
+    await selectPeerSharedContainer(rightPane, "Shared");
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Shared"));
+    });
 
-  await createInlineNoteWithAttachment(
-    leftPane,
-    "After share note",
-    "after-share.png",
-  );
-  const createdDocumentId = await waitForInlineNoteToSettle(
-    leftPane,
-    "After share note",
-    "after-share.png",
-  );
-  await openPeerNoteAndAssertAttachment(
-    rightPane,
-    "Shared",
-    createdDocumentId,
-    "After share note",
-    "after-share.png",
-  );
-});
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "After share note",
+      "after-share.png",
+    );
+    const createdDocumentId = await waitForInlineNoteToSettle(
+      leftPane,
+      "After share note",
+      "after-share.png",
+    );
+    await openPeerNoteAndAssertAttachment(
+      rightPane,
+      "Shared",
+      createdDocumentId,
+      "After share note",
+      "after-share.png",
+    );
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
