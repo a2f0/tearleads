@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { auth } from "./routes/auth";
 import { containersRouter } from "./routes/containers";
 import { documentsRouter } from "./routes/documents";
+import { structuralDocumentsRoute } from "./routes/documents/structural";
 import { health } from "./routes/health";
 import { principalsRouter } from "./routes/principals";
 
@@ -13,6 +14,7 @@ routeApp.use("*", cors());
 routeApp.route("/", auth);
 routeApp.route("/", containersRouter);
 routeApp.route("/", documentsRouter);
+routeApp.route("/", structuralDocumentsRoute);
 routeApp.route("/", health);
 routeApp.route("/", principalsRouter);
 

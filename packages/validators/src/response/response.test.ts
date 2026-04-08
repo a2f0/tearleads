@@ -6,13 +6,16 @@ import {
   isCreateContainerResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isHealthResponse,
+  isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
+  isMoveContainerResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
   isPublicKeyResponse,
   isShareContainerResponse,
   isStageBlobResponse,
+  isUnlinkDocumentFromContainerResponse,
   isVerifyResponse,
 } from "./index";
 
@@ -212,6 +215,30 @@ test("isShareContainerResponse", () => {
   expect(isShareContainerResponse(null)).toBe(false);
 });
 
+test("isMoveContainerResponse", () => {
+  expect(
+    isMoveContainerResponse({
+      id: "ctr-123",
+      organizationId: "org-123",
+      parentId: "ctr-parent",
+      metadataDocumentId: "doc-123",
+      metadataAccessEpoch: 2,
+      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(true);
+  expect(
+    isMoveContainerResponse({
+      id: "ctr-123",
+      organizationId: "org-123",
+      parentId: null,
+      metadataDocumentId: "doc-123",
+      metadataAccessEpoch: 2,
+      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(false);
+  expect(isMoveContainerResponse(null)).toBe(false);
+});
+
 test("isListContainerDocumentsResponse", () => {
   expect(
     isListContainerDocumentsResponse([
@@ -244,6 +271,48 @@ test("isListContainerDocumentsResponse", () => {
     ]),
   ).toBe(false);
   expect(isListContainerDocumentsResponse(null)).toBe(false);
+});
+
+test("isLinkDocumentToContainerResponse", () => {
+  expect(
+    isLinkDocumentToContainerResponse({
+      createdAt: new Date().toISOString(),
+      currentAccessEpoch: 2,
+      id: "doc-123",
+      linkedContainerIds: ["ctr-root", "ctr-child"],
+      recipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(true);
+  expect(
+    isLinkDocumentToContainerResponse({
+      currentAccessEpoch: 2,
+      id: "doc-123",
+      linkedContainerIds: ["ctr-root", "ctr-child"],
+      recipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(false);
+  expect(isLinkDocumentToContainerResponse(null)).toBe(false);
+});
+
+test("isUnlinkDocumentFromContainerResponse", () => {
+  expect(
+    isUnlinkDocumentFromContainerResponse({
+      createdAt: new Date().toISOString(),
+      currentAccessEpoch: 3,
+      id: "doc-123",
+      linkedContainerIds: ["ctr-root"],
+      recipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(true);
+  expect(
+    isUnlinkDocumentFromContainerResponse({
+      createdAt: new Date().toISOString(),
+      id: "doc-123",
+      linkedContainerIds: ["ctr-root"],
+      recipientEncapsulationPublicKeys: ["pub-key"],
+    }),
+  ).toBe(false);
+  expect(isUnlinkDocumentFromContainerResponse(null)).toBe(false);
 });
 
 test("isPrincipalStateResponse", () => {

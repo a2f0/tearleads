@@ -28,6 +28,8 @@ export interface ShareContainerResponse {
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
+export type MoveContainerResponse = ContainerSummary;
+
 export interface ContainerSummary {
   id: string;
   organizationId: string;
@@ -94,4 +96,10 @@ export function isShareContainerResponse(
       (Array.isArray(metadataReferencedPrincipals) &&
         metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
+}
+
+export function isMoveContainerResponse(
+  value: unknown,
+): value is MoveContainerResponse {
+  return isContainerSummary(value) && value.parentId !== null;
 }

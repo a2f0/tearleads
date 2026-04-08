@@ -3,6 +3,8 @@ import {
   isChallengeRequest,
   isCommitDocumentChangeRequest,
   isCreateContainerRequest,
+  isLinkDocumentToContainerRequest,
+  isMoveContainerRequest,
   isPublicKeyRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
@@ -200,6 +202,34 @@ test("isShareContainerRequest", () => {
     }),
   ).toBe(false);
   expect(isShareContainerRequest(null)).toBe(false);
+});
+
+test("isMoveContainerRequest", () => {
+  expect(
+    isMoveContainerRequest({
+      parentId: "550e8400-e29b-41d4-a716-446655440000",
+    }),
+  ).toBe(true);
+  expect(
+    isMoveContainerRequest({
+      parentId: "not-a-uuid",
+    }),
+  ).toBe(false);
+  expect(isMoveContainerRequest(null)).toBe(false);
+});
+
+test("isLinkDocumentToContainerRequest", () => {
+  expect(
+    isLinkDocumentToContainerRequest({
+      containerId: "550e8400-e29b-41d4-a716-446655440000",
+    }),
+  ).toBe(true);
+  expect(
+    isLinkDocumentToContainerRequest({
+      containerId: "not-a-uuid",
+    }),
+  ).toBe(false);
+  expect(isLinkDocumentToContainerRequest(null)).toBe(false);
 });
 
 test("isPutPrincipalStateRequest", () => {

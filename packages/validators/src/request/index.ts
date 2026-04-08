@@ -12,7 +12,11 @@ export {
 export {
   type CreateContainerRequest,
   isCreateContainerRequest,
+  isLinkDocumentToContainerRequest,
+  isMoveContainerRequest,
   isShareContainerRequest,
+  type LinkDocumentToContainerRequest,
+  type MoveContainerRequest,
   type ShareContainerRequest,
 } from "./container";
 export {

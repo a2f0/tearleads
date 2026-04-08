@@ -14,11 +14,14 @@ import {
   createContainer,
   listContainerDocuments,
   listContainers,
+  moveContainer,
   shareContainer,
 } from "./routes/containers";
 import {
   commitDocumentChange,
+  linkDocumentToContainer,
   listDocumentAttachments,
+  unlinkDocumentFromContainer,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getCurrentPrincipalPolicy } from "./routes/principals";
@@ -201,6 +204,18 @@ export class ApiClient {
       subjectId,
       accessLevel,
     );
+  }
+
+  moveContainer(containerId: string, parentId: string) {
+    return moveContainer(this.request, containerId, parentId);
+  }
+
+  linkDocumentToContainer(documentId: string, containerId: string) {
+    return linkDocumentToContainer(this.request, documentId, containerId);
+  }
+
+  unlinkDocumentFromContainer(documentId: string, containerId: string) {
+    return unlinkDocumentFromContainer(this.request, documentId, containerId);
   }
 
   syncDocument(

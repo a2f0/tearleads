@@ -24,6 +24,14 @@ export interface ShareContainerRequest {
   accessLevel: "read" | "write" | "admin";
 }
 
+export interface MoveContainerRequest {
+  parentId: string;
+}
+
+export interface LinkDocumentToContainerRequest {
+  containerId: string;
+}
+
 function isShareSubjectType(
   value: string,
 ): value is ShareContainerRequest["subjectType"] {
@@ -67,5 +75,25 @@ export function isShareContainerRequest(
     isUuidV4String(value.subjectId) &&
     hasStringProperty(value, "accessLevel") &&
     isShareAccessLevel(value.accessLevel)
+  );
+}
+
+export function isMoveContainerRequest(
+  value: unknown,
+): value is MoveContainerRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "parentId") &&
+    isUuidV4String(value.parentId)
+  );
+}
+
+export function isLinkDocumentToContainerRequest(
+  value: unknown,
+): value is LinkDocumentToContainerRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    isUuidV4String(value.containerId)
   );
 }

@@ -19,6 +19,8 @@ export interface ContainerDocumentSummary {
 }
 
 export type ListContainerDocumentsResponse = ContainerDocumentSummary[];
+export type LinkDocumentToContainerResponse = ContainerDocumentSummary;
+export type UnlinkDocumentFromContainerResponse = ContainerDocumentSummary;
 
 function isContainerDocumentSummary(
   value: unknown,
@@ -48,4 +50,16 @@ export function isListContainerDocumentsResponse(
   value: unknown,
 ): value is ListContainerDocumentsResponse {
   return Array.isArray(value) && value.every(isContainerDocumentSummary);
+}
+
+export function isLinkDocumentToContainerResponse(
+  value: unknown,
+): value is LinkDocumentToContainerResponse {
+  return isContainerDocumentSummary(value);
+}
+
+export function isUnlinkDocumentFromContainerResponse(
+  value: unknown,
+): value is UnlinkDocumentFromContainerResponse {
+  return isContainerDocumentSummary(value);
 }
