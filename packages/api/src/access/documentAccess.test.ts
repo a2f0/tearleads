@@ -29,6 +29,14 @@ import { resolveDocumentAccessState } from "./documentAccess";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
+const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
+
+function principalStateSignedAt(offsetMinutes: number): string {
+  return new Date(
+    PRINCIPAL_STATE_BASE_TIME_MS + offsetMinutes * 60 * 1000,
+  ).toISOString();
+}
+
 function userPrincipal(userId: string): {
   principalId: string;
   principalType: RecipientPrincipalType;
@@ -61,7 +69,7 @@ async function storeCurrentGroupState(
           principalType: "user",
           principalId: userId,
         })),
-        signedAt: new Date("2026-04-08T12:15:00.000Z").toISOString(),
+        signedAt: principalStateSignedAt(15),
         signerKeyId: "group-policy-key",
       },
       signingPrivateKey,

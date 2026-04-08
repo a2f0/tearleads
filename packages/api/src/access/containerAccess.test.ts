@@ -29,6 +29,13 @@ import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
 const CONTAINER_OBJECT_TYPE = "container";
+const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
+
+function principalStateSignedAt(offsetMinutes: number): string {
+  return new Date(
+    PRINCIPAL_STATE_BASE_TIME_MS + offsetMinutes * 60 * 1000,
+  ).toISOString();
+}
 
 function userPrincipal(userId: string): {
   principalId: string;
@@ -60,7 +67,7 @@ async function storeCurrentPrincipalState(input: {
         encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
         keyFingerprint: await toFingerprint(principalKem.publicKey),
         members: input.members,
-        signedAt: new Date("2026-04-08T12:00:00.000Z").toISOString(),
+        signedAt: principalStateSignedAt(0),
         signerKeyId: `${input.principalType}-policy-key`,
       },
       signingPrivateKey,
