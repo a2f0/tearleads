@@ -1,9 +1,6 @@
 import type { PutPrincipalMemberEnvelopesRequest } from "@tearleads/validators/request";
 import type { CurrentPrincipalMemberEnvelopesResponse } from "@tearleads/validators/response";
-import {
-  listCurrentPrincipalMemberEnvelopes,
-  replaceCurrentPrincipalMemberEnvelopes,
-} from "../../access/principalMemberEnvelopes";
+import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
 import { getCurrentPrincipalState } from "../../access/principalStateStore";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -84,7 +81,7 @@ export async function putPrincipalMemberEnvelopes(
   }
 
   try {
-    await replaceCurrentPrincipalMemberEnvelopes(
+    const storedEnvelopes = await replaceCurrentPrincipalMemberEnvelopes(
       {
         principalType: input.principalType,
         principalId: input.principalId,
@@ -99,6 +96,14 @@ export async function putPrincipalMemberEnvelopes(
       },
       runtime.db,
     );
+
+    return toCurrentPrincipalMemberEnvelopesResponse({
+      principalType: input.principalType,
+      principalId: input.principalId,
+      stateHash: currentState.stateHash,
+      epoch: currentState.keyEpoch,
+      envelopes: storedEnvelopes,
+    });
   } catch (error) {
     const principalPolicyError = toPrincipalMemberEnvelopeError(error);
     if (principalPolicyError) {
@@ -107,18 +112,4 @@ export async function putPrincipalMemberEnvelopes(
 
     throw error;
   }
-
-  const storedEnvelopes = await listCurrentPrincipalMemberEnvelopes(
-    input.principalType,
-    input.principalId,
-    runtime.db,
-  );
-
-  return toCurrentPrincipalMemberEnvelopesResponse({
-    principalType: input.principalType,
-    principalId: input.principalId,
-    stateHash: currentState.stateHash,
-    epoch: currentState.keyEpoch,
-    envelopes: storedEnvelopes,
-  });
 }
