@@ -163,6 +163,8 @@ V1 needs explicit visible link metadata for derived principals:
   - `slot_id`
   - `blob_id`
   - `detached_at`
+  - detached rows are transient metadata and may be pruned once the referenced
+    blob is garbage-collected
 
 These links are not cosmetic only. They are security-relevant metadata because
 they affect the effective recipient set of documents and blobs.
@@ -258,6 +260,8 @@ Instead:
 - each active binding contributes one document edge
 - the blob's effective principal is the union of the linked document
   principals
+- detached bindings are not durable history; once no active binding keeps the
+  blob reachable, blob GC may also remove those detached rows
 - the blob's `accessFingerprint` should include:
   - linked document ids
   - linked document fingerprints

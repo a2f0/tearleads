@@ -9,7 +9,7 @@ import type {
   BlobResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
 import {
   blobRecipientEnvelopesMatchRecipients,
@@ -154,6 +154,29 @@ async function deleteOrphanedBlobs(
 
   if (orphanedBlobIds.length === 0) {
     return activeBlobIds;
+  }
+
+  const detachedBindings = await executor
+    .select({ id: attachmentBindings.id })
+    .from(attachmentBindings)
+    .where(
+      and(
+        inArray(attachmentBindings.blobId, orphanedBlobIds),
+        isNotNull(attachmentBindings.detachedAt),
+      ),
+    );
+  const detachedBindingIds = uniqueSortedStrings(
+    detachedBindings.map((binding) => binding.id),
+  );
+
+  if (detachedBindingIds.length > 0) {
+    await executor
+      .update(attachmentBindings)
+      .set({ previousBindingId: null })
+      .where(inArray(attachmentBindings.previousBindingId, detachedBindingIds));
+    await executor
+      .delete(attachmentBindings)
+      .where(inArray(attachmentBindings.id, detachedBindingIds));
   }
 
   await executor

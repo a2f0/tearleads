@@ -55,8 +55,8 @@ The docs now converge on the following model:
 
 The principal-derivation model and the atomic attachment/document mutation
 protocol now exist in the API. Blob and document wrapped-key persistence are now
-real; the remaining gap is epoch-to-epoch bundle management and rewrap /
-rotation policy, not basic document-key materialization.
+real; the remaining gap is now mostly the client-facing multi-container
+document-management story, not basic document/blob key materialization.
 
 Why this matters:
 
@@ -78,4 +78,3 @@ Remaining implementation work:
   switch the active projection of a note across its linked containers, but it
   still only exposes one active note projection at a time rather than a fuller
   multi-container document-management UI
-- decide detached-binding retention / GC policy separately from blob GC
