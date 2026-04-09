@@ -368,13 +368,14 @@ The current sync path now exposes that server-side decision explicitly through
 - `rewrap`
 - `rotate`
 
-Clients use `rewrap` to seed a missing current-epoch document bundle before
-sending the rebased baseline that new recipients need. When the server returns
-`rotate`, clients clear stale current-epoch bundles and resend a fresh
-baseline under a new DEK instead of trying to reuse the prior epoch's bundle.
-Committed blob bindings follow the same keep/rewrap/rotate rule: additive
-recipient growth can update wrapped-key header material in place, but recipient
-shrink now requires a later blob replacement instead of header-only reuse.
+Clients use `rewrap` to seed a missing current-epoch document bundle, preserve
+local pending Loro updates, and retry those updates under the new epoch with
+the same document DEK. When the server returns `rotate`, clients clear stale
+current-epoch bundles and resend a fresh baseline under a new DEK instead of
+trying to reuse the prior epoch's bundle. Committed blob bindings follow the
+same keep/rewrap/rotate rule: additive recipient growth can update wrapped-key
+header material in place, but recipient shrink now requires a later blob
+replacement instead of header-only reuse.
 
 ## Implementation Plan
 
@@ -713,6 +714,9 @@ drive effective-recipient expansion or object rewrap decisions.
 
 For document rekey, rotate-baseline generation, and tamper-evident document
 history considerations, see [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md).
+
+For the current `#105` implementation handoff and recommended next slice, see
+[access-plane-105-handoff.md](./access-plane-105-handoff.md).
 
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.

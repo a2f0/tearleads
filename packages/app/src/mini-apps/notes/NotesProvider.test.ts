@@ -1031,7 +1031,7 @@ test("large note edits remain a single pending update row before sync", async ()
   }
 });
 
-test("notes store enqueues a full baseline when document access expands", async () => {
+test("notes store rewraps document access expansion without replacing pending updates with a baseline", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const createDocumentCalls: string[][] = [];
@@ -1039,6 +1039,7 @@ test("notes store enqueues a full baseline when document access expands", async 
     accessEpoch: number;
     documentId: string;
     documentRecipientEnvelopeCount: number;
+    outgoingUpdateIds: string[];
     outgoingUpdateCount: number;
   }> = [];
   let syncCallCount = 0;
@@ -1065,14 +1066,13 @@ test("notes store enqueues a full baseline when document access expands", async 
           documentId,
           documentRecipientEnvelopeCount:
             documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateIds: outgoingUpdates.map((update) => update.id),
           outgoingUpdateCount: outgoingUpdates.length,
         });
 
         if (syncCallCount === 2) {
           return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: outgoingUpdates.map(
-              (update) => update.id,
-            ),
+            acceptedOutgoingUpdateIds: [],
             accessEpoch: 2,
             documentId,
             documentRecipientEnvelopeAction: "rewrap",
@@ -1119,11 +1119,18 @@ test("notes store enqueues a full baseline when document access expands", async 
       syncDocumentCalls.length === 4 &&
       persistence.getState().pendingUpdates.length === 0 &&
       persistence.getState().note?.accessEpoch === 2,
-    "Expanded access epoch did not trigger a full baseline resync.",
+    "Expanded access epoch did not rewrap and retry the pending note update.",
   );
 
   expect(createDocumentCalls).toEqual([["root-container"]]);
-  expect(syncDocumentCalls).toEqual([
+  expect(
+    syncDocumentCalls.map((call) => ({
+      accessEpoch: call.accessEpoch,
+      documentId: call.documentId,
+      documentRecipientEnvelopeCount: call.documentRecipientEnvelopeCount,
+      outgoingUpdateCount: call.outgoingUpdateCount,
+    })),
+  ).toEqual([
     {
       accessEpoch: 1,
       documentId: "notes-document-1",
@@ -1149,6 +1156,10 @@ test("notes store enqueues a full baseline when document access expands", async 
       outgoingUpdateCount: 1,
     },
   ]);
+  expect(syncDocumentCalls[1]?.outgoingUpdateIds).toHaveLength(1);
+  expect(syncDocumentCalls[3]?.outgoingUpdateIds).toEqual(
+    syncDocumentCalls[1]?.outgoingUpdateIds,
+  );
 });
 
 test("notes store does not invent document recipient envelopes during read-only sync", async () => {
@@ -1234,8 +1245,17 @@ test("notes store rewraps committed attachments when document access expands", a
     expectedBindingIds: Array<string | null>;
     referencedSlotIds: string[];
   }> = [];
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateIds: string[];
+    outgoingUpdateCount: number;
+  }> = [];
   let currentBindingId: string | null = null;
   let currentBlobId: string | null = null;
+  let currentDocumentRecipientEnvelopes: SyncDocumentResponse["documentRecipientEnvelopes"] =
+    null;
   let currentSlotId: string | null = null;
   let syncCallCount = 0;
   let commitCallCount = 0;
@@ -1279,6 +1299,8 @@ test("notes store rewraps committed attachments when document access expands", a
             };
           },
         );
+        currentDocumentRecipientEnvelopes =
+          input.documentRecipientEnvelopes ?? currentDocumentRecipientEnvelopes;
 
         return {
           acceptedOutgoingUpdateIds: input.loroUpdate
@@ -1286,7 +1308,7 @@ test("notes store rewraps committed attachments when document access expands", a
             : [],
           committedBindings,
           currentAccessEpoch: input.accessEpoch,
-          documentRecipientEnvelopes: null,
+          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
           detachedBindingIds: [],
         };
       },
@@ -1326,12 +1348,21 @@ test("notes store rewraps committed attachments when document access expands", a
         documentRecipientEnvelopes,
       ) => {
         syncCallCount += 1;
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+        if (documentRecipientEnvelopes) {
+          currentDocumentRecipientEnvelopes = documentRecipientEnvelopes;
+        }
 
         if (syncCallCount === 2) {
           return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: outgoingUpdates.map(
-              (update) => update.id,
-            ),
+            acceptedOutgoingUpdateIds: [],
             accessEpoch: 2,
             documentId,
             documentRecipientEnvelopeAction: "rewrap",
@@ -1387,8 +1418,15 @@ test("notes store rewraps committed attachments when document access expands", a
   await waitForCondition(
     () =>
       commitChangeCalls.length === 2 &&
+      syncDocumentCalls.some(
+        (call) =>
+          call.accessEpoch === 2 &&
+          call.outgoingUpdateCount === 1 &&
+          call.documentRecipientEnvelopeCount === 0,
+      ) &&
       persistence.getState().pendingAttachments.length === 0 &&
       persistence.getState().pendingAttachmentRewraps.length === 0 &&
+      persistence.getState().pendingUpdates.length === 0 &&
       persistence.getState().note?.accessEpoch === 2,
     "Access expansion did not trigger attachment rewrap.",
   );
@@ -1409,11 +1447,21 @@ test("notes store rewraps committed attachments when document access expands", a
       attachmentCommitCount: 0,
       attachmentRewrapCount: 1,
       documentId: "notes-document-1",
-      documentRecipientEnvelopeCount: 1,
+      documentRecipientEnvelopeCount: 0,
       expectedBindingIds: ["binding-1-1"],
-      referencedSlotIds: [currentSlotId ?? ""],
+      referencedSlotIds: [],
     },
   ]);
+  const stalePendingUpdate = syncDocumentCalls.find(
+    (call) => call.accessEpoch === 1 && call.outgoingUpdateCount === 1,
+  );
+  const retriedPendingUpdate = syncDocumentCalls.find(
+    (call) => call.accessEpoch === 2 && call.outgoingUpdateCount === 1,
+  );
+  expect(stalePendingUpdate?.outgoingUpdateIds).toHaveLength(1);
+  expect(retriedPendingUpdate?.outgoingUpdateIds).toEqual(
+    stalePendingUpdate?.outgoingUpdateIds,
+  );
 });
 
 test("notes store rotates document epochs without queueing committed attachment rewraps", async () => {

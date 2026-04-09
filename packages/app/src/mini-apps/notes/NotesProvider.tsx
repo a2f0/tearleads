@@ -34,6 +34,7 @@ import {
   isDocumentUpdateCreatedEvent,
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
+  requiresBaselineAfterDocumentEpochChange,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -1077,6 +1078,27 @@ async function commitBaselineChange(
   );
 }
 
+async function commitAttachmentRewrapChange(
+  state: NotesStoreState,
+  nextRemoteRecord: NoteRecord,
+  attachmentRewraps: AttachmentRewrapChange[],
+): Promise<CommitDocumentChangeResponse | null> {
+  if (!nextRemoteRecord.documentId) {
+    return null;
+  }
+
+  return state.runtime.apiClient.commitDocumentChange(
+    nextRemoteRecord.documentId,
+    {
+      accessEpoch: nextRemoteRecord.accessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps,
+      loroUpdate: null,
+    },
+  );
+}
+
 async function saveCommittedAttachmentRecords(
   state: NotesStoreState,
   currentDoc: NotesDocument,
@@ -1323,10 +1345,6 @@ async function clearSyncedPendingAttachmentRewraps(
     state.runtime.execSql,
     state.noteId,
   );
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    state.noteId,
-  );
 }
 
 async function clearEmptyPendingAttachmentRewraps(
@@ -1399,12 +1417,9 @@ async function runPendingAttachmentRewrapTask(
     return clearEmptyPendingAttachmentRewraps(state, nextRecord);
   }
 
-  const committed = await commitBaselineChange(
+  const committed = await commitAttachmentRewrapChange(
     state,
-    currentDoc,
     nextRemoteRecord,
-    encapsulationKeyPair,
-    [],
     attachmentRewraps,
   );
   if (!committed) {
@@ -1613,11 +1628,14 @@ async function finalizeDocumentSync(
         "Notes: document epoch rotated; committed attachments require replacement rather than blob rewrap.",
       );
     } else {
-      const queuedAttachmentRewrap = await queueCommittedAttachmentsForRewrap(
-        state,
-        currentDoc,
-      );
-      if (!queuedAttachmentRewrap) {
+      await queueCommittedAttachmentsForRewrap(state, currentDoc);
+      if (
+        requiresBaselineAfterDocumentEpochChange({
+          previousAccessEpoch,
+          resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+          synced,
+        })
+      ) {
         await replacePendingUpdatesWithBaseline(state, currentDoc);
       }
     }
