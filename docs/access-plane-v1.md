@@ -715,6 +715,9 @@ drive effective-recipient expansion or object rewrap decisions.
 For document rekey, rotate-baseline generation, and tamper-evident document
 history considerations, see [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md).
 
+For the current `#105` implementation handoff and recommended next slice, see
+[access-plane-105-handoff.md](./access-plane-105-handoff.md).
+
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.
 

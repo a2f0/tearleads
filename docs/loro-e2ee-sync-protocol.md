@@ -121,6 +121,9 @@ Important remaining limitation:
   path; compare-and-set source-frontier validation, audit/history hardening,
   and historical attachment retention remain future work
 
+For the current `#105` pickup point and recommended next implementation slice,
+see [access-plane-105-handoff.md](./access-plane-105-handoff.md).
+
 ## Why This Boundary Matters
 
 Issue `#82` is about replacing the current sequence-oriented update fetch with a

@@ -3,6 +3,9 @@
 This file tracks implementation bugs, schema mismatches, and unresolved design
 questions that are already visible in the current docs and code.
 
+For the current `#105` pickup point and recommended next slice, see
+[access-plane-105-handoff.md](./access-plane-105-handoff.md).
+
 ## Access Plane And Envelope Storage
 
 ### KI-004: `object_recipient_envelopes` still has sparse / object-type-specific semantics
@@ -55,8 +58,10 @@ The docs now converge on the following model:
 
 The principal-derivation model and the atomic attachment/document mutation
 protocol now exist in the API. Blob and document wrapped-key persistence are now
-real; the remaining gap is now mostly the client-facing multi-container
-document-management story, not basic document/blob key materialization.
+real. Additive document epoch rewrap now preserves pending Loro updates instead
+of replacing them with a full baseline. The remaining gaps are now rotate
+hardening, historical retention/audit policy, and the client-facing
+multi-container document-management story.
 
 Why this matters:
 
@@ -73,6 +78,10 @@ Current recommendation:
 
 Remaining implementation work:
 
+- harden document `rotate` handling so one epoch cannot silently receive
+  divergent current-epoch document bundles / DEKs from competing clients
+- add source-frontier / compare-and-set validation before accepting a rotate
+  baseline as canonical
 - keep pushing the multi-container document-management story beyond the
   current explorer note flow; the app explorer now renders linked note
   projections under each linked container and can switch the active local
