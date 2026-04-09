@@ -9,23 +9,36 @@ Yes, the remaining access-plane work is still under `#105`. The issue has
 shifted from "make sharing basically work" to "finish the principal-based
 rewrap/rotation model and tighten the remaining edge cases."
 
-## Current PR
+## Recently Landed PRs
 
-If this document is being read before PR `#161` has merged, review and merge
-that PR first:
+These #105 slices are back on `main`:
 
-- branch: `feat/document-additive-rewrap`
-- PR: `#161`
-- title: `feat: rewrap additive document epochs`
+- PR `#161`, `feat: rewrap additive document epochs`: additive document epoch
+  changes use document-DEK rewrap instead of forcing a full-baseline
+  replacement.
+- PR `#163`, `fix: canonicalize document recipient bundles`: current-epoch
+  document recipient bundles are canonical and divergent same-epoch bundle
+  material is rejected.
+- PR `#164`, `feat: enforce rotate baseline source frontier`: first
+  current-epoch rotate baselines carry `sourceVersionVector`, and the server
+  compare-and-set checks that value against all server-known prior-epoch
+  document updates before accepting the baseline.
 
-That PR makes additive document epoch changes use document-DEK rewrap instead
-of forcing a full-baseline replacement:
+## Current Local Slice
 
-- `rewrap` keeps the same document DEK
-- the client materializes a current-epoch recipient bundle
-- local pending Loro updates are preserved and retried under the new epoch
-- note attachment rewrap-only commits no longer send an unrelated Loro baseline
-- `rotate` keeps using the fresh-baseline path
+Branch `feat/rotate-baseline-rebase` continues PR `#164` by tightening the
+honest-client rotate path:
+
+- rotate baseline commits are rejected when the submitted
+  `partialEndVersionVector` does not cover the claimed `sourceVersionVector`
+- notes, contacts, and explorer metadata sync import decryptable prior-epoch
+  updates from rotate responses before queueing a fresh current-epoch baseline
+- notes coverage now verifies that a rotate baseline's version frontier includes
+  an incoming old-epoch update that arrived with the rotate response
+
+The server still cannot decrypt E2EE Loro update payloads. Its rotate checks
+therefore enforce visible frontier metadata consistency; the client-side import
+path is what keeps honest baselines from omitting decryptable prior-epoch edits.
 
 ## What Is Already Landed
 
@@ -47,6 +60,10 @@ The access plane already has these pieces:
 - current-epoch document recipient bundles are canonical: identical bundle
   retries are accepted, divergent same-epoch bundle material is rejected with
   `409`, and sync/commit paths no longer silently replace the winning bundle
+- additive document access growth rewraps the document DEK, materializes a
+  current-epoch recipient bundle, and preserves pending Loro updates for retry
+- rotate baseline source-frontier CAS rejects first current-epoch baselines that
+  do not match the server-known prior-epoch document frontier
 - detached attachment bindings are transient metadata and may be pruned when
   blob GC removes the now-unreachable blob
 
@@ -64,13 +81,14 @@ Avoid these paths:
 
 ## Remaining #105 Work
 
-The larger rotate-baseline design remains:
+The next slices should stay focused on rotate/adoption edge cases:
 
-- add a source-frontier / compare-and-set rule for rotate baselines
-- ensure the winning rotate baseline commits to all server-known prior-epoch
-  edits at the time it is accepted
-- define how still-authorized offline clients rebase local-only edits after a
-  rotate
+- define how still-authorized offline clients adopt the canonical current-epoch
+  baseline after another client wins the rotate race
+- rebase or preserve local-only edits from clients that discover a completed
+  rotate after working offline
+- decide whether sync should distinguish prior-epoch and current-epoch missing
+  updates explicitly instead of relying on decrypt-and-skip behavior
 - decide how much historical attachment/blob retention the product needs
 
 ## Docs To Read Before Continuing
@@ -90,9 +108,10 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice: design and implement source-frontier /
-compare-and-set handling for rotate baselines so the winning baseline commits
-to all server-known prior-epoch edits. Keep additive document rewrap behavior
-intact. Do not reintroduce per-user fallback, old blob compat shims, or blob
-payload re-upload for additive access growth.
+continue with the next #105 slice: handle still-authorized offline clients that
+discover a completed rotate after another client has already established the
+canonical current-epoch bundle/baseline. Preserve the existing additive rewrap
+behavior, rotate source-frontier CAS, and prior-epoch update import fallback. Do
+not reintroduce per-user fallback, old blob compat shims, or blob payload
+re-upload for additive access growth.
 ```

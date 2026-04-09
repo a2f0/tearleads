@@ -38,6 +38,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
+  resolveIncomingUpdateDecryptionMaterial,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -875,19 +876,31 @@ async function applySyncedContainerUpdates(
     await deletePendingContainerUpdate(state, acceptedOutgoingUpdateId);
   }
 
+  const previousAccessEpoch = containerState.record.accessEpoch;
   const nextDocumentRecipientEnvelopes =
-    synced.documentRecipientEnvelopes ??
-    (encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : currentDocumentRecipientEnvelopes);
+    resolveSyncedDocumentRecipientEnvelopes({
+      currentAccessEpoch: previousAccessEpoch,
+      currentDocumentRecipientEnvelopes,
+      generatedDocumentRecipientEnvelopes:
+        encryptionMaterial?.documentRecipientEnvelopes ?? null,
+      synced,
+    });
   if (synced.updates.length > 0) {
-    if (!nextDocumentRecipientEnvelopes) {
+    const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+      currentDocumentRecipientEnvelopes,
+      nextDocumentRecipientEnvelopes,
+      previousAccessEpoch,
+      synced,
+    });
+
+    if (!decryptionMaterial) {
       state.runtime.log(
         `Explorer: skipped metadata updates for container ${containerState.container.id} because the current document key bundle is missing.`,
       );
     } else {
       const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-        documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        documentRecipientEnvelopes:
+          decryptionMaterial.documentRecipientEnvelopes,
         execSql: state.runtime.execSql,
         recipientPublicKeys: containerState.recipientPublicKeys,
         secretKey,
@@ -895,7 +908,7 @@ async function applySyncedContainerUpdates(
       const decryptedUpdates = await decryptMetadataUpdates(
         state,
         synced.updates,
-        synced.currentAccessEpoch,
+        decryptionMaterial.accessEpoch,
         documentKey,
       );
       if (decryptedUpdates.length > 0) {

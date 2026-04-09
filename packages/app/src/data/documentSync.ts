@@ -290,6 +290,40 @@ export function requiresBaselineAfterDocumentEpochChange(input: {
   return input.resolvedDocumentRecipientEnvelopes === null;
 }
 
+export function resolveIncomingUpdateDecryptionMaterial(input: {
+  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  nextDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  previousAccessEpoch: number;
+  synced: SyncDocumentResponse;
+}): {
+  accessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
+} | null {
+  if (input.nextDocumentRecipientEnvelopes) {
+    return {
+      accessEpoch: input.synced.currentAccessEpoch,
+      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+        input.nextDocumentRecipientEnvelopes,
+      ),
+    };
+  }
+
+  if (
+    input.synced.currentAccessEpoch !== input.previousAccessEpoch &&
+    input.synced.documentRecipientEnvelopeAction === "rotate" &&
+    input.currentDocumentRecipientEnvelopes
+  ) {
+    return {
+      accessEpoch: input.previousAccessEpoch,
+      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+        input.currentDocumentRecipientEnvelopes,
+      ),
+    };
+  }
+
+  return null;
+}
+
 export async function getOrCreateDocumentEncryptionMaterial(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   execSql?: ExecSql;

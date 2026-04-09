@@ -2,6 +2,7 @@ import { replaceBlobEnvelopeRecipients } from "@tearleads/crypto";
 import {
   emptyVersionVector,
   mergeVersionVectors,
+  satisfiesVersionVector,
   versionVectorsEqual,
 } from "@tearleads/loro";
 import { createLoroRouter } from "@tearleads/loro/server";
@@ -90,6 +91,7 @@ interface BlobStageRow {
 }
 
 interface RotateBaselineUpdate {
+  partialEndVersionVector: string;
   sourceVersionVector?: string;
 }
 
@@ -207,6 +209,19 @@ async function getRotateBaselineSourceError(input: {
   ) {
     return {
       message: "Stale rotate baseline source version vector",
+      status: 409,
+    };
+  }
+
+  if (
+    !satisfiesVersionVector(
+      update.partialEndVersionVector,
+      expectedSourceVersionVector,
+    )
+  ) {
+    return {
+      message:
+        "Rotate baseline frontier does not cover all prior-epoch updates",
       status: 409,
     };
   }

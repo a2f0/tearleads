@@ -35,6 +35,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
+  resolveIncomingUpdateDecryptionMaterial,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -1560,14 +1561,23 @@ async function applyIncomingSyncedUpdates(
   state: NotesStoreState,
   currentDoc: NotesDocument,
   synced: DocumentSyncAttempt["synced"],
+  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
   nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
+  previousAccessEpoch: number,
   encapsulationKeyPair: EncapsulationKeyPair,
 ) {
   if (synced.updates.length === 0) {
     return;
   }
 
-  if (!nextDocumentRecipientEnvelopes) {
+  const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+    currentDocumentRecipientEnvelopes,
+    nextDocumentRecipientEnvelopes,
+    previousAccessEpoch,
+    synced,
+  });
+
+  if (!decryptionMaterial) {
     state.runtime.log(
       "Notes: skipped incoming updates because the current document key bundle is missing.",
     );
@@ -1575,14 +1585,14 @@ async function applyIncomingSyncedUpdates(
   }
 
   const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-    documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+    documentRecipientEnvelopes: decryptionMaterial.documentRecipientEnvelopes,
     execSql: state.runtime.execSql,
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
   });
   const decrypted = await decryptIncomingUpdates(
     synced.updates,
-    synced.currentAccessEpoch,
+    decryptionMaterial.accessEpoch,
     documentKey,
     (message) => state.runtime.log(`Notes: ${message}`),
   );
@@ -1617,7 +1627,9 @@ async function finalizeDocumentSync(
     state,
     currentDoc,
     synced,
+    syncAttempt.currentDocumentRecipientEnvelopes,
     nextDocumentRecipientEnvelopes,
+    previousAccessEpoch,
     encapsulationKeyPair,
   );
 

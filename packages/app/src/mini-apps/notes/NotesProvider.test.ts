@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SyncDocumentResponse } from "@tearleads/loro";
+import {
+  createDocument,
+  encryptLoroUpdate,
+  exportAllUpdates,
+  getUpdateVersionVectors,
+  type SyncDocumentResponse,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -10,6 +17,7 @@ import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../data/blob-store";
+import { getOrCreateDocumentEncryptionMaterial } from "../../data/documentSync";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import type {
   LocalAttachmentRecord,
@@ -1690,6 +1698,174 @@ test("notes store rotates document epochs without queueing committed attachment 
     documentId: "notes-document-1",
     documentRecipientEnvelopeCount: 1,
     outgoingSourceVersionVectors: ["rotate-frontier-1"],
+    outgoingUpdateCount: 1,
+  });
+});
+
+test("notes store builds rotate baselines over decryptable prior-epoch updates", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  let shouldRotateNextEpochOneSync = false;
+  let epochOneDocumentRecipientEnvelopes: SyncDocumentResponse["documentRecipientEnvelopes"] =
+    null;
+  const remoteUpdateVectorRef: { partialEndVersionVector: string | null } = {
+    partialEndVersionVector: null,
+  };
+  let rotateBaselinePartialEndVersionVector: string | null = null;
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingSourceVersionVectors: Array<string | null>;
+    outgoingUpdateCount: number;
+  }> = [];
+
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingSourceVersionVectors: outgoingUpdates.map(
+            (update) => update.sourceVersionVector ?? null,
+          ),
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (documentRecipientEnvelopes) {
+          epochOneDocumentRecipientEnvelopes = documentRecipientEnvelopes;
+        }
+
+        const rotateBaseline = outgoingUpdates.find(
+          (update) => update.sourceVersionVector === "rotate-frontier-2",
+        );
+        if (accessEpoch === 2 && rotateBaseline) {
+          rotateBaselinePartialEndVersionVector =
+            rotateBaseline.partialEndVersionVector;
+        }
+
+        if (
+          shouldRotateNextEpochOneSync &&
+          accessEpoch === 1 &&
+          outgoingUpdates.length > 0
+        ) {
+          shouldRotateNextEpochOneSync = false;
+          if (!epochOneDocumentRecipientEnvelopes) {
+            throw new Error("Missing epoch one document recipient envelopes.");
+          }
+
+          const remoteDoc = await createDocument("notes-rotate-prior-update");
+          remoteDoc.getText("text").update("remote prior-epoch update");
+          const remoteUpdate = exportAllUpdates(remoteDoc);
+          const remoteUpdateVectors = getUpdateVersionVectors(remoteUpdate);
+          remoteUpdateVectorRef.partialEndVersionVector =
+            remoteUpdateVectors.partialEndVersionVector;
+          const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
+            documentRecipientEnvelopes: epochOneDocumentRecipientEnvelopes,
+            execSql: instrumentedRuntime.execSql,
+            recipientPublicKeys: [encapsulationKeyPair.publicKey],
+            secretKey: encapsulationKeyPair.secretKey,
+          });
+
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "rotate",
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            rotateBaselineSourceVersionVector: "rotate-frontier-2",
+            updates: [
+              {
+                authorFingerprint: "remote-author",
+                createdAt: "2026-04-09T00:00:00.000Z",
+                documentId,
+                encryptedData: await encryptLoroUpdate(
+                  remoteUpdate,
+                  1,
+                  documentKey,
+                ),
+                id: "remote-update-before-rotate",
+                partialEndVersionVector:
+                  remoteUpdateVectors.partialEndVersionVector,
+                partialStartVersionVector:
+                  remoteUpdateVectors.partialStartVersionVector,
+              },
+            ],
+          });
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "rotate-prior-updates",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Rotate prior-update notes store did not become ready.",
+  );
+
+  store.setText("local text before rotate");
+
+  await waitForCondition(
+    () =>
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.documentRecipientEnvelopes !== null,
+    "Epoch one note update did not persist document recipient envelopes.",
+  );
+
+  shouldRotateNextEpochOneSync = true;
+  store.setText("local text after rotate");
+
+  await waitForCondition(
+    () =>
+      rotateBaselinePartialEndVersionVector !== null &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.accessEpoch === 2,
+    "Rotate baseline did not sync after importing prior-epoch updates.",
+  );
+
+  if (
+    !remoteUpdateVectorRef.partialEndVersionVector ||
+    !rotateBaselinePartialEndVersionVector
+  ) {
+    throw new Error("Rotate baseline or remote update vectors were not set.");
+  }
+  expect(
+    satisfiesVersionVector(
+      rotateBaselinePartialEndVersionVector,
+      remoteUpdateVectorRef.partialEndVersionVector,
+    ),
+  ).toBe(true);
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 2,
+    documentId: "notes-document-1",
+    documentRecipientEnvelopeCount: 1,
+    outgoingSourceVersionVectors: ["rotate-frontier-2"],
     outgoingUpdateCount: 1,
   });
 });

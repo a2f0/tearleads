@@ -1145,6 +1145,30 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
     error: "Stale rotate baseline source version vector",
   });
 
+  const sourceOmittingBaselineResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: rotateProbe.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        rotatedDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rotateBaseline,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialStartVersionVector,
+          sourceVersionVector: rotateProbe.rotateBaselineSourceVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(sourceOmittingBaselineResponse.status).toBe(409);
+  expect(await sourceOmittingBaselineResponse.json()).toEqual({
+    error: "Rotate baseline frontier does not cover all prior-epoch updates",
+  });
+
   const acceptedRotateResponse = await syncDocument(
     sharedDocumentId,
     {
