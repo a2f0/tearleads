@@ -37,6 +37,7 @@ function createSyncDocumentResponse(input: {
   acceptedOutgoingUpdateIds?: string[];
   documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
   documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  rotateBaselineSourceVersionVector?: string | null;
   updates?: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
   return {
@@ -46,6 +47,8 @@ function createSyncDocumentResponse(input: {
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
     documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    rotateBaselineSourceVersionVector:
+      input.rotateBaselineSourceVersionVector ?? null,
     recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
     updates: input.updates ?? [],
   };
@@ -668,6 +671,7 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
     accessEpoch: number;
     documentId: string;
     documentRecipientEnvelopeCount: number;
+    outgoingSourceVersionVectors: Array<string | null>;
     outgoingUpdateCount: number;
   }> = [];
   let store: ReturnType<typeof createExplorerStore> | null = null;
@@ -759,6 +763,9 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
             documentId,
             documentRecipientEnvelopeCount:
               documentRecipientEnvelopes?.length ?? 0,
+            outgoingSourceVersionVectors: updates.map(
+              (update) => update.sourceVersionVector ?? null,
+            ),
             outgoingUpdateCount: updates.length,
           });
 
@@ -774,6 +781,7 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
               accessEpoch: 2,
               documentId,
               documentRecipientEnvelopeAction: "rotate",
+              rotateBaselineSourceVersionVector: "metadata-frontier-1",
               recipientEncapsulationPublicKeys: [
                 bytesToBase64(localKeyPair.publicKey),
               ],
@@ -801,6 +809,7 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
           (call) =>
             call.accessEpoch === 2 &&
             call.documentRecipientEnvelopeCount === 1 &&
+            call.outgoingSourceVersionVectors[0] === "metadata-frontier-1" &&
             call.outgoingUpdateCount === 1,
         ),
       "Explorer rotate sync did not resend a fresh metadata baseline.",
@@ -810,12 +819,14 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
       accessEpoch: 1,
       documentId: "metadata-document-1",
       documentRecipientEnvelopeCount: 0,
+      outgoingSourceVersionVectors: [null],
       outgoingUpdateCount: 1,
     });
     expect(syncCalls).toContainEqual({
       accessEpoch: 2,
       documentId: "metadata-document-1",
       documentRecipientEnvelopeCount: 1,
+      outgoingSourceVersionVectors: ["metadata-frontier-1"],
       outgoingUpdateCount: 1,
     });
   } finally {

@@ -505,8 +505,12 @@ async function listLocalAttachmentRecords(state: NotesStoreState) {
 async function enqueuePendingUpdate(
   state: NotesStoreState,
   update: Uint8Array,
+  sourceVersionVector?: string | null,
 ) {
-  const pendingUpdateFields = createPendingUpdateFields(update);
+  const pendingUpdateFields = createPendingUpdateFields(
+    update,
+    sourceVersionVector,
+  );
   if (!pendingUpdateFields) {
     return;
   }
@@ -746,12 +750,17 @@ async function queueCommittedAttachmentsForRewrap(
 async function replacePendingUpdatesWithBaseline(
   state: NotesStoreState,
   currentDoc: NotesDocument,
+  sourceVersionVector?: string | null,
 ) {
   await state.persistence.deletePendingUpdates(
     state.runtime.execSql,
     state.noteId,
   );
-  await enqueuePendingUpdate(state, exportAllUpdates(currentDoc));
+  await enqueuePendingUpdate(
+    state,
+    exportAllUpdates(currentDoc),
+    sourceVersionVector,
+  );
 }
 
 async function initializeNotesStore(
@@ -1623,7 +1632,11 @@ async function finalizeDocumentSync(
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
     if (synced.documentRecipientEnvelopeAction === "rotate") {
       await clearPendingAttachmentRewraps(state);
-      await replacePendingUpdatesWithBaseline(state, currentDoc);
+      await replacePendingUpdatesWithBaseline(
+        state,
+        currentDoc,
+        synced.rotateBaselineSourceVersionVector,
+      );
       state.runtime.log(
         "Notes: document epoch rotated; committed attachments require replacement rather than blob rewrap.",
       );

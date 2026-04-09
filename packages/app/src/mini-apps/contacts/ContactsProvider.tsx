@@ -259,8 +259,12 @@ async function enqueuePendingUpdate(
   state: ContactsStoreState,
   userId: string,
   update: Uint8Array,
+  sourceVersionVector?: string | null,
 ) {
-  const pendingUpdateFields = createPendingUpdateFields(update);
+  const pendingUpdateFields = createPendingUpdateFields(
+    update,
+    sourceVersionVector,
+  );
   if (!pendingUpdateFields) {
     return;
   }
@@ -278,6 +282,7 @@ async function deletePendingUpdate(state: ContactsStoreState, id: string) {
 async function replacePendingUpdatesWithBaseline(
   state: ContactsStoreState,
   contact: ContactState,
+  sourceVersionVector?: string | null,
 ) {
   await state.persistence.deletePendingUpdates(
     state.runtime.execSql,
@@ -287,6 +292,7 @@ async function replacePendingUpdatesWithBaseline(
     state,
     contact.entry.userId,
     exportAllUpdates(contact.doc),
+    sourceVersionVector,
   );
 }
 
@@ -559,7 +565,13 @@ async function applySyncedContactUpdates(
         synced,
       })
     ) {
-      await replacePendingUpdatesWithBaseline(state, contact);
+      await replacePendingUpdatesWithBaseline(
+        state,
+        contact,
+        synced.documentRecipientEnvelopeAction === "rotate"
+          ? synced.rotateBaselineSourceVersionVector
+          : null,
+      );
     }
     state.syncRequested = true;
   }

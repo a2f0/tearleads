@@ -80,6 +80,7 @@ export function resolveRecipientPublicKeys(
 
 export function createPendingUpdateFields(
   update: Uint8Array,
+  sourceVersionVector?: string | null,
 ): PendingUpdateFields | null {
   if (update.byteLength === 0) {
     return null;
@@ -92,6 +93,7 @@ export function createPendingUpdateFields(
     updateData: bytesToBase64(update),
     partialStartVersionVector,
     partialEndVersionVector,
+    sourceVersionVector: sourceVersionVector ?? null,
   };
 }
 
@@ -344,6 +346,9 @@ export async function encryptPendingUpdates(
         ),
         partialStartVersionVector: versionVectors.partialStartVersionVector,
         partialEndVersionVector: versionVectors.partialEndVersionVector,
+        ...(pendingUpdate.sourceVersionVector
+          ? { sourceVersionVector: pendingUpdate.sourceVersionVector }
+          : {}),
       };
     }),
   );

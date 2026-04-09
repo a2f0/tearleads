@@ -19,11 +19,12 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { createLargeText } from "@tearleads/test-utils";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { refreshContainerAccessSubtree } from "../../src/access/containerAccess";
 import { db } from "../../src/adapters/postgres";
 import { del } from "../../src/adapters/redis";
 import { app } from "../../src/index";
-import { documentUpdates } from "../../src/schema";
+import { documentUpdates, objectAccessGrants } from "../../src/schema";
 import {
   commitDocumentChange,
   createDocument,
@@ -966,4 +967,209 @@ test("Bob can discover and read a note after Alice shares its container through 
   ).filter((update): update is Uint8Array => update !== null);
   importUpdates(bobDoc, decryptedForBob);
   expect(getTextValue(bobDoc)).toBe("shared through http route");
+});
+
+test("rotate baseline sync requires the latest prior-epoch source frontier", async () => {
+  const charlie = createTestUser();
+  await registerUser(charlie);
+  await authenticate(charlie);
+
+  const sharedContainerId = crypto.randomUUID();
+  const createContainerResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: alice.rootContainerId,
+    }),
+  });
+  expect(createContainerResponse.status).toBe(200);
+
+  const shareResponse = await app.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${alice.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        accessLevel: "write",
+        subjectId: charlie.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    sharedContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  expect(createdDocument.currentAccessEpoch).toBe(2);
+  expect(
+    createdDocument.recipientEncapsulationPublicKeys.length,
+  ).toBeGreaterThanOrEqual(2);
+  const sharedDocumentId = String(createdDocument.id ?? "");
+  const initialDocumentEncryption = {
+    documentKey: await unwrapDocumentKeyFromEnvelopes(
+      createdDocument.documentRecipientEnvelopes,
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
+  };
+
+  const aliceDoc = await createLoroDocument(
+    `${alice.fingerprint}-rotate-source`,
+  );
+  const initialVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("before recipient removal");
+  const initialUpdate = exportUpdatesSince(aliceDoc, initialVersion);
+  const initialVectors = getUpdateVersionVectors(initialUpdate);
+  const initialEncryptedUpdate = await encryptLoroUpdate(
+    initialUpdate,
+    createdDocument.currentAccessEpoch,
+    initialDocumentEncryption.documentKey,
+  );
+
+  const initialSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        initialDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: initialEncryptedUpdate,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(initialSyncResponse.status).toBe(200);
+
+  await db
+    .delete(objectAccessGrants)
+    .where(
+      and(
+        eq(objectAccessGrants.objectType, "container"),
+        eq(objectAccessGrants.objectId, sharedContainerId),
+        eq(objectAccessGrants.subjectType, "user"),
+        eq(objectAccessGrants.subjectId, charlie.userId),
+      ),
+    );
+  const refreshedEpochs =
+    await refreshContainerAccessSubtree(sharedContainerId);
+  expect(refreshedEpochs.get(sharedContainerId)).toBe(3);
+
+  const rotateProbeResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [],
+    },
+    alice.token,
+  );
+  expect(rotateProbeResponse.status).toBe(200);
+  const rotateProbe = await rotateProbeResponse.json();
+  expect(rotateProbe.currentAccessEpoch).toBe(3);
+  expect(rotateProbe.documentRecipientEnvelopeAction).toBe("rotate");
+  expect(rotateProbe.documentRecipientEnvelopes).toBeNull();
+  expect(rotateProbe.rotateBaselineSourceVersionVector).toBe(
+    initialVectors.partialEndVersionVector,
+  );
+
+  const rotatedDocumentEncryption = await createDocumentEncryption(
+    rotateProbe.recipientEncapsulationPublicKeys,
+  );
+  const rotateBaseline = await encryptLoroUpdate(
+    exportUpdatesSince(aliceDoc, null),
+    rotateProbe.currentAccessEpoch,
+    rotatedDocumentEncryption.documentKey,
+  );
+
+  const missingSourceResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: rotateProbe.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        rotatedDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rotateBaseline,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(missingSourceResponse.status).toBe(400);
+  expect(await missingSourceResponse.json()).toEqual({
+    error: "Missing rotate baseline source version vector",
+  });
+
+  const staleSourceResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: rotateProbe.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        rotatedDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rotateBaseline,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+          sourceVersionVector: initialVectors.partialStartVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(staleSourceResponse.status).toBe(409);
+  expect(await staleSourceResponse.json()).toEqual({
+    error: "Stale rotate baseline source version vector",
+  });
+
+  const acceptedRotateResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: rotateProbe.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        rotatedDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          encryptedData: rotateBaseline,
+          partialStartVersionVector: initialVectors.partialStartVersionVector,
+          partialEndVersionVector: initialVectors.partialEndVersionVector,
+          sourceVersionVector: rotateProbe.rotateBaselineSourceVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(acceptedRotateResponse.status).toBe(200);
+  const acceptedRotate = await acceptedRotateResponse.json();
+  expect(acceptedRotate.acceptedOutgoingUpdateIds).toHaveLength(1);
+  expect(acceptedRotate.currentAccessEpoch).toBe(3);
+  expect(acceptedRotate.documentRecipientEnvelopeAction).toBe("rotate");
+  expect(acceptedRotate.documentRecipientEnvelopes).toEqual(
+    rotatedDocumentEncryption.documentRecipientEnvelopes,
+  );
 });

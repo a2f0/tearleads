@@ -30,6 +30,7 @@ function matchesAccessEpoch(
 async function appendDocumentUpdates(
   tx: DatabaseTransaction,
   documentId: string,
+  accessEpoch: number,
   authorFingerprint: string,
   updates: ReadonlyArray<SyncDocumentOutgoingUpdate>,
 ): Promise<void> {
@@ -47,6 +48,7 @@ async function appendDocumentUpdates(
     await tx.insert(documentUpdates).values({
       id: update.id,
       documentId,
+      accessEpoch,
       authorFingerprint,
       encryptedData: update.encryptedData,
       partialStartVersionVector: update.partialStartVersionVector,
@@ -182,6 +184,7 @@ export async function createContainerMetadataDocument(
   await appendDocumentUpdates(
     tx,
     metadataDocument.id,
+    metadataAccessEpoch,
     input.authorFingerprint,
     input.initialMetadataUpdates,
   );

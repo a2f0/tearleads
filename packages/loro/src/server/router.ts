@@ -33,6 +33,7 @@ interface DocumentAccessState {
   currentAccessEpoch: number;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
+  rotateBaselineSourceVersionVector: string | null;
   recipientKeyFingerprints: string[];
   recipientEncapsulationPublicKeys: string[];
   referencedPrincipals: ReferencedPrincipalStateResponse[];
@@ -377,6 +378,8 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       currentAccessEpoch: access.currentAccessEpoch,
       documentRecipientEnvelopeAction: access.documentRecipientEnvelopeAction,
       documentRecipientEnvelopes: responseDocumentRecipientEnvelopes,
+      rotateBaselineSourceVersionVector:
+        access.rotateBaselineSourceVersionVector,
       recipientEncapsulationPublicKeys: access.recipientEncapsulationPublicKeys,
       referencedPrincipals: access.referencedPrincipals,
     });

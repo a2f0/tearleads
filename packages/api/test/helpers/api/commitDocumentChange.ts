@@ -25,6 +25,7 @@ export async function commitDocumentChange(
       encryptedData: string;
       partialStartVersionVector: string;
       partialEndVersionVector: string;
+      sourceVersionVector?: string;
       referencedSlotIds: string[];
     } | null;
   },

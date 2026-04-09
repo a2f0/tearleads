@@ -4,6 +4,7 @@ export {
   createDocument,
   decodeVersionVector,
   derivePeerId,
+  emptyVersionVector,
   encodeEncodedVersionVector,
   encodeVersionVector,
   exportAllUpdates,
@@ -11,7 +12,9 @@ export {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
+  mergeVersionVectors,
   satisfiesVersionVector,
+  versionVectorsEqual,
 } from "./document";
 export {
   decryptLoroUpdate,

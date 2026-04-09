@@ -46,6 +46,7 @@ function createSyncDocumentResponse(input: {
   acceptedOutgoingUpdateIds?: string[];
   documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
   documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  rotateBaselineSourceVersionVector?: string | null;
   updates?: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
   return {
@@ -55,6 +56,8 @@ function createSyncDocumentResponse(input: {
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
     documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    rotateBaselineSourceVersionVector:
+      input.rotateBaselineSourceVersionVector ?? null,
     recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
     updates: input.updates ?? [],
   };
@@ -248,6 +251,7 @@ function createNotesPersistence(): NotesPersistence & {
           id: `pending-${pendingUpdates.length + 1}`,
           partialEndVersionVector: pendingUpdate.partialEndVersionVector,
           partialStartVersionVector: pendingUpdate.partialStartVersionVector,
+          sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
           updateData: pendingUpdate.updateData,
         },
       ];
@@ -1485,6 +1489,7 @@ test("notes store rotates document epochs without queueing committed attachment 
     accessEpoch: number;
     documentId: string;
     documentRecipientEnvelopeCount: number;
+    outgoingSourceVersionVectors: Array<string | null>;
     outgoingUpdateCount: number;
   }> = [];
 
@@ -1579,6 +1584,9 @@ test("notes store rotates document epochs without queueing committed attachment 
           documentId,
           documentRecipientEnvelopeCount:
             documentRecipientEnvelopes?.length ?? 0,
+          outgoingSourceVersionVectors: outgoingUpdates.map(
+            (update) => update.sourceVersionVector ?? null,
+          ),
           outgoingUpdateCount: outgoingUpdates.length,
         });
 
@@ -1587,6 +1595,7 @@ test("notes store rotates document epochs without queueing committed attachment 
             accessEpoch: 2,
             documentId,
             documentRecipientEnvelopeAction: "rotate",
+            rotateBaselineSourceVersionVector: "rotate-frontier-1",
             recipientEncapsulationPublicKeys: [
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
@@ -1642,6 +1651,7 @@ test("notes store rotates document epochs without queueing committed attachment 
         (call) =>
           call.accessEpoch === 2 &&
           call.documentRecipientEnvelopeCount === 1 &&
+          call.outgoingSourceVersionVectors[0] === "rotate-frontier-1" &&
           call.outgoingUpdateCount === 1,
       ) &&
       persistence.getState().pendingAttachmentRewraps.length === 0 &&
@@ -1665,18 +1675,21 @@ test("notes store rotates document epochs without queueing committed attachment 
     accessEpoch: 1,
     documentId: "notes-document-1",
     documentRecipientEnvelopeCount: 0,
+    outgoingSourceVersionVectors: [],
     outgoingUpdateCount: 0,
   });
   expect(syncDocumentCalls).toContainEqual({
     accessEpoch: 1,
     documentId: "notes-document-1",
     documentRecipientEnvelopeCount: 1,
+    outgoingSourceVersionVectors: [null],
     outgoingUpdateCount: 1,
   });
   expect(syncDocumentCalls).toContainEqual({
     accessEpoch: 2,
     documentId: "notes-document-1",
     documentRecipientEnvelopeCount: 1,
+    outgoingSourceVersionVectors: ["rotate-frontier-1"],
     outgoingUpdateCount: 1,
   });
 });
