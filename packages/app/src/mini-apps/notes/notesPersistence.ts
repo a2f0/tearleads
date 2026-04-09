@@ -70,6 +70,7 @@ export interface DiscoveredNoteInput {
   containerId: string;
   createdAt: string;
   documentId: string;
+  linkedContainerIds: ReadonlyArray<string>;
 }
 
 export interface RelinkPersistedNoteInput {
@@ -267,10 +268,19 @@ async function upsertDiscoveredNoteWithExec(
   );
   const noteId = existingLocalId ?? input.documentId;
   const existingNote = await sqlNotesPersistence.loadNote(execSql, noteId);
+  const nextContainerId =
+    existingNote?.containerId &&
+    input.linkedContainerIds.includes(existingNote.containerId)
+      ? existingNote.containerId
+      : (input.linkedContainerIds.find(
+          (linkedContainerId) => linkedContainerId === input.containerId,
+        ) ??
+        input.linkedContainerIds[0] ??
+        input.containerId);
 
   const nextNote: NoteRecord = {
     id: noteId,
-    containerId: input.containerId,
+    containerId: nextContainerId,
     documentId: input.documentId,
     documentRecipientEnvelopes:
       input.accessEpoch > (existingNote?.accessEpoch ?? 1)

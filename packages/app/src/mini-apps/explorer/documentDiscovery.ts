@@ -16,6 +16,7 @@ interface DiscoveredNoteInput {
   containerId: string;
   createdAt: string;
   documentId: string;
+  linkedContainerIds: ReadonlyArray<string>;
 }
 
 interface DocumentLinkInput {
@@ -84,6 +85,7 @@ export async function discoverContainerDocuments({
       containerId,
       createdAt: document.createdAt,
       documentId: document.id,
+      linkedContainerIds: document.linkedContainerIds,
     })),
   );
 }
@@ -128,6 +130,7 @@ export async function discoverAllContainerDocuments({
         containerId,
         createdAt: document.createdAt,
         documentId: document.id,
+        linkedContainerIds: document.linkedContainerIds,
       });
     }
   }

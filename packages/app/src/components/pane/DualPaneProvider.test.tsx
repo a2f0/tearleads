@@ -318,6 +318,43 @@ async function moveOpenNoteToContainer(
   );
 }
 
+async function linkOpenNoteToContainer(
+  pane: HTMLElement,
+  destinationName: string,
+) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByRole("button", { name: "Link" }));
+  });
+
+  const dialog = await screen.findByRole("dialog");
+  const destinationSelect = within(dialog).getByLabelText(
+    "Destination container",
+  );
+  invariant(
+    destinationSelect instanceof HTMLSelectElement,
+    "Expected note link destination container select.",
+  );
+  const destinationOption = Array.from(destinationSelect.options).find(
+    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  );
+  invariant(
+    destinationOption,
+    `Expected note link destination option for "${destinationName}".`,
+  );
+
+  await interact(() => {
+    fireEvent.change(destinationSelect, {
+      target: { value: destinationOption.value },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Link" }));
+  });
+
+  await waitForCondition(
+    () => screen.queryByRole("dialog") === null,
+    `Note link did not finish.\npane=${pane.textContent ?? ""}`,
+  );
+}
+
 function createFileList(file: File): FileList {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
@@ -720,6 +757,98 @@ test(
     });
     await waitFor(() => {
       expect(listExplorerNoteItems(leftPane).length).toBeGreaterThan(0);
+    });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer can link a note to another container and detach the active link",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Source");
+    await createChildContainer(leftPane, "Target");
+    await selectContainerAndReadId(leftPane, "Source");
+    await selectContainerAndReadId(leftPane, "Target");
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "Linked note",
+      "linked-note.png",
+    );
+    await waitForInlineNoteToSettle(leftPane, "Linked note", "linked-note.png");
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Source")).toBeTruthy();
+    });
+
+    await linkOpenNoteToContainer(leftPane, "Target");
+
+    await waitFor(() => {
+      expect(
+        within(leftPane).getByRole("button", {
+          name: "Open linked container Source",
+        }),
+      ).toBeTruthy();
+      expect(
+        within(leftPane).getByRole("button", {
+          name: "Open linked container Target",
+        }),
+      ).toBeTruthy();
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(leftPane).getByRole("button", {
+          name: "Detach linked container Source",
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Target")).toBeTruthy();
+      expect(
+        within(leftPane).queryByRole("button", {
+          name: "Open linked container Source",
+        }),
+      ).toBeNull();
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(leftPane).getByRole("button", { name: "Back to Container" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        getExplorerSidebarItem(leftPane, "Target").classList.contains(
+          "explorer-sidebar-item--selected",
+        ),
+      ).toBe(true);
+    });
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+    await waitFor(() => {
+      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,

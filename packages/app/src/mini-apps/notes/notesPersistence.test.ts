@@ -99,6 +99,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
         containerId: "shared-container",
         createdAt: "2026-04-06T00:00:00.000Z",
         documentId: "remote-document",
+        linkedContainerIds: ["shared-container"],
       }),
     ).resolves.toEqual({
       id: "local-note",
@@ -123,6 +124,54 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     await expect(
       sqlNotesPersistence.loadNote(execSql, "remote-document"),
     ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("upsertDiscoveredNote preserves the active local container when another linked container rediscovers the document", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "local-note",
+      containerId: "container-a",
+      documentId: "remote-document",
+      documentRecipientEnvelopes: null,
+      text: "Existing local note",
+      loroSnapshot: "snapshot-1",
+      accessEpoch: 2,
+    });
+
+    await expect(
+      sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+        accessEpoch: 3,
+        containerId: "container-b",
+        createdAt: "2026-04-06T01:00:00.000Z",
+        documentId: "remote-document",
+        linkedContainerIds: ["container-a", "container-b"],
+      }),
+    ).resolves.toEqual({
+      id: "local-note",
+      containerId: "container-a",
+      documentId: "remote-document",
+      title: "Existing local note",
+      updatedAt: "2026-04-06T01:00:00.000Z",
+    });
+
+    await expect(
+      sqlNotesPersistence.loadNote(execSql, "local-note"),
+    ).resolves.toEqual({
+      id: "local-note",
+      containerId: "container-a",
+      documentId: "remote-document",
+      documentRecipientEnvelopes: null,
+      text: "Existing local note",
+      loroSnapshot: "snapshot-1",
+      accessEpoch: 3,
+    });
   } finally {
     close();
   }

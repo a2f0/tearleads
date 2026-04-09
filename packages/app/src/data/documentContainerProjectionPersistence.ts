@@ -1,6 +1,7 @@
 import {
   type ExecSql,
   ensureSqlTables,
+  readSqlRowValue,
   runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
@@ -22,6 +23,10 @@ const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> = [
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
+  listLinkedContainerIds: (
+    execSql: ExecSql,
+    documentId: string,
+  ) => Promise<ReadonlyArray<string>>;
   replaceDocumentLinks: (
     execSql: ExecSql,
     documentId: string,
@@ -40,6 +45,24 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
   {
     async ensureSchema(execSql) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
+    },
+    async listLinkedContainerIds(execSql, documentId) {
+      await ensureSqlTables(execSql, documentContainerProjectionTables);
+      const rows = await execSql(
+        `
+          SELECT container_id
+          FROM document_container_projection
+          WHERE document_id = :documentId
+          ORDER BY container_id ASC
+        `,
+        {
+          ":documentId": documentId,
+        },
+      );
+
+      return rows.map((row) =>
+        String(readSqlRowValue(row, "container_id") ?? ""),
+      );
     },
     async replaceDocumentLinks(execSql, documentId, containerIds) {
       await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(

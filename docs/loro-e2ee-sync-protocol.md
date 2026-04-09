@@ -92,7 +92,8 @@ Current implementation:
   immediately after the container/document graph changes
 - the app explorer now drives the container `move` route directly for
   reparenting and uses `link` + `unlink` to move a note between containers
-  without creating a new document object
+  without creating a new document object; it also exposes direct note
+  link/detach controls in note detail
 
 Important remaining limitation:
 
@@ -104,8 +105,9 @@ Important remaining limitation:
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
 - the current app still projects notes as single-container documents, so the
-  new explorer note move flow is implemented as "relink to a new primary
-  container" rather than a full multi-link document-management UI
+  explorer note move/link flow is implemented as "relink to a new primary
+  container" with auxiliary linked-container management rather than a full
+  multi-link document-management UI
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current

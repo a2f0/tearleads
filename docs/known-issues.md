@@ -80,9 +80,9 @@ Remaining implementation work:
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
 - keep pushing the document link/unlink client story beyond the current
-  explorer note move flow; the app can now move a note between containers via
-  `link` + `unlink`, but it still does not expose a true multi-container
-  document UI
+  explorer note move flow; the app explorer can now move, link, and detach a
+  note through the structural mutation routes, but it still does not expose a
+  true multi-container document UI beyond a single active note projection
 - decide detached-binding retention / GC policy separately from blob GC
 
 ### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented

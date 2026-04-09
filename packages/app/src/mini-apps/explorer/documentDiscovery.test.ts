@@ -28,6 +28,7 @@ test("unknown document update events trigger rediscovery for shared container no
       containerId: string;
       createdAt: string;
       documentId: string;
+      linkedContainerIds: ReadonlyArray<string>;
     }>
   > = [];
   const knownDocumentIds = new Set<string>();
@@ -96,6 +97,7 @@ test("unknown document update events trigger rediscovery for shared container no
         containerId: "shared-container",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "peer-note-document",
+        linkedContainerIds: ["shared-container"],
       },
     ],
   ]);
@@ -144,6 +146,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       containerId: string;
       createdAt: string;
       documentId: string;
+      linkedContainerIds: ReadonlyArray<string>;
     }>
   > = [];
   const discovered = await discoverAllContainerDocuments({
@@ -226,12 +229,14 @@ test("manual refresh can discover documents across all visible containers", asyn
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "document-a",
+        linkedContainerIds: ["container-a"],
       },
       {
         accessEpoch: 2,
         containerId: "container-b",
         createdAt: "2026-04-06T12:05:00.000Z",
         documentId: "document-b",
+        linkedContainerIds: ["container-b"],
       },
     ],
   ]);
