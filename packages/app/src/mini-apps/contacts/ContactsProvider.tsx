@@ -30,6 +30,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
+  resolveIncomingUpdateDecryptionMaterial,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -517,20 +518,28 @@ async function applySyncedContactUpdates(
     });
 
   if (synced.updates.length > 0) {
-    if (!nextDocumentRecipientEnvelopes) {
+    const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+      currentDocumentRecipientEnvelopes,
+      nextDocumentRecipientEnvelopes,
+      previousAccessEpoch,
+      synced,
+    });
+
+    if (!decryptionMaterial) {
       state.runtime.log(
         `Contacts (${contact.entry.userId}): skipped incoming updates because the current document key bundle is missing.`,
       );
     } else {
       const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-        documentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        documentRecipientEnvelopes:
+          decryptionMaterial.documentRecipientEnvelopes,
         execSql: state.runtime.execSql,
         recipientPublicKeys: contact.recipientPublicKeys,
         secretKey,
       });
       const decrypted = await decryptIncomingUpdates(
         synced.updates,
-        synced.currentAccessEpoch,
+        decryptionMaterial.accessEpoch,
         documentKey,
         (message) =>
           state.runtime.log(`Contacts (${contact.entry.userId}): ${message}`),

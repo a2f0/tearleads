@@ -1122,6 +1122,26 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     error: "Stale rotate baseline source version vector",
   });
 
+  const sourceOmittingBaselineResponse = await commitDocumentChange(
+    documentId,
+    {
+      ...baseCommitInput,
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: encryptedBaseline,
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        partialEndVersionVector: initialVectors.partialStartVersionVector,
+        referencedSlotIds: [],
+        sourceVersionVector: initialVectors.partialEndVersionVector,
+      },
+    },
+    alice.token,
+  );
+  expect(sourceOmittingBaselineResponse.status).toBe(409);
+  expect(await sourceOmittingBaselineResponse.json()).toEqual({
+    error: "Rotate baseline does not include source version vector",
+  });
+
   const acceptedRotateResponse = await commitDocumentChange(
     documentId,
     {
