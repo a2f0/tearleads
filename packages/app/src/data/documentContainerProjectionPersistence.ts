@@ -94,6 +94,10 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       );
 
       const linkedContainerIdsByDocumentId = new Map<string, string[]>();
+      for (const documentId of uniqueDocumentIds) {
+        linkedContainerIdsByDocumentId.set(documentId, []);
+      }
+
       for (const row of rows) {
         const documentId = String(readSqlRowValue(row, "document_id") ?? "");
         const containerId = String(readSqlRowValue(row, "container_id") ?? "");

@@ -473,7 +473,7 @@ function buildNotesByContainerId(
       ? linkedContainerIdsByDocumentId.get(note.documentId)
       : undefined;
     const candidateContainerIds =
-      linkedContainerIds && linkedContainerIds.length > 0
+      linkedContainerIds !== undefined
         ? linkedContainerIds
         : note.containerId
           ? [note.containerId]
@@ -483,7 +483,7 @@ function buildNotesByContainerId(
       continue;
     }
 
-    for (const containerId of new Set(candidateContainerIds)) {
+    for (const containerId of candidateContainerIds) {
       if (!validContainerIds.has(containerId)) {
         continue;
       }
@@ -542,6 +542,47 @@ function mergeSingleNoteSummaryList(
   const nextNoteSummaries = [...currentNoteSummaries];
   nextNoteSummaries[existingNoteIndex] = nextNote;
   return nextNoteSummaries;
+}
+
+function getRequestedDocumentIds(
+  noteSummaries: ReadonlyArray<NoteSummary>,
+): ReadonlyArray<string> {
+  return Array.from(
+    new Set(
+      noteSummaries.flatMap((note) =>
+        note.documentId ? [note.documentId] : [],
+      ),
+    ),
+  ).sort();
+}
+
+function areLinkedContainerIdMapsEqual(
+  left: ReadonlyMap<string, ReadonlyArray<string>>,
+  right: ReadonlyMap<string, ReadonlyArray<string>>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const [documentId, leftContainerIds] of left) {
+    const rightContainerIds = right.get(documentId);
+    if (
+      !rightContainerIds ||
+      leftContainerIds.length !== rightContainerIds.length
+    ) {
+      return false;
+    }
+
+    if (
+      leftContainerIds.some(
+        (containerId, index) => containerId !== rightContainerIds[index],
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function mergeNoteSummaryLists(
@@ -821,6 +862,11 @@ function useNoteLinkedContainerIdsByDocumentId(params: {
   const [linkedContainerIdsByDocumentId, setLinkedContainerIdsByDocumentId] =
     useState<ReadonlyMap<string, ReadonlyArray<string>>>(new Map());
   const linkedContainerIdsLoadVersionRef = useRef(0);
+  const requestedDocumentIds = useMemo(
+    () => getRequestedDocumentIds(noteSummaries),
+    [noteSummaries],
+  );
+  const requestedDocumentIdsKey = requestedDocumentIds.join("\u0000");
   const setLinkedContainerIdsForDocument = useCallback(
     (documentId: string, linkedContainerIds: ReadonlyArray<string>) => {
       setLinkedContainerIdsByDocumentId((currentMap) => {
@@ -853,14 +899,7 @@ function useNoteLinkedContainerIdsByDocumentId(params: {
       return;
     }
 
-    const documentIds = Array.from(
-      new Set(
-        noteSummaries.flatMap((note) =>
-          note.documentId ? [note.documentId] : [],
-        ),
-      ),
-    );
-    if (documentIds.length === 0) {
+    if (requestedDocumentIds.length === 0) {
       setLinkedContainerIdsByDocumentId(new Map());
       return;
     }
@@ -873,13 +912,20 @@ function useNoteLinkedContainerIdsByDocumentId(params: {
         const nextLinkedContainerIdsByDocumentId =
           await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
             execSql,
-            documentIds,
+            requestedDocumentIds,
           );
         if (
           !cancelled &&
           linkedContainerIdsLoadVersionRef.current === loadVersion
         ) {
-          setLinkedContainerIdsByDocumentId(nextLinkedContainerIdsByDocumentId);
+          setLinkedContainerIdsByDocumentId((currentMap) =>
+            areLinkedContainerIdMapsEqual(
+              currentMap,
+              nextLinkedContainerIdsByDocumentId,
+            )
+              ? currentMap
+              : nextLinkedContainerIdsByDocumentId,
+          );
         }
       } catch (error: unknown) {
         if (!cancelled && !isDestroyedDatabaseWorkerError(error)) {
@@ -894,7 +940,12 @@ function useNoteLinkedContainerIdsByDocumentId(params: {
     return () => {
       cancelled = true;
     };
-  }, [dbStatus, documentLinkProjectionVersion, execSql, noteSummaries]);
+  }, [
+    dbStatus,
+    documentLinkProjectionVersion,
+    execSql,
+    requestedDocumentIdsKey,
+  ]);
 
   return {
     linkedContainerIdsByDocumentId,
