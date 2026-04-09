@@ -710,6 +710,9 @@ snapshots and indexed principal epoch keys:
 Those tables are foundation only in the current implementation. They do not yet
 drive effective-recipient expansion or object rewrap decisions.
 
+For document rekey, rotate-baseline generation, and tamper-evident document
+history considerations, see [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md).
+
 For notes and attachments, this is what lets the server remain plaintext-blind
 while still coordinating future writes correctly.
 
