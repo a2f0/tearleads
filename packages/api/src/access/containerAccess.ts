@@ -100,7 +100,12 @@ interface CryptoRecipientResolutionContext {
   >;
 }
 
-export class ContainerCryptoRecipientResolutionError extends Error {}
+export class ContainerCryptoRecipientResolutionError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "ContainerCryptoRecipientResolutionError";
+  }
+}
 
 function isAccessLevel(value: string): value is AccessLevel {
   return value === "read" || value === "write" || value === "admin";
