@@ -2661,6 +2661,7 @@ function ExplorerLinkedContainerSection(params: {
   const [activatingContainerId, setActivatingContainerId] = useState<
     string | null
   >(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [unlinkingContainerId, setUnlinkingContainerId] = useState<
     string | null
   >(null);
@@ -2683,6 +2684,7 @@ function ExplorerLinkedContainerSection(params: {
             key={linkedContainer.id}
             linkedContainer={linkedContainer}
             selectedNoteId={selectedNote.id}
+            setActionError={setActionError}
             setActivatingContainerId={setActivatingContainerId}
             setSelectedId={setSelectedId}
             setUnlinkingContainerId={setUnlinkingContainerId}
@@ -2691,6 +2693,9 @@ function ExplorerLinkedContainerSection(params: {
           />
         ))}
       </ul>
+      {actionError ? (
+        <span className="explorer-detail-error">{actionError}</span>
+      ) : null}
     </div>
   );
 }
@@ -2705,6 +2710,7 @@ function ExplorerLinkedContainerRow(params: {
   canUnlinkSelectedNote: boolean;
   linkedContainer: LinkedContainerDetail;
   selectedNoteId: string;
+  setActionError: (error: string | null) => void;
   setActivatingContainerId: (containerId: string | null) => void;
   setSelectedId: (id: string | null) => void;
   setUnlinkingContainerId: (containerId: string | null) => void;
@@ -2721,6 +2727,7 @@ function ExplorerLinkedContainerRow(params: {
     activatingContainerId,
     linkedContainer,
     selectedNoteId,
+    setActionError,
     setActivatingContainerId,
     setSelectedId,
     setUnlinkingContainerId,
@@ -2761,17 +2768,13 @@ function ExplorerLinkedContainerRow(params: {
                 return;
               }
 
-              void (async () => {
-                setActivatingContainerId(linkedContainer.id);
-                try {
-                  await activateLinkedContainer(
-                    selectedNoteId,
-                    linkedContainer.id,
-                  );
-                } finally {
-                  setActivatingContainerId(null);
-                }
-              })();
+              void handleActivateLinkedContainer({
+                activateLinkedContainer,
+                linkedContainer,
+                selectedNoteId,
+                setActionError,
+                setActivatingContainerId,
+              });
             }}
           >
             {activatingContainerId === linkedContainer.id
@@ -2796,14 +2799,13 @@ function ExplorerLinkedContainerRow(params: {
               return;
             }
 
-            void (async () => {
-              setUnlinkingContainerId(linkedContainer.id);
-              try {
-                await unlinkNote(selectedNoteId, linkedContainer.id);
-              } finally {
-                setUnlinkingContainerId(null);
-              }
-            })();
+            void handleDetachLinkedContainer({
+              linkedContainer,
+              selectedNoteId,
+              setActionError,
+              setUnlinkingContainerId,
+              unlinkNote,
+            });
           }}
         >
           {unlinkingContainerId === linkedContainer.id
@@ -2813,6 +2815,73 @@ function ExplorerLinkedContainerRow(params: {
       </div>
     </li>
   );
+}
+
+async function handleActivateLinkedContainer(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  linkedContainer: LinkedContainerDetail;
+  selectedNoteId: string;
+  setActionError: (error: string | null) => void;
+  setActivatingContainerId: (containerId: string | null) => void;
+}) {
+  const {
+    activateLinkedContainer,
+    linkedContainer,
+    selectedNoteId,
+    setActionError,
+    setActivatingContainerId,
+  } = params;
+
+  setActionError(null);
+  setActivatingContainerId(linkedContainer.id);
+  try {
+    const activatedNote = await activateLinkedContainer(
+      selectedNoteId,
+      linkedContainer.id,
+    );
+    if (!activatedNote) {
+      setActionError(`Failed to make ${linkedContainer.label} active.`);
+    }
+  } catch {
+    setActionError(`Failed to make ${linkedContainer.label} active.`);
+  } finally {
+    setActivatingContainerId(null);
+  }
+}
+
+async function handleDetachLinkedContainer(params: {
+  linkedContainer: LinkedContainerDetail;
+  selectedNoteId: string;
+  setActionError: (error: string | null) => void;
+  setUnlinkingContainerId: (containerId: string | null) => void;
+  unlinkNote: (
+    noteId: string,
+    removedContainerId: string,
+  ) => Promise<NoteSummary | null>;
+}) {
+  const {
+    linkedContainer,
+    selectedNoteId,
+    setActionError,
+    setUnlinkingContainerId,
+    unlinkNote,
+  } = params;
+
+  setActionError(null);
+  setUnlinkingContainerId(linkedContainer.id);
+  try {
+    const unlinkedNote = await unlinkNote(selectedNoteId, linkedContainer.id);
+    if (!unlinkedNote) {
+      setActionError(`Failed to detach ${linkedContainer.label}.`);
+    }
+  } catch {
+    setActionError(`Failed to detach ${linkedContainer.label}.`);
+  } finally {
+    setUnlinkingContainerId(null);
+  }
 }
 
 function ExplorerNoteDetail(params: {
