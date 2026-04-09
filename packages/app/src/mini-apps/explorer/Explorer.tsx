@@ -2561,6 +2561,9 @@ function ExplorerLinkedContainerSection(params: {
     setSelectedId,
     unlinkNote,
   } = params;
+  const [unlinkingContainerId, setUnlinkingContainerId] = useState<
+    string | null
+  >(null);
   const linkedContainers = getLinkedContainerDetails(
     nodes,
     linkedContainerIds,
@@ -2594,12 +2597,27 @@ function ExplorerLinkedContainerSection(params: {
                 type="button"
                 className="explorer-action-button"
                 aria-label={`Detach linked container ${linkedContainer.label}`}
-                disabled={!canUnlinkSelectedNote}
+                disabled={
+                  !canUnlinkSelectedNote || unlinkingContainerId !== null
+                }
                 onClick={() => {
-                  void unlinkNote(selectedNote.id, linkedContainer.id);
+                  if (unlinkingContainerId !== null) {
+                    return;
+                  }
+
+                  void (async () => {
+                    setUnlinkingContainerId(linkedContainer.id);
+                    try {
+                      await unlinkNote(selectedNote.id, linkedContainer.id);
+                    } finally {
+                      setUnlinkingContainerId(null);
+                    }
+                  })();
                 }}
               >
-                Detach
+                {unlinkingContainerId === linkedContainer.id
+                  ? "Detaching..."
+                  : "Detach"}
               </button>
             </div>
           </li>
@@ -3192,19 +3210,32 @@ function useSelectedNoteLinkedContainerIds(params: {
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];
   documentLinkProjectionVersion: number;
   execSql: ReturnType<typeof useAppData>["execSql"];
+  log: ReturnType<typeof useAppData>["log"];
   selectedNote: NoteSummary | undefined;
 }) {
-  const { dbStatus, documentLinkProjectionVersion, execSql, selectedNote } =
-    params;
+  const {
+    dbStatus,
+    documentLinkProjectionVersion,
+    execSql,
+    log,
+    selectedNote,
+  } = params;
   const selectedNoteContainerId = selectedNote?.containerId ?? null;
   const selectedNoteDocumentId = selectedNote?.documentId ?? null;
   const [selectedNoteLinkedContainerIds, setSelectedNoteLinkedContainerIds] =
     useState<ReadonlyArray<string>>([]);
+  const previousSelectedNoteDocumentIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fallbackContainerIds =
       selectedNoteContainerId === null ? [] : [selectedNoteContainerId];
-    setSelectedNoteLinkedContainerIds(fallbackContainerIds);
+    const selectedNoteDocumentChanged =
+      previousSelectedNoteDocumentIdRef.current !== selectedNoteDocumentId;
+    previousSelectedNoteDocumentIdRef.current = selectedNoteDocumentId;
+
+    if (selectedNoteDocumentChanged) {
+      setSelectedNoteLinkedContainerIds(fallbackContainerIds);
+    }
 
     if (dbStatus !== "ready" || selectedNoteDocumentId === null) {
       return;
@@ -3229,7 +3260,13 @@ function useSelectedNoteLinkedContainerIds(params: {
         );
       } catch (error: unknown) {
         if (!isDestroyedDatabaseWorkerError(error)) {
-          throw error;
+          log(
+            `Explorer: failed to load linked container projection for document ${selectedNoteDocumentId}`,
+          );
+          console.error(
+            "Explorer: failed to load linked container projection:",
+            error,
+          );
         }
       }
     })();
@@ -3241,6 +3278,7 @@ function useSelectedNoteLinkedContainerIds(params: {
     dbStatus,
     documentLinkProjectionVersion,
     execSql,
+    log,
     selectedNoteContainerId,
     selectedNoteDocumentId,
   ]);
@@ -3337,6 +3375,7 @@ function useSelectedNoteStructuralState(params: {
       dbStatus: appData.dbStatus,
       documentLinkProjectionVersion,
       execSql: appData.execSql,
+      log: appData.log,
       selectedNote,
     });
   const moveNote = useMoveNoteAction({
