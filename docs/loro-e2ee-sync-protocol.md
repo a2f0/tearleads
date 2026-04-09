@@ -213,6 +213,8 @@ The current V1 implementation uses:
 - `attachment_bindings`
   - document-visible attachment state keyed by opaque `slotId`
   - `detached_at IS NULL` means the binding is currently active
+  - detached rows are transient and may be pruned when blob GC removes the
+    now-unreachable blob they referenced
 
 This means blob reachability is derived from active attachment bindings, not
 from an older generic doc/blob link table.

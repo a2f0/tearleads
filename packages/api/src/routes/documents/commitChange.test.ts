@@ -998,6 +998,27 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
     .limit(1);
   expect(deletedBlobEnvelope).toBeUndefined();
 
+  const [deletedBinding] = await db
+    .select({ id: attachmentBindings.id })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.id, firstBindingId))
+    .limit(1);
+  expect(deletedBinding).toBeUndefined();
+
+  const secondBindingId = String(
+    secondCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+  const [currentBinding] = await db
+    .select({
+      id: attachmentBindings.id,
+      previousBindingId: attachmentBindings.previousBindingId,
+    })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.id, secondBindingId))
+    .limit(1);
+  expect(currentBinding?.id).toBe(secondBindingId);
+  expect(currentBinding?.previousBindingId).toBeNull();
+
   const staleBlobResponse = await app.request(`/blobs/${firstBlobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
