@@ -1166,7 +1166,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
   );
   expect(sourceOmittingBaselineResponse.status).toBe(409);
   expect(await sourceOmittingBaselineResponse.json()).toEqual({
-    error: "Rotate baseline does not include source version vector",
+    error: "Rotate baseline frontier does not cover all prior-epoch updates",
   });
 
   const acceptedRotateResponse = await syncDocument(

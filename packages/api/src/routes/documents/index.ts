@@ -220,7 +220,8 @@ async function getRotateBaselineSourceError(input: {
     )
   ) {
     return {
-      message: "Rotate baseline does not include source version vector",
+      message:
+        "Rotate baseline frontier does not cover all prior-epoch updates",
       status: 409,
     };
   }
