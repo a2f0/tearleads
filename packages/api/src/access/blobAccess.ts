@@ -419,7 +419,23 @@ async function listLatestBlobRecipientEnvelopeIdentities(
   blobId: string,
   executor: BlobAccessExecutor = db,
 ): Promise<StoredBlobRecipientEnvelopeIdentity[] | null> {
-  const rows = await executor
+  const [latestEpochRow] = await executor
+    .select({ epoch: objectRecipientEnvelopes.epoch })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
+        eq(objectRecipientEnvelopes.objectId, blobId),
+      ),
+    )
+    .orderBy(desc(objectRecipientEnvelopes.epoch))
+    .limit(1);
+
+  if (!latestEpochRow) {
+    return null;
+  }
+
+  return executor
     .select({
       epoch: objectRecipientEnvelopes.epoch,
       principalId: objectRecipientEnvelopes.recipientPrincipalId,
@@ -431,20 +447,9 @@ async function listLatestBlobRecipientEnvelopeIdentities(
       and(
         eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
         eq(objectRecipientEnvelopes.objectId, blobId),
+        eq(objectRecipientEnvelopes.epoch, latestEpochRow.epoch),
       ),
-    )
-    .orderBy(desc(objectRecipientEnvelopes.epoch));
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  const latestEpoch = rows[0]?.epoch;
-  if (!latestEpoch) {
-    return null;
-  }
-
-  return rows.filter((row) => row.epoch === latestEpoch);
+    );
 }
 
 function canReuseBlobRecipientEnvelopes(
