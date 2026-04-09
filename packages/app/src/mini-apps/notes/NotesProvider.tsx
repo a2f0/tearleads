@@ -35,6 +35,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import {
@@ -1522,16 +1523,13 @@ function resolveNextDocumentRecipientEnvelopes(
   const { currentDocumentRecipientEnvelopes, encryptionMaterial, synced } =
     syncAttempt;
 
-  if (synced.currentAccessEpoch !== currentRecord.accessEpoch) {
-    return synced.documentRecipientEnvelopes ?? null;
-  }
-
-  return (
-    synced.documentRecipientEnvelopes ??
-    (encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : currentDocumentRecipientEnvelopes)
-  );
+  return resolveSyncedDocumentRecipientEnvelopes({
+    currentAccessEpoch: currentRecord.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    generatedDocumentRecipientEnvelopes:
+      encryptionMaterial?.documentRecipientEnvelopes ?? null,
+    synced,
+  });
 }
 
 async function applyIncomingSyncedUpdates(
@@ -1608,12 +1606,20 @@ async function finalizeDocumentSync(
   });
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    const queuedAttachmentRewrap = await queueCommittedAttachmentsForRewrap(
-      state,
-      currentDoc,
-    );
-    if (!queuedAttachmentRewrap) {
+    if (synced.documentRecipientEnvelopeAction === "rotate") {
+      await clearPendingAttachmentRewraps(state);
       await replacePendingUpdatesWithBaseline(state, currentDoc);
+      state.runtime.log(
+        "Notes: document epoch rotated; committed attachments require replacement rather than blob rewrap.",
+      );
+    } else {
+      const queuedAttachmentRewrap = await queueCommittedAttachmentsForRewrap(
+        state,
+        currentDoc,
+      );
+      if (!queuedAttachmentRewrap) {
+        await replacePendingUpdatesWithBaseline(state, currentDoc);
+      }
     }
     state.syncRequested = true;
   }

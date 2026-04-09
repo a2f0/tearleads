@@ -237,6 +237,41 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
   return rewrappedSync ?? synced;
 }
 
+export function resolveSyncedDocumentRecipientEnvelopes(input: {
+  currentAccessEpoch: number;
+  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  generatedDocumentRecipientEnvelopes?: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  synced: SyncDocumentResponse;
+}): SerializedRecipientEnvelope[] | null {
+  const {
+    currentAccessEpoch,
+    currentDocumentRecipientEnvelopes,
+    generatedDocumentRecipientEnvelopes,
+    synced,
+  } = input;
+
+  if (synced.currentAccessEpoch !== currentAccessEpoch) {
+    return synced.documentRecipientEnvelopes
+      ? sortDocumentRecipientEnvelopes(synced.documentRecipientEnvelopes)
+      : null;
+  }
+
+  if (synced.documentRecipientEnvelopes) {
+    return sortDocumentRecipientEnvelopes(synced.documentRecipientEnvelopes);
+  }
+
+  if (
+    currentDocumentRecipientEnvelopes === null &&
+    generatedDocumentRecipientEnvelopes
+  ) {
+    return sortDocumentRecipientEnvelopes(generatedDocumentRecipientEnvelopes);
+  }
+
+  return currentDocumentRecipientEnvelopes
+    ? sortDocumentRecipientEnvelopes(currentDocumentRecipientEnvelopes)
+    : null;
+}
+
 export async function getOrCreateDocumentEncryptionMaterial(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   execSql?: ExecSql;

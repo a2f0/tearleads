@@ -61,7 +61,9 @@ The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
 previous DEK and the server still has no current-epoch bundle, clients seed the
 current bundle with a follow-up sync before sending the rebased baseline that
-new recipients need.
+new recipients need. When the server classifies the current epoch as `rotate`,
+clients clear any stale bundle for that epoch and resend the next baseline
+under a freshly generated DEK.
 
 Current implementation:
 

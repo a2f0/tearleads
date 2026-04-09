@@ -30,6 +30,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
@@ -500,12 +501,13 @@ async function applySyncedContactUpdates(
 
   const previousAccessEpoch = contact.record.accessEpoch;
   const nextDocumentRecipientEnvelopes =
-    synced.currentAccessEpoch !== previousAccessEpoch
-      ? (synced.documentRecipientEnvelopes ?? null)
-      : (synced.documentRecipientEnvelopes ??
-        (encryptionMaterial && currentDocumentRecipientEnvelopes === null
-          ? encryptionMaterial.documentRecipientEnvelopes
-          : currentDocumentRecipientEnvelopes));
+    resolveSyncedDocumentRecipientEnvelopes({
+      currentAccessEpoch: previousAccessEpoch,
+      currentDocumentRecipientEnvelopes,
+      generatedDocumentRecipientEnvelopes:
+        encryptionMaterial?.documentRecipientEnvelopes ?? null,
+      synced,
+    });
 
   if (synced.updates.length > 0) {
     if (!nextDocumentRecipientEnvelopes) {

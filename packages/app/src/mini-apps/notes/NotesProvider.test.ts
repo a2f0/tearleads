@@ -1390,3 +1390,220 @@ test("notes store rewraps committed attachments when document access expands", a
     },
   ]);
 });
+
+test("notes store rotates document epochs without queueing committed attachment rewraps", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const commitChangeCalls: Array<{
+    accessEpoch: number;
+    attachmentCommitCount: number;
+    attachmentRewrapCount: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    expectedBindingIds: Array<string | null>;
+    referencedSlotIds: string[];
+  }> = [];
+  let currentBindingId: string | null = null;
+  let currentBlobId: string | null = null;
+  let currentSlotId: string | null = null;
+  let syncCallCount = 0;
+  let commitCallCount = 0;
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+  }> = [];
+
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      commitDocumentChange: async (documentId, input) => {
+        commitCallCount += 1;
+        commitChangeCalls.push({
+          accessEpoch: input.accessEpoch,
+          attachmentCommitCount: input.attachmentCommits.length,
+          attachmentRewrapCount: input.attachmentRewraps.length,
+          documentId,
+          documentRecipientEnvelopeCount:
+            input.documentRecipientEnvelopes?.length ?? 0,
+          expectedBindingIds: [
+            ...input.attachmentCommits.map(
+              (commit) => commit.expectedBindingId,
+            ),
+            ...input.attachmentRewraps.map(
+              (attachmentRewrap) => attachmentRewrap.expectedBindingId,
+            ),
+          ],
+          referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+        });
+
+        const committedBindings = input.attachmentCommits.map(
+          (commit, index) => {
+            const bindingId = `binding-${commitCallCount}-${index + 1}`;
+            const blobId = `blob-${commitCallCount}-${index + 1}`;
+            currentBindingId = bindingId;
+            currentBlobId = blobId;
+
+            return {
+              bindingId,
+              blobId,
+              slotId: commit.slotId,
+            };
+          },
+        );
+
+        return {
+          acceptedOutgoingUpdateIds: input.loroUpdate
+            ? [input.loroUpdate.id]
+            : [],
+          committedBindings,
+          currentAccessEpoch: input.accessEpoch,
+          documentRecipientEnvelopes: null,
+          detachedBindingIds: [],
+        };
+      },
+      getBlob: async (blobId) => {
+        if (!currentBlobId || !currentBindingId || !currentSlotId) {
+          return null;
+        }
+
+        if (blobId !== currentBlobId) {
+          return null;
+        }
+
+        return {
+          blobId,
+          encryptedBytes: "",
+          sha256: "",
+        };
+      },
+      listDocumentAttachments: async () => {
+        if (!currentBindingId || !currentBlobId || !currentSlotId) {
+          return [];
+        }
+
+        return [
+          {
+            bindingId: currentBindingId,
+            blobId: currentBlobId,
+            slotId: currentSlotId,
+          },
+        ];
+      },
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        syncCallCount += 1;
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (syncCallCount === 2) {
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "rotate",
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+          });
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "attachment-rotation",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment rotation notes store did not become ready.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("attachment before rotate"),
+      mimeType: "image/png",
+      name: "before-rotate.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 1 &&
+      persistence.getState().pendingAttachments.length === 0,
+    "Initial attachment commit did not complete.",
+  );
+
+  currentSlotId = store.getSnapshot().attachments[0]?.slotId ?? null;
+  expect(currentSlotId).toBeString();
+
+  store.setText("hello after rotate");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.some(
+        (call) =>
+          call.accessEpoch === 2 &&
+          call.documentRecipientEnvelopeCount === 1 &&
+          call.outgoingUpdateCount === 1,
+      ) &&
+      persistence.getState().pendingAttachmentRewraps.length === 0 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.accessEpoch === 2,
+    "Rotate access epoch did not trigger a fresh baseline resend.",
+  );
+
+  expect(commitChangeCalls).toEqual([
+    {
+      accessEpoch: 1,
+      attachmentCommitCount: 1,
+      attachmentRewrapCount: 0,
+      documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
+      expectedBindingIds: [null],
+      referencedSlotIds: [currentSlotId ?? ""],
+    },
+  ]);
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 1,
+    documentId: "notes-document-1",
+    documentRecipientEnvelopeCount: 0,
+    outgoingUpdateCount: 0,
+  });
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 1,
+    documentId: "notes-document-1",
+    documentRecipientEnvelopeCount: 1,
+    outgoingUpdateCount: 1,
+  });
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 2,
+    documentId: "notes-document-1",
+    documentRecipientEnvelopeCount: 1,
+    outgoingUpdateCount: 1,
+  });
+});

@@ -37,6 +37,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   resolveRecipientPublicKeys,
+  resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
 import type { ExecSql } from "../../data/sqlSchema";
@@ -474,6 +475,21 @@ async function deletePendingContainerUpdate(
   await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
+async function replacePendingContainerUpdatesWithBaseline(
+  state: ExplorerStoreState,
+  containerState: ContainerState,
+) {
+  await state.persistence.deletePendingUpdates(
+    state.runtime.execSql,
+    containerState.container.id,
+  );
+  await enqueuePendingContainerUpdate(
+    state,
+    containerState.container.id,
+    exportAllUpdates(containerState.doc),
+  );
+}
+
 async function decryptMetadataUpdates(
   state: ExplorerStoreState,
   encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
@@ -895,22 +911,27 @@ async function syncSingleContainerMetadata(
   );
 
   const previousAccessEpoch = containerState.record.accessEpoch;
+  const nextDocumentRecipientEnvelopes =
+    resolveSyncedDocumentRecipientEnvelopes({
+      currentAccessEpoch: previousAccessEpoch,
+      currentDocumentRecipientEnvelopes,
+      generatedDocumentRecipientEnvelopes:
+        encryptionMaterial?.documentRecipientEnvelopes ?? null,
+      synced,
+    });
   await persistContainerState(state, containerState, {
     accessEpoch: synced.currentAccessEpoch,
     documentId,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      synced.documentRecipientEnvelopes ??
-        (encryptionMaterial && currentDocumentRecipientEnvelopes === null
-          ? encryptionMaterial.documentRecipientEnvelopes
-          : currentDocumentRecipientEnvelopes),
+      nextDocumentRecipientEnvelopes,
     ),
     metadataDocumentId: documentId,
   });
 
-  if (
-    pendingUpdates.length > 0 &&
-    synced.currentAccessEpoch !== previousAccessEpoch
-  ) {
+  if (synced.currentAccessEpoch !== previousAccessEpoch) {
+    if (pendingUpdates.length > 0) {
+      await replacePendingContainerUpdatesWithBaseline(state, containerState);
+    }
     state.syncRequested = true;
   }
 }
