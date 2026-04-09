@@ -117,6 +117,33 @@ async function createDocumentEncryption(
   };
 }
 
+async function readDocumentEncryption(
+  documentRecipientEnvelopes: Array<{
+    keyFingerprint: string;
+    kemCipherText: string;
+    wrappedKey: string;
+  }>,
+): Promise<{
+  documentKey: Uint8Array;
+  documentRecipientEnvelopes: Array<{
+    keyFingerprint: string;
+    kemCipherText: string;
+    wrappedKey: string;
+  }>;
+}> {
+  return {
+    documentKey: await unwrapDek(
+      documentRecipientEnvelopes.map((recipient) => ({
+        keyFingerprint: recipient.keyFingerprint,
+        kemCipherText: base64ToBytes(recipient.kemCipherText),
+        wrappedKey: base64ToBytes(recipient.wrappedKey),
+      })),
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes,
+  };
+}
+
 async function createRewrappedBlobRecipientEnvelopes(
   encryptedBytes: string,
   recipientPublicKeys: Uint8Array[],
@@ -316,9 +343,7 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
   const { documentKey, documentRecipientEnvelopes } =
-    await createDocumentEncryption(
-      createdDocument.recipientEncapsulationPublicKeys,
-    );
+    await readDocumentEncryption(createdDocument.documentRecipientEnvelopes);
 
   const stageResponse = await stageBlob(
     await createEncryptedBlobInput(
@@ -402,6 +427,83 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   expect(deletedStage).toBeUndefined();
 });
 
+test("POST /documents/:documentId/commit-change rejects a divergent current-epoch document bundle", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+  const canonicalDocumentEncryption = await readDocumentEncryption(
+    createdDocument.documentRecipientEnvelopes,
+  );
+  const divergentDocumentEncryption = await createDocumentEncryption(
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
+
+  const doc = await createLoroDocument(alice.fingerprint);
+  const startVersion = encodeVersionVector(doc);
+  doc.getText("text").update("divergent current-epoch bundle");
+  const update = exportUpdatesSince(doc, startVersion);
+  const encryptedUpdate = await encryptLoroUpdate(
+    update,
+    createdDocument.currentAccessEpoch,
+    divergentDocumentEncryption.documentKey,
+  );
+  const vectors = getUpdateVersionVectors(update);
+
+  const response = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      documentRecipientEnvelopes:
+        divergentDocumentEncryption.documentRecipientEnvelopes,
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: encryptedUpdate,
+        partialStartVersionVector: vectors.partialStartVersionVector,
+        partialEndVersionVector: vectors.partialEndVersionVector,
+        referencedSlotIds: [],
+      },
+    },
+    alice.token,
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Document recipient envelopes conflict",
+  });
+
+  const storedUpdateRows = await db
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, documentId));
+  expect(storedUpdateRows).toHaveLength(0);
+
+  const storedRecipientRows = await db
+    .select({
+      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
+      kemCipherText: objectRecipientEnvelopes.kemCipherText,
+      wrappedKey: objectRecipientEnvelopes.wrappedKey,
+    })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "document"),
+        eq(objectRecipientEnvelopes.objectId, documentId),
+        eq(objectRecipientEnvelopes.epoch, createdDocument.currentAccessEpoch),
+      ),
+    );
+  expect(
+    storedRecipientRows.sort((left, right) =>
+      left.keyFingerprint.localeCompare(right.keyFingerprint),
+    ),
+  ).toEqual(canonicalDocumentEncryption.documentRecipientEnvelopes);
+});
+
 test("POST /documents/:documentId/commit-change rejects blob recipients that do not match document access", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
@@ -452,9 +554,7 @@ test("POST /documents/:documentId/commit-change rejects Loro references to unbou
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
   const { documentKey, documentRecipientEnvelopes } =
-    await createDocumentEncryption(
-      createdDocument.recipientEncapsulationPublicKeys,
-    );
+    await readDocumentEncryption(createdDocument.documentRecipientEnvelopes);
 
   const doc = await createLoroDocument(alice.fingerprint);
   const startVersion = encodeVersionVector(doc);
@@ -500,9 +600,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
   const { documentKey, documentRecipientEnvelopes } =
-    await createDocumentEncryption(
-      createdDocument.recipientEncapsulationPublicKeys,
-    );
+    await readDocumentEncryption(createdDocument.documentRecipientEnvelopes);
 
   const firstStageResponse = await stageBlob(
     await createEncryptedBlobInput(

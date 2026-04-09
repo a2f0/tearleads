@@ -182,20 +182,36 @@ export const objectAccessEpochs = pgTable("object_access_epochs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const objectRecipientEnvelopes = pgTable("object_recipient_envelopes", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  objectType: text("object_type").notNull(),
-  objectId: text("object_id").notNull(),
-  epoch: integer("epoch").notNull(),
-  recipientPrincipalType: text("recipient_principal_type")
-    .$type<RecipientPrincipalType>()
-    .notNull(),
-  recipientPrincipalId: text("recipient_principal_id").notNull(),
-  recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
-  kemCipherText: text("kem_cipher_text"),
-  wrappedKey: text("wrapped_key"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const objectRecipientEnvelopes = pgTable(
+  "object_recipient_envelopes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    objectType: text("object_type").notNull(),
+    objectId: text("object_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    recipientPrincipalType: text("recipient_principal_type")
+      .$type<RecipientPrincipalType>()
+      .notNull(),
+    recipientPrincipalId: text("recipient_principal_id").notNull(),
+    recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
+    kemCipherText: text("kem_cipher_text"),
+    wrappedKey: text("wrapped_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("object_recipient_envelopes_object_epoch_idx").on(
+      table.objectType,
+      table.objectId,
+      table.epoch,
+    ),
+    uniqueIndex("object_recipient_envelopes_object_epoch_recipient_idx").on(
+      table.objectType,
+      table.objectId,
+      table.epoch,
+      table.recipientKeyFingerprint,
+    ),
+  ],
+);
 
 export const documentContainerLinks = pgTable("document_container_links", {
   id: uuid("id").defaultRandom().primaryKey(),

@@ -38,6 +38,12 @@ import { registerUser } from "../helpers/registerUser";
 const alice = createTestUser();
 const bob = createTestUser();
 
+type TestDocumentRecipientEnvelope = {
+  keyFingerprint: string;
+  kemCipherText: string;
+  wrappedKey: string;
+};
+
 async function createStagedBlobInput(encryptedBytes: string): Promise<{
   encryptedBytes: string;
   byteLength: number;
@@ -59,15 +65,13 @@ async function createStagedBlobInput(encryptedBytes: string): Promise<{
 
 async function createDocumentEncryption(
   encodedRecipientPublicKeys: string[],
+  existingDocumentKey?: Uint8Array,
 ): Promise<{
   documentKey: Uint8Array;
-  documentRecipientEnvelopes: Array<{
-    keyFingerprint: string;
-    kemCipherText: string;
-    wrappedKey: string;
-  }>;
+  documentRecipientEnvelopes: TestDocumentRecipientEnvelope[];
 }> {
-  const documentKey = crypto.getRandomValues(new Uint8Array(32));
+  const documentKey =
+    existingDocumentKey ?? crypto.getRandomValues(new Uint8Array(32));
   const wrappedRecipients = await wrapDekForRecipients(
     documentKey,
     encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
@@ -84,11 +88,7 @@ async function createDocumentEncryption(
 }
 
 async function unwrapDocumentKeyFromEnvelopes(
-  documentRecipientEnvelopes: Array<{
-    keyFingerprint: string;
-    kemCipherText: string;
-    wrappedKey: string;
-  }> | null,
+  documentRecipientEnvelopes: TestDocumentRecipientEnvelope[] | null,
   secretKey: Uint8Array,
 ): Promise<Uint8Array> {
   if (!documentRecipientEnvelopes) {
@@ -102,6 +102,31 @@ async function unwrapDocumentKeyFromEnvelopes(
       wrappedKey: base64ToBytes(recipient.wrappedKey),
     })),
     secretKey,
+  );
+}
+
+async function resolveDocumentEncryptionForSync(input: {
+  documentRecipientEnvelopes: TestDocumentRecipientEnvelope[] | null;
+  fallbackDocumentKey: Uint8Array;
+  recipientEncapsulationPublicKeys: string[];
+  secretKey: Uint8Array;
+}): Promise<{
+  documentKey: Uint8Array;
+  documentRecipientEnvelopes: TestDocumentRecipientEnvelope[];
+}> {
+  if (input.documentRecipientEnvelopes) {
+    return {
+      documentKey: await unwrapDocumentKeyFromEnvelopes(
+        input.documentRecipientEnvelopes,
+        input.secretKey,
+      ),
+      documentRecipientEnvelopes: input.documentRecipientEnvelopes,
+    };
+  }
+
+  return createDocumentEncryption(
+    input.recipientEncapsulationPublicKeys,
+    input.fallbackDocumentKey,
   );
 }
 
@@ -202,9 +227,13 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(staleEpochSync.acceptedOutgoingUpdateIds).toHaveLength(0);
   expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
   expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
-  const grantedDocumentEncryption = await createDocumentEncryption(
-    staleEpochSync.recipientEncapsulationPublicKeys,
-  );
+  const grantedDocumentEncryption = await resolveDocumentEncryptionForSync({
+    documentRecipientEnvelopes: staleEpochSync.documentRecipientEnvelopes,
+    fallbackDocumentKey: initialDocumentKey,
+    recipientEncapsulationPublicKeys:
+      staleEpochSync.recipientEncapsulationPublicKeys,
+    secretKey: alice.kem.secretKey,
+  });
 
   const encryptedGrantedUpdate = await encryptLoroUpdate(
     firstUpdate,
@@ -351,9 +380,13 @@ test("Large note-style updates stay as a single synced document update", async (
   ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
-  const documentEncryption = await createDocumentEncryption(
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
+  const documentEncryption = {
+    documentKey: await unwrapDocumentKeyFromEnvelopes(
+      createdDocument.documentRecipientEnvelopes,
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
+  };
 
   const aliceDoc = await createLoroDocument(alice.fingerprint);
   const initialVersion = encodeVersionVector(aliceDoc);
@@ -402,6 +435,116 @@ test("Large note-style updates stay as a single synced document update", async (
   expect(storedUpdates[0]?.encryptedData.length).toBeGreaterThan(256 * 1024);
 });
 
+test("Document sync rejects a divergent current-epoch bundle and accepts the canonical retry", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const canonicalDocumentEncryption = {
+    documentKey: await unwrapDocumentKeyFromEnvelopes(
+      createdDocument.documentRecipientEnvelopes,
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes:
+      createdDocument.documentRecipientEnvelopes as TestDocumentRecipientEnvelope[],
+  };
+  const divergentDocumentEncryption = await createDocumentEncryption(
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
+
+  const aliceDoc = await createLoroDocument(alice.fingerprint);
+  const initialVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("canonical retry after bundle conflict");
+  const update = exportUpdatesSince(aliceDoc, initialVersion);
+  const vectors = getUpdateVersionVectors(update);
+  const updateId = crypto.randomUUID();
+
+  const divergentSyncResponse = await syncDocument(
+    createdDocument.id,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        divergentDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: updateId,
+          encryptedData: await encryptLoroUpdate(
+            update,
+            createdDocument.currentAccessEpoch,
+            divergentDocumentEncryption.documentKey,
+          ),
+          partialStartVersionVector: vectors.partialStartVersionVector,
+          partialEndVersionVector: vectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(divergentSyncResponse.status).toBe(409);
+  expect(await divergentSyncResponse.json()).toEqual({
+    error: "Document recipient envelopes conflict",
+  });
+
+  const canonicalSyncResponse = await syncDocument(
+    createdDocument.id,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      documentRecipientEnvelopes:
+        canonicalDocumentEncryption.documentRecipientEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [
+        {
+          id: updateId,
+          encryptedData: await encryptLoroUpdate(
+            update,
+            createdDocument.currentAccessEpoch,
+            canonicalDocumentEncryption.documentKey,
+          ),
+          partialStartVersionVector: vectors.partialStartVersionVector,
+          partialEndVersionVector: vectors.partialEndVersionVector,
+        },
+      ],
+    },
+    alice.token,
+  );
+  expect(canonicalSyncResponse.status).toBe(200);
+  const canonicalSync = await canonicalSyncResponse.json();
+  expect(canonicalSync.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  expect(canonicalSync.documentRecipientEnvelopes).toEqual(
+    canonicalDocumentEncryption.documentRecipientEnvelopes,
+  );
+
+  const reversedCanonicalEnvelopes = [
+    ...canonicalDocumentEncryption.documentRecipientEnvelopes,
+  ].reverse();
+  expect(
+    reversedCanonicalEnvelopes.map((envelope) => envelope.keyFingerprint),
+  ).not.toEqual(
+    canonicalDocumentEncryption.documentRecipientEnvelopes.map(
+      (envelope) => envelope.keyFingerprint,
+    ),
+  );
+
+  const reorderedRetryResponse = await syncDocument(
+    createdDocument.id,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      documentRecipientEnvelopes: reversedCanonicalEnvelopes,
+      localVersionVector: encodeVersionVector(aliceDoc),
+      outgoingUpdates: [],
+    },
+    alice.token,
+  );
+  expect(reorderedRetryResponse.status).toBe(200);
+  const reorderedRetry = await reorderedRetryResponse.json();
+  expect(reorderedRetry.acceptedOutgoingUpdateIds).toEqual([]);
+  expect(reorderedRetry.documentRecipientEnvelopes).toEqual(
+    canonicalDocumentEncryption.documentRecipientEnvelopes,
+  );
+});
+
 test("Bob can read a rebaselined note after share and decrypt a correctly wrapped attachment blob", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
@@ -409,9 +552,13 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const sharedDocumentId = String(createdDocument.id ?? "");
-  const initialDocumentEncryption = await createDocumentEncryption(
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
+  const initialDocumentEncryption = {
+    documentKey: await unwrapDocumentKeyFromEnvelopes(
+      createdDocument.documentRecipientEnvelopes,
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
+  };
 
   const aliceDoc = await createLoroDocument(alice.fingerprint);
   const initialVersion = encodeVersionVector(aliceDoc);
@@ -463,9 +610,13 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
   const staleEpochSync = await staleEpochResponse.json();
   expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
   expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
-  const rebasedDocumentEncryption = await createDocumentEncryption(
-    staleEpochSync.recipientEncapsulationPublicKeys,
-  );
+  const rebasedDocumentEncryption = await resolveDocumentEncryptionForSync({
+    documentRecipientEnvelopes: staleEpochSync.documentRecipientEnvelopes,
+    fallbackDocumentKey: initialDocumentEncryption.documentKey,
+    recipientEncapsulationPublicKeys:
+      staleEpochSync.recipientEncapsulationPublicKeys,
+    secretKey: alice.kem.secretKey,
+  });
 
   const rebasedEncryptedUpdate = await encryptLoroUpdate(
     initialUpdate,
@@ -620,9 +771,13 @@ test("Bob can discover and read a note after Alice shares its container through 
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();
   const sharedDocumentId = String(createdDocument.id ?? "");
-  const initialDocumentEncryption = await createDocumentEncryption(
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
+  const initialDocumentEncryption = {
+    documentKey: await unwrapDocumentKeyFromEnvelopes(
+      createdDocument.documentRecipientEnvelopes,
+      alice.kem.secretKey,
+    ),
+    documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
+  };
 
   const aliceDoc = await createLoroDocument(alice.fingerprint);
   const initialVersion = encodeVersionVector(aliceDoc);
@@ -706,9 +861,13 @@ test("Bob can discover and read a note after Alice shares its container through 
     "rewrap",
   );
   expect(bobCurrentEpochNoopSync.documentRecipientEnvelopes).toBeNull();
-  const rebasedDocumentEncryption = await createDocumentEncryption(
-    staleEpochSync.recipientEncapsulationPublicKeys,
-  );
+  const rebasedDocumentEncryption = await resolveDocumentEncryptionForSync({
+    documentRecipientEnvelopes: staleEpochSync.documentRecipientEnvelopes,
+    fallbackDocumentKey: initialDocumentEncryption.documentKey,
+    recipientEncapsulationPublicKeys:
+      staleEpochSync.recipientEncapsulationPublicKeys,
+    secretKey: alice.kem.secretKey,
+  });
 
   const rebasedEncryptedUpdate = await encryptLoroUpdate(
     initialUpdate,

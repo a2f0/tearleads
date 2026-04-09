@@ -28,12 +28,14 @@ import {
   canReadDocumentAccess,
   canWriteDocumentAccess,
   createDocumentRecipientEnvelopes,
+  DocumentRecipientEnvelopeConflictError,
   documentRecipientEnvelopesMatchRecipients,
   getDocumentRecipientEnvelopeAction,
   initializeDocumentAccess,
   listDocumentRecipientEnvelopes,
   listRecipientEncapsulationPublicKeys,
   listRecipientKeyFingerprints,
+  putDocumentRecipientEnvelopes,
   replaceDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
@@ -589,14 +591,20 @@ async function commitDocumentLoroUpdate(
   }
 
   if (input.documentRecipientEnvelopes) {
-    await replaceDocumentRecipientEnvelopes(
-      documentId,
-      access.currentAccessEpoch,
-      access,
-      input.documentRecipientEnvelopes,
-      tx,
-    );
-    currentDocumentRecipientEnvelopes = input.documentRecipientEnvelopes;
+    try {
+      currentDocumentRecipientEnvelopes = await putDocumentRecipientEnvelopes(
+        documentId,
+        access.currentAccessEpoch,
+        access,
+        input.documentRecipientEnvelopes,
+        tx,
+      );
+    } catch (error) {
+      if (error instanceof DocumentRecipientEnvelopeConflictError) {
+        throw new CommitChangeError(error.message, 409);
+      }
+      throw error;
+    }
   }
 
   if (
@@ -932,6 +940,9 @@ export const documentsRouter = createLoroRouter({
         access.currentAccessEpoch,
       );
       const nextEnvelopes = documentRecipientEnvelopes ?? existingEnvelopes;
+      let canonicalDocumentRecipientEnvelopes:
+        | Awaited<ReturnType<typeof putDocumentRecipientEnvelopes>>
+        | undefined;
 
       if (!nextEnvelopes || nextEnvelopes.length === 0) {
         throw new DocumentUpdateError(
@@ -954,12 +965,20 @@ export const documentsRouter = createLoroRouter({
       }
 
       if (documentRecipientEnvelopes) {
-        await replaceDocumentRecipientEnvelopes(
-          documentId,
-          access.currentAccessEpoch,
-          access,
-          documentRecipientEnvelopes,
-        );
+        try {
+          canonicalDocumentRecipientEnvelopes =
+            await putDocumentRecipientEnvelopes(
+              documentId,
+              access.currentAccessEpoch,
+              access,
+              documentRecipientEnvelopes,
+            );
+        } catch (error) {
+          if (error instanceof DocumentRecipientEnvelopeConflictError) {
+            throw new DocumentUpdateError(error.message, 409);
+          }
+          throw error;
+        }
       }
 
       const acceptedUpdateIds: string[] = [];
@@ -993,7 +1012,10 @@ export const documentsRouter = createLoroRouter({
         }
       }
 
-      return acceptedUpdateIds;
+      return {
+        acceptedOutgoingUpdateIds: acceptedUpdateIds,
+        documentRecipientEnvelopes: canonicalDocumentRecipientEnvelopes,
+      };
     },
     async listDocumentUpdates(documentId) {
       return db
