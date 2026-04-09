@@ -22,6 +22,7 @@ import {
   writeContainerMetadataValue,
 } from "../../data/containerMetadataDocument";
 import type { ContainerRecord } from "../../data/containerPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -45,10 +46,7 @@ import {
   primeNotesStore,
   requestDomainNotesSync,
 } from "../notes/NotesProvider";
-import {
-  listNotesByContainerIds,
-  sqlNotesPersistence,
-} from "../notes/notesPersistence";
+import { sqlNotesPersistence } from "../notes/notesPersistence";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
@@ -397,6 +395,35 @@ function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
   };
 }
 
+function resolveSharedNoteRuntimeContainerId(params: {
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  noteSummary: {
+    containerId: string | null;
+    documentId: string | null;
+  };
+  sharedContainerIds: ReadonlySet<string>;
+}): string | null {
+  const { linkedContainerIdsByDocumentId, noteSummary, sharedContainerIds } =
+    params;
+  if (
+    noteSummary.containerId &&
+    sharedContainerIds.has(noteSummary.containerId)
+  ) {
+    return noteSummary.containerId;
+  }
+
+  if (!noteSummary.documentId) {
+    return noteSummary.containerId;
+  }
+
+  return (
+    linkedContainerIdsByDocumentId
+      .get(noteSummary.documentId)
+      ?.find((containerId) => sharedContainerIds.has(containerId)) ??
+    noteSummary.containerId
+  );
+}
+
 async function primeNotesForSharedSubtree(
   state: ExplorerStoreState,
   rootContainerId: string,
@@ -418,23 +445,36 @@ async function primeNotesForSharedSubtree(
   }
 
   await sqlNotesPersistence.ensureSchema(state.runtime.execSql);
-  const noteSummaries = await listNotesByContainerIds(
+  const noteSummaries = await sqlNotesPersistence.listNotes(
     state.runtime.execSql,
-    Array.from(sharedContainerIds),
   );
+  const documentIds = Array.from(
+    new Set(
+      noteSummaries.flatMap((noteSummary) =>
+        noteSummary.documentId ? [noteSummary.documentId] : [],
+      ),
+    ),
+  );
+  const linkedContainerIdsByDocumentId =
+    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+      state.runtime.execSql,
+      documentIds,
+    );
 
   for (const noteSummary of noteSummaries) {
-    if (
-      !noteSummary.containerId ||
-      !sharedContainerIds.has(noteSummary.containerId)
-    ) {
+    const runtimeContainerId = resolveSharedNoteRuntimeContainerId({
+      linkedContainerIdsByDocumentId,
+      noteSummary,
+      sharedContainerIds,
+    });
+    if (!runtimeContainerId) {
       continue;
     }
 
     const notesStore = primeNotesStore(
       state.runtime.domainScope,
       noteSummary.id,
-      buildNotesRuntime(state, noteSummary.containerId),
+      buildNotesRuntime(state, runtimeContainerId),
       undefined,
       noteSummary.documentId,
     );
