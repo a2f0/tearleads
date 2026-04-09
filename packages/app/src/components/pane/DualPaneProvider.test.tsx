@@ -355,6 +355,19 @@ async function linkOpenNoteToContainer(
   );
 }
 
+async function activateOpenNoteInLinkedContainer(
+  pane: HTMLElement,
+  destinationName: string,
+) {
+  await interact(() => {
+    fireEvent.click(
+      within(pane).getByRole("button", {
+        name: `Make linked container ${destinationName} active`,
+      }),
+    );
+  });
+}
+
 function createFileList(file: File): FileList {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
@@ -849,6 +862,98 @@ test(
     });
     await waitFor(() => {
       expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+    });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer can switch the active linked container for a linked note",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Source");
+    await createChildContainer(leftPane, "Target");
+    await selectContainerAndReadId(leftPane, "Source");
+    await selectContainerAndReadId(leftPane, "Target");
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "Activatable note",
+      "activatable-note.png",
+    );
+    await waitForInlineNoteToSettle(
+      leftPane,
+      "Activatable note",
+      "activatable-note.png",
+    );
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Source")).toBeTruthy();
+    });
+
+    await linkOpenNoteToContainer(leftPane, "Target");
+
+    await waitFor(() => {
+      expect(
+        within(leftPane).getByRole("button", {
+          name: "Make linked container Target active",
+        }),
+      ).toBeTruthy();
+    });
+
+    await activateOpenNoteInLinkedContainer(leftPane, "Target");
+
+    await waitFor(() => {
+      expect(within(leftPane).getByText("note in Target")).toBeTruthy();
+      expect(
+        within(leftPane).queryByRole("button", {
+          name: "Make linked container Target active",
+        }),
+      ).toBeNull();
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(leftPane).getByRole("button", { name: "Back to Container" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        getExplorerSidebarItem(leftPane, "Target").classList.contains(
+          "explorer-sidebar-item--selected",
+        ),
+      ).toBe(true);
+    });
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+    await waitFor(() => {
+      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+    });
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Target"));
+    });
+    await waitFor(() => {
+      expect(listExplorerNoteItems(leftPane).length).toBeGreaterThan(0);
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,

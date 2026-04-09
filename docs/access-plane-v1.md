@@ -444,10 +444,12 @@ reparenting, and it now moves notes between containers by calling
 `POST /documents/:documentId/link` followed by
 `POST /documents/:documentId/unlink` while updating the local note/container
 projection from the authoritative mutation response. The note detail view also
-now exposes direct note `link` / `unlink` management for already-linked notes.
-The broader document `link` / `unlink` surface is still intentionally narrower
-than the API: documents are still projected as single-container notes in the
-current app UI, so true multi-container document management remains future
+now exposes direct note `link` / `unlink` management for already-linked notes,
+and it can locally switch which linked container is treated as the active note
+projection without mutating the authoritative link graph. The broader document
+`link` / `unlink` surface is still intentionally narrower than the API:
+documents are still shown through one active note projection at a time in the
+current app UI, so fuller multi-container document management remains future
 work.
 
 ## Zero-Trust Extension For Membership Changes

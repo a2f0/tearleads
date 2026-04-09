@@ -2252,6 +2252,49 @@ async function unlinkExplorerLinkedNote(params: {
   return unlinkedNote;
 }
 
+async function activateExplorerLinkedNote(params: {
+  appData: ReturnType<typeof useAppData>;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  note: NoteSummary;
+  targetContainerId: string;
+}) {
+  const { appData, mergeNoteSummary, note, targetContainerId } = params;
+  if (
+    !note.documentId ||
+    !note.containerId ||
+    note.containerId === targetContainerId
+  ) {
+    return null;
+  }
+
+  const currentNotesStore = await primeExplorerNoteStoreForStructuralMutation({
+    appData,
+    mergeNoteSummary,
+    note,
+  });
+  if (!currentNotesStore) {
+    return null;
+  }
+
+  const relinkedNote = await relinkExplorerNoteLocally({
+    accessEpoch: 1,
+    appData,
+    currentNotesStore,
+    mergeNoteSummary,
+    note,
+    requestSync: false,
+    targetContainerId,
+  });
+  if (!relinkedNote) {
+    return null;
+  }
+
+  appData.log(
+    `Explorer: switched active note ${relinkedNote.id} to ${targetContainerId}`,
+  );
+  return relinkedNote;
+}
+
 async function relinkExplorerNoteAfterStructuralMutation(params: {
   accessEpoch: number;
   appData: ReturnType<typeof useAppData>;
@@ -2260,12 +2303,28 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
   note: NoteSummary;
   targetContainerId: string;
 }) {
+  return relinkExplorerNoteLocally({
+    ...params,
+    requestSync: true,
+  });
+}
+
+async function relinkExplorerNoteLocally(params: {
+  accessEpoch: number;
+  appData: ReturnType<typeof useAppData>;
+  currentNotesStore: ReturnType<typeof primeNotesStore>;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  note: NoteSummary;
+  requestSync: boolean;
+  targetContainerId: string;
+}) {
   const {
     accessEpoch,
     appData,
     currentNotesStore,
     mergeNoteSummary,
     note,
+    requestSync,
     targetContainerId,
   } = params;
   if (!note.documentId) {
@@ -2301,7 +2360,9 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
       appData.online,
     ),
   );
-  currentNotesStore.requestSync();
+  if (requestSync) {
+    currentNotesStore.requestSync();
+  }
   return relinkedNote;
 }
 
@@ -2450,6 +2511,35 @@ function useUnlinkNoteAction(params: {
   );
 }
 
+function useActivateLinkedNoteAction(params: {
+  appData: ReturnType<typeof useAppData>;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+}) {
+  const { appData, mergeNoteSummary, noteSummaries } = params;
+
+  return useCallback(
+    async (noteId: string, targetContainerId: string) => {
+      if (appData.dbStatus !== "ready") {
+        return null;
+      }
+
+      const existingNote = noteSummaries.find((note) => note.id === noteId);
+      if (!existingNote) {
+        return null;
+      }
+
+      return activateExplorerLinkedNote({
+        appData,
+        mergeNoteSummary,
+        note: existingNote,
+        targetContainerId,
+      });
+    },
+    [appData, mergeNoteSummary, noteSummaries],
+  );
+}
+
 interface LinkedContainerDetail {
   id: string;
   isActive: boolean;
@@ -2543,6 +2633,11 @@ function ExplorerNoteDetailActions(params: {
 }
 
 function ExplorerLinkedContainerSection(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  canActivateSelectedNote: boolean;
   canUnlinkSelectedNote: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -2554,6 +2649,8 @@ function ExplorerLinkedContainerSection(params: {
   ) => Promise<NoteSummary | null>;
 }) {
   const {
+    activateLinkedContainer,
+    canActivateSelectedNote,
     canUnlinkSelectedNote,
     linkedContainerIds,
     nodes,
@@ -2561,6 +2658,10 @@ function ExplorerLinkedContainerSection(params: {
     setSelectedId,
     unlinkNote,
   } = params;
+  const [activatingContainerId, setActivatingContainerId] = useState<
+    string | null
+  >(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [unlinkingContainerId, setUnlinkingContainerId] = useState<
     string | null
   >(null);
@@ -2575,59 +2676,220 @@ function ExplorerLinkedContainerSection(params: {
       <strong>Linked Containers</strong>
       <ul className="explorer-linked-container-list">
         {linkedContainers.map((linkedContainer) => (
-          <li
-            className="explorer-linked-container-row"
+          <ExplorerLinkedContainerRow
+            activateLinkedContainer={activateLinkedContainer}
+            activatingContainerId={activatingContainerId}
+            canActivateSelectedNote={canActivateSelectedNote}
+            canUnlinkSelectedNote={canUnlinkSelectedNote}
             key={linkedContainer.id}
-          >
-            <button
-              type="button"
-              className="explorer-linked-container-button"
-              aria-label={`Open linked container ${linkedContainer.label}`}
-              onClick={() => {
-                setSelectedId(linkedContainer.id);
-              }}
-            >
-              {linkedContainer.label}
-            </button>
-            <div className="explorer-linked-container-actions">
-              {linkedContainer.isActive ? (
-                <span className="explorer-linked-container-badge">Active</span>
-              ) : null}
-              <button
-                type="button"
-                className="explorer-action-button"
-                aria-label={`Detach linked container ${linkedContainer.label}`}
-                disabled={
-                  !canUnlinkSelectedNote || unlinkingContainerId !== null
-                }
-                onClick={() => {
-                  if (unlinkingContainerId !== null) {
-                    return;
-                  }
-
-                  void (async () => {
-                    setUnlinkingContainerId(linkedContainer.id);
-                    try {
-                      await unlinkNote(selectedNote.id, linkedContainer.id);
-                    } finally {
-                      setUnlinkingContainerId(null);
-                    }
-                  })();
-                }}
-              >
-                {unlinkingContainerId === linkedContainer.id
-                  ? "Detaching..."
-                  : "Detach"}
-              </button>
-            </div>
-          </li>
+            linkedContainer={linkedContainer}
+            selectedNoteId={selectedNote.id}
+            setActionError={setActionError}
+            setActivatingContainerId={setActivatingContainerId}
+            setSelectedId={setSelectedId}
+            setUnlinkingContainerId={setUnlinkingContainerId}
+            unlinkingContainerId={unlinkingContainerId}
+            unlinkNote={unlinkNote}
+          />
         ))}
       </ul>
+      {actionError ? (
+        <span className="explorer-detail-error">{actionError}</span>
+      ) : null}
     </div>
   );
 }
 
+function ExplorerLinkedContainerRow(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  activatingContainerId: string | null;
+  canActivateSelectedNote: boolean;
+  canUnlinkSelectedNote: boolean;
+  linkedContainer: LinkedContainerDetail;
+  selectedNoteId: string;
+  setActionError: (error: string | null) => void;
+  setActivatingContainerId: (containerId: string | null) => void;
+  setSelectedId: (id: string | null) => void;
+  setUnlinkingContainerId: (containerId: string | null) => void;
+  unlinkingContainerId: string | null;
+  unlinkNote: (
+    noteId: string,
+    removedContainerId: string,
+  ) => Promise<NoteSummary | null>;
+}) {
+  const {
+    activateLinkedContainer,
+    canActivateSelectedNote,
+    canUnlinkSelectedNote,
+    activatingContainerId,
+    linkedContainer,
+    selectedNoteId,
+    setActionError,
+    setActivatingContainerId,
+    setSelectedId,
+    setUnlinkingContainerId,
+    unlinkingContainerId,
+    unlinkNote,
+  } = params;
+
+  return (
+    <li className="explorer-linked-container-row">
+      <button
+        type="button"
+        className="explorer-linked-container-button"
+        aria-label={`Open linked container ${linkedContainer.label}`}
+        onClick={() => {
+          setSelectedId(linkedContainer.id);
+        }}
+      >
+        {linkedContainer.label}
+      </button>
+      <div className="explorer-linked-container-actions">
+        {linkedContainer.isActive ? (
+          <span className="explorer-linked-container-badge">Active</span>
+        ) : (
+          <button
+            type="button"
+            className="explorer-action-button"
+            aria-label={`Make linked container ${linkedContainer.label} active`}
+            disabled={
+              !canActivateSelectedNote ||
+              activatingContainerId !== null ||
+              unlinkingContainerId !== null
+            }
+            onClick={() => {
+              if (
+                activatingContainerId !== null ||
+                unlinkingContainerId !== null
+              ) {
+                return;
+              }
+
+              void handleActivateLinkedContainer({
+                activateLinkedContainer,
+                linkedContainer,
+                selectedNoteId,
+                setActionError,
+                setActivatingContainerId,
+              });
+            }}
+          >
+            {activatingContainerId === linkedContainer.id
+              ? "Activating..."
+              : "Make Active"}
+          </button>
+        )}
+        <button
+          type="button"
+          className="explorer-action-button"
+          aria-label={`Detach linked container ${linkedContainer.label}`}
+          disabled={
+            !canUnlinkSelectedNote ||
+            activatingContainerId !== null ||
+            unlinkingContainerId !== null
+          }
+          onClick={() => {
+            if (
+              activatingContainerId !== null ||
+              unlinkingContainerId !== null
+            ) {
+              return;
+            }
+
+            void handleDetachLinkedContainer({
+              linkedContainer,
+              selectedNoteId,
+              setActionError,
+              setUnlinkingContainerId,
+              unlinkNote,
+            });
+          }}
+        >
+          {unlinkingContainerId === linkedContainer.id
+            ? "Detaching..."
+            : "Detach"}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+async function handleActivateLinkedContainer(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  linkedContainer: LinkedContainerDetail;
+  selectedNoteId: string;
+  setActionError: (error: string | null) => void;
+  setActivatingContainerId: (containerId: string | null) => void;
+}) {
+  const {
+    activateLinkedContainer,
+    linkedContainer,
+    selectedNoteId,
+    setActionError,
+    setActivatingContainerId,
+  } = params;
+
+  setActionError(null);
+  setActivatingContainerId(linkedContainer.id);
+  try {
+    const activatedNote = await activateLinkedContainer(
+      selectedNoteId,
+      linkedContainer.id,
+    );
+    if (!activatedNote) {
+      setActionError(`Failed to make ${linkedContainer.label} active.`);
+    }
+  } catch {
+    setActionError(`Failed to make ${linkedContainer.label} active.`);
+  } finally {
+    setActivatingContainerId(null);
+  }
+}
+
+async function handleDetachLinkedContainer(params: {
+  linkedContainer: LinkedContainerDetail;
+  selectedNoteId: string;
+  setActionError: (error: string | null) => void;
+  setUnlinkingContainerId: (containerId: string | null) => void;
+  unlinkNote: (
+    noteId: string,
+    removedContainerId: string,
+  ) => Promise<NoteSummary | null>;
+}) {
+  const {
+    linkedContainer,
+    selectedNoteId,
+    setActionError,
+    setUnlinkingContainerId,
+    unlinkNote,
+  } = params;
+
+  setActionError(null);
+  setUnlinkingContainerId(linkedContainer.id);
+  try {
+    const unlinkedNote = await unlinkNote(selectedNoteId, linkedContainer.id);
+    if (!unlinkedNote) {
+      setActionError(`Failed to detach ${linkedContainer.label}.`);
+    }
+  } catch {
+    setActionError(`Failed to detach ${linkedContainer.label}.`);
+  } finally {
+    setUnlinkingContainerId(null);
+  }
+}
+
 function ExplorerNoteDetail(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  canActivateSelectedNote: boolean;
   canLinkSelectedNote: boolean;
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
@@ -2680,6 +2942,8 @@ function ExplorerNoteDetail(params: {
         <span className="explorer-detail-error">{params.refreshError}</span>
       ) : null}
       <ExplorerLinkedContainerSection
+        activateLinkedContainer={params.activateLinkedContainer}
+        canActivateSelectedNote={params.canActivateSelectedNote}
         canUnlinkSelectedNote={params.canUnlinkSelectedNote}
         linkedContainerIds={params.linkedContainerIds}
         nodes={params.nodes}
@@ -2777,6 +3041,11 @@ function ExplorerEmptyDetail(params: {
 }
 
 function ExplorerDetailPanel(params: {
+  activateLinkedContainer: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  canActivateSelectedNote: boolean;
   canLinkSelectedNote: boolean;
   canMoveSelectedNote: boolean;
   canUnlinkSelectedNote: boolean;
@@ -3385,6 +3654,11 @@ function useSelectedNoteStructuralState(params: {
     noteSummaries,
     setSelectedNoteLinkedContainerIds,
   });
+  const activateLinkedNote = useActivateLinkedNoteAction({
+    appData,
+    mergeNoteSummary,
+    noteSummaries,
+  });
   const linkNote = useLinkNoteAction({
     appData,
     mergeNoteSummary,
@@ -3410,6 +3684,7 @@ function useSelectedNoteStructuralState(params: {
     : [];
 
   return {
+    activateLinkedNote,
     linkNote,
     moveNote,
     selectedNoteLinkedContainerIds,
@@ -3492,6 +3767,7 @@ function useExplorerPanelState(params: {
   });
 
   return {
+    activateLinkedContainer: selectedNoteStructuralState.activateLinkedNote,
     contextMenuState,
     modalState,
     openInlineNote,
@@ -3539,6 +3815,7 @@ function useExplorerModel(
       onDocumentLinksChanged: handleDocumentLinksChanged,
     });
   const {
+    activateLinkedContainer,
     contextMenuState,
     modalState,
     openInlineNote,
@@ -3565,6 +3842,9 @@ function useExplorerModel(
     !!selection.selectedNote?.documentId;
 
   return {
+    canActivateSelectedNote:
+      appData.dbStatus === "ready" && !!selection.selectedNote?.documentId,
+    activateLinkedContainer,
     canLinkSelectedNote:
       canMutateSelectedNote && selectedNoteLinkTargetOptions.length > 0,
     canMoveSelectedNote:
@@ -3596,6 +3876,8 @@ export function Explorer() {
   return (
     <div className="explorer">
       <ExplorerDetailPanel
+        activateLinkedContainer={model.activateLinkedContainer}
+        canActivateSelectedNote={model.canActivateSelectedNote}
         canLinkSelectedNote={model.canLinkSelectedNote}
         canMoveSelectedNote={model.canMoveSelectedNote}
         canUnlinkSelectedNote={model.canUnlinkSelectedNote}
