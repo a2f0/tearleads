@@ -11,6 +11,7 @@ export const documentUpdates = pgTable("document_updates", {
   sequence: integer("sequence").generatedAlwaysAsIdentity().primaryKey(),
   id: uuid("id").notNull().unique(),
   documentId: uuid("document_id").notNull(),
+  accessEpoch: integer("access_epoch").notNull(),
   authorFingerprint: text("author_fingerprint").notNull(),
   encryptedData: text("encrypted_data").notNull(),
   partialStartVersionVector: text("partial_start_version_vector").notNull(),

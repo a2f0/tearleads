@@ -996,6 +996,158 @@ test("POST /documents/:documentId/commit-change rejects blob rewraps after recip
   });
 });
 
+test("POST /documents/:documentId/commit-change requires rotate baseline source frontier", async () => {
+  const bob = createTestUser();
+  await registerUser(bob);
+  await authenticate(bob);
+
+  const bobContainerId = crypto.randomUUID();
+  await createContainerForUser({
+    id: bobContainerId,
+    parentId: alice.rootContainerId,
+    token: alice.token,
+  });
+  await shareContainerWithUser({
+    accessLevel: "write",
+    containerId: bobContainerId,
+    subjectId: bob.userId,
+    token: alice.token,
+  });
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+    bobContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+  const initialDocumentEncryption = await readDocumentEncryption(
+    createdDocument.documentRecipientEnvelopes,
+  );
+
+  const loroDoc = await createLoroDocument(
+    `${alice.fingerprint}-commit-rotate-source`,
+  );
+  const initialVersion = encodeVersionVector(loroDoc);
+  loroDoc.getText("text").update("commit before unlink");
+  const initialUpdate = exportUpdatesSince(loroDoc, initialVersion);
+  const initialVectors = getUpdateVersionVectors(initialUpdate);
+  const initialCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: await encryptLoroUpdate(
+          initialUpdate,
+          createdDocument.currentAccessEpoch,
+          initialDocumentEncryption.documentKey,
+        ),
+        partialStartVersionVector: initialVectors.partialStartVersionVector,
+        partialEndVersionVector: initialVectors.partialEndVersionVector,
+        referencedSlotIds: [],
+      },
+    },
+    alice.token,
+  );
+  expect(initialCommitResponse.status).toBe(200);
+
+  const unlinkedDocument = await unlinkDocumentFromContainer({
+    containerId: bobContainerId,
+    documentId,
+    token: alice.token,
+  });
+  expect(unlinkedDocument.currentAccessEpoch).toBeGreaterThan(
+    createdDocument.currentAccessEpoch,
+  );
+
+  const rotatedDocumentEncryption = await createDocumentEncryption(
+    unlinkedDocument.recipientEncapsulationPublicKeys,
+  );
+  const baselineUpdate = exportUpdatesSince(loroDoc, null);
+  const baselineVectors = getUpdateVersionVectors(baselineUpdate);
+  const encryptedBaseline = await encryptLoroUpdate(
+    baselineUpdate,
+    unlinkedDocument.currentAccessEpoch,
+    rotatedDocumentEncryption.documentKey,
+  );
+  const baseCommitInput = {
+    accessEpoch: unlinkedDocument.currentAccessEpoch,
+    attachmentCommits: [],
+    attachmentDetaches: [],
+    attachmentRewraps: [],
+    documentRecipientEnvelopes:
+      rotatedDocumentEncryption.documentRecipientEnvelopes,
+  };
+
+  const missingSourceResponse = await commitDocumentChange(
+    documentId,
+    {
+      ...baseCommitInput,
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: encryptedBaseline,
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        partialEndVersionVector: baselineVectors.partialEndVersionVector,
+        referencedSlotIds: [],
+      },
+    },
+    alice.token,
+  );
+  expect(missingSourceResponse.status).toBe(400);
+  expect(await missingSourceResponse.json()).toEqual({
+    error: "Missing rotate baseline source version vector",
+  });
+
+  const staleSourceResponse = await commitDocumentChange(
+    documentId,
+    {
+      ...baseCommitInput,
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: encryptedBaseline,
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        partialEndVersionVector: baselineVectors.partialEndVersionVector,
+        referencedSlotIds: [],
+        sourceVersionVector: initialVectors.partialStartVersionVector,
+      },
+    },
+    alice.token,
+  );
+  expect(staleSourceResponse.status).toBe(409);
+  expect(await staleSourceResponse.json()).toEqual({
+    error: "Stale rotate baseline source version vector",
+  });
+
+  const acceptedRotateResponse = await commitDocumentChange(
+    documentId,
+    {
+      ...baseCommitInput,
+      loroUpdate: {
+        id: crypto.randomUUID(),
+        encryptedData: encryptedBaseline,
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        partialEndVersionVector: baselineVectors.partialEndVersionVector,
+        referencedSlotIds: [],
+        sourceVersionVector: initialVectors.partialEndVersionVector,
+      },
+    },
+    alice.token,
+  );
+  expect(acceptedRotateResponse.status).toBe(200);
+  const acceptedRotate = await acceptedRotateResponse.json();
+  expect(acceptedRotate.acceptedOutgoingUpdateIds).toHaveLength(1);
+  expect(acceptedRotate.currentAccessEpoch).toBe(
+    unlinkedDocument.currentAccessEpoch,
+  );
+  expect(acceptedRotate.documentRecipientEnvelopes).toEqual(
+    rotatedDocumentEncryption.documentRecipientEnvelopes,
+  );
+});
+
 test("POST /documents/:documentId/commit-change deletes the replaced blob when a slot is rebound", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,

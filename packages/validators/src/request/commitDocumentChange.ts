@@ -30,6 +30,7 @@ export interface CommitDocumentChangeLoroUpdate {
   encryptedData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
+  sourceVersionVector?: string;
   referencedSlotIds: string[];
 }
 
@@ -104,6 +105,8 @@ function isCommitDocumentChangeLoroUpdate(
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector") &&
+    (Reflect.get(value, "sourceVersionVector") === undefined ||
+      hasStringProperty(value, "sourceVersionVector")) &&
     hasArrayProperty(value, "referencedSlotIds") &&
     isStringArray(value.referencedSlotIds)
   );

@@ -74,6 +74,9 @@ type SyncDocumentOutgoingUpdates = Parameters<
 type SyncDocumentRecipientEnvelopes = Parameters<
   ExplorerRuntime["apiClient"]["syncDocument"]
 >[4];
+type DocumentRecipientEnvelopes = ReturnType<
+  typeof parseDocumentRecipientEnvelopes
+>;
 
 interface ExplorerContextValue {
   createChild: (
@@ -507,8 +510,12 @@ async function enqueuePendingContainerUpdate(
   state: ExplorerStoreState,
   containerId: string,
   update: Uint8Array,
+  sourceVersionVector?: string | null,
 ) {
-  const pendingUpdateFields = createPendingUpdateFields(update);
+  const pendingUpdateFields = createPendingUpdateFields(
+    update,
+    sourceVersionVector,
+  );
   if (!pendingUpdateFields) {
     return;
   }
@@ -529,6 +536,7 @@ async function deletePendingContainerUpdate(
 async function replacePendingContainerUpdatesWithBaseline(
   state: ExplorerStoreState,
   containerState: ContainerState,
+  sourceVersionVector?: string | null,
 ) {
   await state.persistence.deletePendingUpdates(
     state.runtime.execSql,
@@ -538,6 +546,7 @@ async function replacePendingContainerUpdatesWithBaseline(
     state,
     containerState.container.id,
     exportAllUpdates(containerState.doc),
+    sourceVersionVector,
   );
 }
 
@@ -896,6 +905,37 @@ async function applySyncedContainerUpdates(
   }
 }
 
+async function handleSyncedContainerEpochChange(input: {
+  containerState: ContainerState;
+  nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
+  previousAccessEpoch: number;
+  state: ExplorerStoreState;
+  synced: NonNullable<
+    Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
+  >;
+}) {
+  if (input.synced.currentAccessEpoch === input.previousAccessEpoch) {
+    return;
+  }
+
+  if (
+    requiresBaselineAfterDocumentEpochChange({
+      previousAccessEpoch: input.previousAccessEpoch,
+      resolvedDocumentRecipientEnvelopes: input.nextDocumentRecipientEnvelopes,
+      synced: input.synced,
+    })
+  ) {
+    await replacePendingContainerUpdatesWithBaseline(
+      input.state,
+      input.containerState,
+      input.synced.documentRecipientEnvelopeAction === "rotate"
+        ? input.synced.rotateBaselineSourceVersionVector
+        : null,
+    );
+  }
+  input.state.syncRequested = true;
+}
+
 async function syncSingleContainerMetadata(
   state: ExplorerStoreState,
   containerState: ContainerState,
@@ -979,19 +1019,13 @@ async function syncSingleContainerMetadata(
     metadataDocumentId: documentId,
   });
 
-  if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    if (
-      pendingUpdates.length > 0 &&
-      requiresBaselineAfterDocumentEpochChange({
-        previousAccessEpoch,
-        resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
-        synced,
-      })
-    ) {
-      await replacePendingContainerUpdatesWithBaseline(state, containerState);
-    }
-    state.syncRequested = true;
-  }
+  await handleSyncedContainerEpochChange({
+    containerState,
+    nextDocumentRecipientEnvelopes,
+    previousAccessEpoch,
+    state,
+    synced,
+  });
 }
 
 async function runExplorerSyncIteration(state: ExplorerStoreState) {

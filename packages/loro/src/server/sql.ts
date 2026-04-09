@@ -8,6 +8,7 @@ export const loroSql = `
     sequence INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id UUID NOT NULL UNIQUE,
     document_id UUID NOT NULL,
+    access_epoch INTEGER NOT NULL,
     author_fingerprint TEXT NOT NULL,
     encrypted_data TEXT NOT NULL,
     partial_start_version_vector TEXT NOT NULL,

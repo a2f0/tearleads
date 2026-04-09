@@ -29,6 +29,7 @@ function createSyncDocumentResponse(input: {
   acceptedOutgoingUpdateIds?: string[];
   documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
   documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  rotateBaselineSourceVersionVector?: string | null;
   updates?: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
   return {
@@ -38,6 +39,8 @@ function createSyncDocumentResponse(input: {
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
     documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    rotateBaselineSourceVersionVector:
+      input.rotateBaselineSourceVersionVector ?? null,
     recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
     updates: input.updates ?? [],
   };
@@ -103,6 +106,7 @@ function createContactsPersistence(): ContactsPersistence & {
         id: `pending-${pendingUpdate.userId}-${(pendingUpdatesByUserId.get(pendingUpdate.userId) ?? []).length + 1}`,
         partialEndVersionVector: pendingUpdate.partialEndVersionVector,
         partialStartVersionVector: pendingUpdate.partialStartVersionVector,
+        sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
         updateData: pendingUpdate.updateData,
       };
 

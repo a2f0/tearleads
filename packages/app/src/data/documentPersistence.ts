@@ -19,6 +19,7 @@ export interface PendingUpdateFields {
   updateData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
+  sourceVersionVector?: string | null;
 }
 
 export interface PendingUpdateRecord extends PendingUpdateFields {
@@ -56,6 +57,7 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
         update_data TEXT NOT NULL,
         partial_start_version_vector TEXT NOT NULL,
         partial_end_version_vector TEXT NOT NULL,
+        source_version_vector TEXT,
         created_at TEXT NOT NULL
       )
     `,
@@ -82,6 +84,20 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
       await lockedExecSql(`
         ALTER TABLE documents
         ADD COLUMN document_recipient_envelopes TEXT
+      `);
+    }
+
+    const pendingUpdatesTableInfo = await lockedExecSql(
+      "PRAGMA table_info(document_pending_updates)",
+    );
+    const hasSourceVersionVectorColumn = pendingUpdatesTableInfo.some(
+      (row) => readSqlRowValue(row, "name") === "source_version_vector",
+    );
+
+    if (!hasSourceVersionVectorColumn) {
+      await lockedExecSql(`
+        ALTER TABLE document_pending_updates
+        ADD COLUMN source_version_vector TEXT
       `);
     }
   });
@@ -121,12 +137,17 @@ function parsePendingUpdateRecord(row: SqlRow): PendingUpdateRecord {
     row,
     "partial_end_version_vector",
   );
+  const sourceVersionVector = readSqlRowValue(row, "source_version_vector");
 
   return {
     id: String(id),
     updateData: String(updateData ?? ""),
     partialStartVersionVector: String(partialStartVersionVector ?? ""),
     partialEndVersionVector: String(partialEndVersionVector ?? ""),
+    sourceVersionVector:
+      sourceVersionVector === null || sourceVersionVector === undefined
+        ? null
+        : String(sourceVersionVector),
   };
 }
 
@@ -245,6 +266,7 @@ export async function listDocumentPendingUpdates(
       SELECT id, update_data
         , partial_start_version_vector
         , partial_end_version_vector
+        , source_version_vector
       FROM document_pending_updates
       WHERE app_kind = :appKind AND local_id = :localId
       ORDER BY created_at ASC
@@ -270,6 +292,7 @@ export async function enqueueDocumentPendingUpdate(
           update_data,
           partial_start_version_vector,
           partial_end_version_vector,
+          source_version_vector,
           created_at
         )
         VALUES (
@@ -279,6 +302,7 @@ export async function enqueueDocumentPendingUpdate(
           :updateData,
           :partialStartVersionVector,
           :partialEndVersionVector,
+          :sourceVersionVector,
           :createdAt
         )
       `,
@@ -288,6 +312,7 @@ export async function enqueueDocumentPendingUpdate(
         ":updateData": pendingUpdate.updateData,
         ":partialStartVersionVector": pendingUpdate.partialStartVersionVector,
         ":partialEndVersionVector": pendingUpdate.partialEndVersionVector,
+        ":sourceVersionVector": pendingUpdate.sourceVersionVector ?? null,
         ":createdAt": new Date().toISOString(),
       },
     );

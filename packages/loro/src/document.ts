@@ -61,6 +61,10 @@ export function encodeVersionVector(doc: LoroDoc): string {
   return encodeEncodedVersionVector(doc.oplogVersion());
 }
 
+export function emptyVersionVector(): string {
+  return encodeEncodedVersionVector(new VersionVector(undefined));
+}
+
 export function decodeVersionVector(
   encodedVersionVector: string | null | undefined,
 ): VersionVector {
@@ -96,6 +100,49 @@ export function satisfiesVersionVector(
 
   for (const [peerId, counter] of requiredVersionVector.toJSON()) {
     if ((versionVector.get(peerId) ?? 0) < counter) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function mergeVersionVectors(
+  encodedVersionVectors: ReadonlyArray<string>,
+): string {
+  const merged = new Map<`${number}`, number>();
+
+  for (const encodedVersionVector of encodedVersionVectors) {
+    for (const [peerId, counter] of decodeVersionVector(
+      encodedVersionVector,
+    ).toJSON()) {
+      const normalizedPeerId = String(peerId);
+      if (!isPeerIdString(normalizedPeerId)) {
+        throw new Error("Version vector contains a non-numeric peer ID.");
+      }
+      merged.set(
+        normalizedPeerId,
+        Math.max(merged.get(normalizedPeerId) ?? 0, counter),
+      );
+    }
+  }
+
+  return encodeEncodedVersionVector(VersionVector.parseJSON(merged));
+}
+
+export function versionVectorsEqual(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const leftEntries = decodeVersionVector(left).toJSON();
+  const rightEntries = decodeVersionVector(right).toJSON();
+
+  if (leftEntries.size !== rightEntries.size) {
+    return false;
+  }
+
+  for (const [peerId, leftCounter] of leftEntries) {
+    if (rightEntries.get(peerId) !== leftCounter) {
       return false;
     }
   }

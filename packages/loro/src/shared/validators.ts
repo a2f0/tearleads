@@ -16,6 +16,7 @@ export interface SyncDocumentOutgoingUpdate {
   encryptedData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
+  sourceVersionVector?: string;
 }
 
 export type DocumentRecipientEnvelopeAction = "none" | "rewrap" | "rotate";
@@ -57,6 +58,7 @@ export interface SyncDocumentResponse {
   currentAccessEpoch: number;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
+  rotateBaselineSourceVersionVector: string | null;
   recipientEncapsulationPublicKeys: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
@@ -103,7 +105,9 @@ export function isSyncDocumentOutgoingUpdate(
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
-    hasStringProperty(value, "partialEndVersionVector")
+    hasStringProperty(value, "partialEndVersionVector") &&
+    (Reflect.get(value, "sourceVersionVector") === undefined ||
+      hasStringProperty(value, "sourceVersionVector"))
   );
 }
 
@@ -200,6 +204,7 @@ export function isSyncDocumentResponse(
     isDocumentRecipientEnvelopeAction(documentRecipientEnvelopeAction) &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
+    hasNullableStringProperty(value, "rotateBaselineSourceVersionVector") &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&
     (referencedPrincipals === undefined ||
       (Array.isArray(referencedPrincipals) &&
