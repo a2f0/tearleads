@@ -2,6 +2,7 @@ import type { MoveContainerRequest } from "@tearleads/validators/request";
 import type { MoveContainerResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
+  ContainerCryptoRecipientResolutionError,
   canAdminContainerAccess,
   canWriteContainerAccess,
   listDescendantContainers,
@@ -31,111 +32,120 @@ export class MoveContainerError extends Error {
   }
 }
 
+async function moveContainerInTransaction(
+  tx: DatabaseTransaction,
+  input: MoveContainerInput,
+): Promise<MoveContainerResponse> {
+  const [container] = await tx
+    .select({
+      id: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+    })
+    .from(containers)
+    .where(eq(containers.id, input.containerId))
+    .limit(1);
+
+  if (!container) {
+    throw new MoveContainerError("Container not found", 404);
+  }
+
+  const [parent] = await tx
+    .select({
+      id: containers.id,
+      organizationId: containers.organizationId,
+    })
+    .from(containers)
+    .where(eq(containers.id, input.parentId))
+    .limit(1);
+
+  if (!parent) {
+    throw new MoveContainerError("Parent container not found", 404);
+  }
+
+  if (container.parentId === null) {
+    throw new MoveContainerError("Root containers cannot be moved", 409);
+  }
+
+  if (container.organizationId !== parent.organizationId) {
+    throw new MoveContainerError(
+      "Container and parent must belong to the same organization",
+      400,
+    );
+  }
+
+  const containerAccess = await resolveContainerAccessState(container.id, tx);
+  if (!containerAccess) {
+    throw new MoveContainerError("Container access state is unavailable", 409);
+  }
+
+  if (!canAdminContainerAccess(containerAccess, input.userId)) {
+    throw new MoveContainerError("Forbidden", 403);
+  }
+
+  const parentAccess = await resolveContainerAccessState(parent.id, tx);
+  if (!parentAccess) {
+    throw new MoveContainerError(
+      "Parent container access state is unavailable",
+      409,
+    );
+  }
+
+  if (!canWriteContainerAccess(parentAccess, input.userId)) {
+    throw new MoveContainerError("Forbidden", 403);
+  }
+
+  if (container.parentId === parent.id) {
+    return buildMoveContainerResponse(tx, container.id, parent.id);
+  }
+
+  const descendantContainers = await listDescendantContainers(container.id, tx);
+  const descendantContainerIds = descendantContainers.map(
+    (descendantContainer) => descendantContainer.id,
+  );
+
+  if (descendantContainerIds.includes(parent.id)) {
+    throw new MoveContainerError(
+      "Container cannot be moved under its descendant",
+      400,
+    );
+  }
+
+  await tx
+    .update(containers)
+    .set({ parentId: parent.id })
+    .where(eq(containers.id, container.id));
+
+  const refreshedEpochs = await refreshContainerAccessSubtree(
+    container.id,
+    tx,
+    {
+      descendantContainers,
+    },
+  );
+  await refreshAccessForLinkedContainers(
+    Array.from(refreshedEpochs.keys()),
+    tx,
+  );
+
+  return buildMoveContainerResponse(tx, container.id, parent.id);
+}
+
 export async function moveContainer(
   runtime: ApiServiceRuntime,
   input: MoveContainerInput,
 ): Promise<MoveContainerResponse> {
-  return runtime.db.transaction(async (tx) => {
-    const [container] = await tx
-      .select({
-        id: containers.id,
-        organizationId: containers.organizationId,
-        parentId: containers.parentId,
-      })
-      .from(containers)
-      .where(eq(containers.id, input.containerId))
-      .limit(1);
-
-    if (!container) {
-      throw new MoveContainerError("Container not found", 404);
-    }
-
-    const [parent] = await tx
-      .select({
-        id: containers.id,
-        organizationId: containers.organizationId,
-      })
-      .from(containers)
-      .where(eq(containers.id, input.parentId))
-      .limit(1);
-
-    if (!parent) {
-      throw new MoveContainerError("Parent container not found", 404);
-    }
-
-    if (container.parentId === null) {
-      throw new MoveContainerError("Root containers cannot be moved", 409);
-    }
-
-    if (container.organizationId !== parent.organizationId) {
-      throw new MoveContainerError(
-        "Container and parent must belong to the same organization",
-        400,
-      );
-    }
-
-    const containerAccess = await resolveContainerAccessState(container.id, tx);
-    if (!containerAccess) {
-      throw new MoveContainerError(
-        "Container access state is unavailable",
-        409,
-      );
-    }
-
-    if (!canAdminContainerAccess(containerAccess, input.userId)) {
-      throw new MoveContainerError("Forbidden", 403);
-    }
-
-    const parentAccess = await resolveContainerAccessState(parent.id, tx);
-    if (!parentAccess) {
-      throw new MoveContainerError(
-        "Parent container access state is unavailable",
-        409,
-      );
-    }
-
-    if (!canWriteContainerAccess(parentAccess, input.userId)) {
-      throw new MoveContainerError("Forbidden", 403);
-    }
-
-    if (container.parentId === parent.id) {
-      return buildMoveContainerResponse(tx, container.id, parent.id);
-    }
-
-    const descendantContainers = await listDescendantContainers(
-      container.id,
-      tx,
+  try {
+    return await runtime.db.transaction((tx) =>
+      moveContainerInTransaction(tx, input),
     );
-    const descendantContainerIds = descendantContainers.map(
-      (descendantContainer) => descendantContainer.id,
-    );
-
-    if (descendantContainerIds.includes(parent.id)) {
-      throw new MoveContainerError(
-        "Container cannot be moved under its descendant",
-        400,
-      );
+  } catch (error) {
+    if (error instanceof ContainerCryptoRecipientResolutionError) {
+      throw new MoveContainerError(error.message, 409);
     }
 
-    await tx
-      .update(containers)
-      .set({ parentId: parent.id })
-      .where(eq(containers.id, container.id));
-
-    const refreshedEpochs = await refreshContainerAccessSubtree(
-      container.id,
-      tx,
-      {
-        descendantContainers,
-      },
-    );
-    await refreshAccessForLinkedContainers(
-      Array.from(refreshedEpochs.keys()),
-      tx,
-    );
-
-    return buildMoveContainerResponse(tx, container.id, parent.id);
-  });
+    throw error;
+  }
 }
 
 async function buildMoveContainerResponse(

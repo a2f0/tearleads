@@ -73,10 +73,6 @@ Current recommendation:
 
 Remaining implementation work:
 
-- keep pushing the principal-recipient pivot beyond the current hybrid runtime
-  behavior, where object envelopes prefer principal keys when current signed
-  policy state exists but still fall back to expanded user recipients when a
-  managed grant has no current principal policy state yet
 - implement additive rewrap / subtractive rotation for document epochs and
   remaining object paths under that principal-based model
 - keep pushing the document link/unlink client story beyond the current

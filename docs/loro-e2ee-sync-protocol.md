@@ -98,10 +98,10 @@ Current implementation:
 
 Important remaining limitation:
 
-- the runtime is in a hybrid state: document/blob bundle material now consumes
-  cached principal policy bundles and can target current group/org keys, but
-  managed grants without current signed policy state still fall back to
-  expanded user recipients
+- document/blob bundle material now consumes cached principal policy bundles
+  and can target current group/org keys, but managed grants require current
+  signed policy state to remain usable; missing policy state now fails closed
+  instead of degrading to expanded user recipients
 - container/document discovery and Loro create/sync responses now expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients

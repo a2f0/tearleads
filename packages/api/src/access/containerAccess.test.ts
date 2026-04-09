@@ -361,6 +361,53 @@ test("container access expands organization and group grants and merges access l
   ).toBeUndefined();
 });
 
+test("container access is unavailable when a group grant lacks current principal policy state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const [rootContainer] = await db
+    .select({
+      id: containers.id,
+    })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, ownerRow.defaultOrganizationId),
+        sql`${containers.parentId} is null`,
+      ),
+    )
+    .limit(1);
+  invariant(rootContainer, "expected root container");
+
+  const [group] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Unmanaged readers",
+    })
+    .returning({ id: groups.id });
+  invariant(group, "expected group");
+
+  await db.insert(objectAccessGrants).values({
+    objectType: CONTAINER_OBJECT_TYPE,
+    objectId: rootContainer.id,
+    subjectType: "group",
+    subjectId: group.id,
+    accessLevel: "read",
+  });
+
+  expect(await resolveContainerAccessState(rootContainer.id)).toBeNull();
+});
+
 test("container access uses stored recipient key fingerprints", async () => {
   const alice = createTestUser();
   const bob = createTestUser();

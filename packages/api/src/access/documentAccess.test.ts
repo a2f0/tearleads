@@ -18,6 +18,7 @@ import {
   documentContainerLinks,
   groupMembers,
   groups,
+  objectAccessGrants,
   objectRecipientEnvelopes,
   users,
 } from "../schema";
@@ -258,4 +259,45 @@ test("document access includes referenced principal policy states from linked co
       stateHash: expect.any(String),
     },
   ]);
+});
+
+test("document access is unavailable when a linked container has no current principal policy state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const createDocumentResponse = await createDocument(owner.token, [
+    owner.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const [group] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Unmanaged readers",
+    })
+    .returning({ id: groups.id });
+  invariant(group, "expected group");
+
+  await db.insert(objectAccessGrants).values({
+    objectType: "container",
+    objectId: owner.rootContainerId,
+    subjectType: "group",
+    subjectId: group.id,
+    accessLevel: "read",
+  });
+
+  expect(await resolveContainerAccessState(owner.rootContainerId)).toBeNull();
+  expect(await resolveDocumentAccessState(createdDocument.id)).toBeNull();
 });

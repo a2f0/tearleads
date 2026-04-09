@@ -2,6 +2,7 @@ import type { ShareContainerRequest } from "@tearleads/validators/request";
 import type { ShareContainerResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
+  ContainerCryptoRecipientResolutionError,
   canAdminContainerAccess,
   grantContainerAccess,
   listDescendantContainerIds,
@@ -33,80 +34,88 @@ export async function shareContainer(
   runtime: ApiServiceRuntime,
   input: ShareContainerInput,
 ): Promise<ShareContainerResponse> {
-  return runtime.db.transaction(async (tx) => {
-    const [container] = await tx
-      .select({ id: containers.id })
-      .from(containers)
-      .where(eq(containers.id, input.containerId))
-      .limit(1);
+  try {
+    return await runtime.db.transaction(async (tx) => {
+      const [container] = await tx
+        .select({ id: containers.id })
+        .from(containers)
+        .where(eq(containers.id, input.containerId))
+        .limit(1);
 
-    if (!container) {
-      throw new ShareContainerError("Container not found", 404);
-    }
+      if (!container) {
+        throw new ShareContainerError("Container not found", 404);
+      }
 
-    const containerAccess = await resolveContainerAccessState(
-      input.containerId,
-      tx,
-    );
-
-    if (!containerAccess) {
-      throw new ShareContainerError(
-        "Container access state is unavailable",
-        409,
+      const containerAccess = await resolveContainerAccessState(
+        input.containerId,
+        tx,
       );
-    }
 
-    if (!canAdminContainerAccess(containerAccess, input.userId)) {
-      throw new ShareContainerError("Forbidden", 403);
-    }
+      if (!containerAccess) {
+        throw new ShareContainerError(
+          "Container access state is unavailable",
+          409,
+        );
+      }
 
-    await grantContainerAccess(
-      {
-        accessLevel: input.accessLevel,
-        containerId: input.containerId,
-        subjectId: input.subjectId,
-        subjectType: input.subjectType,
-      },
-      tx,
-    );
+      if (!canAdminContainerAccess(containerAccess, input.userId)) {
+        throw new ShareContainerError("Forbidden", 403);
+      }
 
-    await refreshAccessForLinkedContainers(
-      await listDescendantContainerIds(input.containerId, tx),
-      tx,
-    );
-
-    const [metadataBinding] = await tx
-      .select({ documentId: containerMetadataDocuments.documentId })
-      .from(containerMetadataDocuments)
-      .where(eq(containerMetadataDocuments.containerId, input.containerId))
-      .limit(1);
-
-    if (!metadataBinding) {
-      throw new ShareContainerError(
-        "Container metadata document not found",
-        409,
+      await grantContainerAccess(
+        {
+          accessLevel: input.accessLevel,
+          containerId: input.containerId,
+          subjectId: input.subjectId,
+          subjectType: input.subjectType,
+        },
+        tx,
       );
-    }
 
-    const metadataAccess = await resolveDocumentAccessState(
-      metadataBinding.documentId,
-      tx,
-    );
-
-    if (!metadataAccess) {
-      throw new ShareContainerError(
-        "Container metadata access state is unavailable",
-        409,
+      await refreshAccessForLinkedContainers(
+        await listDescendantContainerIds(input.containerId, tx),
+        tx,
       );
+
+      const [metadataBinding] = await tx
+        .select({ documentId: containerMetadataDocuments.documentId })
+        .from(containerMetadataDocuments)
+        .where(eq(containerMetadataDocuments.containerId, input.containerId))
+        .limit(1);
+
+      if (!metadataBinding) {
+        throw new ShareContainerError(
+          "Container metadata document not found",
+          409,
+        );
+      }
+
+      const metadataAccess = await resolveDocumentAccessState(
+        metadataBinding.documentId,
+        tx,
+      );
+
+      if (!metadataAccess) {
+        throw new ShareContainerError(
+          "Container metadata access state is unavailable",
+          409,
+        );
+      }
+
+      return {
+        id: input.containerId,
+        metadataDocumentId: metadataBinding.documentId,
+        metadataAccessEpoch: metadataAccess.currentAccessEpoch,
+        metadataRecipientEncapsulationPublicKeys:
+          listRecipientEncapsulationPublicKeys(metadataAccess),
+        metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
+      };
+    });
+  } catch (error) {
+    if (error instanceof ContainerCryptoRecipientResolutionError) {
+      throw new ShareContainerError(error.message, 409);
     }
 
-    return {
-      id: input.containerId,
-      metadataDocumentId: metadataBinding.documentId,
-      metadataAccessEpoch: metadataAccess.currentAccessEpoch,
-      metadataRecipientEncapsulationPublicKeys:
-        listRecipientEncapsulationPublicKeys(metadataAccess),
-      metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
-    };
-  });
+    throw error;
+  }
 }
