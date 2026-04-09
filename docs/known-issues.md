@@ -78,3 +78,5 @@ Remaining implementation work:
   switch the active projection of a note across its linked containers, but it
   still only exposes one active note projection at a time rather than a fuller
   multi-container document-management UI
+- longer-term rekey/bootstrap and tamper-evident document-history design notes
+  live in [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
