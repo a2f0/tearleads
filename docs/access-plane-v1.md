@@ -454,11 +454,12 @@ reparenting, and it now moves notes between containers by calling
 projection from the authoritative mutation response. The note detail view also
 now exposes direct note `link` / `unlink` management for already-linked notes,
 and it can locally switch which linked container is treated as the active note
-projection without mutating the authoritative link graph. The broader document
-`link` / `unlink` surface is still intentionally narrower than the API:
-documents are still shown through one active note projection at a time in the
-current app UI, so fuller multi-container document management remains future
-work.
+projection without mutating the authoritative link graph. The explorer sidebar
+also now renders linked note projections beneath each linked container, while
+the broader document `link` / `unlink` surface remains intentionally narrower
+than the API: the current app still edits and details one active note
+projection at a time, so fuller multi-container document management remains
+future work.
 
 ## Zero-Trust Extension For Membership Changes
 

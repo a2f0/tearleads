@@ -107,10 +107,10 @@ Important remaining limitation:
 - container/document discovery and Loro create/sync responses now expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
-- the current app still projects notes as single-container documents, so the
-  explorer note move/link flow is implemented as "one active projection plus
-  auxiliary linked-container management" rather than a full multi-link
-  document-management UI
+- the current app explorer now renders linked note projections beneath each
+  linked container and can switch which linked container is locally active, but
+  the note editor/detail runtime still works from one active projection at a
+  time rather than a full multi-link document-management UI
 - additive rewrap / subtractive rotation for document epochs is still not
   implemented
 - when a document enters a new access epoch, clients still rely on the current
