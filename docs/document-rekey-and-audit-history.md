@@ -76,11 +76,11 @@ includes.
 Recommended acceptance rule:
 
 - the client includes the source version vector / causal frontier used to build
-  the baseline
+  the proposed baseline
 - the server accepts the rotate baseline only if that frontier still matches
-  the server's latest accepted frontier for the prior readable epoch
-- otherwise the server returns `409`, and the client must rebuild against the
-  newer state
+  the server's latest accepted frontier for the prior epoch
+- otherwise the server returns `409`, and the client must rebuild the baseline
+  against the newer state
 
 This gives the right guarantee:
 
