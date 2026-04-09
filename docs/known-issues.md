@@ -73,65 +73,9 @@ Current recommendation:
 
 Remaining implementation work:
 
-- implement additive rewrap / subtractive rotation for document epochs and
-  remaining object paths under that principal-based model
 - keep pushing the document link/unlink client story beyond the current
   explorer note flow; the app explorer can now move, link, detach, and locally
   switch the active projection of a note across its linked containers, but it
   still only exposes one active note projection at a time rather than a fuller
   multi-container document-management UI
 - decide detached-binding retention / GC policy separately from blob GC
-
-### KI-007: Rewrap and rotation rules across hierarchy are not fully implemented
-
-Status: open
-
-The docs now specify the intended rule:
-
-- recipient set grows: re-wrap current DEK
-- recipient set shrinks: rotate for future writes
-
-The access-plane resolver chain exists, and attachment binding mutations now
-recompute blob access state. Document and blob ciphertext commits now persist
-real wrapped key rows for the current epoch. Notes/blob additive access growth
-can now rewrap existing committed blob bindings in place without creating a new
-blob row. Signed principal-state and principal member-envelope metadata now
-have real API ingestion/read routes as policy inputs, and container/document
-responses now expose `referencedPrincipals[]` summaries for the current signed
-group/org states that contributed to access. App clients now cache and consume
-those verified principal policy bundles so document/blob decryption can follow
-the current principal member-envelope chain when an object bundle is addressed
-to a group/org key. Managed grants now fail closed until current signed policy
-state exists, so the old expanded-user fallback is gone. The remaining work is
-implementing the rewrap vs rotate decision consistently for the remaining
-hierarchy edges when recipient sets expand or shrink, especially committed
-attachment/blob shrink paths under the principal-based recipient model.
-
-The current implementation now exposes a first server-classified document epoch
-action over sync responses:
-
-- `none`: the current epoch already has current document recipient envelopes
-- `rewrap`: the previous DEK can be reused for the current epoch
-- `rotate`: the next write must introduce a new DEK
-
-App clients now use the `rewrap` path to seed missing current-epoch document
-bundles and the `rotate` path to clear stale current-epoch bundles before
-resending a fresh baseline under a new DEK.
-
-Structural move/link/unlink routes now also materialize the affected document
-and active blob epochs immediately after the container/document graph changes,
-so epoch invalidation no longer waits for a later sync or content commit to
-notice the new structure.
-
-Implementation questions:
-
-- how eager recomputation should be for large subtrees
-- how to materialize bundles during offline structural edits before sync
-- whether rewrap/rotate happens immediately on mutation or lazily before next
-  write
-- how to sequence recomputation for container subtree -> documents -> blobs
-
-Recommended next step:
-
-- finish shrink-path rotation semantics for committed attachment/blob bindings
-  and decide detached-binding retention / GC policy separately from blob GC

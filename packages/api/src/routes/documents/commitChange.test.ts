@@ -17,7 +17,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   commitDocumentChange,
   createDocument,
@@ -34,9 +34,11 @@ import {
   attachmentBindings,
   blobStages,
   blobs,
+  containers,
   documentUpdates,
   objectAccessEpochs,
   objectRecipientEnvelopes,
+  users,
 } from "../../schema";
 
 const alice = createTestUser();
@@ -145,6 +147,125 @@ async function createRewrappedBlobRecipientEnvelopes(
     kemCipherText: bytesToBase64(recipient.kemCipherText),
     wrappedKey: bytesToBase64(recipient.wrappedKey),
   }));
+}
+
+async function getRootContainerIdForUser(userId: string): Promise<string> {
+  const [user] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user) {
+    throw new Error("Expected user row");
+  }
+
+  const [rootContainer] = await db
+    .select({
+      id: containers.id,
+    })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, user.defaultOrganizationId),
+        isNull(containers.parentId),
+      ),
+    )
+    .limit(1);
+
+  if (!rootContainer) {
+    throw new Error("Expected root container row");
+  }
+
+  return rootContainer.id;
+}
+
+async function createContainerForUser(input: {
+  id: string;
+  parentId: string;
+  token: string;
+}): Promise<void> {
+  const response = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: input.id,
+      initialMetadataUpdates: [],
+      parentId: input.parentId,
+    }),
+  });
+
+  expect(response.status).toBe(200);
+}
+
+async function shareContainerWithUser(input: {
+  accessLevel: "read" | "write" | "admin";
+  containerId: string;
+  subjectId: string;
+  token: string;
+}): Promise<void> {
+  const response = await app.request(`/containers/${input.containerId}/share`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      accessLevel: input.accessLevel,
+      subjectId: input.subjectId,
+      subjectType: "user",
+    }),
+  });
+
+  expect(response.status).toBe(200);
+}
+
+async function unlinkDocumentFromContainer(input: {
+  containerId: string;
+  documentId: string;
+  token: string;
+}): Promise<{
+  currentAccessEpoch: number;
+  recipientEncapsulationPublicKeys: string[];
+}> {
+  const response = await app.request(`/documents/${input.documentId}/unlink`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      containerId: input.containerId,
+    }),
+  });
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("currentAccessEpoch" in body) ||
+    typeof body.currentAccessEpoch !== "number" ||
+    !("recipientEncapsulationPublicKeys" in body) ||
+    !Array.isArray(body.recipientEncapsulationPublicKeys) ||
+    !body.recipientEncapsulationPublicKeys.every(
+      (entry: unknown) => typeof entry === "string",
+    )
+  ) {
+    throw new Error(
+      "Expected unlinked document response with currentAccessEpoch",
+    );
+  }
+
+  return {
+    currentAccessEpoch: body.currentAccessEpoch,
+    recipientEncapsulationPublicKeys: body.recipientEncapsulationPublicKeys,
+  };
 }
 
 test("POST /blobs/stage rejects mismatched blob digests", async () => {
@@ -659,6 +780,122 @@ test("POST /documents/:documentId/commit-change rewraps an existing blob without
     .where(eq(blobs.id, blobId))
     .limit(1);
   expect(storedBlob?.id).toBe(blobId);
+});
+
+test("POST /documents/:documentId/commit-change rejects blob rewraps after recipient shrink requires rotation", async () => {
+  const bob = createTestUser();
+  await registerUser(bob);
+  await authenticate(bob);
+  const carol = createTestUser();
+  await registerUser(carol);
+  await authenticate(carol);
+
+  const rootContainerId = await getRootContainerIdForUser(alice.userId);
+  const bobContainerId = crypto.randomUUID();
+  const carolContainerId = crypto.randomUUID();
+  await createContainerForUser({
+    id: bobContainerId,
+    parentId: rootContainerId,
+    token: alice.token,
+  });
+  await createContainerForUser({
+    id: carolContainerId,
+    parentId: rootContainerId,
+    token: alice.token,
+  });
+  await shareContainerWithUser({
+    accessLevel: "write",
+    containerId: bobContainerId,
+    subjectId: bob.userId,
+    token: alice.token,
+  });
+  await shareContainerWithUser({
+    accessLevel: "write",
+    containerId: carolContainerId,
+    subjectId: carol.userId,
+    token: alice.token,
+  });
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    rootContainerId,
+    bobContainerId,
+    carolContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+  const stagedBlobInput = await createEncryptedBlobInput(
+    "blob-bytes-before-shrink",
+    createdDocument.recipientEncapsulationPublicKeys,
+  );
+
+  const stageResponse = await stageBlob(stagedBlobInput, alice.token);
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const firstCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_rotate",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+  const firstCommitBody = await firstCommitResponse.json();
+  const bindingId = String(
+    firstCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+
+  const unlinkedDocument = await unlinkDocumentFromContainer({
+    containerId: carolContainerId,
+    documentId,
+    token: alice.token,
+  });
+  const shrunkRewrapRecipients = await createRewrappedBlobRecipientEnvelopes(
+    stagedBlobInput.encryptedBytes,
+    unlinkedDocument.recipientEncapsulationPublicKeys.map((publicKey) =>
+      base64ToBytes(publicKey),
+    ),
+    alice.kem.secretKey,
+  );
+  const rotateRewrapResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: unlinkedDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [
+        {
+          slotId: "slot_rotate",
+          expectedBindingId: bindingId,
+          recipientEnvelopes: shrunkRewrapRecipients,
+        },
+      ],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  const rotateRewrapBody = await rotateRewrapResponse.json();
+  expect({
+    body: rotateRewrapBody,
+    status: rotateRewrapResponse.status,
+  }).toEqual({
+    body: {
+      error:
+        "Blob recipient envelopes require blob replacement after access shrink",
+    },
+    status: 409,
+  });
 });
 
 test("POST /documents/:documentId/commit-change deletes the replaced blob when a slot is rebound", async () => {
