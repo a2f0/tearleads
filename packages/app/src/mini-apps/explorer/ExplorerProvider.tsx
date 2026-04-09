@@ -413,14 +413,13 @@ function resolveSharedNoteRuntimeContainerId(params: {
   }
 
   if (!noteSummary.documentId) {
-    return noteSummary.containerId;
+    return null;
   }
 
   return (
     linkedContainerIdsByDocumentId
       .get(noteSummary.documentId)
-      ?.find((containerId) => sharedContainerIds.has(containerId)) ??
-    noteSummary.containerId
+      ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
   );
 }
 
@@ -445,9 +444,20 @@ async function primeNotesForSharedSubtree(
   }
 
   await sqlNotesPersistence.ensureSchema(state.runtime.execSql);
-  const noteSummaries = await sqlNotesPersistence.listNotes(
-    state.runtime.execSql,
-  );
+  const sharedContainerIdList = Array.from(sharedContainerIds);
+  const sharedDocumentIds =
+    await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
+      state.runtime.execSql,
+      sharedContainerIdList,
+    );
+  const noteSummaries =
+    await sqlNotesPersistence.listNotesByContainerIdsOrDocumentIds(
+      state.runtime.execSql,
+      {
+        containerIds: sharedContainerIdList,
+        documentIds: sharedDocumentIds,
+      },
+    );
   const documentIds = Array.from(
     new Set(
       noteSummaries.flatMap((noteSummary) =>

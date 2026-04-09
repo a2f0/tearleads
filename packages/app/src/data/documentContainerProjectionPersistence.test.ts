@@ -58,3 +58,36 @@ test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents wit
     close();
   }
 });
+
+test("listDocumentIdsByContainerIds returns unique document ids linked to containers", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+      execSql,
+      [
+        {
+          containerIds: ["container-a", "container-b"],
+          documentId: "document-1",
+        },
+        {
+          containerIds: ["container-b"],
+          documentId: "document-2",
+        },
+        {
+          containerIds: ["container-c"],
+          documentId: "document-3",
+        },
+      ],
+    );
+
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
+        execSql,
+        ["container-a", "container-b"],
+      ),
+    ).resolves.toEqual(["document-1", "document-2"]);
+  } finally {
+    close();
+  }
+});

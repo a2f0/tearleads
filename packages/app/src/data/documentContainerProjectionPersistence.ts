@@ -31,6 +31,10 @@ interface DocumentContainerProjectionPersistence {
     execSql: ExecSql,
     documentIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  listDocumentIdsByContainerIds: (
+    execSql: ExecSql,
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<ReadonlyArray<string>>;
   replaceDocumentLinks: (
     execSql: ExecSql,
     documentId: string,
@@ -108,6 +112,33 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       }
 
       return linkedContainerIdsByDocumentId;
+    },
+    async listDocumentIdsByContainerIds(execSql, containerIds) {
+      await ensureSqlTables(execSql, documentContainerProjectionTables);
+      const uniqueContainerIds = Array.from(new Set(containerIds));
+      if (uniqueContainerIds.length === 0) {
+        return [];
+      }
+
+      const bind: Record<string, string> = {};
+      const placeholders = uniqueContainerIds.map((containerId, index) => {
+        const key = `:containerId${index}`;
+        bind[key] = containerId;
+        return key;
+      });
+      const rows = await execSql(
+        `
+          SELECT DISTINCT document_id
+          FROM document_container_projection
+          WHERE container_id IN (${placeholders.join(", ")})
+          ORDER BY document_id ASC
+        `,
+        bind,
+      );
+
+      return rows.map((row) =>
+        String(readSqlRowValue(row, "document_id") ?? ""),
+      );
     },
     async replaceDocumentLinks(execSql, documentId, containerIds) {
       await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(

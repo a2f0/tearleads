@@ -83,6 +83,13 @@ export interface RelinkPersistedNoteInput {
 export interface NotesPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   listNotes: (execSql: ExecSql) => Promise<NoteSummary[]>;
+  listNotesByContainerIdsOrDocumentIds: (
+    execSql: ExecSql,
+    input: {
+      containerIds: ReadonlyArray<string>;
+      documentIds: ReadonlyArray<string>;
+    },
+  ) => Promise<NoteSummary[]>;
   loadNote: (execSql: ExecSql, noteId: string) => Promise<NoteRecord | null>;
   saveNote: (execSql: ExecSql, note: NoteRecord) => Promise<void>;
   upsertDiscoveredNote: (
@@ -408,6 +415,63 @@ export async function listNotesByContainerIds(
   }));
 }
 
+async function listNotesByContainerIdsOrDocumentIds(
+  execSql: ExecSql,
+  input: {
+    containerIds: ReadonlyArray<string>;
+    documentIds: ReadonlyArray<string>;
+  },
+): Promise<NoteSummary[]> {
+  const uniqueContainerIds = Array.from(new Set(input.containerIds));
+  const uniqueDocumentIds = Array.from(new Set(input.documentIds));
+  if (uniqueContainerIds.length === 0 && uniqueDocumentIds.length === 0) {
+    return [];
+  }
+
+  const bind: Record<string, string> = {};
+  const filters: string[] = [];
+  if (uniqueContainerIds.length > 0) {
+    const placeholders = uniqueContainerIds.map((containerId, index) => {
+      const key = `:containerId${index}`;
+      bind[key] = containerId;
+      return key;
+    });
+    filters.push(`container_id IN (${placeholders.join(", ")})`);
+  }
+
+  if (uniqueDocumentIds.length > 0) {
+    const placeholders = uniqueDocumentIds.map((documentId, index) => {
+      const key = `:documentId${index}`;
+      bind[key] = documentId;
+      return key;
+    });
+    filters.push(`document_id IN (${placeholders.join(", ")})`);
+  }
+
+  const rows = await execSql(
+    `
+      SELECT
+        note_id,
+        document_id,
+        container_id,
+        text,
+        updated_at
+      FROM note_projection
+      WHERE ${filters.join(" OR ")}
+      ORDER BY updated_at DESC
+    `,
+    bind,
+  );
+
+  return rows.map((row) => ({
+    id: String(readSqlRowValue(row, "note_id") ?? ""),
+    containerId: parseProjectionContainerId(row),
+    documentId: parseProjectionDocumentId(row),
+    title: deriveNoteTitle(parseProjectionText(row)),
+    updatedAt: parseProjectionUpdatedAt(row),
+  }));
+}
+
 export const sqlNotesPersistence: NotesPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -437,6 +501,7 @@ export const sqlNotesPersistence: NotesPersistence = {
       updatedAt: parseProjectionUpdatedAt(row),
     }));
   },
+  listNotesByContainerIdsOrDocumentIds,
   async loadNote(execSql, noteId) {
     const [documentRecord, projectionRows] = await Promise.all([
       loadDocumentRecord(execSql, getNoteScope(noteId)),

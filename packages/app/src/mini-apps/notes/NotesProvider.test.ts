@@ -154,6 +154,31 @@ function createNotesPersistence(): NotesPersistence & {
           ]
         : [];
     },
+    async listNotesByContainerIdsOrDocumentIds(_execSql, input) {
+      if (!note) {
+        return [];
+      }
+
+      const containerIds = new Set(input.containerIds);
+      const documentIds = new Set(input.documentIds);
+      const containerMatches =
+        note.containerId !== null && containerIds.has(note.containerId);
+      const documentMatches =
+        note.documentId !== null && documentIds.has(note.documentId);
+      if (!containerMatches && !documentMatches) {
+        return [];
+      }
+
+      return [
+        {
+          id: note.id,
+          containerId: note.containerId,
+          documentId: note.documentId,
+          title: note.text.trim() || "Untitled note",
+          updatedAt: "2026-04-06T00:00:00.000Z",
+        },
+      ];
+    },
     async loadNote() {
       return note;
     },
