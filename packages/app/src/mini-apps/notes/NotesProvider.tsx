@@ -1621,22 +1621,21 @@ async function finalizeDocumentSync(
   });
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    const requiresBaseline = requiresBaselineAfterDocumentEpochChange({
-      previousAccessEpoch,
-      resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
-      synced,
-    });
     if (synced.documentRecipientEnvelopeAction === "rotate") {
       await clearPendingAttachmentRewraps(state);
-      if (requiresBaseline) {
-        await replacePendingUpdatesWithBaseline(state, currentDoc);
-      }
+      await replacePendingUpdatesWithBaseline(state, currentDoc);
       state.runtime.log(
         "Notes: document epoch rotated; committed attachments require replacement rather than blob rewrap.",
       );
     } else {
       await queueCommittedAttachmentsForRewrap(state, currentDoc);
-      if (requiresBaseline) {
+      if (
+        requiresBaselineAfterDocumentEpochChange({
+          previousAccessEpoch,
+          resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+          synced,
+        })
+      ) {
         await replacePendingUpdatesWithBaseline(state, currentDoc);
       }
     }
