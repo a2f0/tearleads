@@ -29,6 +29,7 @@ import {
   isDocumentUpdateCreatedEvent,
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
+  requiresBaselineAfterDocumentEpochChange,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -551,7 +552,15 @@ async function applySyncedContactUpdates(
   });
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    await replacePendingUpdatesWithBaseline(state, contact);
+    if (
+      requiresBaselineAfterDocumentEpochChange({
+        previousAccessEpoch,
+        resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        synced,
+      })
+    ) {
+      await replacePendingUpdatesWithBaseline(state, contact);
+    }
     state.syncRequested = true;
   }
 }

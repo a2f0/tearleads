@@ -37,6 +37,7 @@ import {
   isDocumentUpdateCreatedEvent,
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
+  requiresBaselineAfterDocumentEpochChange,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -979,7 +980,14 @@ async function syncSingleContainerMetadata(
   });
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    if (pendingUpdates.length > 0) {
+    if (
+      pendingUpdates.length > 0 &&
+      requiresBaselineAfterDocumentEpochChange({
+        previousAccessEpoch,
+        resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
+        synced,
+      })
+    ) {
       await replacePendingContainerUpdatesWithBaseline(state, containerState);
     }
     state.syncRequested = true;

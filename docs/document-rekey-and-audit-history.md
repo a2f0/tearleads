@@ -21,6 +21,16 @@ Practically, this means a client does not replay arbitrary mixed-epoch document
 history with a single key. Once a document DEK rotates, future updates are
 expected to use the new epoch's DEK.
 
+### Rewrap Reuses The Current DEK
+
+When the server classifies a document epoch transition as `rewrap`, the client
+keeps using the prior document DEK, materializes a current-epoch recipient
+bundle for the expanded recipient set, and retries any local pending Loro
+updates under the new epoch.
+
+This is the additive-access path. It should not require a fresh baseline solely
+because the access epoch changed.
+
 ### Rotate Means Fresh Baseline For Future Writes
 
 When the server classifies a document epoch transition as `rotate`, the client

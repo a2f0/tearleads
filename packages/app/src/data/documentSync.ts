@@ -272,6 +272,22 @@ export function resolveSyncedDocumentRecipientEnvelopes(input: {
     : null;
 }
 
+export function requiresBaselineAfterDocumentEpochChange(input: {
+  previousAccessEpoch: number;
+  resolvedDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  synced: SyncDocumentResponse;
+}): boolean {
+  if (input.synced.currentAccessEpoch === input.previousAccessEpoch) {
+    return false;
+  }
+
+  if (input.synced.documentRecipientEnvelopeAction === "rotate") {
+    return true;
+  }
+
+  return input.resolvedDocumentRecipientEnvelopes === null;
+}
+
 export async function getOrCreateDocumentEncryptionMaterial(input: {
   documentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   execSql?: ExecSql;

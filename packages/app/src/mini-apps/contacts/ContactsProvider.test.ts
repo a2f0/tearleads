@@ -395,7 +395,7 @@ test("contacts store creates and syncs a contact document", async () => {
   ]);
 });
 
-test("contacts store enqueues a full baseline when document access expands", async () => {
+test("contacts store rewraps document access expansion without replacing pending updates with a baseline", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const createDocumentCalls: string[][] = [];
@@ -403,6 +403,7 @@ test("contacts store enqueues a full baseline when document access expands", asy
     accessEpoch: number;
     documentId: string;
     documentRecipientEnvelopeCount: number;
+    outgoingUpdateIds: string[];
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
@@ -434,14 +435,13 @@ test("contacts store enqueues a full baseline when document access expands", asy
           documentId,
           documentRecipientEnvelopeCount:
             documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateIds: outgoingUpdates.map((update) => update.id),
           outgoingUpdateCount: outgoingUpdates.length,
         });
 
         if (syncCallCount === 2) {
           return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: outgoingUpdates.map(
-              (update) => update.id,
-            ),
+            acceptedOutgoingUpdateIds: [],
             accessEpoch: 2,
             documentId,
             documentRecipientEnvelopeAction: "rewrap",
@@ -490,11 +490,18 @@ test("contacts store enqueues a full baseline when document access expands", asy
       syncDocumentCalls.length === 4 &&
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
       persistence.getContact("peer-user-1")?.record?.accessEpoch === 2,
-    "Expanded access epoch did not trigger a full baseline resync for contacts.",
+    "Expanded access epoch did not rewrap and retry the pending contact update.",
   );
 
   expect(createDocumentCalls).toEqual([["root-container"]]);
-  expect(syncDocumentCalls).toEqual([
+  expect(
+    syncDocumentCalls.map((call) => ({
+      accessEpoch: call.accessEpoch,
+      documentId: call.documentId,
+      documentRecipientEnvelopeCount: call.documentRecipientEnvelopeCount,
+      outgoingUpdateCount: call.outgoingUpdateCount,
+    })),
+  ).toEqual([
     {
       accessEpoch: 1,
       documentId: "contacts-document-1",
@@ -520,4 +527,8 @@ test("contacts store enqueues a full baseline when document access expands", asy
       outgoingUpdateCount: 1,
     },
   ]);
+  expect(syncDocumentCalls[1]?.outgoingUpdateIds).toHaveLength(1);
+  expect(syncDocumentCalls[3]?.outgoingUpdateIds).toEqual(
+    syncDocumentCalls[1]?.outgoingUpdateIds,
+  );
 });

@@ -60,10 +60,10 @@ visible partial version-vector metadata supplied with each encrypted update.
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
 previous DEK and the server still has no current-epoch bundle, clients seed the
-current bundle with a follow-up sync before sending the rebased baseline that
-new recipients need. When the server classifies the current epoch as `rotate`,
-clients clear any stale bundle for that epoch and resend the next baseline
-under a freshly generated DEK.
+current bundle with a follow-up sync, keep local pending updates intact, and
+retry those updates under the new epoch. When the server classifies the current
+epoch as `rotate`, clients clear any stale bundle for that epoch and resend the
+next baseline under a freshly generated DEK.
 
 Current implementation:
 
@@ -97,6 +97,12 @@ Current implementation:
   without creating a new document object; it also exposes direct note
   link/detach controls in note detail and can locally switch which linked
   container is treated as the active note projection
+- additive document epoch changes now reuse the current document DEK by
+  materializing a current-epoch recipient bundle; notes and contacts preserve
+  pending Loro updates and retry them under the new epoch instead of replacing
+  them with a full baseline
+- note attachment rewrap-only work now commits blob recipient-envelope updates
+  without sending an unrelated Loro baseline
 
 Important remaining limitation:
 
@@ -111,11 +117,9 @@ Important remaining limitation:
   linked container and can switch which linked container is locally active, but
   the note editor/detail runtime still works from one active projection at a
   time rather than a full multi-link document-management UI
-- additive rewrap / subtractive rotation for document epochs is still not
-  implemented
-- when a document enters a new access epoch, clients still rely on the current
-  "full baseline on epoch change" behavior and may generate a fresh bundle on
-  the first write of that epoch
+- subtractive rotation for document epochs still uses the current fresh-baseline
+  path; compare-and-set source-frontier validation, audit/history hardening,
+  and historical attachment retention remain future work
 
 ## Why This Boundary Matters
 
