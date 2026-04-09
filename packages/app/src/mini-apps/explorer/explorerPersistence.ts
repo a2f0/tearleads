@@ -30,6 +30,10 @@ export interface StoredExplorerContainer {
 export interface ExplorerPersistence {
   deleteContainer: (execSql: ExecSql, containerId: string) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
+  deletePendingUpdates: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<void>;
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
@@ -73,6 +77,14 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
+    });
+  },
+  async deletePendingUpdates(execSql, containerId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await deleteDocumentPendingUpdates(
+        lockedExecSql,
+        getContainerMetadataScope(containerId),
+      );
     });
   },
   async ensureSchema(execSql) {

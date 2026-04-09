@@ -101,12 +101,11 @@ responses now expose `referencedPrincipals[]` summaries for the current signed
 group/org states that contributed to access. App clients now cache and consume
 those verified principal policy bundles so document/blob decryption can follow
 the current principal member-envelope chain when an object bundle is addressed
-to a group/org key. The runtime is still in a transition state because managed
-grants without current signed policy state fall back to expanded user
-recipients. The remaining work is implementing the rewrap vs rotate decision
-consistently for document epochs and the remaining hierarchy edges when
-recipient sets expand or shrink, using the new principal-based recipient model
-rather than the old fully flattened per-user model.
+to a group/org key. Managed grants now fail closed until current signed policy
+state exists, so the old expanded-user fallback is gone. The remaining work is
+implementing the rewrap vs rotate decision consistently for the remaining
+hierarchy edges when recipient sets expand or shrink, especially committed
+attachment/blob shrink paths under the principal-based recipient model.
 
 The current implementation now exposes a first server-classified document epoch
 action over sync responses:
@@ -116,8 +115,8 @@ action over sync responses:
 - `rotate`: the next write must introduce a new DEK
 
 App clients now use the `rewrap` path to seed missing current-epoch document
-bundles before falling back to the existing rebased-baseline flow for content
-handoff to newly added recipients.
+bundles and the `rotate` path to clear stale current-epoch bundles before
+resending a fresh baseline under a new DEK.
 
 Structural move/link/unlink routes now also materialize the affected document
 and active blob epochs immediately after the container/document graph changes,
@@ -134,5 +133,5 @@ Implementation questions:
 
 Recommended next step:
 
-- build on the signed principal-state and principal epoch-key foundation before
-  implementing more of the old per-user document-epoch rewrap path
+- finish shrink-path rotation semantics for committed attachment/blob bindings
+  and decide detached-binding retention / GC policy separately from blob GC

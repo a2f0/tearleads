@@ -8,11 +8,20 @@ import {
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../data/blob-store";
+import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
 import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
 } from "../../data/containerPersistence";
+import {
+  ensureDocumentTables,
+  saveDocumentRecord,
+} from "../../data/documentPersistence";
+import {
+  createDocumentEncryptionMaterial,
+  serializeDocumentRecipientEnvelopes,
+} from "../../data/documentSync";
 import { primeNotesStore } from "../notes/NotesProvider";
 import { sqlNotesPersistence } from "../notes/notesPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
@@ -642,6 +651,172 @@ test("explorer store shares an authenticated container and enqueues a full metad
           call.outgoingUpdateCount === 1,
       ),
     ).toBe(true);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer store rotates metadata epochs with a fresh current-epoch bundle", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const syncCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+  }> = [];
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+  let childDocumentSyncCallCount = 0;
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "child-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "metadata-document-1",
+      name: "Docs",
+      icon: null,
+    });
+
+    const { initialUpdate } = await createInitializedContainerMetadataDocument(
+      "child-container",
+      {
+        icon: null,
+        name: "Docs",
+      },
+    );
+    const initialEncryption = await createDocumentEncryptionMaterial([
+      localKeyPair.publicKey,
+    ]);
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: "child-container",
+      },
+      {
+        accessEpoch: 1,
+        documentId: "metadata-document-1",
+        documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+          initialEncryption.documentRecipientEnvelopes,
+        ),
+        id: "child-container",
+        loroSnapshot: bytesToBase64(initialUpdate),
+      },
+      new Date("2026-04-09T12:00:00.000Z").toISOString(),
+    );
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready for rotate handling.",
+    );
+
+    const renamed = await createdStore.renameContainer(
+      "child-container",
+      "Manuals",
+    );
+    expect(renamed?.name).toBe("Manuals");
+
+    const syncedRuntime: ExplorerRuntime = {
+      ...runtime,
+      encapsulationKeyPair: localKeyPair,
+      isAuthenticated: true,
+      online: true,
+      apiClient: {
+        ...runtime.apiClient,
+        createContainer: async () => null,
+        listContainers: async () => [],
+        shareContainer: async () => null,
+        syncDocument: async (
+          documentId,
+          accessEpoch,
+          _localVersionVector,
+          updates,
+          documentRecipientEnvelopes,
+        ) => {
+          syncCalls.push({
+            accessEpoch,
+            documentId,
+            documentRecipientEnvelopeCount:
+              documentRecipientEnvelopes?.length ?? 0,
+            outgoingUpdateCount: updates.length,
+          });
+
+          if (documentId === "metadata-document-1") {
+            childDocumentSyncCallCount += 1;
+          }
+
+          if (
+            documentId === "metadata-document-1" &&
+            childDocumentSyncCallCount === 1
+          ) {
+            return createSyncDocumentResponse({
+              accessEpoch: 2,
+              documentId,
+              documentRecipientEnvelopeAction: "rotate",
+              recipientEncapsulationPublicKeys: [
+                bytesToBase64(localKeyPair.publicKey),
+              ],
+            });
+          }
+
+          return createSyncDocumentResponse({
+            acceptedOutgoingUpdateIds: updates.map((update) => update.id),
+            accessEpoch,
+            documentId,
+            documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(localKeyPair.publicKey),
+            ],
+          });
+        },
+      },
+    };
+
+    createdStore.updateRuntime(syncedRuntime);
+
+    await waitForCondition(
+      () =>
+        syncCalls.some(
+          (call) =>
+            call.accessEpoch === 2 &&
+            call.documentRecipientEnvelopeCount === 1 &&
+            call.outgoingUpdateCount === 1,
+        ),
+      "Explorer rotate sync did not resend a fresh metadata baseline.",
+    );
+
+    expect(syncCalls).toContainEqual({
+      accessEpoch: 1,
+      documentId: "metadata-document-1",
+      documentRecipientEnvelopeCount: 0,
+      outgoingUpdateCount: 1,
+    });
+    expect(syncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentId: "metadata-document-1",
+      documentRecipientEnvelopeCount: 1,
+      outgoingUpdateCount: 1,
+    });
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
