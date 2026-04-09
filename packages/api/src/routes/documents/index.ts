@@ -14,6 +14,7 @@ import { validator } from "hono/validator";
 import {
   blobRecipientEnvelopesMatchRecipients,
   canReadBlobAccess,
+  getBlobRecipientEnvelopeAction,
   listBlobRecipientEnvelopes,
   refreshBlobAccesses,
   replaceBlobRecipientEnvelopes,
@@ -620,6 +621,18 @@ async function applyAttachmentRewraps(
     const blobAccess = await resolveBlobAccessState(currentBinding.blobId, tx);
     if (!blobAccess) {
       throw new CommitChangeError("Blob access state not found", 409);
+    }
+
+    const blobRecipientEnvelopeAction = await getBlobRecipientEnvelopeAction(
+      currentBinding.blobId,
+      blobAccess,
+      tx,
+    );
+    if (blobRecipientEnvelopeAction === "rotate") {
+      throw new CommitChangeError(
+        "Blob recipient envelopes require blob replacement after access shrink",
+        409,
+      );
     }
 
     await replaceBlobRecipientEnvelopes(

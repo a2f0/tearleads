@@ -285,6 +285,8 @@ The server must reject `commit-change` if:
 - a `slotId` is not currently bound to the `expectedBindingId`
 - provided attachment rewrap envelopes do not match the current document/blob
   recipient set
+- the current blob epoch requires rotation, so an attachment rewrap would
+  incorrectly reuse a blob DEK after recipient shrink
 - the encrypted Loro update `accessEpoch` does not match the current document
   access epoch
 - provided `documentRecipientEnvelopes[]` do not match the current document
@@ -297,7 +299,8 @@ If the request succeeds:
 - staged blobs are promoted to committed blob objects
 - requested binding replacements/detaches are persisted
 - requested attachment rewraps update the current bound blob's wrapped-key
-  header material without creating a new blob row
+  header material without creating a new blob row only when the current blob
+  epoch is rewrap-capable
 - the optional Loro update is appended
 - affected blob access state is recomputed
 - all of the above happen in one transaction
