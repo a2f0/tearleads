@@ -50,6 +50,13 @@ interface MoveTargetOption {
   label: string;
 }
 
+interface NoteContainerProjection {
+  containerId: string;
+  noteId: string;
+  title: string;
+  updatedAt: string;
+}
+
 function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -346,10 +353,13 @@ function renderTreeEntries(
   depth: number,
   activeContainerId: string | null,
   collapsedIds: ReadonlySet<string>,
-  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>,
+  notesByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<NoteContainerProjection>
+  >,
   selectedId: string | null,
   onSelectContainer: (id: string) => void,
-  onSelectNote: (id: string) => void,
+  onSelectNote: (noteId: string, containerId: string) => void,
   onToggleCollapsed: (id: string) => void,
   onContextMenu: (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -417,12 +427,12 @@ function renderTreeEntries(
             onToggleCollapsed,
             onContextMenu,
           )}
-        {!isCollapsed && entry.node.id === activeContainerId
+        {!isCollapsed
           ? (notesByContainerId.get(entry.node.id) ?? []).map(
-              ({ id, title }) => (
+              ({ containerId, noteId, title }) => (
                 <div
                   className="explorer-sidebar-row"
-                  key={id}
+                  key={`${noteId}:${containerId}`}
                   style={{
                     paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
                   }}
@@ -430,14 +440,15 @@ function renderTreeEntries(
                   <span className="explorer-node-spacer" aria-hidden="true" />
                   <button
                     type="button"
-                    data-note-id={id}
+                    data-note-id={noteId}
                     className={
                       "explorer-sidebar-item explorer-sidebar-item--note" +
-                      (selectedId === id
+                      (selectedId === noteId &&
+                      activeContainerId === containerId
                         ? " explorer-sidebar-item--selected"
                         : "")
                     }
-                    onClick={() => onSelectNote(id)}
+                    onClick={() => onSelectNote(noteId, containerId)}
                   >
                     {title}
                   </button>
@@ -452,17 +463,40 @@ function renderTreeEntries(
 
 function buildNotesByContainerId(
   noteSummaries: ReadonlyArray<NoteSummary>,
-): ReadonlyMap<string, ReadonlyArray<NoteSummary>> {
-  const nextNotesByContainerId = new Map<string, NoteSummary[]>();
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
+  validContainerIds: ReadonlySet<string>,
+): ReadonlyMap<string, ReadonlyArray<NoteContainerProjection>> {
+  const nextNotesByContainerId = new Map<string, NoteContainerProjection[]>();
 
   for (const note of noteSummaries) {
-    if (!note.containerId) {
+    const linkedContainerIds = note.documentId
+      ? linkedContainerIdsByDocumentId.get(note.documentId)
+      : undefined;
+    const candidateContainerIds =
+      linkedContainerIds !== undefined
+        ? linkedContainerIds
+        : note.containerId
+          ? [note.containerId]
+          : [];
+
+    if (candidateContainerIds.length === 0) {
       continue;
     }
 
-    const existingNotes = nextNotesByContainerId.get(note.containerId) ?? [];
-    existingNotes.push(note);
-    nextNotesByContainerId.set(note.containerId, existingNotes);
+    for (const containerId of candidateContainerIds) {
+      if (!validContainerIds.has(containerId)) {
+        continue;
+      }
+
+      const existingNotes = nextNotesByContainerId.get(containerId) ?? [];
+      existingNotes.push({
+        containerId,
+        noteId: note.id,
+        title: note.title,
+        updatedAt: note.updatedAt,
+      });
+      nextNotesByContainerId.set(containerId, existingNotes);
+    }
   }
 
   for (const notes of nextNotesByContainerId.values()) {
@@ -508,6 +542,47 @@ function mergeSingleNoteSummaryList(
   const nextNoteSummaries = [...currentNoteSummaries];
   nextNoteSummaries[existingNoteIndex] = nextNote;
   return nextNoteSummaries;
+}
+
+function getRequestedDocumentIds(
+  noteSummaries: ReadonlyArray<NoteSummary>,
+): ReadonlyArray<string> {
+  return Array.from(
+    new Set(
+      noteSummaries.flatMap((note) =>
+        note.documentId ? [note.documentId] : [],
+      ),
+    ),
+  ).sort();
+}
+
+function areLinkedContainerIdMapsEqual(
+  left: ReadonlyMap<string, ReadonlyArray<string>>,
+  right: ReadonlyMap<string, ReadonlyArray<string>>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const [documentId, leftContainerIds] of left) {
+    const rightContainerIds = right.get(documentId);
+    if (
+      !rightContainerIds ||
+      leftContainerIds.length !== rightContainerIds.length
+    ) {
+      return false;
+    }
+
+    if (
+      leftContainerIds.some(
+        (containerId, index) => containerId !== rightContainerIds[index],
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function mergeNoteSummaryLists(
@@ -774,6 +849,108 @@ function useExplorerNoteSummaryState(
   );
 
   return { mergeNoteSummaries, mergeNoteSummary, noteSummaries };
+}
+
+function useNoteLinkedContainerIdsByDocumentId(params: {
+  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
+  documentLinkProjectionVersion: number;
+  execSql: ReturnType<typeof useAppData>["execSql"];
+  noteSummaries: ReadonlyArray<NoteSummary>;
+}) {
+  const { dbStatus, documentLinkProjectionVersion, execSql, noteSummaries } =
+    params;
+  const [linkedContainerIdsByDocumentId, setLinkedContainerIdsByDocumentId] =
+    useState<ReadonlyMap<string, ReadonlyArray<string>>>(new Map());
+  const linkedContainerIdsLoadVersionRef = useRef(0);
+  const requestedDocumentIds = useMemo(
+    () => getRequestedDocumentIds(noteSummaries),
+    [noteSummaries],
+  );
+  const requestedDocumentIdsKey = requestedDocumentIds.join("\u0000");
+  const setLinkedContainerIdsForDocument = useCallback(
+    (documentId: string, linkedContainerIds: ReadonlyArray<string>) => {
+      setLinkedContainerIdsByDocumentId((currentMap) => {
+        const nextLinkedContainerIds = Array.from(
+          new Set(linkedContainerIds),
+        ).sort();
+        const currentLinkedContainerIds = currentMap.get(documentId);
+        if (
+          currentLinkedContainerIds &&
+          currentLinkedContainerIds.length === nextLinkedContainerIds.length &&
+          currentLinkedContainerIds.every(
+            (containerId, index) =>
+              containerId === nextLinkedContainerIds[index],
+          )
+        ) {
+          return currentMap;
+        }
+
+        const nextMap = new Map(currentMap);
+        nextMap.set(documentId, nextLinkedContainerIds);
+        return nextMap;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (dbStatus !== "ready") {
+      setLinkedContainerIdsByDocumentId(new Map());
+      return;
+    }
+
+    if (requestedDocumentIds.length === 0) {
+      setLinkedContainerIdsByDocumentId(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    const loadVersion = linkedContainerIdsLoadVersionRef.current + 1;
+    linkedContainerIdsLoadVersionRef.current = loadVersion;
+    void (async () => {
+      try {
+        const nextLinkedContainerIdsByDocumentId =
+          await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+            execSql,
+            requestedDocumentIds,
+          );
+        if (
+          !cancelled &&
+          linkedContainerIdsLoadVersionRef.current === loadVersion
+        ) {
+          setLinkedContainerIdsByDocumentId((currentMap) =>
+            areLinkedContainerIdMapsEqual(
+              currentMap,
+              nextLinkedContainerIdsByDocumentId,
+            )
+              ? currentMap
+              : nextLinkedContainerIdsByDocumentId,
+          );
+        }
+      } catch (error: unknown) {
+        if (!cancelled && !isDestroyedDatabaseWorkerError(error)) {
+          console.error(
+            "Explorer: failed to load linked container projections:",
+            error,
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dbStatus,
+    documentLinkProjectionVersion,
+    execSql,
+    requestedDocumentIdsKey,
+  ]);
+
+  return {
+    linkedContainerIdsByDocumentId,
+    setLinkedContainerIdsForDocument,
+  };
 }
 
 function useDiscoveredNotesSync(params: {
@@ -1926,27 +2103,32 @@ function useExplorerSidebarPanel(params: {
     event: React.MouseEvent<HTMLButtonElement>,
     nodeId: string,
   ) => void;
-  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>;
+  notesByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<NoteContainerProjection>
+  >;
+  nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   selectedId: string | null;
+  selectNoteProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
   toggleCollapsed: (nodeId: string) => void;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
-  nodes: ReadonlyArray<ContainerNode>;
 }) {
   const {
     activeContainerId,
     collapsedIds,
     handleSidebarContextMenu,
     notesByContainerId,
+    nodes,
     ready,
     selectedId,
+    selectNoteProjection,
     setSelectedId,
     setSidebar,
     toggleCollapsed,
     treeEntries,
-    nodes,
   } = params;
 
   const sidebar = useMemo(
@@ -1965,7 +2147,7 @@ function useExplorerSidebarPanel(params: {
             notesByContainerId,
             selectedId,
             setSelectedId,
-            setSelectedId,
+            selectNoteProjection,
             toggleCollapsed,
             handleSidebarContextMenu,
           )
@@ -1980,6 +2162,7 @@ function useExplorerSidebarPanel(params: {
       notesByContainerId,
       ready,
       selectedId,
+      selectNoteProjection,
       setSelectedId,
       toggleCollapsed,
       treeEntries,
@@ -2070,8 +2253,9 @@ async function moveExplorerNote(params: {
   expandNode: (nodeId: string) => void;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   note: NoteSummary;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
   targetContainerId: string;
 }) {
@@ -2080,7 +2264,7 @@ async function moveExplorerNote(params: {
     expandNode,
     mergeNoteSummary,
     note,
-    setSelectedNoteLinkedContainerIds,
+    setLinkedContainerIdsForDocument,
     targetContainerId,
   } = params;
   if (
@@ -2110,7 +2294,7 @@ async function moveExplorerNote(params: {
   }
   const { currentAccessEpoch, linkedContainerIds, nextContainerId } =
     movedDocument;
-  setSelectedNoteLinkedContainerIds(linkedContainerIds);
+  setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
 
   const movedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: currentAccessEpoch,
@@ -2133,8 +2317,9 @@ async function linkExplorerNote(params: {
   appData: ReturnType<typeof useAppData>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   note: NoteSummary;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
   targetContainerId: string;
 }) {
@@ -2142,7 +2327,7 @@ async function linkExplorerNote(params: {
     appData,
     mergeNoteSummary,
     note,
-    setSelectedNoteLinkedContainerIds,
+    setLinkedContainerIdsForDocument,
     targetContainerId,
   } = params;
   if (!note.documentId || !note.containerId) {
@@ -2166,7 +2351,10 @@ async function linkExplorerNote(params: {
   if (!linkedDocument) {
     return null;
   }
-  setSelectedNoteLinkedContainerIds(linkedDocument.linkedContainerIds);
+  setLinkedContainerIdsForDocument(
+    note.documentId,
+    linkedDocument.linkedContainerIds,
+  );
 
   const linkedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: linkedDocument.currentAccessEpoch,
@@ -2189,8 +2377,9 @@ async function unlinkExplorerLinkedNote(params: {
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   note: NoteSummary;
   removedContainerId: string;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 }) {
   const {
@@ -2198,7 +2387,7 @@ async function unlinkExplorerLinkedNote(params: {
     mergeNoteSummary,
     note,
     removedContainerId,
-    setSelectedNoteLinkedContainerIds,
+    setLinkedContainerIdsForDocument,
   } = params;
   if (!note.documentId || !note.containerId) {
     return null;
@@ -2221,7 +2410,10 @@ async function unlinkExplorerLinkedNote(params: {
   if (!unlinkedDocument) {
     return null;
   }
-  setSelectedNoteLinkedContainerIds(unlinkedDocument.linkedContainerIds);
+  setLinkedContainerIdsForDocument(
+    note.documentId,
+    unlinkedDocument.linkedContainerIds,
+  );
 
   const nextContainerId = getMovedNoteContainerId(
     unlinkedDocument,
@@ -2371,8 +2563,10 @@ function useMoveNoteAction(params: {
   expandNode: (nodeId: string) => void;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   noteSummaries: ReadonlyArray<NoteSummary>;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  onDocumentLinksChanged: () => void;
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 }) {
   const {
@@ -2380,7 +2574,8 @@ function useMoveNoteAction(params: {
     expandNode,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   } = params;
 
   return useCallback(
@@ -2398,21 +2593,27 @@ function useMoveNoteAction(params: {
         return null;
       }
 
-      return moveExplorerNote({
+      const movedNote = await moveExplorerNote({
         appData,
         expandNode,
         mergeNoteSummary,
         note: existingNote,
-        setSelectedNoteLinkedContainerIds,
+        setLinkedContainerIdsForDocument,
         targetContainerId,
       });
+      if (movedNote) {
+        onDocumentLinksChanged();
+      }
+
+      return movedNote;
     },
     [
       appData,
       expandNode,
       mergeNoteSummary,
       noteSummaries,
-      setSelectedNoteLinkedContainerIds,
+      onDocumentLinksChanged,
+      setLinkedContainerIdsForDocument,
     ],
   );
 }
@@ -2421,15 +2622,18 @@ function useLinkNoteAction(params: {
   appData: ReturnType<typeof useAppData>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   noteSummaries: ReadonlyArray<NoteSummary>;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  onDocumentLinksChanged: () => void;
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 }) {
   const {
     appData,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   } = params;
 
   return useCallback(
@@ -2447,19 +2651,25 @@ function useLinkNoteAction(params: {
         return null;
       }
 
-      return linkExplorerNote({
+      const linkedNote = await linkExplorerNote({
         appData,
         mergeNoteSummary,
         note: existingNote,
-        setSelectedNoteLinkedContainerIds,
+        setLinkedContainerIdsForDocument,
         targetContainerId,
       });
+      if (linkedNote) {
+        onDocumentLinksChanged();
+      }
+
+      return linkedNote;
     },
     [
       appData,
       mergeNoteSummary,
       noteSummaries,
-      setSelectedNoteLinkedContainerIds,
+      onDocumentLinksChanged,
+      setLinkedContainerIdsForDocument,
     ],
   );
 }
@@ -2468,15 +2678,18 @@ function useUnlinkNoteAction(params: {
   appData: ReturnType<typeof useAppData>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   noteSummaries: ReadonlyArray<NoteSummary>;
-  setSelectedNoteLinkedContainerIds: (
-    nextLinkedContainerIds: ReadonlyArray<string>,
+  onDocumentLinksChanged: () => void;
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 }) {
   const {
     appData,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   } = params;
 
   return useCallback(
@@ -2494,19 +2707,25 @@ function useUnlinkNoteAction(params: {
         return null;
       }
 
-      return unlinkExplorerLinkedNote({
+      const unlinkedNote = await unlinkExplorerLinkedNote({
         appData,
         mergeNoteSummary,
         note: existingNote,
         removedContainerId,
-        setSelectedNoteLinkedContainerIds,
+        setLinkedContainerIdsForDocument,
       });
+      if (unlinkedNote) {
+        onDocumentLinksChanged();
+      }
+
+      return unlinkedNote;
     },
     [
       appData,
       mergeNoteSummary,
       noteSummaries,
-      setSelectedNoteLinkedContainerIds,
+      onDocumentLinksChanged,
+      setLinkedContainerIdsForDocument,
     ],
   );
 }
@@ -3447,6 +3666,7 @@ function ExplorerModalLayer(params: {
 function useExplorerNoteViewModel(
   appData: ReturnType<typeof useAppData>,
   explorer: ReturnType<typeof useExplorer>,
+  documentLinkProjectionVersion: number,
 ) {
   const { mergeNoteSummaries, mergeNoteSummary, noteSummaries } =
     useExplorerNoteSummaryState(
@@ -3455,9 +3675,25 @@ function useExplorerNoteViewModel(
       appData.execSql,
       explorer.nodes,
     );
+  const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =
+    useNoteLinkedContainerIdsByDocumentId({
+      dbStatus: appData.dbStatus,
+      documentLinkProjectionVersion,
+      execSql: appData.execSql,
+      noteSummaries,
+    });
+  const validContainerIds = useMemo(
+    () => new Set(explorer.nodes.map((node) => node.id)),
+    [explorer.nodes],
+  );
   const notesByContainerId = useMemo(
-    () => buildNotesByContainerId(noteSummaries),
-    [noteSummaries],
+    () =>
+      buildNotesByContainerId(
+        noteSummaries,
+        linkedContainerIdsByDocumentId,
+        validContainerIds,
+      ),
+    [linkedContainerIdsByDocumentId, noteSummaries, validContainerIds],
   );
   const knownDocumentIds = useMemo(
     () => getKnownDocumentIds(noteSummaries),
@@ -3467,95 +3703,36 @@ function useExplorerNoteViewModel(
 
   return {
     knownDocumentIds,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummaries,
     mergeNoteSummary,
     noteSummaries,
     notesByContainerId,
     selection,
+    setLinkedContainerIdsForDocument,
   };
 }
 
-function useSelectedNoteLinkedContainerIds(params: {
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
-  documentLinkProjectionVersion: number;
-  execSql: ReturnType<typeof useAppData>["execSql"];
-  log: ReturnType<typeof useAppData>["log"];
+function getSelectedNoteLinkedContainerIds(params: {
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   selectedNote: NoteSummary | undefined;
 }) {
-  const {
-    dbStatus,
-    documentLinkProjectionVersion,
-    execSql,
-    log,
-    selectedNote,
-  } = params;
-  const selectedNoteContainerId = selectedNote?.containerId ?? null;
-  const selectedNoteDocumentId = selectedNote?.documentId ?? null;
-  const [selectedNoteLinkedContainerIds, setSelectedNoteLinkedContainerIds] =
-    useState<ReadonlyArray<string>>([]);
-  const previousSelectedNoteDocumentIdRef = useRef<string | null>(null);
+  const { linkedContainerIdsByDocumentId, selectedNote } = params;
+  if (!selectedNote) {
+    return [];
+  }
 
-  useEffect(() => {
-    const fallbackContainerIds =
-      selectedNoteContainerId === null ? [] : [selectedNoteContainerId];
-    const selectedNoteDocumentChanged =
-      previousSelectedNoteDocumentIdRef.current !== selectedNoteDocumentId;
-    previousSelectedNoteDocumentIdRef.current = selectedNoteDocumentId;
+  const fallbackContainerIds =
+    selectedNote.containerId === null ? [] : [selectedNote.containerId];
+  if (!selectedNote.documentId) {
+    return fallbackContainerIds;
+  }
 
-    if (selectedNoteDocumentChanged) {
-      setSelectedNoteLinkedContainerIds(fallbackContainerIds);
-    }
-
-    if (dbStatus !== "ready" || selectedNoteDocumentId === null) {
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const nextLinkedContainerIds =
-          await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-            execSql,
-            selectedNoteDocumentId,
-          );
-        if (cancelled) {
-          return;
-        }
-
-        setSelectedNoteLinkedContainerIds(
-          nextLinkedContainerIds.length > 0
-            ? nextLinkedContainerIds
-            : fallbackContainerIds,
-        );
-      } catch (error: unknown) {
-        if (!isDestroyedDatabaseWorkerError(error)) {
-          log(
-            `Explorer: failed to load linked container projection for document ${selectedNoteDocumentId}`,
-          );
-          console.error(
-            "Explorer: failed to load linked container projection:",
-            error,
-          );
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    dbStatus,
-    documentLinkProjectionVersion,
-    execSql,
-    log,
-    selectedNoteContainerId,
-    selectedNoteDocumentId,
-  ]);
-
-  return {
-    selectedNoteLinkedContainerIds,
-    setSelectedNoteLinkedContainerIds,
-  };
+  const linkedContainerIds =
+    linkedContainerIdsByDocumentId.get(selectedNote.documentId) ?? [];
+  return linkedContainerIds.length > 0
+    ? linkedContainerIds
+    : fallbackContainerIds;
 }
 
 function useExplorerInteractionState(params: {
@@ -3623,36 +3800,40 @@ function useExplorerInteractionState(params: {
 
 function useSelectedNoteStructuralState(params: {
   appData: ReturnType<typeof useAppData>;
-  documentLinkProjectionVersion: number;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   noteSummaries: ReadonlyArray<NoteSummary>;
+  onDocumentLinksChanged: () => void;
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
+  ) => void;
   selectedNote: NoteSummary | undefined;
   expandNode: (nodeId: string) => void;
 }) {
   const {
     appData,
-    documentLinkProjectionVersion,
     expandNode,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummary,
     nodes,
     noteSummaries,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
     selectedNote,
   } = params;
-  const { selectedNoteLinkedContainerIds, setSelectedNoteLinkedContainerIds } =
-    useSelectedNoteLinkedContainerIds({
-      dbStatus: appData.dbStatus,
-      documentLinkProjectionVersion,
-      execSql: appData.execSql,
-      log: appData.log,
-      selectedNote,
-    });
+  const selectedNoteLinkedContainerIds = getSelectedNoteLinkedContainerIds({
+    linkedContainerIdsByDocumentId,
+    selectedNote,
+  });
   const moveNote = useMoveNoteAction({
     appData,
     expandNode,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   });
   const activateLinkedNote = useActivateLinkedNoteAction({
     appData,
@@ -3663,13 +3844,15 @@ function useSelectedNoteStructuralState(params: {
     appData,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   });
   const unlinkNote = useUnlinkNoteAction({
     appData,
     mergeNoteSummary,
     noteSummaries,
-    setSelectedNoteLinkedContainerIds,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
   });
   const selectedNoteMoveTargetOptions = selectedNote
     ? getNoteMoveTargetOptions(nodes, noteSummaries, selectedNote.id)
@@ -3694,27 +3877,61 @@ function useSelectedNoteStructuralState(params: {
   };
 }
 
+function useSelectNoteProjection(params: {
+  activateLinkedNote: (
+    noteId: string,
+    containerId: string,
+  ) => Promise<NoteSummary | null>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { activateLinkedNote, noteSummaries, setSelectedId } = params;
+
+  return useCallback(
+    (noteId: string, containerId: string) => {
+      setSelectedId(noteId);
+      const existingNote = noteSummaries.find((note) => note.id === noteId);
+      if (!existingNote || existingNote.containerId === containerId) {
+        return;
+      }
+
+      void activateLinkedNote(noteId, containerId);
+    },
+    [activateLinkedNote, noteSummaries, setSelectedId],
+  );
+}
+
 function useExplorerPanelState(params: {
   appData: ReturnType<typeof useAppData>;
-  documentLinkProjectionVersion: number;
   explorer: ReturnType<typeof useExplorer>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   noteSummaries: ReadonlyArray<NoteSummary>;
-  notesByContainerId: ReadonlyMap<string, ReadonlyArray<NoteSummary>>;
+  notesByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<NoteContainerProjection>
+  >;
+  onDocumentLinksChanged: () => void;
   peerUserId: string | null;
   selection: ReturnType<typeof useExplorerSelection>;
+  setLinkedContainerIdsForDocument: (
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
+  ) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
   const {
     appData,
-    documentLinkProjectionVersion,
     explorer,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummary,
     noteSummaries,
     notesByContainerId,
+    onDocumentLinksChanged,
     peerUserId,
     selection,
+    setLinkedContainerIdsForDocument,
     setSidebar,
     treeEntries,
   } = params;
@@ -3724,12 +3941,19 @@ function useExplorerPanelState(params: {
   );
   const selectedNoteStructuralState = useSelectedNoteStructuralState({
     appData,
-    documentLinkProjectionVersion,
     expandNode: selection.expandNode,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummary,
     nodes: explorer.nodes,
     noteSummaries,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
     selectedNote: selection.selectedNote,
+  });
+  const selectNoteProjection = useSelectNoteProjection({
+    activateLinkedNote: selectedNoteStructuralState.activateLinkedNote,
+    noteSummaries,
+    setSelectedId: selection.setSelectedId,
   });
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
@@ -3739,6 +3963,7 @@ function useExplorerPanelState(params: {
     nodes: explorer.nodes,
     ready: explorer.ready,
     selectedId: selection.selectedId,
+    selectNoteProjection,
     setSelectedId: selection.setSelectedId,
     setSidebar,
     toggleCollapsed: selection.toggleCollapsed,
@@ -3781,25 +4006,71 @@ function useExplorerPanelState(params: {
   };
 }
 
+function useDocumentLinkProjectionVersion() {
+  const [documentLinkProjectionVersion, setDocumentLinkProjectionVersion] =
+    useState(0);
+  const handleDocumentLinksChanged = useCallback(() => {
+    setDocumentLinkProjectionVersion((currentVersion) => currentVersion + 1);
+  }, []);
+
+  return {
+    documentLinkProjectionVersion,
+    handleDocumentLinksChanged,
+  };
+}
+
+function getSelectedNoteMutationState(params: {
+  appData: ReturnType<typeof useAppData>;
+  selectedNote: NoteSummary | undefined;
+  selectedNoteLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
+  selectedNoteLinkedContainerIds: ReadonlyArray<string>;
+  selectedNoteMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
+}) {
+  const {
+    appData,
+    selectedNote,
+    selectedNoteLinkTargetOptions,
+    selectedNoteLinkedContainerIds,
+    selectedNoteMoveTargetOptions,
+  } = params;
+  const canActivateSelectedNote =
+    appData.dbStatus === "ready" && !!selectedNote?.documentId;
+  const canMutateSelectedNote =
+    canActivateSelectedNote && appData.isAuthenticated && appData.online;
+
+  return {
+    canActivateSelectedNote,
+    canLinkSelectedNote:
+      canMutateSelectedNote && selectedNoteLinkTargetOptions.length > 0,
+    canMoveSelectedNote:
+      canMutateSelectedNote && selectedNoteMoveTargetOptions.length > 0,
+    canUnlinkSelectedNote:
+      canMutateSelectedNote && selectedNoteLinkedContainerIds.length > 1,
+  };
+}
+
 function useExplorerModel(
   appData: ReturnType<typeof useAppData>,
   explorer: ReturnType<typeof useExplorer>,
   setSidebar: (sidebar: ReactNode | null) => void,
   peerUserId: string | null,
 ) {
-  const [documentLinkProjectionVersion, setDocumentLinkProjectionVersion] =
-    useState(0);
-  const handleDocumentLinksChanged = useCallback(() => {
-    setDocumentLinkProjectionVersion((currentVersion) => currentVersion + 1);
-  }, []);
+  const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
+    useDocumentLinkProjectionVersion();
   const {
     knownDocumentIds,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummaries,
     mergeNoteSummary,
     noteSummaries,
     notesByContainerId,
     selection,
-  } = useExplorerNoteViewModel(appData, explorer);
+    setLinkedContainerIdsForDocument,
+  } = useExplorerNoteViewModel(
+    appData,
+    explorer,
+    documentLinkProjectionVersion,
+  );
   const treeEntries = useMemo(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
@@ -3825,32 +4096,29 @@ function useExplorerModel(
     unlinkNote,
   } = useExplorerPanelState({
     appData,
-    documentLinkProjectionVersion,
     explorer,
+    linkedContainerIdsByDocumentId,
     mergeNoteSummary,
     noteSummaries,
     notesByContainerId,
+    onDocumentLinksChanged: handleDocumentLinksChanged,
     peerUserId,
     selection,
+    setLinkedContainerIdsForDocument,
     setSidebar,
     treeEntries,
   });
-  const canMutateSelectedNote =
-    appData.dbStatus === "ready" &&
-    appData.isAuthenticated &&
-    appData.online &&
-    !!selection.selectedNote?.documentId;
+  const selectedNoteMutationState = getSelectedNoteMutationState({
+    appData,
+    selectedNote: selection.selectedNote,
+    selectedNoteLinkTargetOptions,
+    selectedNoteLinkedContainerIds,
+    selectedNoteMoveTargetOptions,
+  });
 
   return {
-    canActivateSelectedNote:
-      appData.dbStatus === "ready" && !!selection.selectedNote?.documentId,
     activateLinkedContainer,
-    canLinkSelectedNote:
-      canMutateSelectedNote && selectedNoteLinkTargetOptions.length > 0,
-    canMoveSelectedNote:
-      canMutateSelectedNote && selectedNoteMoveTargetOptions.length > 0,
-    canUnlinkSelectedNote:
-      canMutateSelectedNote && selectedNoteLinkedContainerIds.length > 1,
+    ...selectedNoteMutationState,
     contextMenuState,
     explorer,
     handleRefresh,

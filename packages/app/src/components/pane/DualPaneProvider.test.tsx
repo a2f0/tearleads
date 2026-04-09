@@ -160,6 +160,67 @@ function listExplorerNoteItems(pane: HTMLElement): HTMLButtonElement[] {
   );
 }
 
+function listExplorerNoteItemsInContainer(
+  pane: HTMLElement,
+  containerName: string,
+): HTMLButtonElement[] {
+  const rows = Array.from(
+    pane.querySelectorAll<HTMLElement>(".explorer-sidebar-row"),
+  );
+  const containerButton = getExplorerSidebarItem(pane, containerName);
+  const containerRow = containerButton.closest<HTMLElement>(
+    ".explorer-sidebar-row",
+  );
+  invariant(
+    containerRow,
+    `Expected explorer sidebar row for "${containerName}".`,
+  );
+  const containerRowIndex = rows.indexOf(containerRow);
+  invariant(
+    containerRowIndex >= 0,
+    `Expected explorer sidebar row index for "${containerName}".`,
+  );
+  const containerIndent = containerRow.style.paddingLeft;
+  const noteItems: HTMLButtonElement[] = [];
+
+  for (const row of rows.slice(containerRowIndex + 1)) {
+    const button = row.querySelector<HTMLButtonElement>(
+      "button.explorer-sidebar-item",
+    );
+    if (!button) {
+      continue;
+    }
+
+    const isNoteButton = button.classList.contains(
+      "explorer-sidebar-item--note",
+    );
+    if (!isNoteButton && row.style.paddingLeft === containerIndent) {
+      break;
+    }
+
+    if (isNoteButton) {
+      noteItems.push(button);
+    }
+  }
+
+  return noteItems;
+}
+
+function getExplorerNoteItemInContainer(
+  pane: HTMLElement,
+  containerName: string,
+  noteTitle: string,
+): HTMLButtonElement {
+  const noteItem = listExplorerNoteItemsInContainer(pane, containerName).find(
+    (button) => button.textContent?.trim() === noteTitle,
+  );
+  invariant(
+    noteItem,
+    `Expected note "${noteTitle}" under container "${containerName}".`,
+  );
+  return noteItem;
+}
+
 async function createChildContainer(pane: HTMLElement, name: string) {
   await interact(() => {
     fireEvent.contextMenu(getExplorerSidebarItem(pane, "/"), {
@@ -762,14 +823,18 @@ test(
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
     await waitFor(() => {
-      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+      expect(listExplorerNoteItemsInContainer(leftPane, "Source")).toHaveLength(
+        0,
+      );
     });
 
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Target"));
     });
     await waitFor(() => {
-      expect(listExplorerNoteItems(leftPane).length).toBeGreaterThan(0);
+      expect(
+        listExplorerNoteItemsInContainer(leftPane, "Target").length,
+      ).toBeGreaterThan(0);
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
@@ -861,7 +926,9 @@ test(
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
     await waitFor(() => {
-      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+      expect(listExplorerNoteItemsInContainer(leftPane, "Source")).toHaveLength(
+        0,
+      );
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
@@ -909,13 +976,13 @@ test(
 
     await linkOpenNoteToContainer(leftPane, "Target");
 
-    await waitFor(() => {
-      expect(
-        within(leftPane).getByRole("button", {
+    await waitForCondition(
+      () =>
+        within(leftPane).queryByRole("button", {
           name: "Make linked container Target active",
-        }),
-      ).toBeTruthy();
-    });
+        }) !== null,
+      "Linked note did not expose Target as an activatable linked container.",
+    );
 
     await activateOpenNoteInLinkedContainer(leftPane, "Target");
 
@@ -946,15 +1013,93 @@ test(
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
     await waitFor(() => {
-      expect(listExplorerNoteItems(leftPane)).toHaveLength(0);
+      expect(listExplorerNoteItemsInContainer(leftPane, "Source")).toHaveLength(
+        1,
+      );
     });
 
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Target"));
     });
     await waitFor(() => {
-      expect(listExplorerNoteItems(leftPane).length).toBeGreaterThan(0);
+      expect(
+        listExplorerNoteItemsInContainer(leftPane, "Target").length,
+      ).toBeGreaterThan(0);
     });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer shows linked note projections under each linked container and sidebar selection can switch the active projection",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Source");
+    await createChildContainer(leftPane, "Target");
+    await selectContainerAndReadId(leftPane, "Source");
+    await selectContainerAndReadId(leftPane, "Target");
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "Projected note",
+      "projected-note.png",
+    );
+    await waitForInlineNoteToSettle(
+      leftPane,
+      "Projected note",
+      "projected-note.png",
+    );
+
+    await linkOpenNoteToContainer(leftPane, "Target");
+
+    await waitForCondition(
+      () =>
+        listExplorerNoteItemsInContainer(leftPane, "Source")
+          .map((button) => button.textContent?.trim())
+          .includes("Projected note") &&
+        listExplorerNoteItemsInContainer(leftPane, "Target")
+          .map((button) => button.textContent?.trim())
+          .includes("Projected note"),
+      "Linked note projections did not appear under both Source and Target.",
+    );
+
+    await interact(() => {
+      fireEvent.click(
+        getExplorerNoteItemInContainer(leftPane, "Target", "Projected note"),
+      );
+    });
+
+    await waitForCondition(
+      () =>
+        leftPane.textContent?.includes("note in Target") === true &&
+        getExplorerNoteItemInContainer(
+          leftPane,
+          "Target",
+          "Projected note",
+        ).classList.contains("explorer-sidebar-item--selected") &&
+        !getExplorerNoteItemInContainer(
+          leftPane,
+          "Source",
+          "Projected note",
+        ).classList.contains("explorer-sidebar-item--selected"),
+      "Selecting the linked Target projection did not activate the note in Target.",
+    );
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );

@@ -1,0 +1,60 @@
+import { expect, test } from "bun:test";
+import {
+  execDatabaseStatement,
+  initDatabase,
+} from "@tearleads/sqlite-worker/load-sqlite3";
+import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
+
+async function createExecSql() {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = Bun.fetch;
+
+  let db: Awaited<ReturnType<typeof initDatabase>>;
+  try {
+    db = await initDatabase({
+      dbName: `/${crypto.randomUUID()}.db`,
+      cipher: "chacha20",
+      key: "document-container-projection-test",
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  return {
+    close: () => db.close(),
+    execSql: async (
+      sql: string,
+      bind?: Record<string, string | number | null>,
+    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
+  };
+}
+
+test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents with no links", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+      execSql,
+      [
+        {
+          containerIds: ["container-a", "container-b"],
+          documentId: "document-with-links",
+        },
+      ],
+    );
+
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+        execSql,
+        ["document-with-links", "document-without-links"],
+      ),
+    ).resolves.toEqual(
+      new Map([
+        ["document-with-links", ["container-a", "container-b"]],
+        ["document-without-links", []],
+      ]),
+    );
+  } finally {
+    close();
+  }
+});

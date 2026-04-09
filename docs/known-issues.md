@@ -73,10 +73,10 @@ Current recommendation:
 
 Remaining implementation work:
 
-- keep pushing the document link/unlink client story beyond the current
-  explorer note flow; the app explorer can now move, link, detach, and locally
-  switch the active projection of a note across its linked containers, but it
-  still only exposes one active note projection at a time rather than a fuller
-  multi-container document-management UI
+- keep pushing the multi-container document-management story beyond the
+  current explorer note flow; the app explorer now renders linked note
+  projections under each linked container and can switch the active local
+  projection, but the editor/detail runtime still operates on one active note
+  projection at a time rather than a fuller multi-container document UI
 - longer-term rekey/bootstrap and tamper-evident document-history design notes
   live in [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
