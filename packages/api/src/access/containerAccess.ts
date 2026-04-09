@@ -100,6 +100,13 @@ interface CryptoRecipientResolutionContext {
   >;
 }
 
+export class ContainerCryptoRecipientResolutionError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "ContainerCryptoRecipientResolutionError";
+  }
+}
+
 function isAccessLevel(value: string): value is AccessLevel {
   return value === "read" || value === "write" || value === "admin";
 }
@@ -137,6 +144,17 @@ function mergeAccessLevel(
   return accessLevelRank(incoming) > accessLevelRank(current)
     ? incoming
     : current;
+}
+
+function missingDirectUserRecipientMessage(userId: string): string {
+  return `Missing direct user recipient key for user:${userId}`;
+}
+
+function missingManagedPrincipalStateMessage(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+): string {
+  return `Missing current principal policy state for ${principalType}:${principalId}`;
 }
 
 function upsertCryptoRecipient(
@@ -622,7 +640,6 @@ async function createCryptoRecipientResolutionContext(
 
 function buildCryptoRecipientsFromGrantRows(
   grants: ReadonlyArray<ContainerGrantRow>,
-  fallbackRecipients: ReadonlyArray<EffectiveContainerRecipient>,
   context: CryptoRecipientResolutionContext,
 ): EffectiveContainerRecipient[] {
   const recipientsByPrincipalKey = new Map<
@@ -641,7 +658,9 @@ function buildCryptoRecipientsFromGrantRows(
       );
 
       if (!userRecipient) {
-        return [...fallbackRecipients];
+        throw new ContainerCryptoRecipientResolutionError(
+          missingDirectUserRecipientMessage(grant.subjectId),
+        );
       }
 
       const nextRecipient = toEffectiveUserPrincipalRecipient({
@@ -655,7 +674,9 @@ function buildCryptoRecipientsFromGrantRows(
     }
 
     if (!isManagedPrincipalType(grant.subjectType)) {
-      return [...fallbackRecipients];
+      throw new ContainerCryptoRecipientResolutionError(
+        `Unsupported container grant subject type ${grant.subjectType}`,
+      );
     }
 
     const currentPrincipalState = context.currentPrincipalStatesByType
@@ -663,7 +684,9 @@ function buildCryptoRecipientsFromGrantRows(
       ?.get(grant.subjectId);
 
     if (!currentPrincipalState) {
-      return [...fallbackRecipients];
+      throw new ContainerCryptoRecipientResolutionError(
+        missingManagedPrincipalStateMessage(grant.subjectType, grant.subjectId),
+      );
     }
 
     const nextRecipient = toEffectivePrincipalRecipient({
@@ -717,7 +740,6 @@ async function resolveContainerRecipients(
     effectiveRecipients,
     cryptoRecipients: buildCryptoRecipientsFromGrantRows(
       grants,
-      effectiveRecipients,
       cryptoRecipientResolutionContext,
     ),
     grants,
@@ -973,7 +995,6 @@ export async function refreshContainerAccessSubtree(
       grants: resolvedInputs.grants,
       cryptoRecipients: buildCryptoRecipientsFromGrantRows(
         resolvedInputs.grants,
-        resolvedInputs.effectiveRecipients,
         cryptoRecipientResolutionContext,
       ),
     });
@@ -1060,13 +1081,30 @@ export async function resolveContainerAccessState(
     return null;
   }
 
+  let resolvedRecipients: Awaited<
+    ReturnType<typeof resolveContainerRecipients>
+  >;
+
+  try {
+    resolvedRecipients = await resolveContainerRecipients(
+      containerId,
+      executor,
+    );
+  } catch (error) {
+    if (error instanceof ContainerCryptoRecipientResolutionError) {
+      return null;
+    }
+
+    throw error;
+  }
+
   const {
     ancestorContainerIds,
     effectiveRecipients,
     cryptoRecipients,
     grants,
     referencedPrincipals,
-  } = await resolveContainerRecipients(containerId, executor);
+  } = resolvedRecipients;
   const accessFingerprint = await computeContainerFingerprint({
     containerId,
     ancestorContainerIds,

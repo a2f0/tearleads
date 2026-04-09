@@ -44,6 +44,12 @@ interface BlobAccessState {
   cryptoRecipients: EffectiveBlobRecipient[];
 }
 
+function isResolvedDocumentAccessState(
+  value: ResolvedDocumentAccessState,
+): value is Exclude<ResolvedDocumentAccessState, null> {
+  return value !== null;
+}
+
 function accessLevelRank(accessLevel: AccessLevel): number {
   if (accessLevel === "admin") {
     return 3;
@@ -219,15 +225,16 @@ async function resolveBlobAccessInputs(
   const linkedDocumentIds =
     providedLinkedDocumentIds ??
     (await listLinkedDocumentIds(blobId, executor));
-  const linkedDocumentStates = (
-    await Promise.all(
-      linkedDocumentIds.map(
-        (documentId) =>
-          documentAccessStateById?.get(documentId) ??
-          resolveDocumentAccessState(documentId, executor),
-      ),
-    )
-  ).filter((state) => state !== null);
+  const resolvedLinkedDocumentStates = await Promise.all(
+    linkedDocumentIds.map(
+      (documentId) =>
+        documentAccessStateById?.get(documentId) ??
+        resolveDocumentAccessState(documentId, executor),
+    ),
+  );
+  const linkedDocumentStates = resolvedLinkedDocumentStates.filter(
+    isResolvedDocumentAccessState,
+  );
 
   const recipientsByPrincipalKey = new Map<string, EffectiveBlobRecipient>();
   const cryptoRecipientsByPrincipalKey = new Map<
@@ -279,6 +286,8 @@ async function resolveBlobAccessInputs(
   return {
     linkedDocumentIds,
     linkedDocumentStates,
+    hasUnavailableLinkedDocuments:
+      linkedDocumentStates.length !== linkedDocumentIds.length,
     effectiveRecipients,
     cryptoRecipients,
   };
@@ -499,13 +508,21 @@ async function materializeBlobAccessState(
 ): Promise<number | null> {
   const resolvedCurrentEpochRow =
     currentEpochRow ?? (await getCurrentEpochRow(blobId, executor));
-  const { linkedDocumentIds, linkedDocumentStates, cryptoRecipients } =
-    await resolveBlobAccessInputs(
-      blobId,
-      executor,
-      documentAccessStateById,
-      providedLinkedDocumentIds,
-    );
+  const {
+    linkedDocumentIds,
+    linkedDocumentStates,
+    hasUnavailableLinkedDocuments,
+    cryptoRecipients,
+  } = await resolveBlobAccessInputs(
+    blobId,
+    executor,
+    documentAccessStateById,
+    providedLinkedDocumentIds,
+  );
+
+  if (hasUnavailableLinkedDocuments) {
+    return null;
+  }
 
   if (resolvedCurrentEpochRow === null && linkedDocumentStates.length === 0) {
     return null;
@@ -562,9 +579,14 @@ export async function resolveBlobAccessState(
   const {
     linkedDocumentIds,
     linkedDocumentStates,
+    hasUnavailableLinkedDocuments,
     effectiveRecipients,
     cryptoRecipients,
   } = await resolveBlobAccessInputs(blobId, executor);
+
+  if (hasUnavailableLinkedDocuments) {
+    return null;
+  }
 
   if (currentEpochRow === null && linkedDocumentStates.length === 0) {
     return null;

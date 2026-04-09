@@ -304,10 +304,9 @@ Current implementation note:
 - document and blob wrapped-key paths now consume that cache at runtime so a
   client can unwrap a group/org-addressed object bundle through the current
   principal member-envelope chain
-- current object recipient material now prefers principal epoch keys for
-  managed grants that have current signed policy state, while falling back to
-  direct user recipient expansion when a managed grant has not been given that
-  policy state yet
+- current object recipient material now requires current signed policy state
+  for managed grants; group/org-addressed grants without that state fail
+  closed instead of falling back to expanded user recipient material
 
 The important distinction is:
 
@@ -565,10 +564,9 @@ authenticated API routes:
   member envelopes.
 
 This is no longer only policy-metadata plumbing. Container/document/blob
-access resolution now prefers current group/org principal keys when verified
-signed policy state exists, while still falling back to expanded user
-recipients for managed grants that do not yet have current signed policy
-metadata.
+access resolution now uses current group/org principal keys when verified
+signed policy state exists, and managed grants without that state now fail
+closed instead of degrading to expanded user recipients.
 
 ### Signed Access Manifest
 

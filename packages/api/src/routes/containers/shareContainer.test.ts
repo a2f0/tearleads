@@ -6,7 +6,7 @@ import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { app } from "../../index";
-import { containers, users } from "../../schema";
+import { containers, groups, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
   const [user] = await db
@@ -170,4 +170,67 @@ test("POST /containers/:containerId/share rejects callers without admin access",
 
   expect(shareResponse.status).toBe(403);
   expect(await shareResponse.json()).toEqual({ error: "Forbidden" });
+});
+
+test("POST /containers/:containerId/share rejects managed grants without current principal policy state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+
+  const createResponse = await app.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: ownerRootId,
+    }),
+  });
+
+  expect(createResponse.status).toBe(200);
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const [group] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Unmanaged reviewers",
+    })
+    .returning({ id: groups.id });
+  invariant(group, "expected group");
+
+  const shareResponse = await app.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        accessLevel: "read",
+        subjectId: group.id,
+        subjectType: "group",
+      }),
+    },
+  );
+
+  expect(shareResponse.status).toBe(409);
+  expect(await shareResponse.json()).toEqual({
+    error: `Missing current principal policy state for group:${group.id}`,
+  });
 });

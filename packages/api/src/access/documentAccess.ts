@@ -53,6 +53,12 @@ interface DocumentAccessState {
   cryptoRecipients: EffectiveDocumentRecipient[];
 }
 
+function isResolvedContainerAccessState(
+  value: ResolvedContainerAccessState,
+): value is Exclude<ResolvedContainerAccessState, null> {
+  return value !== null;
+}
+
 function accessLevelRank(accessLevel: AccessLevel): number {
   if (accessLevel === "admin") {
     return 3;
@@ -257,15 +263,16 @@ async function resolveDocumentRecipientsFromLinkedContainers(
   const linkedContainerIds =
     providedLinkedContainerIds ??
     (await listLinkedContainerIds(documentId, executor));
-  const linkedContainerStates = (
-    await Promise.all(
-      linkedContainerIds.map(
-        (containerId) =>
-          linkedContainerStateById?.get(containerId) ??
-          resolveContainerAccessState(containerId, executor),
-      ),
-    )
-  ).filter((state) => state !== null);
+  const resolvedLinkedContainerStates = await Promise.all(
+    linkedContainerIds.map(
+      (containerId) =>
+        linkedContainerStateById?.get(containerId) ??
+        resolveContainerAccessState(containerId, executor),
+    ),
+  );
+  const linkedContainerStates = resolvedLinkedContainerStates.filter(
+    isResolvedContainerAccessState,
+  );
   const effectiveRecipients = mergeRecipientsFromLinkedContainerStates(
     (state) => state.effectiveRecipients,
     linkedContainerStates,
@@ -278,6 +285,8 @@ async function resolveDocumentRecipientsFromLinkedContainers(
   return {
     linkedContainerIds,
     linkedContainerStates,
+    hasUnavailableLinkedContainers:
+      linkedContainerStates.length !== linkedContainerIds.length,
     referencedPrincipals: mergeReferencedPrincipalsFromLinkedContainerStates(
       linkedContainerStates,
     ),
@@ -296,6 +305,7 @@ async function resolveDocumentAccessInputs(
   const {
     linkedContainerIds,
     linkedContainerStates,
+    hasUnavailableLinkedContainers,
     referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
     cryptoRecipients: linkedContainerCryptoRecipients,
@@ -309,6 +319,7 @@ async function resolveDocumentAccessInputs(
   return {
     linkedContainerIds,
     linkedContainerStates,
+    hasUnavailableLinkedContainers,
     grants,
     referencedPrincipals,
     effectiveRecipients: linkedContainerRecipients,
@@ -347,6 +358,7 @@ async function buildDocumentAccessState(input: {
   effectiveRecipients: EffectiveDocumentRecipient[];
   cryptoRecipients: EffectiveDocumentRecipient[];
   grants: GrantRow[];
+  hasUnavailableLinkedContainers: boolean;
   linkedContainerIds: string[];
   linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[];
   referencedPrincipals: ReferencedPrincipalStateResponse[];
@@ -357,10 +369,15 @@ async function buildDocumentAccessState(input: {
     effectiveRecipients,
     cryptoRecipients,
     grants,
+    hasUnavailableLinkedContainers,
     linkedContainerIds,
     linkedContainerStates,
     referencedPrincipals,
   } = input;
+
+  if (hasUnavailableLinkedContainers) {
+    return null;
+  }
 
   if (currentEpochRow === null && linkedContainerStates.length === 0) {
     return null;
@@ -399,6 +416,7 @@ export async function resolveDocumentAccessState(
     linkedContainerIds,
     linkedContainerStates,
     grants,
+    hasUnavailableLinkedContainers,
     referencedPrincipals,
     effectiveRecipients,
     cryptoRecipients,
@@ -410,6 +428,7 @@ export async function resolveDocumentAccessState(
     effectiveRecipients,
     cryptoRecipients,
     grants,
+    hasUnavailableLinkedContainers,
     linkedContainerIds,
     linkedContainerStates,
     referencedPrincipals,
@@ -438,6 +457,7 @@ export async function resolveDocumentAccessStates(
           linkedContainerIds,
           linkedContainerStates,
           grants,
+          hasUnavailableLinkedContainers,
           referencedPrincipals,
           effectiveRecipients,
           cryptoRecipients,
@@ -456,6 +476,7 @@ export async function resolveDocumentAccessStates(
             effectiveRecipients,
             cryptoRecipients,
             grants,
+            hasUnavailableLinkedContainers,
             linkedContainerIds,
             linkedContainerStates,
             referencedPrincipals,
@@ -778,6 +799,7 @@ async function materializeDocumentAccessState(
     linkedContainerIds,
     linkedContainerStates,
     grants,
+    hasUnavailableLinkedContainers,
     cryptoRecipients,
   } = await resolveDocumentAccessInputs(
     documentId,
@@ -785,6 +807,10 @@ async function materializeDocumentAccessState(
     linkedContainerStateById,
     providedLinkedContainerIds,
   );
+
+  if (hasUnavailableLinkedContainers) {
+    return null;
+  }
 
   if (resolvedCurrentEpochRow === null && linkedContainerStates.length === 0) {
     return null;
@@ -830,8 +856,16 @@ export async function initializeDocumentAccess(
       linkedContainerIds,
       linkedContainerStates,
       grants,
+      hasUnavailableLinkedContainers,
       cryptoRecipients,
     } = await resolveDocumentAccessInputs(documentId, tx);
+
+    if (hasUnavailableLinkedContainers) {
+      throw new Error(
+        `Document ${documentId} access state could not be initialized`,
+      );
+    }
+
     const accessFingerprint = await computeDocumentAccessFingerprint({
       documentId,
       grants,
