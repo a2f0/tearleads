@@ -280,3 +280,63 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
     close();
   }
 });
+
+test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "direct-note",
+      containerId: "shared-container",
+      documentId: "direct-document",
+      documentRecipientEnvelopes: null,
+      text: "Direct Note",
+      loroSnapshot: "snapshot-direct",
+      accessEpoch: 1,
+    });
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "linked-note",
+      containerId: "outside-container",
+      documentId: "linked-document",
+      documentRecipientEnvelopes: null,
+      text: "Linked Note",
+      loroSnapshot: "snapshot-linked",
+      accessEpoch: 1,
+    });
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "unrelated-note",
+      containerId: "outside-container",
+      documentId: "unrelated-document",
+      documentRecipientEnvelopes: null,
+      text: "Unrelated Note",
+      loroSnapshot: "snapshot-unrelated",
+      accessEpoch: 1,
+    });
+
+    await expect(
+      sqlNotesPersistence.listNotesByContainerIdsOrDocumentIds(execSql, {
+        containerIds: ["shared-container"],
+        documentIds: ["linked-document"],
+      }),
+    ).resolves.toEqual([
+      {
+        id: "linked-note",
+        containerId: "outside-container",
+        documentId: "linked-document",
+        title: "Linked Note",
+        updatedAt: expect.any(String),
+      },
+      {
+        id: "direct-note",
+        containerId: "shared-container",
+        documentId: "direct-document",
+        title: "Direct Note",
+        updatedAt: expect.any(String),
+      },
+    ]);
+  } finally {
+    close();
+  }
+});

@@ -14,6 +14,7 @@ import {
   loadContainers,
   saveContainer,
 } from "../../data/containerPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
@@ -826,7 +827,7 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
   }
 });
 
-test("explorer share primes note attachment rewrap work for locally known notes in the shared subtree", async () => {
+test("explorer share primes note attachment rewrap work for linked notes in the shared subtree", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const shareContainerCalls: Array<{
@@ -944,7 +945,10 @@ test("explorer share primes note attachment rewrap work for locally known notes 
       return {
         id: containerId,
         metadataAccessEpoch: 2,
-        metadataDocumentId: "root-metadata-document",
+        metadataDocumentId:
+          containerId === "child-container"
+            ? "child-metadata-document"
+            : "root-metadata-document",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
         ],
@@ -1007,6 +1011,14 @@ test("explorer share primes note attachment rewrap work for locally known notes 
       name: "/",
       icon: null,
     });
+    await saveContainer(runtime.execSql, {
+      id: "child-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "child-metadata-document",
+      name: "Shared",
+      icon: null,
+    });
 
     const createdNoteStore = primeNotesStore(
       runtime.domainScope,
@@ -1051,6 +1063,16 @@ test("explorer share primes note attachment rewrap work for locally known notes 
       createdNoteStore.getSnapshot().attachments[0]?.slotId ?? null;
     expect(currentSlotId).toBeString();
 
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+      runtime.execSql,
+      [
+        {
+          containerIds: ["child-container", "root-container"],
+          documentId: "notes-document-1",
+        },
+      ],
+    );
+
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
     createdStore.updateRuntime(runtime);
@@ -1061,7 +1083,7 @@ test("explorer share primes note attachment rewrap work for locally known notes 
     );
 
     const shared = await createdStore.shareWithUser(
-      "root-container",
+      "child-container",
       "550e8400-e29b-41d4-a716-446655440000",
     );
 
@@ -1092,7 +1114,7 @@ test("explorer share primes note attachment rewrap work for locally known notes 
     expect(shareContainerCalls).toEqual([
       {
         accessLevel: "write",
-        containerId: "root-container",
+        containerId: "child-container",
         subjectId: "550e8400-e29b-41d4-a716-446655440000",
         subjectType: "user",
       },
