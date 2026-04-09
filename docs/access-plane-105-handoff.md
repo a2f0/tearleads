@@ -44,6 +44,9 @@ The access plane already has these pieces:
 - linked note projections render under each linked container
 - additive blob access growth rewraps committed blob recipient material without
   re-uploading blob payload bytes
+- current-epoch document recipient bundles are canonical: identical bundle
+  retries are accepted, divergent same-epoch bundle material is rejected with
+  `409`, and sync/commit paths no longer silently replace the winning bundle
 - detached attachment bindings are transient metadata and may be pruned when
   blob GC removes the now-unreachable blob
 
@@ -61,19 +64,7 @@ Avoid these paths:
 
 ## Remaining #105 Work
 
-The highest-value remaining implementation work is now rotate hardening.
-
-Recommended next slice:
-
-- prevent multiple clients from replacing the same epoch's document bundle with
-  different DEKs
-- if a current-epoch document bundle already exists, accept the same bundle or
-  reject divergent bundle material with `409`
-- make sync/commit callers adopt the canonical current-epoch bundle and retry
-  rather than silently overwriting it
-- keep additive `rewrap` behavior from PR `#161` intact
-
-After that, the larger rotate-baseline design remains:
+The larger rotate-baseline design remains:
 
 - add a source-frontier / compare-and-set rule for rotate baselines
 - ensure the winning rotate baseline commits to all server-known prior-epoch
@@ -99,9 +90,9 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-PR #161 if it has not merged yet. Continue with the next #105 slice: harden
-document rotate handling so a current-epoch document bundle cannot be silently
-replaced by a different DEK. Keep additive document rewrap behavior intact.
-Do not reintroduce per-user fallback, old blob compat shims, or blob payload
-re-upload for additive access growth.
+continue with the next #105 slice: design and implement source-frontier /
+compare-and-set handling for rotate baselines so the winning baseline commits
+to all server-known prior-epoch edits. Keep additive document rewrap behavior
+intact. Do not reintroduce per-user fallback, old blob compat shims, or blob
+payload re-upload for additive access growth.
 ```

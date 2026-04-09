@@ -194,6 +194,13 @@ await client.exec(`
     ON object_access_epochs (object_type, object_id, epoch);
   CREATE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_idx
     ON object_recipient_envelopes (object_type, object_id, epoch);
+  CREATE UNIQUE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_recipient_idx
+    ON object_recipient_envelopes (
+      object_type,
+      object_id,
+      epoch,
+      recipient_key_fingerprint
+    );
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);
   CREATE INDEX IF NOT EXISTS document_container_links_container_idx

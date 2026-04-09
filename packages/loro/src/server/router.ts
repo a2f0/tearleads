@@ -38,6 +38,11 @@ interface DocumentAccessState {
   referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
+interface AppendDocumentUpdatesResult {
+  acceptedOutgoingUpdateIds: string[];
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
+}
+
 interface LoroRouterDeps<TSession extends SessionLike> {
   store: {
     createDocument(input: {
@@ -61,7 +66,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
       authorFingerprint: string;
       documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
       updates: SyncDocumentOutgoingUpdate[];
-    }): Promise<string[]>;
+    }): Promise<AppendDocumentUpdatesResult>;
     listDocumentUpdates(documentId: string): Promise<DocumentUpdateRecord[]>;
   };
   publish: (event: Record<string, unknown>) => Promise<void>;
@@ -165,18 +170,18 @@ async function appendOutgoingDocumentUpdates<TSession extends SessionLike>(
     documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
     outgoingUpdates: SyncDocumentOutgoingUpdate[];
   },
-) {
+): Promise<AppendDocumentUpdatesResult> {
   if (
     input.outgoingUpdates.length === 0 &&
     input.documentRecipientEnvelopes === undefined
   ) {
     return {
       acceptedOutgoingUpdateIds: [],
-      responseDocumentRecipientEnvelopes: undefined,
+      documentRecipientEnvelopes: undefined,
     };
   }
 
-  const acceptedOutgoingUpdateIds = await store.appendDocumentUpdates({
+  return store.appendDocumentUpdates({
     documentId: input.documentId,
     authorFingerprint: input.authorFingerprint,
     updates: input.outgoingUpdates,
@@ -184,11 +189,30 @@ async function appendOutgoingDocumentUpdates<TSession extends SessionLike>(
       ? { documentRecipientEnvelopes: input.documentRecipientEnvelopes }
       : {}),
   });
+}
 
-  return {
-    acceptedOutgoingUpdateIds,
-    responseDocumentRecipientEnvelopes: input.documentRecipientEnvelopes,
-  };
+async function tryAppendOutgoingDocumentUpdates<TSession extends SessionLike>(
+  store: LoroRouterDeps<TSession>["store"],
+  input: {
+    authorFingerprint: string;
+    documentId: string;
+    documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
+    outgoingUpdates: SyncDocumentOutgoingUpdate[];
+  },
+): Promise<
+  | { appendResult: AppendDocumentUpdatesResult }
+  | { error: string; status: StatusError["status"] }
+> {
+  try {
+    return {
+      appendResult: await appendOutgoingDocumentUpdates(store, input),
+    };
+  } catch (error) {
+    if (isStatusError(error)) {
+      return { error: error.message, status: error.status };
+    }
+    throw error;
+  }
 }
 
 interface SyncAccessError {
@@ -315,16 +339,21 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
         return c.json({ error: invalidUpdateMessage }, 400);
       }
 
-      const appendResult = await appendOutgoingDocumentUpdates(store, {
+      const appendAttempt = await tryAppendOutgoingDocumentUpdates(store, {
         authorFingerprint: session.fingerprint,
         documentId,
         documentRecipientEnvelopes,
         outgoingUpdates,
       });
+      if ("error" in appendAttempt) {
+        return c.json({ error: appendAttempt.error }, appendAttempt.status);
+      }
+
+      const { appendResult } = appendAttempt;
       acceptedOutgoingUpdateIds = appendResult.acceptedOutgoingUpdateIds;
-      if (appendResult.responseDocumentRecipientEnvelopes) {
+      if (appendResult.documentRecipientEnvelopes) {
         responseDocumentRecipientEnvelopes =
-          appendResult.responseDocumentRecipientEnvelopes;
+          appendResult.documentRecipientEnvelopes;
       }
     }
 
