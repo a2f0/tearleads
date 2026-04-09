@@ -443,10 +443,12 @@ The app explorer now uses `POST /containers/:containerId/move` for container
 reparenting, and it now moves notes between containers by calling
 `POST /documents/:documentId/link` followed by
 `POST /documents/:documentId/unlink` while updating the local note/container
-projection from the authoritative mutation response. The broader document
-`link` / `unlink` surface is still intentionally narrower than the API:
-documents are still projected as single-container notes in the current app UI,
-so true multi-container document management remains future work.
+projection from the authoritative mutation response. The note detail view also
+now exposes direct note `link` / `unlink` management for already-linked notes.
+The broader document `link` / `unlink` surface is still intentionally narrower
+than the API: documents are still projected as single-container notes in the
+current app UI, so true multi-container document management remains future
+work.
 
 ## Zero-Trust Extension For Membership Changes
 
