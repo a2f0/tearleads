@@ -22,8 +22,6 @@ export const loroSql = `
     start_counter BIGINT NOT NULL,
     end_counter BIGINT NOT NULL
   );
-  CREATE INDEX IF NOT EXISTS document_update_spans_document_idx
-    ON document_update_spans (document_id);
   CREATE INDEX IF NOT EXISTS document_update_spans_peer_counter_idx
     ON document_update_spans (document_id, peer_id, end_counter);
   CREATE UNIQUE INDEX IF NOT EXISTS document_update_spans_update_peer_idx

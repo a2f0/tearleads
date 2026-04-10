@@ -61,10 +61,11 @@ The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
 The `document_update_spans` table now exists as the first server-side causal
 indexing primitive for issue `#88`: it can store one row per document/update
-peer span with start and end counters, plus indexes for document,
-`(document_id, peer_id, end_counter)`, and unique update/peer lookups. The
-current sync route still uses the existing in-memory filter until the append
-path starts writing spans and the sync query moves to SQL.
+peer span with start and end counters, plus indexes for
+`(document_id, peer_id, end_counter)` and unique update/peer lookups. The
+composite index also covers document-only lookups. The current sync route still
+uses the existing in-memory filter until the append path starts writing spans
+and the sync query moves to SQL.
 
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the

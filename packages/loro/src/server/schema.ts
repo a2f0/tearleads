@@ -38,7 +38,6 @@ export const documentUpdateSpans = pgTable(
     endCounter: bigint("end_counter", { mode: "number" }).notNull(),
   },
   (table) => [
-    index("document_update_spans_document_idx").on(table.documentId),
     index("document_update_spans_peer_counter_idx").on(
       table.documentId,
       table.peerId,
