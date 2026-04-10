@@ -44,15 +44,20 @@ The important distinction is:
 - future writes move to a new DEK
 - the rotate baseline is the bridge from old readable state to new epoch state
 
-### Blob History Is Not Durable
+### Blob History Is Live-Only In V1
 
 Current blob GC is based on active attachment reachability, not historical
 document replay. If a blob is no longer referenced by any active
-`attachment_bindings`, it may be garbage-collected. Historical attachment bytes
-are therefore not durable in V1.
+`attachment_bindings`, commit-change prunes the blob row, blob access epochs,
+blob recipient envelopes, and detached binding rows for that blob. If another
+active binding still references the same blob, those rows remain live until the
+final active binding is retired.
 
-That means document update history and attachment/blob history currently have
-different retention properties.
+Historical attachment bytes are therefore not durable in V1. Detached bindings
+are transient replacement metadata, not an attachment audit log.
+
+That means document update history and attachment/blob history have different
+retention properties.
 
 ## Desired Rekey / Rebaseline Model
 

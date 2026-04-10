@@ -335,6 +335,8 @@ If the request succeeds:
 
 - staged blobs are promoted to committed blob objects
 - requested binding replacements/detaches are persisted
+- detached bindings, blob access material, and blob bytes are pruned when no
+  active binding references the blob after the mutation
 - requested attachment rewraps update the current bound blob's wrapped-key
   header material without creating a new blob row only when the current blob
   epoch is rewrap-capable
