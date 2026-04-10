@@ -67,8 +67,10 @@ remote documents, so completed rotates are discovered before attachment
 `commit-change`. Already-committed note attachments now queue same-slot blob
 replacement after subtractive rotates when local bytes are available, or block
 raw rotate-baseline sync and ask the user to replace the file when they are not.
-The remaining gaps are historical retention/audit policy and the client-facing
-multi-container document-management story.
+V1 attachment/blob retention is explicitly live-only: detached blobs are pruned
+once their final active binding is retired. The remaining gaps are durable
+historical attachment/audit retention, if the product needs it, and the
+client-facing multi-container document-management story.
 
 Why this matters:
 
@@ -85,8 +87,8 @@ Current recommendation:
 
 Remaining implementation work:
 
-- decide the historical attachment/blob retention product policy separately
-  from blob reachability GC
+- design durable historical attachment/blob retention separately from blob
+  reachability GC if product audit requirements need it
 - keep pushing the multi-container document-management story beyond the
   current explorer note flow; the app explorer now renders linked note
   projections under each linked container and can switch the active local

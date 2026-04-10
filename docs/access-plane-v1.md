@@ -459,6 +459,18 @@ Important V1 invariant:
 - the server must not accept a Loro update that references a slot without an
   active committed binding after the same atomic mutation is applied
 
+V1 attachment/blob retention is live-only:
+
+- `attachmentDetaches[]` and same-slot `attachmentCommits[]` retire the prior
+  active binding for that document slot
+- if no active binding references the retired blob after the atomic mutation,
+  the server prunes the blob row, blob access epochs, blob recipient envelopes,
+  and detached binding rows for that blob
+- if another active binding still references the blob, the blob and its access
+  material remain live until the final active binding is retired
+- detached bindings are transient replacement metadata, not historical
+  attachment/audit retention
+
 V1 scope should allow offline structural mutations such as move, link, unlink,
 attach, and detach, with authoritative recomputation at sync time.
 

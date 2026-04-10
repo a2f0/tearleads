@@ -238,7 +238,7 @@ async function sha256Hex(value: string): Promise<string> {
   );
 }
 
-async function deleteOrphanedBlobs(
+async function pruneUnreachableAttachmentBlobs(
   blobIds: string[],
   executor: DocumentRouteExecutor = db,
 ): Promise<string[]> {
@@ -269,6 +269,9 @@ async function deleteOrphanedBlobs(
     return activeBlobIds;
   }
 
+  // V1 attachment retention is live-only: once no active binding references a
+  // blob, the detached binding rows and blob access material are not audit
+  // history and are pruned with the blob bytes.
   const detachedBindings = await executor
     .select({ id: attachmentBindings.id })
     .from(attachmentBindings)
@@ -875,7 +878,7 @@ async function runCommitChangeTransaction(input: {
       input.session,
     );
 
-    const activeBlobIds = await deleteOrphanedBlobs(
+    const activeBlobIds = await pruneUnreachableAttachmentBlobs(
       Array.from(affectedBlobIds),
       tx,
     );

@@ -28,6 +28,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import { grantRootContainerWriteAccessToUser } from "../../../test/helpers/grantContainerAccess";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { attachBlobToDocument } from "../../access/blobAccess";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
 import { app } from "../../index";
@@ -294,6 +295,51 @@ async function unlinkDocumentFromContainer(input: {
     currentAccessEpoch: body.currentAccessEpoch,
     recipientEncapsulationPublicKeys: body.recipientEncapsulationPublicKeys,
   };
+}
+
+async function expectAttachmentBlobPruned(input: {
+  bindingIds: string[];
+  blobId: string;
+}) {
+  const [deletedBlob] = await db
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, input.blobId))
+    .limit(1);
+  expect(deletedBlob).toBeUndefined();
+
+  const [deletedBlobEpoch] = await db
+    .select({ id: objectAccessEpochs.id })
+    .from(objectAccessEpochs)
+    .where(
+      and(
+        eq(objectAccessEpochs.objectType, "blob"),
+        eq(objectAccessEpochs.objectId, input.blobId),
+      ),
+    )
+    .limit(1);
+  expect(deletedBlobEpoch).toBeUndefined();
+
+  const [deletedBlobEnvelope] = await db
+    .select({ id: objectRecipientEnvelopes.id })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "blob"),
+        eq(objectRecipientEnvelopes.objectId, input.blobId),
+      ),
+    )
+    .limit(1);
+  expect(deletedBlobEnvelope).toBeUndefined();
+
+  for (const bindingId of input.bindingIds) {
+    const [deletedBinding] = await db
+      .select({ id: attachmentBindings.id })
+      .from(attachmentBindings)
+      .where(eq(attachmentBindings.id, bindingId))
+      .limit(1);
+    expect(deletedBinding).toBeUndefined();
+  }
 }
 
 test("POST /blobs/stage rejects mismatched blob digests", async () => {
@@ -1169,6 +1215,235 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
   );
 });
 
+test("POST /documents/:documentId/commit-change prunes a detached blob with no active bindings", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const stageResponse = await stageBlob(
+    await createEncryptedBlobInput(
+      "detach-only-encrypted-image",
+      createdDocument.recipientEncapsulationPublicKeys,
+    ),
+    alice.token,
+  );
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const firstCommitResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_detach",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+  const firstCommitBody = await firstCommitResponse.json();
+  const blobId = String(firstCommitBody.committedBindings[0]?.blobId ?? "");
+  const bindingId = String(
+    firstCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+
+  const detachResponse = await commitDocumentChange(
+    documentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [
+        {
+          slotId: "slot_detach",
+          expectedBindingId: bindingId,
+        },
+      ],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(detachResponse.status).toBe(200);
+  const detachBody = await detachResponse.json();
+  expect(detachBody.committedBindings).toEqual([]);
+  expect(detachBody.detachedBindingIds).toEqual([bindingId]);
+
+  await expectAttachmentBlobPruned({
+    bindingIds: [bindingId],
+    blobId,
+  });
+
+  const staleBlobResponse = await app.request(`/blobs/${blobId}`, {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+  expect(staleBlobResponse.status).toBe(404);
+});
+
+test("POST /documents/:documentId/commit-change retains a detached blob while another active binding references it", async () => {
+  const firstDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(firstDocumentResponse.status).toBe(200);
+  const firstDocument = await firstDocumentResponse.json();
+  const firstDocumentId = String(firstDocument.id ?? "");
+
+  const secondDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(secondDocumentResponse.status).toBe(200);
+  const secondDocument = await secondDocumentResponse.json();
+  const secondDocumentId = String(secondDocument.id ?? "");
+
+  const stageResponse = await stageBlob(
+    await createEncryptedBlobInput(
+      "shared-encrypted-image",
+      firstDocument.recipientEncapsulationPublicKeys,
+    ),
+    alice.token,
+  );
+  expect(stageResponse.status).toBe(200);
+  const stage = await stageResponse.json();
+
+  const firstCommitResponse = await commitDocumentChange(
+    firstDocumentId,
+    {
+      accessEpoch: firstDocument.currentAccessEpoch,
+      attachmentCommits: [
+        {
+          slotId: "slot_shared_first",
+          stageId: stage.stageId,
+          expectedBindingId: null,
+        },
+      ],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstCommitResponse.status).toBe(200);
+  const firstCommitBody = await firstCommitResponse.json();
+  const blobId = String(firstCommitBody.committedBindings[0]?.blobId ?? "");
+  const firstBindingId = String(
+    firstCommitBody.committedBindings[0]?.bindingId ?? "",
+  );
+
+  await attachBlobToDocument(blobId, secondDocumentId, "slot_shared_second");
+  const [secondBinding] = await db
+    .select({
+      id: attachmentBindings.id,
+      detachedAt: attachmentBindings.detachedAt,
+    })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.documentId, secondDocumentId),
+        eq(attachmentBindings.slotId, "slot_shared_second"),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    )
+    .limit(1);
+  const secondBindingId = String(secondBinding?.id ?? "");
+  expect(secondBindingId).not.toBe("");
+
+  const firstDetachResponse = await commitDocumentChange(
+    firstDocumentId,
+    {
+      accessEpoch: firstDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [
+        {
+          slotId: "slot_shared_first",
+          expectedBindingId: firstBindingId,
+        },
+      ],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(firstDetachResponse.status).toBe(200);
+  expect((await firstDetachResponse.json()).detachedBindingIds).toEqual([
+    firstBindingId,
+  ]);
+
+  const [retainedBlob] = await db
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+  expect(retainedBlob?.id).toBe(blobId);
+
+  const [firstDetachedBinding] = await db
+    .select({
+      detachedAt: attachmentBindings.detachedAt,
+      id: attachmentBindings.id,
+    })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.id, firstBindingId))
+    .limit(1);
+  expect(firstDetachedBinding?.id).toBe(firstBindingId);
+  expect(firstDetachedBinding?.detachedAt).toBeInstanceOf(Date);
+
+  const [secondActiveBinding] = await db
+    .select({
+      detachedAt: attachmentBindings.detachedAt,
+      id: attachmentBindings.id,
+    })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.id, secondBindingId))
+    .limit(1);
+  expect(secondActiveBinding?.id).toBe(secondBindingId);
+  expect(secondActiveBinding?.detachedAt).toBeNull();
+
+  const retainedBlobResponse = await app.request(`/blobs/${blobId}`, {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+  expect(retainedBlobResponse.status).toBe(200);
+
+  const secondDetachResponse = await commitDocumentChange(
+    secondDocumentId,
+    {
+      accessEpoch: secondDocument.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [
+        {
+          slotId: "slot_shared_second",
+          expectedBindingId: secondBindingId,
+        },
+      ],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+  expect(secondDetachResponse.status).toBe(200);
+  expect((await secondDetachResponse.json()).detachedBindingIds).toEqual([
+    secondBindingId,
+  ]);
+
+  await expectAttachmentBlobPruned({
+    bindingIds: [firstBindingId, secondBindingId],
+    blobId,
+  });
+});
+
 test("POST /documents/:documentId/commit-change deletes the replaced blob when a slot is rebound", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
@@ -1248,33 +1523,10 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
 
   expect(secondBlobId).not.toBe(firstBlobId);
 
-  const [deletedBlob] = await db
-    .select({ id: blobs.id })
-    .from(blobs)
-    .where(eq(blobs.id, firstBlobId))
-    .limit(1);
-  expect(deletedBlob).toBeUndefined();
-
-  const [deletedBlobEpoch] = await db
-    .select({ id: objectAccessEpochs.id })
-    .from(objectAccessEpochs)
-    .where(eq(objectAccessEpochs.objectId, firstBlobId))
-    .limit(1);
-  expect(deletedBlobEpoch).toBeUndefined();
-
-  const [deletedBlobEnvelope] = await db
-    .select({ id: objectRecipientEnvelopes.id })
-    .from(objectRecipientEnvelopes)
-    .where(eq(objectRecipientEnvelopes.objectId, firstBlobId))
-    .limit(1);
-  expect(deletedBlobEnvelope).toBeUndefined();
-
-  const [deletedBinding] = await db
-    .select({ id: attachmentBindings.id })
-    .from(attachmentBindings)
-    .where(eq(attachmentBindings.id, firstBindingId))
-    .limit(1);
-  expect(deletedBinding).toBeUndefined();
+  await expectAttachmentBlobPruned({
+    bindingIds: [firstBindingId],
+    blobId: firstBlobId,
+  });
 
   const secondBindingId = String(
     secondCommitBody.committedBindings[0]?.bindingId ?? "",

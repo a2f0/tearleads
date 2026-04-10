@@ -34,30 +34,33 @@ These #105 slices are back on `main`.
 - PR `#167`, `feat: classify document sync outcomes`: sync responses expose
   returned update epochs, prior/current missing-update summaries, and canonical
   bundle adoption so clients do not infer rotate/adoption outcomes indirectly.
+- PR `#168`, `fix: harden offline attachment rotate drafts`: note clients
+  probe document sync before committing pending local attachment drafts for an
+  existing remote document, so completed rotates are adopted before attachment
+  commit.
+- PR `#169`, `feat: replace rotated note attachments`: note clients replace
+  already-committed attachments after subtractive rotates when local bytes are
+  available, or block raw rotate-baseline sync and ask the user to replace the
+  file when bytes are not available.
 
 ## Current In-Flight Slice
 
-The local pickup slice after PR `#168` hardens already-committed note
-attachments when a client discovers a subtractive document rotate:
+The local pickup slice after PR `#169` codifies V1 live-only attachment/blob
+retention:
 
-- committed attachments with local plaintext bytes are queued for same-slot blob
-  replacement instead of header-only rewrap
-- clients try to hydrate missing committed attachment bytes before deciding that
-  user action is needed
-- if bytes are still unavailable, the note UI marks the attachment as needing
-  replacement and exposes a per-attachment `Replace File` action
-- raw document sync is paused while any committed attachment still needs
-  replacement, so rotate baselines that reference attachment slots are not
-  uploaded ahead of the server-visible binding replacement
-- replacement commits carry the rotate baseline source frontier through the
-  existing atomic `commit-change` path
+- commit-change prunes detached binding rows, blob access epochs, blob
+  recipient envelopes, and blob bytes once no active binding references the blob
+- a detached blob remains live while another active binding still references it
+- detached binding rows are explicitly transient replacement metadata, not
+  historical attachment or audit retention
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT
 state.
 
-After this slice lands, the best next candidate is the historical
-attachment/blob retention policy.
+After this slice lands, the best next candidates are durable historical
+attachment/audit retention if the product needs it, or the client-facing
+multi-container document-management story.
 
 ## What Is Already Landed
 
@@ -100,8 +103,9 @@ The access plane already has these pieces:
   when local bytes are available, and otherwise surface a per-attachment
   replacement action before uploading a current-epoch rotate baseline that
   references the slot
-- detached attachment bindings are transient metadata and may be pruned when
-  blob GC removes the now-unreachable blob
+- detached attachment bindings are transient metadata, not historical retention;
+  commit-change prunes them with the blob once no active binding references the
+  blob
 
 ## What Not To Reintroduce
 
@@ -124,7 +128,8 @@ cases:
   chosen slice needs it; the structural APIs and note move/link/unlink flows
   already exist, but notes still present mostly as single-active-container
   documents in the current app
-- decide how much historical attachment/blob retention the product needs
+- decide whether durable historical attachment/blob retention is needed beyond
+  V1 live-only blob reachability GC
 
 ## Docs To Read Before Continuing
 
@@ -143,11 +148,12 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice. Assume PR #167 has merged and the sync
-outcome classification slice has landed.
+continue with the next #105 slice. Assume PR #169 has merged and committed note
+attachment replacement after subtractive rotates has landed.
 
-Recommended next slice after committed attachment replacement hardening: decide
-and implement the historical attachment/blob retention policy.
+Recommended next slice after live-only attachment retention is documented and
+tested: durable attachment/audit retention if the product needs it, or the
+client-facing multi-container document-management story.
 
 Preserve additive rewrap behavior, rotate source-frontier CAS, prior-epoch
 update import, canonical bundle adoption, and explicit sync outcome
