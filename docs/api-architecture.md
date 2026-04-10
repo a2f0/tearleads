@@ -81,10 +81,10 @@ Examples:
 
 This layer:
 
-- own transaction boundaries for a use case
-- orchestrate access/document/attachment work
-- depend on explicit infrastructure seams
-- accept validated inputs instead of raw HTTP context
+- owns transaction boundaries for a use case
+- orchestrates access/document/attachment work
+- depends on explicit infrastructure seams
+- accepts validated inputs instead of raw HTTP context
 
 This is the layer that the app-side MSW harness calls when it wants real
 backend behavior without duplicating route logic.
@@ -156,6 +156,10 @@ The first extracted service seam currently covers:
   creation
 
 That is enough for the current app-side dual-pane share flows.
+
+Container list and container document listing pass their injected runtime
+executor through the access helpers they call, so in-process callers do not
+fall back to the global database adapter inside those service paths.
 
 `packages/api/src/services/containers/containerMetadata.ts` owns container
 metadata document creation. Auth registration and container creation call it
