@@ -1,6 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
 import {
-  bigint,
   index,
   integer,
   pgTable,
@@ -34,8 +33,8 @@ export const documentUpdateSpans = pgTable(
     documentId: uuid("document_id").notNull(),
     updateId: uuid("update_id").notNull(),
     peerId: text("peer_id").notNull(),
-    startCounter: bigint("start_counter", { mode: "number" }).notNull(),
-    endCounter: bigint("end_counter", { mode: "number" }).notNull(),
+    startCounter: integer("start_counter").notNull(),
+    endCounter: integer("end_counter").notNull(),
   },
   (table) => [
     index("document_update_spans_peer_counter_idx").on(
