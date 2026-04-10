@@ -3,8 +3,8 @@
 This file tracks implementation bugs, schema mismatches, and unresolved design
 questions that are already visible in the current docs and code.
 
-For the current `#105` pickup point and recommended next slice, see
-[access-plane-105-handoff.md](./access-plane-105-handoff.md).
+For the current access-plane model, see
+[access-plane-v1.md](./access-plane-v1.md).
 
 ## Access Plane And Envelope Storage
 

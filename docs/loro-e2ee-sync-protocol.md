@@ -141,8 +141,8 @@ Important remaining limitation:
   path; compare-and-set source-frontier validation and audit/history hardening
   remain future work
 
-For the current `#105` pickup point and recommended next implementation slice,
-see [access-plane-105-handoff.md](./access-plane-105-handoff.md).
+For the current access-plane model, see
+[access-plane-v1.md](./access-plane-v1.md).
 
 ## Why This Boundary Matters
 
