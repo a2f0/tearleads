@@ -92,6 +92,7 @@ type PendingMutationSyncResult = {
 interface DocumentSyncAttempt {
   currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
   encryptionMaterial: DocumentEncryptionMaterial | null;
+  outgoingUpdateCount: number;
   synced: NonNullable<
     Awaited<ReturnType<NotesRuntime["apiClient"]["syncDocument"]>>
   >;
@@ -1537,6 +1538,7 @@ async function requestDocumentSync(
   return {
     currentDocumentRecipientEnvelopes,
     encryptionMaterial,
+    outgoingUpdateCount: outgoingUpdates.length,
     synced,
   };
 }
@@ -1664,6 +1666,12 @@ async function finalizeDocumentSync(
         await replacePendingUpdatesWithBaseline(state, currentDoc);
       }
     }
+    state.syncRequested = true;
+  }
+
+  if (
+    syncAttempt.outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
+  ) {
     state.syncRequested = true;
   }
 

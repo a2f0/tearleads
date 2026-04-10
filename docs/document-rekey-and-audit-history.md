@@ -110,7 +110,9 @@ Recommended rule:
 
 - if no current-epoch bundle exists yet, one client may seed it
 - if a current-epoch bundle already exists and another client proposes a
-  different bundle for that same epoch, reject with `409`
+  different bundle for that same epoch, do not accept updates encrypted under
+  the proposed bundle; sync should return the canonical bundle, while
+  non-sync commit paths may reject with `409`
 - the losing client retries sync, adopts the canonical current-epoch bundle,
   and re-emits from local state if needed
 

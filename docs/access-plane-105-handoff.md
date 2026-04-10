@@ -23,22 +23,26 @@ These #105 slices are back on `main`:
   current-epoch rotate baselines carry `sourceVersionVector`, and the server
   compare-and-set checks that value against all server-known prior-epoch
   document updates before accepting the baseline.
+- PR `#165`, `fix: rebase rotate baselines over prior updates`: rotate
+  baseline metadata must cover the claimed prior frontier, and app clients
+  import decryptable prior-epoch updates before queueing the fresh baseline.
 
 ## Current Local Slice
 
-Branch `feat/rotate-baseline-rebase` continues PR `#164` by tightening the
-honest-client rotate path:
+Branch `feat/rotate-canonical-adoption` handles the next rotate race:
 
-- rotate baseline commits are rejected when the submitted
-  `partialEndVersionVector` does not cover the claimed `sourceVersionVector`
-- notes, contacts, and explorer metadata sync import decryptable prior-epoch
-  updates from rotate responses before queueing a fresh current-epoch baseline
-- notes coverage now verifies that a rotate baseline's version frontier includes
-  an incoming old-epoch update that arrived with the rotate response
+- sync no longer fails with a bare `409` when a client proposes a divergent
+  same-epoch bundle; it returns the canonical current-epoch bundle and leaves
+  the outgoing updates unaccepted
+- notes, contacts, and explorer schedule an immediate retry whenever a sync
+  response leaves outgoing updates unaccepted
+- notes coverage now verifies that a losing rotate-baseline writer adopts the
+  canonical bundle and resends the pending baseline without proposing another
+  bundle
 
-The server still cannot decrypt E2EE Loro update payloads. Its rotate checks
-therefore enforce visible frontier metadata consistency; the client-side import
-path is what keeps honest baselines from omitting decryptable prior-epoch edits.
+The server still cannot decrypt E2EE Loro update payloads. These rotate checks
+and retry paths work through visible frontier metadata plus client-side CRDT
+state.
 
 ## What Is Already Landed
 
@@ -58,12 +62,16 @@ The access plane already has these pieces:
 - additive blob access growth rewraps committed blob recipient material without
   re-uploading blob payload bytes
 - current-epoch document recipient bundles are canonical: identical bundle
-  retries are accepted, divergent same-epoch bundle material is rejected with
-  `409`, and sync/commit paths no longer silently replace the winning bundle
+  retries are accepted, divergent same-epoch commit material is rejected with
+  `409`, and sync returns the canonical bundle without accepting outgoing
+  updates
 - additive document access growth rewraps the document DEK, materializes a
   current-epoch recipient bundle, and preserves pending Loro updates for retry
 - rotate baseline source-frontier CAS rejects first current-epoch baselines that
   do not match the server-known prior-epoch document frontier
+- honest clients import decryptable prior-epoch updates before creating rotate
+  baselines, and losing same-epoch bundle writers can adopt the canonical
+  bundle before retrying pending updates
 - detached attachment bindings are transient metadata and may be pruned when
   blob GC removes the now-unreachable blob
 
@@ -83,12 +91,10 @@ Avoid these paths:
 
 The next slices should stay focused on rotate/adoption edge cases:
 
-- define how still-authorized offline clients adopt the canonical current-epoch
-  baseline after another client wins the rotate race
-- rebase or preserve local-only edits from clients that discover a completed
-  rotate after working offline
 - decide whether sync should distinguish prior-epoch and current-epoch missing
   updates explicitly instead of relying on decrypt-and-skip behavior
+- harden attachment replacement UX and local draft handling for clients that
+  discover a completed rotate after working offline
 - decide how much historical attachment/blob retention the product needs
 
 ## Docs To Read Before Continuing
@@ -108,10 +114,11 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice: handle still-authorized offline clients that
-discover a completed rotate after another client has already established the
-canonical current-epoch bundle/baseline. Preserve the existing additive rewrap
-behavior, rotate source-frontier CAS, and prior-epoch update import fallback. Do
-not reintroduce per-user fallback, old blob compat shims, or blob payload
-re-upload for additive access growth.
+continue with the next #105 slice: make sync responses distinguish
+prior-epoch and current-epoch missing updates explicitly, or harden the
+attachment/draft UX for clients that discover a completed rotate after working
+offline. Preserve additive rewrap behavior, rotate source-frontier CAS,
+prior-epoch update import, and canonical bundle adoption. Do not reintroduce
+per-user fallback, old blob compat shims, or blob payload re-upload for
+additive access growth.
 ```
