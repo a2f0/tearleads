@@ -243,5 +243,6 @@ For that reason, the better design is:
 - Should document updates be signed by users, devices, or both?
 - Should baseline checkpoints be individually signed, or only hash-linked into
   the audit ledger?
-- How much historical attachment/blob retention should exist once historical
-  document replay becomes a product requirement?
+- If historical document replay becomes a product requirement, should
+  attachment history retain old blob bytes, signed tombstones/manifests, or
+  only live reachability state?

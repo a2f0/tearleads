@@ -494,10 +494,8 @@ now exposes direct note `link` / `unlink` management for already-linked notes,
 and it can locally switch which linked container is treated as the active note
 projection without mutating the authoritative link graph. The explorer sidebar
 also now renders linked note projections beneath each linked container, while
-the broader document `link` / `unlink` surface remains intentionally narrower
-than the API: the current app still edits and details one active note
-projection at a time, so fuller multi-container document management remains
-future work.
+generic document `link` / `unlink` management beyond the note mini-app remains
+future UI work.
 
 ## Zero-Trust Extension For Membership Changes
 

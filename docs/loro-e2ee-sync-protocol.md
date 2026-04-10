@@ -134,9 +134,9 @@ Important remaining limitation:
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
 - the current app explorer now renders linked note projections beneath each
-  linked container and can switch which linked container is locally active, but
-  the note editor/detail runtime still works from one active projection at a
-  time rather than a full multi-link document-management UI
+  linked container, exposes note link/unlink management, and can switch which
+  linked container is locally active; generic multi-link document-management UI
+  beyond notes remains future work
 - subtractive rotation for document epochs still uses the current fresh-baseline
   path; compare-and-set source-frontier validation, audit/history hardening,
   and historical attachment retention remain future work
@@ -215,7 +215,9 @@ Recommended objects:
 - `note_attachment`
   - logical attachment record keyed to a note
 - `attachment_binding`
-  - current or historical binding from attachment record to blob object
+  - server-visible binding from attachment record to blob object; V1 keeps
+    detached bindings only as transient replacement metadata and prunes them
+    with unreachable blobs
 
 For the current access-plane direction, the important semantic is:
 

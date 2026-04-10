@@ -42,25 +42,30 @@ These #105 slices are back on `main`.
   already-committed attachments after subtractive rotates when local bytes are
   available, or block raw rotate-baseline sync and ask the user to replace the
   file when bytes are not available.
+- PR `#170`, `feat: codify live attachment retention`: commit-change prunes
+  detached binding rows, blob access epochs, blob recipient envelopes, and blob
+  bytes once no active binding references the blob, while retaining blobs that
+  still have at least one active binding.
 
-## Current In-Flight Slice
+## Current Pickup Point
 
-The local pickup slice after PR `#169` codifies V1 live-only attachment/blob
-retention:
+The local pickup point after PR `#170` is mostly product scope cleanup.
+Historical attachment/blob retention behavior is now explicit for V1:
 
-- commit-change prunes detached binding rows, blob access epochs, blob
-  recipient envelopes, and blob bytes once no active binding references the blob
-- a detached blob remains live while another active binding still references it
-- detached binding rows are explicitly transient replacement metadata, not
-  historical attachment or audit retention
+- V1 keeps live attachment blobs only while active bindings reference them
+- detached binding rows are transient replacement metadata, not historical
+  attachment or audit retention
+- durable attachment/audit retention remains a separate product and schema
+  decision if the product needs historical attachment bytes, tombstones, or
+  manifests
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT
 state.
 
-After this slice lands, the best next candidates are durable historical
-attachment/audit retention if the product needs it, or the client-facing
-multi-container document-management story.
+The main remaining #105 candidate is durable historical attachment/audit
+retention if the product needs it. Longer-term envelope table cleanup is also
+still valid, but should stay separate from the access-plane behavior slices.
 
 ## What Is Already Landed
 
@@ -76,7 +81,9 @@ The access plane already has these pieces:
 - blob access derives from active attachment bindings and linked documents
 - structural mutation APIs exist for container move and document link/unlink
 - the app explorer drives container move and note document link/unlink flows
-- linked note projections render under each linked container
+- the app explorer renders linked note projections under each linked container,
+  exposes note link/unlink management in the note detail view, and can switch
+  which linked container is treated as the active local note projection
 - additive blob access growth rewraps committed blob recipient material without
   re-uploading blob payload bytes
 - current-epoch document recipient bundles are canonical: identical bundle
@@ -121,15 +128,16 @@ Avoid these paths:
 
 ## Remaining #105 Work
 
-The next slices should stay focused on retention and remaining product edge
-cases:
+The next slices should stay focused on retention and remaining product/schema
+edge cases:
 
-- keep true multi-container document-management UI work separate unless the
-  chosen slice needs it; the structural APIs and note move/link/unlink flows
-  already exist, but notes still present mostly as single-active-container
-  documents in the current app
 - decide whether durable historical attachment/blob retention is needed beyond
   V1 live-only blob reachability GC
+- keep generic, non-note multi-container document-management UI work separate;
+  the current app has note-specific move/link/unlink, linked projections, and
+  active projection switching, but no broader generic document manager
+- keep longer-term envelope schema cleanup separate from behavior work unless a
+  concrete invariant requires it
 
 ## Docs To Read Before Continuing
 
@@ -148,12 +156,13 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice. Assume PR #169 has merged and committed note
-attachment replacement after subtractive rotates has landed.
+continue with the next #105 slice. Assume PR #170 has merged and V1 live-only
+attachment retention is documented and tested.
 
-Recommended next slice after live-only attachment retention is documented and
-tested: durable attachment/audit retention if the product needs it, or the
-client-facing multi-container document-management story.
+Recommended next slice: decide whether durable attachment/audit retention is a
+product requirement beyond V1 live-only blob reachability GC. If it is not,
+document that decision explicitly and keep longer-term audit/history or envelope
+schema work separate.
 
 Preserve additive rewrap behavior, rotate source-frontier CAS, prior-epoch
 update import, canonical bundle adoption, and explicit sync outcome
