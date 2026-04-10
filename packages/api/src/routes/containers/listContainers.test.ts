@@ -6,7 +6,7 @@ import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { containerMetadataDocuments, containers, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
@@ -44,7 +44,7 @@ test("GET /containers returns the readable structural forest for the authenticat
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const childId = crypto.randomUUID();
 
-  const createResponse = await app.request("/containers", {
+  const createResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -60,7 +60,7 @@ test("GET /containers returns the readable structural forest for the authenticat
   expect(createResponse.status).toBe(200);
   const createdChild = await createResponse.json();
 
-  const listResponse = await app.request("/containers", {
+  const listResponse = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${owner.token}`,
@@ -97,7 +97,7 @@ test("GET /containers returns the readable structural forest for the authenticat
 
   expect(binding?.documentId).toBeDefined();
 
-  const otherListResponse = await app.request("/containers", {
+  const otherListResponse = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${otherUser.token}`,
@@ -124,7 +124,7 @@ test("GET /containers includes descendants of directly shared containers outside
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await app.request("/containers", {
+  const sharedCreateResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -139,7 +139,7 @@ test("GET /containers includes descendants of directly shared containers outside
 
   expect(sharedCreateResponse.status).toBe(200);
 
-  const descendantCreateResponse = await app.request("/containers", {
+  const descendantCreateResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -161,7 +161,7 @@ test("GET /containers includes descendants of directly shared containers outside
     subjectType: "user",
   });
 
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${recipient.token}`,

@@ -5,7 +5,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { containers, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
@@ -41,7 +41,7 @@ async function createContainerForUser(input: {
   parentId: string;
   token: string;
 }): Promise<void> {
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.token}`,
@@ -83,7 +83,7 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
     token: owner.token,
   });
 
-  const moveResponse = await app.request(
+  const moveResponse = await routeApp.request(
     `/containers/${sourceContainerId}/move`,
     {
       method: "POST",
@@ -106,7 +106,7 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
     }),
   );
 
-  const listResponse = await app.request("/containers", {
+  const listResponse = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${owner.token}`,
@@ -150,7 +150,7 @@ test("POST /containers/:containerId/move rejects moving a container under its de
     token: owner.token,
   });
 
-  const moveResponse = await app.request(
+  const moveResponse = await routeApp.request(
     `/containers/${sourceContainerId}/move`,
     {
       method: "POST",

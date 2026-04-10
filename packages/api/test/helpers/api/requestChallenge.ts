@@ -1,7 +1,7 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function requestChallenge(fingerprint: string): Promise<Response> {
-  return app.request("/auth/challenge", {
+  return routeApp.request("/auth/challenge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fingerprint }),

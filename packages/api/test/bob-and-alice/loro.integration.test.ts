@@ -23,7 +23,7 @@ import { and, eq } from "drizzle-orm";
 import { refreshContainerAccessSubtree } from "../../src/access/containerAccess";
 import { db } from "../../src/adapters/postgres";
 import { del } from "../../src/adapters/redis";
-import { app } from "../../src/index";
+import { routeApp } from "../../src/routeApp";
 import { documentUpdates, objectAccessGrants } from "../../src/schema";
 import {
   commitDocumentChange,
@@ -727,7 +727,7 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
   importUpdates(bobDoc, decryptedForBob);
   expect(getTextValue(bobDoc)).toBe("note created before share");
 
-  const bobAttachmentsResponse = await app.request(
+  const bobAttachmentsResponse = await routeApp.request(
     `/documents/${sharedDocumentId}/attachments`,
     {
       headers: {
@@ -743,7 +743,7 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
   expect(bobAttachments[0]?.slotId).toBe("slot_front");
   expect(typeof bobAttachments[0]?.bindingId).toBe("string");
 
-  const bobBlobResponse = await app.request(`/blobs/${blobId}`, {
+  const bobBlobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${bob.token}`,
     },
@@ -762,7 +762,7 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
 
 test("Bob can discover and read a note after Alice shares its container through the HTTP share route", async () => {
   const sharedContainerId = crypto.randomUUID();
-  const createContainerResponse = await app.request("/containers", {
+  const createContainerResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${alice.token}`,
@@ -821,7 +821,7 @@ test("Bob can discover and read a note after Alice shares its container through 
   );
   expect(initialSyncResponse.status).toBe(200);
 
-  const shareResponse = await app.request(
+  const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
     {
       method: "POST",
@@ -905,7 +905,7 @@ test("Bob can discover and read a note after Alice shares its container through 
   );
   expect(rebasedSyncResponse.status).toBe(200);
 
-  const bobContainersResponse = await app.request("/containers", {
+  const bobContainersResponse = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${bob.token}`,
@@ -923,7 +923,7 @@ test("Bob can discover and read a note after Alice shares its container through 
     ]),
   );
 
-  const bobDocumentsResponse = await app.request(
+  const bobDocumentsResponse = await routeApp.request(
     `/containers/${sharedContainerId}/documents`,
     {
       method: "GET",
@@ -985,7 +985,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
   await authenticate(charlie);
 
   const sharedContainerId = crypto.randomUUID();
-  const createContainerResponse = await app.request("/containers", {
+  const createContainerResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${alice.token}`,
@@ -999,7 +999,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
   });
   expect(createContainerResponse.status).toBe(200);
 
-  const shareResponse = await app.request(
+  const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
     {
       method: "POST",

@@ -1,5 +1,5 @@
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function commitDocumentChange(
   documentId: string,
@@ -31,7 +31,7 @@ export async function commitDocumentChange(
   },
   token: string,
 ): Promise<Response> {
-  return app.request(`/documents/${documentId}/commit-change`, {
+  return routeApp.request(`/documents/${documentId}/commit-change`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

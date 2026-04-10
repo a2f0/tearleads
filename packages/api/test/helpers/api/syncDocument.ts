@@ -1,6 +1,6 @@
 import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function syncDocument(
   documentId: string,
@@ -12,7 +12,7 @@ export async function syncDocument(
   },
   token: string,
 ): Promise<Response> {
-  return app.request(`/documents/${documentId}/sync`, {
+  return routeApp.request(`/documents/${documentId}/sync`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

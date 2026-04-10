@@ -1,4 +1,4 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function stageBlob(
   input: {
@@ -8,7 +8,7 @@ export async function stageBlob(
   },
   token: string,
 ): Promise<Response> {
-  return app.request("/blobs/stage", {
+  return routeApp.request("/blobs/stage", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -31,7 +31,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { attachBlobToDocument } from "../../access/blobAccess";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import {
   attachmentBindings,
   blobStages,
@@ -216,7 +216,7 @@ async function createContainerForUser(input: {
   parentId: string;
   token: string;
 }): Promise<void> {
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.token}`,
@@ -238,18 +238,21 @@ async function shareContainerWithUser(input: {
   subjectId: string;
   token: string;
 }): Promise<void> {
-  const response = await app.request(`/containers/${input.containerId}/share`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
-      "Content-Type": "application/json",
+  const response = await routeApp.request(
+    `/containers/${input.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        accessLevel: input.accessLevel,
+        subjectId: input.subjectId,
+        subjectType: "user",
+      }),
     },
-    body: JSON.stringify({
-      accessLevel: input.accessLevel,
-      subjectId: input.subjectId,
-      subjectType: "user",
-    }),
-  });
+  );
 
   expect(response.status).toBe(200);
 }
@@ -262,16 +265,19 @@ async function unlinkDocumentFromContainer(input: {
   currentAccessEpoch: number;
   recipientEncapsulationPublicKeys: string[];
 }> {
-  const response = await app.request(`/documents/${input.documentId}/unlink`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
-      "Content-Type": "application/json",
+  const response = await routeApp.request(
+    `/documents/${input.documentId}/unlink`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        containerId: input.containerId,
+      }),
     },
-    body: JSON.stringify({
-      containerId: input.containerId,
-    }),
-  });
+  );
 
   expect(response.status).toBe(200);
   const body = await response.json();
@@ -745,7 +751,7 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
   const secondBody = await secondCommitResponse.json();
   expect(secondBody.committedBindings).toHaveLength(1);
 
-  const attachmentsResponse = await app.request(
+  const attachmentsResponse = await routeApp.request(
     `/documents/${documentId}/attachments`,
     {
       headers: {
@@ -807,7 +813,7 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   const commitBody = await commitResponse.json();
   const blobId = String(commitBody.committedBindings[0]?.blobId ?? "");
 
-  const blobResponse = await app.request(`/blobs/${blobId}`, {
+  const blobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },
@@ -897,7 +903,7 @@ test("POST /documents/:documentId/commit-change rewraps an existing blob without
   expect(rewrapResponse.status).toBe(200);
   expect((await rewrapResponse.json()).committedBindings).toEqual([]);
 
-  const blobResponse = await app.request(`/blobs/${blobId}`, {
+  const blobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${bob.token}`,
     },
@@ -1283,7 +1289,7 @@ test("POST /documents/:documentId/commit-change prunes a detached blob with no a
     blobId,
   });
 
-  const staleBlobResponse = await app.request(`/blobs/${blobId}`, {
+  const staleBlobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },
@@ -1409,7 +1415,7 @@ test("POST /documents/:documentId/commit-change retains a detached blob while an
   expect(secondActiveBinding?.id).toBe(secondBindingId);
   expect(secondActiveBinding?.detachedAt).toBeNull();
 
-  const retainedBlobResponse = await app.request(`/blobs/${blobId}`, {
+  const retainedBlobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },
@@ -1542,7 +1548,7 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
   expect(currentBinding?.id).toBe(secondBindingId);
   expect(currentBinding?.previousBindingId).toBeNull();
 
-  const staleBlobResponse = await app.request(`/blobs/${firstBlobId}`, {
+  const staleBlobResponse = await routeApp.request(`/blobs/${firstBlobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },

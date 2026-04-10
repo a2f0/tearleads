@@ -1,10 +1,10 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function fetchEncapsulationKey(
   userId: string,
   token: string,
 ): Promise<Response> {
-  return app.request(`/auth/encapsulation-key/${userId}`, {
+  return routeApp.request(`/auth/encapsulation-key/${userId}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });

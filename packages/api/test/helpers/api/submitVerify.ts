@@ -1,10 +1,10 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function submitVerify(
   fingerprint: string,
   signature: Uint8Array,
 ): Promise<Response> {
-  return app.request("/auth/verify", {
+  return routeApp.request("/auth/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
