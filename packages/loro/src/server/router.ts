@@ -5,6 +5,7 @@ import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
 import {
   type CreateDocumentRequest,
   type CreateDocumentResponse,
+  DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
   type DocumentRecipientEnvelopeAction,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,
@@ -221,6 +222,8 @@ interface SyncAccessError {
   status: 403 | 404 | 500;
 }
 
+type SyncRouteErrorStatus = StatusError["status"] | SyncAccessError["status"];
+
 type SyncAccessResult =
   | { access: DocumentAccessState }
   | { access: null; error: string; status: 403 | 404 | 500 };
@@ -267,6 +270,16 @@ async function loadSyncDocumentAccess<TSession extends SessionLike>(
   return { access };
 }
 
+function isDocumentRecipientEnvelopesConflict(appendAttempt: {
+  error: string;
+  status: StatusError["status"];
+}): boolean {
+  return (
+    appendAttempt.status === 409 &&
+    appendAttempt.error === DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE
+  );
+}
+
 function getWriteAccessError(
   access: DocumentAccessState,
   outgoingUpdates: SyncDocumentOutgoingUpdate[],
@@ -276,6 +289,75 @@ function getWriteAccessError(
   }
 
   return null;
+}
+
+async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
+  store: LoroRouterDeps<TSession>["store"],
+  input: {
+    accessEpoch: number;
+    currentAccess: DocumentAccessState;
+    documentId: string;
+    documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
+    outgoingUpdates: SyncDocumentOutgoingUpdate[];
+    session: TSession;
+  },
+): Promise<
+  | {
+      acceptedOutgoingUpdateIds: string[];
+      access: DocumentAccessState;
+      documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
+    }
+  | { error: string; status: SyncRouteErrorStatus }
+> {
+  const invalidUpdateMessage = validateOutgoingUpdatesForAccessEpoch(
+    input.outgoingUpdates,
+    input.accessEpoch,
+  );
+  if (invalidUpdateMessage) {
+    return { error: invalidUpdateMessage, status: 400 };
+  }
+
+  const appendAttempt = await tryAppendOutgoingDocumentUpdates(store, {
+    authorFingerprint: input.session.fingerprint,
+    documentId: input.documentId,
+    documentRecipientEnvelopes: input.documentRecipientEnvelopes,
+    outgoingUpdates: input.outgoingUpdates,
+  });
+
+  if ("error" in appendAttempt) {
+    if (!isDocumentRecipientEnvelopesConflict(appendAttempt)) {
+      return appendAttempt;
+    }
+
+    const refreshedSyncAccess = await loadSyncDocumentAccess(
+      store,
+      input.documentId,
+      input.session.userId,
+    );
+    if (!refreshedSyncAccess.access) {
+      return {
+        error: refreshedSyncAccess.error,
+        status: refreshedSyncAccess.status,
+      };
+    }
+
+    return {
+      acceptedOutgoingUpdateIds: [],
+      access: refreshedSyncAccess.access,
+      documentRecipientEnvelopes:
+        refreshedSyncAccess.access.documentRecipientEnvelopes,
+    };
+  }
+
+  const { appendResult } = appendAttempt;
+
+  return {
+    acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
+    access: input.currentAccess,
+    documentRecipientEnvelopes:
+      appendResult.documentRecipientEnvelopes ??
+      input.currentAccess.documentRecipientEnvelopes,
+  };
 }
 
 async function listMissingSyncUpdates<TSession extends SessionLike>(
@@ -321,7 +403,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     if (!syncAccess.access) {
       return c.json({ error: syncAccess.error }, syncAccess.status);
     }
-    const access = syncAccess.access;
+    let access = syncAccess.access;
 
     const writeAccessError = getWriteAccessError(access, outgoingUpdates);
     if (writeAccessError) {
@@ -332,30 +414,22 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     let responseDocumentRecipientEnvelopes = access.documentRecipientEnvelopes;
 
     if (accessEpoch === access.currentAccessEpoch) {
-      const invalidUpdateMessage = validateOutgoingUpdatesForAccessEpoch(
-        outgoingUpdates,
+      const appendResult = await appendCurrentEpochOutgoingUpdates(store, {
         accessEpoch,
-      );
-      if (invalidUpdateMessage) {
-        return c.json({ error: invalidUpdateMessage }, 400);
-      }
-
-      const appendAttempt = await tryAppendOutgoingDocumentUpdates(store, {
-        authorFingerprint: session.fingerprint,
+        currentAccess: access,
         documentId,
         documentRecipientEnvelopes,
         outgoingUpdates,
+        session,
       });
-      if ("error" in appendAttempt) {
-        return c.json({ error: appendAttempt.error }, appendAttempt.status);
+      if ("error" in appendResult) {
+        return c.json({ error: appendResult.error }, appendResult.status);
       }
 
-      const { appendResult } = appendAttempt;
+      access = appendResult.access;
       acceptedOutgoingUpdateIds = appendResult.acceptedOutgoingUpdateIds;
-      if (appendResult.documentRecipientEnvelopes) {
-        responseDocumentRecipientEnvelopes =
-          appendResult.documentRecipientEnvelopes;
-      }
+      responseDocumentRecipientEnvelopes =
+        appendResult.documentRecipientEnvelopes;
     }
 
     const missingUpdates = await listMissingSyncUpdates(

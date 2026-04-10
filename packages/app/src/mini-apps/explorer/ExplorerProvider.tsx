@@ -1039,6 +1039,10 @@ async function syncSingleContainerMetadata(
     state,
     synced,
   });
+
+  if (outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length) {
+    state.syncRequested = true;
+  }
 }
 
 async function runExplorerSyncIteration(state: ExplorerStoreState) {

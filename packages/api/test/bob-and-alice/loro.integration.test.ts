@@ -436,7 +436,7 @@ test("Large note-style updates stay as a single synced document update", async (
   expect(storedUpdates[0]?.encryptedData.length).toBeGreaterThan(256 * 1024);
 });
 
-test("Document sync rejects a divergent current-epoch bundle and accepts the canonical retry", async () => {
+test("Document sync returns the canonical bundle after a divergent current-epoch bundle", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
   ]);
@@ -483,10 +483,12 @@ test("Document sync rejects a divergent current-epoch bundle and accepts the can
     },
     alice.token,
   );
-  expect(divergentSyncResponse.status).toBe(409);
-  expect(await divergentSyncResponse.json()).toEqual({
-    error: "Document recipient envelopes conflict",
-  });
+  expect(divergentSyncResponse.status).toBe(200);
+  const divergentSync = await divergentSyncResponse.json();
+  expect(divergentSync.acceptedOutgoingUpdateIds).toEqual([]);
+  expect(divergentSync.documentRecipientEnvelopes).toEqual(
+    canonicalDocumentEncryption.documentRecipientEnvelopes,
+  );
 
   const canonicalSyncResponse = await syncDocument(
     createdDocument.id,

@@ -21,6 +21,9 @@ export interface SyncDocumentOutgoingUpdate {
 
 export type DocumentRecipientEnvelopeAction = "none" | "rewrap" | "rotate";
 
+export const DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE =
+  "Document recipient envelopes conflict";
+
 export interface CreateDocumentRequest {
   linkedContainerIds: string[];
 }

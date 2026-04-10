@@ -1,6 +1,9 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import type { DocumentRecipientEnvelopeAction } from "@tearleads/loro/shared";
+import {
+  DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
+  type DocumentRecipientEnvelopeAction,
+} from "@tearleads/loro/shared";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -55,7 +58,7 @@ interface DocumentAccessState {
 
 export class DocumentRecipientEnvelopeConflictError extends Error {
   constructor() {
-    super("Document recipient envelopes conflict");
+    super(DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE);
   }
 }
 

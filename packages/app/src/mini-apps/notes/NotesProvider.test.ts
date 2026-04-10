@@ -17,7 +17,10 @@ import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../data/blob-store";
-import { getOrCreateDocumentEncryptionMaterial } from "../../data/documentSync";
+import {
+  createDocumentEncryptionMaterial,
+  getOrCreateDocumentEncryptionMaterial,
+} from "../../data/documentSync";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import type {
   LocalAttachmentRecord,
@@ -1866,6 +1869,170 @@ test("notes store builds rotate baselines over decryptable prior-epoch updates",
     documentId: "notes-document-1",
     documentRecipientEnvelopeCount: 1,
     outgoingSourceVersionVectors: ["rotate-frontier-2"],
+    outgoingUpdateCount: 1,
+  });
+});
+
+test("notes store adopts the canonical bundle after losing a rotate race", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const canonicalEncryptionMaterial = await createDocumentEncryptionMaterial([
+    encapsulationKeyPair.publicKey,
+  ]);
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  let shouldRotateNextEpochOneSync = false;
+  let returnedCanonicalBundle = false;
+  let acceptedCanonicalRetry = false;
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentRecipientEnvelopeCount: number;
+    outgoingSourceVersionVectors: Array<string | null>;
+    outgoingUpdateCount: number;
+  }> = [];
+
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingSourceVersionVectors: outgoingUpdates.map(
+            (update) => update.sourceVersionVector ?? null,
+          ),
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (
+          shouldRotateNextEpochOneSync &&
+          accessEpoch === 1 &&
+          outgoingUpdates.length > 0
+        ) {
+          shouldRotateNextEpochOneSync = false;
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "rotate",
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            rotateBaselineSourceVersionVector: "rotate-frontier-3",
+          });
+        }
+
+        const isRotateBaselineRetry =
+          accessEpoch === 2 &&
+          outgoingUpdates.some(
+            (update) => update.sourceVersionVector === "rotate-frontier-3",
+          );
+        if (
+          isRotateBaselineRetry &&
+          documentRecipientEnvelopes &&
+          !returnedCanonicalBundle
+        ) {
+          returnedCanonicalBundle = true;
+          expect(documentRecipientEnvelopes).not.toEqual(
+            canonicalEncryptionMaterial.documentRecipientEnvelopes,
+          );
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "none",
+            documentRecipientEnvelopes:
+              canonicalEncryptionMaterial.documentRecipientEnvelopes,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+          });
+        }
+
+        if (
+          isRotateBaselineRetry &&
+          !documentRecipientEnvelopes &&
+          returnedCanonicalBundle
+        ) {
+          acceptedCanonicalRetry = true;
+          return createSyncDocumentResponse({
+            acceptedOutgoingUpdateIds: outgoingUpdates.map(
+              (update) => update.id,
+            ),
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "none",
+            documentRecipientEnvelopes:
+              canonicalEncryptionMaterial.documentRecipientEnvelopes,
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+          });
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "rotate-canonical-adoption",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Rotate canonical adoption notes store did not become ready.",
+  );
+
+  store.setText("local text before losing rotate");
+
+  await waitForCondition(
+    () =>
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.documentRecipientEnvelopes !== null,
+    "Epoch one note update did not sync before rotate race.",
+  );
+
+  shouldRotateNextEpochOneSync = true;
+  store.setText("local text after losing rotate");
+
+  await waitForCondition(
+    () =>
+      returnedCanonicalBundle &&
+      acceptedCanonicalRetry &&
+      persistence.getState().pendingUpdates.length === 0,
+    "Notes store did not adopt the canonical bundle and retry the baseline.",
+  );
+
+  expect(
+    JSON.parse(
+      String(persistence.getState().note?.documentRecipientEnvelopes ?? ""),
+    ),
+  ).toEqual(canonicalEncryptionMaterial.documentRecipientEnvelopes);
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 2,
+    documentRecipientEnvelopeCount: 1,
+    outgoingSourceVersionVectors: ["rotate-frontier-3"],
+    outgoingUpdateCount: 1,
+  });
+  expect(syncDocumentCalls).toContainEqual({
+    accessEpoch: 2,
+    documentRecipientEnvelopeCount: 0,
+    outgoingSourceVersionVectors: ["rotate-frontier-3"],
     outgoingUpdateCount: 1,
   });
 });

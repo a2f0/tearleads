@@ -496,6 +496,7 @@ async function applySyncedContactUpdates(
   encryptionMaterial: Awaited<
     ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
   > | null,
+  outgoingUpdateCount: number,
   secretKey: Uint8Array,
 ) {
   contact.recipientPublicKeys = resolveRecipientPublicKeys(
@@ -584,6 +585,10 @@ async function applySyncedContactUpdates(
     }
     state.syncRequested = true;
   }
+
+  if (outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length) {
+    state.syncRequested = true;
+  }
 }
 
 async function syncSingleContact(
@@ -650,6 +655,7 @@ async function syncSingleContact(
     synced,
     currentDocumentRecipientEnvelopes,
     encryptionMaterial,
+    outgoingUpdates.length,
     secretKey,
   );
 }
