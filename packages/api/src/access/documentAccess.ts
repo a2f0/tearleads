@@ -775,10 +775,7 @@ function buildDocumentRecipientEnvelopeRows(
   );
 
   return envelopes.map((envelope) => {
-    if (
-      envelope.kemCipherText.length === 0 ||
-      envelope.wrappedKey.length === 0
-    ) {
+    if (!envelope.kemCipherText || !envelope.wrappedKey) {
       throw new Error(
         `Document recipient envelope is missing wrapped material for ${envelope.keyFingerprint}`,
       );

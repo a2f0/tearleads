@@ -342,10 +342,7 @@ async function replaceRecipientEnvelopes(
 
   await executor.insert(objectRecipientEnvelopes).values(
     envelopeEntries.map((envelopeEntry) => {
-      if (
-        envelopeEntry.kemCipherText.length === 0 ||
-        envelopeEntry.wrappedKey.length === 0
-      ) {
+      if (!envelopeEntry.kemCipherText || !envelopeEntry.wrappedKey) {
         throw new Error(
           `Blob recipient envelope is missing wrapped material for ${envelopeEntry.keyFingerprint}`,
         );

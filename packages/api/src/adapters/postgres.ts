@@ -12,7 +12,7 @@ export type DatabaseTransaction = Parameters<
   : never;
 export type DatabaseExecutor = typeof db | DatabaseTransaction;
 
-await client.exec(`
+export const postgresBootstrapSql = `
   CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     fingerprint TEXT NOT NULL UNIQUE,
@@ -125,6 +125,16 @@ await client.exec(`
     wrapped_key TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  ALTER TABLE object_recipient_envelopes
+    ADD COLUMN IF NOT EXISTS kem_cipher_text TEXT;
+  ALTER TABLE object_recipient_envelopes
+    ADD COLUMN IF NOT EXISTS wrapped_key TEXT;
+  DELETE FROM object_recipient_envelopes
+    WHERE kem_cipher_text IS NULL OR wrapped_key IS NULL;
+  ALTER TABLE object_recipient_envelopes
+    ALTER COLUMN kem_cipher_text SET NOT NULL;
+  ALTER TABLE object_recipient_envelopes
+    ALTER COLUMN wrapped_key SET NOT NULL;
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -212,6 +222,8 @@ await client.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS attachment_bindings_document_slot_active_idx
     ON attachment_bindings (document_id, slot_id) WHERE detached_at IS NULL;
   ${loroSql}
-`);
+`;
+
+await client.exec(postgresBootstrapSql);
 
 export default client;

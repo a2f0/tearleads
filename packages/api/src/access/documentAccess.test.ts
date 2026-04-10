@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { PGlite } from "@electric-sql/pglite";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -12,7 +13,7 @@ import { createDocument } from "../../test/helpers/api/createDocument";
 import { authenticate } from "../../test/helpers/authenticate";
 import { createTestUser } from "../../test/helpers/createTestUser";
 import { registerUser } from "../../test/helpers/registerUser";
-import { db } from "../adapters/postgres";
+import { db, postgresBootstrapSql } from "../adapters/postgres";
 import {
   containers,
   documentContainerLinks,
@@ -110,6 +111,80 @@ test("object recipient envelopes require wrapped key material", async () => {
   }
 
   expect(insertError).toBeInstanceOf(Error);
+});
+
+test("postgres bootstrap tightens legacy object recipient envelope tables", async () => {
+  const legacyClient = new PGlite({ debug: 0 });
+
+  try {
+    await legacyClient.exec(`
+      CREATE TABLE object_recipient_envelopes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        object_type TEXT NOT NULL,
+        object_id TEXT NOT NULL,
+        epoch INTEGER NOT NULL,
+        recipient_principal_type TEXT NOT NULL,
+        recipient_principal_id TEXT NOT NULL,
+        recipient_key_fingerprint TEXT NOT NULL,
+        kem_cipher_text TEXT,
+        wrapped_key TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      );
+      INSERT INTO object_recipient_envelopes (
+        object_type,
+        object_id,
+        epoch,
+        recipient_principal_type,
+        recipient_principal_id,
+        recipient_key_fingerprint,
+        kem_cipher_text,
+        wrapped_key
+      )
+      VALUES
+        ('document', 'legacy-missing-material', 1, 'user', 'user-1', 'key-1', NULL, NULL),
+        ('document', 'legacy-valid-material', 1, 'user', 'user-2', 'key-2', 'kem', 'wrapped');
+    `);
+
+    await legacyClient.exec(postgresBootstrapSql);
+
+    const remainingRows = await legacyClient.query<{
+      kem_cipher_text: string;
+      object_id: string;
+      wrapped_key: string;
+    }>(`
+      SELECT object_id, kem_cipher_text, wrapped_key
+      FROM object_recipient_envelopes
+      ORDER BY object_id
+    `);
+    expect(remainingRows.rows).toEqual([
+      {
+        kem_cipher_text: "kem",
+        object_id: "legacy-valid-material",
+        wrapped_key: "wrapped",
+      },
+    ]);
+
+    let insertError: unknown;
+    try {
+      await legacyClient.exec(`
+        INSERT INTO object_recipient_envelopes (
+          object_type,
+          object_id,
+          epoch,
+          recipient_principal_type,
+          recipient_principal_id,
+          recipient_key_fingerprint
+        )
+        VALUES ('document', 'post-bootstrap-missing-material', 1, 'user', 'user-3', 'key-3')
+      `);
+    } catch (error) {
+      insertError = error;
+    }
+
+    expect(insertError).toBeInstanceOf(Error);
+  } finally {
+    await legacyClient.close();
+  }
 });
 
 test("document access includes recipients inherited from its linked root container", async () => {
