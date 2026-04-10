@@ -1,6 +1,5 @@
 import { hexToBytes, verify } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import type { VerifyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { users } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
@@ -11,8 +10,21 @@ interface VerifyChallengeInput {
 }
 
 interface VerifyChallengeResult {
-  body: VerifyResponse;
-  status: 200 | 401 | 404;
+  token: string;
+}
+
+type VerifyChallengeErrorReason =
+  | "challenge_not_found"
+  | "invalid_signature"
+  | "unknown_fingerprint";
+
+export class VerifyChallengeError extends Error {
+  constructor(
+    message: string,
+    readonly reason: VerifyChallengeErrorReason,
+  ) {
+    super(message);
+  }
 }
 
 export async function verifyChallenge(
@@ -23,26 +35,20 @@ export async function verifyChallenge(
     `challenge:${input.fingerprint}`,
   );
   if (!challengeHex) {
-    return {
-      body: {
-        error: "Challenge expired or not found",
-        authenticated: false,
-      },
-      status: 401,
-    };
+    throw new VerifyChallengeError(
+      "Challenge expired or not found",
+      "challenge_not_found",
+    );
   }
 
   await runtime.keyValueStore.del(`challenge:${input.fingerprint}`);
 
   const storedKey = await runtime.keyValueStore.get(input.fingerprint);
   if (!storedKey) {
-    return {
-      body: {
-        error: "Unknown fingerprint",
-        authenticated: false,
-      },
-      status: 404,
-    };
+    throw new VerifyChallengeError(
+      "Unknown fingerprint",
+      "unknown_fingerprint",
+    );
   }
 
   const publicKey = base64ToBytes(storedKey);
@@ -50,13 +56,7 @@ export async function verifyChallenge(
   const signatureBytes = new Uint8Array(input.signature);
 
   if (!verify(signatureBytes, challengeBytes, publicKey)) {
-    return {
-      body: {
-        authenticated: false,
-        error: "Invalid signature",
-      },
-      status: 401,
-    };
+    throw new VerifyChallengeError("Invalid signature", "invalid_signature");
   }
 
   const [user] = await runtime.db
@@ -66,13 +66,10 @@ export async function verifyChallenge(
     .limit(1);
 
   if (!user) {
-    return {
-      body: {
-        error: "Unknown fingerprint",
-        authenticated: false,
-      },
-      status: 404,
-    };
+    throw new VerifyChallengeError(
+      "Unknown fingerprint",
+      "unknown_fingerprint",
+    );
   }
 
   const token = await runtime.sessionTokenIssuer.createSession({
@@ -82,10 +79,6 @@ export async function verifyChallenge(
   });
 
   return {
-    body: {
-      authenticated: true,
-      token,
-    },
-    status: 200,
+    token,
   };
 }

@@ -5,7 +5,10 @@ import type {
 } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { createChallenge } from "../../services/auth/createChallenge";
+import {
+  CreateChallengeError,
+  createChallenge,
+} from "../../services/auth/createChallenge";
 import { defaultApiServiceRuntime } from "../../services/runtime";
 
 export const challenge = new Hono();
@@ -19,14 +22,19 @@ challenge.post(
     return value;
   }),
   async (c) => {
-    const result = await createChallenge(
-      defaultApiServiceRuntime,
-      c.req.valid("json"),
-    );
+    try {
+      const result = await createChallenge(
+        defaultApiServiceRuntime,
+        c.req.valid("json"),
+      );
 
-    return c.json<ChallengeErrorResponse | ChallengeResponse>(
-      result.body,
-      result.status,
-    );
+      return c.json<ChallengeResponse>({ challenge: result.challenge });
+    } catch (error) {
+      if (error instanceof CreateChallengeError) {
+        return c.json<ChallengeErrorResponse>({ error: error.message }, 404);
+      }
+
+      throw error;
+    }
   },
 );

@@ -2,7 +2,10 @@ import { isVerifyRequest } from "@tearleads/validators/request";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { verifyChallenge } from "../../services/auth/verifyChallenge";
+import {
+  VerifyChallengeError,
+  verifyChallenge,
+} from "../../services/auth/verifyChallenge";
 import { defaultApiServiceRuntime } from "../../services/runtime";
 
 export const verifyRoute = new Hono();
@@ -16,11 +19,30 @@ verifyRoute.post(
     return value;
   }),
   async (c) => {
-    const result = await verifyChallenge(
-      defaultApiServiceRuntime,
-      c.req.valid("json"),
-    );
+    try {
+      const result = await verifyChallenge(
+        defaultApiServiceRuntime,
+        c.req.valid("json"),
+      );
 
-    return c.json<VerifyResponse>(result.body, result.status);
+      return c.json<VerifyResponse>({
+        authenticated: true,
+        token: result.token,
+      });
+    } catch (error) {
+      if (error instanceof VerifyChallengeError) {
+        const status = error.reason === "unknown_fingerprint" ? 404 : 401;
+
+        return c.json<VerifyResponse>(
+          {
+            authenticated: false,
+            error: error.message,
+          },
+          status,
+        );
+      }
+
+      throw error;
+    }
   },
 );
