@@ -401,7 +401,7 @@ export async function listNotesByContainerIds(
         updated_at
       FROM note_projection
       WHERE container_id IN (${placeholders.join(", ")})
-      ORDER BY updated_at DESC
+      ORDER BY updated_at DESC, note_id DESC
     `,
     bind,
   );
@@ -458,7 +458,7 @@ async function listNotesByContainerIdsOrDocumentIds(
         updated_at
       FROM note_projection
       WHERE ${filters.join(" OR ")}
-      ORDER BY updated_at DESC
+      ORDER BY updated_at DESC, note_id DESC
     `,
     bind,
   );
@@ -489,7 +489,7 @@ export const sqlNotesPersistence: NotesPersistence = {
           text,
           updated_at
         FROM note_projection
-        ORDER BY updated_at DESC
+        ORDER BY updated_at DESC, note_id DESC
       `,
     );
 
