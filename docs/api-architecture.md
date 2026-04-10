@@ -181,6 +181,11 @@ Document attachment listing is implemented as a document service. The
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database.
 
+Blob reads are implemented as a document service. The `/blobs/:blobId` route
+maps service errors to HTTP responses, while the service owns blob-read
+authorization, committed blob lookup, current recipient-envelope projection,
+and digest recalculation through the injected runtime database.
+
 The document routes are not fully extracted yet. In particular, the heavier
 document/blob use cases still have route-level orchestration. Those remaining
 exceptions are tracked below as future work.
@@ -250,7 +255,6 @@ The rules are:
 
 The remaining extraction targets are:
 
-- blob get orchestration
 - document sync orchestration
 - document commit/change orchestration
 
