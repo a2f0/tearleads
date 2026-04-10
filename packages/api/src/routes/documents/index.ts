@@ -60,6 +60,10 @@ import {
   objectAccessEpochs,
   objectRecipientEnvelopes,
 } from "../../schema";
+import {
+  ListDocumentAttachmentsError,
+  listDocumentAttachments,
+} from "../../services/documents/listDocumentAttachments";
 import { StageBlobError, stageBlob } from "../../services/documents/stageBlob";
 import { defaultApiServiceRuntime } from "../../services/runtime";
 import { uniqueSortedStrings } from "../../utils/array";
@@ -1338,36 +1342,20 @@ documentsRouter.get(
     const documentId = c.req.param("documentId");
     const session = c.get("session");
 
-    const access = await resolveDocumentAccessState(documentId);
-    if (!access) {
-      return c.json({ error: "Document not found" }, 404);
-    }
-
-    if (!canReadDocumentAccess(access, session.userId)) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-
-    const rows = await db
-      .select({
-        bindingId: attachmentBindings.id,
-        blobId: attachmentBindings.blobId,
-        slotId: attachmentBindings.slotId,
-      })
-      .from(attachmentBindings)
-      .where(
-        and(
-          eq(attachmentBindings.documentId, documentId),
-          isNull(attachmentBindings.detachedAt),
-        ),
+    try {
+      return c.json<ListDocumentAttachmentsResponse>(
+        await listDocumentAttachments(defaultApiServiceRuntime, {
+          documentId,
+          userId: session.userId,
+        }),
       );
+    } catch (error) {
+      if (error instanceof ListDocumentAttachmentsError) {
+        return c.json({ error: error.message }, error.status);
+      }
 
-    return c.json<ListDocumentAttachmentsResponse>(
-      rows.map((row) => ({
-        bindingId: row.bindingId,
-        blobId: row.blobId,
-        slotId: row.slotId,
-      })),
-    );
+      throw error;
+    }
   },
 );
 

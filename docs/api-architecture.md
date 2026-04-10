@@ -176,6 +176,11 @@ Blob staging is implemented as a document service. The `/blobs/stage` route
 validates request shape and maps service errors to HTTP responses, while the
 service owns digest/byte-length validation and staged-row creation.
 
+Document attachment listing is implemented as a document service. The
+`/documents/:documentId/attachments` route maps service errors to HTTP
+responses, while the service owns document-read authorization and active
+attachment binding lookup through the injected runtime database.
+
 The document routes are not fully extracted yet. In particular, the heavier
 document/blob use cases still have route-level orchestration. Those remaining
 exceptions are tracked below as future work.
@@ -245,7 +250,7 @@ The rules are:
 
 The remaining extraction targets are:
 
-- blob get and attachment listing orchestration
+- blob get orchestration
 - document sync orchestration
 - document commit/change orchestration
 
