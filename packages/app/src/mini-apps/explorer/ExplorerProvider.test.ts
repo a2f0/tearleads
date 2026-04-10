@@ -214,6 +214,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
 
 test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
   const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
   const createContainerCalls: Array<{
     id: string;
     initialMetadataUpdateCount: number;
@@ -221,7 +222,7 @@ test("explorer store creates authenticated child containers through the API befo
   }> = [];
 
   runtime.isAuthenticated = true;
-  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
     ...runtime.apiClient,
     createContainer: async (
@@ -238,7 +239,9 @@ test("explorer store creates authenticated child containers through the API befo
         id,
         metadataAccessEpoch: 1,
         metadataDocumentId: "metadata-document-1",
-        metadataRecipientEncapsulationPublicKeys: [],
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
         organizationId: "org-1",
         parentId,
       };
@@ -538,6 +541,7 @@ test("explorer store moves an authenticated child container through the API and 
 
 test("explorer store shares an authenticated container and enqueues a full metadata baseline", async () => {
   const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
   const shareContainerCalls: Array<{
     accessLevel: "read" | "write" | "admin";
     containerId: string;
@@ -552,7 +556,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
 
   runtime.isAuthenticated = true;
   runtime.online = true;
-  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
     ...runtime.apiClient,
     createContainer: async () => null,
@@ -573,7 +577,9 @@ test("explorer store shares an authenticated container and enqueues a full metad
         id: containerId,
         metadataAccessEpoch: 2,
         metadataDocumentId: "metadata-document-1",
-        metadataRecipientEncapsulationPublicKeys: [],
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
       };
     },
     syncDocument: async (
@@ -592,7 +598,9 @@ test("explorer store shares an authenticated container and enqueues a full metad
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
         accessEpoch,
         documentId,
-        recipientEncapsulationPublicKeys: [],
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
       });
     },
   };
@@ -1178,11 +1186,12 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
 
 test("explorer store refreshes remote containers on demand after initialization", async () => {
   const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
   let listContainersCalls = 0;
 
   runtime.isAuthenticated = true;
   runtime.online = true;
-  runtime.encapsulationKeyPair = generateKemSeedAndKeyPair();
+  runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
     ...runtime.apiClient,
     createContainer: async () => null,
@@ -1198,7 +1207,9 @@ test("explorer store refreshes remote containers on demand after initialization"
           id: "shared-root-container",
           metadataAccessEpoch: 1,
           metadataDocumentId: "shared-root-metadata-document",
-          metadataRecipientEncapsulationPublicKeys: [],
+          metadataRecipientEncapsulationPublicKeys: [
+            bytesToBase64(localKeyPair.publicKey),
+          ],
           organizationId: "org-2",
           parentId: null,
         },

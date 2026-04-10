@@ -432,7 +432,6 @@ async function ensureContactDocumentForSync(
 
     contact.recipientPublicKeys = resolveRecipientPublicKeys(
       created.recipientEncapsulationPublicKeys,
-      getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
     );
     documentId = created.id;
     await persistContact(state, contact, {
@@ -538,7 +537,6 @@ async function applySyncedContactUpdates(
 ) {
   contact.recipientPublicKeys = resolveRecipientPublicKeys(
     synced.recipientEncapsulationPublicKeys,
-    getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
   );
 
   for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {

@@ -60,18 +60,21 @@ This avoids a circular foreign key between organizations and containers.
 
 ### Server Side (atomic transaction)
 
-The register endpoint creates seven rows across six tables in one transaction:
+The register endpoint creates the identity, organization, root container, root
+container access, and root metadata document rows in one transaction:
 
 1. Insert organization (name: `"Personal"`).
-2. Insert container (`organization_id = org.id`, `parent_id = NULL`, name: `"/"`).
+2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert user (`default_organization_id = org.id`).
 4. Insert organization member (`role: "owner"`).
 5. Insert object access grant (`objectType: "container"`, `accessLevel: "admin"`).
 6. Insert object access epoch (`epoch: 1`).
-7. Insert object recipient envelope (`epoch: 1`, with `kem_cipher_text` and `wrapped_key` from the client).
+7. Insert object recipient envelope (`epoch: 1`, with `kem_cipher_text` and
+   `wrapped_key` from the client).
+8. Insert root metadata document/link/bundle/update rows.
 
-The server controls all UUIDs. If the user's fingerprint already exists, the
-transaction rolls back and the endpoint returns 409.
+If the user's fingerprint already exists, the transaction rolls back and the
+endpoint returns 409.
 
 ### Client Side (after response)
 
@@ -161,31 +164,48 @@ interface PublicKeyResponse {
 }
 ```
 
-## Schema Changes
+## Current Schema Excerpts
 
-### New table: `containers`
+### Server: `containers`
 
 ```sql
-CREATE TABLE containers (
+CREATE TABLE IF NOT EXISTS containers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL,
   parent_id UUID,
-  name TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
 
-### New column: `users.default_organization_id`
+### Server: `users.default_organization_id`
 
 ```sql
-ALTER TABLE users ADD COLUMN default_organization_id UUID NOT NULL;
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fingerprint TEXT NOT NULL UNIQUE,
+  signing_public_key TEXT NOT NULL,
+  encapsulation_public_key TEXT NOT NULL,
+  encapsulation_key_fingerprint TEXT NOT NULL,
+  default_organization_id UUID NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
 ```
 
-### New columns: `object_recipient_envelopes`
+### Server: `object_recipient_envelopes`
 
 ```sql
-ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT NOT NULL;
-ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT NOT NULL;
+CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  object_type TEXT NOT NULL,
+  object_id TEXT NOT NULL,
+  epoch INTEGER NOT NULL,
+  recipient_principal_type TEXT NOT NULL,
+  recipient_principal_id TEXT NOT NULL,
+  recipient_key_fingerprint TEXT NOT NULL,
+  kem_cipher_text TEXT NOT NULL,
+  wrapped_key TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
 ```
 
 These columns store base64-encoded wrapped key material. They are required for
@@ -199,16 +219,22 @@ CREATE TABLE containers (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,
   parent_id TEXT,
-  name TEXT NOT NULL,
+  metadata_document_id TEXT,
   updated_at TEXT NOT NULL
 );
 ```
 
-### Local SQLite: `address_book_projection.is_self`
+### Local SQLite: `address_book_projection`
 
 ```sql
-ALTER TABLE address_book_projection
-  ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE address_book_projection (
+  address_book_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  encapsulation_public_key TEXT NOT NULL,
+  is_self INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (address_book_id, user_id)
+);
 
 CREATE UNIQUE INDEX address_book_projection_self_idx
   ON address_book_projection (address_book_id) WHERE is_self = 1;

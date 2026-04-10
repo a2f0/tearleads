@@ -77,11 +77,8 @@ export function getLocalRecipientPublicKeys(
 
 export function resolveRecipientPublicKeys(
   encodedPublicKeys: string[],
-  fallbackPublicKeys: Uint8Array[],
 ): Uint8Array[] {
-  return encodedPublicKeys.length > 0
-    ? encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey))
-    : fallbackPublicKeys;
+  return encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey));
 }
 
 export function createPendingUpdateFields(

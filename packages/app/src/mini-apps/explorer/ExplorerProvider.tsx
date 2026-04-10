@@ -587,16 +587,8 @@ async function hydrateRemoteContainers(
     ),
   );
 
-  const localRecipientPublicKeys = getLocalRecipientPublicKeys(
-    state.runtime.encapsulationKeyPair,
-  );
-
   for (const remoteContainer of remoteContainers) {
-    await upsertRemoteContainerState(
-      state,
-      remoteContainer,
-      localRecipientPublicKeys,
-    );
+    await upsertRemoteContainerState(state, remoteContainer);
   }
 
   if (remoteContainers.length > 0) {
@@ -610,14 +602,12 @@ async function hydrateRemoteContainers(
 async function upsertRemoteContainerState(
   state: ExplorerStoreState,
   remoteContainer: ListedRemoteContainer | MovedRemoteContainer,
-  localRecipientPublicKeys: Uint8Array[],
 ): Promise<ContainerState> {
   const existingState = state.containersById.get(remoteContainer.id);
 
   if (existingState) {
     existingState.recipientPublicKeys = resolveRecipientPublicKeys(
       remoteContainer.metadataRecipientEncapsulationPublicKeys,
-      localRecipientPublicKeys,
     );
     await persistContainerState(
       state,
@@ -648,7 +638,6 @@ async function upsertRemoteContainerState(
     doc,
     recipientPublicKeys: resolveRecipientPublicKeys(
       remoteContainer.metadataRecipientEncapsulationPublicKeys,
-      localRecipientPublicKeys,
     ),
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
@@ -869,7 +858,6 @@ async function applySyncedContainerUpdates(
 ) {
   containerState.recipientPublicKeys = resolveRecipientPublicKeys(
     synced.recipientEncapsulationPublicKeys,
-    getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
   );
 
   for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
@@ -1183,7 +1171,6 @@ async function buildRemoteChildContainerState(
     doc,
     recipientPublicKeys: resolveRecipientPublicKeys(
       created.metadataRecipientEncapsulationPublicKeys,
-      getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
     ),
     record: {
       ...initialRecord,
@@ -1419,7 +1406,6 @@ async function shareExplorerContainerWithUser(
 
   existingState.recipientPublicKeys = resolveRecipientPublicKeys(
     shared.metadataRecipientEncapsulationPublicKeys,
-    getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
   );
   await persistContainerState(state, existingState, {
     accessEpoch: shared.metadataAccessEpoch,
@@ -1476,10 +1462,7 @@ async function moveExplorerContainer(
     moved.metadataReferencedPrincipals,
   );
 
-  const localRecipientPublicKeys = getLocalRecipientPublicKeys(
-    state.runtime.encapsulationKeyPair,
-  );
-  await upsertRemoteContainerState(state, moved, localRecipientPublicKeys);
+  await upsertRemoteContainerState(state, moved);
   updateExplorerSnapshot(state);
 
   await requestRemoteHydration(state);
