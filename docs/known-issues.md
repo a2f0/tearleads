@@ -64,9 +64,11 @@ validation, canonical bundle adoption, and explicit sync response
 classification for prior/current missing updates. Note clients now probe
 document sync before committing pending local attachment drafts for existing
 remote documents, so completed rotates are discovered before attachment
-`commit-change`. The remaining gaps are historical retention/audit policy,
-replacement UX for already-committed attachments after completed rotates, and
-the client-facing multi-container document-management story.
+`commit-change`. Already-committed note attachments now queue same-slot blob
+replacement after subtractive rotates when local bytes are available, or block
+raw rotate-baseline sync and ask the user to replace the file when they are not.
+The remaining gaps are historical retention/audit policy and the client-facing
+multi-container document-management story.
 
 Why this matters:
 
@@ -83,8 +85,6 @@ Current recommendation:
 
 Remaining implementation work:
 
-- harden replacement UX for already-committed attachments that cannot be
-  header-rewrapped after a subtractive rotate
 - decide the historical attachment/blob retention product policy separately
   from blob reachability GC
 - keep pushing the multi-container document-management story beyond the

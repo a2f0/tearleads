@@ -22,12 +22,17 @@ import {
   getOrCreateDocumentEncryptionMaterial,
 } from "../../data/documentSync";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
+import {
+  addNoteAttachments,
+  ensureNoteAttachmentStructure,
+} from "./noteDocument";
 import type {
   LocalAttachmentRecord,
   NoteRecord,
   NoteSummary,
   NotesPersistence,
   PendingAttachmentRecord,
+  PendingAttachmentReplacementRecord,
   PendingAttachmentRewrapRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
@@ -37,6 +42,7 @@ interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
   note: NoteRecord | null;
   pendingAttachments: PendingAttachmentRecord[];
+  pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
   pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   noteSummaries: NoteSummary[];
   pendingUpdates: PendingUpdateRecord[];
@@ -135,6 +141,7 @@ function createNotesPersistence(): NotesPersistence & {
   let note: NoteRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
+  let pendingAttachmentReplacements: PendingAttachmentReplacementRecord[] = [];
   let pendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
 
@@ -145,6 +152,7 @@ function createNotesPersistence(): NotesPersistence & {
         localAttachments,
         note,
         pendingAttachments,
+        pendingAttachmentReplacements,
         pendingAttachmentRewraps,
         noteSummaries: note
           ? [
@@ -257,6 +265,9 @@ function createNotesPersistence(): NotesPersistence & {
     async listPendingAttachmentRewraps() {
       return pendingAttachmentRewraps;
     },
+    async listPendingAttachmentReplacements() {
+      return pendingAttachmentReplacements;
+    },
     async listLocalAttachments() {
       return localAttachments;
     },
@@ -316,6 +327,18 @@ function createNotesPersistence(): NotesPersistence & {
         attachment,
       ];
     },
+    async savePendingAttachmentReplacement(_execSql, attachment) {
+      pendingAttachmentReplacements = [
+        ...pendingAttachmentReplacements.filter(
+          (existingAttachmentReplacement) =>
+            !(
+              existingAttachmentReplacement.noteId === attachment.noteId &&
+              existingAttachmentReplacement.slotId === attachment.slotId
+            ),
+        ),
+        attachment,
+      ];
+    },
     async deletePendingAttachments(_execSql, noteId) {
       pendingAttachments = pendingAttachments.filter(
         (attachment) => attachment.noteId !== noteId,
@@ -324,6 +347,20 @@ function createNotesPersistence(): NotesPersistence & {
     async deletePendingAttachmentRewraps(_execSql, noteId) {
       pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
         (attachmentRewrap) => attachmentRewrap.noteId !== noteId,
+      );
+    },
+    async deletePendingAttachmentReplacement(_execSql, noteId, slotId) {
+      pendingAttachmentReplacements = pendingAttachmentReplacements.filter(
+        (attachmentReplacement) =>
+          !(
+            attachmentReplacement.noteId === noteId &&
+            attachmentReplacement.slotId === slotId
+          ),
+      );
+    },
+    async deletePendingAttachmentReplacements(_execSql, noteId) {
+      pendingAttachmentReplacements = pendingAttachmentReplacements.filter(
+        (attachmentReplacement) => attachmentReplacement.noteId !== noteId,
       );
     },
   };
@@ -504,6 +541,7 @@ test("notes store reloads persisted note text and pending updates", async () => 
 
   expect(firstStore.getSnapshot()).toEqual({
     attachments: [],
+    attachmentStatusBySlotId: {},
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
@@ -535,6 +573,7 @@ test("notes store reloads persisted note text and pending updates", async () => 
 
   expect(secondStore.getSnapshot()).toEqual({
     attachments: [],
+    attachmentStatusBySlotId: {},
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
@@ -1665,7 +1704,7 @@ test("notes store rewraps committed attachments when document access expands", a
   );
 });
 
-test("notes store rotates document epochs without queueing committed attachment rewraps", async () => {
+test("notes store replaces committed attachments after document rotate", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const commitChangeCalls: Array<{
@@ -1676,6 +1715,7 @@ test("notes store rotates document epochs without queueing committed attachment 
     documentRecipientEnvelopeCount: number;
     expectedBindingIds: Array<string | null>;
     referencedSlotIds: string[];
+    sourceVersionVector: string | null;
   }> = [];
   let currentBindingId: string | null = null;
   let currentBlobId: string | null = null;
@@ -1713,6 +1753,7 @@ test("notes store rotates document epochs without queueing committed attachment 
             ),
           ],
           referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+          sourceVersionVector: input.loroUpdate?.sourceVersionVector ?? null,
         });
 
         const committedBindings = input.attachmentCommits.map(
@@ -1844,17 +1885,13 @@ test("notes store rotates document epochs without queueing committed attachment 
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.some(
-        (call) =>
-          call.accessEpoch === 2 &&
-          call.documentRecipientEnvelopeCount === 1 &&
-          call.outgoingSourceVersionVectors[0] === "rotate-frontier-1" &&
-          call.outgoingUpdateCount === 1,
-      ) &&
+      commitChangeCalls.length === 2 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().pendingAttachmentReplacements.length === 0 &&
       persistence.getState().pendingAttachmentRewraps.length === 0 &&
       persistence.getState().pendingUpdates.length === 0 &&
       persistence.getState().note?.accessEpoch === 2,
-    "Rotate access epoch did not trigger a fresh baseline resend.",
+    "Rotate access epoch did not trigger committed attachment replacement.",
   );
 
   expect(commitChangeCalls).toEqual([
@@ -1866,6 +1903,17 @@ test("notes store rotates document epochs without queueing committed attachment 
       documentRecipientEnvelopeCount: 1,
       expectedBindingIds: [null],
       referencedSlotIds: [currentSlotId ?? ""],
+      sourceVersionVector: null,
+    },
+    {
+      accessEpoch: 2,
+      attachmentCommitCount: 1,
+      attachmentRewrapCount: 0,
+      documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
+      expectedBindingIds: ["binding-1-1"],
+      referencedSlotIds: [currentSlotId ?? ""],
+      sourceVersionVector: "rotate-frontier-1",
     },
   ]);
   expect(syncDocumentCalls).toContainEqual({
@@ -1882,13 +1930,194 @@ test("notes store rotates document epochs without queueing committed attachment 
     outgoingSourceVersionVectors: [null],
     outgoingUpdateCount: 1,
   });
-  expect(syncDocumentCalls).toContainEqual({
-    accessEpoch: 2,
+  expect(
+    syncDocumentCalls.some(
+      (call) => call.accessEpoch === 2 && call.outgoingUpdateCount === 1,
+    ),
+  ).toBe(false);
+});
+
+test("notes store asks for replacement when rotated attachment bytes are not local", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const slotId = "slot-needs-replacement";
+  const existingDoc = await createDocument("missing-local-attachment");
+  ensureNoteAttachmentStructure(existingDoc);
+  addNoteAttachments(existingDoc, [
+    {
+      byteLength: "old attachment".length,
+      mimeType: "image/png",
+      name: "old.png",
+      slotId,
+    },
+  ]);
+  await persistence.saveNote(async () => [], {
+    accessEpoch: 1,
+    containerId: "shared-container",
     documentId: "notes-document-1",
-    documentRecipientEnvelopeCount: 1,
-    outgoingSourceVersionVectors: ["rotate-frontier-1"],
-    outgoingUpdateCount: 1,
+    documentRecipientEnvelopes: null,
+    id: "missing-local-attachment",
+    loroSnapshot: bytesToBase64(exportAllUpdates(existingDoc)),
+    text: "",
   });
+
+  const commitChangeCalls: Array<{
+    accessEpoch: number;
+    attachmentCommitCount: number;
+    documentRecipientEnvelopeCount: number;
+    expectedBindingIds: Array<string | null>;
+    referencedSlotIds: string[];
+    sourceVersionVector: string | null;
+  }> = [];
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    outgoingUpdateCount: number;
+  }> = [];
+  let shouldRotate = true;
+  let currentBindingId = "binding-before-rotate";
+  let currentBlobId = "blob-before-rotate";
+  let commitCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      commitDocumentChange: async (_documentId, input) => {
+        commitCount += 1;
+        commitChangeCalls.push({
+          accessEpoch: input.accessEpoch,
+          attachmentCommitCount: input.attachmentCommits.length,
+          documentRecipientEnvelopeCount:
+            input.documentRecipientEnvelopes?.length ?? 0,
+          expectedBindingIds: input.attachmentCommits.map(
+            (commit) => commit.expectedBindingId,
+          ),
+          referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+          sourceVersionVector: input.loroUpdate?.sourceVersionVector ?? null,
+        });
+        const committedBindings = input.attachmentCommits.map((commit) => {
+          currentBindingId = `binding-after-replacement-${commitCount}`;
+          currentBlobId = `blob-after-replacement-${commitCount}`;
+
+          return {
+            bindingId: currentBindingId,
+            blobId: currentBlobId,
+            slotId: commit.slotId,
+          };
+        });
+
+        return {
+          acceptedOutgoingUpdateIds: input.loroUpdate
+            ? [input.loroUpdate.id]
+            : [],
+          committedBindings,
+          currentAccessEpoch: input.accessEpoch,
+          documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+          detachedBindingIds: ["binding-before-rotate"],
+        };
+      },
+      getBlob: async () => null,
+      listDocumentAttachments: async () => [
+        {
+          bindingId: currentBindingId,
+          blobId: currentBlobId,
+          slotId,
+        },
+      ],
+      stageBlob: async (input) => runtime.apiClient.stageBlob(input),
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        syncDocumentCalls.push({
+          accessEpoch,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        if (shouldRotate) {
+          shouldRotate = false;
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "rotate",
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+            rotateBaselineSourceVersionVector: "missing-local-rotate-frontier",
+          });
+        }
+
+        return runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "missing-local-attachment",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () =>
+      persistence.getState().pendingAttachmentReplacements.length === 1 &&
+      store.getSnapshot().attachmentStatusBySlotId[slotId] ===
+        "needs_replacement",
+    "Rotated attachment without local bytes was not marked for replacement.",
+  );
+
+  expect(persistence.getState().pendingAttachments).toEqual([]);
+  expect(
+    syncDocumentCalls.some(
+      (call) => call.accessEpoch === 2 && call.outgoingUpdateCount > 0,
+    ),
+  ).toBe(false);
+
+  store.replaceAttachment(slotId, {
+    bytes: new TextEncoder().encode("replacement bytes"),
+    mimeType: "image/png",
+    name: "replacement.png",
+  });
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 1 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().pendingAttachmentReplacements.length === 0 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      store.getSnapshot().attachmentStatusBySlotId[slotId] === undefined,
+    "Selected replacement attachment was not committed.",
+  );
+
+  expect(store.getSnapshot().attachments).toEqual([
+    {
+      byteLength: "replacement bytes".length,
+      mimeType: "image/png",
+      name: "replacement.png",
+      slotId,
+    },
+  ]);
+  expect(commitChangeCalls).toEqual([
+    {
+      accessEpoch: 2,
+      attachmentCommitCount: 1,
+      documentRecipientEnvelopeCount: 1,
+      expectedBindingIds: ["binding-before-rotate"],
+      referencedSlotIds: [slotId],
+      sourceVersionVector: "missing-local-rotate-frontier",
+    },
+  ]);
 });
 
 test("notes store builds rotate baselines over decryptable prior-epoch updates", async () => {

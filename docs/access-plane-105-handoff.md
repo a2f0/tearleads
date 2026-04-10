@@ -37,29 +37,27 @@ These #105 slices are back on `main`.
 
 ## Current In-Flight Slice
 
-Branch `feat/rotate-attachment-draft-hardening` is the next `#105` slice.
+The local pickup slice after PR `#168` hardens already-committed note
+attachments when a client discovers a subtractive document rotate:
 
-This slice hardens note attachment drafts when a client worked offline and then
-discovers that the document epoch rotated while it was away:
-
-- for an already-created remote note document, pending local attachment drafts
-  trigger a no-outgoing document sync probe before `commit-change`
-- the probe lets the client adopt a completed rotate/canonical bundle before it
-  stages and commits local attachment bytes
-- local pending attachment bytes remain local drafts until the atomic
-  attachment commit can run under the refreshed epoch
-- if the probe discovers a rotate, the later attachment baseline commit carries
-  the rotate baseline source frontier for server CAS validation
-- pending attachment Loro metadata is not uploaded through raw document sync
-  ahead of the server-visible attachment binding commit
+- committed attachments with local plaintext bytes are queued for same-slot blob
+  replacement instead of header-only rewrap
+- clients try to hydrate missing committed attachment bytes before deciding that
+  user action is needed
+- if bytes are still unavailable, the note UI marks the attachment as needing
+  replacement and exposes a per-attachment `Replace File` action
+- raw document sync is paused while any committed attachment still needs
+  replacement, so rotate baselines that reference attachment slots are not
+  uploaded ahead of the server-visible binding replacement
+- replacement commits carry the rotate baseline source frontier through the
+  existing atomic `commit-change` path
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT
 state.
 
-After this slice lands, the best next candidates are the product-facing
-replacement UX for already-committed attachments after subtractive rotates and
-the historical attachment/blob retention policy.
+After this slice lands, the best next candidate is the historical
+attachment/blob retention policy.
 
 ## What Is Already Landed
 
@@ -98,6 +96,10 @@ The access plane already has these pieces:
 - note clients probe document sync without outgoing updates before committing
   pending local attachment drafts for an existing remote document, so completed
   rotates are adopted before the attachment `commit-change`
+- note clients replace already-committed attachments after subtractive rotates
+  when local bytes are available, and otherwise surface a per-attachment
+  replacement action before uploading a current-epoch rotate baseline that
+  references the slot
 - detached attachment bindings are transient metadata and may be pruned when
   blob GC removes the now-unreachable blob
 
@@ -115,10 +117,9 @@ Avoid these paths:
 
 ## Remaining #105 Work
 
-The next slices should stay focused on rotate/adoption edge cases:
+The next slices should stay focused on retention and remaining product edge
+cases:
 
-- harden the replacement UX for already-committed attachments that cannot be
-  header-rewrapped after a subtractive rotate
 - keep true multi-container document-management UI work separate unless the
   chosen slice needs it; the structural APIs and note move/link/unlink flows
   already exist, but notes still present mostly as single-active-container
@@ -145,10 +146,8 @@ docs/access-plane-105-handoff.md first, then inspect the latest main branch and
 continue with the next #105 slice. Assume PR #167 has merged and the sync
 outcome classification slice has landed.
 
-Recommended next slice after attachment draft hardening: decide and implement
-the product-facing replacement UX for already-committed attachments that cannot
-be header-rewrapped after a subtractive rotate, or choose the historical
-attachment/blob retention policy if that is more urgent.
+Recommended next slice after committed attachment replacement hardening: decide
+and implement the historical attachment/blob retention policy.
 
 Preserve additive rewrap behavior, rotate source-frontier CAS, prior-epoch
 update import, canonical bundle adoption, and explicit sync outcome
