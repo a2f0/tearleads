@@ -150,8 +150,8 @@ async function writeInitialRootContainerAccess(
     epoch: 1,
     accessFingerprint: await computeAccessFingerprint({
       objectType: CONTAINER_OBJECT_TYPE,
-      rootContainerId: input.containerId,
       ancestorContainerIds: [input.containerId],
+      containerId: input.containerId,
       grants: [
         {
           objectId: input.containerId,
