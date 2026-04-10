@@ -17,6 +17,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
+import { DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE } from "@tearleads/loro/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   commitDocumentChange,
@@ -474,7 +475,7 @@ test("POST /documents/:documentId/commit-change rejects a divergent current-epoc
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: "Document recipient envelopes conflict",
+    error: DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
   });
 
   const storedUpdateRows = await db

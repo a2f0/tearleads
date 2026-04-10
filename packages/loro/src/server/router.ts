@@ -5,6 +5,7 @@ import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
 import {
   type CreateDocumentRequest,
   type CreateDocumentResponse,
+  DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
   type DocumentRecipientEnvelopeAction,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,
@@ -275,7 +276,7 @@ function isDocumentRecipientEnvelopesConflict(appendAttempt: {
 }): boolean {
   return (
     appendAttempt.status === 409 &&
-    appendAttempt.error === "Document recipient envelopes conflict"
+    appendAttempt.error === DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE
   );
 }
 
