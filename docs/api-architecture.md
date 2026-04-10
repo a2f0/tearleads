@@ -193,9 +193,13 @@ owns linked-container authorization, document access bundle lookup, document
 recipient-envelope persistence, and update storage through the injected runtime
 database.
 
-The document routes are not fully extracted yet. In particular, the heavier
-document/blob use cases still have route-level orchestration. Those remaining
-exceptions are tracked below as future work.
+Document commit/change is implemented as a document service. The
+`/documents/:documentId/commit-change` route validates request shape, maps
+service errors to HTTP responses, and publishes accepted update events, while
+the service owns document-write authorization, staged blob promotion,
+attachment mutation application, recipient-envelope persistence, Loro update
+storage, blob access refresh, and unreachable blob pruning through the injected
+runtime database.
 
 ## Why `routeApp` Exists
 
@@ -260,10 +264,6 @@ The rules are:
 
 ## Future Work
 
-The remaining extraction targets are:
-
-- document commit/change orchestration
-
-Those are the places where document plane, attachment plane, and access plane
-meet most heavily, so they are also the places where a clean service boundary
-will pay off the most.
+The API route extraction targets tracked by #177 are complete. Future work in
+this area should be opened as specific follow-up issues rather than kept as a
+standing migration list here.

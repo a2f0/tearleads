@@ -248,14 +248,22 @@ export const blobStages = pgTable("blob_stages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const attachmentBindings = pgTable("attachment_bindings", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  documentId: text("document_id").notNull(),
-  slotId: text("slot_id").notNull(),
-  blobId: uuid("blob_id").notNull(),
-  previousBindingId: uuid("previous_binding_id"),
-  detachedAt: timestamp("detached_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const attachmentBindings = pgTable(
+  "attachment_bindings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: text("document_id").notNull(),
+    slotId: text("slot_id").notNull(),
+    blobId: uuid("blob_id").notNull(),
+    previousBindingId: uuid("previous_binding_id"),
+    detachedAt: timestamp("detached_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("attachment_bindings_previous_binding_id_idx").on(
+      table.previousBindingId,
+    ),
+  ],
+);
 
 export { documents, documentUpdates };
