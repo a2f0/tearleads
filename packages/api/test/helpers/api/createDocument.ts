@@ -1,10 +1,10 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function createDocument(
   token: string,
   linkedContainerIds: string[],
 ): Promise<Response> {
-  return app.request("/documents", {
+  return routeApp.request("/documents", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

@@ -169,6 +169,9 @@ mapping.
 metadata document creation. Auth registration and container creation call it
 from service code without importing from `routes/**`.
 
+API route tests, API integration helpers, and in-process API integration tests
+call `routeApp` directly instead of importing the server entrypoint.
+
 The document routes are not fully extracted yet. In particular, the heavier
 document/blob use cases still have route-level orchestration. Those remaining
 exceptions are tracked below as future work.
@@ -238,7 +241,6 @@ The rules are:
 
 The remaining extraction targets are:
 
-- route tests that still import the server entrypoint
 - document sync orchestration
 - document commit/change orchestration
 - blob stage/get orchestration

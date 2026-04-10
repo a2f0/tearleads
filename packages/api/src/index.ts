@@ -12,6 +12,4 @@ const server = {
   },
   websocket,
 };
-
-export { routeApp as app };
 export default server;

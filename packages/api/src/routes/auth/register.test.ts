@@ -11,7 +11,7 @@ import invariant from "invariant";
 import { uploadKey } from "../../../test/helpers/api";
 import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import {
   containerMetadataDocuments,
   containers,
@@ -120,7 +120,7 @@ test("POST /auth/register rejects a wrapped envelope whose fingerprint does not 
   const wrappedEnvelope = recipients[0];
   invariant(wrappedEnvelope, "expected a wrapped envelope");
 
-  const response = await app.request("/auth/register", {
+  const response = await routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -156,7 +156,7 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
   const badKemCipherText = Array.from(
     wrappedEnvelope.kemCipherText.slice(0, 8),
   );
-  const response = await app.request("/auth/register", {
+  const response = await routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

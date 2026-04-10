@@ -15,7 +15,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { containers, groupMembers, groups, users } from "../../schema";
 
 const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
@@ -93,7 +93,7 @@ test("GET /containers/:containerId/documents lists readable non-metadata documen
   expect(createResponse.status).toBe(200);
   const createdDocument = await createResponse.json();
 
-  const response = await app.request(
+  const response = await routeApp.request(
     `/containers/${rootContainerId}/documents`,
     {
       method: "GET",
@@ -128,7 +128,7 @@ test("GET /containers/:containerId/documents returns documents for directly shar
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const sharedContainerResponse = await app.request("/containers", {
+  const sharedContainerResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${owner.token}`,
@@ -156,7 +156,7 @@ test("GET /containers/:containerId/documents returns documents for directly shar
     subjectType: "user",
   });
 
-  const response = await app.request(
+  const response = await routeApp.request(
     `/containers/${sharedContainerId}/documents`,
     {
       method: "GET",
@@ -190,7 +190,7 @@ test("GET /containers/:containerId/documents includes referenced principal polic
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const sharedContainerResponse = await app.request("/containers", {
+  const sharedContainerResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${owner.token}`,
@@ -242,7 +242,7 @@ test("GET /containers/:containerId/documents includes referenced principal polic
     subjectType: "group",
   });
 
-  const response = await app.request(
+  const response = await routeApp.request(
     `/containers/${sharedContainerId}/documents`,
     {
       method: "GET",

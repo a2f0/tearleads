@@ -5,7 +5,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { containers, groups, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
@@ -44,7 +44,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await app.request("/containers", {
+  const sharedCreateResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -59,7 +59,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
 
   expect(sharedCreateResponse.status).toBe(200);
 
-  const descendantCreateResponse = await app.request("/containers", {
+  const descendantCreateResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -74,7 +74,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
 
   expect(descendantCreateResponse.status).toBe(200);
 
-  const shareResponse = await app.request(
+  const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
     {
       method: "POST",
@@ -96,7 +96,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   expect(shared.metadataAccessEpoch).toBe(2);
   expect(shared.metadataRecipientEncapsulationPublicKeys).toHaveLength(2);
 
-  const listResponse = await app.request("/containers", {
+  const listResponse = await routeApp.request("/containers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${recipient.token}`,
@@ -137,7 +137,7 @@ test("POST /containers/:containerId/share rejects callers without admin access",
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const createResponse = await app.request("/containers", {
+  const createResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -152,7 +152,7 @@ test("POST /containers/:containerId/share rejects callers without admin access",
 
   expect(createResponse.status).toBe(200);
 
-  const shareResponse = await app.request(
+  const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
     {
       method: "POST",
@@ -180,7 +180,7 @@ test("POST /containers/:containerId/share rejects managed grants without current
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const createResponse = await app.request("/containers", {
+  const createResponse = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -213,7 +213,7 @@ test("POST /containers/:containerId/share rejects managed grants without current
     .returning({ id: groups.id });
   invariant(group, "expected group");
 
-  const shareResponse = await app.request(
+  const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
     {
       method: "POST",

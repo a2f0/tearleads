@@ -1,7 +1,7 @@
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function submitLogout(token: string): Promise<Response> {
-  return app.request("/auth/logout", {
+  return routeApp.request("/auth/logout", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });

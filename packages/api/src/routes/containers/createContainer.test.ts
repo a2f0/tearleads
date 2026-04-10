@@ -9,7 +9,7 @@ import {
   resolveContainerAccessState,
 } from "../../access/containerAccess";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { containerMetadataDocuments, containers, users } from "../../schema";
 
 async function getRootContainerForUser(userId: string) {
@@ -49,7 +49,7 @@ test("POST /containers creates a child container under a writable parent", async
   const rootContainer = await getRootContainerForUser(user.userId);
   const childId = crypto.randomUUID();
 
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -109,7 +109,7 @@ test("POST /containers rejects creating a child container under a parent without
 
   const ownerRootContainer = await getRootContainerForUser(owner.userId);
 
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

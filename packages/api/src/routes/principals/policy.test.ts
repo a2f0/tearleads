@@ -15,7 +15,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { TRUSTED_POLICY_SIGNERS_ENV_VAR } from "../../services/runtime";
 
 afterEach(() => {
@@ -77,7 +77,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
     signingPrivateKey,
   });
 
-  const putStateResponse = await app.request(
+  const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
     {
       method: "PUT",
@@ -103,7 +103,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
     },
   ]);
 
-  const getPolicyResponse = await app.request(
+  const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
     {
       method: "GET",
@@ -147,7 +147,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
     signingPrivateKey,
   });
 
-  const putStateResponse = await app.request(
+  const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
     {
       method: "PUT",
@@ -166,7 +166,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
     "expected principal state response",
   );
 
-  const putMemberEnvelopesResponse = await app.request(
+  const putMemberEnvelopesResponse = await routeApp.request(
     `/principals/group/${principalId}/member-envelopes`,
     {
       method: "PUT",
@@ -206,7 +206,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
     },
   ]);
 
-  const getPolicyResponse = await app.request(
+  const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
     {
       method: "GET",
@@ -243,7 +243,7 @@ test("PUT /principals/:principalType/:principalId/state rejects untrusted signer
     signingPrivateKey,
   });
 
-  const response = await app.request(
+  const response = await routeApp.request(
     `/principals/organization/${principalId}/state`,
     {
       method: "PUT",

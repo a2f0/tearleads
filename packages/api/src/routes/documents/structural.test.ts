@@ -13,7 +13,7 @@ import {
 } from "../../access/blobAccess";
 import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
-import { app } from "../../index";
+import { routeApp } from "../../routeApp";
 import { blobs, containers, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
@@ -49,7 +49,7 @@ async function createContainerForUser(input: {
   parentId: string;
   token: string;
 }): Promise<void> {
-  const response = await app.request("/containers", {
+  const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.token}`,
@@ -114,16 +114,19 @@ test("document link and unlink routes bump document and blob access epochs", asy
 
   await attachBlobToDocument(blob.id, documentId, "slot_01");
 
-  const linkedResponse = await app.request(`/documents/${documentId}/link`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
+  const linkedResponse = await routeApp.request(
+    `/documents/${documentId}/link`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        containerId: siblingContainerId,
+      }),
     },
-    body: JSON.stringify({
-      containerId: siblingContainerId,
-    }),
-  });
+  );
 
   expect(linkedResponse.status).toBe(200);
   expect(await linkedResponse.json()).toEqual(
@@ -142,7 +145,7 @@ test("document link and unlink routes bump document and blob access epochs", asy
   invariant(linkedBlobState, "expected linked blob state");
   expect(linkedBlobState.currentAccessEpoch).toBe(2);
 
-  const siblingListResponse = await app.request(
+  const siblingListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,
     {
       method: "GET",
@@ -163,7 +166,7 @@ test("document link and unlink routes bump document and blob access epochs", asy
     ]),
   );
 
-  const unlinkedResponse = await app.request(
+  const unlinkedResponse = await routeApp.request(
     `/documents/${documentId}/unlink`,
     {
       method: "POST",
@@ -194,7 +197,7 @@ test("document link and unlink routes bump document and blob access epochs", asy
   invariant(unlinkedBlobState, "expected unlinked blob state");
   expect(unlinkedBlobState.currentAccessEpoch).toBe(3);
 
-  const afterUnlinkListResponse = await app.request(
+  const afterUnlinkListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,
     {
       method: "GET",
@@ -220,7 +223,7 @@ test("document unlink route rejects removing the final linked container", async 
   const createdDocument = await createDocumentResponse.json();
   const documentId = String(createdDocument.id ?? "");
 
-  const unlinkedResponse = await app.request(
+  const unlinkedResponse = await routeApp.request(
     `/documents/${documentId}/unlink`,
     {
       method: "POST",

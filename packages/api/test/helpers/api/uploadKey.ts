@@ -1,6 +1,6 @@
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
-import { app } from "../../../src/index";
+import { routeApp } from "../../../src/routeApp";
 
 export async function uploadKey(
   signingPublicKey: Uint8Array,
@@ -15,7 +15,7 @@ export async function uploadKey(
     throw new Error("Failed to wrap DEK for test user");
   }
 
-  return app.request("/auth/register", {
+  return routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
