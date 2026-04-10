@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
-import { emptyVersionVector } from "@tearleads/loro";
+import {
+  createDocument,
+  derivePeerId,
+  encodeVersionVector,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
 import { eq } from "drizzle-orm";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import {
@@ -9,7 +15,11 @@ import {
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
 import { db } from "../../adapters/postgres";
-import { documentContainerLinks, documentUpdates } from "../../schema";
+import {
+  documentContainerLinks,
+  documentUpdateSpans,
+  documentUpdates,
+} from "../../schema";
 import { registerPublicKey } from "../auth/registerPublicKey";
 import {
   CreateDocumentError,
@@ -110,12 +120,19 @@ test("document sync store creates documents and resolves access through the runt
 
 test("document sync store appends missing document updates idempotently", async () => {
   const { created, store, user } = await createServiceDocument();
+  const peerSeed = "document-sync-store-span-peer";
+  const doc = await createDocument(peerSeed);
+  const startVersion = encodeVersionVector(doc);
+  doc.getText("text").update("service store update");
+  const vectors = getUpdateVersionVectors(
+    exportUpdatesSince(doc, startVersion),
+  );
   const updateId = crypto.randomUUID();
   const update = {
     id: updateId,
     encryptedData: "encrypted-update",
-    partialStartVersionVector: emptyVersionVector(),
-    partialEndVersionVector: emptyVersionVector(),
+    partialStartVersionVector: vectors.partialStartVersionVector,
+    partialEndVersionVector: vectors.partialEndVersionVector,
   };
   const documentRecipientEnvelopes = created.documentRecipientEnvelopes;
   if (!documentRecipientEnvelopes) {
@@ -129,6 +146,7 @@ test("document sync store appends missing document updates idempotently", async 
     updates: [update],
   });
   expect(firstAppend.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  expect(firstAppend.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/);
   expect(firstAppend.documentRecipientEnvelopes).toEqual(
     documentRecipientEnvelopes,
   );
@@ -140,6 +158,7 @@ test("document sync store appends missing document updates idempotently", async 
     updates: [update],
   });
   expect(retryAppend.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  expect(retryAppend.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/);
 
   const storedUpdates = await store.listDocumentUpdates(created.document.id);
   expect(storedUpdates).toHaveLength(1);
@@ -150,6 +169,22 @@ test("document sync store appends missing document updates idempotently", async 
     .from(documentUpdates)
     .where(eq(documentUpdates.documentId, created.document.id));
   expect(dbRows).toHaveLength(1);
+
+  const spanRows = await db
+    .select({
+      endCounter: documentUpdateSpans.endCounter,
+      peerId: documentUpdateSpans.peerId,
+      startCounter: documentUpdateSpans.startCounter,
+    })
+    .from(documentUpdateSpans)
+    .where(eq(documentUpdateSpans.updateId, updateId));
+  expect(spanRows).toHaveLength(1);
+  expect(spanRows[0]).toEqual({
+    endCounter: expect.any(Number),
+    peerId: await derivePeerId(peerSeed),
+    startCounter: 0,
+  });
+  expect(spanRows[0]?.endCounter).toBeGreaterThan(0);
 });
 
 test("document sync store reports create and append errors", async () => {

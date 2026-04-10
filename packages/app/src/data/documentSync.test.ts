@@ -36,6 +36,7 @@ function createSyncResponse(input: {
   return {
     acceptedOutgoingUpdateIds: [],
     canonicalDocumentRecipientEnvelopesAdopted: false,
+    commitLsn: null,
     currentAccessEpoch: input.currentAccessEpoch ?? 2,
     documentId: "document-1",
     documentRecipientEnvelopeAction: "rotate",

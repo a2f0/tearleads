@@ -52,6 +52,7 @@ Current shape:
     - `documentRecipientEnvelopes | null`
     - `acceptedOutgoingUpdateIds[]`
     - `canonicalDocumentRecipientEnvelopesAdopted`
+    - `commitLsn | null`
     - `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`)
     - encrypted updates whose visible causal metadata is not yet covered by the
       client version vector
@@ -63,9 +64,11 @@ The `document_update_spans` table now exists as the first server-side causal
 indexing primitive for issue `#88`: it can store one row per document/update
 peer span with start and end counters, plus indexes for
 `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
-composite index also covers document-only lookups. The current sync route still
-uses the existing in-memory filter until the append path starts writing spans
-and the sync query moves to SQL.
+composite index also covers document-only lookups. Append paths now write the
+encrypted update row and visible span rows in the same transaction. The current
+sync route still uses the existing in-memory filter until the sync query moves
+to SQL. Sync responses also include a `commitLsn` when the request acknowledged
+current-epoch writes, and `null` when the route only served a read.
 
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
@@ -91,6 +94,10 @@ Current implementation:
 - sync responses set `canonicalDocumentRecipientEnvelopesAdopted` when a
   same-epoch document bundle conflict was resolved by returning the canonical
   current bundle and leaving outgoing updates unaccepted for retry
+- accepted current-epoch sync writes return a `commitLsn`, and the server now
+  materializes per-peer `document_update_spans` from each update's visible
+  partial version-vector metadata in the same transaction as the encrypted
+  `document_updates` row
 - the current document-DEK bundle can now be materialized in strict
   `object_recipient_envelopes` rows with required wrapped-key material
 - recipient bundle rows are principal-shaped, and document/blob wrapped-key

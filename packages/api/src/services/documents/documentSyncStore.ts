@@ -43,6 +43,8 @@ import {
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
 import type { ApiServiceRuntime } from "../runtime";
+import { readCurrentCommitLsn } from "./commitLsn";
+import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
 type DocumentSyncExecutor = DatabaseExecutor;
 type DocumentAccess = NonNullable<
@@ -74,6 +76,7 @@ interface DocumentAccessState {
 
 interface AppendDocumentUpdatesResult {
   acceptedOutgoingUpdateIds: string[];
+  commitLsn: string;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
 }
 
@@ -354,6 +357,11 @@ async function appendMissingDocumentUpdates(input: {
         })),
       )
       .returning({ id: documentUpdates.id });
+    const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
+    await insertDocumentUpdateSpans(input.executor, {
+      documentId: input.documentId,
+      updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
+    });
 
     acceptedUpdateIds.clear();
     for (const row of [...existingRows, ...insertedRows]) {
@@ -587,7 +595,7 @@ async function appendSyncDocumentUpdates(
     updates: SyncDocumentOutgoingUpdate[];
   },
 ): Promise<AppendDocumentUpdatesResult> {
-  return runtime.db.transaction(async (tx) => {
+  const result = await runtime.db.transaction(async (tx) => {
     const access = await resolveDocumentAccessState(input.documentId, tx);
     if (!access) {
       throw new DocumentUpdateError("Document access state not found", 409);
@@ -620,6 +628,11 @@ async function appendSyncDocumentUpdates(
       documentRecipientEnvelopes: canonicalDocumentRecipientEnvelopes,
     };
   });
+
+  return {
+    ...result,
+    commitLsn: await readCurrentCommitLsn(runtime.db),
+  };
 }
 
 async function listSyncDocumentUpdates(

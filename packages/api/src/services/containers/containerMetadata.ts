@@ -19,6 +19,7 @@ import {
   documents,
   documentUpdates,
 } from "../../schema";
+import { insertDocumentUpdateSpans } from "../documents/documentUpdateSpans";
 
 function matchesAccessEpoch(
   encryptedData: string,
@@ -53,6 +54,10 @@ async function appendDocumentUpdates(
       encryptedData: update.encryptedData,
       partialStartVersionVector: update.partialStartVersionVector,
       partialEndVersionVector: update.partialEndVersionVector,
+    });
+    await insertDocumentUpdateSpans(tx, {
+      documentId,
+      updates: [update],
     });
   }
 }

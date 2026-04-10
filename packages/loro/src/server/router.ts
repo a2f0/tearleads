@@ -43,6 +43,7 @@ interface DocumentAccessState {
 
 interface AppendDocumentUpdatesResult {
   acceptedOutgoingUpdateIds: string[];
+  commitLsn: string | null;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
 }
 
@@ -181,6 +182,7 @@ async function appendOutgoingDocumentUpdates<TSession extends SessionLike>(
   ) {
     return {
       acceptedOutgoingUpdateIds: [],
+      commitLsn: null,
       documentRecipientEnvelopes: undefined,
     };
   }
@@ -308,6 +310,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
       acceptedOutgoingUpdateIds: string[];
       access: DocumentAccessState;
       canonicalDocumentRecipientEnvelopesAdopted: boolean;
+      commitLsn: string | null;
       documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
     }
   | { error: string; status: SyncRouteErrorStatus }
@@ -348,6 +351,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
       acceptedOutgoingUpdateIds: [],
       access: refreshedSyncAccess.access,
       canonicalDocumentRecipientEnvelopesAdopted: true,
+      commitLsn: null,
       documentRecipientEnvelopes:
         refreshedSyncAccess.access.documentRecipientEnvelopes,
     };
@@ -359,6 +363,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
     acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
     access: input.currentAccess,
     canonicalDocumentRecipientEnvelopesAdopted: false,
+    commitLsn: appendResult.commitLsn,
     documentRecipientEnvelopes:
       appendResult.documentRecipientEnvelopes ??
       input.currentAccess.documentRecipientEnvelopes,
@@ -446,6 +451,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
 
     let acceptedOutgoingUpdateIds: string[] = [];
     let canonicalDocumentRecipientEnvelopesAdopted = false;
+    let commitLsn: string | null = null;
     let responseDocumentRecipientEnvelopes = access.documentRecipientEnvelopes;
 
     if (accessEpoch === access.currentAccessEpoch) {
@@ -465,6 +471,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       acceptedOutgoingUpdateIds = appendResult.acceptedOutgoingUpdateIds;
       canonicalDocumentRecipientEnvelopesAdopted =
         appendResult.canonicalDocumentRecipientEnvelopesAdopted;
+      commitLsn = appendResult.commitLsn;
       responseDocumentRecipientEnvelopes =
         appendResult.documentRecipientEnvelopes;
     }
@@ -486,6 +493,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       documentId,
       acceptedOutgoingUpdateIds,
       canonicalDocumentRecipientEnvelopesAdopted,
+      commitLsn,
       missingUpdateEpochs: getMissingUpdateEpochs(
         missingUpdates,
         access.currentAccessEpoch,

@@ -35,6 +35,7 @@ import {
 } from "../../utils/recipientEnvelopes";
 import type { ApiServiceRuntime } from "../runtime";
 import { getRotateBaselineSourceError } from "./documentSyncStore";
+import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
 type CommitChangeExecutor = DatabaseExecutor;
 type CommitChangeAccess = NonNullable<
@@ -628,6 +629,10 @@ async function commitDocumentLoroUpdate(
     })
     .returning({ id: documentUpdates.id });
   if (inserted) {
+    await insertDocumentUpdateSpans(tx, {
+      documentId,
+      updates: [input.loroUpdate],
+    });
     acceptedOutgoingUpdateIds.push(inserted.id);
   }
 
