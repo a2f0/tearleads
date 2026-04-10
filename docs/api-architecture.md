@@ -161,6 +161,10 @@ Container list and container document listing pass their injected runtime
 executor through the access helpers they call, so in-process callers do not
 fall back to the global database adapter inside those service paths.
 
+Auth challenge and verify services return service-level success results and
+typed service errors. Their routes own the HTTP status and response-body
+mapping.
+
 `packages/api/src/services/containers/containerMetadata.ts` owns container
 metadata document creation. Auth registration and container creation call it
 from service code without importing from `routes/**`.
@@ -234,6 +238,7 @@ The rules are:
 
 The remaining extraction targets are:
 
+- route tests that still import the server entrypoint
 - document sync orchestration
 - document commit/change orchestration
 - blob stage/get orchestration

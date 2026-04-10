@@ -3,10 +3,6 @@ import {
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
 } from "@tearleads/crypto";
-import type {
-  ChallengeErrorResponse,
-  ChallengeResponse,
-} from "@tearleads/validators/response";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface CreateChallengeInput {
@@ -14,8 +10,18 @@ interface CreateChallengeInput {
 }
 
 interface CreateChallengeResult {
-  body: ChallengeErrorResponse | ChallengeResponse;
-  status: 200 | 404;
+  challenge: string;
+}
+
+type CreateChallengeErrorReason = "unknown_fingerprint";
+
+export class CreateChallengeError extends Error {
+  constructor(
+    message: string,
+    readonly reason: CreateChallengeErrorReason,
+  ) {
+    super(message);
+  }
 }
 
 export async function createChallenge(
@@ -24,10 +30,10 @@ export async function createChallenge(
 ): Promise<CreateChallengeResult> {
   const storedKey = await runtime.keyValueStore.get(input.fingerprint);
   if (!storedKey) {
-    return {
-      body: { error: "Unknown fingerprint" },
-      status: 404,
-    };
+    throw new CreateChallengeError(
+      "Unknown fingerprint",
+      "unknown_fingerprint",
+    );
   }
 
   const bytes = generateChallenge();
@@ -39,7 +45,6 @@ export async function createChallenge(
   );
 
   return {
-    body: { challenge: challengeHex },
-    status: 200,
+    challenge: challengeHex,
   };
 }
