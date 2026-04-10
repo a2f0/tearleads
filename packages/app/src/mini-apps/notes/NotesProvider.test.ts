@@ -55,18 +55,23 @@ function createSyncDocumentResponse(input: {
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
+  canonicalDocumentRecipientEnvelopesAdopted?: boolean;
   documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
   documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  missingUpdateEpochs?: SyncDocumentResponse["missingUpdateEpochs"];
   rotateBaselineSourceVersionVector?: string | null;
   updates?: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
   return {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
+    canonicalDocumentRecipientEnvelopesAdopted:
+      input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
     documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    missingUpdateEpochs: input.missingUpdateEpochs ?? [],
     rotateBaselineSourceVersionVector:
       input.rotateBaselineSourceVersionVector ?? null,
     recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
@@ -1789,8 +1794,10 @@ test("notes store builds rotate baselines over decryptable prior-epoch updates",
               bytesToBase64(encapsulationKeyPair.publicKey),
             ],
             rotateBaselineSourceVersionVector: "rotate-frontier-2",
+            missingUpdateEpochs: ["prior_epoch"],
             updates: [
               {
+                accessEpoch: 1,
                 authorFingerprint: "remote-author",
                 createdAt: "2026-04-09T00:00:00.000Z",
                 documentId,

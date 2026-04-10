@@ -368,6 +368,15 @@ The current sync path now exposes that server-side decision explicitly through
 - `rewrap`
 - `rotate`
 
+The same response also exposes rotate/adoption sync state explicitly:
+
+- every returned document update includes its stored `accessEpoch`
+- `missingUpdateEpochs[]` summarizes whether the response contains
+  `prior_epoch` updates, `current_epoch` updates, or both
+- `canonicalDocumentRecipientEnvelopesAdopted` is true when the server rejected
+  divergent same-epoch bundle material, returned the canonical current bundle,
+  and left outgoing updates unaccepted for retry
+
 Clients use `rewrap` to seed a missing current-epoch document bundle, preserve
 local pending Loro updates, and retry those updates under the new epoch with
 the same document DEK. When the server returns `rotate`, clients clear stale

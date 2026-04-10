@@ -25,6 +25,12 @@ interface DocumentEncryptionMaterial {
   documentRecipientEnvelopes: SerializedRecipientEnvelope[];
 }
 
+interface IncomingUpdateDecryptionBatch {
+  accessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
+  updates: SyncDocumentResponse["updates"];
+}
+
 function isSerializedRecipientEnvelope(
   value: unknown,
 ): value is SerializedRecipientEnvelope {
@@ -290,38 +296,91 @@ export function requiresBaselineAfterDocumentEpochChange(input: {
   return input.resolvedDocumentRecipientEnvelopes === null;
 }
 
-export function resolveIncomingUpdateDecryptionMaterial(input: {
+function groupUpdatesByAccessEpoch(
+  updates: ReadonlyArray<SyncDocumentResponse["updates"][number]>,
+): Map<number, SyncDocumentResponse["updates"]> {
+  const updatesByEpoch = new Map<number, SyncDocumentResponse["updates"]>();
+
+  for (const update of updates) {
+    const epochUpdates = updatesByEpoch.get(update.accessEpoch);
+    if (epochUpdates) {
+      epochUpdates.push(update);
+      continue;
+    }
+
+    updatesByEpoch.set(update.accessEpoch, [update]);
+  }
+
+  return updatesByEpoch;
+}
+
+function resolveIncomingUpdateEnvelopesForEpoch(input: {
+  accessEpoch: number;
   currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   nextDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   previousAccessEpoch: number;
   synced: SyncDocumentResponse;
-}): {
-  accessEpoch: number;
-  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
-} | null {
-  if (input.nextDocumentRecipientEnvelopes) {
-    return {
-      accessEpoch: input.synced.currentAccessEpoch,
-      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
-        input.nextDocumentRecipientEnvelopes,
-      ),
-    };
+}): ReadonlyArray<SerializedRecipientEnvelope> | null {
+  if (input.accessEpoch === input.synced.currentAccessEpoch) {
+    return (
+      input.nextDocumentRecipientEnvelopes ??
+      input.currentDocumentRecipientEnvelopes
+    );
   }
 
-  if (
-    input.synced.currentAccessEpoch !== input.previousAccessEpoch &&
-    input.synced.documentRecipientEnvelopeAction === "rotate" &&
+  if (input.accessEpoch === input.previousAccessEpoch) {
+    return (
+      input.currentDocumentRecipientEnvelopes ??
+      input.nextDocumentRecipientEnvelopes
+    );
+  }
+
+  return (
+    input.nextDocumentRecipientEnvelopes ??
     input.currentDocumentRecipientEnvelopes
-  ) {
-    return {
-      accessEpoch: input.previousAccessEpoch,
-      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+  );
+}
+
+export function resolveIncomingUpdateDecryptionBatches(input: {
+  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  nextDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  previousAccessEpoch: number;
+  synced: SyncDocumentResponse;
+}): IncomingUpdateDecryptionBatch[] {
+  const batches: IncomingUpdateDecryptionBatch[] = [];
+  const sortedUpdatesByEpoch = Array.from(
+    groupUpdatesByAccessEpoch(input.synced.updates).entries(),
+  ).sort(([leftAccessEpoch], [rightAccessEpoch]) => {
+    return leftAccessEpoch - rightAccessEpoch;
+  });
+
+  for (const [accessEpoch, updates] of sortedUpdatesByEpoch) {
+    const documentRecipientEnvelopes = resolveIncomingUpdateEnvelopesForEpoch({
+      accessEpoch,
+      currentDocumentRecipientEnvelopes:
         input.currentDocumentRecipientEnvelopes,
+      nextDocumentRecipientEnvelopes: input.nextDocumentRecipientEnvelopes,
+      previousAccessEpoch: input.previousAccessEpoch,
+      synced: input.synced,
+    });
+
+    if (
+      !documentRecipientEnvelopes ||
+      documentRecipientEnvelopes.length === 0
+    ) {
+      continue;
+    }
+
+    batches.push({
+      accessEpoch,
+      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+        documentRecipientEnvelopes,
       ),
-    };
+      updates,
+    });
   }
 
-  return null;
+  return batches;
 }
 
 export async function getOrCreateDocumentEncryptionMaterial(input: {

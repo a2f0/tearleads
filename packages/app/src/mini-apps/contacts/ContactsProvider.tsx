@@ -30,7 +30,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionMaterial,
+  resolveIncomingUpdateDecryptionBatches,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -483,6 +483,43 @@ async function buildContactOutgoingSync(
   };
 }
 
+async function importSyncedContactUpdateBatch(input: {
+  contact: ContactState;
+  decryptionBatch: ReturnType<
+    typeof resolveIncomingUpdateDecryptionBatches
+  >[number];
+  secretKey: Uint8Array;
+  state: ContactsStoreState;
+}) {
+  const { contact, decryptionBatch, secretKey, state } = input;
+  const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
+    documentRecipientEnvelopes: decryptionBatch.documentRecipientEnvelopes,
+    execSql: state.runtime.execSql,
+    recipientPublicKeys: contact.recipientPublicKeys,
+    secretKey,
+  });
+  const decrypted = await decryptIncomingUpdates(
+    decryptionBatch.updates,
+    decryptionBatch.accessEpoch,
+    documentKey,
+    (message) =>
+      state.runtime.log(`Contacts (${contact.entry.userId}): ${message}`),
+  );
+  if (decrypted.length === 0) {
+    return;
+  }
+
+  importUpdates(contact.doc, decrypted);
+  const updatedEntry = getEntryValue(
+    contact.entry.userId,
+    contact.doc,
+    contact.entry.isSelf,
+  );
+  if (updatedEntry) {
+    contact.entry = updatedEntry;
+  }
+}
+
 async function applySyncedContactUpdates(
   state: ContactsStoreState,
   contact: ContactState,
@@ -519,42 +556,25 @@ async function applySyncedContactUpdates(
     });
 
   if (synced.updates.length > 0) {
-    const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+    const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
       currentDocumentRecipientEnvelopes,
       nextDocumentRecipientEnvelopes,
       previousAccessEpoch,
       synced,
     });
 
-    if (!decryptionMaterial) {
+    if (decryptionBatches.length === 0) {
       state.runtime.log(
         `Contacts (${contact.entry.userId}): skipped incoming updates because the current document key bundle is missing.`,
       );
     } else {
-      const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-        documentRecipientEnvelopes:
-          decryptionMaterial.documentRecipientEnvelopes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: contact.recipientPublicKeys,
-        secretKey,
-      });
-      const decrypted = await decryptIncomingUpdates(
-        synced.updates,
-        decryptionMaterial.accessEpoch,
-        documentKey,
-        (message) =>
-          state.runtime.log(`Contacts (${contact.entry.userId}): ${message}`),
-      );
-      if (decrypted.length > 0) {
-        importUpdates(contact.doc, decrypted);
-        const updatedEntry = getEntryValue(
-          contact.entry.userId,
-          contact.doc,
-          contact.entry.isSelf,
-        );
-        if (updatedEntry) {
-          contact.entry = updatedEntry;
-        }
+      for (const decryptionBatch of decryptionBatches) {
+        await importSyncedContactUpdateBatch({
+          contact,
+          decryptionBatch,
+          secretKey,
+          state,
+        });
       }
     }
   }
@@ -586,7 +606,10 @@ async function applySyncedContactUpdates(
     state.syncRequested = true;
   }
 
-  if (outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length) {
+  if (
+    synced.canonicalDocumentRecipientEnvelopesAdopted ||
+    outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
+  ) {
     state.syncRequested = true;
   }
 }

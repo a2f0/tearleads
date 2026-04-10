@@ -35,7 +35,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionMaterial,
+  resolveIncomingUpdateDecryptionBatches,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -1572,37 +1572,46 @@ async function applyIncomingSyncedUpdates(
     return;
   }
 
-  const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+  const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
     currentDocumentRecipientEnvelopes,
     nextDocumentRecipientEnvelopes,
     previousAccessEpoch,
     synced,
   });
 
-  if (!decryptionMaterial) {
+  if (decryptionBatches.length === 0) {
     state.runtime.log(
       "Notes: skipped incoming updates because the current document key bundle is missing.",
     );
     return;
   }
 
-  const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-    documentRecipientEnvelopes: decryptionMaterial.documentRecipientEnvelopes,
-    execSql: state.runtime.execSql,
-    recipientPublicKeys: state.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-  });
-  const decrypted = await decryptIncomingUpdates(
-    synced.updates,
-    decryptionMaterial.accessEpoch,
-    documentKey,
-    (message) => state.runtime.log(`Notes: ${message}`),
-  );
-  if (decrypted.length === 0) {
+  let importedUpdates = 0;
+  for (const decryptionBatch of decryptionBatches) {
+    const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
+      documentRecipientEnvelopes: decryptionBatch.documentRecipientEnvelopes,
+      execSql: state.runtime.execSql,
+      recipientPublicKeys: state.recipientPublicKeys,
+      secretKey: encapsulationKeyPair.secretKey,
+    });
+    const decrypted = await decryptIncomingUpdates(
+      decryptionBatch.updates,
+      decryptionBatch.accessEpoch,
+      documentKey,
+      (message) => state.runtime.log(`Notes: ${message}`),
+    );
+    if (decrypted.length === 0) {
+      continue;
+    }
+
+    importUpdates(currentDoc, decrypted);
+    importedUpdates += decrypted.length;
+  }
+
+  if (importedUpdates === 0) {
     return;
   }
 
-  importUpdates(currentDoc, decrypted);
   setReadySnapshot(state, currentDoc, true);
 }
 
@@ -1670,6 +1679,7 @@ async function finalizeDocumentSync(
   }
 
   if (
+    synced.canonicalDocumentRecipientEnvelopesAdopted ||
     syncAttempt.outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
   ) {
     state.syncRequested = true;

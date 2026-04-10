@@ -27,18 +27,23 @@ function createSyncDocumentResponse(input: {
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
+  canonicalDocumentRecipientEnvelopesAdopted?: boolean;
   documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
   documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
+  missingUpdateEpochs?: SyncDocumentResponse["missingUpdateEpochs"];
   rotateBaselineSourceVersionVector?: string | null;
   updates?: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
   return {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
+    canonicalDocumentRecipientEnvelopesAdopted:
+      input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
     documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
+    missingUpdateEpochs: input.missingUpdateEpochs ?? [],
     rotateBaselineSourceVersionVector:
       input.rotateBaselineSourceVersionVector ?? null,
     recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,

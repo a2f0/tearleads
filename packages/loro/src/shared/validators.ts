@@ -5,6 +5,7 @@ import {
 } from "@tearleads/validators/response";
 import {
   hasArrayProperty,
+  hasBooleanProperty,
   hasNumberProperty,
   hasStringProperty,
   isSerializedRecipientEnvelopeArray,
@@ -23,6 +24,8 @@ export type DocumentRecipientEnvelopeAction = "none" | "rewrap" | "rotate";
 
 export const DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE =
   "Document recipient envelopes conflict";
+
+export type SyncDocumentMissingUpdateEpoch = "prior_epoch" | "current_epoch";
 
 export interface CreateDocumentRequest {
   linkedContainerIds: string[];
@@ -45,6 +48,7 @@ export interface SyncDocumentRequest {
 }
 
 export interface DocumentSyncUpdate {
+  accessEpoch: number;
   id: string;
   documentId: string;
   authorFingerprint: string;
@@ -57,6 +61,8 @@ export interface DocumentSyncUpdate {
 export interface SyncDocumentResponse {
   documentId: string;
   acceptedOutgoingUpdateIds: string[];
+  canonicalDocumentRecipientEnvelopesAdopted: boolean;
+  missingUpdateEpochs: SyncDocumentMissingUpdateEpoch[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
@@ -98,6 +104,12 @@ function isDocumentRecipientEnvelopeAction(
   value: unknown,
 ): value is DocumentRecipientEnvelopeAction {
   return value === "none" || value === "rewrap" || value === "rotate";
+}
+
+function isSyncDocumentMissingUpdateEpoch(
+  value: unknown,
+): value is SyncDocumentMissingUpdateEpoch {
+  return value === "prior_epoch" || value === "current_epoch";
 }
 
 export function isSyncDocumentOutgoingUpdate(
@@ -171,6 +183,7 @@ export function isDocumentSyncUpdate(
 ): value is DocumentSyncUpdate {
   return (
     isPlainObject(value) &&
+    hasPositiveNumberProperty(value, "accessEpoch") &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "documentId") &&
     hasStringProperty(value, "authorFingerprint") &&
@@ -201,6 +214,9 @@ export function isSyncDocumentResponse(
     value.acceptedOutgoingUpdateIds.every(
       (entry) => typeof entry === "string",
     ) &&
+    hasBooleanProperty(value, "canonicalDocumentRecipientEnvelopesAdopted") &&
+    hasArrayProperty(value, "missingUpdateEpochs") &&
+    value.missingUpdateEpochs.every(isSyncDocumentMissingUpdateEpoch) &&
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&

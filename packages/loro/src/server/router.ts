@@ -11,6 +11,7 @@ import {
   isCreateDocumentRequest,
   isSyncDocumentRequest,
   type SerializedRecipientEnvelope,
+  type SyncDocumentMissingUpdateEpoch,
   type SyncDocumentOutgoingUpdate,
   type SyncDocumentRequest,
   type SyncDocumentResponse,
@@ -96,6 +97,7 @@ function matchesAccessEpoch(
 
 function toSyncUpdate(update: DocumentUpdateRecord): DocumentSyncUpdate {
   return {
+    accessEpoch: update.accessEpoch,
     id: update.id,
     documentId: update.documentId,
     authorFingerprint: update.authorFingerprint,
@@ -305,6 +307,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
   | {
       acceptedOutgoingUpdateIds: string[];
       access: DocumentAccessState;
+      canonicalDocumentRecipientEnvelopesAdopted: boolean;
       documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
     }
   | { error: string; status: SyncRouteErrorStatus }
@@ -344,6 +347,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
     return {
       acceptedOutgoingUpdateIds: [],
       access: refreshedSyncAccess.access,
+      canonicalDocumentRecipientEnvelopesAdopted: true,
       documentRecipientEnvelopes:
         refreshedSyncAccess.access.documentRecipientEnvelopes,
     };
@@ -354,10 +358,40 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
   return {
     acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
     access: input.currentAccess,
+    canonicalDocumentRecipientEnvelopesAdopted: false,
     documentRecipientEnvelopes:
       appendResult.documentRecipientEnvelopes ??
       input.currentAccess.documentRecipientEnvelopes,
   };
+}
+
+function getMissingUpdateEpochs(
+  updates: ReadonlyArray<DocumentSyncUpdate>,
+  currentAccessEpoch: number,
+): SyncDocumentMissingUpdateEpoch[] {
+  let hasPriorEpochUpdate = false;
+  let hasCurrentEpochUpdate = false;
+
+  for (const update of updates) {
+    if (update.accessEpoch < currentAccessEpoch) {
+      hasPriorEpochUpdate = true;
+      continue;
+    }
+
+    if (update.accessEpoch === currentAccessEpoch) {
+      hasCurrentEpochUpdate = true;
+    }
+  }
+
+  const missingUpdateEpochs: SyncDocumentMissingUpdateEpoch[] = [];
+  if (hasPriorEpochUpdate) {
+    missingUpdateEpochs.push("prior_epoch");
+  }
+  if (hasCurrentEpochUpdate) {
+    missingUpdateEpochs.push("current_epoch");
+  }
+
+  return missingUpdateEpochs;
 }
 
 async function listMissingSyncUpdates<TSession extends SessionLike>(
@@ -411,6 +445,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     }
 
     let acceptedOutgoingUpdateIds: string[] = [];
+    let canonicalDocumentRecipientEnvelopesAdopted = false;
     let responseDocumentRecipientEnvelopes = access.documentRecipientEnvelopes;
 
     if (accessEpoch === access.currentAccessEpoch) {
@@ -428,6 +463,8 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
 
       access = appendResult.access;
       acceptedOutgoingUpdateIds = appendResult.acceptedOutgoingUpdateIds;
+      canonicalDocumentRecipientEnvelopesAdopted =
+        appendResult.canonicalDocumentRecipientEnvelopesAdopted;
       responseDocumentRecipientEnvelopes =
         appendResult.documentRecipientEnvelopes;
     }
@@ -448,6 +485,11 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     return c.json<SyncDocumentResponse>({
       documentId,
       acceptedOutgoingUpdateIds,
+      canonicalDocumentRecipientEnvelopesAdopted,
+      missingUpdateEpochs: getMissingUpdateEpochs(
+        missingUpdates,
+        access.currentAccessEpoch,
+      ),
       updates: missingUpdates,
       currentAccessEpoch: access.currentAccessEpoch,
       documentRecipientEnvelopeAction: access.documentRecipientEnvelopeAction,
