@@ -413,6 +413,10 @@ Keep:
 - `object_access_epochs`
 - `object_recipient_envelopes`
 
+`object_recipient_envelopes` is a strict wrapped-DEK bundle table. Every row
+represents actual envelope material for one recipient key in one object epoch;
+identity-only rows are not valid.
+
 Add:
 
 - `object_access_epochs.access_fingerprint`
@@ -738,10 +742,13 @@ Persist the effective recipient set used for a given encrypted object version.
   - `recipient_principal_type`
   - `recipient_principal_id`
   - `recipient_key_fingerprint`
-  - wrapped key material or reference to it
+  - `kem_cipher_text`
+  - `wrapped_key`
 
-In the current transition state, the schema is principal-shaped even though the
-runtime still mostly emits `user` principals.
+`kem_cipher_text` and `wrapped_key` are required for every persisted container,
+document, and blob recipient bundle. The recipient principal columns can still
+be read without the wrapped material for rewrap/rotate classification, but the
+stored row itself is never an identity-only placeholder.
 
 The principal-recipient pivot now also has schema support for signed principal
 snapshots and indexed principal epoch keys:

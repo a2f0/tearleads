@@ -342,6 +342,15 @@ async function replaceRecipientEnvelopes(
 
   await executor.insert(objectRecipientEnvelopes).values(
     envelopeEntries.map((envelopeEntry) => {
+      if (
+        envelopeEntry.kemCipherText.length === 0 ||
+        envelopeEntry.wrappedKey.length === 0
+      ) {
+        throw new Error(
+          `Blob recipient envelope is missing wrapped material for ${envelopeEntry.keyFingerprint}`,
+        );
+      }
+
       const recipient = recipientByKeyFingerprint.get(
         envelopeEntry.keyFingerprint,
       );
@@ -513,15 +522,6 @@ export async function listBlobRecipientEnvelopes(
   }
 
   return rows
-    .filter(
-      (
-        row,
-      ): row is {
-        keyFingerprint: string;
-        kemCipherText: string;
-        wrappedKey: string;
-      } => !!row.kemCipherText && !!row.wrappedKey,
-    )
     .sort((left, right) =>
       left.keyFingerprint.localeCompare(right.keyFingerprint),
     )

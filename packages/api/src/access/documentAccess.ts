@@ -735,15 +735,6 @@ export async function listDocumentRecipientEnvelopes(
   }
 
   return rows
-    .filter(
-      (
-        row,
-      ): row is {
-        keyFingerprint: string;
-        kemCipherText: string;
-        wrappedKey: string;
-      } => !!row.kemCipherText && !!row.wrappedKey,
-    )
     .sort((left, right) =>
       left.keyFingerprint.localeCompare(right.keyFingerprint),
     )
@@ -784,6 +775,15 @@ function buildDocumentRecipientEnvelopeRows(
   );
 
   return envelopes.map((envelope) => {
+    if (
+      envelope.kemCipherText.length === 0 ||
+      envelope.wrappedKey.length === 0
+    ) {
+      throw new Error(
+        `Document recipient envelope is missing wrapped material for ${envelope.keyFingerprint}`,
+      );
+    }
+
     const recipient = recipientByKeyFingerprint.get(envelope.keyFingerprint);
     if (!recipient) {
       throw new Error(
@@ -804,22 +804,6 @@ function buildDocumentRecipientEnvelopeRows(
       wrappedKey: envelope.wrappedKey,
     };
   });
-}
-
-async function deleteDocumentRecipientEnvelopes(
-  documentId: string,
-  epoch: number,
-  executor: DocumentAccessExecutor = db,
-): Promise<void> {
-  await executor
-    .delete(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, documentId),
-        eq(objectRecipientEnvelopes.epoch, epoch),
-      ),
-    );
 }
 
 export async function putDocumentRecipientEnvelopes(
@@ -848,10 +832,6 @@ export async function putDocumentRecipientEnvelopes(
     }
 
     return existingEnvelopes;
-  }
-
-  if (existingEnvelopes !== null && existingEnvelopes.length === 0) {
-    await deleteDocumentRecipientEnvelopes(documentId, epoch, executor);
   }
 
   if (sortedEnvelopes.length === 0) {

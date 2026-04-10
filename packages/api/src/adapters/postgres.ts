@@ -121,8 +121,8 @@ await client.exec(`
     recipient_principal_type TEXT NOT NULL,
     recipient_principal_id TEXT NOT NULL,
     recipient_key_fingerprint TEXT NOT NULL,
-    kem_cipher_text TEXT,
-    wrapped_key TEXT,
+    kem_cipher_text TEXT NOT NULL,
+    wrapped_key TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS document_container_links (

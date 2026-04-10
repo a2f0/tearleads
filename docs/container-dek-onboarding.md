@@ -184,18 +184,13 @@ ALTER TABLE users ADD COLUMN default_organization_id UUID NOT NULL;
 ### New columns: `object_recipient_envelopes`
 
 ```sql
-ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT;
-ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT;
+ALTER TABLE object_recipient_envelopes ADD COLUMN kem_cipher_text TEXT NOT NULL;
+ALTER TABLE object_recipient_envelopes ADD COLUMN wrapped_key TEXT NOT NULL;
 ```
 
-These columns store base64-encoded wrapped key material.
-
-Important current implementation note:
-
-- the codebase still allows these columns to be nullable
-- that reflects the transition from identity-only recipient-envelope rows
-  toward full wrapped-key bundles for encrypted objects
-- do not treat `NOT NULL` as an implemented invariant yet
+These columns store base64-encoded wrapped key material. They are required for
+every object recipient envelope row; identity-only recipient-envelope rows are
+not part of the V1 storage model.
 
 ### Local SQLite: `containers`
 
