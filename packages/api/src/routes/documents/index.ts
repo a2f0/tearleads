@@ -1,9 +1,3 @@
-import {
-  emptyVersionVector,
-  mergeVersionVectors,
-  satisfiesVersionVector,
-  versionVectorsEqual,
-} from "@tearleads/loro";
 import { createLoroRouter } from "@tearleads/loro/server";
 import {
   type CommitDocumentChangeRequest,
@@ -15,7 +9,7 @@ import type {
   ListDocumentAttachmentsResponse,
   StageBlobResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { validator } from "hono/validator";
 import {
   blobRecipientEnvelopesMatchRecipients,
@@ -25,22 +19,13 @@ import {
   resolveBlobAccessState,
 } from "../../access/blobAccess";
 import {
-  canWriteContainerAccess,
-  resolveContainerAccessState,
-} from "../../access/containerAccess";
-import {
-  canReadDocumentAccess,
   canWriteDocumentAccess,
-  createDocumentRecipientEnvelopes,
   DocumentRecipientEnvelopeConflictError,
   documentRecipientEnvelopesMatchRecipients,
   getDocumentRecipientEnvelopeAction,
-  initializeDocumentAccess,
   listDocumentRecipientEnvelopes,
-  listRecipientEncapsulationPublicKeys,
   listRecipientKeyFingerprints,
   putDocumentRecipientEnvelopes,
-  replaceDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
 import { type DatabaseExecutor, db } from "../../adapters/postgres";
@@ -50,13 +35,15 @@ import {
   attachmentBindings,
   blobStages,
   blobs,
-  containers,
-  documentContainerLinks,
   documents,
   documentUpdates,
   objectAccessEpochs,
   objectRecipientEnvelopes,
 } from "../../schema";
+import {
+  createDocumentSyncStore,
+  getRotateBaselineSourceError,
+} from "../../services/documents/documentSyncStore";
 import { GetBlobError, getBlob } from "../../services/documents/getBlob";
 import {
   ListDocumentAttachmentsError,
@@ -95,18 +82,6 @@ interface BlobStageRow {
   sha256: string;
 }
 
-interface RotateBaselineUpdate {
-  partialEndVersionVector: string;
-  sourceVersionVector?: string;
-}
-
-interface AppendDocumentUpdate extends RotateBaselineUpdate {
-  encryptedData: string;
-  id: string;
-  partialEndVersionVector: string;
-  partialStartVersionVector: string;
-}
-
 interface ValidatedAttachmentRewrap {
   currentBinding: ActiveAttachmentBinding;
   rewrap: CommitDocumentChangeRequest["attachmentRewraps"][number];
@@ -139,99 +114,6 @@ function matchesRecipientKeyFingerprints(
 
 function hasDuplicateValues(values: string[]): boolean {
   return new Set(values).size !== values.length;
-}
-
-async function getPriorEpochDocumentVersionVector(
-  documentId: string,
-  currentAccessEpoch: number,
-  executor: DocumentRouteExecutor = db,
-): Promise<string> {
-  const rows = await executor
-    .select({
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-    })
-    .from(documentUpdates)
-    .where(
-      and(
-        eq(documentUpdates.documentId, documentId),
-        lt(documentUpdates.accessEpoch, currentAccessEpoch),
-      ),
-    );
-
-  if (rows.length === 0) {
-    return emptyVersionVector();
-  }
-
-  return mergeVersionVectors(rows.map((row) => row.partialEndVersionVector));
-}
-
-async function getRotateBaselineSourceError(input: {
-  currentAccessEpoch: number;
-  currentDocumentRecipientEnvelopes: ReadonlyArray<unknown> | null;
-  documentId: string;
-  documentRecipientEnvelopeAction: "none" | "rewrap" | "rotate";
-  documentRecipientEnvelopes:
-    | CommitDocumentChangeRequest["documentRecipientEnvelopes"]
-    | undefined;
-  executor: DocumentRouteExecutor;
-  updates: ReadonlyArray<RotateBaselineUpdate>;
-}): Promise<{ message: string; status: 400 | 409 } | null> {
-  if (
-    input.documentRecipientEnvelopeAction !== "rotate" ||
-    !input.documentRecipientEnvelopes ||
-    (input.currentDocumentRecipientEnvelopes &&
-      input.currentDocumentRecipientEnvelopes.length > 0)
-  ) {
-    return null;
-  }
-
-  if (input.updates.length !== 1) {
-    return {
-      message: "Rotate baseline requires exactly one document update",
-      status: 400,
-    };
-  }
-
-  const update = input.updates[0];
-  if (!update?.sourceVersionVector) {
-    return {
-      message: "Missing rotate baseline source version vector",
-      status: 400,
-    };
-  }
-
-  const expectedSourceVersionVector = await getPriorEpochDocumentVersionVector(
-    input.documentId,
-    input.currentAccessEpoch,
-    input.executor,
-  );
-
-  if (
-    !versionVectorsEqual(
-      update.sourceVersionVector,
-      expectedSourceVersionVector,
-    )
-  ) {
-    return {
-      message: "Stale rotate baseline source version vector",
-      status: 409,
-    };
-  }
-
-  if (
-    !satisfiesVersionVector(
-      update.partialEndVersionVector,
-      expectedSourceVersionVector,
-    )
-  ) {
-    return {
-      message:
-        "Rotate baseline frontier does not cover all prior-epoch updates",
-      status: 409,
-    };
-  }
-
-  return null;
 }
 
 async function pruneUnreachableAttachmentBlobs(
@@ -316,24 +198,6 @@ class CommitChangeError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409 = 400,
-  ) {
-    super(message);
-  }
-}
-
-class CreateDocumentError extends Error {
-  constructor(
-    message: string,
-    readonly status: 400 | 403 | 404 | 409,
-  ) {
-    super(message);
-  }
-}
-
-class DocumentUpdateError extends Error {
-  constructor(
-    message: string,
-    readonly status: 400 | 409,
   ) {
     super(message);
   }
@@ -925,333 +789,8 @@ async function processCommitDocumentChange(input: {
   return { access, result };
 }
 
-async function validateAppendDocumentUpdatesInput(input: {
-  access: CommitChangeAccess;
-  documentId: string;
-  documentRecipientEnvelopes:
-    | CommitDocumentChangeRequest["documentRecipientEnvelopes"]
-    | undefined;
-  executor: DocumentRouteExecutor;
-  updates: ReadonlyArray<AppendDocumentUpdate>;
-}) {
-  const existingEnvelopes = await listDocumentRecipientEnvelopes(
-    input.documentId,
-    input.access.currentAccessEpoch,
-    input.executor,
-  );
-  const nextEnvelopes = input.documentRecipientEnvelopes ?? existingEnvelopes;
-
-  if (!nextEnvelopes || nextEnvelopes.length === 0) {
-    throw new DocumentUpdateError(
-      "Missing document recipient envelopes for current epoch",
-      400,
-    );
-  }
-
-  if (
-    input.documentRecipientEnvelopes &&
-    !documentRecipientEnvelopesMatchRecipients(
-      input.documentRecipientEnvelopes,
-      input.access,
-    )
-  ) {
-    throw new DocumentUpdateError("Document recipient envelopes mismatch", 400);
-  }
-
-  const documentRecipientEnvelopeAction =
-    await getDocumentRecipientEnvelopeAction(
-      input.documentId,
-      input.access,
-      input.executor,
-    );
-  const rotateBaselineSourceError = await getRotateBaselineSourceError({
-    currentAccessEpoch: input.access.currentAccessEpoch,
-    currentDocumentRecipientEnvelopes: existingEnvelopes,
-    documentId: input.documentId,
-    documentRecipientEnvelopeAction,
-    documentRecipientEnvelopes: input.documentRecipientEnvelopes,
-    executor: input.executor,
-    updates: input.updates,
-  });
-  if (rotateBaselineSourceError) {
-    throw new DocumentUpdateError(
-      rotateBaselineSourceError.message,
-      rotateBaselineSourceError.status,
-    );
-  }
-}
-
-async function putAppendDocumentRecipientEnvelopes(input: {
-  access: CommitChangeAccess;
-  documentId: string;
-  documentRecipientEnvelopes:
-    | CommitDocumentChangeRequest["documentRecipientEnvelopes"]
-    | undefined;
-  executor: DocumentRouteExecutor;
-}): Promise<
-  Awaited<ReturnType<typeof putDocumentRecipientEnvelopes>> | undefined
-> {
-  if (!input.documentRecipientEnvelopes) {
-    return undefined;
-  }
-
-  try {
-    return await putDocumentRecipientEnvelopes(
-      input.documentId,
-      input.access.currentAccessEpoch,
-      input.access,
-      input.documentRecipientEnvelopes,
-      input.executor,
-    );
-  } catch (error) {
-    if (error instanceof DocumentRecipientEnvelopeConflictError) {
-      throw new DocumentUpdateError(error.message, 409);
-    }
-    throw error;
-  }
-}
-
-async function appendMissingDocumentUpdates(input: {
-  accessEpoch: number;
-  authorFingerprint: string;
-  documentId: string;
-  executor: DocumentRouteExecutor;
-  updates: ReadonlyArray<AppendDocumentUpdate>;
-}): Promise<string[]> {
-  if (input.updates.length === 0) {
-    return [];
-  }
-
-  const updateIds = uniqueSortedStrings(
-    input.updates.map((update) => update.id),
-  );
-  const existingRows = await input.executor
-    .select({ id: documentUpdates.id })
-    .from(documentUpdates)
-    .where(inArray(documentUpdates.id, updateIds));
-  const acceptedUpdateIds = new Set(existingRows.map((row) => row.id));
-  const newUpdates: AppendDocumentUpdate[] = [];
-
-  for (const update of input.updates) {
-    if (acceptedUpdateIds.has(update.id)) {
-      continue;
-    }
-
-    acceptedUpdateIds.add(update.id);
-    newUpdates.push(update);
-  }
-
-  if (newUpdates.length > 0) {
-    const insertedRows = await input.executor
-      .insert(documentUpdates)
-      .values(
-        newUpdates.map((update) => ({
-          id: update.id,
-          documentId: input.documentId,
-          accessEpoch: input.accessEpoch,
-          authorFingerprint: input.authorFingerprint,
-          encryptedData: update.encryptedData,
-          partialStartVersionVector: update.partialStartVersionVector,
-          partialEndVersionVector: update.partialEndVersionVector,
-        })),
-      )
-      .returning({ id: documentUpdates.id });
-
-    acceptedUpdateIds.clear();
-    for (const row of [...existingRows, ...insertedRows]) {
-      acceptedUpdateIds.add(row.id);
-    }
-  }
-
-  return input.updates
-    .filter((update) => acceptedUpdateIds.has(update.id))
-    .map((update) => update.id);
-}
-
 export const documentsRouter = createLoroRouter({
-  store: {
-    async createDocument(input) {
-      const linkedContainerIds = uniqueSortedStrings(input.linkedContainerIds);
-
-      if (input.linkedContainerIds.length !== linkedContainerIds.length) {
-        throw new CreateDocumentError(
-          "linkedContainerIds must not contain duplicates",
-          400,
-        );
-      }
-
-      return db.transaction(async (tx) => {
-        const linkedContainers = await tx
-          .select({
-            id: containers.id,
-            organizationId: containers.organizationId,
-          })
-          .from(containers)
-          .where(inArray(containers.id, linkedContainerIds));
-
-        if (linkedContainers.length !== linkedContainerIds.length) {
-          throw new CreateDocumentError("Linked container not found", 404);
-        }
-
-        const organizationIds = uniqueSortedStrings(
-          linkedContainers.map((container) => container.organizationId),
-        );
-
-        if (organizationIds.length !== 1) {
-          throw new CreateDocumentError(
-            "All linked containers must belong to the same organization",
-            400,
-          );
-        }
-
-        for (const container of linkedContainers) {
-          const access = await resolveContainerAccessState(container.id, tx);
-
-          if (!access) {
-            throw new CreateDocumentError(
-              "Linked container access state is unavailable",
-              409,
-            );
-          }
-
-          if (!canWriteContainerAccess(access, input.createdByUserId)) {
-            throw new CreateDocumentError("Forbidden", 403);
-          }
-        }
-
-        const [document] = await tx
-          .insert(documents)
-          .values({
-            createdByFingerprint: input.createdByFingerprint,
-          })
-          .returning();
-        if (!document) {
-          return null;
-        }
-
-        await tx.insert(documentContainerLinks).values(
-          linkedContainerIds.map((containerId) => ({
-            documentId: document.id,
-            containerId,
-          })),
-        );
-
-        const currentAccessEpoch = await initializeDocumentAccess(
-          document.id,
-          tx,
-        );
-        const access = await resolveDocumentAccessState(document.id, tx);
-        if (!access) {
-          return null;
-        }
-
-        const initialDocumentRecipientEnvelopes =
-          await createDocumentRecipientEnvelopes(access);
-        if (initialDocumentRecipientEnvelopes) {
-          await replaceDocumentRecipientEnvelopes(
-            document.id,
-            currentAccessEpoch,
-            access,
-            initialDocumentRecipientEnvelopes,
-            tx,
-          );
-        }
-
-        return {
-          document,
-          currentAccessEpoch,
-          documentRecipientEnvelopes: initialDocumentRecipientEnvelopes,
-          recipientEncapsulationPublicKeys:
-            listRecipientEncapsulationPublicKeys(access),
-          referencedPrincipals: access.referencedPrincipals,
-        };
-      });
-    },
-    async getDocumentById(documentId) {
-      const [document] = await db
-        .select()
-        .from(documents)
-        .where(eq(documents.id, documentId));
-      return document ?? null;
-    },
-    async getDocumentAccess({ documentId, userId }) {
-      const access = await resolveDocumentAccessState(documentId);
-      if (!access) {
-        return null;
-      }
-      const documentRecipientEnvelopeAction =
-        await getDocumentRecipientEnvelopeAction(documentId, access);
-
-      return {
-        canRead: canReadDocumentAccess(access, userId),
-        canWrite: canWriteDocumentAccess(access, userId),
-        currentAccessEpoch: access.currentAccessEpoch,
-        documentRecipientEnvelopeAction,
-        documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
-          documentId,
-          access.currentAccessEpoch,
-        ),
-        rotateBaselineSourceVersionVector:
-          documentRecipientEnvelopeAction === "rotate"
-            ? await getPriorEpochDocumentVersionVector(
-                documentId,
-                access.currentAccessEpoch,
-              )
-            : null,
-        recipientKeyFingerprints: listRecipientKeyFingerprints(access),
-        recipientEncapsulationPublicKeys:
-          listRecipientEncapsulationPublicKeys(access),
-        referencedPrincipals: access.referencedPrincipals,
-      };
-    },
-    async appendDocumentUpdates({
-      documentId,
-      authorFingerprint,
-      documentRecipientEnvelopes,
-      updates,
-    }) {
-      return db.transaction(async (tx) => {
-        const access = await resolveDocumentAccessState(documentId, tx);
-        if (!access) {
-          throw new DocumentUpdateError("Document access state not found", 409);
-        }
-
-        await validateAppendDocumentUpdatesInput({
-          access,
-          documentId,
-          documentRecipientEnvelopes,
-          executor: tx,
-          updates,
-        });
-        const canonicalDocumentRecipientEnvelopes =
-          await putAppendDocumentRecipientEnvelopes({
-            access,
-            documentId,
-            documentRecipientEnvelopes,
-            executor: tx,
-          });
-        const acceptedUpdateIds = await appendMissingDocumentUpdates({
-          accessEpoch: access.currentAccessEpoch,
-          authorFingerprint,
-          documentId,
-          executor: tx,
-          updates,
-        });
-
-        return {
-          acceptedOutgoingUpdateIds: acceptedUpdateIds,
-          documentRecipientEnvelopes: canonicalDocumentRecipientEnvelopes,
-        };
-      });
-    },
-    async listDocumentUpdates(documentId) {
-      return db
-        .select()
-        .from(documentUpdates)
-        .where(eq(documentUpdates.documentId, documentId))
-        .orderBy(documentUpdates.sequence);
-    },
-  },
+  store: createDocumentSyncStore(defaultApiServiceRuntime),
   publish,
   requireAuth,
 });

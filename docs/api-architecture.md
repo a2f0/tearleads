@@ -186,6 +186,13 @@ maps service errors to HTTP responses, while the service owns blob-read
 authorization, committed blob lookup, current recipient-envelope projection,
 and digest recalculation through the injected runtime database.
 
+Document creation and Loro sync persistence are implemented as a document
+service store. The `createLoroRouter` route adapter owns request validation,
+auth middleware, response shaping, and update notifications, while the store
+owns linked-container authorization, document access bundle lookup, document
+recipient-envelope persistence, and update storage through the injected runtime
+database.
+
 The document routes are not fully extracted yet. In particular, the heavier
 document/blob use cases still have route-level orchestration. Those remaining
 exceptions are tracked below as future work.
@@ -255,7 +262,6 @@ The rules are:
 
 The remaining extraction targets are:
 
-- document sync orchestration
 - document commit/change orchestration
 
 Those are the places where document plane, attachment plane, and access plane
