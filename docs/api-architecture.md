@@ -172,6 +172,10 @@ from service code without importing from `routes/**`.
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing the server entrypoint.
 
+Blob staging is implemented as a document service. The `/blobs/stage` route
+validates request shape and maps service errors to HTTP responses, while the
+service owns digest/byte-length validation and staged-row creation.
+
 The document routes are not fully extracted yet. In particular, the heavier
 document/blob use cases still have route-level orchestration. Those remaining
 exceptions are tracked below as future work.
@@ -241,9 +245,9 @@ The rules are:
 
 The remaining extraction targets are:
 
+- blob get and attachment listing orchestration
 - document sync orchestration
 - document commit/change orchestration
-- blob stage/get orchestration
 
 Those are the places where document plane, attachment plane, and access plane
 meet most heavily, so they are also the places where a clean service boundary
