@@ -209,6 +209,8 @@ await client.exec(`
     ON attachment_bindings (document_id);
   CREATE INDEX IF NOT EXISTS attachment_bindings_blob_idx
     ON attachment_bindings (blob_id);
+  CREATE INDEX IF NOT EXISTS attachment_bindings_previous_binding_id_idx
+    ON attachment_bindings (previous_binding_id);
   CREATE UNIQUE INDEX IF NOT EXISTS attachment_bindings_document_slot_active_idx
     ON attachment_bindings (document_id, slot_id) WHERE detached_at IS NULL;
   ${loroSql}
