@@ -54,6 +54,7 @@ import {
   type NoteSummary,
   type NotesPersistence,
   type PendingAttachmentRecord,
+  type PendingAttachmentReplacementRecord,
   type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
   type RelinkPersistedNoteInput,
@@ -112,6 +113,19 @@ function sameAttachmentStorageKeys(
   );
 }
 
+function sameAttachmentStatuses(
+  left: Readonly<Record<string, NoteAttachmentStatus>>,
+  right: Readonly<Record<string, NoteAttachmentStatus>>,
+): boolean {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([slotId, status]) => right[slotId] === status)
+  );
+}
+
 export interface NotesRuntime {
   apiClient: Pick<
     NotesAppData["apiClient"],
@@ -154,13 +168,17 @@ interface NoteAttachmentUpload {
   mimeType: string | null;
 }
 
+export type NoteAttachmentStatus = "needs_replacement" | "syncing";
+
 interface NotesContextValue {
   attachments: ReadonlyArray<NoteAttachment>;
+  attachmentStatusBySlotId: Readonly<Record<string, NoteAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
   canAttach: boolean;
   documentId: string | null;
   ready: boolean;
+  replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   text: string;
   syncing: boolean;
   setText: (value: string) => void;
@@ -168,6 +186,7 @@ interface NotesContextValue {
 
 interface NotesSnapshot {
   attachments: ReadonlyArray<NoteAttachment>;
+  attachmentStatusBySlotId: Readonly<Record<string, NoteAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
   documentId: string | null;
@@ -180,6 +199,7 @@ interface NotesStore {
   attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => NotesSnapshot;
+  replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   requestSync: () => void;
   relink: (input: RelinkPersistedNoteInput) => Promise<NoteSummary | null>;
   setPersistedNoteListener: (
@@ -205,6 +225,7 @@ interface NotesStoreState {
   listeners: Set<() => void>;
   noteId: string;
   pendingAttachments: PendingAttachmentRecord[];
+  pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
   pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   persistedNoteListener: PersistedNoteListener | undefined;
   persistence: NotesPersistence;
@@ -234,6 +255,7 @@ function createNotesStoreState(
     listeners: new Set(),
     noteId,
     pendingAttachments: [],
+    pendingAttachmentReplacements: [],
     pendingAttachmentRewraps: [],
     persistedNoteListener,
     persistence,
@@ -244,6 +266,7 @@ function createNotesStoreState(
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
+      attachmentStatusBySlotId: {},
       attachmentStorageKeyBySlotId: {},
       canAttach: false,
       documentId: null,
@@ -266,6 +289,10 @@ function emitNotesStore(state: NotesStoreState) {
 function setNotesSnapshot(state: NotesStoreState, next: NotesSnapshot) {
   if (
     sameNoteAttachments(state.snapshot.attachments, next.attachments) &&
+    sameAttachmentStatuses(
+      state.snapshot.attachmentStatusBySlotId,
+      next.attachmentStatusBySlotId,
+    ) &&
     sameAttachmentStorageKeys(
       state.snapshot.attachmentStorageKeyBySlotId,
       next.attachmentStorageKeyBySlotId,
@@ -297,6 +324,7 @@ function resetNotesStore(state: NotesStoreState) {
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
+  state.pendingAttachmentReplacements = [];
   state.pendingAttachmentRewraps = [];
   state.attachmentStorageKeyBySlotId = {};
   state.initialized = false;
@@ -309,6 +337,7 @@ function resetNotesStore(state: NotesStoreState) {
   );
   setNotesSnapshot(state, {
     attachments: [],
+    attachmentStatusBySlotId: {},
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
@@ -347,6 +376,32 @@ function getAttachmentStorageKeys(
   return nextStorageKeys;
 }
 
+function getAttachmentStatuses(
+  state: NotesStoreState,
+  attachments: ReadonlyArray<NoteAttachment>,
+): Record<string, NoteAttachmentStatus> {
+  const pendingAttachmentSlotIds = new Set(
+    state.pendingAttachments.map((attachment) => attachment.slotId),
+  );
+  const replacementSlotIds = new Set(
+    state.pendingAttachmentReplacements.map((attachment) => attachment.slotId),
+  );
+  const nextStatuses: Record<string, NoteAttachmentStatus> = {};
+
+  for (const attachment of attachments) {
+    if (pendingAttachmentSlotIds.has(attachment.slotId)) {
+      nextStatuses[attachment.slotId] = "syncing";
+      continue;
+    }
+
+    if (replacementSlotIds.has(attachment.slotId)) {
+      nextStatuses[attachment.slotId] = "needs_replacement";
+    }
+  }
+
+  return nextStatuses;
+}
+
 function setReadySnapshot(
   state: NotesStoreState,
   currentDoc: NotesDocument,
@@ -357,6 +412,7 @@ function setReadySnapshot(
 
   setNotesSnapshot(state, {
     attachments,
+    attachmentStatusBySlotId: getAttachmentStatuses(state, attachments),
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
     canAttach: canAttachFiles(state),
     documentId: state.record?.documentId ?? null,
@@ -663,6 +719,10 @@ function isAttachmentSyncAlreadyPending(
   slotId: string,
 ): boolean {
   return (
+    state.pendingAttachmentReplacements.some(
+      (pendingAttachmentReplacement) =>
+        pendingAttachmentReplacement.slotId === slotId,
+    ) ||
     state.pendingAttachmentRewraps.some(
       (pendingAttachmentRewrap) => pendingAttachmentRewrap.slotId === slotId,
     ) ||
@@ -689,6 +749,23 @@ async function createPendingAttachmentRewrap(
   return pendingAttachmentRewrap;
 }
 
+async function createPendingAttachmentReplacement(
+  state: NotesStoreState,
+  slotId: string,
+  blobId: string | null,
+): Promise<PendingAttachmentReplacementRecord> {
+  const pendingAttachmentReplacement: PendingAttachmentReplacementRecord = {
+    blobId,
+    noteId: state.noteId,
+    slotId,
+  };
+  await state.persistence.savePendingAttachmentReplacement(
+    state.runtime.execSql,
+    pendingAttachmentReplacement,
+  );
+  return pendingAttachmentReplacement;
+}
+
 function mergePendingAttachmentRewraps(
   state: NotesStoreState,
   nextPendingAttachmentRewraps: ReadonlyArray<PendingAttachmentRewrapRecord>,
@@ -705,6 +782,85 @@ function mergePendingAttachmentRewraps(
     ),
     ...nextPendingAttachmentRewraps,
   ];
+}
+
+function mergePendingAttachmentReplacements(
+  state: NotesStoreState,
+  nextPendingAttachmentReplacements: ReadonlyArray<PendingAttachmentReplacementRecord>,
+) {
+  const nextSlotIds = new Set(
+    nextPendingAttachmentReplacements.map(
+      (pendingAttachmentReplacement) => pendingAttachmentReplacement.slotId,
+    ),
+  );
+  state.pendingAttachmentReplacements = [
+    ...state.pendingAttachmentReplacements.filter(
+      (existingAttachmentReplacement) =>
+        !nextSlotIds.has(existingAttachmentReplacement.slotId),
+    ),
+    ...nextPendingAttachmentReplacements,
+  ];
+}
+
+async function clearPendingAttachmentReplacementsForSlots(
+  state: NotesStoreState,
+  slotIds: ReadonlyArray<string>,
+) {
+  if (slotIds.length === 0) {
+    return;
+  }
+
+  const slotIdSet = new Set(slotIds);
+  state.pendingAttachmentReplacements =
+    state.pendingAttachmentReplacements.filter(
+      (pendingAttachmentReplacement) =>
+        !slotIdSet.has(pendingAttachmentReplacement.slotId),
+    );
+
+  for (const slotId of slotIdSet) {
+    await state.persistence.deletePendingAttachmentReplacement(
+      state.runtime.execSql,
+      state.noteId,
+      slotId,
+    );
+  }
+}
+
+function upsertPendingAttachments(
+  state: NotesStoreState,
+  nextPendingAttachments: ReadonlyArray<PendingAttachmentRecord>,
+) {
+  const nextSlotIds = new Set(
+    nextPendingAttachments.map((pendingAttachment) => pendingAttachment.slotId),
+  );
+  state.pendingAttachments = [
+    ...state.pendingAttachments.filter(
+      (pendingAttachment) => !nextSlotIds.has(pendingAttachment.slotId),
+    ),
+    ...nextPendingAttachments,
+  ];
+}
+
+async function queuePendingAttachmentUpload(
+  state: NotesStoreState,
+  attachment: NoteAttachment,
+  storageKey: string,
+): Promise<PendingAttachmentRecord> {
+  const pendingAttachment: PendingAttachmentRecord = {
+    byteLength: attachment.byteLength,
+    mimeType: attachment.mimeType,
+    name: attachment.name,
+    noteId: state.noteId,
+    slotId: attachment.slotId,
+    storageKey,
+  };
+  await state.persistence.savePendingAttachment(
+    state.runtime.execSql,
+    pendingAttachment,
+  );
+  upsertPendingAttachments(state, [pendingAttachment]);
+  await clearPendingAttachmentReplacementsForSlots(state, [attachment.slotId]);
+  return pendingAttachment;
 }
 
 async function queueCommittedAttachmentsForRewrap(
@@ -749,6 +905,74 @@ async function queueCommittedAttachmentsForRewrap(
   return true;
 }
 
+async function queueCommittedAttachmentsForReplacement(
+  state: NotesStoreState,
+  currentDoc: NotesDocument,
+  documentId: string | null,
+): Promise<boolean> {
+  const currentAttachments = getNoteAttachments(currentDoc);
+  if (currentAttachments.length === 0) {
+    return false;
+  }
+
+  const [localAttachments, currentBindings] = await Promise.all([
+    listLocalAttachmentRecords(state),
+    documentId ? listCurrentDocumentBindings(state, documentId) : null,
+  ]);
+  const localAttachmentBySlotId = new Map(
+    localAttachments.map((attachment) => [attachment.slotId, attachment]),
+  );
+  const currentBindingBySlotId = new Map(
+    (currentBindings ?? []).map((binding) => [binding.slotId, binding]),
+  );
+  const nextPendingAttachmentReplacements: PendingAttachmentReplacementRecord[] =
+    [];
+  let queuedUpload = false;
+
+  for (const attachment of currentAttachments) {
+    if (isAttachmentSyncAlreadyPending(state, attachment.slotId)) {
+      continue;
+    }
+
+    const localAttachment = localAttachmentBySlotId.get(attachment.slotId);
+    const localBytes = localAttachment
+      ? await state.runtime.blobStore.readBytes(localAttachment.storageKey)
+      : null;
+    if (localAttachment && localBytes) {
+      await queuePendingAttachmentUpload(
+        state,
+        attachment,
+        localAttachment.storageKey,
+      );
+      queuedUpload = true;
+      continue;
+    }
+
+    const currentBinding = currentBindingBySlotId.get(attachment.slotId);
+    nextPendingAttachmentReplacements.push(
+      await createPendingAttachmentReplacement(
+        state,
+        attachment.slotId,
+        localAttachment?.blobId ?? currentBinding?.blobId ?? null,
+      ),
+    );
+  }
+
+  if (nextPendingAttachmentReplacements.length > 0) {
+    mergePendingAttachmentReplacements(
+      state,
+      nextPendingAttachmentReplacements,
+    );
+  }
+
+  if (queuedUpload || nextPendingAttachmentReplacements.length > 0) {
+    setReadySnapshot(state, currentDoc, state.snapshot.syncing);
+    return true;
+  }
+
+  return false;
+}
+
 async function replacePendingUpdatesWithBaseline(
   state: NotesStoreState,
   currentDoc: NotesDocument,
@@ -779,11 +1003,16 @@ async function initializeNotesStore(
   const [
     existing,
     loadedPendingAttachments,
+    loadedPendingAttachmentReplacements,
     loadedPendingAttachmentRewraps,
     localAttachments,
   ] = await Promise.all([
     state.persistence.loadNote(state.runtime.execSql, state.noteId),
     listPendingAttachmentRecords(state),
+    state.persistence.listPendingAttachmentReplacements(
+      state.runtime.execSql,
+      state.noteId,
+    ),
     state.persistence.listPendingAttachmentRewraps(
       state.runtime.execSql,
       state.noteId,
@@ -791,6 +1020,7 @@ async function initializeNotesStore(
     listLocalAttachmentRecords(state),
   ]);
   state.pendingAttachments = loadedPendingAttachments;
+  state.pendingAttachmentReplacements = loadedPendingAttachmentReplacements;
   state.pendingAttachmentRewraps = loadedPendingAttachmentRewraps;
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
     localAttachments.map((attachment) => [
@@ -864,6 +1094,7 @@ function isDestroyedDatabaseError(error: unknown): boolean {
 function setNotesSyncing(state: NotesStoreState, syncing: boolean) {
   setNotesSnapshot(state, {
     attachments: state.snapshot.attachments,
+    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
     documentId: state.snapshot.documentId,
@@ -1301,6 +1532,10 @@ async function clearSyncedPendingAttachments(
     state.runtime.execSql,
     state.noteId,
   );
+  await clearPendingAttachmentReplacementsForSlots(
+    state,
+    Array.from(committedSlotIds),
+  );
 }
 
 async function persistCommittedDocumentRecord(
@@ -1702,18 +1937,29 @@ async function finalizeDocumentSync(
       nextDocumentRecipientEnvelopes,
     ),
   });
+  const rotatedAccessEpoch =
+    synced.currentAccessEpoch !== previousAccessEpoch &&
+    synced.documentRecipientEnvelopeAction === "rotate";
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    if (synced.documentRecipientEnvelopeAction === "rotate") {
+    if (rotatedAccessEpoch) {
       await clearPendingAttachmentRewraps(state);
       await replacePendingUpdatesWithBaseline(
         state,
         currentDoc,
         synced.rotateBaselineSourceVersionVector,
       );
-      state.runtime.log(
-        "Notes: document epoch rotated; committed attachments require replacement rather than blob rewrap.",
+      await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
+      const queuedReplacement = await queueCommittedAttachmentsForReplacement(
+        state,
+        currentDoc,
+        nextRecord.documentId,
       );
+      if (queuedReplacement) {
+        state.runtime.log(
+          "Notes: document epoch rotated; committed attachments were queued for replacement.",
+        );
+      }
     } else {
       await queueCommittedAttachmentsForRewrap(state, currentDoc);
       if (
@@ -1736,7 +1982,9 @@ async function finalizeDocumentSync(
     state.syncRequested = true;
   }
 
-  await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
+  if (!rotatedAccessEpoch) {
+    await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
+  }
   return nextRecord;
 }
 
@@ -1862,6 +2110,10 @@ async function runNotesSyncPass(state: NotesStoreState) {
   nextRecord = rewrapResult.nextRecord;
   if (rewrapResult.completed) {
     state.syncRequested = true;
+    return;
+  }
+
+  if (state.pendingAttachmentReplacements.length > 0) {
     return;
   }
 
@@ -2048,12 +2300,61 @@ async function persistAttachedFiles(
 
   await persistPendingAttachments(state, files, nextPendingAttachments);
 
-  state.pendingAttachments = [
-    ...state.pendingAttachments,
-    ...nextPendingAttachments,
-  ];
+  upsertPendingAttachments(state, nextPendingAttachments);
   await persistDocument(state, currentDoc);
   logAttachedFiles(state, files.length);
+  scheduleNotesSync(state);
+}
+
+async function persistReplacementAttachmentFile(
+  state: NotesStoreState,
+  slotId: string,
+  file: NoteAttachmentUpload,
+) {
+  const currentDoc = state.doc;
+  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+
+  if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
+    state.runtime.log(
+      "Notes: replacement attachments require a local key package.",
+    );
+    return;
+  }
+
+  const existingAttachment = getNoteAttachments(currentDoc).find(
+    (attachment) => attachment.slotId === slotId,
+  );
+  if (!existingAttachment) {
+    state.runtime.log(`Notes: attachment slot ${slotId} no longer exists.`);
+    return;
+  }
+
+  const replacementAttachment: NoteAttachment = {
+    byteLength: file.bytes.byteLength,
+    mimeType: file.mimeType,
+    name: file.name,
+    slotId,
+  };
+  const previousVersion = encodeVersionVector(currentDoc);
+  addNoteAttachments(currentDoc, [replacementAttachment]);
+  const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+  if (attachmentUpdate.byteLength > 0) {
+    await enqueuePendingUpdate(state, attachmentUpdate);
+  }
+
+  const storageKey = `${state.noteId}-${slotId}-${crypto.randomUUID()}`;
+  await state.runtime.blobStore.writeBytes(storageKey, file.bytes);
+  await saveLocalAttachmentRecord(state, {
+    blobId: null,
+    byteLength: replacementAttachment.byteLength,
+    mimeType: replacementAttachment.mimeType,
+    noteId: state.noteId,
+    slotId,
+    storageKey,
+  });
+  await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
+  await persistDocument(state, currentDoc);
+  state.runtime.log(`Queued replacement for attachment ${file.name}.`);
   scheduleNotesSync(state);
 }
 
@@ -2064,6 +2365,7 @@ function refreshAttachabilitySnapshot(state: NotesStoreState) {
 
   setNotesSnapshot(state, {
     attachments: state.snapshot.attachments,
+    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: canAttachFiles(state),
     documentId: state.snapshot.documentId,
@@ -2101,6 +2403,23 @@ function attachFilesToNotesStore(
     });
 }
 
+function replaceAttachmentInNotesStore(
+  state: NotesStoreState,
+  slotId: string,
+  file: NoteAttachmentUpload,
+) {
+  if (!state.doc) {
+    return;
+  }
+
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(async () => persistReplacementAttachmentFile(state, slotId, file))
+    .catch((error: unknown) => {
+      console.error("Failed to replace note attachment:", error);
+    });
+}
+
 function setNotesText(state: NotesStoreState, value: string) {
   if (!state.doc) {
     return;
@@ -2108,6 +2427,7 @@ function setNotesText(state: NotesStoreState, value: string) {
 
   setNotesSnapshot(state, {
     attachments: state.snapshot.attachments,
+    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
     documentId: state.snapshot.documentId,
@@ -2202,6 +2522,8 @@ export function createNotesStore(
       attachFilesToNotesStore(state, files),
     ensureInitialized: () => ensureNotesStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
+    replaceAttachment: (slotId: string, file: NoteAttachmentUpload) =>
+      replaceAttachmentInNotesStore(state, slotId, file),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkNotesStore(state, input),
     setPersistedNoteListener: (listener) => {
@@ -2351,11 +2673,13 @@ export function useNotes(): NotesContextValue {
   return useMemo(
     () => ({
       attachments: snapshot.attachments,
+      attachmentStatusBySlotId: snapshot.attachmentStatusBySlotId,
       attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
       attachFiles: store.attachFiles,
       canAttach: snapshot.canAttach,
       documentId: snapshot.documentId,
       ready: snapshot.ready,
+      replaceAttachment: store.replaceAttachment,
       text: snapshot.text,
       syncing: snapshot.syncing,
       setText: store.setText,

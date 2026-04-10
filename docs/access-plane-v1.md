@@ -394,6 +394,14 @@ attachment binding commit. If the probe discovers a rotate, the later
 attachment baseline commit carries the rotate baseline source frontier so the
 server can validate it against the prior-epoch document frontier.
 
+For already-committed note attachments after a subtractive rotate, clients do
+not attempt header-only blob rewrap. If local plaintext bytes are available, the
+client queues a same-slot attachment replacement through `commit-change` and
+sends the rotate baseline in the same atomic mutation. If bytes cannot be
+hydrated locally, the note UI marks the affected attachment as requiring a
+replacement file and raw document sync waits so the current-epoch baseline does
+not get uploaded ahead of the server-visible replacement binding.
+
 ## Implementation Plan
 
 V1 should build on the existing generic object-access tables rather than

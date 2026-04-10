@@ -15,7 +15,7 @@
   border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
   background: color-mix(in srgb, currentColor 8%, transparent);
   color: inherit;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0.4rem 0.85rem;
   font: inherit;
   cursor: pointer;
@@ -80,6 +80,40 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.notes-attachment-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  font-size: 0.9rem;
+}
+
+.notes-attachment-status span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.notes-attachment-replace-button {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  border-radius: 8px;
+  padding: 0.3rem 0.65rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.notes-attachment-replace-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .notes-attachment-name {
