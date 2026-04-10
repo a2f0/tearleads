@@ -13,6 +13,7 @@ import { blobs, objectRecipientEnvelopes } from "../schema";
 import {
   attachBlobToDocument,
   initializeBlobAccess,
+  replaceBlobRecipientEnvelopes,
   resolveBlobAccessState,
 } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
@@ -76,6 +77,18 @@ test("blob access is derived from linked document access", async () => {
 
   const beforeShare = await resolveBlobAccessState(blob.id);
   invariant(beforeShare, "expected blob access state");
+  await expect(
+    replaceBlobRecipientEnvelopes(
+      crypto.randomUUID(),
+      1,
+      beforeShare.cryptoRecipients,
+      beforeShare.cryptoRecipients.map((recipient) => ({
+        keyFingerprint: recipient.keyFingerprint,
+        kemCipherText: "",
+        wrappedKey: "wrapped-key",
+      })),
+    ),
+  ).rejects.toThrow("Blob recipient envelope is missing wrapped material");
   expect(
     beforeShare.effectiveRecipients.map((recipient) => ({
       principalId: recipient.principalId,

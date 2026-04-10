@@ -194,8 +194,8 @@ export const objectRecipientEnvelopes = pgTable(
       .notNull(),
     recipientPrincipalId: text("recipient_principal_id").notNull(),
     recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
-    kemCipherText: text("kem_cipher_text"),
-    wrappedKey: text("wrapped_key"),
+    kemCipherText: text("kem_cipher_text").notNull(),
+    wrappedKey: text("wrapped_key").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

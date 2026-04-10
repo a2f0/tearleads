@@ -84,11 +84,11 @@ Current implementation:
 - sync responses set `canonicalDocumentRecipientEnvelopesAdopted` when a
   same-epoch document bundle conflict was resolved by returning the canonical
   current bundle and leaving outgoing updates unaccepted for retry
-- the current document-DEK bundle can now be materialized in
-  `object_recipient_envelopes`
-- recipient-envelope identity rows are principal-shaped, and document/blob
-  wrapped-key material now prefers current group/org principal keys when the
-  relevant signed policy state exists
+- the current document-DEK bundle can now be materialized in strict
+  `object_recipient_envelopes` rows with required wrapped-key material
+- recipient bundle rows are principal-shaped, and document/blob wrapped-key
+  material now prefers current group/org principal keys when the relevant
+  signed policy state exists
 - `POST /auth/register` and `POST /containers` can seed initial metadata
   document bundles atomically
 - blob payloads are further along: committed blob envelopes now carry real

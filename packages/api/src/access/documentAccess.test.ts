@@ -6,7 +6,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../test/helpers/api/createDocument";
 import { authenticate } from "../../test/helpers/authenticate";
@@ -28,6 +28,7 @@ import {
 } from "./containerAccess";
 import {
   getDocumentRecipientEnvelopeAction,
+  putDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "./documentAccess";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
@@ -82,6 +83,35 @@ async function storeCurrentGroupState(
   );
 }
 
+test("object recipient envelopes require wrapped key material", async () => {
+  let insertError: unknown;
+
+  try {
+    await db.execute(sql`
+      INSERT INTO object_recipient_envelopes (
+        object_type,
+        object_id,
+        epoch,
+        recipient_principal_type,
+        recipient_principal_id,
+        recipient_key_fingerprint
+      )
+      VALUES (
+        'document',
+        ${crypto.randomUUID()},
+        1,
+        'user',
+        ${crypto.randomUUID()},
+        ${crypto.randomUUID()}
+      )
+    `);
+  } catch (error) {
+    insertError = error;
+  }
+
+  expect(insertError).toBeInstanceOf(Error);
+});
+
 test("document access includes recipients inherited from its linked root container", async () => {
   const alice = createTestUser();
   const bob = createTestUser();
@@ -132,14 +162,36 @@ test("document access includes recipients inherited from its linked root contain
   expect(link?.containerId).toBe(rootContainer.id);
 
   const documentEnvelopes = await db
-    .select({ id: objectRecipientEnvelopes.id })
+    .select({
+      id: objectRecipientEnvelopes.id,
+      kemCipherText: objectRecipientEnvelopes.kemCipherText,
+      wrappedKey: objectRecipientEnvelopes.wrappedKey,
+    })
     .from(objectRecipientEnvelopes)
     .where(eq(objectRecipientEnvelopes.objectId, documentId));
   expect(documentEnvelopes).toHaveLength(1);
+  expect(documentEnvelopes.every((row) => row.kemCipherText.length > 0)).toBe(
+    true,
+  );
+  expect(documentEnvelopes.every((row) => row.wrappedKey.length > 0)).toBe(
+    true,
+  );
 
   const beforeShare = await resolveDocumentAccessState(documentId);
   invariant(beforeShare, "expected document access state");
   expect(beforeShare.currentAccessEpoch).toBe(1);
+  await expect(
+    putDocumentRecipientEnvelopes(
+      crypto.randomUUID(),
+      1,
+      beforeShare,
+      beforeShare.cryptoRecipients.map((recipient) => ({
+        keyFingerprint: recipient.keyFingerprint,
+        kemCipherText: "",
+        wrappedKey: "wrapped-key",
+      })),
+    ),
+  ).rejects.toThrow("Document recipient envelope is missing wrapped material");
   expect(
     await getDocumentRecipientEnvelopeAction(documentId, beforeShare),
   ).toBe("none");

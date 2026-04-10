@@ -8,39 +8,28 @@ For the current access-plane model, see
 
 ## Access Plane And Envelope Storage
 
-### KI-004: `object_recipient_envelopes` still has sparse / object-type-specific semantics
+### KI-004: `object_recipient_envelopes` wrapped material is now strict
 
-Status: partial
+Status: resolved in #174
 
-The current table no longer means the same thing for every object type:
+The table now has one storage meaning for all encrypted object types:
 
-- containers store actual wrapped-DEK material
-- documents now store actual wrapped-DEK material for the current epoch when a
-  client seeds or updates the current document bundle
-- blobs now store actual wrapped-DEK material when the blob ciphertext carries a
-  valid blob envelope
-- recipient identity rows are now principal-shaped in schema terms, even though
-  the current runtime still mostly emits `user` principals
+- each row is a recipient bundle row for one object type, object id, epoch, and
+  recipient key fingerprint
+- `recipient_principal_type` and `recipient_principal_id` identify the effective
+  recipient principal for access-plane comparisons
+- `kem_cipher_text` and `wrapped_key` are required wrapped-DEK material, not
+  optional sidecar fields
 
-This is why `kem_cipher_text` and `wrapped_key` remain nullable in the current
-schema even though some object types conceptually want them present.
+Identity-only rows are no longer valid. Runtime document and blob bundle writes
+reject empty wrapped material, and the database schema requires both wrapped key
+columns for container, document, and blob rows.
 
-Impact:
+Remaining caveat:
 
-- schema meaning is still object-type-dependent
-- a `NOT NULL` migration is not currently possible
-- docs can drift unless the document-side limitation is kept explicit
-
-Recommended fix:
-
-- either split envelope identity rows from wrapped-key bundle rows, or
-- keep the object-type-specific invariants explicit until the document DEK model
-  fully settles:
-  - containers require wrapped key material
-  - blobs require wrapped key material when the stored blob ciphertext is a
-    valid blob envelope
-  - documents should only persist current-epoch wrapped key material when a
-    real document bundle exists
+- the same table still spans `container`, `document`, and `blob` objects, so
+  future audit/history retention may still choose to split historical bundle
+  storage from current access-plane bundle storage
 
 ## Key Hierarchy And Sharing Model
 
@@ -70,9 +59,9 @@ raw rotate-baseline sync and ask the user to replace the file when they are not.
 V1 attachment/blob retention is explicitly live-only: detached blobs are pruned
 once their final active binding is retired. Durable historical attachment/audit
 retention is not a #105 V1 requirement; if the product needs it later, it
-should be designed as a separate audit/history layer. The remaining gaps are
+should be designed as a separate audit/history layer. The remaining gap is
 longer-term generic document-management UI beyond the current note-specific
-explorer flows and envelope storage cleanup.
+explorer flows.
 
 Why this matters:
 
