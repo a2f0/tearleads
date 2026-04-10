@@ -31,7 +31,7 @@ So the planes are a domain/protocol concept, not a source-tree layout rule.
 
 ## Code Layers
 
-The API should be organized in layers like this:
+The API is organized in layers like this:
 
 ### 1. Entry Points
 
@@ -58,14 +58,16 @@ Examples:
 - response shaping
 - auth/session middleware
 
-This layer should do only a few things:
+This layer does only a few things for extracted routes:
 
 - parse and validate the request
 - load auth/session context
 - call a service
 - convert service results/errors into HTTP responses
 
-It should not contain large business-logic transactions.
+It does not own large business-logic transactions once a use case has been
+extracted. The remaining route-level exceptions are listed in the future-work
+section.
 
 ### 3. Application Service Layer
 
@@ -77,14 +79,14 @@ Examples:
 - `packages/api/src/services/containers/**`
 - `packages/api/src/services/runtime.ts`
 
-This layer should:
+This layer:
 
 - own transaction boundaries for a use case
 - orchestrate access/document/attachment work
 - depend on explicit infrastructure seams
 - accept validated inputs instead of raw HTTP context
 
-This is the layer that the app-side MSW harness should call when it wants real
+This is the layer that the app-side MSW harness calls when it wants real
 backend behavior without duplicating route logic.
 
 ### 4. Domain and Protocol Helpers
@@ -98,9 +100,9 @@ Examples:
 - document-access materialization
 - blob-access materialization
 - principal state and member-envelope stores
-- route-adjacent helpers like container metadata creation
+- container metadata document creation
 
-This code should model protocol/domain rules, not HTTP transport.
+This code models protocol/domain rules, not HTTP transport.
 
 ### 5. Infrastructure Layer
 
@@ -113,7 +115,7 @@ Examples:
 - `packages/api/src/adapters/redisPubSub.ts`
 - session token creation
 
-This layer should expose capabilities, not use-case policy.
+This layer exposes capabilities, not use-case policy.
 
 ## Service Seams
 
@@ -133,9 +135,9 @@ The point is not dependency injection for its own sake. The point is:
 - app tests do not need to import the full API server entrypoint
 - MSW does not need a second fake implementation of backend behavior
 
-The rule should be:
+The rule is:
 
-- if a use case is important enough to test from app UI through MSW, it should
+- if a use case is important enough to test from app UI through MSW, it must
   live in a service module, not only in a route body
 
 ## Current Extraction Boundary
@@ -150,12 +152,18 @@ The first extracted service seam currently covers:
 - container list
 - container share
 - container document listing
+- container metadata document creation for auth registration and container
+  creation
 
 That is enough for the current app-side dual-pane share flows.
 
+`packages/api/src/services/containers/containerMetadata.ts` owns container
+metadata document creation. Auth registration and container creation call it
+from service code without importing from `routes/**`.
+
 The document routes are not fully extracted yet. In particular, the heavier
-document/blob use cases still have route-level orchestration that should move
-down into services later.
+document/blob use cases still have route-level orchestration. Those remaining
+exceptions are tracked below as future work.
 
 ## Why `routeApp` Exists
 
@@ -176,7 +184,7 @@ The intended testing pyramid is:
 
 ### Route Tests
 
-Route tests should verify:
+Route tests verify:
 
 - request validation
 - auth middleware behavior
@@ -184,7 +192,7 @@ Route tests should verify:
 
 ### Service Tests
 
-Service tests should verify:
+Service tests verify:
 
 - use-case behavior
 - transactional correctness
@@ -192,7 +200,7 @@ Service tests should verify:
 
 ### App Tests
 
-App tests should verify:
+App tests verify:
 
 - real UI flows
 - real request/response semantics
@@ -200,12 +208,12 @@ App tests should verify:
 
 The key constraint is:
 
-- MSW should reuse backend logic
-- MSW should not become a second backend implementation
+- MSW reuses backend logic
+- MSW does not become a second backend implementation
 
 ## Design Rules
 
-These are the rules I think we should keep:
+The rules are:
 
 1. Hono route files stay thin.
 2. Services accept validated arguments, not `Context`.
@@ -213,14 +221,14 @@ These are the rules I think we should keep:
    practical.
 4. Domain helpers model access/document/attachment logic and remain reusable.
 5. Infrastructure adapters do not own business policy.
-6. App-side integration tests should call shared service logic or `routeApp`,
+6. App-side integration tests call shared service logic or `routeApp`,
    not import the full server entrypoint.
-7. Protocol planes can cross service boundaries, but transport concerns should
+7. Protocol planes can cross service boundaries, but transport concerns do
    not leak downward.
 
-## Next Extraction Targets
+## Future Work
 
-The next obvious candidates are:
+The remaining extraction targets are:
 
 - document sync orchestration
 - document commit/change orchestration
