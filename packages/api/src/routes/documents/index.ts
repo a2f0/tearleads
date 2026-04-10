@@ -14,6 +14,7 @@ import {
 import type {
   BlobResponse,
   ListDocumentAttachmentsResponse,
+  StageBlobResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import { validator } from "hono/validator";
@@ -59,11 +60,14 @@ import {
   objectAccessEpochs,
   objectRecipientEnvelopes,
 } from "../../schema";
+import { StageBlobError, stageBlob } from "../../services/documents/stageBlob";
+import { defaultApiServiceRuntime } from "../../services/runtime";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   listBlobRecipientKeyFingerprints,
   readLoroUpdateAccessEpoch,
 } from "../../utils/recipientEnvelopes";
+import { sha256Hex } from "../../utils/sha256";
 
 type DocumentRouteExecutor = DatabaseExecutor;
 type CommitChangeAccess = NonNullable<
@@ -227,15 +231,6 @@ async function getRotateBaselineSourceError(input: {
   }
 
   return null;
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
 }
 
 async function pruneUnreachableAttachmentBlobs(
@@ -1272,44 +1267,21 @@ documentsRouter.post(
   }),
   async (c) => {
     const session = c.get("session");
-    const { encryptedBytes, byteLength, sha256 } = c.req.valid("json");
-    const encodedBytes = new TextEncoder().encode(encryptedBytes);
 
-    if (encodedBytes.byteLength !== byteLength) {
-      return c.json(
-        { error: "Blob byteLength does not match encryptedBytes" },
-        400,
+    try {
+      return c.json<StageBlobResponse>(
+        await stageBlob(defaultApiServiceRuntime, {
+          ...c.req.valid("json"),
+          userId: session.userId,
+        }),
       );
+    } catch (error) {
+      if (error instanceof StageBlobError) {
+        return c.json({ error: error.message }, error.status);
+      }
+
+      throw error;
     }
-
-    if ((await sha256Hex(encryptedBytes)) !== sha256) {
-      return c.json(
-        { error: "Blob sha256 does not match encryptedBytes" },
-        400,
-      );
-    }
-
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    const [stage] = await db
-      .insert(blobStages)
-      .values({
-        ownerUserId: session.userId,
-        encryptedBytes,
-        byteLength,
-        sha256,
-        expiresAt,
-      })
-      .returning({ id: blobStages.id, expiresAt: blobStages.expiresAt });
-
-    if (!stage) {
-      return c.json({ error: "Failed to stage blob" }, 500);
-    }
-
-    return c.json({
-      stageId: stage.id,
-      expiresAt: stage.expiresAt.toISOString(),
-    });
   },
 );
 
