@@ -68,9 +68,11 @@ remote documents, so completed rotates are discovered before attachment
 replacement after subtractive rotates when local bytes are available, or block
 raw rotate-baseline sync and ask the user to replace the file when they are not.
 V1 attachment/blob retention is explicitly live-only: detached blobs are pruned
-once their final active binding is retired. The remaining gaps are durable
-historical attachment/audit retention, if the product needs it, and longer-term
-generic document-management UI beyond the current note-specific explorer flows.
+once their final active binding is retired. Durable historical attachment/audit
+retention is not a #105 V1 requirement; if the product needs it later, it
+should be designed as a separate audit/history layer. The remaining gaps are
+longer-term generic document-management UI beyond the current note-specific
+explorer flows and envelope storage cleanup.
 
 Why this matters:
 
@@ -87,11 +89,12 @@ Current recommendation:
 
 Remaining implementation work:
 
-- design durable historical attachment/blob retention separately from blob
-  reachability GC if product audit requirements need it
 - keep generic multi-container document-management UI separate from the
   note-specific explorer flow; the app explorer already supports note
   move/link/unlink, linked note projections under each linked container, and
   active local projection switching
+- keep durable attachment/blob history separate from V1 live retention if
+  product audit requirements need it; see
+  [attachment-retention-v1.md](./attachment-retention-v1.md)
 - longer-term rekey/bootstrap and tamper-evident document-history design notes
   live in [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
