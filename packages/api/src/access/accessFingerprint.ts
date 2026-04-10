@@ -147,9 +147,9 @@ function stringifyCanonicalJson(value: unknown): string {
 }
 
 function compareCanonicalJson(left: unknown, right: unknown): number {
-  return stringifyCanonicalJson(left).localeCompare(
-    stringifyCanonicalJson(right),
-  );
+  const leftJson = stringifyCanonicalJson(left);
+  const rightJson = stringifyCanonicalJson(right);
+  return leftJson < rightJson ? -1 : leftJson > rightJson ? 1 : 0;
 }
 
 function sortCanonicalJsonArray<T>(values: readonly T[]): T[] {
