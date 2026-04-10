@@ -6,12 +6,12 @@ import {
   initializeContainerAccess,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
+import { containers } from "../../schema";
+import type { ApiServiceRuntime } from "../runtime";
 import {
   ContainerMetadataError,
   createContainerMetadataDocument,
-} from "../../routes/containers/containerMetadata";
-import { containers } from "../../schema";
-import type { ApiServiceRuntime } from "../runtime";
+} from "./containerMetadata";
 
 interface CreateContainerInput extends CreateContainerRequest {
   createdByFingerprint: string;

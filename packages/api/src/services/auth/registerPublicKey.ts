@@ -14,10 +14,6 @@ import {
 } from "../../access/recipientPrincipals";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
-  ContainerMetadataError,
-  createContainerMetadataDocument,
-} from "../../routes/containers/containerMetadata";
-import {
   containers,
   objectAccessEpochs,
   objectAccessGrants,
@@ -26,6 +22,10 @@ import {
   organizations,
   users,
 } from "../../schema";
+import {
+  ContainerMetadataError,
+  createContainerMetadataDocument,
+} from "../containers/containerMetadata";
 import type { ApiServiceRuntime } from "../runtime";
 
 const CONTAINER_OBJECT_TYPE = "container";
