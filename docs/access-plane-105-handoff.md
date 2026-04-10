@@ -45,9 +45,10 @@ that clients previously inferred:
 - `canonicalDocumentRecipientEnvelopesAdopted` identifies same-epoch canonical
   bundle adoption, so pending outgoing work can be retried under the canonical
   bundle explicitly instead of only by comparing accepted update counts
-- notes, contacts, and explorer decrypt incoming updates in epoch-specific
-  batches, so prior-epoch and current-epoch updates can both be handled around a
-  completed rotate when the client has the relevant bundle material
+- notes, contacts, and explorer decrypt all returned incoming updates in
+  epoch-specific batches, so prior, intermediate, and current epoch updates can
+  all be attempted during cold sync or multi-epoch catch-up when the client has
+  usable bundle material
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT

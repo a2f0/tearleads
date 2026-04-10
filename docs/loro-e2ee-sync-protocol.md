@@ -77,6 +77,10 @@ Current implementation:
   a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
   updates needed for rotate rebasing from current-epoch updates after a
   completed rotate
+- clients group all returned updates by `accessEpoch` before decryption, so
+  cold syncs and multi-epoch catch-up can attempt every returned epoch with the
+  best available current or previous bundle material instead of silently
+  dropping intermediate epochs
 - sync responses set `canonicalDocumentRecipientEnvelopesAdopted` when a
   same-epoch document bundle conflict was resolved by returning the canonical
   current bundle and leaving outgoing updates unaccepted for retry

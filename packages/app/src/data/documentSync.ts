@@ -296,11 +296,49 @@ export function requiresBaselineAfterDocumentEpochChange(input: {
   return input.resolvedDocumentRecipientEnvelopes === null;
 }
 
-function getUpdatesForAccessEpoch(
+function groupUpdatesByAccessEpoch(
   updates: ReadonlyArray<SyncDocumentResponse["updates"][number]>,
-  accessEpoch: number,
-): SyncDocumentResponse["updates"] {
-  return updates.filter((update) => update.accessEpoch === accessEpoch);
+): Map<number, SyncDocumentResponse["updates"]> {
+  const updatesByEpoch = new Map<number, SyncDocumentResponse["updates"]>();
+
+  for (const update of updates) {
+    const epochUpdates = updatesByEpoch.get(update.accessEpoch);
+    if (epochUpdates) {
+      epochUpdates.push(update);
+      continue;
+    }
+
+    updatesByEpoch.set(update.accessEpoch, [update]);
+  }
+
+  return updatesByEpoch;
+}
+
+function resolveIncomingUpdateEnvelopesForEpoch(input: {
+  accessEpoch: number;
+  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  nextDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
+  previousAccessEpoch: number;
+  synced: SyncDocumentResponse;
+}): ReadonlyArray<SerializedRecipientEnvelope> | null {
+  if (input.accessEpoch === input.synced.currentAccessEpoch) {
+    return (
+      input.nextDocumentRecipientEnvelopes ??
+      input.currentDocumentRecipientEnvelopes
+    );
+  }
+
+  if (input.accessEpoch === input.previousAccessEpoch) {
+    return (
+      input.currentDocumentRecipientEnvelopes ??
+      input.nextDocumentRecipientEnvelopes
+    );
+  }
+
+  return (
+    input.nextDocumentRecipientEnvelopes ??
+    input.currentDocumentRecipientEnvelopes
+  );
 }
 
 export function resolveIncomingUpdateDecryptionBatches(input: {
@@ -310,39 +348,36 @@ export function resolveIncomingUpdateDecryptionBatches(input: {
   synced: SyncDocumentResponse;
 }): IncomingUpdateDecryptionBatch[] {
   const batches: IncomingUpdateDecryptionBatch[] = [];
-  const currentEpochUpdates = getUpdatesForAccessEpoch(
-    input.synced.updates,
-    input.synced.currentAccessEpoch,
-  );
+  const sortedUpdatesByEpoch = Array.from(
+    groupUpdatesByAccessEpoch(input.synced.updates).entries(),
+  ).sort(([leftAccessEpoch], [rightAccessEpoch]) => {
+    return leftAccessEpoch - rightAccessEpoch;
+  });
 
-  if (currentEpochUpdates.length > 0 && input.nextDocumentRecipientEnvelopes) {
-    batches.push({
-      accessEpoch: input.synced.currentAccessEpoch,
-      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
-        input.nextDocumentRecipientEnvelopes,
-      ),
-      updates: currentEpochUpdates,
+  for (const [accessEpoch, updates] of sortedUpdatesByEpoch) {
+    const documentRecipientEnvelopes = resolveIncomingUpdateEnvelopesForEpoch({
+      accessEpoch,
+      currentDocumentRecipientEnvelopes:
+        input.currentDocumentRecipientEnvelopes,
+      nextDocumentRecipientEnvelopes: input.nextDocumentRecipientEnvelopes,
+      previousAccessEpoch: input.previousAccessEpoch,
+      synced: input.synced,
     });
-  }
 
-  if (
-    input.synced.currentAccessEpoch !== input.previousAccessEpoch &&
-    input.currentDocumentRecipientEnvelopes
-  ) {
-    const previousEpochUpdates = getUpdatesForAccessEpoch(
-      input.synced.updates,
-      input.previousAccessEpoch,
-    );
-
-    if (previousEpochUpdates.length > 0) {
-      batches.unshift({
-        accessEpoch: input.previousAccessEpoch,
-        documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
-          input.currentDocumentRecipientEnvelopes,
-        ),
-        updates: previousEpochUpdates,
-      });
+    if (
+      !documentRecipientEnvelopes ||
+      documentRecipientEnvelopes.length === 0
+    ) {
+      continue;
     }
+
+    batches.push({
+      accessEpoch,
+      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+        documentRecipientEnvelopes,
+      ),
+      updates,
+    });
   }
 
   return batches;
