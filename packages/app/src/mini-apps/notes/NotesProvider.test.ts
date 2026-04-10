@@ -765,6 +765,187 @@ test("notes store attaches files locally without authentication or network", asy
   );
 });
 
+test("notes store probes document sync before committing offline attachment drafts", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const blobStore = createMemoryBlobStore();
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const commitChangeCalls: Array<{
+    accessEpoch: number;
+    attachmentCommitCount: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    referencedSlotIds: string[];
+    sourceVersionVector: string | null;
+  }> = [];
+  const syncDocumentCalls: Array<{
+    accessEpoch: number;
+    documentId: string;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+    postReconnectProbe: boolean;
+  }> = [];
+  let currentDocumentRecipientEnvelopes: SyncDocumentResponse["documentRecipientEnvelopes"] =
+    null;
+  let returnRotateOnNextSync = false;
+
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    blobStore,
+    apiClient: {
+      ...runtime.apiClient,
+      commitDocumentChange: async (documentId, input) => {
+        currentDocumentRecipientEnvelopes =
+          input.documentRecipientEnvelopes ?? currentDocumentRecipientEnvelopes;
+        commitChangeCalls.push({
+          accessEpoch: input.accessEpoch,
+          attachmentCommitCount: input.attachmentCommits.length,
+          documentId,
+          documentRecipientEnvelopeCount:
+            input.documentRecipientEnvelopes?.length ?? 0,
+          referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+          sourceVersionVector: input.loroUpdate?.sourceVersionVector ?? null,
+        });
+
+        return {
+          acceptedOutgoingUpdateIds: input.loroUpdate
+            ? [input.loroUpdate.id]
+            : [],
+          committedBindings: input.attachmentCommits.map((commit, index) => ({
+            bindingId: `binding-${index + 1}`,
+            blobId: `blob-${index + 1}`,
+            slotId: commit.slotId,
+          })),
+          currentAccessEpoch: input.accessEpoch,
+          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+          detachedBindingIds: [],
+        };
+      },
+      listDocumentAttachments: async () => [],
+      stageBlob: async (input) => runtime.apiClient.stageBlob(input),
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) => {
+        const postReconnectProbe = returnRotateOnNextSync;
+        syncDocumentCalls.push({
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateCount: outgoingUpdates.length,
+          postReconnectProbe,
+        });
+        if (documentRecipientEnvelopes) {
+          currentDocumentRecipientEnvelopes = documentRecipientEnvelopes;
+        }
+
+        if (returnRotateOnNextSync) {
+          returnRotateOnNextSync = false;
+          return createSyncDocumentResponse({
+            accessEpoch: 2,
+            documentId,
+            documentRecipientEnvelopeAction: "rotate",
+            rotateBaselineSourceVersionVector: "offline-rotate-frontier",
+            recipientEncapsulationPublicKeys: [
+              bytesToBase64(encapsulationKeyPair.publicKey),
+            ],
+          });
+        }
+
+        const synced = await runtime.apiClient.syncDocument(
+          documentId,
+          accessEpoch,
+          localVersionVector,
+          outgoingUpdates,
+          documentRecipientEnvelopes,
+        );
+        currentDocumentRecipientEnvelopes =
+          synced?.documentRecipientEnvelopes ??
+          currentDocumentRecipientEnvelopes;
+        return synced;
+      },
+    },
+  };
+  const offlineRuntime: NotesRuntime = {
+    ...instrumentedRuntime,
+    isAuthenticated: false,
+    online: false,
+  };
+
+  const store = createNotesStore(
+    "offline-attachment-rotate",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Offline rotate attachment notes store did not become ready.",
+  );
+
+  store.setText("remote baseline");
+
+  await waitForCondition(
+    () =>
+      persistence.getState().note?.documentId === "notes-document-1" &&
+      persistence.getState().pendingUpdates.length === 0,
+    "Initial document sync did not complete before offline attachment.",
+  );
+
+  const initialSyncCallCount = syncDocumentCalls.length;
+  store.updateRuntime(offlineRuntime);
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("offline attachment after rotate"),
+      mimeType: "image/png",
+      name: "offline-after-rotate.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      persistence.getState().pendingAttachments.length === 1 &&
+      persistence.getState().pendingUpdates.length === 1,
+    "Offline attachment draft was not persisted.",
+  );
+
+  returnRotateOnNextSync = true;
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 1 &&
+      persistence.getState().note?.accessEpoch === 2 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().pendingUpdates.length === 0,
+    "Offline attachment draft was not committed after rotate discovery.",
+  );
+
+  const slotId = store.getSnapshot().attachments[0]?.slotId ?? "";
+  expect(syncDocumentCalls.slice(initialSyncCallCount)[0]).toEqual({
+    accessEpoch: 1,
+    documentId: "notes-document-1",
+    documentRecipientEnvelopeCount: 0,
+    outgoingUpdateCount: 0,
+    postReconnectProbe: true,
+  });
+  expect(commitChangeCalls).toEqual([
+    {
+      accessEpoch: 2,
+      attachmentCommitCount: 1,
+      documentId: "notes-document-1",
+      documentRecipientEnvelopeCount: 1,
+      referencedSlotIds: [slotId],
+      sourceVersionVector: "offline-rotate-frontier",
+    },
+  ]);
+});
+
 test("notes store keeps prior attachments when a second file is attached", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

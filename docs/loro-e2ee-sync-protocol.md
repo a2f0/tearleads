@@ -117,6 +117,12 @@ Current implementation:
   them with a full baseline
 - note attachment rewrap-only work now commits blob recipient-envelope updates
   without sending an unrelated Loro baseline
+- note clients with pending local attachment drafts for an existing remote
+  document first issue a no-outgoing document sync probe, so completed rotates
+  or canonical bundle adoption are applied before the attachment
+  `commit-change`; the attachment's Loro metadata stays pending until the
+  atomic blob/binding commit can include it, including the rotate baseline
+  source frontier when the probe discovered a rotate
 
 Important remaining limitation:
 
@@ -266,6 +272,14 @@ layer:
 
 1. `POST /blobs/stage`
 2. `POST /documents/:documentId/commit-change`
+
+For an existing remote document, clients should probe
+`POST /documents/:documentId/sync` with no outgoing updates before committing a
+pending local attachment draft. That probe refreshes the visible access epoch
+without uploading attachment metadata outside the atomic attachment path. If
+the probe discovers a rotate, the later `commit-change` baseline carries the
+rotate baseline `sourceVersionVector` so the server can apply the same
+source-frontier CAS as raw document sync.
 
 `commit-change` accepts:
 

@@ -1040,6 +1040,7 @@ async function commitBaselineChange(
   encapsulationKeyPair: EncapsulationKeyPair,
   attachmentCommits: AttachmentCommitChange[],
   attachmentRewraps: AttachmentRewrapChange[],
+  sourceVersionVector: string | null,
 ): Promise<CommitDocumentChangeResponse | null> {
   if (!nextRemoteRecord.documentId) {
     return null;
@@ -1084,6 +1085,7 @@ async function commitBaselineChange(
         referencedSlotIds: getNoteAttachments(currentDoc).map(
           (attachment) => attachment.slotId,
         ),
+        ...(sourceVersionVector ? { sourceVersionVector } : {}),
       },
     },
   );
@@ -1235,6 +1237,10 @@ async function runPendingAttachmentSyncTask(
     return { completed: false, nextRecord };
   }
 
+  const rotateBaselineSourceVersionVector =
+    (await listPendingUpdates(state)).find(
+      (pendingUpdate) => pendingUpdate.sourceVersionVector,
+    )?.sourceVersionVector ?? null;
   const committed = await commitBaselineChange(
     state,
     currentDoc,
@@ -1242,6 +1248,7 @@ async function runPendingAttachmentSyncTask(
     encapsulationKeyPair,
     attachmentCommits,
     [],
+    rotateBaselineSourceVersionVector,
   );
   if (!committed) {
     return { completed: false, nextRecord };
@@ -1543,6 +1550,50 @@ async function requestDocumentSync(
   };
 }
 
+async function requestDocumentSyncProbe(
+  state: NotesStoreState,
+  currentDoc: NotesDocument,
+  currentRecord: NoteRecord,
+  encapsulationKeyPair: EncapsulationKeyPair,
+): Promise<DocumentSyncAttempt | null> {
+  if (!currentRecord.documentId) {
+    return null;
+  }
+
+  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
+    currentRecord.documentRecipientEnvelopes,
+  );
+  let synced = await state.runtime.apiClient.syncDocument(
+    currentRecord.documentId,
+    currentRecord.accessEpoch,
+    encodeVersionVector(currentDoc),
+    [],
+    undefined,
+  );
+  if (!synced) {
+    return null;
+  }
+
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: currentRecord.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId: currentRecord.documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(currentDoc),
+    recipientPublicKeys: state.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument,
+    synced,
+  });
+
+  return {
+    currentDocumentRecipientEnvelopes,
+    encryptionMaterial: null,
+    outgoingUpdateCount: 0,
+    synced,
+  };
+}
+
 function resolveNextDocumentRecipientEnvelopes(
   currentRecord: NoteRecord,
   syncAttempt: DocumentSyncAttempt,
@@ -1730,12 +1781,65 @@ async function syncDocumentState(
   );
 }
 
+async function refreshRemoteDocumentBeforePendingAttachmentCommit(
+  state: NotesStoreState,
+  currentDoc: NotesDocument,
+  nextRecord: NoteRecord,
+  encapsulationKeyPair: EncapsulationKeyPair,
+): Promise<PendingMutationSyncResult> {
+  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
+    return { completed: false, nextRecord };
+  }
+
+  const syncAttempt = await requestDocumentSyncProbe(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+  );
+  if (!syncAttempt) {
+    return { completed: false, nextRecord };
+  }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    syncAttempt.synced.referencedPrincipals,
+  );
+
+  const refreshedRecord = await finalizeDocumentSync(
+    state,
+    currentDoc,
+    nextRecord,
+    syncAttempt,
+    encapsulationKeyPair,
+  );
+
+  return {
+    completed:
+      refreshedRecord.accessEpoch !== nextRecord.accessEpoch ||
+      syncAttempt.synced.canonicalDocumentRecipientEnvelopesAdopted,
+    nextRecord: refreshedRecord,
+  };
+}
+
 async function runNotesSyncPass(state: NotesStoreState) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
   let nextRecord = state.record;
 
   if (!currentDoc || !nextRecord || !encapsulationKeyPair) {
+    return;
+  }
+
+  const refreshedResult =
+    await refreshRemoteDocumentBeforePendingAttachmentCommit(
+      state,
+      currentDoc,
+      nextRecord,
+      encapsulationKeyPair,
+    );
+  nextRecord = refreshedResult.nextRecord;
+  if (refreshedResult.completed) {
+    state.syncRequested = true;
     return;
   }
 
