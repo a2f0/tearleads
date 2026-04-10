@@ -42,7 +42,10 @@ async function requireReadableContainer(
     throw new ListContainerDocumentsError("Container not found", 404);
   }
 
-  const containerAccess = await resolveContainerAccessState(containerId);
+  const containerAccess = await resolveContainerAccessState(
+    containerId,
+    runtime.db,
+  );
   if (!containerAccess || !canReadContainerAccess(containerAccess, userId)) {
     throw new ListContainerDocumentsError("Forbidden", 403);
   }
@@ -143,8 +146,10 @@ export async function listContainerDocuments(
     runtime,
     documentIds,
   );
-  const accessStateByDocumentId =
-    await resolveDocumentAccessStates(documentIds);
+  const accessStateByDocumentId = await resolveDocumentAccessStates(
+    documentIds,
+    runtime.db,
+  );
   const linkedContainerIdsByDocumentId =
     await loadLinkedContainerIdsByDocumentId(runtime, documentIds);
 

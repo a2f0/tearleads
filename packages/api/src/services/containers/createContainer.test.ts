@@ -1,67 +1,18 @@
 import { expect, test } from "bun:test";
-import { toFingerprint, wrapDekForRecipients } from "@tearleads/crypto";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
+import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { createTestUser } from "../../../test/helpers/createTestUser";
+import {
+  createPublicKeyRequest,
+  createServiceTestRuntime,
+} from "../../../test/helpers/serviceRuntime";
 import { db } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import { registerPublicKey } from "../auth/registerPublicKey";
-import type { ApiServiceRuntime } from "../runtime";
 import { createContainer } from "./createContainer";
 
-function createTestRuntime(): ApiServiceRuntime {
-  const values = new Map<string, string>();
-
-  return {
-    db,
-    eventPublisher: {
-      publish: async () => {},
-    },
-    keyValueStore: {
-      del: async (key) => {
-        values.delete(key);
-      },
-      get: async (key) => values.get(key) ?? null,
-      set: async (key, value) => {
-        values.set(key, value);
-      },
-    },
-    principalSignerTrustStore: {
-      getTrustedSignerPublicKey: async () => null,
-    },
-    sessionTokenIssuer: {
-      createSession: async () => "test-session",
-    },
-  };
-}
-
-async function createPublicKeyRequest(
-  user: ReturnType<typeof createTestUser>,
-): Promise<PublicKeyRequest> {
-  const dek = crypto.getRandomValues(new Uint8Array(32));
-  const [wrappedDekEnvelope] = await wrapDekForRecipients(dek, [
-    user.kem.publicKey,
-  ]);
-
-  if (!wrappedDekEnvelope) {
-    throw new Error("Failed to wrap DEK for test user");
-  }
-
-  return {
-    rootContainerId: crypto.randomUUID(),
-    signingPublicKey: Array.from(user.signing.signingPublicKey),
-    encapsulationPublicKey: Array.from(user.kem.publicKey),
-    initialRootMetadataUpdates: [],
-    wrappedDekEnvelope: {
-      keyFingerprint: wrappedDekEnvelope.keyFingerprint,
-      kemCipherText: Array.from(wrappedDekEnvelope.kemCipherText),
-      wrappedKey: Array.from(wrappedDekEnvelope.wrappedKey),
-    },
-  };
-}
-
 test("createContainer service creates a metadata document without route helpers", async () => {
-  const runtime = createTestRuntime();
+  const runtime = createServiceTestRuntime();
   const user = createTestUser();
   const registration = await registerPublicKey(
     runtime,

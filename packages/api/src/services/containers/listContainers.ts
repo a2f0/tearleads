@@ -158,8 +158,10 @@ export async function listContainers(
       containerRow.metadataDocumentId ? [containerRow.metadataDocumentId] : [],
     ),
   );
-  const metadataAccessStateByDocumentId =
-    await resolveDocumentAccessStates(metadataDocumentIds);
+  const metadataAccessStateByDocumentId = await resolveDocumentAccessStates(
+    metadataDocumentIds,
+    runtime.db,
+  );
 
   const visibleContainers: ListContainersResponse = [];
 
