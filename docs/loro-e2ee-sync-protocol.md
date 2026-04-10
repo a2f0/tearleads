@@ -138,8 +138,8 @@ Important remaining limitation:
   linked container is locally active; generic multi-link document-management UI
   beyond notes remains future work
 - subtractive rotation for document epochs still uses the current fresh-baseline
-  path; compare-and-set source-frontier validation, audit/history hardening,
-  and historical attachment retention remain future work
+  path; compare-and-set source-frontier validation and audit/history hardening
+  remain future work
 
 For the current `#105` pickup point and recommended next implementation slice,
 see [access-plane-105-handoff.md](./access-plane-105-handoff.md).
@@ -218,6 +218,11 @@ Recommended objects:
   - server-visible binding from attachment record to blob object; V1 keeps
     detached bindings only as transient replacement metadata and prunes them
     with unreachable blobs
+
+For the V1 attachment/blob retention decision, see
+[attachment-retention-v1.md](./attachment-retention-v1.md). Historical
+attachment bytes, signed tombstones, and attachment manifests are future
+audit/history concepts, not part of the V1 commit-change contract.
 
 For the current access-plane direction, the important semantic is:
 

@@ -471,6 +471,11 @@ V1 attachment/blob retention is live-only:
 - detached bindings are transient replacement metadata, not historical
   attachment/audit retention
 
+For the accepted product decision, see
+[attachment-retention-v1.md](./attachment-retention-v1.md). Durable old blob
+bytes, attachment tombstones, signed manifests, or historical attachment replay
+are future audit/history features, not #105 V1 behavior.
+
 V1 scope should allow offline structural mutations such as move, link, unlink,
 attach, and detach, with authoritative recomputation at sync time.
 

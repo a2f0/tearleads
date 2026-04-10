@@ -46,26 +46,31 @@ These #105 slices are back on `main`.
   detached binding rows, blob access epochs, blob recipient envelopes, and blob
   bytes once no active binding references the blob, while retaining blobs that
   still have at least one active binding.
+- PR `#171`, `docs: update access plane handoff after retention slice`:
+  refreshes the #105 pickup guidance so the already-landed note-specific
+  multi-container UI is not treated as missing generic document-management
+  work.
 
-## Current Pickup Point
+## Current In-Flight Slice
 
-The local pickup point after PR `#170` is mostly product scope cleanup.
-Historical attachment/blob retention behavior is now explicit for V1:
+The local pickup slice after PR `#171` finishes the V1 attachment/blob
+retention product decision:
 
 - V1 keeps live attachment blobs only while active bindings reference them
 - detached binding rows are transient replacement metadata, not historical
   attachment or audit retention
-- durable attachment/audit retention remains a separate product and schema
-  decision if the product needs historical attachment bytes, tombstones, or
-  manifests
+- durable attachment/audit retention is out of scope for #105 V1 and should be
+  a separate audit/history feature if the product needs historical attachment
+  bytes, tombstones, or manifests
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT
 state.
 
-The main remaining #105 candidate is durable historical attachment/audit
-retention if the product needs it. Longer-term envelope table cleanup is also
-still valid, but should stay separate from the access-plane behavior slices.
+After this slice lands, the remaining #105 candidates are longer-term generic
+document-management UI and envelope table cleanup. Both should stay separate
+from the already-landed access-plane behavior slices unless a concrete product
+or schema invariant requires them.
 
 ## What Is Already Landed
 
@@ -128,11 +133,8 @@ Avoid these paths:
 
 ## Remaining #105 Work
 
-The next slices should stay focused on retention and remaining product/schema
-edge cases:
+The next slices should stay focused on remaining product/schema edge cases:
 
-- decide whether durable historical attachment/blob retention is needed beyond
-  V1 live-only blob reachability GC
 - keep generic, non-note multi-container document-management UI work separate;
   the current app has note-specific move/link/unlink, linked projections, and
   active projection switching, but no broader generic document manager
@@ -143,6 +145,8 @@ edge cases:
 
 - [access-plane-v1.md](./access-plane-v1.md): current access model and rewrap
   versus rotate rules
+- [attachment-retention-v1.md](./attachment-retention-v1.md): V1 live-only
+  attachment/blob retention decision
 - [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md): document sync,
   attachment commit, and current protocol limitations
 - [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md):
@@ -156,13 +160,13 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice. Assume PR #170 has merged and V1 live-only
-attachment retention is documented and tested.
+continue with the next #105 slice. Assume V1 attachment retention has been
+accepted as live-only and durable attachment history has been deferred to a
+future audit/history feature.
 
-Recommended next slice: decide whether durable attachment/audit retention is a
-product requirement beyond V1 live-only blob reachability GC. If it is not,
-document that decision explicitly and keep longer-term audit/history or envelope
-schema work separate.
+Recommended next slice after V1 attachment retention is accepted as live-only:
+pick a longer-term generic document-management or envelope schema cleanup slice,
+or close out #105 if those should move to separate issues.
 
 Preserve additive rewrap behavior, rotate source-frontier CAS, prior-epoch
 update import, canonical bundle adoption, and explicit sync outcome

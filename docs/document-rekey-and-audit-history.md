@@ -59,6 +59,10 @@ are transient replacement metadata, not an attachment audit log.
 That means document update history and attachment/blob history have different
 retention properties.
 
+This is an accepted V1 product decision, not only an implementation accident.
+For the explicit attachment/blob retention policy, see
+[attachment-retention-v1.md](./attachment-retention-v1.md).
+
 ## Desired Rekey / Rebaseline Model
 
 ### Any Retained Authorized Client Should Be Able To Win
@@ -243,6 +247,6 @@ For that reason, the better design is:
 - Should document updates be signed by users, devices, or both?
 - Should baseline checkpoints be individually signed, or only hash-linked into
   the audit ledger?
-- If historical document replay becomes a product requirement, should
-  attachment history retain old blob bytes, signed tombstones/manifests, or
-  only live reachability state?
+- If historical document replay becomes a product requirement, should a future
+  attachment-history layer retain old blob bytes, signed tombstones/manifests,
+  or only live reachability state?
