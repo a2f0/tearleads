@@ -31,32 +31,35 @@ These #105 slices are back on `main`.
   current-epoch bundle with outgoing updates left unaccepted, clients
   immediately retry unaccepted pending work, and the shared conflict message is
   defined once in `@tearleads/loro/shared`.
+- PR `#167`, `feat: classify document sync outcomes`: sync responses expose
+  returned update epochs, prior/current missing-update summaries, and canonical
+  bundle adoption so clients do not infer rotate/adoption outcomes indirectly.
 
 ## Current In-Flight Slice
 
-Branch `feat/sync-outcome-classification` is the next `#105` slice.
+Branch `feat/rotate-attachment-draft-hardening` is the next `#105` slice.
 
-This slice makes the document sync response classify the rotate/adoption cases
-that clients previously inferred:
+This slice hardens note attachment drafts when a client worked offline and then
+discovers that the document epoch rotated while it was away:
 
-- returned document updates include visible `accessEpoch`
-- `missingUpdateEpochs[]` summarizes whether the response contains
-  `prior_epoch` updates, `current_epoch` updates, or both
-- `canonicalDocumentRecipientEnvelopesAdopted` identifies same-epoch canonical
-  bundle adoption, so pending outgoing work can be retried under the canonical
-  bundle explicitly instead of only by comparing accepted update counts
-- notes, contacts, and explorer decrypt all returned incoming updates in
-  epoch-specific batches, so prior, intermediate, and current epoch updates can
-  all be attempted during cold sync or multi-epoch catch-up when the client has
-  usable bundle material
+- for an already-created remote note document, pending local attachment drafts
+  trigger a no-outgoing document sync probe before `commit-change`
+- the probe lets the client adopt a completed rotate/canonical bundle before it
+  stages and commits local attachment bytes
+- local pending attachment bytes remain local drafts until the atomic
+  attachment commit can run under the refreshed epoch
+- if the probe discovers a rotate, the later attachment baseline commit carries
+  the rotate baseline source frontier for server CAS validation
+- pending attachment Loro metadata is not uploaded through raw document sync
+  ahead of the server-visible attachment binding commit
 
 The server still cannot decrypt E2EE Loro update payloads. These rotate checks
 and retry paths work through visible frontier metadata plus client-side CRDT
 state.
 
-After this slice lands, the best next candidate is attachment replacement and
-local draft hardening for clients that discover a completed rotate after working
-offline.
+After this slice lands, the best next candidates are the product-facing
+replacement UX for already-committed attachments after subtractive rotates and
+the historical attachment/blob retention policy.
 
 ## What Is Already Landed
 
@@ -92,6 +95,9 @@ The access plane already has these pieces:
 - sync responses classify prior/current missing updates and canonical bundle
   adoption explicitly, and app clients use per-update `accessEpoch` batches for
   incoming update decryption
+- note clients probe document sync without outgoing updates before committing
+  pending local attachment drafts for an existing remote document, so completed
+  rotates are adopted before the attachment `commit-change`
 - detached attachment bindings are transient metadata and may be pruned when
   blob GC removes the now-unreachable blob
 
@@ -111,8 +117,8 @@ Avoid these paths:
 
 The next slices should stay focused on rotate/adoption edge cases:
 
-- harden attachment replacement UX and local draft handling for clients that
-  discover a completed rotate after working offline
+- harden the replacement UX for already-committed attachments that cannot be
+  header-rewrapped after a subtractive rotate
 - keep true multi-container document-management UI work separate unless the
   chosen slice needs it; the structural APIs and note move/link/unlink flows
   already exist, but notes still present mostly as single-active-container
@@ -136,12 +142,13 @@ Use this if continuing from another machine:
 ```text
 We are working through GitHub issue #105 in the tearleads repo. Read
 docs/access-plane-105-handoff.md first, then inspect the latest main branch and
-continue with the next #105 slice. Assume PR #166 has merged and the sync
-outcome classification slice has either landed or is in review.
+continue with the next #105 slice. Assume PR #167 has merged and the sync
+outcome classification slice has landed.
 
-Recommended next slice after sync outcome classification: harden attachment
-replacement UX and local draft handling for clients that discover a completed
-rotate after working offline.
+Recommended next slice after attachment draft hardening: decide and implement
+the product-facing replacement UX for already-committed attachments that cannot
+be header-rewrapped after a subtractive rotate, or choose the historical
+attachment/blob retention policy if that is more urgent.
 
 Preserve additive rewrap behavior, rotate source-frontier CAS, prior-epoch
 update import, canonical bundle adoption, and explicit sync outcome

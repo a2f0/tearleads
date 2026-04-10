@@ -61,10 +61,12 @@ protocol now exist in the API. Blob and document wrapped-key persistence are now
 real. Additive document epoch rewrap now preserves pending Loro updates instead
 of replacing them with a full baseline. Rotate handling now has source-frontier
 validation, canonical bundle adoption, and explicit sync response
-classification for prior/current missing updates. The remaining gaps are
-historical retention/audit policy, attachment replacement and local draft
-handling around completed rotates, and the client-facing multi-container
-document-management story.
+classification for prior/current missing updates. Note clients now probe
+document sync before committing pending local attachment drafts for existing
+remote documents, so completed rotates are discovered before attachment
+`commit-change`. The remaining gaps are historical retention/audit policy,
+replacement UX for already-committed attachments after completed rotates, and
+the client-facing multi-container document-management story.
 
 Why this matters:
 
@@ -81,8 +83,8 @@ Current recommendation:
 
 Remaining implementation work:
 
-- harden attachment replacement UX and local draft handling for clients that
-  discover a completed rotate after working offline
+- harden replacement UX for already-committed attachments that cannot be
+  header-rewrapped after a subtractive rotate
 - decide the historical attachment/blob retention product policy separately
   from blob reachability GC
 - keep pushing the multi-container document-management story beyond the

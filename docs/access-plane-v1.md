@@ -386,6 +386,14 @@ same keep/rewrap/rotate rule: additive recipient growth can update wrapped-key
 header material in place, but recipient shrink now requires a later blob
 replacement instead of header-only reuse.
 
+For pending local note attachment drafts on an existing remote document, clients
+probe document sync with no outgoing updates before calling `commit-change`.
+This discovers completed rotates or canonical bundle adoption without uploading
+attachment metadata through raw document sync ahead of the server-visible
+attachment binding commit. If the probe discovers a rotate, the later
+attachment baseline commit carries the rotate baseline source frontier so the
+server can validate it against the prior-epoch document frontier.
+
 ## Implementation Plan
 
 V1 should build on the existing generic object-access tables rather than
