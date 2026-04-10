@@ -38,7 +38,7 @@ import {
   maybeSeedRewrappedDocumentRecipientEnvelopes,
   parseDocumentRecipientEnvelopes,
   requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionMaterial,
+  resolveIncomingUpdateDecryptionBatches,
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
@@ -886,33 +886,35 @@ async function applySyncedContainerUpdates(
       synced,
     });
   if (synced.updates.length > 0) {
-    const decryptionMaterial = resolveIncomingUpdateDecryptionMaterial({
+    const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
       currentDocumentRecipientEnvelopes,
       nextDocumentRecipientEnvelopes,
       previousAccessEpoch,
       synced,
     });
 
-    if (!decryptionMaterial) {
+    if (decryptionBatches.length === 0) {
       state.runtime.log(
         `Explorer: skipped metadata updates for container ${containerState.container.id} because the current document key bundle is missing.`,
       );
     } else {
-      const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-        documentRecipientEnvelopes:
-          decryptionMaterial.documentRecipientEnvelopes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: containerState.recipientPublicKeys,
-        secretKey,
-      });
-      const decryptedUpdates = await decryptMetadataUpdates(
-        state,
-        synced.updates,
-        decryptionMaterial.accessEpoch,
-        documentKey,
-      );
-      if (decryptedUpdates.length > 0) {
-        importUpdates(containerState.doc, decryptedUpdates);
+      for (const decryptionBatch of decryptionBatches) {
+        const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
+          documentRecipientEnvelopes:
+            decryptionBatch.documentRecipientEnvelopes,
+          execSql: state.runtime.execSql,
+          recipientPublicKeys: containerState.recipientPublicKeys,
+          secretKey,
+        });
+        const decryptedUpdates = await decryptMetadataUpdates(
+          state,
+          decryptionBatch.updates,
+          decryptionBatch.accessEpoch,
+          documentKey,
+        );
+        if (decryptedUpdates.length > 0) {
+          importUpdates(containerState.doc, decryptedUpdates);
+        }
       }
     }
   }
@@ -1040,7 +1042,10 @@ async function syncSingleContainerMetadata(
     synced,
   });
 
-  if (outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length) {
+  if (
+    synced.canonicalDocumentRecipientEnvelopesAdopted ||
+    outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length
+  ) {
     state.syncRequested = true;
   }
 }

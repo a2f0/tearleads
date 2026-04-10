@@ -11,6 +11,7 @@ export {
   isSyncDocumentOutgoingUpdate,
   isSyncDocumentRequest,
   isSyncDocumentResponse,
+  type SyncDocumentMissingUpdateEpoch,
   type SyncDocumentOutgoingUpdate,
   type SyncDocumentRequest,
   type SyncDocumentResponse,

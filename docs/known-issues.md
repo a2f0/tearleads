@@ -59,9 +59,12 @@ The docs now converge on the following model:
 The principal-derivation model and the atomic attachment/document mutation
 protocol now exist in the API. Blob and document wrapped-key persistence are now
 real. Additive document epoch rewrap now preserves pending Loro updates instead
-of replacing them with a full baseline. The remaining gaps are now rotate
-hardening, historical retention/audit policy, and the client-facing
-multi-container document-management story.
+of replacing them with a full baseline. Rotate handling now has source-frontier
+validation, canonical bundle adoption, and explicit sync response
+classification for prior/current missing updates. The remaining gaps are
+historical retention/audit policy, attachment replacement and local draft
+handling around completed rotates, and the client-facing multi-container
+document-management story.
 
 Why this matters:
 
@@ -78,10 +81,10 @@ Current recommendation:
 
 Remaining implementation work:
 
-- harden document `rotate` handling so one epoch cannot silently receive
-  divergent current-epoch document bundles / DEKs from competing clients
-- add source-frontier / compare-and-set validation before accepting a rotate
-  baseline as canonical
+- harden attachment replacement UX and local draft handling for clients that
+  discover a completed rotate after working offline
+- decide the historical attachment/blob retention product policy separately
+  from blob reachability GC
 - keep pushing the multi-container document-management story beyond the
   current explorer note flow; the app explorer now renders linked note
   projections under each linked container and can switch the active local

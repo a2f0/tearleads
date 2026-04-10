@@ -25,6 +25,12 @@ interface DocumentEncryptionMaterial {
   documentRecipientEnvelopes: SerializedRecipientEnvelope[];
 }
 
+interface IncomingUpdateDecryptionBatch {
+  accessEpoch: number;
+  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
+  updates: SyncDocumentResponse["updates"];
+}
+
 function isSerializedRecipientEnvelope(
   value: unknown,
 ): value is SerializedRecipientEnvelope {
@@ -290,38 +296,56 @@ export function requiresBaselineAfterDocumentEpochChange(input: {
   return input.resolvedDocumentRecipientEnvelopes === null;
 }
 
-export function resolveIncomingUpdateDecryptionMaterial(input: {
+function getUpdatesForAccessEpoch(
+  updates: ReadonlyArray<SyncDocumentResponse["updates"][number]>,
+  accessEpoch: number,
+): SyncDocumentResponse["updates"] {
+  return updates.filter((update) => update.accessEpoch === accessEpoch);
+}
+
+export function resolveIncomingUpdateDecryptionBatches(input: {
   currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   nextDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
   previousAccessEpoch: number;
   synced: SyncDocumentResponse;
-}): {
-  accessEpoch: number;
-  documentRecipientEnvelopes: SerializedRecipientEnvelope[];
-} | null {
-  if (input.nextDocumentRecipientEnvelopes) {
-    return {
+}): IncomingUpdateDecryptionBatch[] {
+  const batches: IncomingUpdateDecryptionBatch[] = [];
+  const currentEpochUpdates = getUpdatesForAccessEpoch(
+    input.synced.updates,
+    input.synced.currentAccessEpoch,
+  );
+
+  if (currentEpochUpdates.length > 0 && input.nextDocumentRecipientEnvelopes) {
+    batches.push({
       accessEpoch: input.synced.currentAccessEpoch,
       documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
         input.nextDocumentRecipientEnvelopes,
       ),
-    };
+      updates: currentEpochUpdates,
+    });
   }
 
   if (
     input.synced.currentAccessEpoch !== input.previousAccessEpoch &&
-    input.synced.documentRecipientEnvelopeAction === "rotate" &&
     input.currentDocumentRecipientEnvelopes
   ) {
-    return {
-      accessEpoch: input.previousAccessEpoch,
-      documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
-        input.currentDocumentRecipientEnvelopes,
-      ),
-    };
+    const previousEpochUpdates = getUpdatesForAccessEpoch(
+      input.synced.updates,
+      input.previousAccessEpoch,
+    );
+
+    if (previousEpochUpdates.length > 0) {
+      batches.unshift({
+        accessEpoch: input.previousAccessEpoch,
+        documentRecipientEnvelopes: sortDocumentRecipientEnvelopes(
+          input.currentDocumentRecipientEnvelopes,
+        ),
+        updates: previousEpochUpdates,
+      });
+    }
   }
 
-  return null;
+  return batches;
 }
 
 export async function getOrCreateDocumentEncryptionMaterial(input: {

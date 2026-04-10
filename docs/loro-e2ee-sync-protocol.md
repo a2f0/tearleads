@@ -51,8 +51,11 @@ Current shape:
     - `documentRecipientEnvelopeAction`
     - `documentRecipientEnvelopes | null`
     - `acceptedOutgoingUpdateIds[]`
+    - `canonicalDocumentRecipientEnvelopesAdopted`
+    - `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`)
     - encrypted updates whose visible causal metadata is not yet covered by the
       client version vector
+  - each returned encrypted update includes its visible `accessEpoch`
 
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
@@ -70,6 +73,13 @@ Current implementation:
 - each encrypted Loro update now carries:
   - an inline `accessEpoch`
   - AES-GCM ciphertext encrypted with the current document DEK
+- sync responses also expose each returned update's stored `accessEpoch`, plus
+  a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
+  updates needed for rotate rebasing from current-epoch updates after a
+  completed rotate
+- sync responses set `canonicalDocumentRecipientEnvelopesAdopted` when a
+  same-epoch document bundle conflict was resolved by returning the canonical
+  current bundle and leaving outgoing updates unaccepted for retry
 - the current document-DEK bundle can now be materialized in
   `object_recipient_envelopes`
 - recipient-envelope identity rows are principal-shaped, and document/blob

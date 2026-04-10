@@ -279,6 +279,10 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(bobFetchResponse.status).toBe(200);
   const bobFetched = await bobFetchResponse.json();
   expect(bobFetched.updates.length).toBe(1);
+  expect(bobFetched.missingUpdateEpochs).toEqual(["current_epoch"]);
+  expect(bobFetched.updates).toEqual(
+    expect.arrayContaining([expect.objectContaining({ accessEpoch: 2 })]),
+  );
   expect(bobFetched.currentAccessEpoch).toBe(grantedAccessEpoch);
   expect(bobFetched.recipientEncapsulationPublicKeys).toHaveLength(2);
   const bobDocumentKey = await unwrapDocumentKeyFromEnvelopes(
@@ -486,6 +490,8 @@ test("Document sync returns the canonical bundle after a divergent current-epoch
   expect(divergentSyncResponse.status).toBe(200);
   const divergentSync = await divergentSyncResponse.json();
   expect(divergentSync.acceptedOutgoingUpdateIds).toEqual([]);
+  expect(divergentSync.canonicalDocumentRecipientEnvelopesAdopted).toBe(true);
+  expect(divergentSync.missingUpdateEpochs).toEqual([]);
   expect(divergentSync.documentRecipientEnvelopes).toEqual(
     canonicalDocumentEncryption.documentRecipientEnvelopes,
   );
@@ -515,6 +521,7 @@ test("Document sync returns the canonical bundle after a divergent current-epoch
   expect(canonicalSyncResponse.status).toBe(200);
   const canonicalSync = await canonicalSyncResponse.json();
   expect(canonicalSync.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  expect(canonicalSync.canonicalDocumentRecipientEnvelopesAdopted).toBe(false);
   expect(canonicalSync.documentRecipientEnvelopes).toEqual(
     canonicalDocumentEncryption.documentRecipientEnvelopes,
   );
@@ -543,6 +550,7 @@ test("Document sync returns the canonical bundle after a divergent current-epoch
   expect(reorderedRetryResponse.status).toBe(200);
   const reorderedRetry = await reorderedRetryResponse.json();
   expect(reorderedRetry.acceptedOutgoingUpdateIds).toEqual([]);
+  expect(reorderedRetry.canonicalDocumentRecipientEnvelopesAdopted).toBe(false);
   expect(reorderedRetry.documentRecipientEnvelopes).toEqual(
     canonicalDocumentEncryption.documentRecipientEnvelopes,
   );
@@ -1197,5 +1205,27 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
   expect(acceptedRotate.documentRecipientEnvelopeAction).toBe("rotate");
   expect(acceptedRotate.documentRecipientEnvelopes).toEqual(
     rotatedDocumentEncryption.documentRecipientEnvelopes,
+  );
+
+  const coldSyncResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: acceptedRotate.currentAccessEpoch,
+      localVersionVector: "AA==",
+      outgoingUpdates: [],
+    },
+    alice.token,
+  );
+  expect(coldSyncResponse.status).toBe(200);
+  const coldSync = await coldSyncResponse.json();
+  expect(coldSync.missingUpdateEpochs).toEqual([
+    "prior_epoch",
+    "current_epoch",
+  ]);
+  expect(coldSync.updates).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ accessEpoch: 2 }),
+      expect.objectContaining({ accessEpoch: 3 }),
+    ]),
   );
 });
