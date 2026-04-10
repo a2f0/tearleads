@@ -72,35 +72,7 @@ function getScopeBind(scope: DocumentScope) {
 }
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, documentTables);
-
-    const tableInfo = await lockedExecSql("PRAGMA table_info(documents)");
-    const hasDocumentRecipientEnvelopesColumn = tableInfo.some(
-      (row) => readSqlRowValue(row, "name") === "document_recipient_envelopes",
-    );
-
-    if (!hasDocumentRecipientEnvelopesColumn) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN document_recipient_envelopes TEXT
-      `);
-    }
-
-    const pendingUpdatesTableInfo = await lockedExecSql(
-      "PRAGMA table_info(document_pending_updates)",
-    );
-    const hasSourceVersionVectorColumn = pendingUpdatesTableInfo.some(
-      (row) => readSqlRowValue(row, "name") === "source_version_vector",
-    );
-
-    if (!hasSourceVersionVectorColumn) {
-      await lockedExecSql(`
-        ALTER TABLE document_pending_updates
-        ADD COLUMN source_version_vector TEXT
-      `);
-    }
-  });
+  await ensureSqlTables(execSql, documentTables);
 }
 
 export function parseDocumentRecord(row: SqlRow): DocumentRecord {

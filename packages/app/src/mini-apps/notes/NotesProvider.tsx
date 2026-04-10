@@ -314,10 +314,7 @@ function updateNoteRecipientPublicKeys(
   state: NotesStoreState,
   encodedPublicKeys: string[],
 ) {
-  state.recipientPublicKeys = resolveRecipientPublicKeys(
-    encodedPublicKeys,
-    getLocalRecipientPublicKeys(state.runtime.encapsulationKeyPair),
-  );
+  state.recipientPublicKeys = resolveRecipientPublicKeys(encodedPublicKeys);
 }
 
 function resetNotesStore(state: NotesStoreState) {
