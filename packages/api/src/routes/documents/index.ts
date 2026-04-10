@@ -1,4 +1,3 @@
-import { replaceBlobEnvelopeRecipients } from "@tearleads/crypto";
 import {
   emptyVersionVector,
   mergeVersionVectors,
@@ -20,9 +19,7 @@ import { and, eq, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import { validator } from "hono/validator";
 import {
   blobRecipientEnvelopesMatchRecipients,
-  canReadBlobAccess,
   getBlobRecipientEnvelopeAction,
-  listBlobRecipientEnvelopes,
   refreshBlobAccesses,
   replaceBlobRecipientEnvelopes,
   resolveBlobAccessState,
@@ -60,6 +57,7 @@ import {
   objectAccessEpochs,
   objectRecipientEnvelopes,
 } from "../../schema";
+import { GetBlobError, getBlob } from "../../services/documents/getBlob";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
@@ -71,7 +69,6 @@ import {
   listBlobRecipientKeyFingerprints,
   readLoroUpdateAccessEpoch,
 } from "../../utils/recipientEnvelopes";
-import { sha256Hex } from "../../utils/sha256";
 
 type DocumentRouteExecutor = DatabaseExecutor;
 type CommitChangeAccess = NonNullable<
@@ -1363,46 +1360,18 @@ documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
   const blobId = c.req.param("blobId");
   const session = c.get("session");
 
-  const access = await resolveBlobAccessState(blobId);
-  if (!access) {
-    return c.json({ error: "Blob not found" }, 404);
+  try {
+    return c.json<BlobResponse>(
+      await getBlob(defaultApiServiceRuntime, {
+        blobId,
+        userId: session.userId,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof GetBlobError) {
+      return c.json({ error: error.message }, error.status);
+    }
+
+    throw error;
   }
-
-  if (!canReadBlobAccess(access, session.userId)) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-
-  const [row] = await db
-    .select({
-      blobId: blobs.id,
-      encryptedBytes: blobs.encryptedBytes,
-      sha256: blobs.sha256,
-    })
-    .from(blobs)
-    .where(eq(blobs.id, blobId))
-    .limit(1);
-
-  if (!row) {
-    return c.json({ error: "Blob not found" }, 404);
-  }
-
-  const currentRecipientEnvelopes = await listBlobRecipientEnvelopes(
-    blobId,
-    access.currentAccessEpoch,
-  );
-  const encryptedBytes = currentRecipientEnvelopes
-    ? replaceBlobEnvelopeRecipients(
-        row.encryptedBytes,
-        currentRecipientEnvelopes,
-      )
-    : row.encryptedBytes;
-
-  return c.json<BlobResponse>({
-    blobId: row.blobId,
-    encryptedBytes,
-    sha256:
-      encryptedBytes === row.encryptedBytes
-        ? row.sha256
-        : await sha256Hex(encryptedBytes),
-  });
 });
