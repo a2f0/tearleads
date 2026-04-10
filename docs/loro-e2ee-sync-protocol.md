@@ -1,6 +1,6 @@
 # Loro E2EE Sync Protocol Note
 
-Related issue: `#82`
+Related issues: `#82`, `#88`
 
 ## Summary
 
@@ -59,6 +59,13 @@ Current shape:
 
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
+The `document_update_spans` table now exists as the first server-side causal
+indexing primitive for issue `#88`: it can store one row per document/update
+peer span with start and end counters, plus indexes for
+`(document_id, peer_id, end_counter)` and unique update/peer lookups. The
+composite index also covers document-only lookups. The current sync route still
+uses the existing in-memory filter until the append path starts writing spans
+and the sync query moves to SQL.
 
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
@@ -137,9 +144,9 @@ Important remaining limitation:
   linked container, exposes note link/unlink management, and can switch which
   linked container is locally active; generic multi-link document-management UI
   beyond notes remains future work
-- subtractive rotation for document epochs still uses the current fresh-baseline
-  path; compare-and-set source-frontier validation and audit/history hardening
-  remain future work
+- subtractive rotation for document epochs still uses the current
+  fresh-baseline path with source-frontier validation; durable audit/history
+  hardening remains future work
 
 For the current access-plane model, see
 [access-plane-v1.md](./access-plane-v1.md).

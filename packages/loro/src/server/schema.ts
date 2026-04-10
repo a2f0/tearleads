@@ -1,5 +1,13 @@
 import type { InferSelectModel } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const documents = pgTable("documents", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -19,5 +27,30 @@ export const documentUpdates = pgTable("document_updates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const documentUpdateSpans = pgTable(
+  "document_update_spans",
+  {
+    documentId: uuid("document_id").notNull(),
+    updateId: uuid("update_id").notNull(),
+    peerId: text("peer_id").notNull(),
+    startCounter: integer("start_counter").notNull(),
+    endCounter: integer("end_counter").notNull(),
+  },
+  (table) => [
+    index("document_update_spans_peer_counter_idx").on(
+      table.documentId,
+      table.peerId,
+      table.endCounter,
+    ),
+    uniqueIndex("document_update_spans_update_peer_idx").on(
+      table.updateId,
+      table.peerId,
+    ),
+  ],
+);
+
 export type DocumentRecord = InferSelectModel<typeof documents>;
 export type DocumentUpdateRecord = InferSelectModel<typeof documentUpdates>;
+export type DocumentUpdateSpanRecord = InferSelectModel<
+  typeof documentUpdateSpans
+>;

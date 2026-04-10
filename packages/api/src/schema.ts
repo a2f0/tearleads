@@ -2,7 +2,11 @@ import type {
   ManagedRecipientPrincipalType,
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
-import { documents, documentUpdates } from "@tearleads/loro/server";
+import {
+  documents,
+  documentUpdateSpans,
+  documentUpdates,
+} from "@tearleads/loro/server";
 import {
   index,
   integer,
@@ -266,4 +270,4 @@ export const attachmentBindings = pgTable(
   ],
 );
 
-export { documents, documentUpdates };
+export { documents, documentUpdateSpans, documentUpdates };

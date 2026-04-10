@@ -15,4 +15,15 @@ export const loroSql = `
     partial_end_version_vector TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS document_update_spans (
+    document_id UUID NOT NULL,
+    update_id UUID NOT NULL,
+    peer_id TEXT NOT NULL,
+    start_counter INTEGER NOT NULL,
+    end_counter INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS document_update_spans_peer_counter_idx
+    ON document_update_spans (document_id, peer_id, end_counter);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_update_spans_update_peer_idx
+    ON document_update_spans (update_id, peer_id);
 `;
