@@ -213,7 +213,43 @@ interface NotesStore {
 type PersistedNoteListener = (note: NoteSummary) => void;
 
 const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
+const persistedNoteListenersByScope = new WeakMap<
+  object,
+  Set<PersistedNoteListener>
+>();
 const NotesContext = createContext<NotesStore | null>(null);
+
+function emitPersistedNote(
+  domainScope: object,
+  persistedNote: NoteSummary,
+): void {
+  const listeners = persistedNoteListenersByScope.get(domainScope);
+  if (!listeners) {
+    return;
+  }
+
+  for (const listener of listeners) {
+    listener(persistedNote);
+  }
+}
+
+export function subscribeToPersistedNotes(
+  domainScope: object,
+  listener: PersistedNoteListener,
+): () => void {
+  const listeners =
+    persistedNoteListenersByScope.get(domainScope) ??
+    new Set<PersistedNoteListener>();
+  listeners.add(listener);
+  persistedNoteListenersByScope.set(domainScope, listeners);
+
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      persistedNoteListenersByScope.delete(domainScope);
+    }
+  };
+}
 
 interface NotesStoreState {
   attachmentStorageKeyBySlotId: Record<string, string>;
@@ -450,13 +486,15 @@ async function createEncryptedBlobUpload(
 async function saveNoteRecord(state: NotesStoreState, nextRecord: NoteRecord) {
   await state.persistence.saveNote(state.runtime.execSql, nextRecord);
   state.record = nextRecord;
-  state.persistedNoteListener?.({
+  const persistedNote = {
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentId: nextRecord.documentId,
     title: deriveNoteTitle(nextRecord.text),
     updatedAt: new Date().toISOString(),
-  });
+  };
+  state.persistedNoteListener?.(persistedNote);
+  emitPersistedNote(state.runtime.domainScope, persistedNote);
 }
 
 async function persistDocument(

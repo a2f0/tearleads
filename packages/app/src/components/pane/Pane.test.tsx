@@ -10,7 +10,12 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
-import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
+import {
+  resetMockServer,
+  useRealApiHandlers,
+  wsUrl,
+} from "../../../test/helpers/mswServer";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
@@ -40,6 +45,42 @@ function renderPane() {
   );
 }
 
+async function openExplorer(view: ReturnType<typeof renderPane>) {
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Explorer"));
+
+  let explorerWindow: HTMLDivElement | null = null;
+  await waitFor(() => {
+    const windows =
+      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    explorerWindow = windows[windows.length - 1] ?? null;
+    expect(explorerWindow).toBeTruthy();
+  });
+
+  invariant(explorerWindow, "explorer window not found");
+
+  await waitFor(() => {
+    expect(
+      within(explorerWindow).getByRole("button", { name: "New Note" }),
+    ).toBeTruthy();
+  });
+
+  return explorerWindow;
+}
+
+function listExplorerNoteItems(
+  explorerWindow: HTMLElement,
+): HTMLButtonElement[] {
+  return Array.from(
+    explorerWindow.querySelectorAll<HTMLButtonElement>(
+      "button.explorer-sidebar-item--note",
+    ),
+  );
+}
+
 async function generatePersonaAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
@@ -50,6 +91,34 @@ async function generatePersonaAndWaitForDb(
     expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
     expect(view.queryByText(/publicKey: none/)).toBeNull();
   });
+}
+
+async function registerPersonaAndWaitForSession(
+  view: ReturnType<typeof renderPane>,
+) {
+  const spy = spyOn(ApiClient.prototype, "postPublicKey");
+
+  await generatePersonaAndWaitForDb(view);
+
+  fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
+  fireEvent.click(view.getByText("Upload Public Key"));
+
+  await waitFor(() => {
+    expect(spy.mock.results).toHaveLength(1);
+  });
+  const spyResult = spy.mock.results[0];
+  invariant(spyResult, "spy has no results");
+  await spyResult.value;
+
+  await waitFor(() => {
+    expect(view.container.textContent?.includes("userId: none")).toBe(false);
+    expect(view.container.textContent?.includes("session: none")).toBe(false);
+  });
+
+  spy.mockRestore();
 }
 
 test("displays userId after uploading public key", async () => {
@@ -267,5 +336,120 @@ test("contacts windows in the same pane share live address book state", async ()
     expect(view.getAllByText("peer")).toHaveLength(2);
   });
 
+  view.unmount();
+});
+
+test("explorer windows in the same pane share newly created notes without refresh", async () => {
+  const view = renderPane();
+
+  await generatePersonaAndWaitForDb(view);
+
+  const firstExplorer = await openExplorer(view);
+  const secondExplorer = await openExplorer(view);
+
+  await waitFor(() => {
+    expect(listExplorerNoteItems(secondExplorer)).toHaveLength(0);
+  });
+
+  fireEvent.click(
+    within(firstExplorer).getByRole("button", { name: "New Note" }),
+  );
+
+  await waitFor(() => {
+    expect(
+      within(firstExplorer).getByRole("button", { name: "Back to Container" }),
+    ).toBeTruthy();
+  });
+
+  const editor = await within(firstExplorer).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "fresh explorer note" },
+  });
+
+  await waitFor(() => {
+    expect(editor.value).toBe("fresh explorer note");
+    expect(
+      listExplorerNoteItems(firstExplorer).some(
+        (button) => button.textContent?.trim() === "fresh explorer note",
+      ),
+    ).toBe(true);
+  });
+
+  await waitFor(() => {
+    expect(
+      listExplorerNoteItems(secondExplorer).some(
+        (button) => button.textContent?.trim() === "fresh explorer note",
+      ),
+    ).toBe(true);
+  });
+
+  view.unmount();
+});
+
+test("explorer shows a new root note in the sidebar without refresh after document creation", async () => {
+  useRealApiHandlers();
+  const createDocumentSpy = spyOn(ApiClient.prototype, "createDocument");
+  const listLinkedContainerIdsByDocumentIdsSpy = spyOn(
+    sqlDocumentContainerProjectionPersistence,
+    "listLinkedContainerIdsByDocumentIds",
+  );
+  const view = renderPane();
+
+  await registerPersonaAndWaitForSession(view);
+
+  const explorer = await openExplorer(view);
+
+  fireEvent.click(within(explorer).getByRole("button", { name: "New Note" }));
+
+  await waitFor(() => {
+    expect(
+      within(explorer).getByRole("button", { name: "Back to Container" }),
+    ).toBeTruthy();
+  });
+
+  const editor = await within(explorer).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "fresh root note" },
+  });
+
+  await waitFor(() => {
+    expect(createDocumentSpy.mock.results.length).toBeGreaterThan(0);
+  });
+  const createDocumentResult = createDocumentSpy.mock.results[0];
+  invariant(createDocumentResult, "createDocument result not found");
+  await createDocumentResult.value;
+
+  await waitFor(() => {
+    expect(
+      listLinkedContainerIdsByDocumentIdsSpy.mock.results.length,
+    ).toBeGreaterThan(0);
+  });
+  const linkedContainerIdsResult =
+    listLinkedContainerIdsByDocumentIdsSpy.mock.results.at(-1);
+  invariant(
+    linkedContainerIdsResult,
+    "linked container projection result not found",
+  );
+  await linkedContainerIdsResult.value;
+
+  await waitFor(() => {
+    expect(editor.value).toBe("fresh root note");
+    expect(
+      listExplorerNoteItems(explorer).some(
+        (button) => button.textContent?.trim() === "fresh root note",
+      ),
+    ).toBe(true);
+  });
+
+  createDocumentSpy.mockRestore();
+  listLinkedContainerIdsByDocumentIdsSpy.mockRestore();
   view.unmount();
 });
