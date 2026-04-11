@@ -48,25 +48,27 @@ import {
   sameDocumentAttachments,
 } from "./documentContent";
 import {
+  type NoteRecord as DocumentRecord,
+  type NoteSummary as DocumentSummary,
+  type NotesPersistence as DocumentsPersistence,
   deriveDocumentKind,
   deriveDocumentTitle,
   type LocalAttachmentRecord,
-  type NoteRecord,
-  type NoteSummary,
-  type NotesPersistence,
   type PendingAttachmentRecord,
   type PendingAttachmentReplacementRecord,
   type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
-  type RelinkPersistedNoteInput,
+  type RelinkPersistedNoteInput as RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 
-type NotesDocument = Awaited<ReturnType<typeof createDocument>>;
-type NotesAppData = ReturnType<typeof useAppData>;
-type EncapsulationKeyPair = NonNullable<NotesRuntime["encapsulationKeyPair"]>;
+type DocumentState = Awaited<ReturnType<typeof createDocument>>;
+type DocumentAppData = ReturnType<typeof useAppData>;
+type EncapsulationKeyPair = NonNullable<
+  DocumentsRuntime["encapsulationKeyPair"]
+>;
 type DocumentAttachmentBinding = NonNullable<
-  Awaited<ReturnType<NotesRuntime["apiClient"]["listDocumentAttachments"]>>
+  Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
 type DocumentEncryptionMaterial = Awaited<
   ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
@@ -75,7 +77,7 @@ type DocumentRecipientEnvelopes = ReturnType<
   typeof parseDocumentRecipientEnvelopes
 >;
 type CommitDocumentChangeResponse = NonNullable<
-  Awaited<ReturnType<NotesRuntime["apiClient"]["commitDocumentChange"]>>
+  Awaited<ReturnType<DocumentsRuntime["apiClient"]["commitDocumentChange"]>>
 >;
 type AttachmentCommitChange = {
   expectedBindingId: string | null;
@@ -89,10 +91,10 @@ type AttachmentRewrapChange = {
 };
 type PendingMutationSyncResult = {
   completed: boolean;
-  nextRecord: NoteRecord;
+  nextRecord: DocumentRecord;
 };
-interface PersistedNoteRecord {
-  record: NoteRecord;
+interface PersistedDocumentRecord {
+  record: DocumentRecord;
   updatedAt: string;
 }
 interface DocumentSyncAttempt {
@@ -100,11 +102,11 @@ interface DocumentSyncAttempt {
   encryptionMaterial: DocumentEncryptionMaterial | null;
   outgoingUpdateCount: number;
   synced: NonNullable<
-    Awaited<ReturnType<NotesRuntime["apiClient"]["syncDocument"]>>
+    Awaited<ReturnType<DocumentsRuntime["apiClient"]["syncDocument"]>>
   >;
 }
-const DEFAULT_NOTE_ID = "default";
-export const DEFAULT_DOCUMENT_ID = DEFAULT_NOTE_ID;
+const DEFAULT_LOCAL_DOCUMENT_ID = "default";
+export const DEFAULT_DOCUMENT_ID = DEFAULT_LOCAL_DOCUMENT_ID;
 
 function sameAttachmentStorageKeys(
   left: Readonly<Record<string, string>>,
@@ -120,8 +122,8 @@ function sameAttachmentStorageKeys(
 }
 
 function sameAttachmentStatuses(
-  left: Readonly<Record<string, NoteAttachmentStatus>>,
-  right: Readonly<Record<string, NoteAttachmentStatus>>,
+  left: Readonly<Record<string, DocumentAttachmentStatus>>,
+  right: Readonly<Record<string, DocumentAttachmentStatus>>,
 ): boolean {
   const leftEntries = Object.entries(left);
   const rightEntries = Object.entries(right);
@@ -132,9 +134,9 @@ function sameAttachmentStatuses(
   );
 }
 
-export interface NotesRuntime {
+export interface DocumentsRuntime {
   apiClient: Pick<
-    NotesAppData["apiClient"],
+    DocumentAppData["apiClient"],
     | "commitDocumentChange"
     | "createDocument"
     | "getBlob"
@@ -143,21 +145,21 @@ export interface NotesRuntime {
     | "syncDocument"
   >;
   blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: NotesAppData["cacheReferencedPrincipalPolicies"];
-  containerId: NotesAppData["containerId"];
-  dbStatus: NotesAppData["dbStatus"];
-  domainScope: NotesAppData["domainScope"];
-  encapsulationKeyPair: NotesAppData["encapsulationKeyPair"];
-  events: NotesAppData["events"];
-  execSql: NotesAppData["execSql"];
-  isAuthenticated: NotesAppData["isAuthenticated"];
-  log: NotesAppData["log"];
-  online: NotesAppData["online"];
+  cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
+  containerId: DocumentAppData["containerId"];
+  dbStatus: DocumentAppData["dbStatus"];
+  domainScope: DocumentAppData["domainScope"];
+  encapsulationKeyPair: DocumentAppData["encapsulationKeyPair"];
+  events: DocumentAppData["events"];
+  execSql: DocumentAppData["execSql"];
+  isAuthenticated: DocumentAppData["isAuthenticated"];
+  log: DocumentAppData["log"];
+  online: DocumentAppData["online"];
 }
 
-function createNotesRuntimeApiClient(
-  apiClient: NotesAppData["apiClient"],
-): NotesRuntime["apiClient"] {
+function createDocumentsRuntimeApiClient(
+  apiClient: DocumentAppData["apiClient"],
+): DocumentsRuntime["apiClient"] {
   return {
     commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
     createDocument: apiClient.createDocument.bind(apiClient),
@@ -168,36 +170,32 @@ function createNotesRuntimeApiClient(
   };
 }
 
-interface NoteAttachmentUpload {
+interface DocumentAttachmentUpload {
   bytes: BlobBytes;
   name: string;
   mimeType: string | null;
 }
 
-export type DocumentsRuntime = NotesRuntime;
-export type DocumentContextValue = NotesContextValue;
+export type DocumentAttachmentStatus = "needs_replacement" | "syncing";
 
-export type NoteAttachmentStatus = "needs_replacement" | "syncing";
-export type DocumentAttachmentStatus = NoteAttachmentStatus;
-
-interface NotesContextValue {
+export interface DocumentContextValue {
   attachments: ReadonlyArray<DocumentAttachment>;
-  attachmentStatusBySlotId: Readonly<Record<string, NoteAttachmentStatus>>;
+  attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
-  attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
+  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   canAttach: boolean;
   documentId: string | null;
   ready: boolean;
-  setAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
-  replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
+  setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
+  replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   text: string;
   syncing: boolean;
   setText: (value: string) => void;
 }
 
-interface NotesSnapshot {
+interface DocumentSnapshot {
   attachments: ReadonlyArray<DocumentAttachment>;
-  attachmentStatusBySlotId: Readonly<Record<string, NoteAttachmentStatus>>;
+  attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
   documentId: string | null;
@@ -206,97 +204,97 @@ interface NotesSnapshot {
   syncing: boolean;
 }
 
-interface NotesStore {
-  attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
+interface DocumentStore {
+  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
-  getSnapshot: () => NotesSnapshot;
-  setAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
-  replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
+  getSnapshot: () => DocumentSnapshot;
+  setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
+  replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   requestSync: () => void;
-  relink: (input: RelinkPersistedNoteInput) => Promise<NoteSummary | null>;
-  setPersistedNoteListener: (
-    listener: PersistedNoteListener | undefined,
+  relink: (
+    input: RelinkPersistedDocumentInput,
+  ) => Promise<DocumentSummary | null>;
+  setPersistedDocumentListener: (
+    listener: PersistedDocumentListener | undefined,
   ) => void;
   setText: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
-  updateRuntime: (runtime: NotesRuntime) => void;
+  updateRuntime: (runtime: DocumentsRuntime) => void;
 }
 
-type PersistedNoteListener = (note: NoteSummary) => void;
+type PersistedDocumentListener = (document: DocumentSummary) => void;
 
-const notesStoresByScope = new WeakMap<object, Map<string, NotesStore>>();
-const persistedNoteListenersByScope = new WeakMap<
+const documentStoresByScope = new WeakMap<object, Map<string, DocumentStore>>();
+const persistedDocumentListenersByScope = new WeakMap<
   object,
-  Set<PersistedNoteListener>
+  Set<PersistedDocumentListener>
 >();
-const NotesContext = createContext<NotesStore | null>(null);
+const DocumentContext = createContext<DocumentStore | null>(null);
 
-function emitPersistedNote(
+function emitPersistedDocument(
   domainScope: object,
-  persistedNote: NoteSummary,
+  persistedDocument: DocumentSummary,
 ): void {
-  const listeners = persistedNoteListenersByScope.get(domainScope);
+  const listeners = persistedDocumentListenersByScope.get(domainScope);
   if (!listeners) {
     return;
   }
 
   for (const listener of listeners) {
-    listener(persistedNote);
+    listener(persistedDocument);
   }
 }
 
-function subscribeToPersistedNotes(
+export function subscribeToPersistedDocuments(
   domainScope: object,
-  listener: PersistedNoteListener,
+  listener: PersistedDocumentListener,
 ): () => void {
   const listeners =
-    persistedNoteListenersByScope.get(domainScope) ??
-    new Set<PersistedNoteListener>();
+    persistedDocumentListenersByScope.get(domainScope) ??
+    new Set<PersistedDocumentListener>();
   listeners.add(listener);
-  persistedNoteListenersByScope.set(domainScope, listeners);
+  persistedDocumentListenersByScope.set(domainScope, listeners);
 
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {
-      persistedNoteListenersByScope.delete(domainScope);
+      persistedDocumentListenersByScope.delete(domainScope);
     }
   };
 }
 
-export const subscribeToPersistedDocuments = subscribeToPersistedNotes;
-
-interface NotesStoreState {
+interface DocumentStoreState {
   attachmentStorageKeyBySlotId: Record<string, string>;
-  doc: NotesDocument | null;
+  doc: DocumentState | null;
   initialDocumentId: string | null;
   initialText: string;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  localId: string;
   listeners: Set<() => void>;
-  noteId: string;
   pendingAttachments: PendingAttachmentRecord[];
   pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
   pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
-  persistedNoteListener: PersistedNoteListener | undefined;
-  persistence: NotesPersistence;
+  persistedDocumentListener: PersistedDocumentListener | undefined;
+  persistence: DocumentsPersistence;
   recipientPublicKeys: Uint8Array[];
-  record: NoteRecord | null;
-  runtime: NotesRuntime;
-  snapshot: NotesSnapshot;
+  record: DocumentRecord | null;
+  runtime: DocumentsRuntime;
+  snapshot: DocumentSnapshot;
   syncPromise: Promise<void> | null;
   syncRequested: boolean;
   writeChain: Promise<void>;
 }
 
-function createNotesStoreState(
-  noteId: string,
-  initialRuntime: NotesRuntime,
-  persistence: NotesPersistence,
-  persistedNoteListener: PersistedNoteListener | undefined,
+function createDocumentStoreState(
+  localId: string,
+  initialRuntime: DocumentsRuntime,
+  persistence: DocumentsPersistence,
+  persistedDocumentListener: PersistedDocumentListener | undefined,
   initialDocumentId: string | null,
   initialText = "",
-): NotesStoreState {
+): DocumentStoreState {
   return {
     attachmentStorageKeyBySlotId: {},
     doc: null,
@@ -305,12 +303,12 @@ function createNotesStoreState(
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
+    localId,
     listeners: new Set(),
-    noteId,
     pendingAttachments: [],
     pendingAttachmentReplacements: [],
     pendingAttachmentRewraps: [],
-    persistedNoteListener,
+    persistedDocumentListener,
     persistence,
     recipientPublicKeys: getLocalRecipientPublicKeys(
       initialRuntime.encapsulationKeyPair,
@@ -333,13 +331,16 @@ function createNotesStoreState(
   };
 }
 
-function emitNotesStore(state: NotesStoreState) {
+function emitDocumentStore(state: DocumentStoreState) {
   for (const listener of state.listeners) {
     listener();
   }
 }
 
-function setNotesSnapshot(state: NotesStoreState, next: NotesSnapshot) {
+function setDocumentSnapshot(
+  state: DocumentStoreState,
+  next: DocumentSnapshot,
+) {
   if (
     sameDocumentAttachments(state.snapshot.attachments, next.attachments) &&
     sameAttachmentStatuses(
@@ -360,17 +361,17 @@ function setNotesSnapshot(state: NotesStoreState, next: NotesSnapshot) {
   }
 
   state.snapshot = next;
-  emitNotesStore(state);
+  emitDocumentStore(state);
 }
 
-function updateNoteRecipientPublicKeys(
-  state: NotesStoreState,
+function updateDocumentRecipientPublicKeys(
+  state: DocumentStoreState,
   encodedPublicKeys: string[],
 ) {
   state.recipientPublicKeys = resolveRecipientPublicKeys(encodedPublicKeys);
 }
 
-function resetNotesStore(state: NotesStoreState) {
+function resetDocumentStore(state: DocumentStoreState) {
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
@@ -385,7 +386,7 @@ function resetNotesStore(state: NotesStoreState) {
   state.recipientPublicKeys = getLocalRecipientPublicKeys(
     state.runtime.encapsulationKeyPair,
   );
-  setNotesSnapshot(state, {
+  setDocumentSnapshot(state, {
     attachments: [],
     attachmentStatusBySlotId: {},
     attachmentStorageKeyBySlotId: {},
@@ -397,21 +398,21 @@ function resetNotesStore(state: NotesStoreState) {
   });
 }
 
-function canAttachFiles(state: NotesStoreState): boolean {
+function canAttachFiles(state: DocumentStoreState): boolean {
   return (
     state.runtime.dbStatus === "ready" && !!state.runtime.encapsulationKeyPair
   );
 }
 
 function getSnapshotAttachments(
-  state: NotesStoreState,
-  currentDoc: NotesDocument | null = state.doc,
+  state: DocumentStoreState,
+  currentDoc: DocumentState | null = state.doc,
 ): DocumentAttachment[] {
   return currentDoc ? getDocumentAttachments(currentDoc) : [];
 }
 
 function getAttachmentStorageKeys(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachments: ReadonlyArray<DocumentAttachment>,
 ): Record<string, string> {
   const nextStorageKeys: Record<string, string> = {};
@@ -427,16 +428,16 @@ function getAttachmentStorageKeys(
 }
 
 function getAttachmentStatuses(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachments: ReadonlyArray<DocumentAttachment>,
-): Record<string, NoteAttachmentStatus> {
+): Record<string, DocumentAttachmentStatus> {
   const pendingAttachmentSlotIds = new Set(
     state.pendingAttachments.map((attachment) => attachment.slotId),
   );
   const replacementSlotIds = new Set(
     state.pendingAttachmentReplacements.map((attachment) => attachment.slotId),
   );
-  const nextStatuses: Record<string, NoteAttachmentStatus> = {};
+  const nextStatuses: Record<string, DocumentAttachmentStatus> = {};
 
   for (const attachment of attachments) {
     if (pendingAttachmentSlotIds.has(attachment.slotId)) {
@@ -453,14 +454,14 @@ function getAttachmentStatuses(
 }
 
 function setReadySnapshot(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   syncing: boolean,
   text = getTextValue(currentDoc),
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
 
-  setNotesSnapshot(state, {
+  setDocumentSnapshot(state, {
     attachments,
     attachmentStatusBySlotId: getAttachmentStatuses(state, attachments),
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
@@ -472,7 +473,7 @@ function setReadySnapshot(
   });
 }
 
-async function createNotesDocument() {
+async function createStoredDocument() {
   const createdDoc = await createDocument(getScopedPeerSeed("notes"));
   ensureDocumentAttachmentStructure(createdDoc);
   return createdDoc;
@@ -500,16 +501,16 @@ async function createEncryptedBlobUpload(
   };
 }
 
-async function saveNoteRecord(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
-): Promise<PersistedNoteRecord> {
+async function saveDocumentRecord(
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
+): Promise<PersistedDocumentRecord> {
   const updatedAt = await state.persistence.saveNote(
     state.runtime.execSql,
     nextRecord,
   );
   state.record = nextRecord;
-  const persistedNote = {
+  const persistedDocument = {
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentKind: deriveDocumentKind(nextRecord.text),
@@ -517,8 +518,8 @@ async function saveNoteRecord(
     title: deriveDocumentTitle(nextRecord.text),
     updatedAt,
   };
-  state.persistedNoteListener?.(persistedNote);
-  emitPersistedNote(state.runtime.domainScope, persistedNote);
+  state.persistedDocumentListener?.(persistedDocument);
+  emitPersistedDocument(state.runtime.domainScope, persistedDocument);
   return {
     record: nextRecord,
     updatedAt,
@@ -526,16 +527,16 @@ async function saveNoteRecord(
 }
 
 async function persistDocument(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  patch: Partial<NoteRecord> = {},
-): Promise<PersistedNoteRecord> {
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  patch: Partial<DocumentRecord> = {},
+): Promise<PersistedDocumentRecord> {
   const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
     patch,
     "documentRecipientEnvelopes",
   );
-  const nextRecord: NoteRecord = {
-    id: state.record?.id ?? state.noteId,
+  const nextRecord: DocumentRecord = {
+    id: state.record?.id ?? state.localId,
     containerId:
       patch.containerId ??
       state.record?.containerId ??
@@ -551,23 +552,23 @@ async function persistDocument(
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
   };
 
-  const persistedRecord = await saveNoteRecord(state, nextRecord);
+  const persistedRecord = await saveDocumentRecord(state, nextRecord);
   setReadySnapshot(state, currentDoc, state.snapshot.syncing, nextRecord.text);
   return persistedRecord;
 }
 
 async function ensureRemoteDocument(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  nextRecord: NoteRecord | null,
-): Promise<NoteRecord | null> {
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord | null,
+): Promise<DocumentRecord | null> {
   if (nextRecord?.documentId) {
     return nextRecord;
   }
 
   if (!state.runtime.containerId) {
     state.runtime.log(
-      "Notes: cannot create a remote document without a container.",
+      "Documents: cannot create a remote document without a container.",
     );
     return nextRecord;
   }
@@ -583,7 +584,7 @@ async function ensureRemoteDocument(
     created.referencedPrincipals,
   );
 
-  updateNoteRecipientPublicKeys(
+  updateDocumentRecipientPublicKeys(
     state,
     created.recipientEncapsulationPublicKeys,
   );
@@ -601,32 +602,32 @@ async function ensureRemoteDocument(
 }
 
 async function listPendingUpdates(
-  state: NotesStoreState,
+  state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
   return state.persistence.listPendingUpdates(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
 }
 
 async function listPendingAttachmentRecords(
-  state: NotesStoreState,
+  state: DocumentStoreState,
 ): Promise<PendingAttachmentRecord[]> {
   return state.persistence.listPendingAttachments(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
 }
 
-async function listLocalAttachmentRecords(state: NotesStoreState) {
+async function listLocalAttachmentRecords(state: DocumentStoreState) {
   return state.persistence.listLocalAttachments(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
 }
 
 async function enqueuePendingUpdate(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
@@ -639,19 +640,19 @@ async function enqueuePendingUpdate(
   }
 
   await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
-    noteId: state.noteId,
+    noteId: state.localId,
     ...pendingUpdateFields,
   });
 }
 
-async function deletePendingUpdate(state: NotesStoreState, id: string) {
+async function deletePendingUpdate(state: DocumentStoreState, id: string) {
   await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
 async function saveLocalAttachmentRecord(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachment: LocalAttachmentRecord,
-  currentDoc: NotesDocument | null = state.doc,
+  currentDoc: DocumentState | null = state.doc,
 ) {
   await state.persistence.saveLocalAttachment(
     state.runtime.execSql,
@@ -673,8 +674,8 @@ async function saveLocalAttachmentRecord(
 }
 
 function listAttachmentsMissingLocalBytes(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
 ): DocumentAttachment[] {
   return getDocumentAttachments(currentDoc).filter(
     (attachment) => !state.attachmentStorageKeyBySlotId[attachment.slotId],
@@ -682,8 +683,8 @@ function listAttachmentsMissingLocalBytes(
 }
 
 async function hydrateMissingAttachmentBlob(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   attachment: DocumentAttachment,
   binding: DocumentAttachmentBinding,
   encapsulationKeyPair: EncapsulationKeyPair,
@@ -702,7 +703,7 @@ async function hydrateMissingAttachmentBlob(
   const blobSha256 = bytesToHex(blobDigest);
   if (blobSha256 !== blob.sha256) {
     state.runtime.log(
-      `Notes: blob ${binding.blobId} sha256 mismatch during hydration.`,
+      `Documents: blob ${binding.blobId} sha256 mismatch during hydration.`,
     );
     return;
   }
@@ -720,7 +721,7 @@ async function hydrateMissingAttachmentBlob(
       blobId: binding.blobId,
       byteLength: attachment.byteLength,
       mimeType: attachment.mimeType,
-      noteId: state.noteId,
+      noteId: state.localId,
       slotId: attachment.slotId,
       storageKey,
     },
@@ -729,9 +730,9 @@ async function hydrateMissingAttachmentBlob(
 }
 
 async function hydrateAttachmentBlobs(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  currentRecord: NoteRecord | null,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord | null,
 ) {
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
   if (
@@ -780,7 +781,7 @@ async function hydrateAttachmentBlobs(
 }
 
 function isAttachmentSyncAlreadyPending(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   slotId: string,
 ): boolean {
   return (
@@ -798,13 +799,13 @@ function isAttachmentSyncAlreadyPending(
 }
 
 async function createPendingAttachmentRewrap(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   slotId: string,
   blobId: string,
 ): Promise<PendingAttachmentRewrapRecord> {
   const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
     blobId,
-    noteId: state.noteId,
+    noteId: state.localId,
     slotId,
   };
   await state.persistence.savePendingAttachmentRewrap(
@@ -815,13 +816,13 @@ async function createPendingAttachmentRewrap(
 }
 
 async function createPendingAttachmentReplacement(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   slotId: string,
   blobId: string | null,
 ): Promise<PendingAttachmentReplacementRecord> {
   const pendingAttachmentReplacement: PendingAttachmentReplacementRecord = {
     blobId,
-    noteId: state.noteId,
+    noteId: state.localId,
     slotId,
   };
   await state.persistence.savePendingAttachmentReplacement(
@@ -832,7 +833,7 @@ async function createPendingAttachmentReplacement(
 }
 
 function mergePendingAttachmentRewraps(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   nextPendingAttachmentRewraps: ReadonlyArray<PendingAttachmentRewrapRecord>,
 ) {
   const nextSlotIds = new Set(
@@ -850,7 +851,7 @@ function mergePendingAttachmentRewraps(
 }
 
 function mergePendingAttachmentReplacements(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   nextPendingAttachmentReplacements: ReadonlyArray<PendingAttachmentReplacementRecord>,
 ) {
   const nextSlotIds = new Set(
@@ -868,7 +869,7 @@ function mergePendingAttachmentReplacements(
 }
 
 async function clearPendingAttachmentReplacementsForSlots(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   slotIds: ReadonlyArray<string>,
 ) {
   if (slotIds.length === 0) {
@@ -885,14 +886,14 @@ async function clearPendingAttachmentReplacementsForSlots(
   for (const slotId of slotIdSet) {
     await state.persistence.deletePendingAttachmentReplacement(
       state.runtime.execSql,
-      state.noteId,
+      state.localId,
       slotId,
     );
   }
 }
 
 function upsertPendingAttachments(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   nextPendingAttachments: ReadonlyArray<PendingAttachmentRecord>,
 ) {
   const nextSlotIds = new Set(
@@ -907,7 +908,7 @@ function upsertPendingAttachments(
 }
 
 async function queuePendingAttachmentUpload(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachment: DocumentAttachment,
   storageKey: string,
 ): Promise<PendingAttachmentRecord> {
@@ -915,7 +916,7 @@ async function queuePendingAttachmentUpload(
     byteLength: attachment.byteLength,
     mimeType: attachment.mimeType,
     name: attachment.name,
-    noteId: state.noteId,
+    noteId: state.localId,
     slotId: attachment.slotId,
     storageKey,
   };
@@ -929,8 +930,8 @@ async function queuePendingAttachmentUpload(
 }
 
 async function queueCommittedAttachmentsForRewrap(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
 ): Promise<boolean> {
   const currentAttachments = getDocumentAttachments(currentDoc);
   if (currentAttachments.length === 0) {
@@ -971,8 +972,8 @@ async function queueCommittedAttachmentsForRewrap(
 }
 
 async function queueCommittedAttachmentsForReplacement(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   documentId: string | null,
 ): Promise<boolean> {
   const currentAttachments = getDocumentAttachments(currentDoc);
@@ -1039,13 +1040,13 @@ async function queueCommittedAttachmentsForReplacement(
 }
 
 async function replacePendingUpdatesWithBaseline(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   sourceVersionVector?: string | null,
 ) {
   await state.persistence.deletePendingUpdates(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
   await enqueuePendingUpdate(
     state,
@@ -1055,7 +1056,7 @@ async function replacePendingUpdatesWithBaseline(
 }
 
 async function initializeNotesStore(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   scheduleSync: () => void,
 ) {
   if (state.runtime.dbStatus !== "ready") {
@@ -1064,7 +1065,7 @@ async function initializeNotesStore(
 
   await state.persistence.ensureSchema(state.runtime.execSql);
 
-  const nextDoc = await createNotesDocument();
+  const nextDoc = await createStoredDocument();
   const [
     existing,
     loadedPendingAttachments,
@@ -1072,15 +1073,15 @@ async function initializeNotesStore(
     loadedPendingAttachmentRewraps,
     localAttachments,
   ] = await Promise.all([
-    state.persistence.loadNote(state.runtime.execSql, state.noteId),
+    state.persistence.loadNote(state.runtime.execSql, state.localId),
     listPendingAttachmentRecords(state),
     state.persistence.listPendingAttachmentReplacements(
       state.runtime.execSql,
-      state.noteId,
+      state.localId,
     ),
     state.persistence.listPendingAttachmentRewraps(
       state.runtime.execSql,
-      state.noteId,
+      state.localId,
     ),
     listLocalAttachmentRecords(state),
   ]);
@@ -1106,8 +1107,8 @@ async function initializeNotesStore(
       nextDoc.getText("text").update(state.initialText);
     }
 
-    const created: NoteRecord = {
-      id: state.noteId,
+    const created: DocumentRecord = {
+      id: state.localId,
       containerId: state.runtime.containerId ?? null,
       documentId: state.initialDocumentId,
       documentRecipientEnvelopes: null,
@@ -1115,7 +1116,7 @@ async function initializeNotesStore(
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: 1,
     };
-    await saveNoteRecord(state, created);
+    await saveDocumentRecord(state, created);
     if (state.initialText.length > 0) {
       await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
     }
@@ -1128,8 +1129,8 @@ async function initializeNotesStore(
   scheduleSync();
 }
 
-function ensureNotesStoreInitialized(
-  state: NotesStoreState,
+function ensureDocumentStoreInitialized(
+  state: DocumentStoreState,
   scheduleSync: () => void,
 ) {
   if (
@@ -1163,8 +1164,8 @@ function isDestroyedDatabaseError(error: unknown): boolean {
   );
 }
 
-function setNotesSyncing(state: NotesStoreState, syncing: boolean) {
-  setNotesSnapshot(state, {
+function setDocumentSyncing(state: DocumentStoreState, syncing: boolean) {
+  setDocumentSnapshot(state, {
     attachments: state.snapshot.attachments,
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
@@ -1176,7 +1177,7 @@ function setNotesSyncing(state: NotesStoreState, syncing: boolean) {
   });
 }
 
-async function awaitInitializationForSync(state: NotesStoreState) {
+async function awaitInitializationForSync(state: DocumentStoreState) {
   if (!state.initializePromise) {
     return true;
   }
@@ -1193,11 +1194,11 @@ async function awaitInitializationForSync(state: NotesStoreState) {
   }
 }
 
-async function ensureNotesStoreReady(
-  state: NotesStoreState,
+async function ensureDocumentStoreReady(
+  state: DocumentStoreState,
   scheduleSync: () => void,
 ): Promise<boolean> {
-  ensureNotesStoreInitialized(state, scheduleSync);
+  ensureDocumentStoreInitialized(state, scheduleSync);
 
   if (state.initialized) {
     return true;
@@ -1210,16 +1211,16 @@ async function ensureNotesStoreReady(
   return awaitInitializationForSync(state);
 }
 
-async function relinkNotesStore(
-  state: NotesStoreState,
-  input: RelinkPersistedNoteInput,
-): Promise<NoteSummary | null> {
+async function relinkDocumentStore(
+  state: DocumentStoreState,
+  input: RelinkPersistedDocumentInput,
+): Promise<DocumentSummary | null> {
   if (!state.doc) {
     return null;
   }
 
   const currentAccessEpoch = state.record?.accessEpoch ?? 1;
-  const patch: Partial<NoteRecord> = {
+  const patch: Partial<DocumentRecord> = {
     accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
     containerId: input.containerId,
     documentId: input.documentId,
@@ -1243,7 +1244,7 @@ async function relinkNotesStore(
   };
 }
 
-function canRunScheduledSync(state: NotesStoreState): boolean {
+function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
     state.doc !== null &&
     state.snapshot.ready &&
@@ -1254,7 +1255,7 @@ function canRunScheduledSync(state: NotesStoreState): boolean {
 }
 
 async function buildAttachmentCommits(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachmentsToCommit: PendingAttachmentRecord[],
   currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
 ): Promise<AttachmentCommitChange[] | null> {
@@ -1269,7 +1270,7 @@ async function buildAttachmentCommits(
     );
     if (!localBytes) {
       state.runtime.log(
-        `Notes: missing local blob bytes for attachment ${attachment.slotId}.`,
+        `Documents: missing local blob bytes for attachment ${attachment.slotId}.`,
       );
       return null;
     }
@@ -1296,7 +1297,7 @@ async function buildAttachmentCommits(
 }
 
 async function buildAttachmentRewraps(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachmentsToRewrap: PendingAttachmentRewrapRecord[],
   currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
   encapsulationKeyPair: EncapsulationKeyPair,
@@ -1306,7 +1307,7 @@ async function buildAttachmentRewraps(
   );
   const blobById = new Map<
     string,
-    Awaited<ReturnType<NotesRuntime["apiClient"]["getBlob"]>>
+    Awaited<ReturnType<DocumentsRuntime["apiClient"]["getBlob"]>>
   >();
   const attachmentRewraps: AttachmentRewrapChange[] = [];
 
@@ -1341,9 +1342,9 @@ async function buildAttachmentRewraps(
 }
 
 async function commitBaselineChange(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  nextRemoteRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRemoteRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
   attachmentCommits: AttachmentCommitChange[],
   attachmentRewraps: AttachmentRewrapChange[],
@@ -1399,8 +1400,8 @@ async function commitBaselineChange(
 }
 
 async function commitAttachmentRewrapChange(
-  state: NotesStoreState,
-  nextRemoteRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRemoteRecord: DocumentRecord,
   attachmentRewraps: AttachmentRewrapChange[],
 ): Promise<CommitDocumentChangeResponse | null> {
   if (!nextRemoteRecord.documentId) {
@@ -1420,8 +1421,8 @@ async function commitAttachmentRewrapChange(
 }
 
 async function saveCommittedAttachmentRecords(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
   committedBindings: CommitDocumentChangeResponse["committedBindings"],
 ) {
@@ -1443,7 +1444,7 @@ async function saveCommittedAttachmentRecords(
         blobId: committedBinding.blobId,
         byteLength: localAttachment.byteLength,
         mimeType: localAttachment.mimeType,
-        noteId: state.noteId,
+        noteId: state.localId,
         slotId: localAttachment.slotId,
         storageKey: localAttachment.storageKey,
       },
@@ -1452,9 +1453,9 @@ async function saveCommittedAttachmentRecords(
   }
 }
 
-function getCurrentSyncState(state: NotesStoreState): {
-  currentDoc: NotesDocument;
-  currentRecord: NoteRecord;
+function getCurrentSyncState(state: DocumentStoreState): {
+  currentDoc: DocumentState;
+  currentRecord: DocumentRecord;
 } | null {
   if (
     !state.doc ||
@@ -1472,15 +1473,15 @@ function getCurrentSyncState(state: NotesStoreState): {
 }
 
 async function listCurrentDocumentBindings(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   documentId: string,
 ): Promise<ReadonlyArray<DocumentAttachmentBinding> | null> {
   return state.runtime.apiClient.listDocumentAttachments(documentId);
 }
 
 async function runSerializedMutation(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
   onError: string,
   task: () => Promise<PendingMutationSyncResult>,
 ): Promise<PendingMutationSyncResult> {
@@ -1503,8 +1504,8 @@ async function runSerializedMutation(
 }
 
 async function runPendingAttachmentSyncTask(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   const currentSyncState = getCurrentSyncState(state);
@@ -1574,8 +1575,8 @@ async function runPendingAttachmentSyncTask(
 }
 
 async function syncPendingAttachments(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0) {
@@ -1585,13 +1586,13 @@ async function syncPendingAttachments(
   return runSerializedMutation(
     state,
     nextRecord,
-    "Failed to sync note attachments:",
+    "Failed to sync document attachments:",
     () => runPendingAttachmentSyncTask(state, nextRecord, encapsulationKeyPair),
   );
 }
 
 async function clearSyncedPendingAttachments(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
 ) {
   const committedSlotIds = new Set(
@@ -1602,11 +1603,11 @@ async function clearSyncedPendingAttachments(
   );
   await state.persistence.deletePendingAttachments(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
   await state.persistence.deletePendingUpdates(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
   await clearPendingAttachmentReplacementsForSlots(
     state,
@@ -1615,11 +1616,11 @@ async function clearSyncedPendingAttachments(
 }
 
 async function persistCommittedDocumentRecord(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   documentId: string,
   committed: CommitDocumentChangeResponse,
-): Promise<NoteRecord> {
+): Promise<DocumentRecord> {
   return (
     await persistDocument(state, currentDoc, {
       accessEpoch: committed.currentAccessEpoch,
@@ -1632,12 +1633,12 @@ async function persistCommittedDocumentRecord(
 }
 
 async function finalizePendingAttachmentSync(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   documentId: string,
   attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
   committed: CommitDocumentChangeResponse,
-): Promise<NoteRecord> {
+): Promise<DocumentRecord> {
   await saveCommittedAttachmentRecords(
     state,
     currentDoc,
@@ -1653,16 +1654,16 @@ async function finalizePendingAttachmentSync(
   );
 }
 
-async function clearPendingAttachmentRewraps(state: NotesStoreState) {
+async function clearPendingAttachmentRewraps(state: DocumentStoreState) {
   state.pendingAttachmentRewraps = [];
   await state.persistence.deletePendingAttachmentRewraps(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
 }
 
 async function clearSyncedPendingAttachmentRewraps(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
 ) {
   const syncedSlotIds = new Set(
@@ -1674,25 +1675,25 @@ async function clearSyncedPendingAttachmentRewraps(
   );
   await state.persistence.deletePendingAttachmentRewraps(
     state.runtime.execSql,
-    state.noteId,
+    state.localId,
   );
 }
 
 async function clearEmptyPendingAttachmentRewraps(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
 ): Promise<PendingMutationSyncResult> {
   await clearPendingAttachmentRewraps(state);
   return { completed: false, nextRecord };
 }
 
 async function finalizePendingAttachmentRewrapSync(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   documentId: string,
   attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
   committed: CommitDocumentChangeResponse,
-): Promise<NoteRecord> {
+): Promise<DocumentRecord> {
   await clearSyncedPendingAttachmentRewraps(state, attachmentsToRewrap);
   return persistCommittedDocumentRecord(
     state,
@@ -1703,8 +1704,8 @@ async function finalizePendingAttachmentRewrapSync(
 }
 
 async function runPendingAttachmentRewrapTask(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   const currentSyncState = getCurrentSyncState(state);
@@ -1770,8 +1771,8 @@ async function runPendingAttachmentRewrapTask(
 }
 
 async function syncPendingAttachmentRewraps(
-  state: NotesStoreState,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachmentRewraps.length === 0) {
@@ -1781,18 +1782,18 @@ async function syncPendingAttachmentRewraps(
   return runSerializedMutation(
     state,
     nextRecord,
-    "Failed to rewrap note attachments:",
+    "Failed to rewrap document attachments:",
     () =>
       runPendingAttachmentRewrapTask(state, nextRecord, encapsulationKeyPair),
   );
 }
 
 async function ensureDocumentRecordForSync(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
   pendingUpdates: PendingUpdateRecord[],
-): Promise<NoteRecord | null> {
+): Promise<DocumentRecord | null> {
   if (nextRecord.documentId || pendingUpdates.length === 0) {
     return nextRecord;
   }
@@ -1801,9 +1802,9 @@ async function ensureDocumentRecordForSync(
 }
 
 async function requestDocumentSync(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  currentRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord,
   pendingUpdates: PendingUpdateRecord[],
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentSyncAttempt | null> {
@@ -1866,9 +1867,9 @@ async function requestDocumentSync(
 }
 
 async function requestDocumentSyncProbe(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  currentRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentSyncAttempt | null> {
   if (!currentRecord.documentId) {
@@ -1912,7 +1913,7 @@ async function requestDocumentSyncProbe(
 }
 
 function resolveNextDocumentRecipientEnvelopes(
-  currentRecord: NoteRecord,
+  currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
 ): DocumentRecipientEnvelopes {
   const { currentDocumentRecipientEnvelopes, encryptionMaterial, synced } =
@@ -1928,8 +1929,8 @@ function resolveNextDocumentRecipientEnvelopes(
 }
 
 async function applyIncomingSyncedUpdates(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
   synced: DocumentSyncAttempt["synced"],
   currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
   nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
@@ -1949,7 +1950,7 @@ async function applyIncomingSyncedUpdates(
 
   if (decryptionBatches.length === 0) {
     state.runtime.log(
-      "Notes: skipped incoming updates because the current document key bundle is missing.",
+      "Documents: skipped incoming updates because the current document key bundle is missing.",
     );
     return;
   }
@@ -1966,7 +1967,7 @@ async function applyIncomingSyncedUpdates(
       decryptionBatch.updates,
       decryptionBatch.accessEpoch,
       documentKey,
-      (message) => state.runtime.log(`Notes: ${message}`),
+      (message) => state.runtime.log(`Documents: ${message}`),
     );
     if (decrypted.length === 0) {
       continue;
@@ -1984,14 +1985,17 @@ async function applyIncomingSyncedUpdates(
 }
 
 async function finalizeDocumentSync(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  currentRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
   encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<NoteRecord> {
+): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
-  updateNoteRecipientPublicKeys(state, synced.recipientEncapsulationPublicKeys);
+  updateDocumentRecipientPublicKeys(
+    state,
+    synced.recipientEncapsulationPublicKeys,
+  );
 
   for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
     await deletePendingUpdate(state, acceptedOutgoingUpdateId);
@@ -2039,7 +2043,7 @@ async function finalizeDocumentSync(
       );
       if (queuedReplacement) {
         state.runtime.log(
-          "Notes: document epoch rotated; committed attachments were queued for replacement.",
+          "Documents: document epoch rotated; committed attachments were queued for replacement.",
         );
       }
     } else {
@@ -2071,11 +2075,11 @@ async function finalizeDocumentSync(
 }
 
 async function syncDocumentState(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<NoteRecord> {
+): Promise<DocumentRecord> {
   const pendingUpdates = await listPendingUpdates(state);
   const nextRemoteRecord = await ensureDocumentRecordForSync(
     state,
@@ -2112,9 +2116,9 @@ async function syncDocumentState(
 }
 
 async function refreshRemoteDocumentBeforePendingAttachmentCommit(
-  state: NotesStoreState,
-  currentDoc: NotesDocument,
-  nextRecord: NoteRecord,
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
@@ -2151,7 +2155,7 @@ async function refreshRemoteDocumentBeforePendingAttachmentCommit(
   };
 }
 
-async function runNotesSyncPass(state: NotesStoreState) {
+async function runDocumentSyncPass(state: DocumentStoreState) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
   let nextRecord = state.record;
@@ -2202,7 +2206,7 @@ async function runNotesSyncPass(state: NotesStoreState) {
   await syncDocumentState(state, currentDoc, nextRecord, encapsulationKeyPair);
 }
 
-async function runScheduledSyncIteration(state: NotesStoreState) {
+async function runScheduledSyncIteration(state: DocumentStoreState) {
   if (!(await awaitInitializationForSync(state))) {
     return false;
   }
@@ -2212,7 +2216,7 @@ async function runScheduledSyncIteration(state: NotesStoreState) {
   }
 
   try {
-    await runNotesSyncPass(state);
+    await runDocumentSyncPass(state);
     return true;
   } catch (error) {
     if (isDestroyedDatabaseError(error)) {
@@ -2221,12 +2225,12 @@ async function runScheduledSyncIteration(state: NotesStoreState) {
 
     throw error;
   } finally {
-    setNotesSyncing(state, false);
+    setDocumentSyncing(state, false);
   }
 }
 
-async function runScheduledSyncLoop(state: NotesStoreState) {
-  setNotesSyncing(state, true);
+async function runScheduledSyncLoop(state: DocumentStoreState) {
+  setDocumentSyncing(state, true);
 
   try {
     while (state.syncRequested) {
@@ -2238,11 +2242,11 @@ async function runScheduledSyncLoop(state: NotesStoreState) {
       }
     }
   } finally {
-    setNotesSyncing(state, false);
+    setDocumentSyncing(state, false);
   }
 }
 
-function scheduleNotesSync(state: NotesStoreState) {
+function scheduleDocumentSync(state: DocumentStoreState) {
   state.syncRequested = true;
 
   if (state.syncPromise) {
@@ -2258,14 +2262,14 @@ function scheduleNotesSync(state: NotesStoreState) {
       const shouldRetry = state.syncRequested;
       state.syncPromise = null;
       if (shouldRetry) {
-        scheduleNotesSync(state);
+        scheduleDocumentSync(state);
       }
     }
   })();
 }
 
-function handleNotesRemoteEvents(
-  state: NotesStoreState,
+function handleDocumentRemoteEvents(
+  state: DocumentStoreState,
   scheduleSync: () => void,
 ) {
   if (!state.record?.documentId) {
@@ -2288,8 +2292,8 @@ function handleNotesRemoteEvents(
 }
 
 function buildPendingAttachments(
-  noteId: string,
-  files: ReadonlyArray<NoteAttachmentUpload>,
+  localId: string,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
 ): {
   nextAttachments: DocumentAttachment[];
   nextPendingAttachments: PendingAttachmentRecord[];
@@ -2299,12 +2303,12 @@ function buildPendingAttachments(
 
   for (const file of files) {
     const slotId = crypto.randomUUID();
-    const storageKey = `${noteId}-${slotId}`;
+    const storageKey = `${localId}-${slotId}`;
     nextPendingAttachments.push({
       byteLength: file.bytes.byteLength,
       mimeType: file.mimeType,
       name: file.name,
-      noteId,
+      noteId: localId,
       slotId,
       storageKey,
     });
@@ -2320,8 +2324,8 @@ function buildPendingAttachments(
 }
 
 async function persistPendingAttachments(
-  state: NotesStoreState,
-  files: ReadonlyArray<NoteAttachmentUpload>,
+  state: DocumentStoreState,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
   nextPendingAttachments: PendingAttachmentRecord[],
 ) {
   for (const [index, pendingAttachment] of nextPendingAttachments.entries()) {
@@ -2338,7 +2342,7 @@ async function persistPendingAttachments(
       blobId: null,
       byteLength: pendingAttachment.byteLength,
       mimeType: pendingAttachment.mimeType,
-      noteId: state.noteId,
+      noteId: state.localId,
       slotId: pendingAttachment.slotId,
       storageKey: pendingAttachment.storageKey,
     });
@@ -2349,28 +2353,28 @@ async function persistPendingAttachments(
   }
 }
 
-function logAttachedFiles(state: NotesStoreState, count: number) {
+function logAttachedFiles(state: DocumentStoreState, count: number) {
   state.runtime.log(
     state.runtime.online && state.runtime.isAuthenticated
-      ? `Attached ${count} file${count === 1 ? "" : "s"} to note ${state.noteId}.`
-      : `Stored ${count} attachment${count === 1 ? "" : "s"} locally for note ${state.noteId}.`,
+      ? `Attached ${count} file${count === 1 ? "" : "s"} to document ${state.localId}.`
+      : `Stored ${count} attachment${count === 1 ? "" : "s"} locally for document ${state.localId}.`,
   );
 }
 
 async function persistAttachedFiles(
-  state: NotesStoreState,
-  files: ReadonlyArray<NoteAttachmentUpload>,
+  state: DocumentStoreState,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
 
   if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
-    state.runtime.log("Notes: attachments require a local key package.");
+    state.runtime.log("Documents: attachments require a local key package.");
     return;
   }
 
   const { nextAttachments, nextPendingAttachments } = buildPendingAttachments(
-    state.noteId,
+    state.localId,
     files,
   );
   const previousVersion = encodeVersionVector(currentDoc);
@@ -2385,19 +2389,21 @@ async function persistAttachedFiles(
   upsertPendingAttachments(state, nextPendingAttachments);
   await persistDocument(state, currentDoc);
   logAttachedFiles(state, files.length);
-  scheduleNotesSync(state);
+  scheduleDocumentSync(state);
 }
 
 async function persistSlotAttachmentFile(
-  state: NotesStoreState,
+  state: DocumentStoreState,
   slotId: string,
-  file: NoteAttachmentUpload,
+  file: DocumentAttachmentUpload,
 ) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
 
   if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
-    state.runtime.log("Notes: slot attachments require a local key package.");
+    state.runtime.log(
+      "Documents: slot attachments require a local key package.",
+    );
     return;
   }
 
@@ -2414,28 +2420,28 @@ async function persistSlotAttachmentFile(
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
 
-  const storageKey = `${state.noteId}-${slotId}-${crypto.randomUUID()}`;
+  const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
   await state.runtime.blobStore.writeBytes(storageKey, file.bytes);
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
     mimeType: replacementAttachment.mimeType,
-    noteId: state.noteId,
+    noteId: state.localId,
     slotId,
     storageKey,
   });
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
   await persistDocument(state, currentDoc);
   state.runtime.log(`Queued attachment ${file.name} for slot ${slotId}.`);
-  scheduleNotesSync(state);
+  scheduleDocumentSync(state);
 }
 
-function refreshAttachabilitySnapshot(state: NotesStoreState) {
+function refreshAttachabilitySnapshot(state: DocumentStoreState) {
   if (!state.snapshot.ready) {
     return;
   }
 
-  setNotesSnapshot(state, {
+  setDocumentSnapshot(state, {
     attachments: state.snapshot.attachments,
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
@@ -2448,8 +2454,8 @@ function refreshAttachabilitySnapshot(state: NotesStoreState) {
 }
 
 function regainedSyncPrerequisites(
-  previousRuntime: NotesRuntime,
-  nextRuntime: NotesRuntime,
+  previousRuntime: DocumentsRuntime,
+  nextRuntime: DocumentsRuntime,
 ): boolean {
   return (
     (!previousRuntime.online && nextRuntime.online) ||
@@ -2459,9 +2465,9 @@ function regainedSyncPrerequisites(
   );
 }
 
-function attachFilesToNotesStore(
-  state: NotesStoreState,
-  files: ReadonlyArray<NoteAttachmentUpload>,
+function attachFilesToDocumentStore(
+  state: DocumentStoreState,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
   if (files.length === 0 || !state.doc) {
     return;
@@ -2471,14 +2477,14 @@ function attachFilesToNotesStore(
     .catch(() => undefined)
     .then(async () => persistAttachedFiles(state, files))
     .catch((error: unknown) => {
-      console.error("Failed to attach note files:", error);
+      console.error("Failed to attach document files:", error);
     });
 }
 
-function replaceAttachmentInNotesStore(
-  state: NotesStoreState,
+function replaceAttachmentInDocumentStore(
+  state: DocumentStoreState,
   slotId: string,
-  file: NoteAttachmentUpload,
+  file: DocumentAttachmentUpload,
 ) {
   if (!state.doc) {
     return;
@@ -2488,24 +2494,24 @@ function replaceAttachmentInNotesStore(
     .catch(() => undefined)
     .then(async () => persistSlotAttachmentFile(state, slotId, file))
     .catch((error: unknown) => {
-      console.error("Failed to replace note attachment:", error);
+      console.error("Failed to replace document attachment:", error);
     });
 }
 
-function setAttachmentInNotesStore(
-  state: NotesStoreState,
+function setAttachmentInDocumentStore(
+  state: DocumentStoreState,
   slotId: string,
-  file: NoteAttachmentUpload,
+  file: DocumentAttachmentUpload,
 ) {
-  replaceAttachmentInNotesStore(state, slotId, file);
+  replaceAttachmentInDocumentStore(state, slotId, file);
 }
 
-function setNotesText(state: NotesStoreState, value: string) {
+function setDocumentText(state: DocumentStoreState, value: string) {
   if (!state.doc) {
     return;
   }
 
-  setNotesSnapshot(state, {
+  setDocumentSnapshot(state, {
     attachments: state.snapshot.attachments,
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
@@ -2533,14 +2539,17 @@ function setNotesText(state: NotesStoreState, value: string) {
 
       await enqueuePendingUpdate(state, update);
       await persistDocument(state, state.doc, { text: value });
-      scheduleNotesSync(state);
+      scheduleDocumentSync(state);
     })
     .catch((error: unknown) => {
-      console.error("Failed to persist note changes:", error);
+      console.error("Failed to persist document changes:", error);
     });
 }
 
-function subscribeToNotesStore(state: NotesStoreState, listener: () => void) {
+function subscribeToDocumentStore(
+  state: DocumentStoreState,
+  listener: () => void,
+) {
   state.listeners.add(listener);
 
   return () => {
@@ -2548,9 +2557,9 @@ function subscribeToNotesStore(state: NotesStoreState, listener: () => void) {
   };
 }
 
-function updateNotesStoreRuntime(
-  state: NotesStoreState,
-  nextRuntime: NotesRuntime,
+function updateDocumentStoreRuntime(
+  state: DocumentStoreState,
+  nextRuntime: DocumentsRuntime,
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
@@ -2563,15 +2572,15 @@ function updateNotesStoreRuntime(
 
   if (nextRuntime.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
-      resetNotesStore(state);
+      resetDocumentStore(state);
     }
     state.lastEventCount = nextRuntime.events.length;
     return;
   }
 
   refreshAttachabilitySnapshot(state);
-  ensureNotesStoreInitialized(state, scheduleSync);
-  handleNotesRemoteEvents(state, scheduleSync);
+  ensureDocumentStoreInitialized(state, scheduleSync);
+  handleDocumentRemoteEvents(state, scheduleSync);
 
   if (
     state.snapshot.ready &&
@@ -2581,91 +2590,90 @@ function updateNotesStoreRuntime(
   }
 }
 
-function createNotesStore(
-  noteId: string,
-  initialRuntime: NotesRuntime,
-  persistence: NotesPersistence = sqlDocumentsPersistence,
-  onPersistedNote?: PersistedNoteListener,
+export function createDocumentStore(
+  localId: string,
+  initialRuntime: DocumentsRuntime,
+  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
-): NotesStore {
-  const state = createNotesStoreState(
-    noteId,
+): DocumentStore {
+  const state = createDocumentStoreState(
+    localId,
     initialRuntime,
     persistence,
-    onPersistedNote,
+    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
-  const scheduleSync = () => scheduleNotesSync(state);
+  const scheduleSync = () => scheduleDocumentSync(state);
 
   return {
-    attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) =>
-      attachFilesToNotesStore(state, files),
-    ensureInitialized: () => ensureNotesStoreReady(state, scheduleSync),
+    attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
+      attachFilesToDocumentStore(state, files),
+    ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
-    setAttachment: (slotId: string, file: NoteAttachmentUpload) =>
-      setAttachmentInNotesStore(state, slotId, file),
-    replaceAttachment: (slotId: string, file: NoteAttachmentUpload) =>
-      replaceAttachmentInNotesStore(state, slotId, file),
+    setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
+      setAttachmentInDocumentStore(state, slotId, file),
+    replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
+      replaceAttachmentInDocumentStore(state, slotId, file),
     requestSync: () => scheduleSync(),
-    relink: (input) => relinkNotesStore(state, input),
-    setPersistedNoteListener: (listener) => {
-      state.persistedNoteListener = listener;
+    relink: (input) => relinkDocumentStore(state, input),
+    setPersistedDocumentListener: (listener) => {
+      state.persistedDocumentListener = listener;
     },
-    setText: (value: string) => setNotesText(state, value),
-    subscribe: (listener: () => void) => subscribeToNotesStore(state, listener),
-    updateRuntime: (runtime: NotesRuntime) =>
-      updateNotesStoreRuntime(state, runtime, scheduleSync),
+    setText: (value: string) => setDocumentText(state, value),
+    subscribe: (listener: () => void) =>
+      subscribeToDocumentStore(state, listener),
+    updateRuntime: (runtime: DocumentsRuntime) =>
+      updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
 }
 
-export const createDocumentStore = createNotesStore;
-
-function getOrCreateNotesStore(
+function getOrCreateDocumentStore(
   domainScope: object,
-  noteId: string,
-  runtime: NotesRuntime,
-  onPersistedNote?: PersistedNoteListener,
+  localId: string,
+  runtime: DocumentsRuntime,
+  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
-): NotesStore {
-  const existingStores = notesStoresByScope.get(domainScope);
+): DocumentStore {
+  const existingStores = documentStoresByScope.get(domainScope);
   if (existingStores) {
-    const existingStore = existingStores.get(noteId);
+    const existingStore = existingStores.get(localId);
     if (existingStore) {
-      existingStore.setPersistedNoteListener(onPersistedNote);
+      existingStore.setPersistedDocumentListener(onPersistedDocument);
       return existingStore;
     }
   }
 
-  const nextStore = createNotesStore(
-    noteId,
+  const nextStore = createDocumentStore(
+    localId,
     runtime,
     sqlDocumentsPersistence,
-    onPersistedNote,
+    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
-  const stores = existingStores ?? new Map<string, NotesStore>();
-  stores.set(noteId, nextStore);
-  notesStoresByScope.set(domainScope, stores);
+  const stores = existingStores ?? new Map<string, DocumentStore>();
+  stores.set(localId, nextStore);
+  documentStoresByScope.set(domainScope, stores);
   return nextStore;
 }
 
-function primeNotesStore(
+export function primeDocumentStore(
   domainScope: object,
-  noteId: string,
-  runtime: NotesRuntime,
-  onPersistedNote?: PersistedNoteListener,
+  localId: string,
+  runtime: DocumentsRuntime,
+  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
-): NotesStore {
-  const store = getOrCreateNotesStore(
+): DocumentStore {
+  const store = getOrCreateDocumentStore(
     domainScope,
-    noteId,
+    localId,
     runtime,
-    onPersistedNote,
+    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
@@ -2673,10 +2681,8 @@ function primeNotesStore(
   return store;
 }
 
-export const primeDocumentStore = primeNotesStore;
-
-function requestDomainNotesSync(domainScope: object): void {
-  const stores = notesStoresByScope.get(domainScope);
+export function requestDomainDocumentSync(domainScope: object): void {
+  const stores = documentStoresByScope.get(domainScope);
   if (!stores) {
     return;
   }
@@ -2686,14 +2692,12 @@ function requestDomainNotesSync(domainScope: object): void {
   }
 }
 
-export const requestDomainDocumentSync = requestDomainNotesSync;
-
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
   containerId?: string | null;
   documentId?: string | null;
   initialText?: string;
-  onPersistedDocument?: PersistedNoteListener;
+  onPersistedDocument?: PersistedDocumentListener;
 }
 
 export function DocumentsProvider({
@@ -2705,9 +2709,9 @@ export function DocumentsProvider({
   onPersistedDocument,
 }: DocumentsProviderProps) {
   const appData = useAppData();
-  const runtime = useMemo<NotesRuntime>(
+  const runtime = useMemo<DocumentsRuntime>(
     () => ({
-      apiClient: createNotesRuntimeApiClient(appData.apiClient),
+      apiClient: createDocumentsRuntimeApiClient(appData.apiClient),
       blobStore: appData.blobStore,
       cacheReferencedPrincipalPolicies:
         appData.cacheReferencedPrincipalPolicies,
@@ -2726,7 +2730,7 @@ export function DocumentsProvider({
   );
   const store = useMemo(
     () =>
-      getOrCreateNotesStore(
+      getOrCreateDocumentStore(
         runtime.domainScope,
         localId,
         runtime,
@@ -2757,12 +2761,14 @@ export function DocumentsProvider({
   ]);
 
   return (
-    <NotesContext.Provider value={store}>{children}</NotesContext.Provider>
+    <DocumentContext.Provider value={store}>
+      {children}
+    </DocumentContext.Provider>
   );
 }
 
 export function useDocument(): DocumentContextValue {
-  const store = useContext(NotesContext);
+  const store = useContext(DocumentContext);
   if (!store) {
     throw new Error("useDocument must be used within a DocumentsProvider.");
   }
