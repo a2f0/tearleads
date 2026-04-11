@@ -40,6 +40,43 @@ function renderPane() {
   );
 }
 
+async function openExplorer(view: ReturnType<typeof renderPane>) {
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Explorer"));
+
+  let explorerWindow: HTMLDivElement | null = null;
+  await waitFor(() => {
+    const windows =
+      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    explorerWindow = windows[windows.length - 1] ?? null;
+    expect(explorerWindow).toBeTruthy();
+  });
+
+  invariant(explorerWindow, "explorer window not found");
+  const readyExplorerWindow = explorerWindow;
+
+  await waitFor(() => {
+    expect(
+      within(readyExplorerWindow).getByRole("button", { name: "New Note" }),
+    ).toBeTruthy();
+  });
+
+  return readyExplorerWindow;
+}
+
+function listExplorerNoteItems(
+  explorerWindow: HTMLElement,
+): HTMLButtonElement[] {
+  return Array.from(
+    explorerWindow.querySelectorAll<HTMLButtonElement>(
+      "button.explorer-sidebar-item--note",
+    ),
+  );
+}
+
 async function generatePersonaAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
@@ -265,6 +302,57 @@ test("contacts windows in the same pane share live address book state", async ()
 
   await waitFor(() => {
     expect(view.getAllByText("peer")).toHaveLength(2);
+  });
+
+  view.unmount();
+});
+
+test("explorer windows in the same pane share newly created notes without refresh", async () => {
+  const view = renderPane();
+
+  await generatePersonaAndWaitForDb(view);
+
+  const firstExplorer = await openExplorer(view);
+  const secondExplorer = await openExplorer(view);
+
+  await waitFor(() => {
+    expect(listExplorerNoteItems(secondExplorer)).toHaveLength(0);
+  });
+
+  fireEvent.click(
+    within(firstExplorer).getByRole("button", { name: "New Note" }),
+  );
+
+  await waitFor(() => {
+    expect(
+      within(firstExplorer).getByRole("button", { name: "Back to Container" }),
+    ).toBeTruthy();
+  });
+
+  const editor = await within(firstExplorer).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "fresh explorer note" },
+  });
+
+  await waitFor(() => {
+    expect(editor.value).toBe("fresh explorer note");
+    expect(
+      listExplorerNoteItems(firstExplorer).some(
+        (button) => button.textContent?.trim() === "fresh explorer note",
+      ),
+    ).toBe(true);
+  });
+
+  await waitFor(() => {
+    expect(
+      listExplorerNoteItems(secondExplorer).some(
+        (button) => button.textContent?.trim() === "fresh explorer note",
+      ),
+    ).toBe(true);
   });
 
   view.unmount();

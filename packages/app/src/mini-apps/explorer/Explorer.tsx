@@ -16,7 +16,10 @@ import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../data/AppDataProvider";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
 import { NotesApp } from "../notes/NotesApp";
-import { primeNotesStore } from "../notes/NotesProvider";
+import {
+  primeNotesStore,
+  subscribeToPersistedNotes,
+} from "../notes/NotesProvider";
 import {
   type NoteSummary,
   sqlNotesPersistence,
@@ -461,7 +464,7 @@ function renderTreeEntries(
   });
 }
 
-function buildNotesByContainerId(
+export function buildNotesByContainerId(
   noteSummaries: ReadonlyArray<NoteSummary>,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
   validContainerIds: ReadonlySet<string>,
@@ -472,12 +475,11 @@ function buildNotesByContainerId(
     const linkedContainerIds = note.documentId
       ? linkedContainerIdsByDocumentId.get(note.documentId)
       : undefined;
+    const fallbackContainerIds = note.containerId ? [note.containerId] : [];
     const candidateContainerIds =
-      linkedContainerIds !== undefined
+      linkedContainerIds !== undefined && linkedContainerIds.length > 0
         ? linkedContainerIds
-        : note.containerId
-          ? [note.containerId]
-          : [];
+        : fallbackContainerIds;
 
     if (candidateContainerIds.length === 0) {
       continue;
@@ -847,6 +849,10 @@ function useExplorerNoteSummaryState(
     },
     [],
   );
+
+  useEffect(() => {
+    return subscribeToPersistedNotes(domainScope, mergeNoteSummary);
+  }, [domainScope, mergeNoteSummary]);
 
   return { mergeNoteSummaries, mergeNoteSummary, noteSummaries };
 }
