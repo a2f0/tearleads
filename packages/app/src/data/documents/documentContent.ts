@@ -22,7 +22,9 @@ interface StructuredDocumentShape {
   getMap: (key: string) => StructuredDocumentMap;
 }
 
-const DOCUMENT_MAP_KEY = "note";
+// Structured document snapshots still store their root map under "note".
+// Renaming that key would require rewriting existing Loro snapshots.
+const DOCUMENT_CONTENT_MAP_KEY = "note";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
 function isStructuredAttachmentMap(
@@ -82,7 +84,7 @@ function parseStructuredAttachment(
 export function ensureDocumentAttachmentStructure(
   doc: StructuredDocumentShape,
 ): void {
-  doc.getMap(DOCUMENT_MAP_KEY);
+  doc.getMap(DOCUMENT_CONTENT_MAP_KEY);
 }
 
 function getAttachmentMapKey(slotId: string): string {
@@ -92,7 +94,7 @@ function getAttachmentMapKey(slotId: string): string {
 function listStructuredDocumentAttachments(
   doc: StructuredDocumentShape,
 ): Array<DocumentAttachment & { order: number | null }> {
-  const documentMap = doc.getMap(DOCUMENT_MAP_KEY);
+  const documentMap = doc.getMap(DOCUMENT_CONTENT_MAP_KEY);
   return documentMap
     .entries()
     .flatMap(([key, value]) => {
@@ -145,7 +147,7 @@ export function addDocumentAttachments(
     return;
   }
 
-  const documentMap = doc.getMap(DOCUMENT_MAP_KEY);
+  const documentMap = doc.getMap(DOCUMENT_CONTENT_MAP_KEY);
   const existingAttachments = listStructuredDocumentAttachments(doc);
   let nextOrder =
     existingAttachments.reduce((highestOrder, attachment, index) => {

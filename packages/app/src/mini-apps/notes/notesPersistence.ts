@@ -284,10 +284,10 @@ function createAdaptedPersistenceReadMethods(
     upsertDiscoveredDocument(execSql, input) {
       return notesPersistence.upsertDiscoveredNote(execSql, input);
     },
-    relinkPersistedDocument(execSql, input) {
+    relinkPersistedDocument(execSql, { localId, ...input }) {
       return notesPersistence.relinkPersistedNote(execSql, {
         ...input,
-        noteId: input.localId,
+        noteId: localId,
       });
     },
   };
@@ -356,34 +356,34 @@ function createAdaptedPersistenceMutationMethods(
   | "deletePendingAttachmentReplacements"
 > {
   return {
-    enqueuePendingUpdate(execSql, pendingUpdate) {
+    enqueuePendingUpdate(execSql, { localId, ...pendingUpdate }) {
       return notesPersistence.enqueuePendingUpdate(execSql, {
         ...pendingUpdate,
-        noteId: pendingUpdate.localId,
+        noteId: localId,
       });
     },
-    saveLocalAttachment(execSql, attachment) {
+    saveLocalAttachment(execSql, { localId, ...attachment }) {
       return notesPersistence.saveLocalAttachment(execSql, {
         ...attachment,
-        noteId: attachment.localId,
+        noteId: localId,
       });
     },
-    savePendingAttachment(execSql, attachment) {
+    savePendingAttachment(execSql, { localId, ...attachment }) {
       return notesPersistence.savePendingAttachment(execSql, {
         ...attachment,
-        noteId: attachment.localId,
+        noteId: localId,
       });
     },
-    savePendingAttachmentRewrap(execSql, attachment) {
+    savePendingAttachmentRewrap(execSql, { localId, ...attachment }) {
       return notesPersistence.savePendingAttachmentRewrap(execSql, {
         ...attachment,
-        noteId: attachment.localId,
+        noteId: localId,
       });
     },
-    savePendingAttachmentReplacement(execSql, attachment) {
+    savePendingAttachmentReplacement(execSql, { localId, ...attachment }) {
       return notesPersistence.savePendingAttachmentReplacement(execSql, {
         ...attachment,
-        noteId: attachment.localId,
+        noteId: localId,
       });
     },
     deletePendingUpdate(execSql, id) {

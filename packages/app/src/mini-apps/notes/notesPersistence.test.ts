@@ -4,6 +4,7 @@ import {
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
+import { DOCUMENTS_APP_KIND } from "../../data/documents/documentsPersistence";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
@@ -434,6 +435,248 @@ test("upsertDiscoveredNote uses the remote createdAt for a newly discovered docu
         updatedAt: "2026-04-06T12:00:00.000Z",
       },
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("ensureSchema migrates the legacy note namespace into the document namespace", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await execSql(`
+      CREATE TABLE IF NOT EXISTS documents (
+        app_kind TEXT NOT NULL,
+        local_id TEXT NOT NULL,
+        document_id TEXT,
+        document_recipient_envelopes TEXT,
+        loro_snapshot TEXT NOT NULL,
+        access_epoch INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (app_kind, local_id)
+      )
+    `);
+    await execSql(`
+      CREATE TABLE IF NOT EXISTS document_pending_updates (
+        id TEXT PRIMARY KEY,
+        app_kind TEXT NOT NULL,
+        local_id TEXT NOT NULL,
+        update_data TEXT NOT NULL,
+        partial_start_version_vector TEXT NOT NULL,
+        partial_end_version_vector TEXT NOT NULL,
+        source_version_vector TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+    await execSql(`
+      CREATE TABLE IF NOT EXISTS note_projection (
+        note_id TEXT PRIMARY KEY,
+        document_id TEXT,
+        container_id TEXT,
+        text TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+    await execSql(`
+      CREATE TABLE IF NOT EXISTS note_pending_attachments (
+        note_id TEXT NOT NULL,
+        slot_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        mime_type TEXT,
+        storage_key TEXT NOT NULL,
+        byte_length INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (note_id, slot_id)
+      )
+    `);
+
+    await execSql(
+      `
+        INSERT INTO documents (
+          app_kind,
+          local_id,
+          document_id,
+          document_recipient_envelopes,
+          loro_snapshot,
+          access_epoch,
+          updated_at
+        )
+        VALUES (
+          :appKind,
+          :localId,
+          :documentId,
+          :documentRecipientEnvelopes,
+          :loroSnapshot,
+          :accessEpoch,
+          :updatedAt
+        )
+      `,
+      {
+        ":appKind": "notes",
+        ":localId": "legacy-note",
+        ":documentId": "legacy-document",
+        ":documentRecipientEnvelopes": '{"wrapped":true}',
+        ":loroSnapshot": "legacy-snapshot",
+        ":accessEpoch": 2,
+        ":updatedAt": "2026-04-06T13:00:00.000Z",
+      },
+    );
+    await execSql(
+      `
+        INSERT INTO document_pending_updates (
+          id,
+          app_kind,
+          local_id,
+          update_data,
+          partial_start_version_vector,
+          partial_end_version_vector,
+          source_version_vector,
+          created_at
+        )
+        VALUES (
+          :id,
+          :appKind,
+          :localId,
+          :updateData,
+          :partialStartVersionVector,
+          :partialEndVersionVector,
+          :sourceVersionVector,
+          :createdAt
+        )
+      `,
+      {
+        ":id": "pending-legacy",
+        ":appKind": "notes",
+        ":localId": "legacy-note",
+        ":updateData": "legacy-update",
+        ":partialStartVersionVector": "start-vv",
+        ":partialEndVersionVector": "end-vv",
+        ":sourceVersionVector": "source-vv",
+        ":createdAt": "2026-04-06T13:05:00.000Z",
+      },
+    );
+    await execSql(
+      `
+        INSERT INTO note_projection (
+          note_id,
+          document_id,
+          container_id,
+          text,
+          updated_at
+        )
+        VALUES (
+          :noteId,
+          :documentId,
+          :containerId,
+          :text,
+          :updatedAt
+        )
+      `,
+      {
+        ":noteId": "legacy-note",
+        ":documentId": "legacy-document",
+        ":containerId": "legacy-container",
+        ":text": "Legacy Note",
+        ":updatedAt": "2026-04-06T13:00:00.000Z",
+      },
+    );
+    await execSql(
+      `
+        INSERT INTO note_pending_attachments (
+          note_id,
+          slot_id,
+          name,
+          mime_type,
+          storage_key,
+          byte_length,
+          created_at
+        )
+        VALUES (
+          :noteId,
+          :slotId,
+          :name,
+          :mimeType,
+          :storageKey,
+          :byteLength,
+          :createdAt
+        )
+      `,
+      {
+        ":noteId": "legacy-note",
+        ":slotId": "front-image",
+        ":name": "front.png",
+        ":mimeType": "image/png",
+        ":storageKey": "blob-front",
+        ":byteLength": 128,
+        ":createdAt": "2026-04-06T13:10:00.000Z",
+      },
+    );
+
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await expect(
+      sqlNotesPersistence.loadNote(execSql, "legacy-note"),
+    ).resolves.toEqual({
+      id: "legacy-note",
+      containerId: "legacy-container",
+      documentId: "legacy-document",
+      documentRecipientEnvelopes: '{"wrapped":true}',
+      text: "Legacy Note",
+      loroSnapshot: "legacy-snapshot",
+      accessEpoch: 2,
+    });
+
+    await expect(
+      sqlNotesPersistence.listPendingUpdates(execSql, "legacy-note"),
+    ).resolves.toEqual([
+      {
+        id: "pending-legacy",
+        updateData: "legacy-update",
+        partialStartVersionVector: "start-vv",
+        partialEndVersionVector: "end-vv",
+        sourceVersionVector: "source-vv",
+      },
+    ]);
+
+    await expect(
+      sqlNotesPersistence.listPendingAttachments(execSql, "legacy-note"),
+    ).resolves.toEqual([
+      {
+        byteLength: 128,
+        mimeType: "image/png",
+        name: "front.png",
+        noteId: "legacy-note",
+        slotId: "front-image",
+        storageKey: "blob-front",
+      },
+    ]);
+
+    await expect(
+      execSql(
+        `
+          SELECT app_kind
+          FROM documents
+          WHERE local_id = :localId
+          ORDER BY app_kind
+        `,
+        {
+          ":localId": "legacy-note",
+        },
+      ),
+    ).resolves.toEqual([
+      {
+        app_kind: DOCUMENTS_APP_KIND,
+      },
+    ]);
+
+    await expect(
+      execSql(`
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table' AND name IN ('note_projection', 'note_pending_attachments')
+        ORDER BY name
+      `),
+    ).resolves.toEqual([]);
   } finally {
     close();
   }
