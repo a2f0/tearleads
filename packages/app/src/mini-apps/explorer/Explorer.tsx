@@ -464,7 +464,7 @@ function renderTreeEntries(
   });
 }
 
-function buildNotesByContainerId(
+export function buildNotesByContainerId(
   noteSummaries: ReadonlyArray<NoteSummary>,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
   validContainerIds: ReadonlySet<string>,

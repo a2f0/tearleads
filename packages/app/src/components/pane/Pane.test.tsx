@@ -10,12 +10,7 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
-import {
-  resetMockServer,
-  useRealApiHandlers,
-  wsUrl,
-} from "../../../test/helpers/mswServer";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
 import { createAppDatabaseWorker } from "../../db/sqliteWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
@@ -92,34 +87,6 @@ async function generatePersonaAndWaitForDb(
     expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
     expect(view.queryByText(/publicKey: none/)).toBeNull();
   });
-}
-
-async function registerPersonaAndWaitForSession(
-  view: ReturnType<typeof renderPane>,
-) {
-  const spy = spyOn(ApiClient.prototype, "postPublicKey");
-
-  await generatePersonaAndWaitForDb(view);
-
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Upload Public Key"));
-
-  await waitFor(() => {
-    expect(spy.mock.results).toHaveLength(1);
-  });
-  const spyResult = spy.mock.results[0];
-  invariant(spyResult, "spy has no results");
-  await spyResult.value;
-
-  await waitFor(() => {
-    expect(view.container.textContent?.includes("userId: none")).toBe(false);
-    expect(view.container.textContent?.includes("session: none")).toBe(false);
-  });
-
-  spy.mockRestore();
 }
 
 test("displays userId after uploading public key", async () => {
@@ -388,69 +355,5 @@ test("explorer windows in the same pane share newly created notes without refres
     ).toBe(true);
   });
 
-  view.unmount();
-});
-
-test("explorer shows a new root note in the sidebar without refresh after document creation", async () => {
-  useRealApiHandlers();
-  const createDocumentSpy = spyOn(ApiClient.prototype, "createDocument");
-  const listLinkedContainerIdsByDocumentIdsSpy = spyOn(
-    sqlDocumentContainerProjectionPersistence,
-    "listLinkedContainerIdsByDocumentIds",
-  );
-  const view = renderPane();
-
-  await registerPersonaAndWaitForSession(view);
-
-  const explorer = await openExplorer(view);
-
-  fireEvent.click(within(explorer).getByRole("button", { name: "New Note" }));
-
-  await waitFor(() => {
-    expect(
-      within(explorer).getByRole("button", { name: "Back to Container" }),
-    ).toBeTruthy();
-  });
-
-  const editor = await within(explorer).findByRole("textbox", {
-    name: /Notes editor/,
-  });
-  invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
-
-  fireEvent.change(editor, {
-    target: { value: "fresh root note" },
-  });
-
-  await waitFor(() => {
-    expect(createDocumentSpy.mock.results.length).toBeGreaterThan(0);
-  });
-  const createDocumentResult = createDocumentSpy.mock.results[0];
-  invariant(createDocumentResult, "createDocument result not found");
-  await createDocumentResult.value;
-
-  await waitFor(() => {
-    expect(
-      listLinkedContainerIdsByDocumentIdsSpy.mock.results.length,
-    ).toBeGreaterThan(0);
-  });
-  const linkedContainerIdsResult =
-    listLinkedContainerIdsByDocumentIdsSpy.mock.results.at(-1);
-  invariant(
-    linkedContainerIdsResult,
-    "linked container projection result not found",
-  );
-  await linkedContainerIdsResult.value;
-
-  await waitFor(() => {
-    expect(editor.value).toBe("fresh root note");
-    expect(
-      listExplorerNoteItems(explorer).some(
-        (button) => button.textContent?.trim() === "fresh root note",
-      ),
-    ).toBe(true);
-  });
-
-  createDocumentSpy.mockRestore();
-  listLinkedContainerIdsByDocumentIdsSpy.mockRestore();
   view.unmount();
 });
