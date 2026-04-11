@@ -2458,16 +2458,7 @@ function setAttachmentInNotesStore(
   slotId: string,
   file: NoteAttachmentUpload,
 ) {
-  if (!state.doc) {
-    return;
-  }
-
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => persistSlotAttachmentFile(state, slotId, file))
-    .catch((error: unknown) => {
-      console.error("Failed to persist note slot attachment:", error);
-    });
+  replaceAttachmentInNotesStore(state, slotId, file);
 }
 
 function setNotesText(state: NotesStoreState, value: string) {

@@ -7,7 +7,7 @@ export interface DriverLicenseDocumentFields {
 
 interface SerializedDriverLicenseDocument extends DriverLicenseDocumentFields {
   kind: "drivers_license";
-  version: 1;
+  version: number;
 }
 
 const DRIVER_LICENSE_VERSION = 1;
@@ -16,9 +16,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function parseDriverLicensePayload(
-  text: string,
-): SerializedDriverLicenseDocument | null {
+function parseStructuredRecord(text: string): Record<string, unknown> | null {
   const trimmed = text.trim();
   if (trimmed.length === 0 || !trimmed.startsWith("{")) {
     return null;
@@ -31,7 +29,16 @@ function parseDriverLicensePayload(
     return null;
   }
 
-  if (!isRecord(parsed)) {
+  return isRecord(parsed) ? parsed : null;
+}
+
+function getDriverLicenseRecord(
+  text: string,
+): Partial<
+  Record<"expirationDate" | "kind" | "licenseId" | "version", unknown>
+> | null {
+  const parsed = parseStructuredRecord(text);
+  if (!parsed) {
     return null;
   }
 
@@ -42,8 +49,23 @@ function parseDriverLicensePayload(
     return null;
   }
 
+  return record;
+}
+
+function parseDriverLicensePayload(
+  text: string,
+): SerializedDriverLicenseDocument | null {
+  const record = getDriverLicenseRecord(text);
+  if (!record) {
+    return null;
+  }
+
   const version = record.version;
-  if (version !== DRIVER_LICENSE_VERSION) {
+  if (
+    typeof version !== "number" ||
+    !Number.isInteger(version) ||
+    version < DRIVER_LICENSE_VERSION
+  ) {
     return null;
   }
 
@@ -52,7 +74,7 @@ function parseDriverLicensePayload(
       typeof record.expirationDate === "string" ? record.expirationDate : "",
     kind: "drivers_license",
     licenseId: typeof record.licenseId === "string" ? record.licenseId : "",
-    version: DRIVER_LICENSE_VERSION,
+    version,
   };
 }
 
@@ -67,7 +89,7 @@ export function getStoredDocumentTypeLabel(kind: StoredDocumentKind): string {
 }
 
 export function deriveStoredDocumentKind(text: string): StoredDocumentKind {
-  return parseDriverLicensePayload(text) ? "drivers_license" : "note";
+  return getDriverLicenseRecord(text) ? "drivers_license" : "note";
 }
 
 export function parseDriverLicenseDocument(
@@ -106,6 +128,10 @@ export function deriveStoredDocumentTitle(text: string): string {
     return trimmedLicenseId.length > 0
       ? `Driver's License ${trimmedLicenseId}`
       : getUntitledDocumentTitle("drivers_license");
+  }
+
+  if (getDriverLicenseRecord(text)) {
+    return "Unsupported driver's license";
   }
 
   for (const line of text.split(/\r?\n/u)) {

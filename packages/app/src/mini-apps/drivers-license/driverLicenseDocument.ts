@@ -60,5 +60,7 @@ export function getDriverLicenseAttachmentBySlotId(
   attachments: ReadonlyArray<NoteAttachment>,
   slotId: string,
 ): NoteAttachment | null {
-  return attachments.find((attachment) => attachment.slotId === slotId) ?? null;
+  return (
+    attachments.findLast((attachment) => attachment.slotId === slotId) ?? null
+  );
 }
