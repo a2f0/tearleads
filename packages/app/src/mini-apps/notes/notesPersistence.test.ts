@@ -3,6 +3,7 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
+import { serializeDriverLicenseDocument } from "../documents/documentKinds";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
@@ -104,6 +105,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     ).resolves.toEqual({
       id: "local-note",
       containerId: "shared-container",
+      documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
       updatedAt: "2026-04-06T00:00:00.000Z",
@@ -156,6 +158,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
     ).resolves.toEqual({
       id: "local-note",
       containerId: "container-a",
+      documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
       updatedAt: "2026-04-06T01:00:00.000Z",
@@ -203,6 +206,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
     ).resolves.toEqual({
       id: "local-note",
       containerId: "container-b",
+      documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
       updatedAt: expect.any(String),
@@ -264,6 +268,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
       {
         id: "note-c",
         containerId: "container-c",
+        documentKind: "note",
         documentId: "document-c",
         title: "Note C",
         updatedAt: expect.any(String),
@@ -271,6 +276,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
       {
         id: "note-a",
         containerId: "container-a",
+        documentKind: "note",
         documentId: "document-a",
         title: "Note A",
         updatedAt: expect.any(String),
@@ -324,6 +330,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
       {
         id: "linked-note",
         containerId: "outside-container",
+        documentKind: "note",
         documentId: "linked-document",
         title: "Linked Note",
         updatedAt: expect.any(String),
@@ -331,8 +338,43 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
       {
         id: "direct-note",
         containerId: "shared-container",
+        documentKind: "note",
         documentId: "direct-document",
         title: "Direct Note",
+        updatedAt: expect.any(String),
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("listNotes derives driver license titles and document kinds from structured text", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "drivers-license",
+      containerId: "identity-container",
+      documentId: "document-license",
+      documentRecipientEnvelopes: null,
+      text: serializeDriverLicenseDocument({
+        expirationDate: "2030-05-01",
+        licenseId: "D1234567",
+      }),
+      loroSnapshot: "snapshot-license",
+      accessEpoch: 1,
+    });
+
+    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+      {
+        id: "drivers-license",
+        containerId: "identity-container",
+        documentKind: "drivers_license",
+        documentId: "document-license",
+        title: "Driver's License D1234567",
         updatedAt: expect.any(String),
       },
     ]);

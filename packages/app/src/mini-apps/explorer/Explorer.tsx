@@ -15,6 +15,12 @@ import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../data/AppDataProvider";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+import {
+  getStoredDocumentTypeLabel,
+  getUntitledDocumentTitle,
+  type StoredDocumentKind,
+} from "../documents/documentKinds";
+import { DriverLicenseApp } from "../drivers-license/DriverLicenseApp";
 import { NotesApp } from "../notes/NotesApp";
 import {
   primeNotesStore,
@@ -58,6 +64,12 @@ interface NoteContainerProjection {
   noteId: string;
   title: string;
   updatedAt: string;
+}
+
+function getNoteSummaryKind(
+  noteSummary: Pick<NoteSummary, "documentKind">,
+): StoredDocumentKind {
+  return noteSummary.documentKind ?? "note";
 }
 
 function isDestroyedDatabaseWorkerError(error: unknown): boolean {
@@ -536,6 +548,7 @@ function mergeSingleNoteSummaryList(
   if (
     existingNote.title === nextNote.title &&
     existingNote.containerId === nextNote.containerId &&
+    existingNote.documentKind === nextNote.documentKind &&
     existingNote.documentId === nextNote.documentId
   ) {
     return currentNoteSummaries;
@@ -614,6 +627,7 @@ function mergeNoteSummaryLists(
       !existingNote ||
       (existingNote.title === nextNote.title &&
         existingNote.containerId === nextNote.containerId &&
+        existingNote.documentKind === nextNote.documentKind &&
         existingNote.documentId === nextNote.documentId)
     ) {
       continue;
@@ -1298,11 +1312,11 @@ function getExplorerModalError(mode: ExplorerModalState["mode"]): string {
     case "delete":
       return "Failed to delete container.";
     case "link-note":
-      return "Failed to link note.";
+      return "Failed to link document.";
     case "move":
       return "Failed to move container.";
     case "move-note":
-      return "Failed to move note.";
+      return "Failed to move document.";
     case "share-peer":
       return "Failed to share container with peer.";
   }
@@ -1317,11 +1331,11 @@ function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
     case "delete":
       return "Failed to delete container:";
     case "link-note":
-      return "Failed to link note:";
+      return "Failed to link document:";
     case "move":
       return "Failed to move container:";
     case "move-note":
-      return "Failed to move note:";
+      return "Failed to move document:";
     case "share-peer":
       return "Failed to share container with peer:";
   }
@@ -1824,8 +1838,8 @@ async function submitExplorerMoveNoteModal(params: {
   if (!movedNote) {
     setModalError(
       modalState.mode === "link-note"
-        ? "Failed to link note."
-        : "Failed to move note.",
+        ? "Failed to link document."
+        : "Failed to move document.",
     );
     return;
   }
@@ -2226,7 +2240,7 @@ function useExplorerContextMenu(
   };
 }
 
-function useInlineNoteAction(params: {
+function useInlineDocumentAction(params: {
   expandNode: (nodeId: string) => void;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   setSelectedId: (id: string | null) => void;
@@ -2234,15 +2248,20 @@ function useInlineNoteAction(params: {
   const { expandNode, mergeNoteSummary, setSelectedId } = params;
 
   return useCallback(
-    (containerId: string, noteId?: string) => {
+    (
+      containerId: string,
+      documentKind: StoredDocumentKind,
+      noteId?: string,
+    ) => {
       const nextNoteId = noteId ?? crypto.randomUUID();
 
       if (!noteId) {
         mergeNoteSummary({
           id: nextNoteId,
           containerId,
+          documentKind,
           documentId: null,
-          title: "Untitled note",
+          title: getUntitledDocumentTitle(documentKind),
           updatedAt: new Date().toISOString(),
         });
       }
@@ -2252,6 +2271,73 @@ function useInlineNoteAction(params: {
     },
     [expandNode, mergeNoteSummary, setSelectedId],
   );
+}
+
+function useInlineDocumentOpeners(params: {
+  expandNode: (nodeId: string) => void;
+  mergeNoteSummary: (nextNote: NoteSummary) => void;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const openInlineDocument = useInlineDocumentAction(params);
+
+  return {
+    openInlineDriverLicense: useCallback(
+      (containerId: string, noteId?: string) =>
+        openInlineDocument(containerId, "drivers_license", noteId),
+      [openInlineDocument],
+    ),
+    openInlineNote: useCallback(
+      (containerId: string, noteId?: string) =>
+        openInlineDocument(containerId, "note", noteId),
+      [openInlineDocument],
+    ),
+  };
+}
+
+function useExplorerNoteModalState(params: {
+  explorer: ReturnType<typeof useExplorer>;
+  linkNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  moveNote: (
+    noteId: string,
+    targetContainerId: string,
+  ) => Promise<NoteSummary | null>;
+  noteSummaries: ReadonlyArray<NoteSummary>;
+  peerUserId: string | null;
+  selectedId: (id: string | null) => void;
+  selectedNoteLinkedContainerIds: ReadonlyArray<string>;
+  selectionExpandNode: (nodeId: string) => void;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}) {
+  const {
+    explorer,
+    linkNote,
+    moveNote,
+    noteSummaries,
+    peerUserId,
+    selectedId,
+    selectedNoteLinkedContainerIds,
+    selectionExpandNode,
+    shareWithUser,
+  } = params;
+
+  return useExplorerModalController({
+    createChild: explorer.createChild,
+    deleteContainer: explorer.deleteContainer,
+    expandNode: selectionExpandNode,
+    linkNote,
+    moveContainer: explorer.moveContainer,
+    moveNote,
+    nodes: explorer.nodes,
+    noteSummaries,
+    peerUserId,
+    renameContainer: explorer.renameContainer,
+    selectedNoteLinkedContainerIds,
+    setSelectedId: selectedId,
+    shareWithUser,
+  });
 }
 
 async function moveExplorerNote(params: {
@@ -3134,6 +3220,7 @@ function ExplorerNoteDetail(params: {
     removedContainerId: string,
   ) => Promise<NoteSummary | null>;
 }) {
+  const selectedNoteKind = getNoteSummaryKind(params.selectedNote);
   const selectedNoteContainer = params.selectedNote.containerId
     ? params.nodes.find((node) => node.id === params.selectedNote.containerId)
     : null;
@@ -3147,7 +3234,7 @@ function ExplorerNoteDetail(params: {
         <div className="explorer-detail-copy">
           <strong>{params.selectedNote.title}</strong>
           <span>
-            note
+            {getStoredDocumentTypeLabel(selectedNoteKind)}
             {selectedNoteContainer ? ` in ${selectedNoteContainer.name}` : ""}
           </span>
         </div>
@@ -3177,16 +3264,29 @@ function ExplorerNoteDetail(params: {
         unlinkNote={params.unlinkNote}
       />
       <div className="explorer-inline-note">
-        <NotesApp
-          noteId={params.selectedNote.id}
-          {...(params.selectedNote.containerId === undefined
-            ? {}
-            : { containerId: params.selectedNote.containerId })}
-          {...(params.selectedNote.documentId === undefined
-            ? {}
-            : { documentId: params.selectedNote.documentId })}
-          onPersistedNote={params.mergeNoteSummary}
-        />
+        {selectedNoteKind === "drivers_license" ? (
+          <DriverLicenseApp
+            noteId={params.selectedNote.id}
+            {...(params.selectedNote.containerId === undefined
+              ? {}
+              : { containerId: params.selectedNote.containerId })}
+            {...(params.selectedNote.documentId === undefined
+              ? {}
+              : { documentId: params.selectedNote.documentId })}
+            onPersistedNote={params.mergeNoteSummary}
+          />
+        ) : (
+          <NotesApp
+            noteId={params.selectedNote.id}
+            {...(params.selectedNote.containerId === undefined
+              ? {}
+              : { containerId: params.selectedNote.containerId })}
+            {...(params.selectedNote.documentId === undefined
+              ? {}
+              : { documentId: params.selectedNote.documentId })}
+            onPersistedNote={params.mergeNoteSummary}
+          />
+        )}
       </div>
     </div>
   );
@@ -3195,6 +3295,7 @@ function ExplorerNoteDetail(params: {
 function ExplorerContainerDetail(params: {
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
+  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
   openInlineNote: (containerId: string, noteId?: string) => void;
   ready: boolean;
   refreshError: string | null;
@@ -3203,6 +3304,7 @@ function ExplorerContainerDetail(params: {
   const {
     handleRefresh,
     isRefreshing,
+    openInlineDriverLicense,
     openInlineNote,
     ready,
     refreshError,
@@ -3225,6 +3327,15 @@ function ExplorerContainerDetail(params: {
             }}
           >
             New Note
+          </button>
+          <button
+            type="button"
+            className="explorer-action-button"
+            onClick={() => {
+              openInlineDriverLicense(selectedNode.id);
+            }}
+          >
+            New Driver&apos;s License
           </button>
           <button
             type="button"
@@ -3279,6 +3390,7 @@ function ExplorerDetailPanel(params: {
   linkedContainerIds: ReadonlyArray<string>;
   mergeNoteSummary: (nextNote: NoteSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
+  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
   openInlineNote: (containerId: string, noteId?: string) => void;
   openLinkNoteModal: (noteId: string) => void;
   openMoveNoteModal: (noteId: string) => void;
@@ -3313,6 +3425,7 @@ function ExplorerContextMenuLayer(params: {
   contextMenuNode: ContainerNode | undefined;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
+  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
   openInlineNote: (containerId: string, noteId?: string) => void;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
@@ -3327,6 +3440,7 @@ function ExplorerContextMenuLayer(params: {
     contextMenuNode,
     openCreateChildModal,
     openDeleteModal,
+    openInlineDriverLicense,
     openInlineNote,
     openMoveModal,
     openRenameModal,
@@ -3356,6 +3470,15 @@ function ExplorerContextMenuLayer(params: {
         onClick={() => {
           if (contextMenuNode) {
             openInlineNote(contextMenuNode.id);
+          }
+          closeContextMenu();
+        }}
+      />
+      <MenuItem
+        label="New Driver's License"
+        onClick={() => {
+          if (contextMenuNode) {
+            openInlineDriverLicense(contextMenuNode.id);
           }
           closeContextMenu();
         }}
@@ -3400,11 +3523,11 @@ function getExplorerModalTitle(modalState: ExplorerModalState): string {
     case "delete":
       return "Delete Container";
     case "link-note":
-      return "Link Note";
+      return "Link Document";
     case "move":
       return "Move Container";
     case "move-note":
-      return "Move Note";
+      return "Move Document";
     case "share-peer":
       return "Share Container";
     case "rename":
@@ -3975,32 +4098,28 @@ function useExplorerPanelState(params: {
     toggleCollapsed: selection.toggleCollapsed,
     treeEntries,
   });
-  const modalState = useExplorerModalController({
-    createChild: explorer.createChild,
-    deleteContainer: explorer.deleteContainer,
-    expandNode: selection.expandNode,
+  const modalState = useExplorerNoteModalState({
+    explorer,
     linkNote: selectedNoteStructuralState.linkNote,
-    moveContainer: explorer.moveContainer,
     moveNote: selectedNoteStructuralState.moveNote,
-    nodes: explorer.nodes,
     noteSummaries,
     peerUserId,
-    renameContainer: explorer.renameContainer,
-    setSelectedId: selection.setSelectedId,
+    selectedId: selection.setSelectedId,
     selectedNoteLinkedContainerIds:
       selectedNoteStructuralState.selectedNoteLinkedContainerIds,
+    selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,
   });
-  const openInlineNote = useInlineNoteAction({
+  const { openInlineDriverLicense, openInlineNote } = useInlineDocumentOpeners({
     expandNode: selection.expandNode,
     mergeNoteSummary,
     setSelectedId: selection.setSelectedId,
   });
-
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedNote,
     contextMenuState,
     modalState,
+    openInlineDriverLicense,
     openInlineNote,
     selectedNoteLinkedContainerIds:
       selectedNoteStructuralState.selectedNoteLinkedContainerIds,
@@ -4095,6 +4214,7 @@ function useExplorerModel(
     activateLinkedContainer,
     contextMenuState,
     modalState,
+    openInlineDriverLicense,
     openInlineNote,
     selectedNoteLinkedContainerIds,
     selectedNoteLinkTargetOptions,
@@ -4132,6 +4252,7 @@ function useExplorerModel(
     linkedContainerIds: selectedNoteLinkedContainerIds,
     mergeNoteSummary,
     modalState,
+    openInlineDriverLicense,
     openInlineNote,
     peerUserId,
     refreshError,
@@ -4160,6 +4281,7 @@ export function Explorer() {
         linkedContainerIds={model.linkedContainerIds}
         mergeNoteSummary={model.mergeNoteSummary}
         nodes={model.explorer.nodes}
+        openInlineDriverLicense={model.openInlineDriverLicense}
         openInlineNote={model.openInlineNote}
         openLinkNoteModal={model.modalState.openLinkNoteModal}
         openMoveNoteModal={model.modalState.openMoveNoteModal}
@@ -4180,6 +4302,7 @@ export function Explorer() {
         contextMenuNode={model.contextMenuState.contextMenuNode}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
+        openInlineDriverLicense={model.openInlineDriverLicense}
         openInlineNote={model.openInlineNote}
         openMoveModal={model.modalState.openMoveModal}
         openRenameModal={model.modalState.openRenameModal}
