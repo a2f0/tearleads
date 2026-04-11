@@ -163,7 +163,7 @@ function createNotesRuntimeApiClient(
   };
 }
 
-export interface NoteAttachmentUpload {
+interface NoteAttachmentUpload {
   bytes: BlobBytes;
   name: string;
   mimeType: string | null;

@@ -1,19 +1,18 @@
 import {
   type DriverLicenseDocumentFields,
-  getUntitledDocumentTitle,
   parseDriverLicenseDocument,
   serializeDriverLicenseDocument,
 } from "../documents/documentKinds";
 import type { NoteAttachment } from "../notes/noteDocument";
 
-export interface DriverLicenseAttachmentSlot {
+interface DriverLicenseAttachmentSlot {
   description: string;
   label: string;
   slotId: string;
 }
 
 export const DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID = "driver-license-front-image";
-export const DRIVER_LICENSE_BACK_IMAGE_SLOT_ID = "driver-license-back-image";
+const DRIVER_LICENSE_BACK_IMAGE_SLOT_ID = "driver-license-back-image";
 
 export const DRIVER_LICENSE_ATTACHMENT_SLOTS: ReadonlyArray<DriverLicenseAttachmentSlot> =
   [
@@ -62,11 +61,4 @@ export function getDriverLicenseAttachmentBySlotId(
   slotId: string,
 ): NoteAttachment | null {
   return attachments.find((attachment) => attachment.slotId === slotId) ?? null;
-}
-
-export function getDriverLicenseTitle(text: string): string {
-  const fields = parseDriverLicenseFields(text);
-  return fields.licenseId.trim().length > 0
-    ? `Driver's License ${fields.licenseId.trim()}`
-    : getUntitledDocumentTitle("drivers_license");
 }

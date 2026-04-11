@@ -62,10 +62,6 @@ export function getUntitledDocumentTitle(kind: StoredDocumentKind): string {
     : "Untitled note";
 }
 
-export function getStoredDocumentDisplayName(kind: StoredDocumentKind): string {
-  return kind === "drivers_license" ? "Driver's License" : "Note";
-}
-
 export function getStoredDocumentTypeLabel(kind: StoredDocumentKind): string {
   return kind === "drivers_license" ? "driver's license" : "note";
 }
