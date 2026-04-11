@@ -87,11 +87,11 @@ function getAttachmentMapKey(slotId: string): string {
   return `${ATTACHMENT_KEY_PREFIX}${slotId}`;
 }
 
-function getStructuredNoteAttachments(
+function listStructuredNoteAttachments(
   doc: NoteDocumentShape,
-): DocumentAttachment[] {
+): Array<DocumentAttachment & { order: number | null }> {
   const noteMap = doc.getMap(NOTE_MAP_KEY);
-  const attachments = noteMap
+  return noteMap
     .entries()
     .flatMap(([key, value]) => {
       if (!key.startsWith(ATTACHMENT_KEY_PREFIX)) {
@@ -119,8 +119,14 @@ function getStructuredNoteAttachments(
 
       return left.slotId.localeCompare(right.slotId);
     });
+}
 
-  return attachments.map(({ order: _order, ...attachment }) => attachment);
+function getStructuredNoteAttachments(
+  doc: NoteDocumentShape,
+): DocumentAttachment[] {
+  return listStructuredNoteAttachments(doc).map(
+    ({ order: _order, ...attachment }) => attachment,
+  );
 }
 
 export function getDocumentAttachments(
@@ -138,10 +144,10 @@ export function addDocumentAttachments(
   }
 
   const noteMap = doc.getMap(NOTE_MAP_KEY);
-  const existingAttachments = getStructuredNoteAttachments(doc);
+  const existingAttachments = listStructuredNoteAttachments(doc);
   let nextOrder =
-    existingAttachments.reduce((highestOrder, _attachment, index) => {
-      return Math.max(highestOrder, index);
+    existingAttachments.reduce((highestOrder, attachment, index) => {
+      return Math.max(highestOrder, attachment.order ?? index);
     }, -1) + 1;
 
   for (const attachment of attachments) {

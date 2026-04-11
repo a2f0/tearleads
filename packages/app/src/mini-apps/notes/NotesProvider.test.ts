@@ -216,6 +216,7 @@ function createNotesPersistence(): NotesPersistence & {
     },
     async saveNote(_execSql, nextNote) {
       note = nextNote;
+      return "2026-04-06T00:00:00.000Z";
     },
     async upsertDiscoveredNote(_execSql, input) {
       const nextNote = {
@@ -699,7 +700,7 @@ test("document store seeds initial text before first persistence", async () => {
     text: initialText,
   });
   expect(persistence.getState().note?.text).toBe(initialText);
-  expect(persistence.getState().pendingUpdates).toEqual([]);
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
 });
 
 test("notes store stages and commits attachments against the note document", async () => {

@@ -91,6 +91,10 @@ type PendingMutationSyncResult = {
   completed: boolean;
   nextRecord: NoteRecord;
 };
+interface PersistedNoteRecord {
+  record: NoteRecord;
+  updatedAt: string;
+}
 interface DocumentSyncAttempt {
   currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
   encryptionMaterial: DocumentEncryptionMaterial | null;
@@ -496,8 +500,14 @@ async function createEncryptedBlobUpload(
   };
 }
 
-async function saveNoteRecord(state: NotesStoreState, nextRecord: NoteRecord) {
-  await state.persistence.saveNote(state.runtime.execSql, nextRecord);
+async function saveNoteRecord(
+  state: NotesStoreState,
+  nextRecord: NoteRecord,
+): Promise<PersistedNoteRecord> {
+  const updatedAt = await state.persistence.saveNote(
+    state.runtime.execSql,
+    nextRecord,
+  );
   state.record = nextRecord;
   const persistedNote = {
     id: nextRecord.id,
@@ -505,17 +515,21 @@ async function saveNoteRecord(state: NotesStoreState, nextRecord: NoteRecord) {
     documentKind: deriveDocumentKind(nextRecord.text),
     documentId: nextRecord.documentId,
     title: deriveDocumentTitle(nextRecord.text),
-    updatedAt: new Date().toISOString(),
+    updatedAt,
   };
   state.persistedNoteListener?.(persistedNote);
   emitPersistedNote(state.runtime.domainScope, persistedNote);
+  return {
+    record: nextRecord,
+    updatedAt,
+  };
 }
 
 async function persistDocument(
   state: NotesStoreState,
   currentDoc: NotesDocument,
   patch: Partial<NoteRecord> = {},
-): Promise<NoteRecord> {
+): Promise<PersistedNoteRecord> {
   const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
     patch,
     "documentRecipientEnvelopes",
@@ -537,9 +551,9 @@ async function persistDocument(
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
   };
 
-  await saveNoteRecord(state, nextRecord);
+  const persistedRecord = await saveNoteRecord(state, nextRecord);
   setReadySnapshot(state, currentDoc, state.snapshot.syncing, nextRecord.text);
-  return nextRecord;
+  return persistedRecord;
 }
 
 async function ensureRemoteDocument(
@@ -575,13 +589,15 @@ async function ensureRemoteDocument(
   );
   state.runtime.log(`Created notes document: ${created.id}`);
 
-  return persistDocument(state, currentDoc, {
-    documentId: created.id,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      created.documentRecipientEnvelopes,
-    ),
-    accessEpoch: created.currentAccessEpoch,
-  });
+  return (
+    await persistDocument(state, currentDoc, {
+      documentId: created.id,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        created.documentRecipientEnvelopes,
+      ),
+      accessEpoch: created.currentAccessEpoch,
+    })
+  ).record;
 }
 
 async function listPendingUpdates(
@@ -1100,6 +1116,9 @@ async function initializeNotesStore(
       accessEpoch: 1,
     };
     await saveNoteRecord(state, created);
+    if (state.initialText.length > 0) {
+      await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
+    }
     setReadySnapshot(state, nextDoc, false, state.initialText);
   }
 
@@ -1210,13 +1229,17 @@ async function relinkNotesStore(
     patch.documentRecipientEnvelopes = null;
   }
 
-  const nextRecord = await persistDocument(state, state.doc, patch);
+  const { record: nextRecord, updatedAt } = await persistDocument(
+    state,
+    state.doc,
+    patch,
+  );
   return {
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentId: nextRecord.documentId,
     title: deriveDocumentTitle(nextRecord.text),
-    updatedAt: new Date().toISOString(),
+    updatedAt,
   };
 }
 
@@ -1597,13 +1620,15 @@ async function persistCommittedDocumentRecord(
   documentId: string,
   committed: CommitDocumentChangeResponse,
 ): Promise<NoteRecord> {
-  return persistDocument(state, currentDoc, {
-    accessEpoch: committed.currentAccessEpoch,
-    documentId,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      committed.documentRecipientEnvelopes,
-    ),
-  });
+  return (
+    await persistDocument(state, currentDoc, {
+      accessEpoch: committed.currentAccessEpoch,
+      documentId,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        committed.documentRecipientEnvelopes,
+      ),
+    })
+  ).record;
 }
 
 async function finalizePendingAttachmentSync(
@@ -1987,7 +2012,7 @@ async function finalizeDocumentSync(
     encapsulationKeyPair,
   );
 
-  const nextRecord = await persistDocument(state, currentDoc, {
+  const { record: nextRecord } = await persistDocument(state, currentDoc, {
     documentId: currentRecord.documentId,
     accessEpoch: synced.currentAccessEpoch,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(

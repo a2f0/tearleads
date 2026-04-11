@@ -107,7 +107,13 @@ export interface NotesPersistence {
     },
   ) => Promise<NoteSummary[]>;
   loadNote: (execSql: ExecSql, noteId: string) => Promise<NoteRecord | null>;
-  saveNote: (execSql: ExecSql, note: NoteRecord) => Promise<void>;
+  saveNote: (
+    execSql: ExecSql,
+    note: NoteRecord,
+    options?: {
+      updatedAt?: string;
+    },
+  ) => Promise<string>;
   upsertDiscoveredNote: (
     execSql: ExecSql,
     input: DiscoveredNoteInput,
@@ -309,6 +315,17 @@ function deriveNoteDocumentKind(text: string): StoredDocumentKind {
 export const deriveDocumentTitle = deriveNoteTitle;
 export const deriveDocumentKind = deriveNoteDocumentKind;
 
+function didStoredDocumentContentChange(
+  existing: Pick<NoteRecord, "loroSnapshot" | "text"> | null,
+  next: Pick<NoteRecord, "loroSnapshot" | "text">,
+): boolean {
+  return (
+    existing === null ||
+    existing.loroSnapshot !== next.loroSnapshot ||
+    existing.text !== next.text
+  );
+}
+
 async function upsertDiscoveredNoteWithExec(
   execSql: ExecSql,
   input: DiscoveredNoteInput,
@@ -343,7 +360,15 @@ async function upsertDiscoveredNoteWithExec(
     accessEpoch: Math.max(existingNote?.accessEpoch ?? 1, input.accessEpoch),
   };
 
-  await sqlNotesPersistence.saveNote(execSql, nextNote);
+  const saveOptions =
+    existingNote === null || existingNote === undefined
+      ? { updatedAt: input.createdAt }
+      : undefined;
+  const updatedAt = await sqlNotesPersistence.saveNote(
+    execSql,
+    nextNote,
+    saveOptions,
+  );
 
   return {
     id: noteId,
@@ -351,7 +376,7 @@ async function upsertDiscoveredNoteWithExec(
     documentKind: deriveNoteDocumentKind(nextNote.text),
     documentId: nextNote.documentId,
     title: deriveNoteTitle(nextNote.text),
-    updatedAt: input.createdAt,
+    updatedAt,
   };
 }
 
@@ -587,11 +612,41 @@ const sqlNotesPersistence: NotesPersistence = {
       text: parseProjectionText(projectionRows[0]),
     };
   },
-  async saveNote(execSql, note) {
-    const updatedAt = new Date().toISOString();
+  async saveNote(execSql, note, options) {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
+      runSqlTransaction(lockedExecSql, async () => {
+        const [existingRecord, projectionRows] = await Promise.all([
+          loadDocumentRecord(lockedExecSql, getNoteScope(note.id)),
+          lockedExecSql(
+            `
+              SELECT
+                text,
+                updated_at
+              FROM note_projection
+              WHERE note_id = :noteId
+              LIMIT 1
+            `,
+            {
+              ":noteId": note.id,
+            },
+          ),
+        ]);
+        const existingProjection = projectionRows[0];
+        const updatedAt =
+          options?.updatedAt ??
+          (didStoredDocumentContentChange(
+            existingRecord
+              ? {
+                  loroSnapshot: existingRecord.loroSnapshot,
+                  text: parseProjectionText(existingProjection),
+                }
+              : null,
+            note,
+          )
+            ? new Date().toISOString()
+            : parseProjectionUpdatedAt(existingProjection) ||
+              new Date().toISOString());
 
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await runSqlTransaction(lockedExecSql, async () => {
         await saveDocumentRecord(
           lockedExecSql,
           getNoteScope(note.id),
@@ -628,8 +683,10 @@ const sqlNotesPersistence: NotesPersistence = {
             ":updatedAt": updatedAt,
           },
         );
-      });
-    });
+
+        return updatedAt;
+      }),
+    );
   },
   async upsertDiscoveredNote(execSql, input) {
     const [nextSummary] = await upsertDiscoveredNotes(execSql, [input]);
