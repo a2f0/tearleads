@@ -1,8 +1,11 @@
 import { type ChangeEvent, useEffect, useId, useMemo, useRef } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import type { BlobBytes } from "../../data/blob-store";
-import { useAttachmentImageUrls } from "../documents/useAttachmentImageUrls";
-import { type NoteAttachmentStatus, useNotes } from "../notes/NotesProvider";
+import {
+  type DocumentAttachmentStatus,
+  useDocument,
+} from "../../data/documents/DocumentsProvider";
+import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
 import {
   createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_ATTACHMENT_SLOTS,
@@ -41,7 +44,7 @@ async function readAttachmentUpload(
 }
 
 function getAttachmentStatusLabel(
-  status: NoteAttachmentStatus | undefined,
+  status: DocumentAttachmentStatus | undefined,
 ): string | null {
   if (status === "needs_replacement") {
     return "Replace this image to finish the access change.";
@@ -59,7 +62,7 @@ function DriverLicenseSlotCard(params: {
   imageUrl: string | undefined;
   onSelectedFile: (fileList: FileList | null) => void;
   slot: (typeof DRIVER_LICENSE_ATTACHMENT_SLOTS)[number];
-  status: NoteAttachmentStatus | undefined;
+  status: DocumentAttachmentStatus | undefined;
   storedAttachment: ReturnType<typeof getDriverLicenseAttachmentBySlotId>;
 }) {
   const {
@@ -146,7 +149,7 @@ export function DriverLicense() {
     setText,
     syncing,
     text,
-  } = useNotes();
+  } = useDocument();
   const fields = useMemo(() => parseDriverLicenseFields(text), [text]);
   const imageUrlBySlotId = useAttachmentImageUrls(
     attachments,

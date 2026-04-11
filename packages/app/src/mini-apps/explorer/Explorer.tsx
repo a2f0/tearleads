@@ -19,7 +19,7 @@ import {
   getStoredDocumentTypeLabel,
   getUntitledDocumentTitle,
   type StoredDocumentKind,
-} from "../documents/documentKinds";
+} from "../../data/documents/documentKinds";
 import { DriverLicenseApp } from "../drivers-license/DriverLicenseApp";
 import { NotesApp } from "../notes/NotesApp";
 import {

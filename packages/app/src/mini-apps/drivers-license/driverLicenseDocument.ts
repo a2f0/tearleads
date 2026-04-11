@@ -1,9 +1,9 @@
+import type { DocumentAttachment } from "../../data/documents/documentContent";
 import {
   type DriverLicenseDocumentFields,
   parseDriverLicenseDocument,
   serializeDriverLicenseDocument,
-} from "../documents/documentKinds";
-import type { NoteAttachment } from "../notes/noteDocument";
+} from "../../data/documents/documentKinds";
 
 interface DriverLicenseAttachmentSlot {
   description: string;
@@ -57,9 +57,9 @@ export function updateDriverLicenseFields(
 }
 
 export function getDriverLicenseAttachmentBySlotId(
-  attachments: ReadonlyArray<NoteAttachment>,
+  attachments: ReadonlyArray<DocumentAttachment>,
   slotId: string,
-): NoteAttachment | null {
+): DocumentAttachment | null {
   return (
     attachments.findLast((attachment) => attachment.slotId === slotId) ?? null
   );

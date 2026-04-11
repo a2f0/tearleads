@@ -3,7 +3,7 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
-import { serializeDriverLicenseDocument } from "../documents/documentKinds";
+import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
@@ -60,7 +60,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
           accessEpoch: 2,
         }),
       ]),
-    ).resolves.toEqual([undefined, undefined]);
+    ).resolves.toEqual([expect.any(String), expect.any(String)]);
 
     await expect(
       sqlNotesPersistence.loadNote(execSql, "default"),
@@ -84,15 +84,21 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
-      id: "local-note",
-      containerId: "shared-container",
-      documentId: "remote-document",
-      documentRecipientEnvelopes: null,
-      text: "Existing local note",
-      loroSnapshot: "snapshot-1",
-      accessEpoch: 2,
-    });
+    await sqlNotesPersistence.saveNote(
+      execSql,
+      {
+        id: "local-note",
+        containerId: "shared-container",
+        documentId: "remote-document",
+        documentRecipientEnvelopes: null,
+        text: "Existing local note",
+        loroSnapshot: "snapshot-1",
+        accessEpoch: 2,
+      },
+      {
+        updatedAt: "2026-04-05T00:00:00.000Z",
+      },
+    );
 
     await expect(
       sqlNotesPersistence.upsertDiscoveredNote(execSql, {
@@ -108,7 +114,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
       documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
-      updatedAt: "2026-04-06T00:00:00.000Z",
+      updatedAt: "2026-04-05T00:00:00.000Z",
     });
 
     await expect(
@@ -137,15 +143,21 @@ test("upsertDiscoveredNote preserves the active local container when another lin
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
-      id: "local-note",
-      containerId: "container-a",
-      documentId: "remote-document",
-      documentRecipientEnvelopes: null,
-      text: "Existing local note",
-      loroSnapshot: "snapshot-1",
-      accessEpoch: 2,
-    });
+    await sqlNotesPersistence.saveNote(
+      execSql,
+      {
+        id: "local-note",
+        containerId: "container-a",
+        documentId: "remote-document",
+        documentRecipientEnvelopes: null,
+        text: "Existing local note",
+        loroSnapshot: "snapshot-1",
+        accessEpoch: 2,
+      },
+      {
+        updatedAt: "2026-04-05T01:00:00.000Z",
+      },
+    );
 
     await expect(
       sqlNotesPersistence.upsertDiscoveredNote(execSql, {
@@ -161,7 +173,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
       documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
-      updatedAt: "2026-04-06T01:00:00.000Z",
+      updatedAt: "2026-04-05T01:00:00.000Z",
     });
 
     await expect(
@@ -186,15 +198,21 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
-      id: "local-note",
-      containerId: "container-a",
-      documentId: "remote-document",
-      documentRecipientEnvelopes: '{"wrapped":true}',
-      text: "Existing local note",
-      loroSnapshot: "snapshot-1",
-      accessEpoch: 2,
-    });
+    await sqlNotesPersistence.saveNote(
+      execSql,
+      {
+        id: "local-note",
+        containerId: "container-a",
+        documentId: "remote-document",
+        documentRecipientEnvelopes: '{"wrapped":true}',
+        text: "Existing local note",
+        loroSnapshot: "snapshot-1",
+        accessEpoch: 2,
+      },
+      {
+        updatedAt: "2026-04-05T02:00:00.000Z",
+      },
+    );
 
     await expect(
       sqlNotesPersistence.relinkPersistedNote(execSql, {
@@ -209,7 +227,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       documentKind: "note",
       documentId: "remote-document",
       title: "Existing local note",
-      updatedAt: expect.any(String),
+      updatedAt: "2026-04-05T02:00:00.000Z",
     });
 
     await expect(
@@ -376,6 +394,44 @@ test("listNotes derives driver license titles and document kinds from structured
         documentId: "document-license",
         title: "Driver's License D1234567",
         updatedAt: expect.any(String),
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("upsertDiscoveredNote uses the remote createdAt for a newly discovered document", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await expect(
+      sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+        accessEpoch: 1,
+        containerId: "shared-container",
+        createdAt: "2026-04-06T12:00:00.000Z",
+        documentId: "remote-document",
+        linkedContainerIds: ["shared-container"],
+      }),
+    ).resolves.toEqual({
+      id: "remote-document",
+      containerId: "shared-container",
+      documentKind: "note",
+      documentId: "remote-document",
+      title: "Untitled note",
+      updatedAt: "2026-04-06T12:00:00.000Z",
+    });
+
+    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+      {
+        id: "remote-document",
+        containerId: "shared-container",
+        documentKind: "note",
+        documentId: "remote-document",
+        title: "Untitled note",
+        updatedAt: "2026-04-06T12:00:00.000Z",
       },
     ]);
   } finally {
