@@ -22,7 +22,7 @@ interface StructuredDocumentShape {
   getMap: (key: string) => StructuredDocumentMap;
 }
 
-const DOCUMENT_CONTENT_MAP_KEY = "note";
+const DOCUMENT_CONTENT_MAP_KEY = "content";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
 function isStructuredAttachmentMap(
