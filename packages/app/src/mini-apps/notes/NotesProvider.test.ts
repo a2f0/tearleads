@@ -21,6 +21,7 @@ import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,
 } from "../../data/documentSync";
+import { DOCUMENTS_APP_KIND } from "../../data/documents/documentsPersistence";
 import {
   createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
@@ -1314,11 +1315,11 @@ test("large note edits remain a single pending update row before sync", async ()
           SELECT
             id,
             length(update_data) AS update_data_length
-          FROM document_pending_updates
-          WHERE app_kind = :appKind AND local_id = :localId
-        `,
+        FROM document_pending_updates
+        WHERE app_kind = :appKind AND local_id = :localId
+      `,
         {
-          ":appKind": "notes",
+          ":appKind": DOCUMENTS_APP_KIND,
           ":localId": noteId,
         },
       );
@@ -1326,11 +1327,11 @@ test("large note edits remain a single pending update row before sync", async ()
       const projectionRows = await runtime.execSql(
         `
           SELECT length(text) AS text_length
-          FROM note_projection
-          WHERE note_id = :noteId
+          FROM document_projection
+          WHERE local_id = :localId
         `,
         {
-          ":noteId": noteId,
+          ":localId": noteId,
         },
       );
       const pendingRow = pendingRows[0];
@@ -1356,7 +1357,7 @@ test("large note edits remain a single pending update row before sync", async ()
         WHERE app_kind = :appKind AND local_id = :localId
       `,
       {
-        ":appKind": "notes",
+        ":appKind": DOCUMENTS_APP_KIND,
         ":localId": noteId,
       },
     );

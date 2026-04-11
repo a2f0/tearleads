@@ -21,6 +21,7 @@
   },
   "scripts": {
     "lint:files": "ls-lint",
+    "lint:commit-msg": "commitlint --edit",
     "test:bun": "bun run --filter='*' --sequential test",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
@@ -47,8 +48,15 @@
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings"
   },
+  "knip": {
+    "ignoreDependencies": [
+      "@commitlint/config-conventional"
+    ]
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
+    "@commitlint/cli": "20.5.0",
+    "@commitlint/config-conventional": "20.5.0",
     "@ls-lint/ls-lint": "2.3.1",
     "@tearleads/api-client": "workspace:*",
     "@tsconfig/strictest": "2.0.8",

@@ -11,7 +11,8 @@ import {
   subscribeToPersistedDocuments,
   useDocument,
 } from "../../data/documents/DocumentsProvider";
-import type { DocumentSummary } from "../../data/documents/documentsPersistence";
+import type { NoteSummary, NotesPersistence } from "./notesPersistence";
+import { adaptNotesPersistence } from "./notesPersistence";
 
 export const DEFAULT_NOTE_ID = DEFAULT_DOCUMENT_ID;
 
@@ -21,15 +22,19 @@ export type NotesRuntime = DocumentsRuntime;
 export function createNotesStore(
   noteId: string,
   initialRuntime: NotesRuntime,
-  ...rest: Parameters<typeof createDocumentStore> extends [
-    string,
-    NotesRuntime,
-    ...infer Tail,
-  ]
-    ? Tail
-    : never
+  persistence?: NotesPersistence,
+  onPersistedNote?: (note: NoteSummary) => void,
+  initialDocumentId: string | null = null,
+  initialText = "",
 ): ReturnType<typeof createDocumentStore> {
-  return createDocumentStore(noteId, initialRuntime, ...rest);
+  return createDocumentStore(
+    noteId,
+    initialRuntime,
+    persistence ? adaptNotesPersistence(persistence) : undefined,
+    onPersistedNote,
+    initialDocumentId,
+    initialText,
+  );
 }
 
 export function primeNotesStore(
@@ -54,7 +59,7 @@ export function requestDomainNotesSync(domainScope: object): void {
 
 export function subscribeToPersistedNotes(
   domainScope: object,
-  listener: (note: DocumentSummary) => void,
+  listener: (note: NoteSummary) => void,
 ): ReturnType<typeof subscribeToPersistedDocuments> {
   return subscribeToPersistedDocuments(domainScope, listener);
 }
@@ -63,7 +68,7 @@ interface NotesProviderProps extends PropsWithChildren {
   noteId?: string;
   containerId?: string | null;
   documentId?: string | null;
-  onPersistedNote?: (note: DocumentSummary) => void;
+  onPersistedNote?: (note: NoteSummary) => void;
 }
 
 export function NotesProvider({

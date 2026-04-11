@@ -87,7 +87,7 @@ test("new attachment order follows the highest existing order value", async () =
     },
   ]);
 
-  const attachmentMap = doc.getMap("note").get("attachment:slot-front");
+  const attachmentMap = doc.getMap("content").get("attachment:slot-front");
   if (!isMutableOrderMap(attachmentMap)) {
     throw new Error("Expected slot-front attachment map to be mutable.");
   }

@@ -1,5 +1,5 @@
 import {
-  type DocumentRecord,
+  type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
@@ -29,16 +29,12 @@ import {
 
 export type { PendingUpdateRecord } from "../documentPersistence";
 
-export type StoredDocumentRecord = NoteRecord;
-export type DocumentSummary = NoteSummary;
-export type DocumentsPersistence = NotesPersistence;
-
-export interface NoteRecord extends DocumentRecord {
+export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;
   text: string;
 }
 
-export interface NoteSummary {
+export interface DocumentSummary {
   id: string;
   containerId: string | null;
   documentKind?: StoredDocumentKind;
@@ -48,40 +44,40 @@ export interface NoteSummary {
 }
 
 export interface PendingUpdateInsert extends PendingUpdateFields {
-  noteId: string;
+  localId: string;
 }
 
 export interface PendingAttachmentRecord {
   byteLength: number;
+  localId: string;
   mimeType: string | null;
   name: string;
-  noteId: string;
   slotId: string;
   storageKey: string;
 }
 
 export interface PendingAttachmentRewrapRecord {
   blobId: string;
-  noteId: string;
+  localId: string;
   slotId: string;
 }
 
 export interface PendingAttachmentReplacementRecord {
   blobId: string | null;
-  noteId: string;
+  localId: string;
   slotId: string;
 }
 
 export interface LocalAttachmentRecord {
   blobId: string | null;
   byteLength: number;
+  localId: string;
   mimeType: string | null;
-  noteId: string;
   slotId: string;
   storageKey: string;
 }
 
-export interface DiscoveredNoteInput {
+export interface DiscoveredDocumentInput {
   accessEpoch: number;
   containerId: string;
   createdAt: string;
@@ -89,58 +85,61 @@ export interface DiscoveredNoteInput {
   linkedContainerIds: ReadonlyArray<string>;
 }
 
-export interface RelinkPersistedNoteInput {
+export interface RelinkPersistedDocumentInput {
   accessEpoch: number;
   containerId: string;
   documentId: string;
-  noteId: string;
+  localId: string;
 }
 
-export interface NotesPersistence {
+export interface DocumentsPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
-  listNotes: (execSql: ExecSql) => Promise<NoteSummary[]>;
-  listNotesByContainerIdsOrDocumentIds: (
+  listDocuments: (execSql: ExecSql) => Promise<DocumentSummary[]>;
+  listDocumentsByContainerIdsOrDocumentIds: (
     execSql: ExecSql,
     input: {
       containerIds: ReadonlyArray<string>;
       documentIds: ReadonlyArray<string>;
     },
-  ) => Promise<NoteSummary[]>;
-  loadNote: (execSql: ExecSql, noteId: string) => Promise<NoteRecord | null>;
-  saveNote: (
+  ) => Promise<DocumentSummary[]>;
+  loadDocument: (
     execSql: ExecSql,
-    note: NoteRecord,
+    localId: string,
+  ) => Promise<StoredDocumentRecord | null>;
+  saveDocument: (
+    execSql: ExecSql,
+    document: StoredDocumentRecord,
     options?: {
       updatedAt?: string;
     },
   ) => Promise<string>;
-  upsertDiscoveredNote: (
+  upsertDiscoveredDocument: (
     execSql: ExecSql,
-    input: DiscoveredNoteInput,
-  ) => Promise<NoteSummary>;
-  relinkPersistedNote: (
+    input: DiscoveredDocumentInput,
+  ) => Promise<DocumentSummary>;
+  relinkPersistedDocument: (
     execSql: ExecSql,
-    input: RelinkPersistedNoteInput,
-  ) => Promise<NoteSummary | null>;
+    input: RelinkPersistedDocumentInput,
+  ) => Promise<DocumentSummary | null>;
   listPendingUpdates: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<PendingUpdateRecord[]>;
   listPendingAttachments: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<PendingAttachmentRecord[]>;
   listPendingAttachmentRewraps: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<PendingAttachmentRewrapRecord[]>;
   listPendingAttachmentReplacements: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<PendingAttachmentReplacementRecord[]>;
   listLocalAttachments: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<LocalAttachmentRecord[]>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
@@ -163,31 +162,34 @@ export interface NotesPersistence {
     attachment: PendingAttachmentReplacementRecord,
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
-  deletePendingUpdates: (execSql: ExecSql, noteId: string) => Promise<void>;
-  deletePendingAttachments: (execSql: ExecSql, noteId: string) => Promise<void>;
+  deletePendingUpdates: (execSql: ExecSql, localId: string) => Promise<void>;
+  deletePendingAttachments: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<void>;
   deletePendingAttachmentRewraps: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<void>;
   deletePendingAttachmentReplacement: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
     slotId: string,
   ) => Promise<void>;
   deletePendingAttachmentReplacements: (
     execSql: ExecSql,
-    noteId: string,
+    localId: string,
   ) => Promise<void>;
 }
 
-const NOTES_APP_KIND = "notes";
+export const DOCUMENTS_APP_KIND = "documents";
 
-const noteProjectionTables: ReadonlyArray<SqlTableSchema> = [
+const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {
-    name: "note_projection",
+    name: "document_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS note_projection (
-        note_id TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS document_projection (
+        local_id TEXT PRIMARY KEY,
         document_id TEXT,
         container_id TEXT,
         text TEXT NOT NULL,
@@ -196,65 +198,65 @@ const noteProjectionTables: ReadonlyArray<SqlTableSchema> = [
     `,
   },
   {
-    name: "note_pending_attachments",
+    name: "document_pending_attachments",
     createSql: `
-      CREATE TABLE IF NOT EXISTS note_pending_attachments (
-        note_id TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS document_pending_attachments (
+        local_id TEXT NOT NULL,
         slot_id TEXT NOT NULL,
         name TEXT NOT NULL,
         mime_type TEXT,
         storage_key TEXT NOT NULL,
         byte_length INTEGER NOT NULL,
         created_at TEXT NOT NULL,
-        PRIMARY KEY (note_id, slot_id)
+        PRIMARY KEY (local_id, slot_id)
       )
     `,
   },
   {
-    name: "note_attachment_blob_projection",
+    name: "document_attachment_blob_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS note_attachment_blob_projection (
-        note_id TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS document_attachment_blob_projection (
+        local_id TEXT NOT NULL,
         slot_id TEXT NOT NULL,
         blob_id TEXT,
         storage_key TEXT NOT NULL,
         mime_type TEXT,
         byte_length INTEGER NOT NULL,
         updated_at TEXT NOT NULL,
-        PRIMARY KEY (note_id, slot_id)
+        PRIMARY KEY (local_id, slot_id)
       )
     `,
   },
   {
-    name: "note_pending_attachment_rewraps",
+    name: "document_pending_attachment_rewraps",
     createSql: `
-      CREATE TABLE IF NOT EXISTS note_pending_attachment_rewraps (
-        note_id TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS document_pending_attachment_rewraps (
+        local_id TEXT NOT NULL,
         slot_id TEXT NOT NULL,
         blob_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        PRIMARY KEY (note_id, slot_id)
+        PRIMARY KEY (local_id, slot_id)
       )
     `,
   },
   {
-    name: "note_pending_attachment_replacements",
+    name: "document_pending_attachment_replacements",
     createSql: `
-      CREATE TABLE IF NOT EXISTS note_pending_attachment_replacements (
-        note_id TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS document_pending_attachment_replacements (
+        local_id TEXT NOT NULL,
         slot_id TEXT NOT NULL,
         blob_id TEXT,
         created_at TEXT NOT NULL,
-        PRIMARY KEY (note_id, slot_id)
+        PRIMARY KEY (local_id, slot_id)
       )
     `,
   },
 ];
 
-function getNoteScope(noteId: string): DocumentScope {
+function getDocumentScope(localId: string): DocumentScope {
   return {
-    appKind: NOTES_APP_KIND,
-    localId: noteId,
+    appKind: DOCUMENTS_APP_KIND,
+    localId,
   };
 }
 
@@ -304,20 +306,20 @@ function parseBlobId(row: SqlRow | undefined): string | null {
   return blobId === null || blobId === undefined ? null : String(blobId);
 }
 
-function deriveNoteTitle(text: string): string {
+function derivePersistedDocumentTitle(text: string): string {
   return deriveStoredDocumentTitle(text);
 }
 
-function deriveNoteDocumentKind(text: string): StoredDocumentKind {
+function derivePersistedDocumentKind(text: string): StoredDocumentKind {
   return deriveStoredDocumentKind(text);
 }
 
-export const deriveDocumentTitle = deriveNoteTitle;
-export const deriveDocumentKind = deriveNoteDocumentKind;
+export const deriveDocumentTitle = derivePersistedDocumentTitle;
+export const deriveDocumentKind = derivePersistedDocumentKind;
 
 function didStoredDocumentContentChange(
-  existing: Pick<NoteRecord, "loroSnapshot" | "text"> | null,
-  next: Pick<NoteRecord, "loroSnapshot" | "text">,
+  existing: Pick<StoredDocumentRecord, "loroSnapshot" | "text"> | null,
+  next: Pick<StoredDocumentRecord, "loroSnapshot" | "text">,
 ): boolean {
   return (
     existing === null ||
@@ -326,119 +328,128 @@ function didStoredDocumentContentChange(
   );
 }
 
-async function upsertDiscoveredNoteWithExec(
+async function upsertDiscoveredDocumentWithExec(
   execSql: ExecSql,
-  input: DiscoveredNoteInput,
-): Promise<NoteSummary> {
+  input: DiscoveredDocumentInput,
+): Promise<DocumentSummary> {
   const existingLocalId = await findLocalIdByDocumentId(
     execSql,
-    NOTES_APP_KIND,
+    DOCUMENTS_APP_KIND,
     input.documentId,
   );
-  const noteId = existingLocalId ?? input.documentId;
-  const existingNote = await sqlNotesPersistence.loadNote(execSql, noteId);
+  const localId = existingLocalId ?? input.documentId;
+  const existingDocument = await sqlDocumentsPersistence.loadDocument(
+    execSql,
+    localId,
+  );
   const nextContainerId =
-    existingNote?.containerId &&
-    input.linkedContainerIds.includes(existingNote.containerId)
-      ? existingNote.containerId
+    existingDocument?.containerId &&
+    input.linkedContainerIds.includes(existingDocument.containerId)
+      ? existingDocument.containerId
       : (input.linkedContainerIds.find(
           (linkedContainerId) => linkedContainerId === input.containerId,
         ) ??
         input.linkedContainerIds[0] ??
         input.containerId);
 
-  const nextNote: NoteRecord = {
-    id: noteId,
+  const nextDocument: StoredDocumentRecord = {
+    id: localId,
     containerId: nextContainerId,
     documentId: input.documentId,
     documentRecipientEnvelopes:
-      input.accessEpoch > (existingNote?.accessEpoch ?? 1)
+      input.accessEpoch > (existingDocument?.accessEpoch ?? 1)
         ? null
-        : (existingNote?.documentRecipientEnvelopes ?? null),
-    text: existingNote?.text ?? "",
-    loroSnapshot: existingNote?.loroSnapshot ?? "",
-    accessEpoch: Math.max(existingNote?.accessEpoch ?? 1, input.accessEpoch),
+        : (existingDocument?.documentRecipientEnvelopes ?? null),
+    text: existingDocument?.text ?? "",
+    loroSnapshot: existingDocument?.loroSnapshot ?? "",
+    accessEpoch: Math.max(
+      existingDocument?.accessEpoch ?? 1,
+      input.accessEpoch,
+    ),
   };
 
   const saveOptions =
-    existingNote === null || existingNote === undefined
+    existingDocument === null || existingDocument === undefined
       ? { updatedAt: input.createdAt }
       : undefined;
-  const updatedAt = await sqlNotesPersistence.saveNote(
+  const updatedAt = await sqlDocumentsPersistence.saveDocument(
     execSql,
-    nextNote,
+    nextDocument,
     saveOptions,
   );
 
   return {
-    id: noteId,
-    containerId: nextNote.containerId,
-    documentKind: deriveNoteDocumentKind(nextNote.text),
-    documentId: nextNote.documentId,
-    title: deriveNoteTitle(nextNote.text),
+    id: localId,
+    containerId: nextDocument.containerId,
+    documentKind: derivePersistedDocumentKind(nextDocument.text),
+    documentId: nextDocument.documentId,
+    title: derivePersistedDocumentTitle(nextDocument.text),
     updatedAt,
   };
 }
 
-async function relinkPersistedNoteWithExec(
+async function relinkPersistedDocumentWithExec(
   execSql: ExecSql,
-  input: RelinkPersistedNoteInput,
-): Promise<NoteSummary | null> {
-  const existingNote = await sqlNotesPersistence.loadNote(
+  input: RelinkPersistedDocumentInput,
+): Promise<DocumentSummary | null> {
+  const existingDocument = await sqlDocumentsPersistence.loadDocument(
     execSql,
-    input.noteId,
+    input.localId,
   );
-  if (!existingNote) {
+  if (!existingDocument) {
     return null;
   }
 
-  const nextAccessEpoch = Math.max(existingNote.accessEpoch, input.accessEpoch);
-  const nextNote: NoteRecord = {
-    ...existingNote,
+  const nextAccessEpoch = Math.max(
+    existingDocument.accessEpoch,
+    input.accessEpoch,
+  );
+  const nextDocument: StoredDocumentRecord = {
+    ...existingDocument,
     accessEpoch: nextAccessEpoch,
     containerId: input.containerId,
     documentId: input.documentId,
     documentRecipientEnvelopes:
-      input.accessEpoch > existingNote.accessEpoch
+      input.accessEpoch > existingDocument.accessEpoch
         ? null
-        : existingNote.documentRecipientEnvelopes,
+        : existingDocument.documentRecipientEnvelopes,
   };
 
-  await sqlNotesPersistence.saveNote(execSql, nextNote);
+  await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);
 
   const updatedAtRows = await execSql(
     `
       SELECT updated_at
-      FROM note_projection
-      WHERE note_id = :noteId
+      FROM document_projection
+      WHERE local_id = :localId
       LIMIT 1
     `,
     {
-      ":noteId": input.noteId,
+      ":localId": input.localId,
     },
   );
 
   return {
-    id: nextNote.id,
-    containerId: nextNote.containerId,
-    documentKind: deriveNoteDocumentKind(nextNote.text),
-    documentId: nextNote.documentId,
-    title: deriveNoteTitle(nextNote.text),
+    id: nextDocument.id,
+    containerId: nextDocument.containerId,
+    documentKind: derivePersistedDocumentKind(nextDocument.text),
+    documentId: nextDocument.documentId,
+    title: derivePersistedDocumentTitle(nextDocument.text),
     updatedAt: parseProjectionUpdatedAt(updatedAtRows[0]),
   };
 }
 
-async function upsertDiscoveredNotes(
+export async function upsertDiscoveredDocuments(
   execSql: ExecSql,
-  inputs: ReadonlyArray<DiscoveredNoteInput>,
-): Promise<NoteSummary[]> {
+  inputs: ReadonlyArray<DiscoveredDocumentInput>,
+): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await sqlNotesPersistence.ensureSchema(lockedExecSql);
-    const nextSummaries: NoteSummary[] = [];
+    await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
+    const nextSummaries: DocumentSummary[] = [];
 
     for (const input of inputs) {
       nextSummaries.push(
-        await upsertDiscoveredNoteWithExec(lockedExecSql, input),
+        await upsertDiscoveredDocumentWithExec(lockedExecSql, input),
       );
     }
 
@@ -446,12 +457,10 @@ async function upsertDiscoveredNotes(
   });
 }
 
-export const upsertDiscoveredDocuments = upsertDiscoveredNotes;
-
-async function listNotesByContainerIds(
+export async function listDocumentsByContainerIds(
   execSql: ExecSql,
   containerIds: ReadonlyArray<string>,
-): Promise<NoteSummary[]> {
+): Promise<DocumentSummary[]> {
   const uniqueContainerIds = [...new Set(containerIds)];
 
   if (uniqueContainerIds.length === 0) {
@@ -468,37 +477,35 @@ async function listNotesByContainerIds(
   const rows = await execSql(
     `
       SELECT
-        note_id,
+        local_id,
         document_id,
         container_id,
         text,
         updated_at
-      FROM note_projection
+      FROM document_projection
       WHERE container_id IN (${placeholders.join(", ")})
-      ORDER BY updated_at DESC, note_id DESC
+      ORDER BY updated_at DESC, local_id DESC
     `,
     bind,
   );
 
   return rows.map((row) => ({
-    id: String(readSqlRowValue(row, "note_id") ?? ""),
+    id: String(readSqlRowValue(row, "local_id") ?? ""),
     containerId: parseProjectionContainerId(row),
-    documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
+    documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
     documentId: parseProjectionDocumentId(row),
-    title: deriveNoteTitle(parseProjectionText(row)),
+    title: derivePersistedDocumentTitle(parseProjectionText(row)),
     updatedAt: parseProjectionUpdatedAt(row),
   }));
 }
 
-export const listDocumentsByContainerIds = listNotesByContainerIds;
-
-async function listNotesByContainerIdsOrDocumentIds(
+async function listDocumentsByContainerIdsOrDocumentIds(
   execSql: ExecSql,
   input: {
     containerIds: ReadonlyArray<string>;
     documentIds: ReadonlyArray<string>;
   },
-): Promise<NoteSummary[]> {
+): Promise<DocumentSummary[]> {
   const uniqueContainerIds = Array.from(new Set(input.containerIds));
   const uniqueDocumentIds = Array.from(new Set(input.documentIds));
   if (uniqueContainerIds.length === 0 && uniqueDocumentIds.length === 0) {
@@ -528,76 +535,73 @@ async function listNotesByContainerIdsOrDocumentIds(
   const rows = await execSql(
     `
       SELECT
-        note_id,
+        local_id,
         document_id,
         container_id,
         text,
         updated_at
-      FROM note_projection
+      FROM document_projection
       WHERE ${filters.join(" OR ")}
-      ORDER BY updated_at DESC, note_id DESC
+      ORDER BY updated_at DESC, local_id DESC
     `,
     bind,
   );
 
   return rows.map((row) => ({
-    id: String(readSqlRowValue(row, "note_id") ?? ""),
+    id: String(readSqlRowValue(row, "local_id") ?? ""),
     containerId: parseProjectionContainerId(row),
-    documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
+    documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
     documentId: parseProjectionDocumentId(row),
-    title: deriveNoteTitle(parseProjectionText(row)),
+    title: derivePersistedDocumentTitle(parseProjectionText(row)),
     updatedAt: parseProjectionUpdatedAt(row),
   }));
 }
 
-const listDocumentsByContainerIdsOrDocumentIds =
-  listNotesByContainerIdsOrDocumentIds;
-
-const sqlNotesPersistence: NotesPersistence = {
+const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, noteProjectionTables);
+      await ensureSqlTables(lockedExecSql, documentProjectionTables);
     });
   },
-  async listNotes(execSql) {
+  async listDocuments(execSql) {
     const rows = await execSql(
       `
         SELECT
-          note_id,
+          local_id,
           document_id,
           container_id,
           text,
           updated_at
-        FROM note_projection
-        ORDER BY updated_at DESC, note_id DESC
+        FROM document_projection
+        ORDER BY updated_at DESC, local_id DESC
       `,
     );
 
     return rows.map((row) => ({
-      id: String(readSqlRowValue(row, "note_id") ?? ""),
+      id: String(readSqlRowValue(row, "local_id") ?? ""),
       containerId: parseProjectionContainerId(row),
-      documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
+      documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
       documentId: parseProjectionDocumentId(row),
-      title: deriveNoteTitle(parseProjectionText(row)),
+      title: derivePersistedDocumentTitle(parseProjectionText(row)),
       updatedAt: parseProjectionUpdatedAt(row),
     }));
   },
-  listNotesByContainerIdsOrDocumentIds,
-  async loadNote(execSql, noteId) {
+  listDocumentsByContainerIdsOrDocumentIds,
+  async loadDocument(execSql, localId) {
     const [documentRecord, projectionRows] = await Promise.all([
-      loadDocumentRecord(execSql, getNoteScope(noteId)),
+      loadDocumentRecord(execSql, getDocumentScope(localId)),
       execSql(
         `
           SELECT
             text,
             container_id
-          FROM note_projection
-          WHERE note_id = :noteId
+          FROM document_projection
+          WHERE local_id = :localId
           LIMIT 1
         `,
         {
-          ":noteId": noteId,
+          ":localId": localId,
         },
       ),
     ]);
@@ -612,22 +616,22 @@ const sqlNotesPersistence: NotesPersistence = {
       text: parseProjectionText(projectionRows[0]),
     };
   },
-  async saveNote(execSql, note, options) {
+  async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       runSqlTransaction(lockedExecSql, async () => {
         const [existingRecord, projectionRows] = await Promise.all([
-          loadDocumentRecord(lockedExecSql, getNoteScope(note.id)),
+          loadDocumentRecord(lockedExecSql, getDocumentScope(document.id)),
           lockedExecSql(
             `
               SELECT
                 text,
                 updated_at
-              FROM note_projection
-              WHERE note_id = :noteId
+              FROM document_projection
+              WHERE local_id = :localId
               LIMIT 1
             `,
             {
-              ":noteId": note.id,
+              ":localId": document.id,
             },
           ),
         ]);
@@ -641,7 +645,7 @@ const sqlNotesPersistence: NotesPersistence = {
                   text: parseProjectionText(existingProjection),
                 }
               : null,
-            note,
+            document,
           )
             ? new Date().toISOString()
             : parseProjectionUpdatedAt(existingProjection) ||
@@ -649,37 +653,37 @@ const sqlNotesPersistence: NotesPersistence = {
 
         await saveDocumentRecord(
           lockedExecSql,
-          getNoteScope(note.id),
-          note,
+          getDocumentScope(document.id),
+          document,
           updatedAt,
         );
         await lockedExecSql(
           `
-            INSERT INTO note_projection (
-              note_id,
+            INSERT INTO document_projection (
+              local_id,
               document_id,
               container_id,
               text,
               updated_at
             )
             VALUES (
-              :noteId,
+              :localId,
               :documentId,
               :containerId,
               :text,
               :updatedAt
             )
-            ON CONFLICT(note_id) DO UPDATE SET
+            ON CONFLICT(local_id) DO UPDATE SET
               document_id = excluded.document_id,
               container_id = excluded.container_id,
               text = excluded.text,
               updated_at = excluded.updated_at
           `,
           {
-            ":noteId": note.id,
-            ":documentId": note.documentId,
-            ":containerId": note.containerId,
-            ":text": note.text,
+            ":localId": document.id,
+            ":documentId": document.documentId,
+            ":containerId": document.containerId,
+            ":text": document.text,
             ":updatedAt": updatedAt,
           },
         );
@@ -688,118 +692,118 @@ const sqlNotesPersistence: NotesPersistence = {
       }),
     );
   },
-  async upsertDiscoveredNote(execSql, input) {
-    const [nextSummary] = await upsertDiscoveredNotes(execSql, [input]);
+  async upsertDiscoveredDocument(execSql, input) {
+    const [nextSummary] = await upsertDiscoveredDocuments(execSql, [input]);
     if (!nextSummary) {
-      throw new Error("Failed to upsert discovered note");
+      throw new Error("Failed to upsert discovered document");
     }
 
     return nextSummary;
   },
-  async relinkPersistedNote(execSql, input) {
+  async relinkPersistedDocument(execSql, input) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await sqlNotesPersistence.ensureSchema(lockedExecSql);
-      return relinkPersistedNoteWithExec(lockedExecSql, input);
+      await sqlStoredDocumentsPersistence.ensureSchema(lockedExecSql);
+      return relinkPersistedDocumentWithExec(lockedExecSql, input);
     });
   },
-  async listPendingUpdates(execSql, noteId) {
-    return listDocumentPendingUpdates(execSql, getNoteScope(noteId));
+  async listPendingUpdates(execSql, localId) {
+    return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
   },
-  async listPendingAttachments(execSql, noteId) {
+  async listPendingAttachments(execSql, localId) {
     const rows = await execSql(
       `
         SELECT
-          note_id,
+          local_id,
           slot_id,
           name,
           mime_type,
           storage_key,
           byte_length
-        FROM note_pending_attachments
-        WHERE note_id = :noteId
+        FROM document_pending_attachments
+        WHERE local_id = :localId
         ORDER BY created_at, slot_id
       `,
       {
-        ":noteId": noteId,
+        ":localId": localId,
       },
     );
 
     return rows.map((row) => ({
       byteLength: parsePendingAttachmentByteLength(row),
+      localId: String(readSqlRowValue(row, "local_id") ?? ""),
       mimeType: parsePendingAttachmentMimeType(row),
       name: String(readSqlRowValue(row, "name") ?? ""),
-      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
       slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
       storageKey: parseStorageKey(row),
     }));
   },
-  async listPendingAttachmentRewraps(execSql, noteId) {
+  async listPendingAttachmentRewraps(execSql, localId) {
     const rows = await execSql(
       `
         SELECT
-          note_id,
+          local_id,
           slot_id,
           blob_id
-        FROM note_pending_attachment_rewraps
-        WHERE note_id = :noteId
+        FROM document_pending_attachment_rewraps
+        WHERE local_id = :localId
         ORDER BY created_at, slot_id
       `,
       {
-        ":noteId": noteId,
+        ":localId": localId,
       },
     );
 
     return rows.map((row) => ({
       blobId: String(readSqlRowValue(row, "blob_id") ?? ""),
-      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
+      localId: String(readSqlRowValue(row, "local_id") ?? ""),
       slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
     }));
   },
-  async listPendingAttachmentReplacements(execSql, noteId) {
+  async listPendingAttachmentReplacements(execSql, localId) {
     const rows = await execSql(
       `
         SELECT
-          note_id,
+          local_id,
           slot_id,
           blob_id
-        FROM note_pending_attachment_replacements
-        WHERE note_id = :noteId
+        FROM document_pending_attachment_replacements
+        WHERE local_id = :localId
         ORDER BY created_at, slot_id
       `,
       {
-        ":noteId": noteId,
+        ":localId": localId,
       },
     );
 
     return rows.map((row) => ({
       blobId: parseBlobId(row),
-      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
+      localId: String(readSqlRowValue(row, "local_id") ?? ""),
       slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
     }));
   },
-  async listLocalAttachments(execSql, noteId) {
+  async listLocalAttachments(execSql, localId) {
     const rows = await execSql(
       `
         SELECT
-          note_id,
+          local_id,
           slot_id,
           blob_id,
           storage_key,
           mime_type,
           byte_length
-        FROM note_attachment_blob_projection
-        WHERE note_id = :noteId
+        FROM document_attachment_blob_projection
+        WHERE local_id = :localId
       `,
       {
-        ":noteId": noteId,
+        ":localId": localId,
       },
     );
 
     return rows.map((row) => ({
       blobId: parseBlobId(row),
       byteLength: parsePendingAttachmentByteLength(row),
+      localId: String(readSqlRowValue(row, "local_id") ?? ""),
       mimeType: parsePendingAttachmentMimeType(row),
-      noteId: String(readSqlRowValue(row, "note_id") ?? ""),
       slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
       storageKey: parseStorageKey(row),
     }));
@@ -808,7 +812,7 @@ const sqlNotesPersistence: NotesPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await enqueueDocumentPendingUpdate(
         lockedExecSql,
-        getNoteScope(pendingUpdate.noteId),
+        getDocumentScope(pendingUpdate.localId),
         pendingUpdate,
       );
     });
@@ -819,8 +823,8 @@ const sqlNotesPersistence: NotesPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO note_attachment_blob_projection (
-            note_id,
+          INSERT INTO document_attachment_blob_projection (
+            local_id,
             slot_id,
             blob_id,
             storage_key,
@@ -829,7 +833,7 @@ const sqlNotesPersistence: NotesPersistence = {
             updated_at
           )
           VALUES (
-            :noteId,
+            :localId,
             :slotId,
             :blobId,
             :storageKey,
@@ -837,7 +841,7 @@ const sqlNotesPersistence: NotesPersistence = {
             :byteLength,
             :updatedAt
           )
-          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+          ON CONFLICT(local_id, slot_id) DO UPDATE SET
             blob_id = excluded.blob_id,
             storage_key = excluded.storage_key,
             mime_type = excluded.mime_type,
@@ -845,7 +849,7 @@ const sqlNotesPersistence: NotesPersistence = {
             updated_at = excluded.updated_at
         `,
         {
-          ":noteId": attachment.noteId,
+          ":localId": attachment.localId,
           ":slotId": attachment.slotId,
           ":blobId": attachment.blobId,
           ":storageKey": attachment.storageKey,
@@ -862,8 +866,8 @@ const sqlNotesPersistence: NotesPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO note_pending_attachments (
-            note_id,
+          INSERT INTO document_pending_attachments (
+            local_id,
             slot_id,
             name,
             mime_type,
@@ -872,7 +876,7 @@ const sqlNotesPersistence: NotesPersistence = {
             created_at
           )
           VALUES (
-            :noteId,
+            :localId,
             :slotId,
             :name,
             :mimeType,
@@ -880,14 +884,14 @@ const sqlNotesPersistence: NotesPersistence = {
             :byteLength,
             :createdAt
           )
-          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+          ON CONFLICT(local_id, slot_id) DO UPDATE SET
             name = excluded.name,
             mime_type = excluded.mime_type,
             storage_key = excluded.storage_key,
             byte_length = excluded.byte_length
         `,
         {
-          ":noteId": attachment.noteId,
+          ":localId": attachment.localId,
           ":slotId": attachment.slotId,
           ":name": attachment.name,
           ":mimeType": attachment.mimeType,
@@ -904,23 +908,23 @@ const sqlNotesPersistence: NotesPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO note_pending_attachment_rewraps (
-            note_id,
+          INSERT INTO document_pending_attachment_rewraps (
+            local_id,
             slot_id,
             blob_id,
             created_at
           )
           VALUES (
-            :noteId,
+            :localId,
             :slotId,
             :blobId,
             :createdAt
           )
-          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+          ON CONFLICT(local_id, slot_id) DO UPDATE SET
             blob_id = excluded.blob_id
         `,
         {
-          ":noteId": attachment.noteId,
+          ":localId": attachment.localId,
           ":slotId": attachment.slotId,
           ":blobId": attachment.blobId,
           ":createdAt": createdAt,
@@ -934,23 +938,23 @@ const sqlNotesPersistence: NotesPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO note_pending_attachment_replacements (
-            note_id,
+          INSERT INTO document_pending_attachment_replacements (
+            local_id,
             slot_id,
             blob_id,
             created_at
           )
           VALUES (
-            :noteId,
+            :localId,
             :slotId,
             :blobId,
             :createdAt
           )
-          ON CONFLICT(note_id, slot_id) DO UPDATE SET
+          ON CONFLICT(local_id, slot_id) DO UPDATE SET
             blob_id = excluded.blob_id
         `,
         {
-          ":noteId": attachment.noteId,
+          ":localId": attachment.localId,
           ":slotId": attachment.slotId,
           ":blobId": attachment.blobId,
           ":createdAt": createdAt,
@@ -963,95 +967,68 @@ const sqlNotesPersistence: NotesPersistence = {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
     });
   },
-  async deletePendingUpdates(execSql, noteId) {
+  async deletePendingUpdates(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdates(lockedExecSql, getNoteScope(noteId));
+      await deleteDocumentPendingUpdates(
+        lockedExecSql,
+        getDocumentScope(localId),
+      );
     });
   },
-  async deletePendingAttachments(execSql, noteId) {
+  async deletePendingAttachments(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM note_pending_attachments
-          WHERE note_id = :noteId
+          DELETE FROM document_pending_attachments
+          WHERE local_id = :localId
         `,
         {
-          ":noteId": noteId,
+          ":localId": localId,
         },
       );
     });
   },
-  async deletePendingAttachmentRewraps(execSql, noteId) {
+  async deletePendingAttachmentRewraps(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM note_pending_attachment_rewraps
-          WHERE note_id = :noteId
+          DELETE FROM document_pending_attachment_rewraps
+          WHERE local_id = :localId
         `,
         {
-          ":noteId": noteId,
+          ":localId": localId,
         },
       );
     });
   },
-  async deletePendingAttachmentReplacement(execSql, noteId, slotId) {
+  async deletePendingAttachmentReplacement(execSql, localId, slotId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM note_pending_attachment_replacements
-          WHERE note_id = :noteId AND slot_id = :slotId
+          DELETE FROM document_pending_attachment_replacements
+          WHERE local_id = :localId AND slot_id = :slotId
         `,
         {
-          ":noteId": noteId,
+          ":localId": localId,
           ":slotId": slotId,
         },
       );
     });
   },
-  async deletePendingAttachmentReplacements(execSql, noteId) {
+  async deletePendingAttachmentReplacements(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM note_pending_attachment_replacements
-          WHERE note_id = :noteId
+          DELETE FROM document_pending_attachment_replacements
+          WHERE local_id = :localId
         `,
         {
-          ":noteId": noteId,
+          ":localId": localId,
         },
       );
     });
   },
 };
 
-export const sqlDocumentsPersistence: DocumentsPersistence = {
-  deletePendingAttachmentReplacement:
-    sqlNotesPersistence.deletePendingAttachmentReplacement,
-  deletePendingAttachmentReplacements:
-    sqlNotesPersistence.deletePendingAttachmentReplacements,
-  deletePendingAttachmentRewraps:
-    sqlNotesPersistence.deletePendingAttachmentRewraps,
-  deletePendingAttachments: sqlNotesPersistence.deletePendingAttachments,
-  deletePendingUpdate: sqlNotesPersistence.deletePendingUpdate,
-  deletePendingUpdates: sqlNotesPersistence.deletePendingUpdates,
-  ensureSchema: sqlNotesPersistence.ensureSchema,
-  enqueuePendingUpdate: sqlNotesPersistence.enqueuePendingUpdate,
-  listLocalAttachments: sqlNotesPersistence.listLocalAttachments,
-  listPendingAttachmentReplacements:
-    sqlNotesPersistence.listPendingAttachmentReplacements,
-  listPendingAttachmentRewraps:
-    sqlNotesPersistence.listPendingAttachmentRewraps,
-  listPendingAttachments: sqlNotesPersistence.listPendingAttachments,
-  listPendingUpdates: sqlNotesPersistence.listPendingUpdates,
-  loadNote: sqlNotesPersistence.loadNote,
-  listNotes: sqlNotesPersistence.listNotes,
-  listNotesByContainerIdsOrDocumentIds:
-    listDocumentsByContainerIdsOrDocumentIds,
-  relinkPersistedNote: sqlNotesPersistence.relinkPersistedNote,
-  saveLocalAttachment: sqlNotesPersistence.saveLocalAttachment,
-  saveNote: sqlNotesPersistence.saveNote,
-  savePendingAttachment: sqlNotesPersistence.savePendingAttachment,
-  savePendingAttachmentReplacement:
-    sqlNotesPersistence.savePendingAttachmentReplacement,
-  savePendingAttachmentRewrap: sqlNotesPersistence.savePendingAttachmentRewrap,
-  upsertDiscoveredNote: sqlNotesPersistence.upsertDiscoveredNote,
-};
+export const sqlDocumentsPersistence: DocumentsPersistence =
+  sqlStoredDocumentsPersistence;

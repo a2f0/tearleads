@@ -2619,7 +2619,7 @@ async function relinkExplorerNoteLocally(params: {
     accessEpoch,
     containerId: targetContainerId,
     documentId: note.documentId,
-    noteId: note.id,
+    localId: note.id,
   });
   if (!relinkedNote) {
     appData.log(
