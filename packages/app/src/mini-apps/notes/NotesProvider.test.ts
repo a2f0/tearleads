@@ -21,6 +21,7 @@ import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,
 } from "../../data/documentSync";
+import { DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID } from "../drivers-license/driverLicenseDocument";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import {
   addNoteAttachments,
@@ -745,6 +746,72 @@ test("notes store stages and commits attachments against the note document", asy
       attachmentCommitCount: 1,
       documentId: "notes-document-1",
       referencedSlotIds: [store.getSnapshot().attachments[0]?.slotId ?? ""],
+    },
+  ]);
+});
+
+test("notes store can bind an attachment to a fixed slot id", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const commitChangeCalls: Array<{
+    documentId: string;
+    referencedSlotIds: string[];
+  }> = [];
+  const runtime = createSyncRuntime(encapsulationKeyPair, "identity-container");
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      commitDocumentChange: async (documentId, input) => {
+        commitChangeCalls.push({
+          documentId,
+          referencedSlotIds: input.loroUpdate?.referencedSlotIds ?? [],
+        });
+        return runtime.apiClient.commitDocumentChange(documentId, input);
+      },
+    },
+  };
+
+  const store = createNotesStore(
+    "drivers-license-note",
+    instrumentedRuntime,
+    persistence,
+  );
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Fixed-slot attachment store did not become ready.",
+  );
+
+  store.setAttachment(DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID, {
+    bytes: new TextEncoder().encode("front image bytes"),
+    mimeType: "image/jpeg",
+    name: "front.jpg",
+  });
+
+  await waitForCondition(
+    () =>
+      commitChangeCalls.length === 1 &&
+      persistence.getState().note?.documentId === "notes-document-1" &&
+      store.getSnapshot().attachments.length === 1 &&
+      store.getSnapshot().attachments[0]?.slotId ===
+        DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
+    "Fixed-slot attachment was not committed.",
+  );
+
+  expect(store.getSnapshot().attachments).toEqual([
+    {
+      byteLength: "front image bytes".length,
+      mimeType: "image/jpeg",
+      name: "front.jpg",
+      slotId: DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
+    },
+  ]);
+  expect(commitChangeCalls).toEqual([
+    {
+      documentId: "notes-document-1",
+      referencedSlotIds: [DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID],
     },
   ]);
 });

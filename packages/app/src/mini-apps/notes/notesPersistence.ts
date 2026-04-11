@@ -21,6 +21,11 @@ import {
   runSqlTransaction,
   type SqlTableSchema,
 } from "../../data/sqlSchema";
+import {
+  deriveStoredDocumentKind,
+  deriveStoredDocumentTitle,
+  type StoredDocumentKind,
+} from "../documents/documentKinds";
 
 export type { PendingUpdateRecord } from "../../data/documentPersistence";
 
@@ -32,6 +37,7 @@ export interface NoteRecord extends DocumentRecord {
 export interface NoteSummary {
   id: string;
   containerId: string | null;
+  documentKind?: StoredDocumentKind;
   documentId: string | null;
   title: string;
   updatedAt: string;
@@ -289,14 +295,11 @@ function parseBlobId(row: SqlRow | undefined): string | null {
 }
 
 export function deriveNoteTitle(text: string): string {
-  for (const line of text.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
-  }
+  return deriveStoredDocumentTitle(text);
+}
 
-  return "Untitled note";
+export function deriveNoteDocumentKind(text: string): StoredDocumentKind {
+  return deriveStoredDocumentKind(text);
 }
 
 async function upsertDiscoveredNoteWithExec(
@@ -338,6 +341,7 @@ async function upsertDiscoveredNoteWithExec(
   return {
     id: noteId,
     containerId: nextNote.containerId,
+    documentKind: deriveNoteDocumentKind(nextNote.text),
     documentId: nextNote.documentId,
     title: deriveNoteTitle(nextNote.text),
     updatedAt: input.createdAt,
@@ -385,6 +389,7 @@ async function relinkPersistedNoteWithExec(
   return {
     id: nextNote.id,
     containerId: nextNote.containerId,
+    documentKind: deriveNoteDocumentKind(nextNote.text),
     documentId: nextNote.documentId,
     title: deriveNoteTitle(nextNote.text),
     updatedAt: parseProjectionUpdatedAt(updatedAtRows[0]),
@@ -444,6 +449,7 @@ export async function listNotesByContainerIds(
   return rows.map((row) => ({
     id: String(readSqlRowValue(row, "note_id") ?? ""),
     containerId: parseProjectionContainerId(row),
+    documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
     documentId: parseProjectionDocumentId(row),
     title: deriveNoteTitle(parseProjectionText(row)),
     updatedAt: parseProjectionUpdatedAt(row),
@@ -501,6 +507,7 @@ async function listNotesByContainerIdsOrDocumentIds(
   return rows.map((row) => ({
     id: String(readSqlRowValue(row, "note_id") ?? ""),
     containerId: parseProjectionContainerId(row),
+    documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
     documentId: parseProjectionDocumentId(row),
     title: deriveNoteTitle(parseProjectionText(row)),
     updatedAt: parseProjectionUpdatedAt(row),
@@ -531,6 +538,7 @@ export const sqlNotesPersistence: NotesPersistence = {
     return rows.map((row) => ({
       id: String(readSqlRowValue(row, "note_id") ?? ""),
       containerId: parseProjectionContainerId(row),
+      documentKind: deriveNoteDocumentKind(parseProjectionText(row)),
       documentId: parseProjectionDocumentId(row),
       title: deriveNoteTitle(parseProjectionText(row)),
       updatedAt: parseProjectionUpdatedAt(row),

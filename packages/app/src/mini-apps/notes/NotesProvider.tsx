@@ -48,6 +48,7 @@ import {
   sameNoteAttachments,
 } from "./noteDocument";
 import {
+  deriveNoteDocumentKind,
   deriveNoteTitle,
   type LocalAttachmentRecord,
   type NoteRecord,
@@ -178,6 +179,7 @@ interface NotesContextValue {
   canAttach: boolean;
   documentId: string | null;
   ready: boolean;
+  setAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   text: string;
   syncing: boolean;
@@ -199,6 +201,7 @@ interface NotesStore {
   attachFiles: (files: ReadonlyArray<NoteAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => NotesSnapshot;
+  setAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: NoteAttachmentUpload) => void;
   requestSync: () => void;
   relink: (input: RelinkPersistedNoteInput) => Promise<NoteSummary | null>;
@@ -489,6 +492,7 @@ async function saveNoteRecord(state: NotesStoreState, nextRecord: NoteRecord) {
   const persistedNote = {
     id: nextRecord.id,
     containerId: nextRecord.containerId,
+    documentKind: deriveNoteDocumentKind(nextRecord.text),
     documentId: nextRecord.documentId,
     title: deriveNoteTitle(nextRecord.text),
     updatedAt: new Date().toISOString(),
@@ -2345,7 +2349,7 @@ async function persistAttachedFiles(
   scheduleNotesSync(state);
 }
 
-async function persistReplacementAttachmentFile(
+async function persistSlotAttachmentFile(
   state: NotesStoreState,
   slotId: string,
   file: NoteAttachmentUpload,
@@ -2354,17 +2358,7 @@ async function persistReplacementAttachmentFile(
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
 
   if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
-    state.runtime.log(
-      "Notes: replacement attachments require a local key package.",
-    );
-    return;
-  }
-
-  const existingAttachment = getNoteAttachments(currentDoc).find(
-    (attachment) => attachment.slotId === slotId,
-  );
-  if (!existingAttachment) {
-    state.runtime.log(`Notes: attachment slot ${slotId} no longer exists.`);
+    state.runtime.log("Notes: slot attachments require a local key package.");
     return;
   }
 
@@ -2393,7 +2387,7 @@ async function persistReplacementAttachmentFile(
   });
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
   await persistDocument(state, currentDoc);
-  state.runtime.log(`Queued replacement for attachment ${file.name}.`);
+  state.runtime.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   scheduleNotesSync(state);
 }
 
@@ -2453,10 +2447,18 @@ function replaceAttachmentInNotesStore(
 
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistReplacementAttachmentFile(state, slotId, file))
+    .then(async () => persistSlotAttachmentFile(state, slotId, file))
     .catch((error: unknown) => {
       console.error("Failed to replace note attachment:", error);
     });
+}
+
+function setAttachmentInNotesStore(
+  state: NotesStoreState,
+  slotId: string,
+  file: NoteAttachmentUpload,
+) {
+  replaceAttachmentInNotesStore(state, slotId, file);
 }
 
 function setNotesText(state: NotesStoreState, value: string) {
@@ -2561,6 +2563,8 @@ export function createNotesStore(
       attachFilesToNotesStore(state, files),
     ensureInitialized: () => ensureNotesStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
+    setAttachment: (slotId: string, file: NoteAttachmentUpload) =>
+      setAttachmentInNotesStore(state, slotId, file),
     replaceAttachment: (slotId: string, file: NoteAttachmentUpload) =>
       replaceAttachmentInNotesStore(state, slotId, file),
     requestSync: () => scheduleSync(),
@@ -2718,6 +2722,7 @@ export function useNotes(): NotesContextValue {
       canAttach: snapshot.canAttach,
       documentId: snapshot.documentId,
       ready: snapshot.ready,
+      setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       text: snapshot.text,
       syncing: snapshot.syncing,
