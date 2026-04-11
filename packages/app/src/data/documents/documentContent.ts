@@ -7,25 +7,27 @@ export interface DocumentAttachment {
   mimeType: string | null;
 }
 
-interface NoteDocumentMap {
+interface StructuredDocumentMap {
   entries: () => Array<[string, unknown]>;
   getOrCreateContainer: (
     key: string,
     container: LoroMap<Record<string, unknown>>,
-  ) => NoteDocumentMap;
+  ) => StructuredDocumentMap;
   get: (key: string) => unknown;
   set: (key: string, value: string | number) => void;
   delete: (key: string) => void;
 }
 
-interface NoteDocumentShape {
-  getMap: (key: string) => NoteDocumentMap;
+interface StructuredDocumentShape {
+  getMap: (key: string) => StructuredDocumentMap;
 }
 
-const NOTE_MAP_KEY = "note";
+const DOCUMENT_MAP_KEY = "note";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
-function isNoteAttachmentMap(value: unknown): value is NoteDocumentMap {
+function isStructuredAttachmentMap(
+  value: unknown,
+): value is StructuredDocumentMap {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -44,7 +46,7 @@ function parseStructuredAttachment(
   slotId: string,
   value: unknown,
 ): (DocumentAttachment & { order: number | null }) | null {
-  if (!isNoteAttachmentMap(value)) {
+  if (!isStructuredAttachmentMap(value)) {
     return null;
   }
 
@@ -78,20 +80,20 @@ function parseStructuredAttachment(
 }
 
 export function ensureDocumentAttachmentStructure(
-  doc: NoteDocumentShape,
+  doc: StructuredDocumentShape,
 ): void {
-  doc.getMap(NOTE_MAP_KEY);
+  doc.getMap(DOCUMENT_MAP_KEY);
 }
 
 function getAttachmentMapKey(slotId: string): string {
   return `${ATTACHMENT_KEY_PREFIX}${slotId}`;
 }
 
-function listStructuredNoteAttachments(
-  doc: NoteDocumentShape,
+function listStructuredDocumentAttachments(
+  doc: StructuredDocumentShape,
 ): Array<DocumentAttachment & { order: number | null }> {
-  const noteMap = doc.getMap(NOTE_MAP_KEY);
-  return noteMap
+  const documentMap = doc.getMap(DOCUMENT_MAP_KEY);
+  return documentMap
     .entries()
     .flatMap(([key, value]) => {
       if (!key.startsWith(ATTACHMENT_KEY_PREFIX)) {
@@ -121,37 +123,37 @@ function listStructuredNoteAttachments(
     });
 }
 
-function getStructuredNoteAttachments(
-  doc: NoteDocumentShape,
+function getStructuredDocumentAttachments(
+  doc: StructuredDocumentShape,
 ): DocumentAttachment[] {
-  return listStructuredNoteAttachments(doc).map(
+  return listStructuredDocumentAttachments(doc).map(
     ({ order: _order, ...attachment }) => attachment,
   );
 }
 
 export function getDocumentAttachments(
-  doc: NoteDocumentShape,
+  doc: StructuredDocumentShape,
 ): DocumentAttachment[] {
-  return getStructuredNoteAttachments(doc);
+  return getStructuredDocumentAttachments(doc);
 }
 
 export function addDocumentAttachments(
-  doc: NoteDocumentShape,
+  doc: StructuredDocumentShape,
   attachments: ReadonlyArray<DocumentAttachment>,
 ): void {
   if (attachments.length === 0) {
     return;
   }
 
-  const noteMap = doc.getMap(NOTE_MAP_KEY);
-  const existingAttachments = listStructuredNoteAttachments(doc);
+  const documentMap = doc.getMap(DOCUMENT_MAP_KEY);
+  const existingAttachments = listStructuredDocumentAttachments(doc);
   let nextOrder =
     existingAttachments.reduce((highestOrder, attachment, index) => {
       return Math.max(highestOrder, attachment.order ?? index);
     }, -1) + 1;
 
   for (const attachment of attachments) {
-    const attachmentMap = noteMap.getOrCreateContainer(
+    const attachmentMap = documentMap.getOrCreateContainer(
       getAttachmentMapKey(attachment.slotId),
       new LoroMap(),
     );

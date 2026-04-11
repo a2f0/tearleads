@@ -48,9 +48,10 @@ import {
   sameDocumentAttachments,
 } from "./documentContent";
 import {
-  type NoteRecord as DocumentRecord,
-  type NoteSummary as DocumentSummary,
-  type NotesPersistence as DocumentsPersistence,
+  DOCUMENTS_APP_KIND,
+  type StoredDocumentRecord as DocumentRecord,
+  type DocumentSummary,
+  type DocumentsPersistence,
   deriveDocumentKind,
   deriveDocumentTitle,
   type LocalAttachmentRecord,
@@ -58,7 +59,7 @@ import {
   type PendingAttachmentReplacementRecord,
   type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
-  type RelinkPersistedNoteInput as RelinkPersistedDocumentInput,
+  type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 
@@ -474,7 +475,9 @@ function setReadySnapshot(
 }
 
 async function createStoredDocument() {
-  const createdDoc = await createDocument(getScopedPeerSeed("notes"));
+  const createdDoc = await createDocument(
+    getScopedPeerSeed(DOCUMENTS_APP_KIND),
+  );
   ensureDocumentAttachmentStructure(createdDoc);
   return createdDoc;
 }
@@ -505,7 +508,7 @@ async function saveDocumentRecord(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
 ): Promise<PersistedDocumentRecord> {
-  const updatedAt = await state.persistence.saveNote(
+  const updatedAt = await state.persistence.saveDocument(
     state.runtime.execSql,
     nextRecord,
   );
@@ -588,7 +591,7 @@ async function ensureRemoteDocument(
     state,
     created.recipientEncapsulationPublicKeys,
   );
-  state.runtime.log(`Created notes document: ${created.id}`);
+  state.runtime.log(`Created document: ${created.id}`);
 
   return (
     await persistDocument(state, currentDoc, {
@@ -640,7 +643,7 @@ async function enqueuePendingUpdate(
   }
 
   await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
-    noteId: state.localId,
+    localId: state.localId,
     ...pendingUpdateFields,
   });
 }
@@ -720,8 +723,8 @@ async function hydrateMissingAttachmentBlob(
     {
       blobId: binding.blobId,
       byteLength: attachment.byteLength,
+      localId: state.localId,
       mimeType: attachment.mimeType,
-      noteId: state.localId,
       slotId: attachment.slotId,
       storageKey,
     },
@@ -805,7 +808,7 @@ async function createPendingAttachmentRewrap(
 ): Promise<PendingAttachmentRewrapRecord> {
   const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
     blobId,
-    noteId: state.localId,
+    localId: state.localId,
     slotId,
   };
   await state.persistence.savePendingAttachmentRewrap(
@@ -822,7 +825,7 @@ async function createPendingAttachmentReplacement(
 ): Promise<PendingAttachmentReplacementRecord> {
   const pendingAttachmentReplacement: PendingAttachmentReplacementRecord = {
     blobId,
-    noteId: state.localId,
+    localId: state.localId,
     slotId,
   };
   await state.persistence.savePendingAttachmentReplacement(
@@ -914,9 +917,9 @@ async function queuePendingAttachmentUpload(
 ): Promise<PendingAttachmentRecord> {
   const pendingAttachment: PendingAttachmentRecord = {
     byteLength: attachment.byteLength,
+    localId: state.localId,
     mimeType: attachment.mimeType,
     name: attachment.name,
-    noteId: state.localId,
     slotId: attachment.slotId,
     storageKey,
   };
@@ -1055,7 +1058,7 @@ async function replacePendingUpdatesWithBaseline(
   );
 }
 
-async function initializeNotesStore(
+async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
 ) {
@@ -1073,7 +1076,7 @@ async function initializeNotesStore(
     loadedPendingAttachmentRewraps,
     localAttachments,
   ] = await Promise.all([
-    state.persistence.loadNote(state.runtime.execSql, state.localId),
+    state.persistence.loadDocument(state.runtime.execSql, state.localId),
     listPendingAttachmentRecords(state),
     state.persistence.listPendingAttachmentReplacements(
       state.runtime.execSql,
@@ -1141,7 +1144,7 @@ function ensureDocumentStoreInitialized(
     return;
   }
 
-  state.initializePromise = initializeNotesStore(state, scheduleSync).catch(
+  state.initializePromise = initializeDocumentStore(state, scheduleSync).catch(
     (error: unknown) => {
       state.initializePromise = null;
 
@@ -1443,8 +1446,8 @@ async function saveCommittedAttachmentRecords(
       {
         blobId: committedBinding.blobId,
         byteLength: localAttachment.byteLength,
+        localId: state.localId,
         mimeType: localAttachment.mimeType,
-        noteId: state.localId,
         slotId: localAttachment.slotId,
         storageKey: localAttachment.storageKey,
       },
@@ -2257,7 +2260,7 @@ function scheduleDocumentSync(state: DocumentStoreState) {
     try {
       await runScheduledSyncLoop(state);
     } catch (error) {
-      console.error("Failed to sync notes:", error);
+      console.error("Failed to sync documents:", error);
     } finally {
       const shouldRetry = state.syncRequested;
       state.syncPromise = null;
@@ -2306,9 +2309,9 @@ function buildPendingAttachments(
     const storageKey = `${localId}-${slotId}`;
     nextPendingAttachments.push({
       byteLength: file.bytes.byteLength,
+      localId,
       mimeType: file.mimeType,
       name: file.name,
-      noteId: localId,
       slotId,
       storageKey,
     });
@@ -2341,8 +2344,8 @@ async function persistPendingAttachments(
     await saveLocalAttachmentRecord(state, {
       blobId: null,
       byteLength: pendingAttachment.byteLength,
+      localId: state.localId,
       mimeType: pendingAttachment.mimeType,
-      noteId: state.localId,
       slotId: pendingAttachment.slotId,
       storageKey: pendingAttachment.storageKey,
     });
@@ -2425,8 +2428,8 @@ async function persistSlotAttachmentFile(
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
+    localId: state.localId,
     mimeType: replacementAttachment.mimeType,
-    noteId: state.localId,
     slotId,
     storageKey,
   });
