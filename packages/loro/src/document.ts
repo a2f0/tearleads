@@ -5,6 +5,43 @@ function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
 }
 
+const MAX_POSTGRES_INTEGER = 2_147_483_647;
+
+export interface VersionVectorSpan {
+  peerId: `${number}`;
+  startCounter: number;
+  endCounter: number;
+}
+
+function assertSupportedVersionVectorCounter(counter: number): void {
+  if (
+    !Number.isInteger(counter) ||
+    counter < 0 ||
+    counter > MAX_POSTGRES_INTEGER
+  ) {
+    throw new Error(
+      "Version vector counter is outside the supported integer range.",
+    );
+  }
+}
+
+function normalizeVersionVectorEntries(
+  versionVector: VersionVector,
+): Map<`${number}`, number> {
+  const entries = new Map<`${number}`, number>();
+
+  for (const [peerId, counter] of versionVector.toJSON()) {
+    const normalizedPeerId = String(peerId);
+    if (!isPeerIdString(normalizedPeerId)) {
+      throw new Error("Version vector contains a non-numeric peer ID.");
+    }
+    assertSupportedVersionVectorCounter(counter);
+    entries.set(normalizedPeerId, counter);
+  }
+
+  return entries;
+}
+
 export async function derivePeerId(
   seed: string | Uint8Array,
 ): Promise<`${number}`> {
@@ -113,13 +150,9 @@ export function mergeVersionVectors(
   const merged = new Map<`${number}`, number>();
 
   for (const encodedVersionVector of encodedVersionVectors) {
-    for (const [peerId, counter] of decodeVersionVector(
-      encodedVersionVector,
-    ).toJSON()) {
-      const normalizedPeerId = String(peerId);
-      if (!isPeerIdString(normalizedPeerId)) {
-        throw new Error("Version vector contains a non-numeric peer ID.");
-      }
+    for (const [normalizedPeerId, counter] of normalizeVersionVectorEntries(
+      decodeVersionVector(encodedVersionVector),
+    )) {
       merged.set(
         normalizedPeerId,
         Math.max(merged.get(normalizedPeerId) ?? 0, counter),
@@ -128,6 +161,37 @@ export function mergeVersionVectors(
   }
 
   return encodeEncodedVersionVector(VersionVector.parseJSON(merged));
+}
+
+export function listVersionVectorSpans(input: {
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
+}): VersionVectorSpan[] {
+  const startEntries = normalizeVersionVectorEntries(
+    decodeVersionVector(input.partialStartVersionVector),
+  );
+  const endEntries = normalizeVersionVectorEntries(
+    decodeVersionVector(input.partialEndVersionVector),
+  );
+  const spans: VersionVectorSpan[] = [];
+
+  for (const [peerId, startCounter] of startEntries) {
+    const endCounter = endEntries.get(peerId) ?? 0;
+    if (startCounter > endCounter) {
+      throw new Error("Version vector end must cover start.");
+    }
+  }
+
+  for (const [peerId, endCounter] of endEntries) {
+    const startCounter = startEntries.get(peerId) ?? 0;
+    if (endCounter <= startCounter) {
+      continue;
+    }
+
+    spans.push({ peerId, startCounter, endCounter });
+  }
+
+  return spans.sort((left, right) => left.peerId.localeCompare(right.peerId));
 }
 
 export function versionVectorsEqual(

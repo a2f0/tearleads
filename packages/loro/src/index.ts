@@ -12,8 +12,10 @@ export {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
+  listVersionVectorSpans,
   mergeVersionVectors,
   satisfiesVersionVector,
+  type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
 export {

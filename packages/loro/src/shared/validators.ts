@@ -62,6 +62,7 @@ export interface SyncDocumentResponse {
   documentId: string;
   acceptedOutgoingUpdateIds: string[];
   canonicalDocumentRecipientEnvelopesAdopted: boolean;
+  commitLsn: string | null;
   missingUpdateEpochs: SyncDocumentMissingUpdateEpoch[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
@@ -215,6 +216,7 @@ export function isSyncDocumentResponse(
       (entry) => typeof entry === "string",
     ) &&
     hasBooleanProperty(value, "canonicalDocumentRecipientEnvelopesAdopted") &&
+    hasNullableStringProperty(value, "commitLsn") &&
     hasArrayProperty(value, "missingUpdateEpochs") &&
     value.missingUpdateEpochs.every(isSyncDocumentMissingUpdateEpoch) &&
     hasArrayProperty(value, "updates") &&

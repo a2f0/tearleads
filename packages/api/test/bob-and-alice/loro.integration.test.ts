@@ -265,6 +265,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   expect(appendGrantedResponse.status).toBe(200);
   const appendedFirstUpdate = await appendGrantedResponse.json();
   expect(appendedFirstUpdate.acceptedOutgoingUpdateIds).toHaveLength(1);
+  expect(appendedFirstUpdate.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/);
   expect(appendedFirstUpdate.currentAccessEpoch).toBe(grantedAccessEpoch);
 
   const bobFetchResponse = await syncDocument(
@@ -278,6 +279,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   );
   expect(bobFetchResponse.status).toBe(200);
   const bobFetched = await bobFetchResponse.json();
+  expect(bobFetched.commitLsn).toBeNull();
   expect(bobFetched.updates.length).toBe(1);
   expect(bobFetched.missingUpdateEpochs).toEqual(["current_epoch"]);
   expect(bobFetched.updates).toEqual(

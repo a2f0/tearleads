@@ -18,7 +18,6 @@ import type {
   VerifyResponse,
 } from "@tearleads/validators/response";
 import {
-  isChallengeErrorResponse,
   isChallengeResponse,
   isCreateContainerResponse,
   isEncapsulationKeyResponse,
@@ -80,6 +79,9 @@ const server = setupServer(
       authenticated: true,
       token: randomHex(64),
     });
+  }),
+  http.post("http://localhost:3001/documents", () => {
+    return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
   }),
   http.get<{ userId: string }>(
     "http://localhost:3001/auth/encapsulation-key/:userId",
@@ -231,14 +233,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function getNumberProperty(
-  value: Record<string, unknown>,
-  key: string,
-): number | null {
-  const propertyValue = Reflect.get(value, key);
-  return typeof propertyValue === "number" ? propertyValue : null;
-}
-
 function getUnknownProperty(
   value: Record<string, unknown>,
   key: string,
@@ -246,10 +240,10 @@ function getUnknownProperty(
   return Reflect.get(value, key);
 }
 
-function isChallengeServiceBody(
-  value: unknown,
-): value is ChallengeErrorResponse | ChallengeResponse {
-  return isChallengeErrorResponse(value) || isChallengeResponse(value);
+function isVerifyChallengeResult(value: unknown): value is { token: string } {
+  return (
+    isRecord(value) && typeof getUnknownProperty(value, "token") === "string"
+  );
 }
 
 function getValidatedResponseBody<T>(
@@ -262,28 +256,6 @@ function getValidatedResponseBody<T>(
   }
 
   return result;
-}
-
-function getValidatedResult<T>(
-  result: unknown,
-  bodyGuard: (value: unknown) => value is T,
-  context: string,
-): { body: T; status: number } {
-  if (!isRecord(result)) {
-    throw new Error(`${context} returned invalid result.`);
-  }
-
-  const status = getNumberProperty(result, "status");
-  if (status === null) {
-    throw new Error(`${context} result missing numeric status.`);
-  }
-
-  const body = getUnknownProperty(result, "body");
-  if (!bodyGuard(body)) {
-    throw new Error(`${context} result body failed validation.`);
-  }
-
-  return { body, status };
 }
 
 async function createInMemoryApiServiceRuntime() {
@@ -521,14 +493,29 @@ export function useRealApiHandlers() {
       if (!createChallenge) {
         throw new Error("createChallenge export not found.");
       }
-      const result = getValidatedResult(
-        await createChallenge(runtime, body),
-        isChallengeServiceBody,
-        "createChallenge",
-      );
-      return HttpResponse.json(result.body, {
-        status: result.status,
-      });
+
+      try {
+        return HttpResponse.json<ChallengeResponse>(
+          getValidatedResponseBody(
+            await createChallenge(runtime, body),
+            isChallengeResponse,
+            "createChallenge",
+          ),
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          isRecord(error) &&
+          getUnknownProperty(error, "reason") === "unknown_fingerprint"
+        ) {
+          return HttpResponse.json<ChallengeErrorResponse>(
+            { error: error.message },
+            { status: 404 },
+          );
+        }
+
+        throw error;
+      }
     }),
     http.post("http://localhost:3001/auth/verify", async ({ request }) => {
       const body: unknown = await request.json();
@@ -554,14 +541,42 @@ export function useRealApiHandlers() {
       if (!verifyChallenge) {
         throw new Error("verifyChallenge export not found.");
       }
-      const result = getValidatedResult(
-        await verifyChallenge(runtime, body),
-        isVerifyResponse,
-        "verifyChallenge",
-      );
-      return HttpResponse.json<VerifyResponse>(result.body, {
-        status: result.status,
-      });
+
+      try {
+        const result = await verifyChallenge(runtime, body);
+        if (!isVerifyChallengeResult(result)) {
+          throw new Error("verifyChallenge returned invalid response body.");
+        }
+        return HttpResponse.json<VerifyResponse>(
+          getValidatedResponseBody(
+            {
+              authenticated: true,
+              token: result.token,
+            },
+            isVerifyResponse,
+            "verifyChallenge",
+          ),
+        );
+      } catch (error) {
+        if (error instanceof Error && isRecord(error)) {
+          const reason = getUnknownProperty(error, "reason");
+          if (
+            reason === "challenge_not_found" ||
+            reason === "invalid_signature" ||
+            reason === "unknown_fingerprint"
+          ) {
+            return HttpResponse.json<VerifyResponse>(
+              {
+                authenticated: false,
+                error: error.message,
+              },
+              { status: reason === "unknown_fingerprint" ? 404 : 401 },
+            );
+          }
+        }
+
+        throw error;
+      }
     }),
     http.get(
       "http://localhost:3001/auth/encapsulation-key/:userId",

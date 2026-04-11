@@ -38,6 +38,7 @@ function createSyncDocumentResponse(input: {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
     canonicalDocumentRecipientEnvelopesAdopted:
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
+    commitLsn: null,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:

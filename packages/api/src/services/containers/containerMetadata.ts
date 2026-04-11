@@ -4,7 +4,7 @@ import {
 } from "@tearleads/loro";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import {
   documentRecipientEnvelopesMatchRecipients,
   initializeDocumentAccess,
@@ -19,6 +19,8 @@ import {
   documents,
   documentUpdates,
 } from "../../schema";
+import { uniqueSortedStrings } from "../../utils/array";
+import { insertDocumentUpdateSpans } from "../documents/documentUpdateSpans";
 
 function matchesAccessEpoch(
   encryptedData: string,
@@ -34,27 +36,51 @@ async function appendDocumentUpdates(
   authorFingerprint: string,
   updates: ReadonlyArray<SyncDocumentOutgoingUpdate>,
 ): Promise<void> {
-  for (const update of updates) {
-    const [existing] = await tx
-      .select({ id: documentUpdates.id })
-      .from(documentUpdates)
-      .where(eq(documentUpdates.id, update.id))
-      .limit(1);
+  if (updates.length === 0) {
+    return;
+  }
 
-    if (existing) {
+  const updateIds = uniqueSortedStrings(updates.map((update) => update.id));
+  const existingRows = await tx
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(inArray(documentUpdates.id, updateIds));
+  const existingUpdateIds = new Set(existingRows.map((row) => row.id));
+  const newUpdates: SyncDocumentOutgoingUpdate[] = [];
+
+  for (const update of updates) {
+    if (existingUpdateIds.has(update.id)) {
       continue;
     }
 
-    await tx.insert(documentUpdates).values({
-      id: update.id,
-      documentId,
-      accessEpoch,
-      authorFingerprint,
-      encryptedData: update.encryptedData,
-      partialStartVersionVector: update.partialStartVersionVector,
-      partialEndVersionVector: update.partialEndVersionVector,
-    });
+    existingUpdateIds.add(update.id);
+    newUpdates.push(update);
   }
+
+  if (newUpdates.length === 0) {
+    return;
+  }
+
+  const insertedRows = await tx
+    .insert(documentUpdates)
+    .values(
+      newUpdates.map((update) => ({
+        id: update.id,
+        documentId,
+        accessEpoch,
+        authorFingerprint,
+        encryptedData: update.encryptedData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+      })),
+    )
+    .returning({ id: documentUpdates.id });
+  const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
+
+  await insertDocumentUpdateSpans(tx, {
+    documentId,
+    updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
+  });
 }
 
 async function validateMetadataRecipients(

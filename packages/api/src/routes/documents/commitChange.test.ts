@@ -12,6 +12,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
+  derivePeerId,
   encodeVersionVector,
   encryptLoroUpdate,
   exportUpdatesSince,
@@ -37,6 +38,7 @@ import {
   blobStages,
   blobs,
   containers,
+  documentUpdateSpans,
   documentUpdates,
   objectAccessEpochs,
   objectRecipientEnvelopes,
@@ -471,6 +473,20 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
     .where(eq(documentUpdates.id, body.acceptedOutgoingUpdateIds[0]))
     .limit(1);
   expect(storedUpdate?.id).toBe(body.acceptedOutgoingUpdateIds[0]);
+
+  const storedSpans = await db
+    .select({
+      endCounter: documentUpdateSpans.endCounter,
+      peerId: documentUpdateSpans.peerId,
+      startCounter: documentUpdateSpans.startCounter,
+    })
+    .from(documentUpdateSpans)
+    .where(eq(documentUpdateSpans.updateId, body.acceptedOutgoingUpdateIds[0]))
+    .limit(1);
+  expect(storedSpans).toHaveLength(1);
+  expect(storedSpans[0]?.peerId).toBe(await derivePeerId(alice.fingerprint));
+  expect(storedSpans[0]?.startCounter).toBe(0);
+  expect(storedSpans[0]?.endCounter).toBeGreaterThan(0);
 
   const [deletedStage] = await db
     .select({ id: blobStages.id })
