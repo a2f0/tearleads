@@ -80,6 +80,9 @@ const server = setupServer(
       token: randomHex(64),
     });
   }),
+  http.post("http://localhost:3001/documents", () => {
+    return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }),
   http.get<{ userId: string }>(
     "http://localhost:3001/auth/encapsulation-key/:userId",
     ({ params }) => {
