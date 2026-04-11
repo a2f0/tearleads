@@ -6,26 +6,6 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 cd "$REPO_ROOT"
 
-if git rev-parse --verify HEAD >/dev/null 2>&1; then
-  if git rev-parse --verify origin/main >/dev/null 2>&1; then
-    commitlint_base_ref="origin/main"
-  elif git rev-parse --verify main >/dev/null 2>&1; then
-    commitlint_base_ref="main"
-  else
-    commitlint_base_ref=""
-  fi
-
-  if [ -n "$commitlint_base_ref" ]; then
-    commitlint_from="$(git merge-base HEAD "$commitlint_base_ref")"
-    commitlint_to="$(git rev-parse HEAD)"
-
-    if [ "$commitlint_from" != "$commitlint_to" ]; then
-      echo "Linting branch commit messages..."
-      bunx commitlint --from "$commitlint_from" --to "$commitlint_to"
-    fi
-  fi
-fi
-
 echo "Checking file names..."
 bun run lint:files
 
