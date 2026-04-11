@@ -735,6 +735,71 @@ test(
 );
 
 test(
+  "dual panes can share the root container after linking an existing root note into a child container",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none") &&
+        !rightPane.textContent?.includes("userId: none") &&
+        !rightPane.textContent?.includes("session: none") &&
+        !leftPane.textContent?.includes("peerUserId: none") &&
+        !rightPane.textContent?.includes("peerUserId: none"),
+      "Dual pane identities did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
+
+    await createChildContainer(leftPane, "Child");
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "/"));
+    });
+
+    await createInlineNoteWithAttachment(
+      leftPane,
+      "Pre-share linked note",
+      "pre-share-linked.png",
+    );
+    const createdDocumentId = await waitForInlineNoteToSettle(
+      leftPane,
+      "Pre-share linked note",
+      "pre-share-linked.png",
+    );
+
+    await linkOpenNoteToContainer(leftPane, "Child");
+
+    await waitFor(() => {
+      expect(
+        within(leftPane).getByRole("button", {
+          name: "Open linked container /",
+        }),
+      ).toBeTruthy();
+      expect(
+        within(leftPane).getByRole("button", {
+          name: "Open linked container Child",
+        }),
+      ).toBeTruthy();
+    });
+
+    await shareContainerWithPeer(leftPane, "/");
+    await openPeerNoteAndAssertAttachment(
+      rightPane,
+      "Child",
+      createdDocumentId,
+      "Pre-share linked note",
+      "pre-share-linked.png",
+    );
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
   "dual pane explorer can move a child container under another sibling",
   async () => {
     useRealApiHandlers();
