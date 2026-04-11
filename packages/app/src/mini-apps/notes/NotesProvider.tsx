@@ -7,8 +7,6 @@ import {
   DocumentsProvider,
   type DocumentsRuntime,
   primeDocumentStore,
-  requestDomainDocumentSync,
-  subscribeToPersistedDocuments,
   useDocument,
 } from "../../data/documents/DocumentsProvider";
 import type { NoteSummary, NotesPersistence } from "./notesPersistence";
@@ -51,17 +49,6 @@ export function primeNotesStore(
     : never
 ): ReturnType<typeof primeDocumentStore> {
   return primeDocumentStore(domainScope, noteId, runtime, ...rest);
-}
-
-export function requestDomainNotesSync(domainScope: object): void {
-  requestDomainDocumentSync(domainScope);
-}
-
-export function subscribeToPersistedNotes(
-  domainScope: object,
-  listener: (note: NoteSummary) => void,
-): ReturnType<typeof subscribeToPersistedDocuments> {
-  return subscribeToPersistedDocuments(domainScope, listener);
 }
 
 interface NotesProviderProps extends PropsWithChildren {

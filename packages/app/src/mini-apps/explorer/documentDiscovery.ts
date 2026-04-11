@@ -1,7 +1,9 @@
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
-
-import type { NoteSummary } from "../notes/notesPersistence";
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../data/documents/documentsPersistence";
 
 interface ExplorerListedDocument {
   createdAt: string;
@@ -9,14 +11,6 @@ interface ExplorerListedDocument {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
-}
-
-interface DiscoveredNoteInput {
-  accessEpoch: number;
-  containerId: string;
-  createdAt: string;
-  documentId: string;
-  linkedContainerIds: ReadonlyArray<string>;
 }
 
 interface DocumentLinkInput {
@@ -35,9 +29,9 @@ interface DiscoverContainerDocumentsOptions {
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
-  upsertDiscoveredNotes: (
-    inputs: ReadonlyArray<DiscoveredNoteInput>,
-  ) => Promise<ReadonlyArray<NoteSummary>>;
+  upsertDiscoveredDocuments: (
+    inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  ) => Promise<ReadonlyArray<DocumentSummary>>;
 }
 
 interface DiscoverAllContainerDocumentsOptions
@@ -61,8 +55,8 @@ export async function discoverContainerDocuments({
   containerId,
   listContainerDocuments,
   replaceDocumentLinksBatch,
-  upsertDiscoveredNotes,
-}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<NoteSummary> | null> {
+  upsertDiscoveredDocuments,
+}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
   const listedDocuments = await listContainerDocuments(containerId);
   if (!listedDocuments) {
     return null;
@@ -79,7 +73,7 @@ export async function discoverContainerDocuments({
     })),
   );
 
-  return upsertDiscoveredNotes(
+  return upsertDiscoveredDocuments(
     listedDocuments.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       containerId,
@@ -95,8 +89,10 @@ export async function discoverAllContainerDocuments({
   containerIds,
   listContainerDocuments,
   replaceDocumentLinksBatch,
-  upsertDiscoveredNotes,
-}: DiscoverAllContainerDocumentsOptions): Promise<ReadonlyArray<NoteSummary>> {
+  upsertDiscoveredDocuments,
+}: DiscoverAllContainerDocumentsOptions): Promise<
+  ReadonlyArray<DocumentSummary>
+> {
   const uniqueContainerIds = Array.from(new Set(containerIds));
   const listedDocumentsByContainer = await Promise.all(
     uniqueContainerIds.map(async (containerId) => ({
@@ -113,7 +109,7 @@ export async function discoverAllContainerDocuments({
     ),
   );
   const documentLinks: DocumentLinkInput[] = [];
-  const discoveredNoteInputs: DiscoveredNoteInput[] = [];
+  const discoveredDocumentInputs: DiscoveredDocumentInput[] = [];
 
   for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
     if (!listedDocuments) {
@@ -125,7 +121,7 @@ export async function discoverAllContainerDocuments({
         documentId: document.id,
         containerIds: document.linkedContainerIds,
       });
-      discoveredNoteInputs.push({
+      discoveredDocumentInputs.push({
         accessEpoch: document.currentAccessEpoch,
         containerId,
         createdAt: document.createdAt,
@@ -137,9 +133,9 @@ export async function discoverAllContainerDocuments({
 
   await replaceDocumentLinksBatch(documentLinks);
 
-  if (discoveredNoteInputs.length === 0) {
+  if (discoveredDocumentInputs.length === 0) {
     return [];
   }
 
-  return upsertDiscoveredNotes(discoveredNoteInputs);
+  return upsertDiscoveredDocuments(discoveredDocumentInputs);
 }
