@@ -22,9 +22,7 @@ interface StructuredDocumentShape {
   getMap: (key: string) => StructuredDocumentMap;
 }
 
-// Structured document snapshots still store their root map under "note".
-// Renaming that key would require rewriting existing Loro snapshots.
-const DOCUMENT_CONTENT_MAP_KEY = "note";
+const DOCUMENT_CONTENT_MAP_KEY = "content";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
 function isStructuredAttachmentMap(

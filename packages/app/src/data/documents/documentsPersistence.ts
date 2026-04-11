@@ -182,7 +182,6 @@ export interface DocumentsPersistence {
   ) => Promise<void>;
 }
 
-const LEGACY_DOCUMENTS_APP_KIND = "notes";
 export const DOCUMENTS_APP_KIND = "documents";
 
 const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
@@ -259,198 +258,6 @@ function getDocumentScope(localId: string): DocumentScope {
     appKind: DOCUMENTS_APP_KIND,
     localId,
   };
-}
-
-async function doesSqlTableExist(
-  execSql: ExecSql,
-  tableName: string,
-): Promise<boolean> {
-  const rows = await execSql(
-    `
-      SELECT name
-      FROM sqlite_master
-      WHERE type = 'table' AND name = :tableName
-      LIMIT 1
-    `,
-    {
-      ":tableName": tableName,
-    },
-  );
-
-  return rows.length > 0;
-}
-
-async function migrateLegacyDocumentAppKind(execSql: ExecSql): Promise<void> {
-  await execSql(
-    `
-      INSERT OR IGNORE INTO documents (
-        app_kind,
-        local_id,
-        document_id,
-        document_recipient_envelopes,
-        loro_snapshot,
-        access_epoch,
-        updated_at
-      )
-      SELECT
-        :documentsAppKind,
-        local_id,
-        document_id,
-        document_recipient_envelopes,
-        loro_snapshot,
-        access_epoch,
-        updated_at
-      FROM documents
-      WHERE app_kind = :legacyAppKind
-    `,
-    {
-      ":documentsAppKind": DOCUMENTS_APP_KIND,
-      ":legacyAppKind": LEGACY_DOCUMENTS_APP_KIND,
-    },
-  );
-
-  await execSql(
-    `
-      DELETE FROM documents
-      WHERE app_kind = :legacyAppKind
-    `,
-    {
-      ":legacyAppKind": LEGACY_DOCUMENTS_APP_KIND,
-    },
-  );
-
-  await execSql(
-    `
-      UPDATE document_pending_updates
-      SET app_kind = :documentsAppKind
-      WHERE app_kind = :legacyAppKind
-    `,
-    {
-      ":documentsAppKind": DOCUMENTS_APP_KIND,
-      ":legacyAppKind": LEGACY_DOCUMENTS_APP_KIND,
-    },
-  );
-}
-
-async function migrateLegacyProjectionTable(
-  execSql: ExecSql,
-  input: {
-    legacyName: string;
-    migrateSql: string;
-  },
-): Promise<void> {
-  if (!(await doesSqlTableExist(execSql, input.legacyName))) {
-    return;
-  }
-
-  await execSql(input.migrateSql);
-  await execSql(`DROP TABLE ${input.legacyName}`);
-}
-
-async function migrateLegacyProjectionTables(execSql: ExecSql): Promise<void> {
-  await migrateLegacyProjectionTable(execSql, {
-    legacyName: "note_projection",
-    migrateSql: `
-      INSERT OR IGNORE INTO document_projection (
-        local_id,
-        document_id,
-        container_id,
-        text,
-        updated_at
-      )
-      SELECT
-        note_id,
-        document_id,
-        container_id,
-        text,
-        updated_at
-      FROM note_projection
-    `,
-  });
-
-  await migrateLegacyProjectionTable(execSql, {
-    legacyName: "note_pending_attachments",
-    migrateSql: `
-      INSERT OR IGNORE INTO document_pending_attachments (
-        local_id,
-        slot_id,
-        name,
-        mime_type,
-        storage_key,
-        byte_length,
-        created_at
-      )
-      SELECT
-        note_id,
-        slot_id,
-        name,
-        mime_type,
-        storage_key,
-        byte_length,
-        created_at
-      FROM note_pending_attachments
-    `,
-  });
-
-  await migrateLegacyProjectionTable(execSql, {
-    legacyName: "note_attachment_blob_projection",
-    migrateSql: `
-      INSERT OR IGNORE INTO document_attachment_blob_projection (
-        local_id,
-        slot_id,
-        blob_id,
-        storage_key,
-        mime_type,
-        byte_length,
-        updated_at
-      )
-      SELECT
-        note_id,
-        slot_id,
-        blob_id,
-        storage_key,
-        mime_type,
-        byte_length,
-        updated_at
-      FROM note_attachment_blob_projection
-    `,
-  });
-
-  await migrateLegacyProjectionTable(execSql, {
-    legacyName: "note_pending_attachment_rewraps",
-    migrateSql: `
-      INSERT OR IGNORE INTO document_pending_attachment_rewraps (
-        local_id,
-        slot_id,
-        blob_id,
-        created_at
-      )
-      SELECT
-        note_id,
-        slot_id,
-        blob_id,
-        created_at
-      FROM note_pending_attachment_rewraps
-    `,
-  });
-
-  await migrateLegacyProjectionTable(execSql, {
-    legacyName: "note_pending_attachment_replacements",
-    migrateSql: `
-      INSERT OR IGNORE INTO document_pending_attachment_replacements (
-        local_id,
-        slot_id,
-        blob_id,
-        created_at
-      )
-      SELECT
-        note_id,
-        slot_id,
-        blob_id,
-        created_at
-      FROM note_pending_attachment_replacements
-    `,
-  });
 }
 
 function parseProjectionText(row: SqlRow | undefined): string {
@@ -753,12 +560,8 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await runSqlTransaction(lockedExecSql, async () => {
-        await ensureDocumentTables(lockedExecSql);
-        await ensureSqlTables(lockedExecSql, documentProjectionTables);
-        await migrateLegacyDocumentAppKind(lockedExecSql);
-        await migrateLegacyProjectionTables(lockedExecSql);
-      });
+      await ensureDocumentTables(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, documentProjectionTables);
     });
   },
   async listDocuments(execSql) {
