@@ -21,7 +21,10 @@ import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,
 } from "../../data/documentSync";
-import { DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID } from "../drivers-license/driverLicenseDocument";
+import {
+  createEmptyDriverLicenseDocument,
+  DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
+} from "../drivers-license/driverLicenseDocument";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import {
   addNoteAttachments,
@@ -663,6 +666,40 @@ test("notes store creates a document linked to the configured container", async 
       version: 1,
     },
   ]);
+});
+
+test("document store seeds initial text before first persistence", async () => {
+  const persistence = createNotesPersistence();
+  const runtime = createRuntime();
+  const initialText = createEmptyDriverLicenseDocument();
+  const store = createNotesStore(
+    "driver-license",
+    runtime,
+    persistence,
+    undefined,
+    null,
+    initialText,
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Document store did not become ready.",
+  );
+
+  expect(store.getSnapshot()).toEqual({
+    attachments: [],
+    attachmentStatusBySlotId: {},
+    attachmentStorageKeyBySlotId: {},
+    canAttach: false,
+    documentId: null,
+    ready: true,
+    syncing: false,
+    text: initialText,
+  });
+  expect(persistence.getState().note?.text).toBe(initialText);
+  expect(persistence.getState().pendingUpdates).toEqual([]);
 });
 
 test("notes store stages and commits attachments against the note document", async () => {

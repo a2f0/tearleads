@@ -1,28 +1,35 @@
-import { DEFAULT_NOTE_ID, NotesProvider } from "../notes/NotesProvider";
-import type { NoteSummary } from "../notes/notesPersistence";
+import {
+  DEFAULT_DOCUMENT_ID,
+  DocumentsProvider,
+} from "../../data/documents/DocumentsProvider";
+import type { DocumentSummary } from "../../data/documents/documentsPersistence";
 import { DriverLicense } from "./DriverLicense";
+import { createEmptyDriverLicenseDocument } from "./driverLicenseDocument";
 
 interface DriverLicenseAppProps {
   containerId?: string | null;
   documentId?: string | null;
   noteId?: string;
-  onPersistedNote?: (note: NoteSummary) => void;
+  onPersistedNote?: (note: DocumentSummary) => void;
 }
 
 export function DriverLicenseApp({
   containerId,
   documentId,
-  noteId = DEFAULT_NOTE_ID,
+  noteId = DEFAULT_DOCUMENT_ID,
   onPersistedNote,
 }: DriverLicenseAppProps) {
   return (
-    <NotesProvider
-      noteId={noteId}
+    <DocumentsProvider
+      localId={noteId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      {...(onPersistedNote === undefined ? {} : { onPersistedNote })}
+      initialText={createEmptyDriverLicenseDocument()}
+      {...(onPersistedNote === undefined
+        ? {}
+        : { onPersistedDocument: onPersistedNote })}
     >
       <DriverLicense />
-    </NotesProvider>
+    </DocumentsProvider>
   );
 }

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import type { BlobBytes } from "../../data/blob-store";
-import { useAttachmentImageUrls } from "../documents/useAttachmentImageUrls";
+import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
 import { type NoteAttachmentStatus, useNotes } from "./NotesProvider";
 import type { NoteAttachment } from "./noteDocument";
 import "./Notes.css";

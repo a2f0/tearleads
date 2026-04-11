@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import type { BlobStore } from "../../data/blob-store";
-import type { NoteAttachment } from "../notes/noteDocument";
+import type { BlobStore } from "../blob-store";
+import type { DocumentAttachment } from "./documentContent";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
@@ -18,7 +18,7 @@ function revokeAttachmentObjectUrls(
 }
 
 async function buildAttachmentImageState(
-  attachments: ReadonlyArray<NoteAttachment>,
+  attachments: ReadonlyArray<DocumentAttachment>,
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId,
   blobStore: BlobStore,
   currentObjectUrls: ReadonlyMap<string, AttachmentObjectUrlEntry>,
@@ -85,7 +85,7 @@ function applyAttachmentImageState(
 }
 
 export function useAttachmentImageUrls(
-  attachments: ReadonlyArray<NoteAttachment>,
+  attachments: ReadonlyArray<DocumentAttachment>,
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId,
   blobStore: BlobStore,
 ): AttachmentImageUrlBySlotId {

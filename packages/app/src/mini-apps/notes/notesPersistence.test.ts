@@ -3,7 +3,7 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
-import { serializeDriverLicenseDocument } from "../documents/documentKinds";
+import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
