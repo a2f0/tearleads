@@ -1770,7 +1770,9 @@ async function requestDocumentSync(
     localVersionVector: encodeVersionVector(currentDoc),
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument,
+    syncDocument: state.runtime.apiClient.syncDocument.bind(
+      state.runtime.apiClient,
+    ),
     synced,
   });
 
@@ -1814,7 +1816,9 @@ async function requestDocumentSyncProbe(
     localVersionVector: encodeVersionVector(currentDoc),
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument,
+    syncDocument: state.runtime.apiClient.syncDocument.bind(
+      state.runtime.apiClient,
+    ),
     synced,
   });
 

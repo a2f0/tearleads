@@ -975,9 +975,7 @@ async function syncSingleContainerMetadata(
       : undefined,
   );
 
-  if (!synced) {
-    return;
-  }
+  if (!synced) return;
 
   synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
     currentAccessEpoch: containerState.record.accessEpoch,
@@ -987,7 +985,9 @@ async function syncSingleContainerMetadata(
     localVersionVector: encodeVersionVector(containerState.doc),
     recipientPublicKeys: containerState.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument,
+    syncDocument: state.runtime.apiClient.syncDocument.bind(
+      state.runtime.apiClient,
+    ),
     synced,
   });
 
