@@ -61,14 +61,15 @@ async function openExplorer(view: ReturnType<typeof renderPane>) {
   });
 
   invariant(explorerWindow, "explorer window not found");
+  const readyExplorerWindow = explorerWindow;
 
   await waitFor(() => {
     expect(
-      within(explorerWindow).getByRole("button", { name: "New Note" }),
+      within(readyExplorerWindow).getByRole("button", { name: "New Note" }),
     ).toBeTruthy();
   });
 
-  return explorerWindow;
+  return readyExplorerWindow;
 }
 
 function listExplorerNoteItems(
