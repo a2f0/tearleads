@@ -238,6 +238,122 @@ For that reason, the better design is:
 - compact baseline for current sync
 - separate tamper-evident history log
 
+## Proposed Implementation Decomposition
+
+The current code already has clear live-state seams:
+
+- encrypted live document updates live in `document_updates`
+- causal sync indexing lives in `document_update_spans`
+- live blob reachability lives in `attachment_bindings`
+- current access-plane material lives in `object_access_epochs` and
+  `object_recipient_envelopes`
+- live blob bytes live in `blobs`
+
+Those tables should remain optimized for current sync and current access state.
+The audit/history work should add separate history-specific persistence instead
+of trying to reinterpret live GC tables as durable history.
+
+### Phase 1: Audit Model And Storage Boundary
+
+Write the concrete design and schema boundary for the audit layer.
+
+Deliverables:
+
+- explicit split between live-state tables and history tables
+- baseline/checkpoint metadata model
+- attachment/blob history model
+- historical access-material model for old epochs if historical replay needs
+  old wrapped keys
+
+This phase should answer naming and storage questions before we start writing
+dual-path persistence code into the sync and `commit-change` paths.
+
+### Phase 2: Baseline Checkpoints Commit To History
+
+Persist explicit baseline/checkpoint records that commit to the history they
+cover.
+
+Those records should include metadata such as:
+
+- source frontier / version vector
+- current access epoch
+- previous baseline hash
+- last included audit entry hash or history-root hash
+- author or device identity for the checkpoint write
+
+This phase builds on the current rotate-baseline validation that already exists
+in `documentSyncStore.ts` and `commitDocumentChange.ts`.
+
+### Phase 3: Tamper-Evident Document Update Ledger
+
+Record one immutable audit entry for every accepted document update.
+
+That ledger should be append-only and tamper-evident, for example with:
+
+- per-entry hashes linked to the previous entry
+- update metadata copied from the live sync path
+- author or device signatures if we decide to require them
+- access epoch and visible causal metadata
+
+The important boundary is that `document_updates` stays the live sync store,
+while the new ledger is the durable audit record.
+
+### Phase 4: Attachment And Blob Audit History
+
+Record immutable attachment-history events for:
+
+- attach
+- replace / same-slot rebind
+- detach
+- blob rewrap or epoch transitions if historical blob access needs them
+
+`attachment_bindings` should remain the live projection of current bindings.
+Detached bindings should not become the history mechanism. Historical manifests,
+tombstones, and optional retained old blob bytes belong in the new audit layer.
+
+### Phase 5: Historical Access Material
+
+If historical replay or historical attachment download is a product
+requirement, keep historical wrapped-key material separate from the current
+access-plane rows.
+
+That likely means:
+
+- current `object_access_epochs` and `object_recipient_envelopes` remain the
+  canonical live-access tables
+- history-specific bundle or envelope storage persists the material needed to
+  verify or decrypt retained historical objects
+
+This should not overload the current access-plane tables with mixed live and
+historical semantics.
+
+### Phase 6: Audit Read / Verification Surfaces
+
+Only after the write-side model is stable should we add read paths such as:
+
+- audit export or verification APIs
+- baseline checkpoint verification
+- historical attachment manifest inspection
+- optional fresh-client historical replay
+
+Fresh-client historical replay is a later slice. It should not block the core
+write-side audit model.
+
+## Recommended Next Slice
+
+The next concrete step should be Phase 1:
+
+- write the schema/design note for the audit tables and checkpoint model
+- decide whether signatures are per-user, per-device, or both
+- decide whether historical blob retention keeps old bytes, tombstones only, or
+  retained manifests plus a retention window
+- decide whether historical replay is in scope for the first implementation or
+  explicitly deferred
+
+Once those answers exist, the first implementation PR should be baseline
+checkpoint persistence, because it is the smallest write-path change that makes
+the later audit ledger verifiable.
+
 ## Open Questions
 
 - Should fresh retained clients be able to rematerialize old epochs directly
