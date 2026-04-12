@@ -63,6 +63,7 @@ interface ProjectionLengthRow {
 
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
+  commitLsn?: string | null;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -77,7 +78,7 @@ function createSyncDocumentResponse(input: {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
     canonicalDocumentRecipientEnvelopesAdopted:
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
-    commitLsn: null,
+    commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
@@ -1507,6 +1508,87 @@ test("notes store rewraps document access expansion without replacing pending up
   expect(syncDocumentCalls[3]?.outgoingUpdateIds).toEqual(
     syncDocumentCalls[1]?.outgoingUpdateIds,
   );
+});
+
+test("notes store persists commitLsn and reuses it as minLsn on the next sync", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const syncDocumentCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  let syncCallCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const instrumentedRuntime: NotesRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+        minLsn,
+      ) => {
+        syncCallCount += 1;
+        syncDocumentCalls.push({
+          minLsn: minLsn ?? null,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        return createSyncDocumentResponse({
+          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          accessEpoch,
+          commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
+          documentId,
+          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(encapsulationKeyPair.publicKey),
+          ],
+        });
+      },
+    },
+  };
+  const store = createNotesStore("default", instrumentedRuntime, persistence);
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Notes sync store did not become ready.",
+  );
+
+  store.setText("hello");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.lastCommitLsn === "0/10",
+    "Initial note document sync did not persist the returned commitLsn.",
+  );
+
+  store.setText("hello again");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 2 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().note?.lastCommitLsn === "0/20",
+    "Follow-up note sync did not reuse and refresh the persisted commitLsn.",
+  );
+
+  expect(syncDocumentCalls).toEqual([
+    {
+      minLsn: null,
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/10",
+      outgoingUpdateCount: 1,
+    },
+  ]);
 });
 
 test("notes store does not invent document recipient envelopes during read-only sync", async () => {

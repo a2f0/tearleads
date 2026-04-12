@@ -38,6 +38,7 @@ export async function persistRegistrationBootstrap(
         input.rootMetadataRecipientEnvelopes,
       ),
       id: input.containerId,
+      lastCommitLsn: null,
       loroSnapshot: input.rootMetadataSnapshot,
     };
     await sqlExplorerPersistence.saveContainer(

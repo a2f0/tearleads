@@ -135,7 +135,8 @@ export const sqlContactsPersistence: ContactsPersistence = {
           documents.document_id,
           documents.document_recipient_envelopes,
           documents.loro_snapshot,
-          documents.access_epoch
+          documents.access_epoch,
+          documents.last_commit_lsn
         FROM address_book_projection AS projection
         LEFT JOIN documents
           ON documents.app_kind = :appKind

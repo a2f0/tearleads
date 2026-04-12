@@ -78,6 +78,19 @@ type SyncDocumentRecipientEnvelopes = Parameters<
 type DocumentRecipientEnvelopes = ReturnType<
   typeof parseDocumentRecipientEnvelopes
 >;
+type DocumentEncryptionMaterial = Awaited<
+  ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
+>;
+type ExplorerSyncDocumentResponse = NonNullable<
+  Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
+>;
+
+interface ContainerMetadataSyncAttempt {
+  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
+  encryptionMaterial: DocumentEncryptionMaterial | null;
+  outgoingUpdates: SyncDocumentOutgoingUpdates;
+  synced: ExplorerSyncDocumentResponse;
+}
 
 interface ExplorerContextValue {
   createChild: (
@@ -300,6 +313,7 @@ async function persistContainerState(
     documentId: string | null;
     documentRecipientEnvelopes: string | null;
     icon: string | null;
+    lastCommitLsn: string | null;
     metadataDocumentId: string | null;
     loroSnapshot: string;
     name: string;
@@ -312,6 +326,9 @@ async function persistContainerState(
     patch,
     "documentRecipientEnvelopes",
   );
+  const currentDocumentId = containerState.record.documentId ?? null;
+  const nextDocumentId = patch.documentId ?? currentDocumentId;
+  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
   const nextAccessEpoch =
     patch.accessEpoch ?? containerState.record.accessEpoch;
   const metadata = readContainerMetadataValue(
@@ -332,7 +349,7 @@ async function persistContainerState(
   };
   const nextRecord: DocumentRecord = {
     id: containerState.container.id,
-    documentId: patch.documentId ?? containerState.record.documentId,
+    documentId: nextDocumentId,
     documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
       ? (patch.documentRecipientEnvelopes ?? null)
       : nextAccessEpoch !== containerState.record.accessEpoch
@@ -341,6 +358,11 @@ async function persistContainerState(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
     accessEpoch: nextAccessEpoch,
+    lastCommitLsn: hasLastCommitLsnPatch
+      ? (patch.lastCommitLsn ?? null)
+      : nextDocumentId !== currentDocumentId
+        ? null
+        : (containerState.record.lastCommitLsn ?? null),
   };
 
   await state.persistence.saveContainer(
@@ -376,6 +398,7 @@ function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
         localVersionVector: string,
         outgoingUpdates: SyncDocumentOutgoingUpdates,
         documentRecipientEnvelopes: SyncDocumentRecipientEnvelopes,
+        minLsn?: string,
       ) =>
         state.runtime.apiClient.syncDocument(
           documentId,
@@ -383,6 +406,7 @@ function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
           localVersionVector,
           outgoingUpdates,
           documentRecipientEnvelopes,
+          minLsn,
         ),
     },
     blobStore: state.runtime.blobStore,
@@ -647,6 +671,7 @@ async function upsertRemoteContainerState(
       documentId: remoteContainer.metadataDocumentId,
       documentRecipientEnvelopes: null,
       id: remoteContainer.id,
+      lastCommitLsn: null,
       loroSnapshot: initialSnapshot,
     },
   };
@@ -741,6 +766,7 @@ async function initializeExplorerStore(
         documentId: container.metadataDocumentId,
         documentRecipientEnvelopes: null,
         id: container.id,
+        lastCommitLsn: null,
         loroSnapshot: bytesToBase64(initialUpdate),
       };
       await state.persistence.saveContainer(
@@ -947,13 +973,12 @@ async function syncSingleContainerMetadata(
   containerState: ContainerState,
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
 ) {
-  const pendingUpdates = await listPendingContainerUpdates(
+  const syncAttempt = await requestContainerMetadataSync(
     state,
-    containerState.container.id,
+    containerState,
+    encapsulationKeyPair,
   );
-  const documentId = containerState.record.documentId;
-
-  if (!documentId) {
+  if (!syncAttempt) {
     return;
   }
 
@@ -961,38 +986,8 @@ async function syncSingleContainerMetadata(
     currentDocumentRecipientEnvelopes,
     encryptionMaterial,
     outgoingUpdates,
-  } = await buildOutgoingContainerSync(
-    containerState,
-    state.runtime.execSql,
-    pendingUpdates,
-    encapsulationKeyPair.secretKey,
-  );
-
-  let synced = await state.runtime.apiClient.syncDocument(
-    documentId,
-    containerState.record.accessEpoch,
-    encodeVersionVector(containerState.doc),
-    outgoingUpdates,
-    encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : undefined,
-  );
-
-  if (!synced) return;
-
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: containerState.record.accessEpoch,
-    currentDocumentRecipientEnvelopes,
-    documentId,
-    execSql: state.runtime.execSql,
-    localVersionVector: encodeVersionVector(containerState.doc),
-    recipientPublicKeys: containerState.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument.bind(
-      state.runtime.apiClient,
-    ),
     synced,
-  });
+  } = syncAttempt;
 
   await state.runtime.cacheReferencedPrincipalPolicies(
     synced.referencedPrincipals,
@@ -1018,11 +1013,13 @@ async function syncSingleContainerMetadata(
     });
   await persistContainerState(state, containerState, {
     accessEpoch: synced.currentAccessEpoch,
-    documentId,
+    documentId: containerState.record.documentId,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),
-    metadataDocumentId: documentId,
+    lastCommitLsn:
+      synced.commitLsn ?? containerState.record.lastCommitLsn ?? null,
+    metadataDocumentId: containerState.record.documentId,
   });
 
   await handleSyncedContainerEpochChange({
@@ -1039,6 +1036,70 @@ async function syncSingleContainerMetadata(
   ) {
     state.syncRequested = true;
   }
+}
+
+async function requestContainerMetadataSync(
+  state: ExplorerStoreState,
+  containerState: ContainerState,
+  encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
+): Promise<ContainerMetadataSyncAttempt | null> {
+  const pendingUpdates = await listPendingContainerUpdates(
+    state,
+    containerState.container.id,
+  );
+  const documentId = containerState.record.documentId;
+
+  if (!documentId) {
+    return null;
+  }
+
+  const {
+    currentDocumentRecipientEnvelopes,
+    encryptionMaterial,
+    outgoingUpdates,
+  } = await buildOutgoingContainerSync(
+    containerState,
+    state.runtime.execSql,
+    pendingUpdates,
+    encapsulationKeyPair.secretKey,
+  );
+
+  let synced = await state.runtime.apiClient.syncDocument(
+    documentId,
+    containerState.record.accessEpoch,
+    encodeVersionVector(containerState.doc),
+    outgoingUpdates,
+    encryptionMaterial && currentDocumentRecipientEnvelopes === null
+      ? encryptionMaterial.documentRecipientEnvelopes
+      : undefined,
+    containerState.record.lastCommitLsn ?? undefined,
+  );
+
+  if (!synced) {
+    return null;
+  }
+
+  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
+    currentAccessEpoch: containerState.record.accessEpoch,
+    currentDocumentRecipientEnvelopes,
+    documentId,
+    execSql: state.runtime.execSql,
+    localVersionVector: encodeVersionVector(containerState.doc),
+    minLsn: containerState.record.lastCommitLsn ?? undefined,
+    recipientPublicKeys: containerState.recipientPublicKeys,
+    secretKey: encapsulationKeyPair.secretKey,
+    syncDocument: state.runtime.apiClient.syncDocument.bind(
+      state.runtime.apiClient,
+    ),
+    synced,
+  });
+
+  return {
+    currentDocumentRecipientEnvelopes,
+    encryptionMaterial,
+    synced,
+    outgoingUpdates,
+  };
 }
 
 async function runExplorerSyncIteration(state: ExplorerStoreState) {
@@ -1241,6 +1302,7 @@ async function createChildContainer(
     documentId: null,
     documentRecipientEnvelopes: null,
     id: childId,
+    lastCommitLsn: null,
     loroSnapshot: bytesToBase64(initialUpdate),
   };
   const childState =

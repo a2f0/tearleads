@@ -68,10 +68,11 @@ composite index also covers document-only lookups. Append paths now write the
 encrypted update row and visible span rows in the same transaction, and the
 sync route now asks Postgres for only the updates whose causal span is not yet
 covered by the client's frontier instead of loading full document history into
-application memory. Sync responses include a `commitLsn` when the request
-acknowledged current-epoch writes, `null` when the route only served a read,
-and sync requests may include `minLsn` as a forward-compatible consistency hook
-for later replica-safe read-after-write behavior.
+application memory. Sync responses now always include a `commitLsn`: accepted
+current-epoch writes return the append LSN, and read-only syncs return the
+current WAL LSN observed after the missing-update read. Sync requests may
+include `minLsn` as a forward-compatible consistency hook for later
+replica-safe read-after-write behavior.
 
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
@@ -150,10 +151,9 @@ Important remaining limitation:
 - container/document discovery and Loro create/sync responses now expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
-- the current app explorer now renders linked note projections beneath each
-  linked container, exposes note link/unlink management, and can switch which
-  linked container is locally active; generic multi-link document-management UI
-  beyond notes remains future work
+- the current app explorer now renders linked document projections beneath each
+  linked container, exposes document link/unlink management, and can switch
+  which linked container is locally active
 - subtractive rotation for document epochs still uses the current
   fresh-baseline path with source-frontier validation; durable audit/history
   hardening remains future work

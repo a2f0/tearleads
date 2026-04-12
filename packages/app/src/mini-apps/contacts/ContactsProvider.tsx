@@ -220,19 +220,27 @@ async function persistContact(
   contact: ContactState,
   patch: Partial<DocumentRecord> = {},
 ): Promise<DocumentRecord> {
+  const currentDocumentId = contact.record.documentId ?? null;
+  const nextDocumentId = patch.documentId ?? currentDocumentId;
   const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
     patch,
     "documentRecipientEnvelopes",
   );
+  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
   const nextRecord: DocumentRecord = {
     id: contact.entry.userId,
-    documentId: patch.documentId ?? contact.record.documentId ?? null,
+    documentId: nextDocumentId,
     documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
       ? (patch.documentRecipientEnvelopes ?? null)
       : (contact.record.documentRecipientEnvelopes ?? null),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
     accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
+    lastCommitLsn: hasLastCommitLsnPatch
+      ? (patch.lastCommitLsn ?? null)
+      : nextDocumentId !== currentDocumentId
+        ? null
+        : (contact.record.lastCommitLsn ?? null),
   };
 
   await state.persistence.saveContact(
@@ -323,6 +331,7 @@ async function initializeStoredContact(
       documentRecipientEnvelopes: null,
       loroSnapshot: bytesToBase64(initialUpdate),
       accessEpoch: 1,
+      lastCommitLsn: null,
     };
     await state.persistence.saveContact(
       state.runtime.execSql,
@@ -583,6 +592,7 @@ async function applySyncedContactUpdates(
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),
+    lastCommitLsn: synced.commitLsn ?? contact.record.lastCommitLsn ?? null,
   });
 
   if (synced.currentAccessEpoch !== previousAccessEpoch) {
@@ -647,6 +657,7 @@ async function syncSingleContact(
     encryptionMaterial && currentDocumentRecipientEnvelopes === null
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
+    contact.record.lastCommitLsn ?? undefined,
   );
 
   if (!synced) {
@@ -659,6 +670,7 @@ async function syncSingleContact(
     documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(contact.doc),
+    minLsn: contact.record.lastCommitLsn ?? undefined,
     recipientPublicKeys: contact.recipientPublicKeys,
     secretKey,
     syncDocument: state.runtime.apiClient.syncDocument,
@@ -798,6 +810,7 @@ async function importContactEntry(
         documentRecipientEnvelopes: null,
         loroSnapshot: bytesToBase64(initialUpdate),
         accessEpoch: 1,
+        lastCommitLsn: null,
       },
     };
 

@@ -280,7 +280,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   );
   expect(bobFetchResponse.status).toBe(200);
   const bobFetched = await bobFetchResponse.json();
-  expect(bobFetched.commitLsn).toBeNull();
+  expect(bobFetched.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/);
   expect(bobFetched.updates.length).toBe(1);
   expect(bobFetched.missingUpdateEpochs).toEqual(["current_epoch"]);
   expect(bobFetched.updates).toEqual(
