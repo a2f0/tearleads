@@ -48,9 +48,9 @@ interface ExplorerTreeEntry {
 type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
-  | { mode: "link-note"; noteId: string }
+  | { mode: "link-document"; documentLocalId: string }
   | { mode: "move"; nodeId: string }
-  | { mode: "move-note"; noteId: string }
+  | { mode: "move-document"; documentLocalId: string }
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
 
@@ -61,7 +61,7 @@ interface MoveTargetOption {
 
 interface DocumentContainerProjection {
   containerId: string;
-  documentId: string;
+  localId: string;
   title: string;
   updatedAt: string;
 }
@@ -444,10 +444,10 @@ function renderTreeEntries(
           )}
         {!isCollapsed
           ? (documentsByContainerId.get(entry.node.id) ?? []).map(
-              ({ containerId, documentId, title }) => (
+              ({ containerId, localId, title }) => (
                 <div
                   className="explorer-sidebar-row"
-                  key={`${documentId}:${containerId}`}
+                  key={`${localId}:${containerId}`}
                   style={{
                     paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
                   }}
@@ -455,15 +455,15 @@ function renderTreeEntries(
                   <span className="explorer-node-spacer" aria-hidden="true" />
                   <button
                     type="button"
-                    data-document-id={documentId}
+                    data-document-local-id={localId}
                     className={
                       "explorer-sidebar-item explorer-sidebar-item--note" +
-                      (selectedId === documentId &&
+                      (selectedId === localId &&
                       activeContainerId === containerId
                         ? " explorer-sidebar-item--selected"
                         : "")
                     }
-                    onClick={() => onSelectDocument(documentId, containerId)}
+                    onClick={() => onSelectDocument(localId, containerId)}
                   >
                     {title}
                   </button>
@@ -511,7 +511,7 @@ export function buildDocumentsByContainerId(
         nextDocumentsByContainerId.get(containerId) ?? [];
       existingDocuments.push({
         containerId,
-        documentId: documentSummary.id,
+        localId: documentSummary.id,
         title: documentSummary.title,
         updatedAt: documentSummary.updatedAt,
       });
@@ -988,7 +988,7 @@ function useDocumentLinkedContainerIdsByDocumentId(params: {
   return { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument };
 }
 
-function useDiscoveredNotesSync(params: {
+function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   apiClient: ReturnType<typeof useAppData>["apiClient"];
   blobStore: ReturnType<typeof useAppData>["blobStore"];
@@ -1033,7 +1033,7 @@ function useDiscoveredNotesSync(params: {
     online,
     replaceDocumentLinksBatch,
   } = params;
-  const { primeDiscoveredNotes } = usePrimeDiscoveredNotes({
+  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
     apiClient,
     blobStore,
     cacheReferencedPrincipalPolicies,
@@ -1053,7 +1053,7 @@ function useDiscoveredNotesSync(params: {
 
       void (async () => {
         try {
-          const discoveredNoteSummaries = await discoverContainerDocuments({
+          const discoveredDocumentSummaries = await discoverContainerDocuments({
             cacheReferencedPrincipalPolicies,
             containerId,
             listContainerDocuments: (nextContainerId) =>
@@ -1063,12 +1063,12 @@ function useDiscoveredNotesSync(params: {
               upsertDiscoveredDocuments(execSql, inputs),
           });
 
-          if (!discoveredNoteSummaries || cancelled) {
+          if (!discoveredDocumentSummaries || cancelled) {
             return;
           }
 
-          mergeDocumentSummaries(discoveredNoteSummaries);
-          primeDiscoveredNotes(discoveredNoteSummaries);
+          mergeDocumentSummaries(discoveredDocumentSummaries);
+          primeDiscoveredDocuments(discoveredDocumentSummaries);
         } catch (error: unknown) {
           if (!isDestroyedDatabaseWorkerError(error)) {
             throw error;
@@ -1085,7 +1085,7 @@ function useDiscoveredNotesSync(params: {
       cacheReferencedPrincipalPolicies,
       execSql,
       mergeDocumentSummaries,
-      primeDiscoveredNotes,
+      primeDiscoveredDocuments,
       replaceDocumentLinksBatch,
     ],
   );
@@ -1100,7 +1100,7 @@ function useDiscoveredNotesSync(params: {
     online,
   });
 
-  return { primeDiscoveredNotes };
+  return { primeDiscoveredDocuments };
 }
 
 function useContainerDiscoveryEffects(params: {
@@ -1166,7 +1166,7 @@ function useContainerDiscoveryEffects(params: {
   ]);
 }
 
-function usePrimeDiscoveredNotes(params: {
+function usePrimeDiscoveredDocuments(params: {
   apiClient: ReturnType<typeof useAppData>["apiClient"];
   blobStore: ReturnType<typeof useAppData>["blobStore"];
   cacheReferencedPrincipalPolicies: ReturnType<
@@ -1195,14 +1195,14 @@ function usePrimeDiscoveredNotes(params: {
     online,
   } = params;
 
-  const primeDiscoveredNotes = useCallback(
-    (discoveredNoteSummaries: ReadonlyArray<DocumentSummary>) => {
-      for (const documentSummary of discoveredNoteSummaries) {
+  const primeDiscoveredDocuments = useCallback(
+    (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
+      for (const documentSummary of discoveredDocumentSummaries) {
         if (!documentSummary.containerId) {
           continue;
         }
 
-        const notesStore = primeDocumentStore(
+        const documentStore = primeDocumentStore(
           domainScope,
           documentSummary.id,
           createDocumentsRuntimeFromExplorer(
@@ -1221,7 +1221,7 @@ function usePrimeDiscoveredNotes(params: {
           mergeDocumentSummary,
           documentSummary.documentId,
         );
-        notesStore.requestSync();
+        documentStore.requestSync();
       }
     },
     [
@@ -1239,7 +1239,7 @@ function usePrimeDiscoveredNotes(params: {
     ],
   );
 
-  return { primeDiscoveredNotes };
+  return { primeDiscoveredDocuments };
 }
 
 function useExplorerRefreshAction(params: {
@@ -1251,7 +1251,9 @@ function useExplorerRefreshAction(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  primeDiscoveredNotes: (nextDocuments: ReadonlyArray<DocumentSummary>) => void;
+  primeDiscoveredDocuments: (
+    nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => void;
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<{
       containerIds: ReadonlyArray<string>;
@@ -1265,7 +1267,7 @@ function useExplorerRefreshAction(params: {
     cacheReferencedPrincipalPolicies,
     execSql,
     mergeDocumentSummaries,
-    primeDiscoveredNotes,
+    primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
   } = params;
@@ -1289,7 +1291,7 @@ function useExplorerRefreshAction(params: {
         return;
       }
 
-      const discoveredNoteSummaries = await discoverAllContainerDocuments({
+      const discoveredDocumentSummaries = await discoverAllContainerDocuments({
         cacheReferencedPrincipalPolicies,
         containerIds: remoteContainers.map((container) => container.id),
         listContainerDocuments: (containerId) =>
@@ -1299,8 +1301,8 @@ function useExplorerRefreshAction(params: {
           upsertDiscoveredDocuments(execSql, inputs),
       });
 
-      mergeDocumentSummaries(discoveredNoteSummaries);
-      primeDiscoveredNotes(discoveredNoteSummaries);
+      mergeDocumentSummaries(discoveredDocumentSummaries);
+      primeDiscoveredDocuments(discoveredDocumentSummaries);
     } catch (error: unknown) {
       if (!isDestroyedDatabaseWorkerError(error)) {
         console.error("Failed to refresh explorer:", error);
@@ -1314,7 +1316,7 @@ function useExplorerRefreshAction(params: {
     cacheReferencedPrincipalPolicies,
     execSql,
     mergeDocumentSummaries,
-    primeDiscoveredNotes,
+    primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
   ]);
@@ -1330,11 +1332,11 @@ function getExplorerModalError(mode: ExplorerModalState["mode"]): string {
       return "Failed to rename container.";
     case "delete":
       return "Failed to delete container.";
-    case "link-note":
+    case "link-document":
       return "Failed to link document.";
     case "move":
       return "Failed to move container.";
-    case "move-note":
+    case "move-document":
       return "Failed to move document.";
     case "share-peer":
       return "Failed to share container with peer.";
@@ -1349,11 +1351,11 @@ function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
       return "Failed to rename container:";
     case "delete":
       return "Failed to delete container:";
-    case "link-note":
+    case "link-document":
       return "Failed to link document:";
     case "move":
       return "Failed to move container:";
-    case "move-note":
+    case "move-document":
       return "Failed to move document:";
     case "share-peer":
       return "Failed to share container with peer:";
@@ -1513,9 +1515,9 @@ function useExplorerModalEffects(params: {
     if (
       !modalState ||
       modalState.mode === "delete" ||
-      modalState.mode === "link-note" ||
+      modalState.mode === "link-document" ||
       modalState.mode === "move" ||
-      modalState.mode === "move-note" ||
+      modalState.mode === "move-document" ||
       modalState.mode === "share-peer"
     ) {
       return;
@@ -1583,17 +1585,17 @@ function useExplorerTargetModalOpeners(params: {
   );
 
   const openMoveDocumentModal = useCallback(
-    (noteId: string) => {
+    (documentLocalId: string) => {
       const moveTargetOptions = getDocumentMoveTargetOptions(
         nodes,
         documentSummaries,
-        noteId,
+        documentLocalId,
       );
       if (moveTargetOptions.length === 0) {
         return;
       }
 
-      setModalState({ mode: "move-note", noteId });
+      setModalState({ mode: "move-document", documentLocalId });
       setModalError(null);
       setDraftName("");
       setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
@@ -1609,18 +1611,18 @@ function useExplorerTargetModalOpeners(params: {
   );
 
   const openLinkDocumentModal = useCallback(
-    (noteId: string) => {
+    (documentLocalId: string) => {
       const linkTargetOptions = getDocumentLinkTargetOptions(
         nodes,
         documentSummaries,
-        noteId,
+        documentLocalId,
         selectedDocumentLinkedContainerIds,
       );
       if (linkTargetOptions.length === 0) {
         return;
       }
 
-      setModalState({ mode: "link-note", noteId });
+      setModalState({ mode: "link-document", documentLocalId });
       setModalError(null);
       setDraftName("");
       setDraftTargetContainerId(linkTargetOptions[0]?.id ?? "");
@@ -1818,15 +1820,15 @@ interface ExplorerModalSubmitParams {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
-async function submitExplorerMoveNoteModal(params: {
+async function submitExplorerMoveDocumentModal(params: {
   clearModal: () => void;
   linkDocument: (
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState:
-    | { mode: "link-note"; noteId: string }
-    | { mode: "move-note"; noteId: string };
+    | { mode: "link-document"; documentLocalId: string }
+    | { mode: "move-document"; documentLocalId: string };
   moveDocument: (
     noteId: string,
     targetContainerId: string,
@@ -1850,20 +1852,20 @@ async function submitExplorerMoveNoteModal(params: {
     return;
   }
 
-  const movedNote =
-    modalState.mode === "link-note"
-      ? await linkDocument(modalState.noteId, targetContainerId)
-      : await moveDocument(modalState.noteId, targetContainerId);
-  if (!movedNote) {
+  const movedDocument =
+    modalState.mode === "link-document"
+      ? await linkDocument(modalState.documentLocalId, targetContainerId)
+      : await moveDocument(modalState.documentLocalId, targetContainerId);
+  if (!movedDocument) {
     setModalError(
-      modalState.mode === "link-note"
+      modalState.mode === "link-document"
         ? "Failed to link document."
         : "Failed to move document.",
     );
     return;
   }
 
-  setSelectedId(movedNote.id);
+  setSelectedId(movedDocument.id);
   clearModal();
 }
 
@@ -1873,9 +1875,9 @@ async function submitExplorerNonNameModal(params: {
   draftTargetContainerId: string;
   modalState:
     | { mode: "delete"; nodeId: string }
-    | { mode: "link-note"; noteId: string }
+    | { mode: "link-document"; documentLocalId: string }
     | { mode: "move"; nodeId: string }
-    | { mode: "move-note"; noteId: string }
+    | { mode: "move-document"; documentLocalId: string }
     | { mode: "share-peer"; nodeId: string };
   linkDocument: (
     noteId: string,
@@ -1918,9 +1920,9 @@ async function submitExplorerNonNameModal(params: {
         targetContainerId: params.draftTargetContainerId,
       });
       return;
-    case "link-note":
-    case "move-note":
-      await submitExplorerMoveNoteModal({
+    case "link-document":
+    case "move-document":
+      await submitExplorerMoveDocumentModal({
         clearModal: params.clearModal,
         linkDocument: params.linkDocument,
         modalState,
@@ -2087,18 +2089,18 @@ function useExplorerModalController(params: {
   const moveTargetOptions =
     modalState.modalState?.mode === "move"
       ? getMoveTargetOptions(params.nodes, modalState.modalState.nodeId)
-      : modalState.modalState?.mode === "link-note"
+      : modalState.modalState?.mode === "link-document"
         ? getDocumentLinkTargetOptions(
             params.nodes,
             params.documentSummaries,
-            modalState.modalState.noteId,
+            modalState.modalState.documentLocalId,
             params.selectedDocumentLinkedContainerIds,
           )
-        : modalState.modalState?.mode === "move-note"
+        : modalState.modalState?.mode === "move-document"
           ? getDocumentMoveTargetOptions(
               params.nodes,
               params.documentSummaries,
-              modalState.modalState.noteId,
+              modalState.modalState.documentLocalId,
             )
           : [];
   const handleModalSubmit = useExplorerModalSubmit({
@@ -2313,7 +2315,7 @@ function useInlineDocumentOpeners(params: {
   };
 }
 
-function useExplorerNoteModalState(params: {
+function useExplorerDocumentModalState(params: {
   explorer: ReturnType<typeof useExplorer>;
   linkDocument: (
     noteId: string,
@@ -2905,8 +2907,8 @@ function getLinkedContainerDetails(
 }
 
 function ExplorerDocumentDetailActions(params: {
-  canLinkSelectedNote: boolean;
-  canMoveSelectedNote: boolean;
+  canLinkSelectedDocument: boolean;
+  canMoveSelectedDocument: boolean;
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
   openLinkDocumentModal: (noteId: string) => void;
@@ -2916,8 +2918,8 @@ function ExplorerDocumentDetailActions(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
-    canLinkSelectedNote,
-    canMoveSelectedNote,
+    canLinkSelectedDocument,
+    canMoveSelectedDocument,
     handleRefresh,
     isRefreshing,
     openLinkDocumentModal,
@@ -2943,7 +2945,7 @@ function ExplorerDocumentDetailActions(params: {
       <button
         type="button"
         className="explorer-action-button"
-        disabled={!canLinkSelectedNote}
+        disabled={!canLinkSelectedDocument}
         onClick={() => {
           openLinkDocumentModal(selectedDocument.id);
         }}
@@ -2953,7 +2955,7 @@ function ExplorerDocumentDetailActions(params: {
       <button
         type="button"
         className="explorer-action-button"
-        disabled={!canMoveSelectedNote}
+        disabled={!canMoveSelectedDocument}
         onClick={() => {
           openMoveDocumentModal(selectedDocument.id);
         }}
@@ -2979,8 +2981,8 @@ function ExplorerLinkedContainerSection(params: {
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
-  canActivateSelectedNote: boolean;
-  canUnlinkSelectedNote: boolean;
+  canActivateSelectedDocument: boolean;
+  canUnlinkSelectedDocument: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   selectedDocument: DocumentSummary;
@@ -2992,8 +2994,8 @@ function ExplorerLinkedContainerSection(params: {
 }) {
   const {
     activateLinkedContainer,
-    canActivateSelectedNote,
-    canUnlinkSelectedNote,
+    canActivateSelectedDocument,
+    canUnlinkSelectedDocument,
     linkedContainerIds,
     nodes,
     selectedDocument,
@@ -3021,8 +3023,8 @@ function ExplorerLinkedContainerSection(params: {
           <ExplorerLinkedContainerRow
             activateLinkedContainer={activateLinkedContainer}
             activatingContainerId={activatingContainerId}
-            canActivateSelectedNote={canActivateSelectedNote}
-            canUnlinkSelectedNote={canUnlinkSelectedNote}
+            canActivateSelectedDocument={canActivateSelectedDocument}
+            canUnlinkSelectedDocument={canUnlinkSelectedDocument}
             key={linkedContainer.id}
             linkedContainer={linkedContainer}
             selectedDocumentId={selectedDocument.id}
@@ -3048,8 +3050,8 @@ function ExplorerLinkedContainerRow(params: {
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   activatingContainerId: string | null;
-  canActivateSelectedNote: boolean;
-  canUnlinkSelectedNote: boolean;
+  canActivateSelectedDocument: boolean;
+  canUnlinkSelectedDocument: boolean;
   linkedContainer: LinkedContainerDetail;
   selectedDocumentId: string;
   setActionError: (error: string | null) => void;
@@ -3064,8 +3066,8 @@ function ExplorerLinkedContainerRow(params: {
 }) {
   const {
     activateLinkedContainer,
-    canActivateSelectedNote,
-    canUnlinkSelectedNote,
+    canActivateSelectedDocument,
+    canUnlinkSelectedDocument,
     activatingContainerId,
     linkedContainer,
     selectedDocumentId,
@@ -3098,7 +3100,7 @@ function ExplorerLinkedContainerRow(params: {
             className="explorer-action-button"
             aria-label={`Make linked container ${linkedContainer.label} active`}
             disabled={
-              !canActivateSelectedNote ||
+              !canActivateSelectedDocument ||
               activatingContainerId !== null ||
               unlinkingContainerId !== null
             }
@@ -3129,7 +3131,7 @@ function ExplorerLinkedContainerRow(params: {
           className="explorer-action-button"
           aria-label={`Detach linked container ${linkedContainer.label}`}
           disabled={
-            !canUnlinkSelectedNote ||
+            !canUnlinkSelectedDocument ||
             activatingContainerId !== null ||
             unlinkingContainerId !== null
           }
@@ -3234,12 +3236,12 @@ function ExplorerDocumentDetail(params: {
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
-  canActivateSelectedNote: boolean;
-  canLinkSelectedNote: boolean;
+  canActivateSelectedDocument: boolean;
+  canLinkSelectedDocument: boolean;
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
-  canMoveSelectedNote: boolean;
-  canUnlinkSelectedNote: boolean;
+  canMoveSelectedDocument: boolean;
+  canUnlinkSelectedDocument: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
@@ -3277,8 +3279,8 @@ function ExplorerDocumentDetail(params: {
           </span>
         </div>
         <ExplorerDocumentDetailActions
-          canLinkSelectedNote={params.canLinkSelectedNote}
-          canMoveSelectedNote={params.canMoveSelectedNote}
+          canLinkSelectedDocument={params.canLinkSelectedDocument}
+          canMoveSelectedDocument={params.canMoveSelectedDocument}
           handleRefresh={params.handleRefresh}
           isRefreshing={params.isRefreshing}
           openLinkDocumentModal={params.openLinkDocumentModal}
@@ -3293,8 +3295,8 @@ function ExplorerDocumentDetail(params: {
       ) : null}
       <ExplorerLinkedContainerSection
         activateLinkedContainer={params.activateLinkedContainer}
-        canActivateSelectedNote={params.canActivateSelectedNote}
-        canUnlinkSelectedNote={params.canUnlinkSelectedNote}
+        canActivateSelectedDocument={params.canActivateSelectedDocument}
+        canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
         linkedContainerIds={params.linkedContainerIds}
         nodes={params.nodes}
         selectedDocument={params.selectedDocument}
@@ -3419,10 +3421,10 @@ function ExplorerDetailPanel(params: {
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
-  canActivateSelectedNote: boolean;
-  canLinkSelectedNote: boolean;
-  canMoveSelectedNote: boolean;
-  canUnlinkSelectedNote: boolean;
+  canActivateSelectedDocument: boolean;
+  canLinkSelectedDocument: boolean;
+  canMoveSelectedDocument: boolean;
+  canUnlinkSelectedDocument: boolean;
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
@@ -3562,11 +3564,11 @@ function getExplorerModalTitle(modalState: ExplorerModalState): string {
   switch (modalState.mode) {
     case "delete":
       return "Delete Container";
-    case "link-note":
+    case "link-document":
       return "Link Document";
     case "move":
       return "Move Container";
-    case "move-note":
+    case "move-document":
       return "Move Document";
     case "share-peer":
       return "Share Container";
@@ -3585,11 +3587,11 @@ function getExplorerModalSubmitLabel(
     switch (modalState.mode) {
       case "delete":
         return "Delete";
-      case "link-note":
+      case "link-document":
         return "Link";
       case "move":
         return "Move";
-      case "move-note":
+      case "move-document":
         return "Move";
       case "share-peer":
         return "Share";
@@ -3603,11 +3605,11 @@ function getExplorerModalSubmitLabel(
   switch (modalState.mode) {
     case "delete":
       return "Deleting...";
-    case "link-note":
+    case "link-document":
       return "Linking...";
     case "move":
       return "Moving...";
-    case "move-note":
+    case "move-document":
       return "Moving...";
     case "share-peer":
       return "Sharing...";
@@ -3638,18 +3640,18 @@ function isExplorerModalSubmitDisabled(params: {
 
   const nameIsRequired =
     modalState.mode !== "delete" &&
-    modalState.mode !== "link-note" &&
+    modalState.mode !== "link-document" &&
     modalState.mode !== "move" &&
-    modalState.mode !== "move-note" &&
+    modalState.mode !== "move-document" &&
     modalState.mode !== "share-peer";
   if (nameIsRequired && draftName.trim().length === 0) {
     return true;
   }
 
   if (
-    (modalState.mode === "link-note" ||
+    (modalState.mode === "link-document" ||
       modalState.mode === "move" ||
-      modalState.mode === "move-note") &&
+      modalState.mode === "move-document") &&
     draftTargetContainerId.length === 0
   ) {
     return true;
@@ -3702,9 +3704,9 @@ function ExplorerModalBody(params: {
   }
 
   if (
-    modalState.mode === "link-note" ||
+    modalState.mode === "link-document" ||
     modalState.mode === "move" ||
-    modalState.mode === "move-note"
+    modalState.mode === "move-document"
   ) {
     return (
       <label className="explorer-modal-field">
@@ -3939,7 +3941,7 @@ function useExplorerInteractionState(params: {
     },
     [appData.execSql, onDocumentLinksChanged],
   );
-  const { primeDiscoveredNotes } = useDiscoveredNotesSync({
+  const { primeDiscoveredDocuments } = useDiscoveredDocumentsSync({
     activeContainerId,
     apiClient: appData.apiClient,
     blobStore: appData.blobStore,
@@ -3963,7 +3965,7 @@ function useExplorerInteractionState(params: {
     cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
     execSql: appData.execSql,
     mergeDocumentSummaries,
-    primeDiscoveredNotes,
+    primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh: explorer.refresh,
   });
@@ -4147,7 +4149,7 @@ function useExplorerPanelState(params: {
     toggleCollapsed: selection.toggleCollapsed,
     treeEntries,
   });
-  const modalState = useExplorerNoteModalState({
+  const modalState = useExplorerDocumentModalState({
     explorer,
     linkDocument: selectedNoteStructuralState.linkDocument,
     moveDocument: selectedNoteStructuralState.moveDocument,
@@ -4193,7 +4195,7 @@ function useDocumentLinkProjectionVersion() {
   };
 }
 
-function getSelectedNoteMutationState(params: {
+function getSelectedDocumentMutationState(params: {
   appData: ReturnType<typeof useAppData>;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
@@ -4207,19 +4209,20 @@ function getSelectedNoteMutationState(params: {
     selectedDocumentLinkedContainerIds,
     selectedDocumentMoveTargetOptions,
   } = params;
-  const canActivateSelectedNote =
+  const canActivateSelectedDocument =
     appData.dbStatus === "ready" && !!selectedDocument?.documentId;
-  const canMutateSelectedNote =
-    canActivateSelectedNote && appData.isAuthenticated && appData.online;
+  const canMutateSelectedDocument =
+    canActivateSelectedDocument && appData.isAuthenticated && appData.online;
 
   return {
-    canActivateSelectedNote,
-    canLinkSelectedNote:
-      canMutateSelectedNote && selectedDocumentLinkTargetOptions.length > 0,
-    canMoveSelectedNote:
-      canMutateSelectedNote && selectedDocumentMoveTargetOptions.length > 0,
-    canUnlinkSelectedNote:
-      canMutateSelectedNote && selectedDocumentLinkedContainerIds.length > 1,
+    canActivateSelectedDocument,
+    canLinkSelectedDocument:
+      canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
+    canMoveSelectedDocument:
+      canMutateSelectedDocument && selectedDocumentMoveTargetOptions.length > 0,
+    canUnlinkSelectedDocument:
+      canMutateSelectedDocument &&
+      selectedDocumentLinkedContainerIds.length > 1,
   };
 }
 
@@ -4283,7 +4286,7 @@ function useExplorerModel(
     setSidebar,
     treeEntries,
   });
-  const selectedDocumentMutationState = getSelectedNoteMutationState({
+  const selectedDocumentMutationState = getSelectedDocumentMutationState({
     appData,
     selectedDocument: selection.selectedDocument,
     selectedDocumentLinkTargetOptions,
@@ -4321,10 +4324,10 @@ export function Explorer() {
     <div className="explorer">
       <ExplorerDetailPanel
         activateLinkedContainer={model.activateLinkedContainer}
-        canActivateSelectedNote={model.canActivateSelectedNote}
-        canLinkSelectedNote={model.canLinkSelectedNote}
-        canMoveSelectedNote={model.canMoveSelectedNote}
-        canUnlinkSelectedNote={model.canUnlinkSelectedNote}
+        canActivateSelectedDocument={model.canActivateSelectedDocument}
+        canLinkSelectedDocument={model.canLinkSelectedDocument}
+        canMoveSelectedDocument={model.canMoveSelectedDocument}
+        canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         handleRefresh={model.handleRefresh}
         isRefreshing={model.isRefreshing}
         linkedContainerIds={model.linkedContainerIds}

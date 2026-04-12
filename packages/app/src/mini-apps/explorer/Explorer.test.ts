@@ -22,7 +22,7 @@ test("buildDocumentsByContainerId falls back to the document container when docu
   expect(documentsByContainerId.get("root-container")).toEqual([
     {
       containerId: "root-container",
-      documentId: "note-1",
+      localId: "note-1",
       title: "Fresh root note",
       updatedAt: "2026-04-11T12:00:00.000Z",
     },
@@ -50,7 +50,7 @@ test("buildDocumentsByContainerId prefers projected linked containers when they 
   expect(documentsByContainerId.get("child-container")).toEqual([
     {
       containerId: "child-container",
-      documentId: "note-1",
+      localId: "note-1",
       title: "Linked note",
       updatedAt: "2026-04-11T12:00:00.000Z",
     },
