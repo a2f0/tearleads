@@ -272,6 +272,19 @@ test("document sync store rejects unsatisfied minLsn reads", async () => {
   );
 });
 
+test("document sync store rejects malformed local version vectors", async () => {
+  const { created, store } = await createServiceDocument();
+
+  const error = await expectDocumentSyncStoreError(
+    store.listMissingDocumentUpdates({
+      documentId: created.document.id,
+      localVersionVector: "not-base64",
+    }),
+  );
+  expect(error.status).toBe(400);
+  expect(error.message).toBe("Invalid local version vector");
+});
+
 test("document sync store reports create and append errors", async () => {
   const { registration, user } = await registerServiceUser();
   const other = await registerServiceUser();
