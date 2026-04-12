@@ -8,6 +8,7 @@ export async function syncDocument(
     accessEpoch: number;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     localVersionVector: string | null;
+    minLsn?: string;
     outgoingUpdates: SyncDocumentOutgoingUpdate[];
   },
   token: string,

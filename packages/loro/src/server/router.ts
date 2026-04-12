@@ -1,6 +1,5 @@
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
-import { satisfiesVersionVector } from "../document";
 import { readEncryptedUpdateAccessEpoch } from "../encryptedUpdate";
 import {
   type CreateDocumentRequest,
@@ -71,14 +70,18 @@ interface LoroRouterDeps<TSession extends SessionLike> {
       documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
       updates: SyncDocumentOutgoingUpdate[];
     }): Promise<AppendDocumentUpdatesResult>;
-    listDocumentUpdates(documentId: string): Promise<DocumentUpdateRecord[]>;
+    listMissingDocumentUpdates(input: {
+      documentId: string;
+      localVersionVector: string | null;
+      minLsn?: string | undefined;
+    }): Promise<DocumentUpdateRecord[]>;
   };
   publish: (event: Record<string, unknown>) => Promise<void>;
   requireAuth: MiddlewareHandler<LoroEnv<TSession>>;
 }
 
 interface StatusError extends Error {
-  status: 400 | 403 | 404 | 409;
+  status: 400 | 403 | 404 | 409 | 503;
 }
 
 function isStatusError(error: unknown): error is StatusError {
@@ -401,19 +404,19 @@ function getMissingUpdateEpochs(
 
 async function listMissingSyncUpdates<TSession extends SessionLike>(
   store: LoroRouterDeps<TSession>["store"],
-  documentId: string,
-  localVersionVector: string | null,
+  input: {
+    documentId: string;
+    localVersionVector: string | null;
+    minLsn?: string | undefined;
+  },
 ) {
-  const updates = await store.listDocumentUpdates(documentId);
-  return updates
-    .filter(
-      (update) =>
-        !satisfiesVersionVector(
-          localVersionVector,
-          update.partialEndVersionVector,
-        ),
-    )
-    .map((update) => toSyncUpdate(update));
+  return (
+    await store.listMissingDocumentUpdates({
+      documentId: input.documentId,
+      localVersionVector: input.localVersionVector,
+      minLsn: input.minLsn,
+    })
+  ).map((update) => toSyncUpdate(update));
 }
 
 function createSyncDocumentRouteHandler<TSession extends SessionLike>(
@@ -430,6 +433,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       accessEpoch,
       documentRecipientEnvelopes,
       localVersionVector,
+      minLsn,
       outgoingUpdates,
     }: SyncDocumentRequest = request;
     const session = c.get("session");
@@ -476,11 +480,19 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
         appendResult.documentRecipientEnvelopes;
     }
 
-    const missingUpdates = await listMissingSyncUpdates(
-      store,
-      documentId,
-      localVersionVector,
-    );
+    let missingUpdates: DocumentSyncUpdate[];
+    try {
+      missingUpdates = await listMissingSyncUpdates(store, {
+        documentId,
+        localVersionVector,
+        minLsn,
+      });
+    } catch (error) {
+      if (isStatusError(error)) {
+        return c.json({ error: error.message }, error.status);
+      }
+      throw error;
+    }
     if (acceptedOutgoingUpdateIds.length > 0) {
       await publish({
         type: "document_update_created",

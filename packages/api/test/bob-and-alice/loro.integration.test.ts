@@ -273,6 +273,7 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
     {
       accessEpoch: grantedAccessEpoch,
       localVersionVector: encodeVersionVector(bobDoc),
+      minLsn: appendedFirstUpdate.commitLsn,
       outgoingUpdates: [],
     },
     bob.token,

@@ -43,6 +43,7 @@ export function syncDocument(
   localVersionVector: string | null,
   outgoingUpdates: SyncDocumentOutgoingUpdate[],
   documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
+  minLsn?: string,
 ): Promise<SyncDocumentResponse | null> {
   return request(
     `/documents/${documentId}/sync`,
@@ -52,6 +53,7 @@ export function syncDocument(
       accessEpoch,
       documentRecipientEnvelopes,
       localVersionVector,
+      minLsn,
       outgoingUpdates,
     }),
   );
