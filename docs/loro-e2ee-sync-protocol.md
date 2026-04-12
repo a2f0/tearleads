@@ -65,10 +65,13 @@ indexing primitive for issue `#88`: it can store one row per document/update
 peer span with start and end counters, plus indexes for
 `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
 composite index also covers document-only lookups. Append paths now write the
-encrypted update row and visible span rows in the same transaction. The current
-sync route still uses the existing in-memory filter until the sync query moves
-to SQL. Sync responses also include a `commitLsn` when the request acknowledged
-current-epoch writes, and `null` when the route only served a read.
+encrypted update row and visible span rows in the same transaction, and the
+sync route now asks Postgres for only the updates whose causal span is not yet
+covered by the client's frontier instead of loading full document history into
+application memory. Sync responses include a `commitLsn` when the request
+acknowledged current-epoch writes, `null` when the route only served a read,
+and sync requests may include `minLsn` as a forward-compatible consistency hook
+for later replica-safe read-after-write behavior.
 
 The sync response now also tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the

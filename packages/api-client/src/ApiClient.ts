@@ -224,6 +224,7 @@ export class ApiClient {
     localVersionVector: string | null,
     outgoingUpdates: Parameters<typeof syncDocument>[4],
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
+    minLsn?: string,
   ) {
     return syncDocument(
       this.request,
@@ -232,6 +233,7 @@ export class ApiClient {
       localVersionVector,
       outgoingUpdates,
       documentRecipientEnvelopes,
+      minLsn,
     );
   }
 

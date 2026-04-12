@@ -6,6 +6,7 @@ import {
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
+  importUpdates,
 } from "@tearleads/loro";
 import { eq } from "drizzle-orm";
 import { createTestUser } from "../../../test/helpers/createTestUser";
@@ -67,7 +68,7 @@ async function expectCreateDocumentError(
   throw new Error("Expected createDocument to fail");
 }
 
-async function expectDocumentUpdateError(
+async function expectDocumentSyncStoreError(
   promise: Promise<unknown>,
 ): Promise<DocumentUpdateError> {
   try {
@@ -77,7 +78,7 @@ async function expectDocumentUpdateError(
     return error as DocumentUpdateError;
   }
 
-  throw new Error("Expected appendDocumentUpdates to fail");
+  throw new Error("Expected document sync store operation to fail");
 }
 
 test("document sync store creates documents and resolves access through the runtime database", async () => {
@@ -160,10 +161,6 @@ test("document sync store appends missing document updates idempotently", async 
   expect(retryAppend.acceptedOutgoingUpdateIds).toEqual([updateId]);
   expect(retryAppend.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/);
 
-  const storedUpdates = await store.listDocumentUpdates(created.document.id);
-  expect(storedUpdates).toHaveLength(1);
-  expect(storedUpdates[0]?.id).toBe(updateId);
-
   const dbRows = await db
     .select({ id: documentUpdates.id })
     .from(documentUpdates)
@@ -185,6 +182,94 @@ test("document sync store appends missing document updates idempotently", async 
     startCounter: 0,
   });
   expect(spanRows[0]?.endCounter).toBeGreaterThan(0);
+});
+
+test("document sync store lists only causally missing document updates", async () => {
+  const { created, store, user } = await createServiceDocument();
+  const aliceDoc = await createDocument("document-sync-store-missing-alice");
+  const aliceStartVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("Hello from Alice");
+  const firstUpdate = exportUpdatesSince(aliceDoc, aliceStartVersion);
+  const firstVectors = getUpdateVersionVectors(firstUpdate);
+  const bobDoc = await createDocument("document-sync-store-missing-bob");
+  importUpdates(bobDoc, [firstUpdate]);
+  const bobStartVersion = encodeVersionVector(bobDoc);
+  bobDoc.getText("text").update("Hello from Alice and Bob");
+  const secondUpdate = exportUpdatesSince(bobDoc, bobStartVersion);
+  const secondVectors = getUpdateVersionVectors(secondUpdate);
+  const documentRecipientEnvelopes = created.documentRecipientEnvelopes;
+  if (!documentRecipientEnvelopes) {
+    throw new Error("Expected service test document recipient envelopes");
+  }
+
+  const authorFingerprint = await toFingerprint(user.signing.signingPublicKey);
+  const firstUpdateId = crypto.randomUUID();
+  const secondUpdateId = crypto.randomUUID();
+  await store.appendDocumentUpdates({
+    documentId: created.document.id,
+    authorFingerprint,
+    documentRecipientEnvelopes,
+    updates: [
+      {
+        id: firstUpdateId,
+        encryptedData: "encrypted-first-update",
+        partialStartVersionVector: firstVectors.partialStartVersionVector,
+        partialEndVersionVector: firstVectors.partialEndVersionVector,
+      },
+    ],
+  });
+  await store.appendDocumentUpdates({
+    documentId: created.document.id,
+    authorFingerprint,
+    documentRecipientEnvelopes,
+    updates: [
+      {
+        id: secondUpdateId,
+        encryptedData: "encrypted-second-update",
+        partialStartVersionVector: secondVectors.partialStartVersionVector,
+        partialEndVersionVector: secondVectors.partialEndVersionVector,
+      },
+    ],
+  });
+
+  const allMissing = await store.listMissingDocumentUpdates({
+    documentId: created.document.id,
+    localVersionVector: null,
+  });
+  expect(allMissing.map((update) => update.id)).toEqual([
+    firstUpdateId,
+    secondUpdateId,
+  ]);
+
+  const missingAfterFirstUpdate = await store.listMissingDocumentUpdates({
+    documentId: created.document.id,
+    localVersionVector: encodeVersionVector(aliceDoc),
+  });
+  expect(missingAfterFirstUpdate.map((update) => update.id)).toEqual([
+    secondUpdateId,
+  ]);
+
+  const missingAfterSecondUpdate = await store.listMissingDocumentUpdates({
+    documentId: created.document.id,
+    localVersionVector: encodeVersionVector(bobDoc),
+  });
+  expect(missingAfterSecondUpdate).toEqual([]);
+});
+
+test("document sync store rejects unsatisfied minLsn reads", async () => {
+  const { created, store } = await createServiceDocument();
+
+  const error = await expectDocumentSyncStoreError(
+    store.listMissingDocumentUpdates({
+      documentId: created.document.id,
+      localVersionVector: null,
+      minLsn: "FFFFFFFF/FFFFFFFF",
+    }),
+  );
+  expect(error.status).toBe(503);
+  expect(error.message).toBe(
+    "Requested minimum commit LSN has not been reached",
+  );
 });
 
 test("document sync store reports create and append errors", async () => {
@@ -217,7 +302,7 @@ test("document sync store reports create and append errors", async () => {
   expect(forbiddenContainer.status).toBe(403);
   expect(forbiddenContainer.message).toBe("Forbidden");
 
-  const missingDocument = await expectDocumentUpdateError(
+  const missingDocument = await expectDocumentSyncStoreError(
     store.appendDocumentUpdates({
       documentId: crypto.randomUUID(),
       authorFingerprint: await toFingerprint(user.signing.signingPublicKey),

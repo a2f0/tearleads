@@ -44,6 +44,7 @@ export interface SyncDocumentRequest {
   accessEpoch: number;
   documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
   localVersionVector: string | null;
+  minLsn?: string;
   outgoingUpdates: SyncDocumentOutgoingUpdate[];
 }
 
@@ -89,6 +90,10 @@ function hasNullableStringProperty<Key extends string>(
   key: Key,
 ): value is Record<string, unknown> & Record<Key, string | null> {
   return value[key] === null || typeof value[key] === "string";
+}
+
+function isWalLsnString(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9A-F]+\/[0-9A-F]+$/i.test(value);
 }
 
 function hasStringArrayProperty<Key extends string>(
@@ -167,6 +172,9 @@ export function isSyncDocumentRequest(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const minLsn = isPlainObject(value)
+    ? Reflect.get(value, "minLsn")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -174,6 +182,7 @@ export function isSyncDocumentRequest(
     (documentRecipientEnvelopes === undefined ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasNullableStringProperty(value, "localVersionVector") &&
+    (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
     value.outgoingUpdates.every(isSyncDocumentOutgoingUpdate)
   );

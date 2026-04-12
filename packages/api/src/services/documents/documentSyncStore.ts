@@ -1,4 +1,5 @@
 import {
+  decodeVersionVector,
   emptyVersionVector,
   mergeVersionVectors,
   satisfiesVersionVector,
@@ -14,7 +15,7 @@ import type {
   SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro/shared";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import {
   canWriteContainerAccess,
   resolveContainerAccessState,
@@ -39,6 +40,7 @@ import {
   containers,
   documentContainerLinks,
   documents,
+  documentUpdateSpans,
   documentUpdates,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
@@ -118,7 +120,11 @@ interface DocumentSyncStore {
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     updates: SyncDocumentOutgoingUpdate[];
   }): Promise<AppendDocumentUpdatesResult>;
-  listDocumentUpdates(documentId: string): Promise<DocumentUpdateRecord[]>;
+  listMissingDocumentUpdates(input: {
+    documentId: string;
+    localVersionVector: string | null;
+    minLsn?: string | undefined;
+  }): Promise<DocumentUpdateRecord[]>;
 }
 
 export class CreateDocumentError extends Error {
@@ -133,9 +139,91 @@ export class CreateDocumentError extends Error {
 export class DocumentUpdateError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 409,
+    readonly status: 400 | 409 | 503,
   ) {
     super(message);
+  }
+}
+
+interface SqlNamedColumn {
+  name: string;
+}
+
+interface MissingDocumentUpdateIdRow {
+  id: string;
+}
+
+interface ClientFrontierRow {
+  counter: number;
+  peerId: string;
+}
+
+function aliasedColumn(alias: string, column: SqlNamedColumn) {
+  return sql.raw(`${alias}.${column.name}`);
+}
+
+function isMissingDocumentUpdateIdRow(
+  value: unknown,
+): value is MissingDocumentUpdateIdRow {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "id") === "string"
+  );
+}
+
+function parseWalLsn(value: string): bigint {
+  const [logHex, offsetHex, extra] = value.split("/");
+
+  if (!logHex || !offsetHex || extra !== undefined) {
+    throw new Error("Invalid WAL LSN.");
+  }
+
+  return (BigInt(`0x${logHex}`) << 32n) + BigInt(`0x${offsetHex}`);
+}
+
+function buildClientFrontierRows(
+  localVersionVector: string | null,
+): ClientFrontierRow[] {
+  const rows: ClientFrontierRow[] = [];
+
+  for (const [peerId, counter] of decodeVersionVector(localVersionVector)
+    .toJSON()
+    .entries()) {
+    rows.push({ counter, peerId: String(peerId) });
+  }
+
+  return rows.sort((left, right) => left.peerId.localeCompare(right.peerId));
+}
+
+function buildClientFrontierSql(rows: ReadonlyArray<ClientFrontierRow>) {
+  if (rows.length === 0) {
+    return sql`select null::text as peer_id, null::integer as counter where false`;
+  }
+
+  return sql.join(
+    rows.map(
+      (row) =>
+        sql`select ${row.peerId}::text as peer_id, ${row.counter}::integer as counter`,
+    ),
+    sql` union all `,
+  );
+}
+
+async function assertMinLsnSatisfied(
+  executor: DocumentSyncExecutor,
+  minLsn: string | undefined,
+): Promise<void> {
+  if (!minLsn) {
+    return;
+  }
+
+  const currentCommitLsn = await readCurrentCommitLsn(executor);
+  if (parseWalLsn(currentCommitLsn) < parseWalLsn(minLsn)) {
+    throw new DocumentUpdateError(
+      "Requested minimum commit LSN has not been reached",
+      503,
+    );
   }
 }
 
@@ -635,14 +723,72 @@ async function appendSyncDocumentUpdates(
   };
 }
 
-async function listSyncDocumentUpdates(
+async function listMissingSyncDocumentUpdates(
   runtime: ApiServiceRuntime,
-  documentId: string,
+  input: {
+    documentId: string;
+    localVersionVector: string | null;
+    minLsn?: string | undefined;
+  },
 ): Promise<DocumentUpdateRecord[]> {
+  await assertMinLsnSatisfied(runtime.db, input.minLsn);
+
+  const updateId = aliasedColumn("u", documentUpdates.id);
+  const updateDocumentId = aliasedColumn("u", documentUpdates.documentId);
+  const updateSequence = aliasedColumn("u", documentUpdates.sequence);
+  const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
+  const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
+  const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
+  const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
+  const clientFrontierSql = buildClientFrontierSql(
+    buildClientFrontierRows(input.localVersionVector),
+  );
+  const result = await runtime.db.execute(sql`
+    with client_frontier as (
+      ${clientFrontierSql}
+    )
+    select ${updateId}::text as "id"
+    from ${documentUpdates} u
+    where ${updateDocumentId}::text = ${input.documentId}
+      and (
+        not exists (
+          select 1
+          from ${documentUpdateSpans} s
+          where ${spanDocumentId}::text = ${input.documentId}
+            and ${spanUpdateId} = ${updateId}
+        )
+        or exists (
+          select 1
+          from ${documentUpdateSpans} s
+          left join client_frontier frontier
+            on frontier.peer_id = ${spanPeerId}
+          where ${spanDocumentId}::text = ${input.documentId}
+            and ${spanUpdateId} = ${updateId}
+            and coalesce(frontier.counter, 0) < ${spanEndCounter}
+        )
+      )
+    order by ${updateSequence} asc
+  `);
+  const updateIds: string[] = [];
+
+  for (const row of result.rows) {
+    if (!isMissingDocumentUpdateIdRow(row)) {
+      throw new Error(
+        "Unexpected row shape from missing document updates query",
+      );
+    }
+
+    updateIds.push(row.id);
+  }
+
+  if (updateIds.length === 0) {
+    return [];
+  }
+
   return runtime.db
     .select()
     .from(documentUpdates)
-    .where(eq(documentUpdates.documentId, documentId))
+    .where(inArray(documentUpdates.id, updateIds))
     .orderBy(documentUpdates.sequence);
 }
 
@@ -654,7 +800,7 @@ export function createDocumentSyncStore(
     getDocumentById: (documentId) => getSyncDocumentById(runtime, documentId),
     getDocumentAccess: (input) => getSyncDocumentAccess(runtime, input),
     appendDocumentUpdates: (input) => appendSyncDocumentUpdates(runtime, input),
-    listDocumentUpdates: (documentId) =>
-      listSyncDocumentUpdates(runtime, documentId),
+    listMissingDocumentUpdates: (input) =>
+      listMissingSyncDocumentUpdates(runtime, input),
   };
 }
