@@ -1,6 +1,6 @@
 # Loro E2EE Sync Protocol Note
 
-Related issues: `#82`, `#88`
+Related historical issues: `#82`, `#88`
 
 ## Summary
 
@@ -13,7 +13,7 @@ The main decision is:
 - Attachment metadata must remain server-indexable so we can support staging,
   permission changes, orphan cleanup, and future branch-aware reachability.
 
-In other words, note sync is not a single protocol surface. It has three
+In other words, document sync is not a single protocol surface. It has three
 adjacent planes:
 
 1. document plane: encrypted Loro updates
@@ -60,8 +60,8 @@ Current shape:
 
 The server still does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
-The `document_update_spans` table now exists as the first server-side causal
-indexing primitive for issue `#88`: it can store one row per document/update
+The `document_update_spans` table now exists as a server-side causal indexing
+primitive: it can store one row per document/update
 peer span with start and end counters, plus indexes for
 `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
 composite index also covers document-only lookups. Append paths now write the
@@ -150,10 +150,9 @@ Important remaining limitation:
 - container/document discovery and Loro create/sync responses now expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
-- the current app explorer now renders linked note projections beneath each
-  linked container, exposes note link/unlink management, and can switch which
-  linked container is locally active; generic multi-link document-management UI
-  beyond notes remains future work
+- the current app explorer now renders linked document projections beneath each
+  linked container, exposes document link/unlink management, and can switch
+  which linked container is locally active
 - subtractive rotation for document epochs still uses the current
   fresh-baseline path with source-frontier validation; durable audit/history
   hardening remains future work
@@ -163,9 +162,9 @@ For the current access-plane model, see
 
 ## Why This Boundary Matters
 
-Issue `#82` is about replacing the current sequence-oriented update fetch with a
-Loro-native causal sync contract. That is the right direction for document
-state, but it does not fully answer attachment lifecycle questions.
+The work that started in issue `#82` replaced the old sequence-oriented update
+fetch with a Loro-native causal sync contract. That is the right direction for
+document state, but it does not fully answer attachment lifecycle questions.
 
 If attach and detach exist only inside encrypted Loro diffs, the server cannot
 reliably:
@@ -418,8 +417,8 @@ they remain outside encrypted Loro payloads.
 
 ## Server Indexing
 
-Issue `#82` correctly calls out that we have not yet defined server-side
-indexing for Loro-native causal sync.
+Server-side indexing for Loro-native causal sync is now defined around
+`document_update_spans` plus SQL-side missing-update selection.
 
 The recommended split is:
 
@@ -527,5 +526,6 @@ For the first implementation:
   handshake
 - do not require server-side indexing of encrypted Loro diffs to manage blobs
 
-That keeps the Loro work in `#82` coherent while leaving room for a larger
-note-sync protocol that includes attachments and access epochs.
+That keeps the document-plane protocol coherent while leaving room for a larger
+document/attachment/access protocol that includes attachments and access
+epochs.
