@@ -43,12 +43,12 @@ import {
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
-import type { ExecSql } from "../../data/sqlSchema";
 import {
-  primeNotesStore,
-  requestDomainNotesSync,
-} from "../notes/NotesProvider";
-import { sqlNotesPersistence } from "../notes/notesPersistence";
+  primeDocumentStore,
+  requestDomainDocumentSync,
+} from "../../data/documents/DocumentsProvider";
+import { sqlDocumentsPersistence } from "../../data/documents/documentsPersistence";
+import type { ExecSql } from "../../data/sqlSchema";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
@@ -400,35 +400,38 @@ function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
   };
 }
 
-function resolveSharedNoteRuntimeContainerId(params: {
+function resolveSharedDocumentRuntimeContainerId(params: {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  noteSummary: {
+  documentSummary: {
     containerId: string | null;
     documentId: string | null;
   };
   sharedContainerIds: ReadonlySet<string>;
 }): string | null {
-  const { linkedContainerIdsByDocumentId, noteSummary, sharedContainerIds } =
-    params;
+  const {
+    linkedContainerIdsByDocumentId,
+    documentSummary,
+    sharedContainerIds,
+  } = params;
   if (
-    noteSummary.containerId &&
-    sharedContainerIds.has(noteSummary.containerId)
+    documentSummary.containerId &&
+    sharedContainerIds.has(documentSummary.containerId)
   ) {
-    return noteSummary.containerId;
+    return documentSummary.containerId;
   }
 
-  if (!noteSummary.documentId) {
+  if (!documentSummary.documentId) {
     return null;
   }
 
   return (
     linkedContainerIdsByDocumentId
-      .get(noteSummary.documentId)
+      .get(documentSummary.documentId)
       ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
   );
 }
 
-async function primeNotesForSharedSubtree(
+async function primeDocumentsForSharedSubtree(
   state: ExplorerStoreState,
   rootContainerId: string,
 ) {
@@ -448,15 +451,15 @@ async function primeNotesForSharedSubtree(
     return;
   }
 
-  await sqlNotesPersistence.ensureSchema(state.runtime.execSql);
+  await sqlDocumentsPersistence.ensureSchema(state.runtime.execSql);
   const sharedContainerIdList = Array.from(sharedContainerIds);
   const sharedDocumentIds =
     await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
       state.runtime.execSql,
       sharedContainerIdList,
     );
-  const noteSummaries =
-    await sqlNotesPersistence.listNotesByContainerIdsOrDocumentIds(
+  const documentSummaries =
+    await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
       state.runtime.execSql,
       {
         containerIds: sharedContainerIdList,
@@ -465,8 +468,8 @@ async function primeNotesForSharedSubtree(
     );
   const documentIds = Array.from(
     new Set(
-      noteSummaries.flatMap((noteSummary) =>
-        noteSummary.documentId ? [noteSummary.documentId] : [],
+      documentSummaries.flatMap((documentSummary) =>
+        documentSummary.documentId ? [documentSummary.documentId] : [],
       ),
     ),
   );
@@ -476,24 +479,24 @@ async function primeNotesForSharedSubtree(
       documentIds,
     );
 
-  for (const noteSummary of noteSummaries) {
-    const runtimeContainerId = resolveSharedNoteRuntimeContainerId({
+  for (const documentSummary of documentSummaries) {
+    const runtimeContainerId = resolveSharedDocumentRuntimeContainerId({
       linkedContainerIdsByDocumentId,
-      noteSummary,
+      documentSummary,
       sharedContainerIds,
     });
     if (!runtimeContainerId) {
       continue;
     }
 
-    const notesStore = primeNotesStore(
+    const documentStore = primeDocumentStore(
       state.runtime.domainScope,
-      noteSummary.id,
+      documentSummary.id,
       buildNotesRuntime(state, runtimeContainerId),
       undefined,
-      noteSummary.documentId,
+      documentSummary.documentId,
     );
-    notesStore.requestSync();
+    documentStore.requestSync();
   }
 }
 
@@ -1418,8 +1421,8 @@ async function shareExplorerContainerWithUser(
     containerId,
     exportAllUpdates(existingState.doc),
   );
-  await primeNotesForSharedSubtree(state, containerId);
-  requestDomainNotesSync(state.runtime.domainScope);
+  await primeDocumentsForSharedSubtree(state, containerId);
+  requestDomainDocumentSync(state.runtime.domainScope);
   scheduleExplorerSync(state);
   state.runtime.log(`Explorer: shared container ${containerId} with ${userId}`);
   return toContainerNode(existingState.container);
@@ -1466,7 +1469,7 @@ async function moveExplorerContainer(
   updateExplorerSnapshot(state);
 
   await requestRemoteHydration(state);
-  requestDomainNotesSync(state.runtime.domainScope);
+  requestDomainDocumentSync(state.runtime.domainScope);
   scheduleExplorerSync(state);
   state.runtime.log(
     `Explorer: moved container ${containerId} under ${parentId}`,

@@ -495,16 +495,16 @@ bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
 The app explorer now uses `POST /containers/:containerId/move` for container
-reparenting, and it now moves notes between containers by calling
+reparenting, and it now moves documents between containers by calling
 `POST /documents/:documentId/link` followed by
-`POST /documents/:documentId/unlink` while updating the local note/container
-projection from the authoritative mutation response. The note detail view also
-now exposes direct note `link` / `unlink` management for already-linked notes,
-and it can locally switch which linked container is treated as the active note
-projection without mutating the authoritative link graph. The explorer sidebar
-also now renders linked note projections beneath each linked container, while
-generic document `link` / `unlink` management beyond the note mini-app remains
-future UI work.
+`POST /documents/:documentId/unlink` while updating the local
+document/container projection from the authoritative mutation response. The
+explorer detail view also exposes direct document `link` / `unlink`
+management for already-linked documents, and it can locally switch which
+linked container is treated as the active document projection without mutating
+the authoritative link graph. The explorer sidebar now renders linked
+document projections beneath each linked container for document kinds such as
+notes and driver's licenses.
 
 ## Zero-Trust Extension For Membership Changes
 

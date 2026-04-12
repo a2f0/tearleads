@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { NoteSummary } from "../notes/notesPersistence";
+import type { DocumentSummary } from "../../data/documents/documentsPersistence";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
@@ -22,7 +22,7 @@ test("unknown document update events trigger rediscovery for shared container no
       documentId: string;
     }>
   > = [];
-  const upsertDiscoveredNotesCalls: Array<
+  const upsertDiscoveredDocumentsCalls: Array<
     ReadonlyArray<{
       accessEpoch: number;
       containerId: string;
@@ -69,10 +69,10 @@ test("unknown document update events trigger rediscovery for shared container no
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
-    upsertDiscoveredNotes: async (inputs) => {
-      upsertDiscoveredNotesCalls.push(inputs);
-      const summaries: NoteSummary[] = inputs.map((input) => ({
-        id: `note-${input.documentId}`,
+    upsertDiscoveredDocuments: async (inputs) => {
+      upsertDiscoveredDocumentsCalls.push(inputs);
+      const summaries: DocumentSummary[] = inputs.map((input) => ({
+        id: `document-${input.documentId}`,
         containerId: input.containerId,
         documentId: input.documentId,
         title: "Peer shared note",
@@ -90,7 +90,7 @@ test("unknown document update events trigger rediscovery for shared container no
       },
     ],
   ]);
-  expect(upsertDiscoveredNotesCalls).toEqual([
+  expect(upsertDiscoveredDocumentsCalls).toEqual([
     [
       {
         accessEpoch: 1,
@@ -114,7 +114,7 @@ test("unknown document update events trigger rediscovery for shared container no
   ]);
   expect(discovered).toEqual([
     {
-      id: "note-peer-note-document",
+      id: "document-peer-note-document",
       containerId: "shared-container",
       documentId: "peer-note-document",
       title: "Peer shared note",
@@ -140,7 +140,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       documentId: string;
     }>
   > = [];
-  const upsertDiscoveredNotesCalls: Array<
+  const upsertDiscoveredDocumentsCalls: Array<
     ReadonlyArray<{
       accessEpoch: number;
       containerId: string;
@@ -197,10 +197,10 @@ test("manual refresh can discover documents across all visible containers", asyn
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
-    upsertDiscoveredNotes: async (inputs) => {
-      upsertDiscoveredNotesCalls.push(inputs);
-      return inputs.map<NoteSummary>((input) => ({
-        id: `note-${input.documentId}`,
+    upsertDiscoveredDocuments: async (inputs) => {
+      upsertDiscoveredDocumentsCalls.push(inputs);
+      return inputs.map<DocumentSummary>((input) => ({
+        id: `document-${input.documentId}`,
         containerId: input.containerId,
         documentId: input.documentId,
         title: input.documentId,
@@ -222,7 +222,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       },
     ],
   ]);
-  expect(upsertDiscoveredNotesCalls).toEqual([
+  expect(upsertDiscoveredDocumentsCalls).toEqual([
     [
       {
         accessEpoch: 1,
@@ -260,14 +260,14 @@ test("manual refresh can discover documents across all visible containers", asyn
   ]);
   expect(discovered).toEqual([
     {
-      id: "note-document-a",
+      id: "document-document-a",
       containerId: "container-a",
       documentId: "document-a",
       title: "document-a",
       updatedAt: "2026-04-06T12:00:00.000Z",
     },
     {
-      id: "note-document-b",
+      id: "document-document-b",
       containerId: "container-b",
       documentId: "document-b",
       title: "document-b",

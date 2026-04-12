@@ -60,8 +60,8 @@ V1 attachment/blob retention is explicitly live-only: detached blobs are pruned
 once their final active binding is retired. Durable historical attachment/audit
 retention is not a #105 V1 requirement; if the product needs it later, it
 should be designed as a separate audit/history layer. The remaining gap is
-longer-term generic document-management UI beyond the current note-specific
-explorer flows.
+longer-term durable attachment/blob history and audit semantics beyond the
+current live-retention model.
 
 Why this matters:
 
@@ -78,10 +78,6 @@ Current recommendation:
 
 Remaining implementation work:
 
-- keep generic multi-container document-management UI separate from the
-  note-specific explorer flow; the app explorer already supports note
-  move/link/unlink, linked note projections under each linked container, and
-  active local projection switching
 - keep durable attachment/blob history separate from V1 live retention if
   product audit requirements need it; see
   [attachment-retention-v1.md](./attachment-retention-v1.md)

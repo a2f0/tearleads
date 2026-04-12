@@ -2,7 +2,6 @@ import type * as DocumentPersistence from "../../data/documents/documentsPersist
 import {
   listDocumentsByContainerIds,
   sqlDocumentsPersistence,
-  upsertDiscoveredDocuments,
 } from "../../data/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlSchema";
 
@@ -241,13 +240,6 @@ export async function listNotesByContainerIds(
   containerIds: ReadonlyArray<string>,
 ): Promise<NoteSummary[]> {
   return listDocumentsByContainerIds(execSql, containerIds);
-}
-
-export async function upsertDiscoveredNotes(
-  execSql: ExecSql,
-  inputs: ReadonlyArray<DiscoveredNoteInput>,
-): Promise<NoteSummary[]> {
-  return upsertDiscoveredDocuments(execSql, inputs);
 }
 
 function createAdaptedPersistenceReadMethods(

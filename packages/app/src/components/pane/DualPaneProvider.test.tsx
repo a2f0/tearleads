@@ -383,6 +383,11 @@ async function linkOpenNoteToContainer(
   pane: HTMLElement,
   destinationName: string,
 ) {
+  await waitFor(() => {
+    const linkButton = within(pane).getByRole("button", { name: "Link" });
+    expect(linkButton).toHaveProperty("disabled", false);
+  });
+
   await interact(() => {
     fireEvent.click(within(pane).getByRole("button", { name: "Link" }));
   });
@@ -492,6 +497,57 @@ async function createInlineNoteWithAttachment(
   });
 }
 
+async function createInlineDriverLicense(
+  pane: HTMLElement,
+  licenseId: string,
+  expirationDate: string,
+) {
+  await interact(() => {
+    fireEvent.click(
+      within(pane).getByRole("button", { name: "New Driver's License" }),
+    );
+  });
+
+  await waitFor(() => {
+    expect(
+      within(pane).getByRole("button", { name: "Back to Container" }),
+    ).toBeTruthy();
+    expect(
+      within(pane).getByLabelText("Driver's license ID number"),
+    ).toBeTruthy();
+    expect(
+      within(pane).getByLabelText("Driver's license expiration date"),
+    ).toBeTruthy();
+  });
+
+  const licenseIdInput = within(pane).getByLabelText(
+    "Driver's license ID number",
+  );
+  const expirationDateInput = within(pane).getByLabelText(
+    "Driver's license expiration date",
+  );
+  invariant(
+    licenseIdInput instanceof HTMLInputElement,
+    "Expected driver's license ID input.",
+  );
+  invariant(
+    expirationDateInput instanceof HTMLInputElement,
+    "Expected driver's license expiration date input.",
+  );
+
+  await interact(() => {
+    fireEvent.change(licenseIdInput, { target: { value: licenseId } });
+    fireEvent.change(expirationDateInput, {
+      target: { value: expirationDate },
+    });
+  });
+
+  await waitFor(() => {
+    expect(licenseIdInput.value).toBe(licenseId);
+    expect(expirationDateInput.value).toBe(expirationDate);
+  });
+}
+
 async function waitForInlineNoteToSettle(
   pane: HTMLElement,
   noteTitle: string,
@@ -539,6 +595,28 @@ async function waitForInlineNoteToSettle(
   invariant(createdDocumentId, "Expected committed note document id.");
 
   return createdDocumentId;
+}
+
+async function waitForInlineDriverLicenseToSettle(
+  pane: HTMLElement,
+  licenseId: string,
+): Promise<void> {
+  await waitFor(
+    () => {
+      const licenseIdInput = within(pane).getByLabelText(
+        "Driver's license ID number",
+      );
+      invariant(
+        licenseIdInput instanceof HTMLInputElement,
+        "Expected driver's license ID input while waiting for sync.",
+      );
+      expect(licenseIdInput.value).toBe(licenseId);
+      expect(pane.textContent?.includes(`Driver's License ${licenseId}`)).toBe(
+        true,
+      );
+    },
+    { timeout: 10_000 },
+  );
 }
 
 async function refreshUntil(
@@ -1090,6 +1168,80 @@ test(
       expect(
         listExplorerNoteItemsInContainer(leftPane, "Target").length,
       ).toBeGreaterThan(0);
+    });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer can switch the active linked container for a linked driver's license",
+  async () => {
+    useRealApiHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForCondition(
+      () =>
+        !leftPane.textContent?.includes("userId: none") &&
+        !leftPane.textContent?.includes("session: none"),
+      "Left pane identity did not finish provisioning.",
+    );
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Source");
+    await createChildContainer(leftPane, "Target");
+    await selectContainerAndReadId(leftPane, "Source");
+    await selectContainerAndReadId(leftPane, "Target");
+
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
+    });
+
+    await createInlineDriverLicense(leftPane, "DL-424242", "2031-09-30");
+    await waitForInlineDriverLicenseToSettle(leftPane, "DL-424242");
+
+    await waitFor(() => {
+      expect(
+        within(leftPane).getByText("driver's license in Source"),
+      ).toBeTruthy();
+    });
+
+    await linkOpenNoteToContainer(leftPane, "Target");
+
+    await waitForCondition(
+      () =>
+        within(leftPane).queryByRole("button", {
+          name: "Make linked container Target active",
+        }) !== null,
+      "Linked driver's license did not expose Target as an activatable linked container.",
+    );
+
+    await activateOpenNoteInLinkedContainer(leftPane, "Target");
+
+    await waitFor(() => {
+      expect(
+        within(leftPane).getByText("driver's license in Target"),
+      ).toBeTruthy();
+      expect(
+        within(leftPane).queryByRole("button", {
+          name: "Make linked container Target active",
+        }),
+      ).toBeNull();
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(leftPane).getByRole("button", { name: "Back to Container" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        getExplorerSidebarItem(leftPane, "Target").classList.contains(
+          "explorer-sidebar-item--selected",
+        ),
+      ).toBe(true);
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
