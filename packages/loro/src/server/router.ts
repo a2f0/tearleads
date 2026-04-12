@@ -75,6 +75,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
       localVersionVector: string | null;
       minLsn?: string | undefined;
     }): Promise<DocumentUpdateRecord[]>;
+    readCurrentCommitLsn(): Promise<string>;
   };
   publish: (event: Record<string, unknown>) => Promise<void>;
   requireAuth: MiddlewareHandler<LoroEnv<TSession>>;
@@ -505,7 +506,7 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       documentId,
       acceptedOutgoingUpdateIds,
       canonicalDocumentRecipientEnvelopesAdopted,
-      commitLsn,
+      commitLsn: commitLsn ?? (await store.readCurrentCommitLsn()),
       missingUpdateEpochs: getMissingUpdateEpochs(
         missingUpdates,
         access.currentAccessEpoch,

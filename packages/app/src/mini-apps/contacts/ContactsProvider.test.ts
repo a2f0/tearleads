@@ -24,6 +24,7 @@ interface StoredContactState {
 
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
+  commitLsn?: string | null;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -38,7 +39,7 @@ function createSyncDocumentResponse(input: {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
     canonicalDocumentRecipientEnvelopesAdopted:
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
-    commitLsn: null,
+    commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
@@ -541,4 +542,92 @@ test("contacts store rewraps document access expansion without replacing pending
   expect(syncDocumentCalls[3]?.outgoingUpdateIds).toEqual(
     syncDocumentCalls[1]?.outgoingUpdateIds,
   );
+});
+
+test("contacts store persists commitLsn and reuses it as minLsn on the next sync", async () => {
+  const persistence = createContactsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const syncDocumentCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  let importedEncapsulationPublicKey = "peer-user-1-key";
+  let syncCallCount = 0;
+
+  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const instrumentedRuntime: ContactsRuntime = {
+    ...runtime,
+    apiClient: {
+      ...runtime.apiClient,
+      getEncapsulationKey: async (userId: string) => ({
+        encapsulationPublicKey: importedEncapsulationPublicKey,
+        userId,
+      }),
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+        minLsn,
+      ) => {
+        syncCallCount += 1;
+        syncDocumentCalls.push({
+          minLsn: minLsn ?? null,
+          outgoingUpdateCount: outgoingUpdates.length,
+        });
+
+        return createSyncDocumentResponse({
+          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          accessEpoch,
+          commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
+          documentId,
+          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(encapsulationKeyPair.publicKey),
+          ],
+        });
+      },
+    },
+  };
+  const store = createContactsStore(instrumentedRuntime, persistence);
+
+  store.updateRuntime(instrumentedRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Contacts sync store did not become ready.",
+  );
+
+  await store.importKey("peer-user-1");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0 &&
+      persistence.getContact("peer-user-1")?.record?.lastCommitLsn === "0/10",
+    "Initial contact document sync did not persist the returned commitLsn.",
+  );
+
+  importedEncapsulationPublicKey = "peer-user-1-key-2";
+  await store.importKey("peer-user-1");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 2 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0 &&
+      persistence.getContact("peer-user-1")?.record?.lastCommitLsn === "0/20",
+    "Follow-up contact sync did not reuse and refresh the persisted commitLsn.",
+  );
+
+  expect(syncDocumentCalls).toEqual([
+    {
+      minLsn: null,
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/10",
+      outgoingUpdateCount: 1,
+    },
+  ]);
 });

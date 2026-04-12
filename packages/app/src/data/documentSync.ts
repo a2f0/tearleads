@@ -192,6 +192,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
   documentId: string;
   execSql?: ExecSql | undefined;
   localVersionVector: string | null;
+  minLsn?: string | undefined;
   recipientPublicKeys: Uint8Array[];
   secretKey: Uint8Array;
   syncDocument: (
@@ -200,6 +201,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     localVersionVector: string | null,
     outgoingUpdates: SyncDocumentOutgoingUpdate[],
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
+    minLsn?: string,
   ) => Promise<SyncDocumentResponse | null>;
   synced: SyncDocumentResponse;
 }): Promise<SyncDocumentResponse> {
@@ -209,6 +211,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     documentId,
     execSql,
     localVersionVector,
+    minLsn,
     recipientPublicKeys,
     secretKey,
     syncDocument,
@@ -237,6 +240,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     localVersionVector,
     [],
     rewrappedDocumentRecipientEnvelopes,
+    synced.commitLsn ?? minLsn,
   );
 
   return rewrappedSync ?? synced;

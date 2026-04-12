@@ -1,7 +1,6 @@
 import type { SqlRow } from "./sqlSchema";
 import {
   type ExecSql,
-  ensureSqlTables,
   readSqlRowValue,
   runSerializedSqlMutation,
   type SqlTableSchema,
@@ -13,6 +12,7 @@ export interface DocumentRecord {
   documentRecipientEnvelopes: string | null;
   loroSnapshot: string;
   accessEpoch: number;
+  lastCommitLsn?: string | null;
 }
 
 export interface PendingUpdateFields {
@@ -42,6 +42,7 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
         document_recipient_envelopes TEXT,
         loro_snapshot TEXT NOT NULL,
         access_epoch INTEGER NOT NULL DEFAULT 1,
+        last_commit_lsn TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (app_kind, local_id)
       )
@@ -72,7 +73,22 @@ function getScopeBind(scope: DocumentScope) {
 }
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
-  await ensureSqlTables(execSql, documentTables);
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    for (const table of documentTables) {
+      await lockedExecSql(table.createSql);
+    }
+    const columnRows = await lockedExecSql("PRAGMA table_info(documents)");
+    const hasLastCommitLsnColumn = columnRows.some(
+      (row) => readSqlRowValue(row, "name") === "last_commit_lsn",
+    );
+
+    if (!hasLastCommitLsnColumn) {
+      await lockedExecSql(`
+        ALTER TABLE documents
+        ADD COLUMN last_commit_lsn TEXT
+      `);
+    }
+  });
 }
 
 export function parseDocumentRecord(row: SqlRow): DocumentRecord {
@@ -84,6 +100,7 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   );
   const loroSnapshot = readSqlRowValue(row, "loro_snapshot");
   const accessEpoch = readSqlRowValue(row, "access_epoch");
+  const lastCommitLsn = readSqlRowValue(row, "last_commit_lsn");
 
   return {
     id: String(id ?? ""),
@@ -95,6 +112,10 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
         : String(documentRecipientEnvelopes),
     loroSnapshot: String(loroSnapshot ?? ""),
     accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
+    lastCommitLsn:
+      lastCommitLsn === null || lastCommitLsn === undefined
+        ? null
+        : String(lastCommitLsn),
   };
 }
 
@@ -134,7 +155,8 @@ export async function loadDocumentRecord(
         document_id,
         document_recipient_envelopes,
         loro_snapshot,
-        access_epoch
+        access_epoch,
+        last_commit_lsn
       FROM documents
       WHERE app_kind = :appKind AND local_id = :localId
       LIMIT 1
@@ -183,6 +205,7 @@ export async function saveDocumentRecord(
           document_recipient_envelopes,
           loro_snapshot,
           access_epoch,
+          last_commit_lsn,
           updated_at
         )
         VALUES (
@@ -192,6 +215,7 @@ export async function saveDocumentRecord(
           :documentRecipientEnvelopes,
           :loroSnapshot,
           :accessEpoch,
+          :lastCommitLsn,
           :updatedAt
         )
         ON CONFLICT(app_kind, local_id) DO UPDATE SET
@@ -200,6 +224,7 @@ export async function saveDocumentRecord(
             excluded.document_recipient_envelopes,
           loro_snapshot = excluded.loro_snapshot,
           access_epoch = excluded.access_epoch,
+          last_commit_lsn = excluded.last_commit_lsn,
           updated_at = excluded.updated_at
       `,
       {
@@ -208,6 +233,7 @@ export async function saveDocumentRecord(
         ":documentRecipientEnvelopes": record.documentRecipientEnvelopes,
         ":loroSnapshot": record.loroSnapshot,
         ":accessEpoch": record.accessEpoch,
+        ":lastCommitLsn": record.lastCommitLsn ?? null,
         ":updatedAt": updatedAt,
       },
     );

@@ -534,10 +534,13 @@ async function persistDocument(
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
 ): Promise<PersistedDocumentRecord> {
+  const currentDocumentId = state.record?.documentId ?? null;
+  const nextDocumentId = patch.documentId ?? currentDocumentId;
   const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
     patch,
     "documentRecipientEnvelopes",
   );
+  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
   const nextRecord: DocumentRecord = {
     id: state.record?.id ?? state.localId,
     containerId:
@@ -545,7 +548,7 @@ async function persistDocument(
       state.record?.containerId ??
       state.runtime.containerId ??
       null,
-    documentId: patch.documentId ?? state.record?.documentId ?? null,
+    documentId: nextDocumentId,
     documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
       ? (patch.documentRecipientEnvelopes ?? null)
       : (state.record?.documentRecipientEnvelopes ?? null),
@@ -553,6 +556,11 @@ async function persistDocument(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
+    lastCommitLsn: hasLastCommitLsnPatch
+      ? (patch.lastCommitLsn ?? null)
+      : nextDocumentId !== currentDocumentId
+        ? null
+        : (state.record?.lastCommitLsn ?? null),
   };
 
   const persistedRecord = await saveDocumentRecord(state, nextRecord);
@@ -1118,6 +1126,7 @@ async function initializeDocumentStore(
       text: state.initialText,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: 1,
+      lastCommitLsn: null,
     };
     await saveDocumentRecord(state, created);
     if (state.initialText.length > 0) {
@@ -1842,6 +1851,7 @@ async function requestDocumentSync(
     encryptionMaterial && currentDocumentRecipientEnvelopes === null
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
+    currentRecord.lastCommitLsn ?? undefined,
   );
   if (!synced) {
     return null;
@@ -1853,6 +1863,7 @@ async function requestDocumentSync(
     documentId: currentRecord.documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
+    minLsn: currentRecord.lastCommitLsn ?? undefined,
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
     syncDocument: state.runtime.apiClient.syncDocument.bind(
@@ -1888,6 +1899,7 @@ async function requestDocumentSyncProbe(
     encodeVersionVector(currentDoc),
     [],
     undefined,
+    currentRecord.lastCommitLsn ?? undefined,
   );
   if (!synced) {
     return null;
@@ -1899,6 +1911,7 @@ async function requestDocumentSyncProbe(
     documentId: currentRecord.documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
+    minLsn: currentRecord.lastCommitLsn ?? undefined,
     recipientPublicKeys: state.recipientPublicKeys,
     secretKey: encapsulationKeyPair.secretKey,
     syncDocument: state.runtime.apiClient.syncDocument.bind(
@@ -2025,6 +2038,7 @@ async function finalizeDocumentSync(
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),
+    lastCommitLsn: synced.commitLsn ?? currentRecord.lastCommitLsn ?? null,
   });
   const rotatedAccessEpoch =
     synced.currentAccessEpoch !== previousAccessEpoch &&

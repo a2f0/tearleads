@@ -125,6 +125,7 @@ interface DocumentSyncStore {
     localVersionVector: string | null;
     minLsn?: string | undefined;
   }): Promise<DocumentUpdateRecord[]>;
+  readCurrentCommitLsn(): Promise<string>;
 }
 
 export class CreateDocumentError extends Error {
@@ -863,5 +864,6 @@ export function createDocumentSyncStore(
     appendDocumentUpdates: (input) => appendSyncDocumentUpdates(runtime, input),
     listMissingDocumentUpdates: (input) =>
       listMissingSyncDocumentUpdates(runtime, input),
+    readCurrentCommitLsn: () => readCurrentCommitLsn(runtime.db),
   };
 }

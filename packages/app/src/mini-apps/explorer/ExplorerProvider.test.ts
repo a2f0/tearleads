@@ -23,6 +23,7 @@ import {
   createDocumentEncryptionMaterial,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
+import { readSqlRowValue } from "../../data/sqlSchema";
 import { primeNotesStore } from "../notes/NotesProvider";
 import { sqlNotesPersistence } from "../notes/notesPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
@@ -32,6 +33,7 @@ type TestRuntime = ExplorerRuntime & { close: () => void };
 
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
+  commitLsn?: string | null;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -46,7 +48,7 @@ function createSyncDocumentResponse(input: {
     acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
     canonicalDocumentRecipientEnvelopesAdopted:
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
-    commitLsn: null,
+    commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
@@ -669,6 +671,129 @@ test("explorer store shares an authenticated container and enqueues a full metad
           call.outgoingUpdateCount === 1,
       ),
     ).toBe(true);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer store persists commitLsn and reuses it as minLsn on the next metadata sync", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const syncCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  let syncCallCount = 0;
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = {
+    ...runtime.apiClient,
+    createContainer: async () => null,
+    listContainers: async () => [],
+    shareContainer: async (containerId) => ({
+      id: containerId,
+      metadataAccessEpoch: 2,
+      metadataDocumentId: "metadata-document-1",
+      metadataRecipientEncapsulationPublicKeys: [
+        bytesToBase64(localKeyPair.publicKey),
+      ],
+    }),
+    syncDocument: async (
+      documentId,
+      accessEpoch,
+      _localVersionVector,
+      updates,
+      documentRecipientEnvelopes,
+      minLsn,
+    ) => {
+      syncCallCount += 1;
+      syncCalls.push({
+        minLsn: minLsn ?? null,
+        outgoingUpdateCount: updates.length,
+      });
+
+      return createSyncDocumentResponse({
+        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
+        accessEpoch,
+        commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
+        documentId,
+        documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+      });
+    },
+  };
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "child-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "metadata-document-1",
+      name: "Docs",
+      icon: null,
+    });
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    expect(
+      await createdStore.shareWithUser(
+        "child-container",
+        "550e8400-e29b-41d4-a716-446655440000",
+      ),
+    ).toBe(true);
+
+    await waitForCondition(
+      () => syncCalls.some((call) => call.minLsn === null),
+      "Initial metadata sync did not complete.",
+    );
+
+    await createdStore.renameContainer("child-container", "Docs v2");
+
+    await waitForCondition(async () => {
+      const pendingRows = await runtime.execSql(
+        `
+            SELECT COUNT(*) AS count
+            FROM document_pending_updates
+            WHERE app_kind = 'container-metadata'
+              AND local_id = 'child-container'
+          `,
+      );
+      const pendingCount = Number(
+        readSqlRowValue(pendingRows[0] ?? {}, "count") ?? 0,
+      );
+
+      return (
+        syncCalls.some((call) => call.minLsn === "0/10") && pendingCount === 0
+      );
+    }, "Follow-up metadata sync did not complete.");
+
+    expect(syncCalls.some((call) => call.minLsn === null)).toBe(true);
+    expect(syncCalls.some((call) => call.minLsn === "0/10")).toBe(true);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";

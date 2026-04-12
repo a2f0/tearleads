@@ -366,6 +366,10 @@ async function upsertDiscoveredDocumentWithExec(
       existingDocument?.accessEpoch ?? 1,
       input.accessEpoch,
     ),
+    lastCommitLsn:
+      existingDocument?.documentId === input.documentId
+        ? (existingDocument.lastCommitLsn ?? null)
+        : null,
   };
 
   const saveOptions =
@@ -413,6 +417,10 @@ async function relinkPersistedDocumentWithExec(
       input.accessEpoch > existingDocument.accessEpoch
         ? null
         : existingDocument.documentRecipientEnvelopes,
+    lastCommitLsn:
+      existingDocument.documentId === input.documentId
+        ? (existingDocument.lastCommitLsn ?? null)
+        : null,
   };
 
   await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);
