@@ -7,7 +7,7 @@ import type { DatabaseExecutor } from "../../adapters/postgres";
 import { documentAuditCheckpoints, documents } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 
-export type DocumentCheckpointKind = "fresh_baseline" | "rotate_baseline";
+type DocumentCheckpointKind = "fresh_baseline" | "rotate_baseline";
 
 interface CheckpointInput {
   checkpointKind?: DocumentCheckpointKind | undefined;
