@@ -1,29 +1,48 @@
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { requireAuth } from "../../middleware/session";
+import {
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "../../middleware/session";
 import {
   GetEncapsulationKeyError,
   getEncapsulationKey,
 } from "../../services/auth/getEncapsulationKey";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const encapsulationKeyRoute = new Hono();
+interface EncapsulationKeyRouteDeps {
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
 
-encapsulationKeyRoute.get(
-  "/auth/encapsulation-key/:userId",
-  requireAuth,
-  async (c) => {
-    const userId = c.req.param("userId");
+export function createEncapsulationKeyRoute({
+  requireAuth = defaultRequireAuth,
+  runtime = defaultApiServiceRuntime,
+}: EncapsulationKeyRouteDeps = {}) {
+  const encapsulationKeyRoute = new Hono();
 
-    try {
-      return c.json(
-        await getEncapsulationKey(defaultApiServiceRuntime, userId),
-      );
-    } catch (error) {
-      if (error instanceof GetEncapsulationKeyError) {
-        return c.json({ error: error.message }, error.status);
+  encapsulationKeyRoute.get(
+    "/auth/encapsulation-key/:userId",
+    requireAuth,
+    async (c) => {
+      const userId = c.req.param("userId");
+
+      try {
+        return c.json(await getEncapsulationKey(runtime, userId));
+      } catch (error) {
+        if (error instanceof GetEncapsulationKeyError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        throw error;
       }
+    },
+  );
 
-      throw error;
-    }
-  },
-);
+  return encapsulationKeyRoute;
+}
+
+export const encapsulationKeyRoute = createEncapsulationKeyRoute();

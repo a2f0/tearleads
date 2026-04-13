@@ -1,21 +1,72 @@
+import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "./routes/auth";
-import { containersRouter } from "./routes/containers";
-import { documentsRouter } from "./routes/documents";
-import { structuralDocumentsRoute } from "./routes/documents/structural";
-import { health } from "./routes/health";
-import { principalsRouter } from "./routes/principals";
+import type { SessionEnv } from "./middleware/session";
+import { createAuthRouter } from "./routes/auth";
+import { createContainersRouter } from "./routes/containers";
+import { createDocumentsRouter } from "./routes/documents";
+import { createStructuralDocumentsRoute } from "./routes/documents/structural";
+import { createHealthRoute } from "./routes/health";
+import { createPrincipalsRouter } from "./routes/principals";
+import type { ApiServiceRuntime } from "./services/runtime";
 
-const routeApp = new Hono();
+interface RouteAppDeps {
+  readonly destroySession?: (c: Context) => Promise<void>;
+  readonly publish?: (event: Record<string, unknown>) => Promise<void>;
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
 
-routeApp.use("*", cors());
+export function createRouteApp({
+  destroySession,
+  publish,
+  requireAuth,
+  runtime,
+}: RouteAppDeps = {}) {
+  const routeApp = new Hono();
 
-routeApp.route("/", auth);
-routeApp.route("/", containersRouter);
-routeApp.route("/", documentsRouter);
-routeApp.route("/", structuralDocumentsRoute);
-routeApp.route("/", health);
-routeApp.route("/", principalsRouter);
+  routeApp.use("*", cors());
 
-export { routeApp };
+  routeApp.route(
+    "/",
+    createAuthRouter({
+      destroySession,
+      requireAuth,
+      runtime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createContainersRouter({
+      requireAuth,
+      runtime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createDocumentsRouter({
+      publish,
+      requireAuth,
+      runtime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createStructuralDocumentsRoute({
+      requireAuth,
+      runtime,
+    }),
+  );
+  routeApp.route("/", createHealthRoute());
+  routeApp.route(
+    "/",
+    createPrincipalsRouter({
+      requireAuth,
+      runtime,
+    }),
+  );
+
+  return routeApp;
+}
+
+export const routeApp = createRouteApp();

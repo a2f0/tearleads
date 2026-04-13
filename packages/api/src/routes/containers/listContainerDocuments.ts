@@ -1,35 +1,52 @@
 import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { requireAuth } from "../../middleware/session";
+import {
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "../../middleware/session";
 import {
   ListContainerDocumentsError,
   listContainerDocuments,
 } from "../../services/containers/listContainerDocuments";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const listContainerDocumentsRoute = new Hono();
+interface ListContainerDocumentsRouteDeps {
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
 
-listContainerDocumentsRoute.get(
-  "/containers/:containerId/documents",
-  requireAuth,
-  async (c) => {
-    const session = c.get("session");
-    const containerId = c.req.param("containerId");
+export function createListContainerDocumentsRoute({
+  requireAuth = defaultRequireAuth,
+  runtime = defaultApiServiceRuntime,
+}: ListContainerDocumentsRouteDeps = {}) {
+  const listContainerDocumentsRoute = new Hono();
 
-    try {
-      return c.json<ListContainerDocumentsResponse>(
-        await listContainerDocuments(
-          defaultApiServiceRuntime,
-          containerId,
-          session.userId,
-        ),
-      );
-    } catch (error) {
-      if (error instanceof ListContainerDocumentsError) {
-        return c.json({ error: error.message }, error.status);
+  listContainerDocumentsRoute.get(
+    "/containers/:containerId/documents",
+    requireAuth,
+    async (c) => {
+      const session = c.get("session");
+      const containerId = c.req.param("containerId");
+
+      try {
+        return c.json<ListContainerDocumentsResponse>(
+          await listContainerDocuments(runtime, containerId, session.userId),
+        );
+      } catch (error) {
+        if (error instanceof ListContainerDocumentsError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        throw error;
       }
+    },
+  );
 
-      throw error;
-    }
-  },
-);
+  return listContainerDocumentsRoute;
+}
+
+export const listContainerDocumentsRoute = createListContainerDocumentsRoute();
