@@ -8,7 +8,7 @@ import {
 import { sha256Hex } from "../../utils/sha256";
 
 const textEncoder = new TextEncoder();
-const DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE = "loro_update";
+export const DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE = "loro_update";
 
 interface DocumentAuditUpdateInput {
   id: string;
@@ -82,6 +82,28 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
   ].join("\n");
 }
 
+export async function computeDocumentUpdateAuditEntryHash(input: {
+  accessEpoch: number;
+  accessFingerprint: string;
+  actorFingerprint: string;
+  actorUserId: string;
+  documentId: string;
+  encryptedUpdateByteLength: number;
+  encryptedUpdateSha256: string;
+  liveUpdateId: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  previousEntryHash: string | null;
+  sourceVersionVector: string | null;
+}) {
+  return sha256Hex(
+    buildDocumentUpdateAuditEntryHashPayload({
+      ...input,
+      eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
+    }),
+  );
+}
+
 export async function appendDocumentUpdateAuditEntries(
   executor: DatabaseExecutor,
   input: {
@@ -128,23 +150,20 @@ export async function appendDocumentUpdateAuditEntries(
   const auditEvents: Array<typeof documentUpdateAuditEvents.$inferInsert> = [];
 
   for (const update of updatesWithMetadata) {
-    const entryHash = await sha256Hex(
-      buildDocumentUpdateAuditEntryHashPayload({
-        accessEpoch: input.accessEpoch,
-        accessFingerprint: input.accessFingerprint,
-        actorFingerprint: input.actorFingerprint,
-        actorUserId: input.actorUserId,
-        documentId: input.documentId,
-        encryptedUpdateByteLength: update.encryptedUpdateByteLength,
-        encryptedUpdateSha256: update.encryptedUpdateSha256,
-        eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
-        liveUpdateId: update.id,
-        partialEndVersionVector: update.partialEndVersionVector,
-        partialStartVersionVector: update.partialStartVersionVector,
-        previousEntryHash,
-        sourceVersionVector: update.sourceVersionVector,
-      }),
-    );
+    const entryHash = await computeDocumentUpdateAuditEntryHash({
+      accessEpoch: input.accessEpoch,
+      accessFingerprint: input.accessFingerprint,
+      actorFingerprint: input.actorFingerprint,
+      actorUserId: input.actorUserId,
+      documentId: input.documentId,
+      encryptedUpdateByteLength: update.encryptedUpdateByteLength,
+      encryptedUpdateSha256: update.encryptedUpdateSha256,
+      liveUpdateId: update.id,
+      partialEndVersionVector: update.partialEndVersionVector,
+      partialStartVersionVector: update.partialStartVersionVector,
+      previousEntryHash,
+      sourceVersionVector: update.sourceVersionVector,
+    });
 
     auditEntries.push({
       id: update.auditEntryId,

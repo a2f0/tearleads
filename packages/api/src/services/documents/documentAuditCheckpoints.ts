@@ -57,6 +57,21 @@ function buildCheckpointHashPayload(input: {
   ].join("\n");
 }
 
+export async function computeDocumentAuditCheckpointHash(input: {
+  accessEpoch: number;
+  accessFingerprint: string;
+  actorFingerprint: string;
+  actorUserId: string;
+  baselineUpdateId: string;
+  checkpointKind: DocumentCheckpointKind;
+  coveredAuditEntryHash: string | null;
+  documentId: string;
+  previousCheckpointHash: string | null;
+  sourceVersionVector: string;
+}) {
+  return sha256Hex(buildCheckpointHashPayload(input));
+}
+
 export function getDocumentCheckpointInputError(input: {
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   updates: ReadonlyArray<CheckpointInput>;
@@ -166,20 +181,18 @@ export async function maybeWriteDocumentAuditCheckpoint(
 
   const previousCheckpointHash = latest?.checkpointHash ?? null;
   const coveredAuditEntryHash = input.coveredAuditEntryHash;
-  const checkpointHash = await sha256Hex(
-    buildCheckpointHashPayload({
-      accessEpoch: input.accessEpoch,
-      accessFingerprint: input.accessFingerprint,
-      actorFingerprint: input.actorFingerprint,
-      actorUserId: input.actorUserId,
-      baselineUpdateId: input.checkpointUpdate.id,
-      checkpointKind,
-      coveredAuditEntryHash,
-      documentId: input.documentId,
-      previousCheckpointHash,
-      sourceVersionVector,
-    }),
-  );
+  const checkpointHash = await computeDocumentAuditCheckpointHash({
+    accessEpoch: input.accessEpoch,
+    accessFingerprint: input.accessFingerprint,
+    actorFingerprint: input.actorFingerprint,
+    actorUserId: input.actorUserId,
+    baselineUpdateId: input.checkpointUpdate.id,
+    checkpointKind,
+    coveredAuditEntryHash,
+    documentId: input.documentId,
+    previousCheckpointHash,
+    sourceVersionVector,
+  });
 
   await executor.insert(documentAuditCheckpoints).values({
     documentId: input.documentId,

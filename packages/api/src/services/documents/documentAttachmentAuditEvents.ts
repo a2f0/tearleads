@@ -12,7 +12,7 @@ import {
 import { uniqueSortedStrings } from "../../utils/array";
 import { sha256Hex } from "../../utils/sha256";
 
-const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
+export const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
 const BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY: BlobAuditRetentionMode = "live_only";
 
 export interface DocumentAttachmentAuditEventInput {
@@ -75,6 +75,29 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
     ),
     serializeAttachmentAuditHashField("retentionMode", input.retentionMode),
   ].join("\n");
+}
+
+export async function computeDocumentAttachmentAuditEntryHash(input: {
+  accessEpoch: number;
+  accessFingerprint: string;
+  action: DocumentAttachmentAuditAction;
+  actorFingerprint: string;
+  actorUserId: string;
+  bindingId: string | null;
+  blobId: string | null;
+  documentId: string;
+  previousBindingId: string | null;
+  previousBlobId: string | null;
+  previousEntryHash: string | null;
+  retentionMode: BlobAuditRetentionMode;
+  slotId: string;
+}) {
+  return sha256Hex(
+    buildDocumentAttachmentAuditEntryHashPayload({
+      ...input,
+      eventType: DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT,
+    }),
+  );
 }
 
 function listAttachmentEventBlobIds(
@@ -184,24 +207,21 @@ export async function appendDocumentAttachmentAuditEntries(
 
   for (const event of input.events) {
     const auditEntryId = crypto.randomUUID();
-    const entryHash = await sha256Hex(
-      buildDocumentAttachmentAuditEntryHashPayload({
-        accessEpoch: input.accessEpoch,
-        accessFingerprint: input.accessFingerprint,
-        action: event.action,
-        actorFingerprint: input.actorFingerprint,
-        actorUserId: input.actorUserId,
-        bindingId: event.bindingId,
-        blobId: event.blobId,
-        documentId: input.documentId,
-        eventType: DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT,
-        previousBindingId: event.previousBindingId,
-        previousBlobId: event.previousBlobId,
-        previousEntryHash,
-        retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
-        slotId: event.slotId,
-      }),
-    );
+    const entryHash = await computeDocumentAttachmentAuditEntryHash({
+      accessEpoch: input.accessEpoch,
+      accessFingerprint: input.accessFingerprint,
+      action: event.action,
+      actorFingerprint: input.actorFingerprint,
+      actorUserId: input.actorUserId,
+      bindingId: event.bindingId,
+      blobId: event.blobId,
+      documentId: input.documentId,
+      previousBindingId: event.previousBindingId,
+      previousBlobId: event.previousBlobId,
+      previousEntryHash,
+      retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
+      slotId: event.slotId,
+    });
 
     auditEntries.push({
       id: auditEntryId,
