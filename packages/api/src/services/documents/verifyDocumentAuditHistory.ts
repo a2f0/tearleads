@@ -1,6 +1,8 @@
 import { eq, inArray } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
+  type BlobAuditRetentionMode,
+  type DocumentAttachmentAuditAction,
   documentAttachmentAuditEvents,
   documentAuditCheckpoints,
   documentAuditEntries,
@@ -50,13 +52,13 @@ interface UpdateAuditEventRow {
 }
 
 interface AttachmentAuditEventRow {
-  action: (typeof documentAttachmentAuditEvents.action.enumValues)[number];
+  action: DocumentAttachmentAuditAction;
   auditEntryId: string;
   bindingId: string | null;
   blobId: string | null;
   previousBindingId: string | null;
   previousBlobId: string | null;
-  retentionMode: (typeof documentAttachmentAuditEvents.retentionMode.enumValues)[number];
+  retentionMode: BlobAuditRetentionMode;
   slotId: string;
 }
 
