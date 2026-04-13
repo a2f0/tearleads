@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { omitUndefinedValues } from "../../utils/object";
 import { createPrincipalPolicyRoute, principalPolicyRoute } from "./policy";
 
 export const principalsRouter = new Hono();
@@ -18,12 +19,11 @@ export function createPrincipalsRouter({
   runtime,
 }: PrincipalsRouterDeps = {}) {
   const principalsRouter = new Hono();
-  principalsRouter.route(
-    "/",
-    createPrincipalPolicyRoute({
-      ...(requireAuth ? { requireAuth } : {}),
-      ...(runtime ? { runtime } : {}),
-    }),
-  );
+  const routeDeps = omitUndefinedValues({
+    requireAuth,
+    runtime,
+  });
+
+  principalsRouter.route("/", createPrincipalPolicyRoute(routeDeps));
   return principalsRouter;
 }

@@ -9,6 +9,7 @@ import { createStructuralDocumentsRoute } from "./routes/documents/structural";
 import { createHealthRoute } from "./routes/health";
 import { createPrincipalsRouter } from "./routes/principals";
 import type { ApiServiceRuntime } from "./services/runtime";
+import { omitUndefinedValues } from "./utils/object";
 
 interface RouteAppDeps {
   readonly destroySession?: (c: Context) => Promise<void>;
@@ -24,39 +25,29 @@ export function createRouteApp({
   runtime,
 }: RouteAppDeps = {}) {
   const routeApp = new Hono();
-  const authRouterDeps = {
-    ...(destroySession ? { destroySession } : {}),
-    ...(requireAuth ? { requireAuth } : {}),
-    ...(runtime ? { runtime } : {}),
-  };
-  const containersRouterDeps = {
-    ...(requireAuth ? { requireAuth } : {}),
-    ...(runtime ? { runtime } : {}),
-  };
-  const documentsRouterDeps = {
-    ...(publish ? { publish } : {}),
-    ...(requireAuth ? { requireAuth } : {}),
-    ...(runtime ? { runtime } : {}),
-  };
-  const principalsRouterDeps = {
-    ...(requireAuth ? { requireAuth } : {}),
-    ...(runtime ? { runtime } : {}),
-  };
+  const authRouterDeps = omitUndefinedValues({
+    destroySession,
+    requireAuth,
+    runtime,
+  });
+  const protectedRouterDeps = omitUndefinedValues({
+    requireAuth,
+    runtime,
+  });
+  const documentsRouterDeps = omitUndefinedValues({
+    publish,
+    requireAuth,
+    runtime,
+  });
 
   routeApp.use("*", cors());
 
   routeApp.route("/", createAuthRouter(authRouterDeps));
-  routeApp.route("/", createContainersRouter(containersRouterDeps));
+  routeApp.route("/", createContainersRouter(protectedRouterDeps));
   routeApp.route("/", createDocumentsRouter(documentsRouterDeps));
-  routeApp.route(
-    "/",
-    createStructuralDocumentsRoute({
-      ...(requireAuth ? { requireAuth } : {}),
-      ...(runtime ? { runtime } : {}),
-    }),
-  );
+  routeApp.route("/", createStructuralDocumentsRoute(protectedRouterDeps));
   routeApp.route("/", createHealthRoute());
-  routeApp.route("/", createPrincipalsRouter(principalsRouterDeps));
+  routeApp.route("/", createPrincipalsRouter(protectedRouterDeps));
 
   return routeApp;
 }
