@@ -8,7 +8,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import {
   createPublicKeyRequest,
@@ -18,10 +18,13 @@ import {
 import { db } from "../../adapters/postgres";
 import {
   documentAuditCheckpoints,
+  documentAuditEntries,
   documentContainerLinks,
+  documentUpdateAuditEvents,
   documentUpdateSpans,
   documentUpdates,
 } from "../../schema";
+import { sha256Hex } from "../../utils/sha256";
 import { registerPublicKey } from "../auth/registerPublicKey";
 import {
   CreateDocumentError,
@@ -185,6 +188,52 @@ test("document sync store appends missing document updates idempotently", async 
     startCounter: 0,
   });
   expect(spanRows[0]?.endCounter).toBeGreaterThan(0);
+
+  const auditEntries = await db
+    .select({
+      accessEpoch: documentAuditEntries.accessEpoch,
+      actorFingerprint: documentAuditEntries.actorFingerprint,
+      actorUserId: documentAuditEntries.actorUserId,
+      entryHash: documentAuditEntries.entryHash,
+      eventType: documentAuditEntries.eventType,
+      prevEntryHash: documentAuditEntries.prevEntryHash,
+    })
+    .from(documentAuditEntries)
+    .where(eq(documentAuditEntries.documentId, created.document.id));
+  expect(auditEntries).toHaveLength(1);
+  expect(auditEntries[0]).toEqual({
+    accessEpoch: created.currentAccessEpoch,
+    actorFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    actorUserId: registration.userId,
+    entryHash: expect.any(String),
+    eventType: "loro_update",
+    prevEntryHash: null,
+  });
+
+  const auditEvents = await db
+    .select({
+      encryptedUpdateByteLength:
+        documentUpdateAuditEvents.encryptedUpdateByteLength,
+      encryptedUpdateSha256: documentUpdateAuditEvents.encryptedUpdateSha256,
+      liveUpdateId: documentUpdateAuditEvents.liveUpdateId,
+      partialEndVersionVector:
+        documentUpdateAuditEvents.partialEndVersionVector,
+      partialStartVersionVector:
+        documentUpdateAuditEvents.partialStartVersionVector,
+      sourceVersionVector: documentUpdateAuditEvents.sourceVersionVector,
+    })
+    .from(documentUpdateAuditEvents)
+    .where(eq(documentUpdateAuditEvents.liveUpdateId, updateId));
+  expect(auditEvents).toHaveLength(1);
+  expect(auditEvents[0]).toEqual({
+    encryptedUpdateByteLength: new TextEncoder().encode(update.encryptedData)
+      .byteLength,
+    encryptedUpdateSha256: await sha256Hex(update.encryptedData),
+    liveUpdateId: updateId,
+    partialEndVersionVector: update.partialEndVersionVector,
+    partialStartVersionVector: update.partialStartVersionVector,
+    sourceVersionVector: null,
+  });
 });
 
 test("document sync store persists explicit baseline checkpoints", async () => {
@@ -251,6 +300,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
       baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
       checkpointHash: documentAuditCheckpoints.checkpointHash,
       checkpointKind: documentAuditCheckpoints.checkpointKind,
+      coveredAuditEntryHash: documentAuditCheckpoints.coveredAuditEntryHash,
       previousCheckpointHash: documentAuditCheckpoints.previousCheckpointHash,
       sequence: documentAuditCheckpoints.sequence,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
@@ -266,6 +316,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
     baselineUpdateId: firstUpdateId,
     checkpointHash: expect.any(String),
     checkpointKind: "fresh_baseline",
+    coveredAuditEntryHash: expect.any(String),
     previousCheckpointHash: null,
     sequence: expect.any(Number),
     sourceVersionVector: firstSourceVersionVector,
@@ -277,12 +328,69 @@ test("document sync store persists explicit baseline checkpoints", async () => {
     baselineUpdateId: secondUpdateId,
     checkpointHash: expect.any(String),
     checkpointKind: "fresh_baseline",
+    coveredAuditEntryHash: expect.any(String),
     previousCheckpointHash: checkpointRows[0]?.checkpointHash ?? null,
     sequence: expect.any(Number),
     sourceVersionVector: secondSourceVersionVector,
   });
   expect(checkpointRows[1]?.sequence).toBeGreaterThan(
     checkpointRows[0]?.sequence ?? 0,
+  );
+  const firstCoveredAuditEntryHash = checkpointRows[0]?.coveredAuditEntryHash;
+  if (!firstCoveredAuditEntryHash) {
+    throw new Error("Expected first checkpoint covered audit entry hash");
+  }
+  const secondCoveredAuditEntryHash = checkpointRows[1]?.coveredAuditEntryHash;
+  if (!secondCoveredAuditEntryHash) {
+    throw new Error("Expected second checkpoint covered audit entry hash");
+  }
+
+  const auditRows = await db
+    .select({
+      entryHash: documentAuditEntries.entryHash,
+      prevEntryHash: documentAuditEntries.prevEntryHash,
+      sequence: documentAuditEntries.sequence,
+    })
+    .from(documentAuditEntries)
+    .where(eq(documentAuditEntries.documentId, created.document.id))
+    .orderBy(documentAuditEntries.sequence);
+  expect(auditRows).toHaveLength(2);
+  expect(auditRows[0]).toEqual({
+    entryHash: firstCoveredAuditEntryHash,
+    prevEntryHash: null,
+    sequence: expect.any(Number),
+  });
+  expect(auditRows[1]).toEqual({
+    entryHash: secondCoveredAuditEntryHash,
+    prevEntryHash: auditRows[0]?.entryHash ?? null,
+    sequence: expect.any(Number),
+  });
+
+  const auditEventRows = await db
+    .select({
+      auditEntryId: documentUpdateAuditEvents.auditEntryId,
+      liveUpdateId: documentUpdateAuditEvents.liveUpdateId,
+      sourceVersionVector: documentUpdateAuditEvents.sourceVersionVector,
+    })
+    .from(documentUpdateAuditEvents)
+    .where(
+      inArray(documentUpdateAuditEvents.liveUpdateId, [
+        firstUpdateId,
+        secondUpdateId,
+      ]),
+    );
+  expect(auditEventRows).toHaveLength(2);
+  expect(
+    auditEventRows
+      .map((row) => row.liveUpdateId)
+      .sort((left, right) => left.localeCompare(right)),
+  ).toEqual(
+    [firstUpdateId, secondUpdateId].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  );
+  expect(new Set(auditEventRows.map((row) => row.sourceVersionVector))).toEqual(
+    new Set([firstSourceVersionVector, secondSourceVersionVector]),
   );
 });
 

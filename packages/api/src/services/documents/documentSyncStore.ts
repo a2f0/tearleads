@@ -50,6 +50,7 @@ import {
   getDocumentCheckpointInputError,
   maybeWriteDocumentAuditCheckpoint,
 } from "./documentAuditCheckpoints";
+import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
 type DocumentSyncExecutor = DatabaseExecutor;
@@ -461,9 +462,15 @@ async function appendMissingDocumentUpdates(input: {
   documentId: string;
   executor: DocumentSyncExecutor;
   updates: ReadonlyArray<AppendDocumentUpdate>;
-}): Promise<string[]> {
+}): Promise<{
+  acceptedUpdateIds: string[];
+  insertedUpdates: AppendDocumentUpdate[];
+}> {
   if (input.updates.length === 0) {
-    return [];
+    return {
+      acceptedUpdateIds: [],
+      insertedUpdates: [],
+    };
   }
 
   const updateIds = uniqueSortedStrings(
@@ -475,6 +482,7 @@ async function appendMissingDocumentUpdates(input: {
     .where(inArray(documentUpdates.id, updateIds));
   const acceptedUpdateIds = new Set(existingRows.map((row) => row.id));
   const newUpdates: AppendDocumentUpdate[] = [];
+  let insertedUpdates: AppendDocumentUpdate[] = [];
 
   for (const update of input.updates) {
     if (acceptedUpdateIds.has(update.id)) {
@@ -501,9 +509,12 @@ async function appendMissingDocumentUpdates(input: {
       )
       .returning({ id: documentUpdates.id });
     const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
+    insertedUpdates = newUpdates.filter((update) =>
+      insertedUpdateIds.has(update.id),
+    );
     await insertDocumentUpdateSpans(input.executor, {
       documentId: input.documentId,
-      updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
+      updates: insertedUpdates,
     });
 
     acceptedUpdateIds.clear();
@@ -512,9 +523,12 @@ async function appendMissingDocumentUpdates(input: {
     }
   }
 
-  return input.updates
-    .filter((update) => acceptedUpdateIds.has(update.id))
-    .map((update) => update.id);
+  return {
+    acceptedUpdateIds: input.updates
+      .filter((update) => acceptedUpdateIds.has(update.id))
+      .map((update) => update.id),
+    insertedUpdates,
+  };
 }
 
 function normalizeLinkedContainerIds(linkedContainerIds: string[]): string[] {
@@ -759,25 +773,45 @@ async function appendSyncDocumentUpdates(
         documentRecipientEnvelopes: input.documentRecipientEnvelopes,
         executor: tx,
       });
-    const acceptedUpdateIds = await appendMissingDocumentUpdates({
-      accessEpoch: access.currentAccessEpoch,
-      authorFingerprint: input.authorFingerprint,
-      documentId: input.documentId,
-      executor: tx,
-      updates: input.updates,
-    });
+    const { acceptedUpdateIds, insertedUpdates } =
+      await appendMissingDocumentUpdates({
+        accessEpoch: access.currentAccessEpoch,
+        authorFingerprint: input.authorFingerprint,
+        documentId: input.documentId,
+        executor: tx,
+        updates: input.updates,
+      });
+    const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(
+      tx,
+      {
+        accessEpoch: access.currentAccessEpoch,
+        accessFingerprint: access.accessFingerprint,
+        actorFingerprint: input.authorFingerprint,
+        actorUserId: input.authorUserId,
+        documentId: input.documentId,
+        updates: insertedUpdates,
+      },
+    );
     const checkpointUpdate =
-      input.updates.length === 1 &&
-      acceptedUpdateIds.includes(input.updates[0]?.id ?? "")
-        ? input.updates[0]
+      insertedUpdates.length === 1 && input.updates.length === 1
+        ? insertedUpdates[0]
         : null;
     if (checkpointUpdate) {
+      const coveredAuditEntryHash = auditEntryHashByUpdateId.get(
+        checkpointUpdate.id,
+      );
+      if (!coveredAuditEntryHash) {
+        throw new Error(
+          `Missing audit entry hash for checkpoint update ${checkpointUpdate.id}`,
+        );
+      }
       await maybeWriteDocumentAuditCheckpoint(tx, {
         accessEpoch: access.currentAccessEpoch,
         accessFingerprint: access.accessFingerprint,
         actorFingerprint: input.authorFingerprint,
         actorUserId: input.authorUserId,
         checkpointUpdate,
+        coveredAuditEntryHash,
         documentId: input.documentId,
       });
     }

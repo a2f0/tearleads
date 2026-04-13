@@ -270,6 +270,56 @@ export const documentAuditCheckpoints = pgTable(
   ],
 );
 
+export const documentAuditEntries = pgTable(
+  "document_audit_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: uuid("document_id").notNull(),
+    sequence: bigint("sequence", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull(),
+    eventType: text("event_type").notNull(),
+    accessEpoch: integer("access_epoch").notNull(),
+    accessFingerprint: text("access_fingerprint").notNull(),
+    actorUserId: uuid("actor_user_id").notNull(),
+    actorFingerprint: text("actor_fingerprint").notNull(),
+    prevEntryHash: text("prev_entry_hash"),
+    entryHash: text("entry_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_audit_entries_document_sequence_idx").on(
+      table.documentId,
+      table.sequence,
+    ),
+    uniqueIndex("document_audit_entries_document_hash_idx").on(
+      table.documentId,
+      table.entryHash,
+    ),
+    index("document_audit_entries_document_created_idx").on(
+      table.documentId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const documentUpdateAuditEvents = pgTable(
+  "document_update_audit_events",
+  {
+    auditEntryId: uuid("audit_entry_id")
+      .primaryKey()
+      .references(() => documentAuditEntries.id),
+    liveUpdateId: uuid("live_update_id").notNull().unique(),
+    partialStartVersionVector: text("partial_start_version_vector").notNull(),
+    partialEndVersionVector: text("partial_end_version_vector").notNull(),
+    sourceVersionVector: text("source_version_vector"),
+    encryptedUpdateSha256: text("encrypted_update_sha256").notNull(),
+    encryptedUpdateByteLength: integer(
+      "encrypted_update_byte_length",
+    ).notNull(),
+  },
+);
+
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   storageKey: text("storage_key").notNull(),

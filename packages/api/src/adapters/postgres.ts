@@ -152,6 +152,28 @@ await client.exec(`
     actor_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS document_audit_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID NOT NULL,
+    sequence BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    event_type TEXT NOT NULL,
+    access_epoch INTEGER NOT NULL,
+    access_fingerprint TEXT NOT NULL,
+    actor_user_id UUID NOT NULL,
+    actor_fingerprint TEXT NOT NULL,
+    prev_entry_hash TEXT,
+    entry_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS document_update_audit_events (
+    audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id),
+    live_update_id UUID NOT NULL UNIQUE,
+    partial_start_version_vector TEXT NOT NULL,
+    partial_end_version_vector TEXT NOT NULL,
+    source_version_vector TEXT,
+    encrypted_update_sha256 TEXT NOT NULL,
+    encrypted_update_byte_length INTEGER NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_key TEXT NOT NULL,
@@ -227,6 +249,12 @@ await client.exec(`
     ON document_audit_checkpoints (document_id, checkpoint_hash);
   CREATE INDEX IF NOT EXISTS document_audit_checkpoints_document_created_idx
     ON document_audit_checkpoints (document_id, created_at);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_audit_entries_document_sequence_idx
+    ON document_audit_entries (document_id, sequence);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_audit_entries_document_hash_idx
+    ON document_audit_entries (document_id, entry_hash);
+  CREATE INDEX IF NOT EXISTS document_audit_entries_document_created_idx
+    ON document_audit_entries (document_id, created_at);
   CREATE INDEX IF NOT EXISTS attachment_bindings_document_idx
     ON attachment_bindings (document_id);
   CREATE INDEX IF NOT EXISTS attachment_bindings_blob_idx

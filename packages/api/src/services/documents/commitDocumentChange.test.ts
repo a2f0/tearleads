@@ -26,6 +26,8 @@ import {
   blobStages,
   blobs,
   documentAuditCheckpoints,
+  documentAuditEntries,
+  documentUpdateAuditEvents,
 } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import { registerPublicKey } from "../auth/registerPublicKey";
@@ -231,6 +233,11 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
   const baselineVectors = getUpdateVersionVectors(baselineUpdate);
   const sourceVersionVector = encodeVersionVector(loroDoc);
   const updateId = crypto.randomUUID();
+  const encryptedData = await encryptLoroUpdate(
+    baselineUpdate,
+    created.currentAccessEpoch,
+    documentKey,
+  );
 
   const result = await commitDocumentChange(createServiceTestRuntime(), {
     documentId: created.document.id,
@@ -242,11 +249,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
       loroUpdate: {
         checkpointKind: "fresh_baseline",
         id: updateId,
-        encryptedData: await encryptLoroUpdate(
-          baselineUpdate,
-          created.currentAccessEpoch,
-          documentKey,
-        ),
+        encryptedData,
         partialStartVersionVector: baselineVectors.partialStartVersionVector,
         partialEndVersionVector: baselineVectors.partialEndVersionVector,
         referencedSlotIds: [],
@@ -268,6 +271,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
       actorUserId: documentAuditCheckpoints.actorUserId,
       baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
       checkpointKind: documentAuditCheckpoints.checkpointKind,
+      coveredAuditEntryHash: documentAuditCheckpoints.coveredAuditEntryHash,
       previousCheckpointHash: documentAuditCheckpoints.previousCheckpointHash,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
     })
@@ -280,7 +284,58 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
     actorUserId: registration.userId,
     baselineUpdateId: updateId,
     checkpointKind: "fresh_baseline",
+    coveredAuditEntryHash: expect.any(String),
     previousCheckpointHash: null,
+    sourceVersionVector,
+  });
+  const coveredAuditEntryHash = checkpointRow?.coveredAuditEntryHash;
+  if (!coveredAuditEntryHash) {
+    throw new Error("Expected checkpoint covered audit entry hash");
+  }
+
+  const [auditEntry] = await db
+    .select({
+      accessEpoch: documentAuditEntries.accessEpoch,
+      actorFingerprint: documentAuditEntries.actorFingerprint,
+      actorUserId: documentAuditEntries.actorUserId,
+      entryHash: documentAuditEntries.entryHash,
+      eventType: documentAuditEntries.eventType,
+      prevEntryHash: documentAuditEntries.prevEntryHash,
+    })
+    .from(documentAuditEntries)
+    .where(eq(documentAuditEntries.documentId, created.document.id))
+    .limit(1);
+  expect(auditEntry).toEqual({
+    accessEpoch: created.currentAccessEpoch,
+    actorFingerprint: fingerprint,
+    actorUserId: registration.userId,
+    entryHash: coveredAuditEntryHash,
+    eventType: "loro_update",
+    prevEntryHash: null,
+  });
+
+  const auditEvents = await db
+    .select({
+      encryptedUpdateByteLength:
+        documentUpdateAuditEvents.encryptedUpdateByteLength,
+      encryptedUpdateSha256: documentUpdateAuditEvents.encryptedUpdateSha256,
+      liveUpdateId: documentUpdateAuditEvents.liveUpdateId,
+      partialEndVersionVector:
+        documentUpdateAuditEvents.partialEndVersionVector,
+      partialStartVersionVector:
+        documentUpdateAuditEvents.partialStartVersionVector,
+      sourceVersionVector: documentUpdateAuditEvents.sourceVersionVector,
+    })
+    .from(documentUpdateAuditEvents)
+    .where(eq(documentUpdateAuditEvents.liveUpdateId, updateId));
+  expect(auditEvents).toHaveLength(1);
+  expect(auditEvents[0]).toEqual({
+    encryptedUpdateByteLength: new TextEncoder().encode(encryptedData)
+      .byteLength,
+    encryptedUpdateSha256: await sha256Hex(encryptedData),
+    liveUpdateId: updateId,
+    partialEndVersionVector: baselineVectors.partialEndVersionVector,
+    partialStartVersionVector: baselineVectors.partialStartVersionVector,
     sourceVersionVector,
   });
 });

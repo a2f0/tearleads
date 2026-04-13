@@ -1,7 +1,6 @@
 import type {
   DocumentCheckpointKind,
   DocumentRecipientEnvelopeAction,
-  SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
@@ -127,7 +126,8 @@ export async function maybeWriteDocumentAuditCheckpoint(
     accessFingerprint: string;
     actorFingerprint: string;
     actorUserId: string;
-    checkpointUpdate: CheckpointInput & SyncDocumentOutgoingUpdate;
+    checkpointUpdate: CheckpointInput;
+    coveredAuditEntryHash: string | null;
     documentId: string;
   },
 ): Promise<void> {
@@ -165,7 +165,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
     .limit(1);
 
   const previousCheckpointHash = latest?.checkpointHash ?? null;
-  const coveredAuditEntryHash = null;
+  const coveredAuditEntryHash = input.coveredAuditEntryHash;
   const checkpointHash = await sha256Hex(
     buildCheckpointHashPayload({
       accessEpoch: input.accessEpoch,
