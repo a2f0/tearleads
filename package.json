@@ -48,11 +48,6 @@
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings"
   },
-  "knip": {
-    "ignoreDependencies": [
-      "@commitlint/config-conventional"
-    ]
-  },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
     "@commitlint/cli": "20.5.0",
