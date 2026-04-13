@@ -24,5 +24,3 @@ export function createLogoutRoute({
 
   return logoutRoute;
 }
-
-export const logoutRoute = createLogoutRoute();

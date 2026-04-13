@@ -280,16 +280,13 @@ async function verifyAuditEntries(input: {
   const attachmentAuditEventByEntryId = new Map(
     input.attachmentAuditEvents.map((event) => [event.auditEntryId, event]),
   );
+  let previousEntryHash: string | null = null;
 
-  for (let index = 0; index < input.auditEntries.length; index += 1) {
-    const entry = input.auditEntries[index];
-
-    const expectedPrevEntryHash =
-      index === 0 ? null : (input.auditEntries[index - 1]?.entryHash ?? null);
+  for (const entry of input.auditEntries) {
     verifyPreviousAuditEntryHash({
       entry,
       errors: input.errors,
-      expectedPrevEntryHash,
+      expectedPrevEntryHash: previousEntryHash,
     });
 
     if (entry.eventType === DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE) {
@@ -299,6 +296,7 @@ async function verifyAuditEntries(input: {
         errors: input.errors,
         updateAuditEventByEntryId,
       });
+      previousEntryHash = entry.entryHash;
       continue;
     }
 
@@ -309,12 +307,14 @@ async function verifyAuditEntries(input: {
         errors: input.errors,
         updateAuditEventByEntryId,
       });
+      previousEntryHash = entry.entryHash;
       continue;
     }
 
     input.errors.push(
       `Audit entry sequence ${entry.sequence} has unsupported eventType ${entry.eventType}`,
     );
+    previousEntryHash = entry.entryHash;
   }
 }
 

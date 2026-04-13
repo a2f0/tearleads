@@ -44,5 +44,3 @@ export function createEncapsulationKeyRoute({
 
   return encapsulationKeyRoute;
 }
-
-export const encapsulationKeyRoute = createEncapsulationKeyRoute();

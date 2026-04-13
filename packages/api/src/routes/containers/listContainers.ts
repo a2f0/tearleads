@@ -32,5 +32,3 @@ export function createListContainersRoute({
 
   return listContainersRoute;
 }
-
-export const listContainersRoute = createListContainersRoute();

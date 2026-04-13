@@ -2,31 +2,12 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import {
-  createContainerRoute,
-  createCreateContainerRoute,
-} from "./createContainer";
-import {
-  createListContainerDocumentsRoute,
-  listContainerDocumentsRoute,
-} from "./listContainerDocuments";
-import {
-  createListContainersRoute,
-  listContainersRoute,
-} from "./listContainers";
-import { createMoveContainerRoute, moveContainerRoute } from "./moveContainer";
-import {
-  createShareContainerRoute,
-  shareContainerRoute,
-} from "./shareContainer";
-
-export const containersRouter = new Hono();
-
-containersRouter.route("/", createContainerRoute);
-containersRouter.route("/", listContainerDocumentsRoute);
-containersRouter.route("/", listContainersRoute);
-containersRouter.route("/", moveContainerRoute);
-containersRouter.route("/", shareContainerRoute);
+import { assignIfDefined } from "../../utils/object";
+import { createCreateContainerRoute } from "./createContainer";
+import { createListContainerDocumentsRoute } from "./listContainerDocuments";
+import { createListContainersRoute } from "./listContainers";
+import { createMoveContainerRoute } from "./moveContainer";
+import { createShareContainerRoute } from "./shareContainer";
 
 interface ContainersRouterDeps {
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
@@ -38,42 +19,15 @@ export function createContainersRouter({
   runtime,
 }: ContainersRouterDeps = {}) {
   const containersRouter = new Hono();
+  const routeDeps: ContainersRouterDeps = {};
+  assignIfDefined(routeDeps, "requireAuth", requireAuth);
+  assignIfDefined(routeDeps, "runtime", runtime);
 
-  containersRouter.route(
-    "/",
-    createCreateContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createListContainerDocumentsRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createListContainersRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createMoveContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createShareContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
+  containersRouter.route("/", createCreateContainerRoute(routeDeps));
+  containersRouter.route("/", createListContainerDocumentsRoute(routeDeps));
+  containersRouter.route("/", createListContainersRoute(routeDeps));
+  containersRouter.route("/", createMoveContainerRoute(routeDeps));
+  containersRouter.route("/", createShareContainerRoute(routeDeps));
 
   return containersRouter;
 }

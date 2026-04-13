@@ -16,7 +16,7 @@ export default {
       ],
     },
     "packages/api": {
-      entry: ["src/**/*.test.ts", "test/**/*.test.ts"],
+      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts", "test/**/*.test.ts"],
       project: ["src/**/*.ts", "test/**/*.ts"],
     },
     "packages/api-client": {

@@ -48,5 +48,3 @@ export function createListContainerDocumentsRoute({
 
   return listContainerDocumentsRoute;
 }
-
-export const listContainerDocumentsRoute = createListContainerDocumentsRoute();

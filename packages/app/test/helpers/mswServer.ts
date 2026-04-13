@@ -6,7 +6,6 @@ import type {
 } from "@tearleads/validators/response";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
-import type { ApiServiceRuntime } from "../../../api/src/services/runtime";
 
 export const wsUrl = "ws://localhost:3002";
 
@@ -26,23 +25,36 @@ interface AppTestProcessState {
   hasLoadedApiRuntimeModule: boolean;
 }
 
+interface TestApiKeyValueStore {
+  del: (key: string) => Promise<void>;
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string, ttlSeconds?: number) => Promise<void>;
+}
+
 function createApiModuleUrl(relativePath: string): string {
   return new URL(`../../../api/src/${relativePath}`, import.meta.url).href;
 }
 
-const routeAppModuleUrl = createApiModuleUrl("routeApp.ts");
-const sessionModuleUrl = createApiModuleUrl("middleware/session.ts");
-const postgresModuleUrl = createApiModuleUrl("adapters/postgres.ts");
+const appTestRuntimeModuleUrl = createApiModuleUrl("appTestRuntime.ts");
 
 const appTestProcessState = globalThis as typeof globalThis & {
   __tearleadsAppTestProcessState?: AppTestProcessState;
 };
 
-if (!appTestProcessState.__tearleadsAppTestProcessState) {
-  appTestProcessState.__tearleadsAppTestProcessState = {
+function getOrCreateTestProcessState(): AppTestProcessState {
+  const existing = appTestProcessState.__tearleadsAppTestProcessState;
+  if (existing) {
+    return existing;
+  }
+
+  const created: AppTestProcessState = {
     hasLoadedApiRuntimeModule: false,
   };
+  appTestProcessState.__tearleadsAppTestProcessState = created;
+  return created;
 }
+
+const testProcessState = getOrCreateTestProcessState();
 
 interface TestApiApp {
   fetch: (request: Request) => Promise<Response>;
@@ -131,7 +143,7 @@ async function drainSocketClients(): Promise<void> {
   await waitForSocketClientsToDrain();
 }
 
-function createInMemoryKeyValueStore(): ApiServiceRuntime["keyValueStore"] {
+function createInMemoryKeyValueStore(): TestApiKeyValueStore {
   const entries = new Map<
     string,
     { expiresAt: number | null; value: string }
@@ -169,17 +181,17 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     return testApiAppPromise;
   }
 
-  appTestProcessState.__tearleadsAppTestProcessState.hasLoadedApiRuntimeModule = true;
+  testProcessState.hasLoadedApiRuntimeModule = true;
   testApiAppPromise = (async () => {
     const [
-      { createRouteApp },
-      { createDestroySession, createRequireAuth, createSessionTokenIssuer },
-      { db },
-    ] = await Promise.all([
-      import(routeAppModuleUrl),
-      import(sessionModuleUrl),
-      import(postgresModuleUrl),
-    ]);
+      {
+        createDestroySession,
+        createRequireAuth,
+        createRouteApp,
+        createSessionTokenIssuer,
+        db,
+      },
+    ] = await Promise.all([import(appTestRuntimeModuleUrl)]);
 
     if (typeof createRouteApp !== "function") {
       throw new Error("API routeApp module missing createRouteApp export.");
@@ -197,14 +209,17 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
         "API session module missing createSessionTokenIssuer export.",
       );
     }
+    if (!db) {
+      throw new Error("API app test runtime module missing db export.");
+    }
 
     const keyValueStore = createInMemoryKeyValueStore();
-    const eventPublisher: ApiServiceRuntime["eventPublisher"] = {
+    const eventPublisher = {
       publish: async (event: Record<string, unknown>) => {
         eventsSocket.broadcast(JSON.stringify(event));
       },
     };
-    const runtime: ApiServiceRuntime = {
+    const runtime = {
       db,
       eventPublisher,
       keyValueStore,

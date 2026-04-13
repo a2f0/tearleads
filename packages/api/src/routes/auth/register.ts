@@ -51,5 +51,3 @@ export function createRegisterRoute(
 
   return registerRoute;
 }
-
-export const registerRoute = createRegisterRoute();

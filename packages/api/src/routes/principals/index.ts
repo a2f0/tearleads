@@ -2,11 +2,8 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { createPrincipalPolicyRoute, principalPolicyRoute } from "./policy";
-
-export const principalsRouter = new Hono();
-
-principalsRouter.route("/", principalPolicyRoute);
+import { assignIfDefined } from "../../utils/object";
+import { createPrincipalPolicyRoute } from "./policy";
 
 interface PrincipalsRouterDeps {
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
@@ -18,12 +15,10 @@ export function createPrincipalsRouter({
   runtime,
 }: PrincipalsRouterDeps = {}) {
   const principalsRouter = new Hono();
-  principalsRouter.route(
-    "/",
-    createPrincipalPolicyRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
+  const routeDeps: PrincipalsRouterDeps = {};
+  assignIfDefined(routeDeps, "requireAuth", requireAuth);
+  assignIfDefined(routeDeps, "runtime", runtime);
+
+  principalsRouter.route("/", createPrincipalPolicyRoute(routeDeps));
   return principalsRouter;
 }

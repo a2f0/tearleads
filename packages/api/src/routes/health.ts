@@ -14,5 +14,3 @@ export function createHealthRoute() {
 
   return health;
 }
-
-export const health = createHealthRoute();

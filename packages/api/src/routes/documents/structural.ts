@@ -95,5 +95,3 @@ export function createStructuralDocumentsRoute({
 
   return structuralDocumentsRoute;
 }
-
-export const structuralDocumentsRoute = createStructuralDocumentsRoute();
