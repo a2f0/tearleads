@@ -153,12 +153,19 @@ function getExplorerSidebarItem(
   pane: HTMLElement,
   name: string,
 ): HTMLButtonElement {
-  const item = Array.from(
-    pane.querySelectorAll<HTMLButtonElement>("button.explorer-sidebar-item"),
-  ).find((button) => button.textContent?.trim() === name);
+  const item = getExplorerSidebarItemsByName(pane, name)[0];
 
   invariant(item, `Expected explorer sidebar item "${name}".`);
   return item;
+}
+
+function getExplorerSidebarItemsByName(
+  pane: HTMLElement,
+  name: string,
+): HTMLButtonElement[] {
+  return Array.from(
+    pane.querySelectorAll<HTMLButtonElement>("button.explorer-sidebar-item"),
+  ).filter((button) => button.textContent?.trim() === name);
 }
 
 function listExplorerContainerItems(pane: HTMLElement): HTMLButtonElement[] {
@@ -281,9 +288,17 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
     fireEvent.click(shareButton);
   });
 
+  const summarizeRequests = () =>
+    listProxiedApiRequests()
+      .map(
+        (request) =>
+          `${request.method} ${request.status} ${request.url}\nauthorization=${request.authorization ?? "null"}\nrequest=${request.requestBody ?? "null"}\nresponse=${request.responseBody}`,
+      )
+      .join("\n");
+
   await waitForCondition(
     () => screen.queryByRole("dialog") === null,
-    "Container share did not finish.",
+    `Container share did not finish.\nrequests=\n${summarizeRequests()}\npane=${pane.textContent ?? ""}`,
   );
 }
 
@@ -482,6 +497,153 @@ function createFileList(file: File): FileList {
   return dataTransfer.files;
 }
 
+function readSessionTokenPrefix(pane: HTMLElement): string {
+  const match = pane.textContent?.match(/session:\s*([a-f0-9]{32})/i);
+  invariant(match?.[1], "Expected pane session token prefix.");
+  return match[1];
+}
+
+function summarizeDocumentSyncTraffic(authTokenPrefix?: string): Array<{
+  authorizationPrefix: string | null;
+  documentId: string;
+  requestOutgoingUpdateCount: number;
+  requestAccessEpoch: number | null;
+  responseAccessEpoch: number | null;
+  responseAction: string | null;
+  responseEnvelopeCount: number;
+  responseUpdateEpochs: number[];
+  responseUpdateIds: string[];
+}> {
+  return listProxiedApiRequests()
+    .filter((request) => {
+      if (!/\/documents\/[0-9a-f-]+\/sync$/u.test(request.url)) {
+        return false;
+      }
+
+      if (!authTokenPrefix) {
+        return true;
+      }
+
+      return (
+        request.authorization?.startsWith(`Bearer ${authTokenPrefix}`) ?? false
+      );
+    })
+    .map((request) => {
+      const documentId =
+        request.url.match(/\/documents\/([0-9a-f-]+)\/sync$/u)?.[1] ??
+        "unknown";
+      const requestBody = request.requestBody
+        ? JSON.parse(request.requestBody)
+        : null;
+      const responseBody = request.responseBody
+        ? JSON.parse(request.responseBody)
+        : null;
+
+      return {
+        authorizationPrefix: request.authorization?.slice(0, 39) ?? null,
+        documentId,
+        requestOutgoingUpdateCount: Array.isArray(requestBody?.outgoingUpdates)
+          ? requestBody.outgoingUpdates.length
+          : 0,
+        requestAccessEpoch:
+          typeof requestBody?.accessEpoch === "number"
+            ? requestBody.accessEpoch
+            : null,
+        responseAccessEpoch:
+          typeof responseBody?.currentAccessEpoch === "number"
+            ? responseBody.currentAccessEpoch
+            : null,
+        responseAction:
+          typeof responseBody?.documentRecipientEnvelopeAction === "string"
+            ? responseBody.documentRecipientEnvelopeAction
+            : null,
+        responseEnvelopeCount: Array.isArray(
+          responseBody?.documentRecipientEnvelopes,
+        )
+          ? responseBody.documentRecipientEnvelopes.length
+          : 0,
+        responseUpdateEpochs: Array.isArray(responseBody?.updates)
+          ? responseBody.updates.map((update: { accessEpoch?: number }) =>
+              typeof update.accessEpoch === "number" ? update.accessEpoch : -1,
+            )
+          : [],
+        responseUpdateIds: Array.isArray(responseBody?.updates)
+          ? responseBody.updates.map((update: { id?: string }) =>
+              typeof update.id === "string" ? update.id : "unknown",
+            )
+          : [],
+      };
+    });
+}
+
+function readCreatedOrCommittedDocumentId(request: {
+  method: string;
+  responseBody: string;
+  status: number;
+  url: string;
+}): string | null {
+  if (request.status !== 200) {
+    return null;
+  }
+
+  if (/\/documents\/[0-9a-f-]+\/commit-change$/u.test(request.url)) {
+    return (
+      request.url.match(/\/documents\/([0-9a-f-]+)\/commit-change$/u)?.[1] ??
+      null
+    );
+  }
+
+  if (request.method === "POST" && /\/documents$/u.test(request.url)) {
+    return (
+      (JSON.parse(request.responseBody) as { id?: string | null }).id ?? null
+    );
+  }
+
+  return null;
+}
+
+function findLatestCreatedOrCommittedDocumentId(
+  excludeDocumentIds: ReadonlyArray<string> = [],
+): string {
+  const excluded = new Set(excludeDocumentIds);
+  let documentId: string | null = null;
+
+  [...listProxiedApiRequests()].reverse().find((entry) => {
+    const nextDocumentId = readCreatedOrCommittedDocumentId(entry);
+    if (!nextDocumentId || excluded.has(nextDocumentId)) {
+      return false;
+    }
+
+    documentId = nextDocumentId;
+    return true;
+  });
+  invariant(documentId, "Expected committed document id.");
+  return documentId;
+}
+
+function countSuccessfulDocumentCommitChanges(documentId: string): number {
+  return listProxiedApiRequests().filter(
+    (request) =>
+      request.status === 200 &&
+      request.url.endsWith(`/documents/${documentId}/commit-change`),
+  ).length;
+}
+
+async function waitForSuccessfulDocumentCommitChange(
+  documentId: string,
+  message: string,
+) {
+  await waitForCondition(
+    () =>
+      listProxiedApiRequests().some(
+        (request) =>
+          request.status === 200 &&
+          request.url.endsWith(`/documents/${documentId}/commit-change`),
+      ),
+    message,
+  );
+}
+
 async function createInlineNoteWithAttachment(
   pane: HTMLElement,
   text: string,
@@ -590,6 +752,55 @@ async function createInlineDriverLicense(
   });
 }
 
+async function createInlineDriverLicenseWithAttachments(
+  pane: HTMLElement,
+  licenseId: string,
+  expirationDate: string,
+  frontAttachmentName: string,
+  backAttachmentName: string,
+) {
+  await createInlineDriverLicense(pane, licenseId, expirationDate);
+
+  let fileInputs: HTMLInputElement[] = [];
+  await waitFor(() => {
+    fileInputs = Array.from(
+      pane.querySelectorAll<HTMLInputElement>(
+        "input.driver-license-file-input",
+      ),
+    );
+    expect(fileInputs).toHaveLength(2);
+  });
+
+  const attachmentNames = [frontAttachmentName, backAttachmentName];
+  attachmentNames.forEach((fileName, index) => {
+    const fileInput = fileInputs[index];
+    invariant(fileInput, `Expected driver's license file input ${index + 1}.`);
+    const file = new File(
+      [new Uint8Array([index + 1, index + 2, index + 3, index + 4])],
+      fileName,
+      {
+        type: "image/png",
+      },
+    );
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: createFileList(file),
+    });
+  });
+
+  await interact(() => {
+    fileInputs.forEach((fileInput) => {
+      fireEvent.change(fileInput);
+    });
+  });
+
+  await waitFor(() => {
+    attachmentNames.forEach((attachmentName) => {
+      expect(within(pane).getByText(attachmentName)).toBeTruthy();
+    });
+  });
+}
+
 async function waitForInlineNoteToSettle(
   pane: HTMLElement,
   noteTitle: string,
@@ -642,6 +853,7 @@ async function waitForInlineNoteToSettle(
 async function waitForInlineDriverLicenseToSettle(
   pane: HTMLElement,
   licenseId: string,
+  attachmentNames: ReadonlyArray<string> = [],
 ): Promise<void> {
   await waitFor(
     () => {
@@ -656,6 +868,9 @@ async function waitForInlineDriverLicenseToSettle(
       expect(pane.textContent?.includes(`Driver's License ${licenseId}`)).toBe(
         true,
       );
+      attachmentNames.forEach((attachmentName) => {
+        expect(within(pane).getByText(attachmentName)).toBeTruthy();
+      });
     },
     { timeout: 10_000 },
   );
@@ -707,15 +922,27 @@ async function selectPeerSharedContainer(
   });
 }
 
-async function openPeerNoteAndAssertAttachment(
+async function selectPeerSharedRootContainer(pane: HTMLElement) {
+  await refreshUntil(
+    pane,
+    () => getExplorerSidebarItemsByName(pane, "/").length > 1,
+    "Peer did not discover a shared root container.",
+  );
+
+  const rootButtons = getExplorerSidebarItemsByName(pane, "/");
+  const sharedRootButton = rootButtons[rootButtons.length - 1];
+  invariant(sharedRootButton, "Expected peer shared root container item.");
+  await interact(() => {
+    fireEvent.click(sharedRootButton);
+  });
+}
+
+async function openPeerNoteAndAssertAttachmentInSelectedContainer(
   pane: HTMLElement,
-  containerName: string,
   documentId: string,
   noteTitle: string,
   attachmentName: string,
 ) {
-  await selectPeerSharedContainer(pane, containerName);
-
   const relevantRequests = () =>
     listProxiedApiRequests()
       .filter((request) => request.url.includes(documentId))
@@ -731,17 +958,93 @@ async function openPeerNoteAndAssertAttachment(
     "Peer did not discover any note in the shared container.",
   );
 
-  const preferredNoteItem =
-    listExplorerNoteItems(pane).find(
-      (button) => button.getAttribute("data-note-id") === documentId,
-    ) ??
-    listExplorerNoteItems(pane).find(
-      (button) => button.textContent?.trim() === noteTitle,
-    ) ??
-    listExplorerNoteItems(pane)[0];
-  invariant(preferredNoteItem, "Expected peer note sidebar item.");
+  const noteItems = listExplorerNoteItems(pane);
+  const noteItemCount = noteItems.length;
+  for (let noteIndex = 0; noteIndex < noteItemCount; noteIndex += 1) {
+    const candidateNoteItem = noteItems[noteIndex];
+    if (!candidateNoteItem) {
+      continue;
+    }
+
+    await interact(() => {
+      fireEvent.click(candidateNoteItem);
+    });
+
+    await waitFor(() => {
+      expect(
+        within(pane).getByRole("button", { name: "Back to Container" }),
+      ).toBeTruthy();
+    });
+
+    try {
+      await waitFor(
+        () => {
+          expect(
+            Array.from(
+              pane.querySelectorAll<HTMLTextAreaElement>(
+                "textarea.notes-editor",
+              ),
+            ).some((editor) => editor.value === noteTitle),
+          ).toBe(true);
+          expect(pane.textContent?.includes(attachmentName)).toBe(true);
+        },
+        { timeout: 1_500 },
+      );
+      break;
+    } catch {
+      if (noteIndex === noteItemCount - 1) {
+        throw new Error(
+          `Peer did not hydrate note "${noteTitle}" and attachment "${attachmentName}". Requests:\n${relevantRequests()}\npane=${pane.textContent ?? ""}`,
+        );
+      }
+    }
+  }
+
+  await waitFor(() => {
+    expect(within(pane).getByDisplayValue(noteTitle)).toBeTruthy();
+    expect(within(pane).getByText(attachmentName)).toBeTruthy();
+    expect(within(pane).getByAltText(attachmentName)).toBeTruthy();
+  });
+}
+
+async function openPeerNoteAndAssertAttachment(
+  pane: HTMLElement,
+  containerName: string,
+  documentId: string,
+  noteTitle: string,
+  attachmentName: string,
+) {
+  await selectPeerSharedContainer(pane, containerName);
+  await openPeerNoteAndAssertAttachmentInSelectedContainer(
+    pane,
+    documentId,
+    noteTitle,
+    attachmentName,
+  );
+}
+
+async function openPeerDriverLicenseAndAssertAttachmentsInSelectedContainer(
+  pane: HTMLElement,
+  licenseTitle: string,
+  licenseId: string,
+  expirationDate: string,
+  attachmentNames: ReadonlyArray<string>,
+) {
+  await refreshUntil(
+    pane,
+    () =>
+      listExplorerNoteItems(pane).some(
+        (button) => button.textContent?.trim() === licenseTitle,
+      ),
+    `Peer did not discover driver's license "${licenseTitle}" in the selected container.`,
+  );
+
+  const driverLicenseItem = listExplorerNoteItems(pane).find(
+    (button) => button.textContent?.trim() === licenseTitle,
+  );
+  invariant(driverLicenseItem, `Expected driver's license "${licenseTitle}".`);
   await interact(() => {
-    fireEvent.click(preferredNoteItem);
+    fireEvent.click(driverLicenseItem);
   });
 
   await waitFor(() => {
@@ -752,21 +1055,27 @@ async function openPeerNoteAndAssertAttachment(
 
   await waitForCondition(
     () => {
+      const licenseIdInput = within(pane).queryByLabelText(
+        "Driver's license ID number",
+      );
+      const expirationDateInput = within(pane).queryByLabelText(
+        "Driver's license expiration date",
+      );
+
       return (
-        Array.from(
-          pane.querySelectorAll<HTMLTextAreaElement>("textarea.notes-editor"),
-        ).some((editor) => editor.value === noteTitle) &&
-        pane.textContent?.includes(attachmentName) === true
+        licenseIdInput instanceof HTMLInputElement &&
+        expirationDateInput instanceof HTMLInputElement &&
+        licenseIdInput.value === licenseId &&
+        expirationDateInput.value === expirationDate &&
+        attachmentNames.every(
+          (attachmentName) =>
+            pane.textContent?.includes(attachmentName) === true &&
+            within(pane).queryByAltText(attachmentName) !== null,
+        )
       );
     },
-    `Peer did not hydrate note "${noteTitle}" and attachment "${attachmentName}". Requests:\n${relevantRequests()}\npane=${pane.textContent ?? ""}`,
+    `Peer did not hydrate driver's license "${licenseTitle}" with both attachments.\npane=${pane.textContent ?? ""}`,
   );
-
-  await waitFor(() => {
-    expect(within(pane).getByDisplayValue(noteTitle)).toBeTruthy();
-    expect(within(pane).getByText(attachmentName)).toBeTruthy();
-    expect(within(pane).getByAltText(attachmentName)).toBeTruthy();
-  });
 }
 
 test(
@@ -835,6 +1144,132 @@ test(
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );
+
+test("dual panes can share the root container and open pre-share root documents with attachments", async () => {
+  useTestApiAppHandlers();
+  const view = renderDualPane();
+  const leftPane = getPaneRoot(view, "left");
+  const rightPane = getPaneRoot(view, "right");
+  const peerSessionPrefix = () => readSessionTokenPrefix(rightPane);
+
+  await waitForDualPaneProvisioning(leftPane, rightPane);
+
+  await openExplorer(leftPane);
+  await openExplorer(rightPane);
+
+  await interact(() => {
+    fireEvent.click(getExplorerSidebarItem(leftPane, "/"));
+  });
+
+  await createInlineNoteWithAttachment(
+    leftPane,
+    "Root share note",
+    "root-share-note.png",
+  );
+  const createdDocumentId = await waitForInlineNoteToSettle(
+    leftPane,
+    "Root share note",
+    "root-share-note.png",
+  );
+
+  await interact(() => {
+    fireEvent.click(
+      within(leftPane).getByRole("button", { name: "Back to Container" }),
+    );
+  });
+
+  await createInlineDriverLicenseWithAttachments(
+    leftPane,
+    "DL-987654",
+    "2031-09-30",
+    "license-front.png",
+    "license-back.png",
+  );
+  const driverLicenseDocumentId = findLatestCreatedOrCommittedDocumentId([
+    createdDocumentId,
+  ]);
+  await waitForInlineDriverLicenseToSettle(leftPane, "DL-987654", [
+    "license-front.png",
+    "license-back.png",
+  ]);
+  await waitForSuccessfulDocumentCommitChange(
+    driverLicenseDocumentId,
+    "Driver's license did not complete a successful remote commit before sharing the root container.",
+  );
+  const noteCommitCountBeforeShare =
+    countSuccessfulDocumentCommitChanges(createdDocumentId);
+  const driverLicenseCommitCountBeforeShare =
+    countSuccessfulDocumentCommitChanges(driverLicenseDocumentId);
+
+  await interact(() => {
+    fireEvent.click(
+      within(leftPane).getByRole("button", { name: "Back to Container" }),
+    );
+  });
+
+  await shareContainerWithPeer(leftPane, "/");
+  await waitForCondition(
+    () =>
+      countSuccessfulDocumentCommitChanges(createdDocumentId) >
+      noteCommitCountBeforeShare,
+    "Root share did not complete a post-share note attachment rewrap commit.",
+  );
+  await waitForCondition(
+    () =>
+      countSuccessfulDocumentCommitChanges(driverLicenseDocumentId) >
+      driverLicenseCommitCountBeforeShare,
+    "Root share did not complete a post-share driver's license attachment rewrap commit.",
+  );
+
+  await selectPeerSharedRootContainer(rightPane);
+  expect(rightPane.textContent?.includes("Explorer: Skipped")).toBe(false);
+  await openPeerNoteAndAssertAttachmentInSelectedContainer(
+    rightPane,
+    createdDocumentId,
+    "Root share note",
+    "root-share-note.png",
+  );
+
+  await selectPeerSharedRootContainer(rightPane);
+  await openPeerDriverLicenseAndAssertAttachmentsInSelectedContainer(
+    rightPane,
+    "Driver's License DL-987654",
+    "DL-987654",
+    "2031-09-30",
+    ["license-front.png", "license-back.png"],
+  );
+
+  const peerSyncTraffic = summarizeDocumentSyncTraffic(peerSessionPrefix());
+  expect(rightPane.textContent?.includes("Documents: Skipped")).toBe(false);
+  expect(
+    peerSyncTraffic.some(
+      (entry) =>
+        entry.documentId === createdDocumentId &&
+        entry.responseAction === "none" &&
+        entry.responseEnvelopeCount === 2 &&
+        entry.responseUpdateEpochs.join(",") === "1,1",
+    ),
+  ).toBe(true);
+  expect(
+    peerSyncTraffic.some(
+      (entry) =>
+        entry.documentId === driverLicenseDocumentId &&
+        entry.responseAction === "none" &&
+        entry.responseEnvelopeCount === 2 &&
+        entry.responseUpdateEpochs.join(",") === "1,1",
+    ),
+  ).toBe(true);
+  expect(
+    peerSyncTraffic.some(
+      (entry) =>
+        entry.documentId !== createdDocumentId &&
+        entry.documentId !== driverLicenseDocumentId &&
+        entry.responseAction === "none" &&
+        entry.responseEnvelopeCount === 2 &&
+        entry.responseUpdateEpochs.join(",") === "1",
+    ),
+  ).toBe(true);
+}, 20_000);
 
 test(
   "dual panes can share the root container after linking an existing root note into a child container",

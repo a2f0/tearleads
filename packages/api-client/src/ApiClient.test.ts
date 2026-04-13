@@ -46,3 +46,37 @@ test("returns null on network error", async () => {
   expect(await client.getHealth()).toBeNull();
   globalThis.fetch = originalFetch;
 });
+
+test("includes backend error details in onError output for non-2xx responses", async () => {
+  const originalFetch = globalThis.fetch;
+  const fetchMock = Object.assign(
+    async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+      new Response(
+        JSON.stringify({
+          error: "Container metadata access state is unavailable",
+        }),
+        {
+          status: 409,
+          statusText: "Conflict",
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    { preconnect: originalFetch.preconnect },
+  );
+  globalThis.fetch = fetchMock;
+
+  const client = new ApiClient("http://api.test");
+  const errors: string[] = [];
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+
+  expect(
+    await client.shareContainer("container-1", "user", "user-2", "write"),
+  ).toBeNull();
+  expect(errors).toEqual([
+    "POST /containers/container-1/share: 409 Conflict: Container metadata access state is unavailable",
+  ]);
+
+  globalThis.fetch = originalFetch;
+});
