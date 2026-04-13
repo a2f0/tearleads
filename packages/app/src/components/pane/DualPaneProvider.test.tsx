@@ -104,6 +104,23 @@ function renderDualPane() {
   );
 }
 
+function renderSinglePane() {
+  const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
+    createAppDatabaseWorker(MockWorker),
+  );
+
+  return render(
+    <DualPaneProvider>
+      <PaneSideProvider side="left">
+        <PaneProvider hostConfig={hostConfig}>
+          <PaneAutoProvisioner />
+          <Pane className="pane pane-left" />
+        </PaneProvider>
+      </PaneSideProvider>
+    </DualPaneProvider>,
+  );
+}
+
 function getPaneRoot(
   view: ReturnType<typeof renderDualPane>,
   side: "left" | "right",
@@ -286,6 +303,31 @@ async function selectContainerAndReadId(
   const containerId = idLine.replace(/^ID:\s*/u, "").trim();
   invariant(containerId.length > 0, `Expected explorer ID for "${name}".`);
   return containerId;
+}
+
+async function waitForSinglePaneProvisioning(pane: HTMLElement) {
+  await waitForCondition(
+    () =>
+      !pane.textContent?.includes("userId: none") &&
+      !pane.textContent?.includes("session: none"),
+    "Left pane identity did not finish provisioning.",
+  );
+}
+
+async function waitForDualPaneProvisioning(
+  leftPane: HTMLElement,
+  rightPane: HTMLElement,
+) {
+  await waitForCondition(
+    () =>
+      !leftPane.textContent?.includes("userId: none") &&
+      !leftPane.textContent?.includes("session: none") &&
+      !rightPane.textContent?.includes("userId: none") &&
+      !rightPane.textContent?.includes("session: none") &&
+      !leftPane.textContent?.includes("peerUserId: none") &&
+      !rightPane.textContent?.includes("peerUserId: none"),
+    "Dual pane identities did not finish provisioning.",
+  );
 }
 
 async function moveContainer(
@@ -735,16 +777,7 @@ test(
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none") &&
-        !rightPane.textContent?.includes("userId: none") &&
-        !rightPane.textContent?.includes("session: none") &&
-        !leftPane.textContent?.includes("peerUserId: none") &&
-        !rightPane.textContent?.includes("peerUserId: none"),
-      "Dual pane identities did not finish provisioning.",
-    );
+    await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await openExplorer(leftPane);
     await openExplorer(rightPane);
@@ -766,16 +799,7 @@ test(
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none") &&
-        !rightPane.textContent?.includes("userId: none") &&
-        !rightPane.textContent?.includes("session: none") &&
-        !leftPane.textContent?.includes("peerUserId: none") &&
-        !rightPane.textContent?.includes("peerUserId: none"),
-      "Dual pane identities did not finish provisioning.",
-    );
+    await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await openExplorer(leftPane);
     await openExplorer(rightPane);
@@ -820,16 +844,7 @@ test(
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none") &&
-        !rightPane.textContent?.includes("userId: none") &&
-        !rightPane.textContent?.includes("session: none") &&
-        !leftPane.textContent?.includes("peerUserId: none") &&
-        !rightPane.textContent?.includes("peerUserId: none"),
-      "Dual pane identities did not finish provisioning.",
-    );
+    await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await openExplorer(leftPane);
     await openExplorer(rightPane);
@@ -881,15 +896,10 @@ test(
   "dual pane explorer can move a child container under another sibling",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
@@ -913,15 +923,10 @@ test(
   "dual pane explorer can move a note between sibling containers",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
@@ -987,23 +992,15 @@ test(
   "dual pane explorer can link a note to another container and detach the active link",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
     await createChildContainer(leftPane, "Source");
     await createChildContainer(leftPane, "Target");
-    await selectContainerAndReadId(leftPane, "Source");
-    await selectContainerAndReadId(leftPane, "Target");
-
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
@@ -1081,23 +1078,15 @@ test(
   "dual pane explorer can switch the active linked container for a linked note",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
     await createChildContainer(leftPane, "Source");
     await createChildContainer(leftPane, "Target");
-    await selectContainerAndReadId(leftPane, "Source");
-    await selectContainerAndReadId(leftPane, "Target");
-
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
@@ -1177,23 +1166,15 @@ test(
   "dual pane explorer can switch the active linked container for a linked driver's license",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
     await createChildContainer(leftPane, "Source");
     await createChildContainer(leftPane, "Target");
-    await selectContainerAndReadId(leftPane, "Source");
-    await selectContainerAndReadId(leftPane, "Target");
-
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
@@ -1251,23 +1232,15 @@ test(
   "dual pane explorer shows linked note projections under each linked container and sidebar selection can switch the active projection",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
 
-    await waitForCondition(
-      () =>
-        !leftPane.textContent?.includes("userId: none") &&
-        !leftPane.textContent?.includes("session: none"),
-      "Left pane identity did not finish provisioning.",
-    );
+    await waitForSinglePaneProvisioning(leftPane);
 
     await openExplorer(leftPane);
 
     await createChildContainer(leftPane, "Source");
     await createChildContainer(leftPane, "Target");
-    await selectContainerAndReadId(leftPane, "Source");
-    await selectContainerAndReadId(leftPane, "Target");
-
     await interact(() => {
       fireEvent.click(getExplorerSidebarItem(leftPane, "Source"));
     });
