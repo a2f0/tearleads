@@ -354,6 +354,276 @@ Once those answers exist, the first implementation PR should be baseline
 checkpoint persistence, because it is the smallest write-path change that makes
 the later audit ledger verifiable.
 
+## Phase 1 Concrete Design
+
+This section resolves the Phase 1 storage-boundary questions for `#204`.
+
+### Design Decisions
+
+- keep the current live-state tables live-only:
+  - `document_updates`
+  - `document_update_spans`
+  - `attachment_bindings`
+  - `object_access_epochs`
+  - `object_recipient_envelopes`
+  - `blobs`
+- add separate history-side persistence rather than keeping detached live rows
+  forever
+- make the first audit layer tamper-evident with server-persisted hash chains,
+  not new client-side write signatures
+- if client signatures are added later, they should be per-device, not
+  per-user; the current auth/session model is fingerprint-based user auth, and
+  the current CRDT peer seed is not an authenticated device identity
+- defer fresh-client historical replay and historical blob download from the
+  server in the first implementation
+- because historical replay is deferred, do not add historical wrapped-key or
+  recipient-envelope tables in the first implementation
+- instead, snapshot `accessEpoch` and `accessFingerprint` into audit records so
+  the audit layer can prove which access state a write was accepted under
+
+### Live-State Boundary
+
+The current tables keep their current meanings:
+
+- `document_updates` remains the live sync store for encrypted Loro updates
+- `document_update_spans` remains the causal-sync index
+- `attachment_bindings` remains the live projection of current attachment slots
+- `object_access_epochs` and `object_recipient_envelopes` remain the canonical
+  current access-plane rows
+- `blobs` remains the live blob-byte store and can continue to be pruned when
+  the final active binding disappears
+
+No history requirement should be satisfied by changing those live tables into a
+mixed live-and-history store.
+
+### History-Side Schema
+
+The audit layer should add four new tables and keep one future table family
+explicitly deferred.
+
+#### `document_audit_entries`
+
+One append-only ledger row per accepted document write event.
+
+Suggested columns:
+
+- `id UUID PRIMARY KEY`
+- `document_id UUID NOT NULL`
+- `sequence BIGINT GENERATED ALWAYS AS IDENTITY`
+- `event_type TEXT NOT NULL`
+- `access_epoch INTEGER NOT NULL`
+- `access_fingerprint TEXT NOT NULL`
+- `actor_user_id UUID NOT NULL`
+- `actor_fingerprint TEXT NOT NULL`
+- `prev_entry_hash TEXT`
+- `entry_hash TEXT NOT NULL`
+- `created_at TIMESTAMP NOT NULL DEFAULT now()`
+
+Required indexes and constraints:
+
+- unique `(document_id, sequence)`
+- unique `(document_id, entry_hash)`
+- index on `(document_id, created_at)`
+
+This table is the canonical per-document audit chain. Hash verification walks
+`prev_entry_hash -> entry_hash` in sequence order.
+
+#### `document_update_audit_events`
+
+Typed payload for `document_audit_entries.event_type = 'loro_update'`.
+
+Suggested columns:
+
+- `audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id)`
+- `live_update_id UUID NOT NULL`
+- `partial_start_version_vector TEXT NOT NULL`
+- `partial_end_version_vector TEXT NOT NULL`
+- `source_version_vector TEXT`
+- `encrypted_update_sha256 TEXT NOT NULL`
+- `encrypted_update_byte_length INTEGER NOT NULL`
+
+Required indexes and constraints:
+
+- unique `(live_update_id)`
+
+This keeps the audit ledger durable even if the live sync store later adds
+compaction or pruning. The first implementation still treats `document_updates`
+as the live ciphertext store; the audit side records immutable hashes and
+visible metadata, not a second full ciphertext copy.
+
+#### `document_audit_checkpoints`
+
+Explicit baseline/checkpoint records that commit to the audit history they
+cover.
+
+Suggested columns:
+
+- `id UUID PRIMARY KEY`
+- `document_id UUID NOT NULL`
+- `baseline_update_id UUID NOT NULL`
+- `checkpoint_kind TEXT NOT NULL`
+- `source_version_vector TEXT NOT NULL`
+- `covered_audit_entry_hash TEXT`
+- `previous_checkpoint_hash TEXT`
+- `checkpoint_hash TEXT NOT NULL`
+- `access_epoch INTEGER NOT NULL`
+- `access_fingerprint TEXT NOT NULL`
+- `actor_user_id UUID NOT NULL`
+- `actor_fingerprint TEXT NOT NULL`
+- `created_at TIMESTAMP NOT NULL DEFAULT now()`
+
+Required indexes and constraints:
+
+- unique `(baseline_update_id)`
+- unique `(document_id, checkpoint_hash)`
+- index on `(document_id, created_at)`
+
+These rows are not the live baseline payload. They are durable checkpoint
+metadata that says which audit head a baseline claims to cover.
+
+The first implementation should only write these rows for updates that are
+explicitly marked as baselines. That means `#205` should add an explicit
+baseline/checkpoint marker to the write contract instead of trying to infer all
+baseline writes from version-vector shape alone.
+
+Because the current sync-store append interface only receives
+`authorFingerprint`, `#205` should also thread `authorUserId` through the sync
+write path so checkpoint and audit rows can record both the stable actor
+principal and the authenticated key fingerprint used for the write.
+
+#### `blob_audit_objects`
+
+Immutable blob metadata plus retention state for any blob that appears in audit
+history.
+
+Suggested columns:
+
+- `blob_id UUID PRIMARY KEY`
+- `sha256 TEXT NOT NULL`
+- `byte_length INTEGER NOT NULL`
+- `live_storage_key TEXT`
+- `retention_mode TEXT NOT NULL`
+- `historical_bytes_retained BOOLEAN NOT NULL`
+- `pruned_at TIMESTAMP`
+- `created_at TIMESTAMP NOT NULL DEFAULT now()`
+
+The initial value should be:
+
+- `retention_mode = 'live_only'`
+- `historical_bytes_retained = false`
+
+That makes the first retention policy explicit: the audit layer keeps durable
+metadata and event history for old blobs, but not durable old blob bytes.
+
+#### `document_attachment_audit_events`
+
+Typed payload for attachment-related `document_audit_entries`.
+
+Suggested columns:
+
+- `audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id)`
+- `action TEXT NOT NULL`
+- `slot_id TEXT NOT NULL`
+- `binding_id UUID`
+- `previous_binding_id UUID`
+- `blob_id UUID`
+- `previous_blob_id UUID`
+- `retention_mode TEXT NOT NULL`
+
+This table captures the immutable attachment event stream:
+
+- attach
+- replace / same-slot rebind
+- detach
+- blob rewrap
+
+`attachment_bindings` stays the current-state projection. This table is the
+durable history.
+
+### Explicitly Deferred Table Family
+
+The first implementation should not add history-side wrapped-key tables yet.
+
+If later work needs server-side historical replay or historical blob download,
+add dedicated history-side tables such as:
+
+- `audit_object_access_epochs`
+- `audit_object_recipient_envelopes`
+
+Those future tables should be keyed by history objects or audit checkpoints,
+not by the current live object rows. The current `object_access_epochs` and
+`object_recipient_envelopes` tables should remain live-only.
+
+### Verification Model
+
+The first implementation should verify history with:
+
+- append-only `document_audit_entries`
+- deterministic `entry_hash` over canonical event payload plus
+  `prev_entry_hash`
+- append-only `document_audit_checkpoints`
+- deterministic `checkpoint_hash` over canonical checkpoint payload plus
+  `previous_checkpoint_hash`
+
+This is enough for tamper evidence without introducing a new client signature
+protocol yet.
+
+Future client signatures, if added, should be per-device. Per-user signatures
+would collapse multiple concurrently-authoring devices into one signer and do
+not match how CRDT authorship actually behaves.
+
+### Historical Replay Scope
+
+The first implementation does **not** promise:
+
+- fresh-client replay of all historical document updates from scratch
+- historical blob download after a blob has been pruned from the live `blobs`
+  table
+- historical wrapped-DEK or recipient-envelope retention for old epochs
+
+Instead, the first implementation promises:
+
+- durable history of accepted document writes
+- durable history of attachment/blob events
+- verifiable checkpoint records that commit to the history they cover
+- durable proof of historical blob metadata even after live blob pruning
+
+That keeps the first audit layer focused on verifiable history and storage
+boundaries rather than turning it into a full historical replay product.
+
+### Write-Path Boundaries
+
+#### `POST /documents/:documentId/sync`
+
+When new current-epoch updates are accepted:
+
+- keep writing `document_updates` and `document_update_spans` exactly as today
+- in the same transaction, write one `document_audit_entries` row and one
+  `document_update_audit_events` row for each newly accepted update
+- if the update is explicitly marked as a baseline, also write one
+  `document_audit_checkpoints` row
+
+The sync path should stay idempotent by keying audit-update rows to
+`live_update_id`. It should also be extended to pass `authorUserId` alongside
+the current `authorFingerprint`.
+
+#### `POST /documents/:documentId/commit-change`
+
+When structural attachment changes are accepted:
+
+- keep mutating `attachment_bindings`, blob access rows, and live blobs exactly
+  as today
+- before `pruneUnreachableAttachmentBlobs(...)` deletes live rows, write:
+  - `blob_audit_objects` rows for newly referenced blobs
+  - one `document_audit_entries` row plus one
+    `document_attachment_audit_events` row per committed attach / replace /
+    detach / rewrap event
+- if `commit-change` also accepts an explicitly marked baseline update, write
+  the matching `document_update_audit_events` and
+  `document_audit_checkpoints` rows in the same transaction
+
+Live GC must never delete from history-side tables.
+
 ## Open Questions
 
 - Should fresh retained clients be able to rematerialize old epochs directly
