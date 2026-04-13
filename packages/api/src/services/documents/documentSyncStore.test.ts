@@ -252,11 +252,12 @@ test("document sync store persists explicit baseline checkpoints", async () => {
       checkpointHash: documentAuditCheckpoints.checkpointHash,
       checkpointKind: documentAuditCheckpoints.checkpointKind,
       previousCheckpointHash: documentAuditCheckpoints.previousCheckpointHash,
+      sequence: documentAuditCheckpoints.sequence,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
     })
     .from(documentAuditCheckpoints)
     .where(eq(documentAuditCheckpoints.documentId, created.document.id))
-    .orderBy(documentAuditCheckpoints.createdAt);
+    .orderBy(documentAuditCheckpoints.sequence);
   expect(checkpointRows).toHaveLength(2);
   expect(checkpointRows[0]).toEqual({
     accessEpoch: created.currentAccessEpoch,
@@ -266,6 +267,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
     checkpointHash: expect.any(String),
     checkpointKind: "fresh_baseline",
     previousCheckpointHash: null,
+    sequence: expect.any(Number),
     sourceVersionVector: firstSourceVersionVector,
   });
   expect(checkpointRows[1]).toEqual({
@@ -276,8 +278,12 @@ test("document sync store persists explicit baseline checkpoints", async () => {
     checkpointHash: expect.any(String),
     checkpointKind: "fresh_baseline",
     previousCheckpointHash: checkpointRows[0]?.checkpointHash ?? null,
+    sequence: expect.any(Number),
     sourceVersionVector: secondSourceVersionVector,
   });
+  expect(checkpointRows[1]?.sequence).toBeGreaterThan(
+    checkpointRows[0]?.sequence ?? 0,
+  );
 });
 
 test("document sync store lists only causally missing document updates", async () => {

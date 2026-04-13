@@ -139,6 +139,7 @@ await client.exec(`
   CREATE TABLE IF NOT EXISTS document_audit_checkpoints (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL,
+    sequence BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
     baseline_update_id UUID NOT NULL UNIQUE,
     checkpoint_kind TEXT NOT NULL,
     source_version_vector TEXT NOT NULL,
@@ -220,6 +221,8 @@ await client.exec(`
     ON document_container_links (document_id, container_id);
   CREATE INDEX IF NOT EXISTS document_container_links_container_idx
     ON document_container_links (container_id);
+  CREATE INDEX IF NOT EXISTS document_audit_checkpoints_document_sequence_idx
+    ON document_audit_checkpoints (document_id, sequence);
   CREATE UNIQUE INDEX IF NOT EXISTS document_audit_checkpoints_document_hash_idx
     ON document_audit_checkpoints (document_id, checkpoint_hash);
   CREATE INDEX IF NOT EXISTS document_audit_checkpoints_document_created_idx

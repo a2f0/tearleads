@@ -1,13 +1,12 @@
 import type {
+  DocumentCheckpointKind,
   DocumentRecipientEnvelopeAction,
   SyncDocumentOutgoingUpdate,
 } from "@tearleads/loro/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { documentAuditCheckpoints, documents } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
-
-type DocumentCheckpointKind = "fresh_baseline" | "rotate_baseline";
 
 interface CheckpointInput {
   checkpointKind?: DocumentCheckpointKind | undefined;
@@ -18,6 +17,10 @@ interface CheckpointInput {
 interface DocumentCheckpointInputError {
   message: string;
   status: 400;
+}
+
+function serializeCheckpointHashField(name: string, value: string) {
+  return `${name}:${value.length}:${value}`;
 }
 
 function buildCheckpointHashPayload(input: {
@@ -32,18 +35,27 @@ function buildCheckpointHashPayload(input: {
   previousCheckpointHash: string | null;
   sourceVersionVector: string;
 }) {
-  return JSON.stringify({
-    documentId: input.documentId,
-    baselineUpdateId: input.baselineUpdateId,
-    checkpointKind: input.checkpointKind,
-    sourceVersionVector: input.sourceVersionVector,
-    coveredAuditEntryHash: input.coveredAuditEntryHash,
-    previousCheckpointHash: input.previousCheckpointHash,
-    accessEpoch: input.accessEpoch,
-    accessFingerprint: input.accessFingerprint,
-    actorUserId: input.actorUserId,
-    actorFingerprint: input.actorFingerprint,
-  });
+  return [
+    serializeCheckpointHashField("documentId", input.documentId),
+    serializeCheckpointHashField("baselineUpdateId", input.baselineUpdateId),
+    serializeCheckpointHashField("checkpointKind", input.checkpointKind),
+    serializeCheckpointHashField(
+      "sourceVersionVector",
+      input.sourceVersionVector,
+    ),
+    serializeCheckpointHashField(
+      "coveredAuditEntryHash",
+      input.coveredAuditEntryHash ?? "",
+    ),
+    serializeCheckpointHashField(
+      "previousCheckpointHash",
+      input.previousCheckpointHash ?? "",
+    ),
+    serializeCheckpointHashField("accessEpoch", String(input.accessEpoch)),
+    serializeCheckpointHashField("accessFingerprint", input.accessFingerprint),
+    serializeCheckpointHashField("actorUserId", input.actorUserId),
+    serializeCheckpointHashField("actorFingerprint", input.actorFingerprint),
+  ].join("\n");
 }
 
 export function getDocumentCheckpointInputError(input: {
@@ -125,12 +137,12 @@ export async function maybeWriteDocumentAuditCheckpoint(
     return;
   }
 
-  await executor.execute(sql`
-    select ${documents.id}
-    from ${documents}
-    where ${documents.id} = ${input.documentId}::uuid
-    for update
-  `);
+  await executor
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, input.documentId))
+    .limit(1)
+    .for("update");
 
   const [existing] = await executor
     .select({ id: documentAuditCheckpoints.id })
@@ -149,10 +161,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
     })
     .from(documentAuditCheckpoints)
     .where(eq(documentAuditCheckpoints.documentId, input.documentId))
-    .orderBy(
-      desc(documentAuditCheckpoints.createdAt),
-      desc(documentAuditCheckpoints.id),
-    )
+    .orderBy(desc(documentAuditCheckpoints.sequence))
     .limit(1);
 
   const previousCheckpointHash = latest?.checkpointHash ?? null;

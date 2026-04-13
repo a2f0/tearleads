@@ -8,6 +8,7 @@ import {
   documentUpdates,
 } from "@tearleads/loro/server";
 import {
+  bigint,
   index,
   integer,
   pgTable,
@@ -238,6 +239,9 @@ export const documentAuditCheckpoints = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     documentId: uuid("document_id").notNull(),
+    sequence: bigint("sequence", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull(),
     baselineUpdateId: uuid("baseline_update_id").notNull().unique(),
     checkpointKind: text("checkpoint_kind").notNull(),
     sourceVersionVector: text("source_version_vector").notNull(),
@@ -251,6 +255,10 @@ export const documentAuditCheckpoints = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    index("document_audit_checkpoints_document_sequence_idx").on(
+      table.documentId,
+      table.sequence,
+    ),
     uniqueIndex("document_audit_checkpoints_document_hash_idx").on(
       table.documentId,
       table.checkpointHash,
