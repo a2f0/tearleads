@@ -14,7 +14,7 @@ import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
   listProxiedApiRequests,
   resetMockServer,
-  useRealApiHandlers,
+  useTestApiAppHandlers,
   wsUrl,
 } from "../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
@@ -730,7 +730,7 @@ async function openPeerNoteAndAssertAttachment(
 test(
   "dual panes can share a container and refresh peer discovery",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
@@ -761,7 +761,7 @@ test(
 test(
   "dual panes can share a container and refresh a post-share note with an image attachment once current-epoch document recipient envelopes are materialized",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
@@ -815,7 +815,7 @@ test(
 test(
   "dual panes can share the root container after linking an existing root note into a child container",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
@@ -880,7 +880,7 @@ test(
 test(
   "dual pane explorer can move a child container under another sibling",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
@@ -912,7 +912,7 @@ test(
 test(
   "dual pane explorer can move a note between sibling containers",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
@@ -986,7 +986,7 @@ test(
 test(
   "dual pane explorer can link a note to another container and detach the active link",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
@@ -1080,7 +1080,7 @@ test(
 test(
   "dual pane explorer can switch the active linked container for a linked note",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
@@ -1176,7 +1176,7 @@ test(
 test(
   "dual pane explorer can switch the active linked container for a linked driver's license",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
@@ -1250,7 +1250,7 @@ test(
 test(
   "dual pane explorer shows linked note projections under each linked container and sidebar selection can switch the active projection",
   async () => {
-    useRealApiHandlers();
+    useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
 
