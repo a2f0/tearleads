@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   type BlobAuditRetentionMode,
@@ -100,12 +100,8 @@ async function listAuditEntries(
 
 async function listUpdateAuditEvents(
   executor: DatabaseExecutor,
-  auditEntryIds: string[],
+  documentId: string,
 ): Promise<UpdateAuditEventRow[]> {
-  if (auditEntryIds.length === 0) {
-    return [];
-  }
-
   return executor
     .select({
       auditEntryId: documentUpdateAuditEvents.auditEntryId,
@@ -120,17 +116,17 @@ async function listUpdateAuditEvents(
       sourceVersionVector: documentUpdateAuditEvents.sourceVersionVector,
     })
     .from(documentUpdateAuditEvents)
-    .where(inArray(documentUpdateAuditEvents.auditEntryId, auditEntryIds));
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentUpdateAuditEvents.auditEntryId),
+    )
+    .where(eq(documentAuditEntries.documentId, documentId));
 }
 
 async function listAttachmentAuditEvents(
   executor: DatabaseExecutor,
-  auditEntryIds: string[],
+  documentId: string,
 ): Promise<AttachmentAuditEventRow[]> {
-  if (auditEntryIds.length === 0) {
-    return [];
-  }
-
   return executor
     .select({
       action: documentAttachmentAuditEvents.action,
@@ -143,7 +139,11 @@ async function listAttachmentAuditEvents(
       slotId: documentAttachmentAuditEvents.slotId,
     })
     .from(documentAttachmentAuditEvents)
-    .where(inArray(documentAttachmentAuditEvents.auditEntryId, auditEntryIds));
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentAttachmentAuditEvents.auditEntryId),
+    )
+    .where(eq(documentAuditEntries.documentId, documentId));
 }
 
 async function listCheckpoints(
@@ -283,9 +283,6 @@ async function verifyAuditEntries(input: {
 
   for (let index = 0; index < input.auditEntries.length; index += 1) {
     const entry = input.auditEntries[index];
-    if (!entry) {
-      continue;
-    }
 
     const expectedPrevEntryHash =
       index === 0 ? null : (input.auditEntries[index - 1]?.entryHash ?? null);
@@ -443,11 +440,10 @@ export async function verifyDocumentAuditHistory(
 ): Promise<VerifyDocumentAuditHistoryResult> {
   const errors: string[] = [];
   const auditEntries = await listAuditEntries(executor, input.documentId);
-  const auditEntryIds = auditEntries.map((entry) => entry.id);
   const [updateAuditEvents, attachmentAuditEvents, checkpoints] =
     await Promise.all([
-      listUpdateAuditEvents(executor, auditEntryIds),
-      listAttachmentAuditEvents(executor, auditEntryIds),
+      listUpdateAuditEvents(executor, input.documentId),
+      listAttachmentAuditEvents(executor, input.documentId),
       listCheckpoints(executor, input.documentId),
     ]);
   const auditEntryHashSet = new Set(
