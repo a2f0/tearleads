@@ -126,17 +126,20 @@ async function ensureBlobAuditObjects(
     );
   }
 
-  await executor.insert(blobAuditObjects).values(
-    liveBlobRows.map((blob) => ({
-      blobId: blob.blobId,
-      byteLength: blob.byteLength,
-      historicalBytesRetained: false,
-      liveStorageKey: blob.liveStorageKey,
-      prunedAt: null,
-      retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
-      sha256: blob.sha256,
-    })),
-  );
+  await executor
+    .insert(blobAuditObjects)
+    .values(
+      liveBlobRows.map((blob) => ({
+        blobId: blob.blobId,
+        byteLength: blob.byteLength,
+        historicalBytesRetained: false,
+        liveStorageKey: blob.liveStorageKey,
+        prunedAt: null,
+        retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
+        sha256: blob.sha256,
+      })),
+    )
+    .onConflictDoNothing({ target: blobAuditObjects.blobId });
 }
 
 export async function appendDocumentAttachmentAuditEntries(
