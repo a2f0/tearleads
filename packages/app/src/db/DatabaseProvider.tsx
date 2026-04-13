@@ -54,7 +54,6 @@ async function bootDatabaseWorker(
   dbName: string,
   log: (message: string) => void,
 ) {
-  await appWorker.client.ping();
   log("Loading SQLite3 WASM module...");
   log(`Initializing database: ${dbName}`);
   await appWorker.client.init({
