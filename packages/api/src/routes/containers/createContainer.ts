@@ -22,7 +22,7 @@ interface CreateContainerRouteDeps {
   readonly runtime?: ApiServiceRuntime;
 }
 
-export function buildCreateContainerRoute({
+export function createCreateContainerRoute({
   requireAuth = defaultRequireAuth,
   runtime = defaultApiServiceRuntime,
 }: CreateContainerRouteDeps = {}) {
@@ -66,4 +66,4 @@ export function buildCreateContainerRoute({
   return createContainerRoute;
 }
 
-export const createContainerRoute = buildCreateContainerRoute();
+export const createContainerRoute = createCreateContainerRoute();

@@ -3,8 +3,8 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import {
-  buildCreateContainerRoute,
   createContainerRoute,
+  createCreateContainerRoute,
 } from "./createContainer";
 import {
   createListContainerDocumentsRoute,
@@ -41,7 +41,7 @@ export function createContainersRouter({
 
   containersRouter.route(
     "/",
-    buildCreateContainerRoute({
+    createCreateContainerRoute({
       requireAuth,
       runtime,
     }),

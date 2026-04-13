@@ -6,7 +6,7 @@ import {
   type SessionEnv,
 } from "../../middleware/session";
 
-interface LogoutRouteDeps {
+export interface LogoutRouteDeps {
   readonly destroySession?: (c: Context) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
 }

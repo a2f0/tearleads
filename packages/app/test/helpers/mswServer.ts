@@ -23,27 +23,13 @@ let activeProxiedApiRequestCount = 0;
 let hasLoadedApiRuntimeModule = false;
 let testApiAppPromise: Promise<TestApiApp> | null = null;
 
-const routeAppModulePath = ["..", "..", "..", "api", "src", "routeApp"].join(
-  "/",
-);
-const sessionModulePath = [
-  "..",
-  "..",
-  "..",
-  "api",
-  "src",
-  "middleware",
-  "session",
-].join("/");
-const postgresModulePath = [
-  "..",
-  "..",
-  "..",
-  "api",
-  "src",
-  "adapters",
-  "postgres",
-].join("/");
+function createApiModuleUrl(relativePath: string): string {
+  return new URL(`../../../api/src/${relativePath}`, import.meta.url).href;
+}
+
+const routeAppModuleUrl = createApiModuleUrl("routeApp.ts");
+const sessionModuleUrl = createApiModuleUrl("middleware/session.ts");
+const postgresModuleUrl = createApiModuleUrl("adapters/postgres.ts");
 
 interface TestApiApp {
   fetch: (request: Request) => Promise<Response>;
@@ -190,9 +176,9 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       { createDestroySession, createRequireAuth, createSessionTokenIssuer },
       { db },
     ] = await Promise.all([
-      import(routeAppModulePath),
-      import(sessionModulePath),
-      import(postgresModulePath),
+      import(routeAppModuleUrl),
+      import(sessionModuleUrl),
+      import(postgresModuleUrl),
     ]);
 
     if (typeof createRouteApp !== "function") {
@@ -340,7 +326,7 @@ afterAll(async () => {
     return;
   }
 
-  const { default: postgresClient } = await import(postgresModulePath);
+  const { default: postgresClient } = await import(postgresModuleUrl);
   if (isAsyncClosable(postgresClient)) {
     await postgresClient.close();
   }

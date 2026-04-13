@@ -7,7 +7,7 @@ import {
   createEncapsulationKeyRoute,
   encapsulationKeyRoute,
 } from "./encapsulationKey";
-import { createLogoutRoute, logoutRoute } from "./logout";
+import { createLogoutRoute, type LogoutRouteDeps, logoutRoute } from "./logout";
 import { createRegisterRoute, registerRoute } from "./register";
 import { createVerifyRoute, verifyRoute } from "./verify";
 
@@ -20,9 +20,7 @@ auth.route("/", verifyRoute);
 auth.route("/", logoutRoute);
 
 interface AuthRouterDeps {
-  readonly destroySession?: Parameters<
-    typeof createLogoutRoute
-  >[0]["destroySession"];
+  readonly destroySession?: LogoutRouteDeps["destroySession"];
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }
