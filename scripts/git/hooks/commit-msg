@@ -3,8 +3,14 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+MESSAGE_FILE="$1"
 
 cd "$REPO_ROOT"
 
 echo "Linting commit message..."
-bun run lint:commit-msg -- "$1"
+npx --yes \
+  --package @commitlint/cli \
+  --package @commitlint/config-conventional \
+  commitlint \
+  --config "$REPO_ROOT/commitlint.config.mts" \
+  --edit "$MESSAGE_FILE"
