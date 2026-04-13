@@ -2092,7 +2092,7 @@ test("notes store replaces committed attachments after document rotate", async (
       documentRecipientEnvelopeCount: 1,
       expectedBindingIds: [null],
       referencedSlotIds: [currentSlotId ?? ""],
-      sourceVersionVector: null,
+      sourceVersionVector: expect.any(String),
     },
     {
       accessEpoch: 2,
