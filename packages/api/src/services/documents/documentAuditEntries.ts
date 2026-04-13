@@ -18,6 +18,16 @@ interface DocumentAuditUpdateInput {
   sourceVersionVector?: string | undefined;
 }
 
+interface DocumentAuditUpdateMetadata {
+  auditEntryId: string;
+  id: string;
+  encryptedUpdateByteLength: number;
+  encryptedUpdateSha256: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  sourceVersionVector: string | null;
+}
+
 function serializeAuditEntryHashField(name: string, value: string) {
   return `${name}:${value.length}:${value}`;
 }
@@ -102,13 +112,22 @@ export async function appendDocumentUpdateAuditEntries(
     .orderBy(desc(documentAuditEntries.sequence))
     .limit(1);
 
-  let previousEntryHash = latest?.entryHash ?? null;
+  const updatesWithMetadata: DocumentAuditUpdateMetadata[] = await Promise.all(
+    input.updates.map(async (update) => ({
+      ...update,
+      auditEntryId: crypto.randomUUID(),
+      encryptedUpdateByteLength: textEncoder.encode(update.encryptedData)
+        .byteLength,
+      encryptedUpdateSha256: await sha256Hex(update.encryptedData),
+      sourceVersionVector: update.sourceVersionVector ?? null,
+    })),
+  );
 
-  for (const update of input.updates) {
-    const encryptedUpdateSha256 = await sha256Hex(update.encryptedData);
-    const encryptedUpdateByteLength = textEncoder.encode(
-      update.encryptedData,
-    ).byteLength;
+  let previousEntryHash = latest?.entryHash ?? null;
+  const auditEntries: Array<typeof documentAuditEntries.$inferInsert> = [];
+  const auditEvents: Array<typeof documentUpdateAuditEvents.$inferInsert> = [];
+
+  for (const update of updatesWithMetadata) {
     const entryHash = await sha256Hex(
       buildDocumentUpdateAuditEntryHashPayload({
         accessEpoch: input.accessEpoch,
@@ -116,47 +135,44 @@ export async function appendDocumentUpdateAuditEntries(
         actorFingerprint: input.actorFingerprint,
         actorUserId: input.actorUserId,
         documentId: input.documentId,
-        encryptedUpdateByteLength,
-        encryptedUpdateSha256,
+        encryptedUpdateByteLength: update.encryptedUpdateByteLength,
+        encryptedUpdateSha256: update.encryptedUpdateSha256,
         eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
         liveUpdateId: update.id,
         partialEndVersionVector: update.partialEndVersionVector,
         partialStartVersionVector: update.partialStartVersionVector,
         previousEntryHash,
-        sourceVersionVector: update.sourceVersionVector ?? null,
+        sourceVersionVector: update.sourceVersionVector,
       }),
     );
 
-    const [auditEntry] = await executor
-      .insert(documentAuditEntries)
-      .values({
-        documentId: input.documentId,
-        eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
-        accessEpoch: input.accessEpoch,
-        accessFingerprint: input.accessFingerprint,
-        actorUserId: input.actorUserId,
-        actorFingerprint: input.actorFingerprint,
-        prevEntryHash: previousEntryHash,
-        entryHash,
-      })
-      .returning({ id: documentAuditEntries.id });
-    if (!auditEntry) {
-      throw new Error(`Failed to insert audit entry for update ${update.id}`);
-    }
-
-    await executor.insert(documentUpdateAuditEvents).values({
-      auditEntryId: auditEntry.id,
+    auditEntries.push({
+      id: update.auditEntryId,
+      documentId: input.documentId,
+      eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
+      accessEpoch: input.accessEpoch,
+      accessFingerprint: input.accessFingerprint,
+      actorUserId: input.actorUserId,
+      actorFingerprint: input.actorFingerprint,
+      prevEntryHash: previousEntryHash,
+      entryHash,
+    });
+    auditEvents.push({
+      auditEntryId: update.auditEntryId,
       liveUpdateId: update.id,
       partialStartVersionVector: update.partialStartVersionVector,
       partialEndVersionVector: update.partialEndVersionVector,
-      sourceVersionVector: update.sourceVersionVector ?? null,
-      encryptedUpdateSha256,
-      encryptedUpdateByteLength,
+      sourceVersionVector: update.sourceVersionVector,
+      encryptedUpdateSha256: update.encryptedUpdateSha256,
+      encryptedUpdateByteLength: update.encryptedUpdateByteLength,
     });
 
     entryHashByUpdateId.set(update.id, entryHash);
     previousEntryHash = entryHash;
   }
+
+  await executor.insert(documentAuditEntries).values(auditEntries);
+  await executor.insert(documentUpdateAuditEvents).values(auditEvents);
 
   return entryHashByUpdateId;
 }
