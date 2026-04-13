@@ -130,10 +130,12 @@ test("isCommitDocumentChangeRequest", () => {
       attachmentDetaches: [],
       attachmentRewraps: [],
       loroUpdate: {
+        checkpointKind: "fresh_baseline",
         id: "update_01",
         encryptedData: "encrypted",
         partialStartVersionVector: "{}",
         partialEndVersionVector: '{"a":1}',
+        sourceVersionVector: '{"a":1}',
         referencedSlotIds: ["slot_01"],
       },
     }),

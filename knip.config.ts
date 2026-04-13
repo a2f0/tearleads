@@ -5,7 +5,10 @@ export default {
     ".": {
       entry: [],
       project: [],
+      ignoreBinaries: ["commitlint"],
       ignoreDependencies: [
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
         "@tearleads/api-client",
         "app",
         "lint-staged",

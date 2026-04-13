@@ -3,6 +3,7 @@ export {
   type CreateDocumentRequest,
   type CreateDocumentResponse,
   DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
+  type DocumentCheckpointKind,
   type DocumentRecipientEnvelopeAction,
   type DocumentSyncUpdate,
   isCreateDocumentRequest,

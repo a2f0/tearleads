@@ -46,6 +46,10 @@ import {
 import { uniqueSortedStrings } from "../../utils/array";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
+import {
+  getDocumentCheckpointInputError,
+  maybeWriteDocumentAuditCheckpoint,
+} from "./documentAuditCheckpoints";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
 type DocumentSyncExecutor = DatabaseExecutor;
@@ -54,6 +58,7 @@ type DocumentAccess = NonNullable<
 >;
 
 interface DocumentRotateBaselineUpdate {
+  checkpointKind?: SyncDocumentOutgoingUpdate["checkpointKind"];
   partialEndVersionVector: string;
   sourceVersionVector?: string;
 }
@@ -115,6 +120,7 @@ interface DocumentSyncStore {
     userId: string;
   }): Promise<DocumentAccessState | null>;
   appendDocumentUpdates(input: {
+    authorUserId: string;
     documentId: string;
     authorFingerprint: string;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
@@ -310,6 +316,12 @@ export async function getRotateBaselineSourceError(input: {
   }
 
   const update = input.updates[0];
+  if (update?.checkpointKind !== "rotate_baseline") {
+    return {
+      message: "Rotate baseline requires checkpointKind rotate_baseline",
+      status: 400,
+    };
+  }
   if (!update?.sourceVersionVector) {
     return {
       message: "Missing rotate baseline source version vector",
@@ -401,6 +413,16 @@ async function validateAppendDocumentUpdatesInput(input: {
     throw new DocumentUpdateError(
       rotateBaselineSourceError.message,
       rotateBaselineSourceError.status,
+    );
+  }
+  const checkpointError = getDocumentCheckpointInputError({
+    documentRecipientEnvelopeAction,
+    updates: input.updates,
+  });
+  if (checkpointError) {
+    throw new DocumentUpdateError(
+      checkpointError.message,
+      checkpointError.status,
     );
   }
 }
@@ -710,6 +732,7 @@ async function getSyncDocumentAccess(
 async function appendSyncDocumentUpdates(
   runtime: ApiServiceRuntime,
   input: {
+    authorUserId: string;
     documentId: string;
     authorFingerprint: string;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
@@ -743,6 +766,21 @@ async function appendSyncDocumentUpdates(
       executor: tx,
       updates: input.updates,
     });
+    const checkpointUpdate =
+      input.updates.length === 1 &&
+      acceptedUpdateIds.includes(input.updates[0]?.id ?? "")
+        ? input.updates[0]
+        : null;
+    if (checkpointUpdate) {
+      await maybeWriteDocumentAuditCheckpoint(tx, {
+        accessEpoch: access.currentAccessEpoch,
+        accessFingerprint: access.accessFingerprint,
+        actorFingerprint: input.authorFingerprint,
+        actorUserId: input.authorUserId,
+        checkpointUpdate,
+        documentId: input.documentId,
+      });
+    }
 
     return {
       acceptedOutgoingUpdateIds: acceptedUpdateIds,

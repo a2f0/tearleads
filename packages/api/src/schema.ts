@@ -8,6 +8,7 @@ import {
   documentUpdates,
 } from "@tearleads/loro/server";
 import {
+  bigint,
   index,
   integer,
   pgTable,
@@ -231,6 +232,42 @@ export const containerMetadataDocuments = pgTable(
     documentId: uuid("document_id").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
+);
+
+export const documentAuditCheckpoints = pgTable(
+  "document_audit_checkpoints",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: uuid("document_id").notNull(),
+    sequence: bigint("sequence", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull(),
+    baselineUpdateId: uuid("baseline_update_id").notNull().unique(),
+    checkpointKind: text("checkpoint_kind").notNull(),
+    sourceVersionVector: text("source_version_vector").notNull(),
+    coveredAuditEntryHash: text("covered_audit_entry_hash"),
+    previousCheckpointHash: text("previous_checkpoint_hash"),
+    checkpointHash: text("checkpoint_hash").notNull(),
+    accessEpoch: integer("access_epoch").notNull(),
+    accessFingerprint: text("access_fingerprint").notNull(),
+    actorUserId: uuid("actor_user_id").notNull(),
+    actorFingerprint: text("actor_fingerprint").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_audit_checkpoints_document_sequence_idx").on(
+      table.documentId,
+      table.sequence,
+    ),
+    uniqueIndex("document_audit_checkpoints_document_hash_idx").on(
+      table.documentId,
+      table.checkpointHash,
+    ),
+    index("document_audit_checkpoints_document_created_idx").on(
+      table.documentId,
+      table.createdAt,
+    ),
+  ],
 );
 
 export const blobs = pgTable("blobs", {

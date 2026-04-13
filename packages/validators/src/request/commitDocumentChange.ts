@@ -26,6 +26,7 @@ export interface AttachmentRewrapRequest {
 }
 
 export interface CommitDocumentChangeLoroUpdate {
+  checkpointKind?: "fresh_baseline" | "rotate_baseline";
   id: string;
   encryptedData: string;
   partialStartVersionVector: string;
@@ -99,12 +100,19 @@ function isAttachmentRewrapRequest(
 function isCommitDocumentChangeLoroUpdate(
   value: unknown,
 ): value is CommitDocumentChangeLoroUpdate {
+  const checkpointKind = isPlainObject(value)
+    ? Reflect.get(value, "checkpointKind")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector") &&
+    (checkpointKind === undefined ||
+      checkpointKind === "fresh_baseline" ||
+      checkpointKind === "rotate_baseline") &&
     (Reflect.get(value, "sourceVersionVector") === undefined ||
       hasStringProperty(value, "sourceVersionVector")) &&
     hasArrayProperty(value, "referencedSlotIds") &&

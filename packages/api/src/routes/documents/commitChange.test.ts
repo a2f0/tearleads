@@ -38,6 +38,7 @@ import {
   blobStages,
   blobs,
   containers,
+  documentAuditCheckpoints,
   documentUpdateSpans,
   documentUpdates,
   objectAccessEpochs,
@@ -1157,6 +1158,7 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     {
       ...baseCommitInput,
       loroUpdate: {
+        checkpointKind: "rotate_baseline",
         id: crypto.randomUUID(),
         encryptedData: encryptedBaseline,
         partialStartVersionVector: baselineVectors.partialStartVersionVector,
@@ -1176,6 +1178,7 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     {
       ...baseCommitInput,
       loroUpdate: {
+        checkpointKind: "rotate_baseline",
         id: crypto.randomUUID(),
         encryptedData: encryptedBaseline,
         partialStartVersionVector: baselineVectors.partialStartVersionVector,
@@ -1196,6 +1199,7 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     {
       ...baseCommitInput,
       loroUpdate: {
+        checkpointKind: "rotate_baseline",
         id: crypto.randomUUID(),
         encryptedData: encryptedBaseline,
         partialStartVersionVector: baselineVectors.partialStartVersionVector,
@@ -1211,12 +1215,14 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     error: "Rotate baseline frontier does not cover all prior-epoch updates",
   });
 
+  const acceptedRotateUpdateId = crypto.randomUUID();
   const acceptedRotateResponse = await commitDocumentChange(
     documentId,
     {
       ...baseCommitInput,
       loroUpdate: {
-        id: crypto.randomUUID(),
+        checkpointKind: "rotate_baseline",
+        id: acceptedRotateUpdateId,
         encryptedData: encryptedBaseline,
         partialStartVersionVector: baselineVectors.partialStartVersionVector,
         partialEndVersionVector: baselineVectors.partialEndVersionVector,
@@ -1235,6 +1241,29 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
   expect(acceptedRotate.documentRecipientEnvelopes).toEqual(
     rotatedDocumentEncryption.documentRecipientEnvelopes,
   );
+
+  const [checkpointRow] = await db
+    .select({
+      accessEpoch: documentAuditCheckpoints.accessEpoch,
+      actorFingerprint: documentAuditCheckpoints.actorFingerprint,
+      actorUserId: documentAuditCheckpoints.actorUserId,
+      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+      checkpointKind: documentAuditCheckpoints.checkpointKind,
+      sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
+    })
+    .from(documentAuditCheckpoints)
+    .where(
+      eq(documentAuditCheckpoints.baselineUpdateId, acceptedRotateUpdateId),
+    )
+    .limit(1);
+  expect(checkpointRow).toEqual({
+    accessEpoch: unlinkedDocument.currentAccessEpoch,
+    actorFingerprint: alice.fingerprint,
+    actorUserId: alice.userId,
+    baselineUpdateId: acceptedRotateUpdateId,
+    checkpointKind: "rotate_baseline",
+    sourceVersionVector: initialVectors.partialEndVersionVector,
+  });
 });
 
 test("POST /documents/:documentId/commit-change prunes a detached blob with no active bindings", async () => {
