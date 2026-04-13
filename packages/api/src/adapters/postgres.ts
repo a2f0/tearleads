@@ -174,6 +174,26 @@ await client.exec(`
     encrypted_update_sha256 TEXT NOT NULL,
     encrypted_update_byte_length INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS blob_audit_objects (
+    blob_id UUID PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    byte_length INTEGER NOT NULL,
+    live_storage_key TEXT,
+    retention_mode TEXT NOT NULL,
+    historical_bytes_retained BOOLEAN NOT NULL,
+    pruned_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS document_attachment_audit_events (
+    audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id),
+    action TEXT NOT NULL,
+    slot_id TEXT NOT NULL,
+    binding_id UUID,
+    previous_binding_id UUID,
+    blob_id UUID,
+    previous_blob_id UUID,
+    retention_mode TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_key TEXT NOT NULL,

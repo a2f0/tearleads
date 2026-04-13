@@ -9,6 +9,7 @@ import {
 } from "@tearleads/loro/server";
 import {
   bigint,
+  boolean,
   index,
   integer,
   pgTable,
@@ -18,6 +19,13 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { RecipientPrincipalType } from "./access/recipientPrincipals";
+
+export type BlobAuditRetentionMode = "live_only";
+export type DocumentAttachmentAuditAction =
+  | "attach"
+  | "replace"
+  | "detach"
+  | "rewrap";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -317,6 +325,37 @@ export const documentUpdateAuditEvents = pgTable(
     encryptedUpdateByteLength: integer(
       "encrypted_update_byte_length",
     ).notNull(),
+  },
+);
+
+export const blobAuditObjects = pgTable("blob_audit_objects", {
+  blobId: uuid("blob_id").primaryKey(),
+  sha256: text("sha256").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  liveStorageKey: text("live_storage_key"),
+  retentionMode: text("retention_mode")
+    .$type<BlobAuditRetentionMode>()
+    .notNull(),
+  historicalBytesRetained: boolean("historical_bytes_retained").notNull(),
+  prunedAt: timestamp("pruned_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const documentAttachmentAuditEvents = pgTable(
+  "document_attachment_audit_events",
+  {
+    auditEntryId: uuid("audit_entry_id")
+      .primaryKey()
+      .references(() => documentAuditEntries.id),
+    action: text("action").$type<DocumentAttachmentAuditAction>().notNull(),
+    slotId: text("slot_id").notNull(),
+    bindingId: uuid("binding_id"),
+    previousBindingId: uuid("previous_binding_id"),
+    blobId: uuid("blob_id"),
+    previousBlobId: uuid("previous_blob_id"),
+    retentionMode: text("retention_mode")
+      .$type<BlobAuditRetentionMode>()
+      .notNull(),
   },
 );
 
