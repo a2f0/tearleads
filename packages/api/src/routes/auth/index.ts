@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { omitUndefinedValues } from "../../utils/object";
+import { assignIfDefined } from "../../utils/object";
 import { challenge, createChallengeRoute } from "./challenge";
 import {
   createEncapsulationKeyRoute,
@@ -32,14 +32,15 @@ export function createAuthRouter({
   runtime,
 }: AuthRouterDeps = {}) {
   const auth = new Hono();
-  const encapsulationKeyRouteDeps = omitUndefinedValues({
-    requireAuth,
-    runtime,
-  });
-  const logoutRouteDeps = omitUndefinedValues({
-    destroySession,
-    requireAuth,
-  });
+  const encapsulationKeyRouteDeps: Parameters<
+    typeof createEncapsulationKeyRoute
+  >[0] = {};
+  assignIfDefined(encapsulationKeyRouteDeps, "requireAuth", requireAuth);
+  assignIfDefined(encapsulationKeyRouteDeps, "runtime", runtime);
+
+  const logoutRouteDeps: LogoutRouteDeps = {};
+  assignIfDefined(logoutRouteDeps, "destroySession", destroySession);
+  assignIfDefined(logoutRouteDeps, "requireAuth", requireAuth);
 
   auth.route("/", createChallengeRoute(runtime));
   auth.route("/", createEncapsulationKeyRoute(encapsulationKeyRouteDeps));

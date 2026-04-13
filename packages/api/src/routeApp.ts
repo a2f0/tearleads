@@ -9,7 +9,7 @@ import { createStructuralDocumentsRoute } from "./routes/documents/structural";
 import { createHealthRoute } from "./routes/health";
 import { createPrincipalsRouter } from "./routes/principals";
 import type { ApiServiceRuntime } from "./services/runtime";
-import { omitUndefinedValues } from "./utils/object";
+import { assignIfDefined } from "./utils/object";
 
 interface RouteAppDeps {
   readonly destroySession?: (c: Context) => Promise<void>;
@@ -25,20 +25,19 @@ export function createRouteApp({
   runtime,
 }: RouteAppDeps = {}) {
   const routeApp = new Hono();
-  const authRouterDeps = omitUndefinedValues({
-    destroySession,
-    requireAuth,
-    runtime,
-  });
-  const protectedRouterDeps = omitUndefinedValues({
-    requireAuth,
-    runtime,
-  });
-  const documentsRouterDeps = omitUndefinedValues({
-    publish,
-    requireAuth,
-    runtime,
-  });
+  const authRouterDeps: Parameters<typeof createAuthRouter>[0] = {};
+  assignIfDefined(authRouterDeps, "destroySession", destroySession);
+  assignIfDefined(authRouterDeps, "requireAuth", requireAuth);
+  assignIfDefined(authRouterDeps, "runtime", runtime);
+
+  const protectedRouterDeps: Parameters<typeof createContainersRouter>[0] = {};
+  assignIfDefined(protectedRouterDeps, "requireAuth", requireAuth);
+  assignIfDefined(protectedRouterDeps, "runtime", runtime);
+
+  const documentsRouterDeps: Parameters<typeof createDocumentsRouter>[0] = {};
+  assignIfDefined(documentsRouterDeps, "publish", publish);
+  assignIfDefined(documentsRouterDeps, "requireAuth", requireAuth);
+  assignIfDefined(documentsRouterDeps, "runtime", runtime);
 
   routeApp.use("*", cors());
 
