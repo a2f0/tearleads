@@ -65,5 +65,3 @@ export function createCreateContainerRoute({
 
   return createContainerRoute;
 }
-
-export const createContainerRoute = createCreateContainerRoute();

@@ -35,9 +35,7 @@ function createApiModuleUrl(relativePath: string): string {
   return new URL(`../../../api/src/${relativePath}`, import.meta.url).href;
 }
 
-const routeAppModuleUrl = createApiModuleUrl("routeApp.ts");
-const sessionModuleUrl = createApiModuleUrl("middleware/session.ts");
-const postgresModuleUrl = createApiModuleUrl("adapters/postgres.ts");
+const appTestRuntimeModuleUrl = createApiModuleUrl("appTestRuntime.ts");
 
 const appTestProcessState = globalThis as typeof globalThis & {
   __tearleadsAppTestProcessState?: AppTestProcessState;
@@ -186,14 +184,14 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
   testProcessState.hasLoadedApiRuntimeModule = true;
   testApiAppPromise = (async () => {
     const [
-      { createRouteApp },
-      { createDestroySession, createRequireAuth, createSessionTokenIssuer },
-      { db },
-    ] = await Promise.all([
-      import(routeAppModuleUrl),
-      import(sessionModuleUrl),
-      import(postgresModuleUrl),
-    ]);
+      {
+        createDestroySession,
+        createRequireAuth,
+        createRouteApp,
+        createSessionTokenIssuer,
+        db,
+      },
+    ] = await Promise.all([import(appTestRuntimeModuleUrl)]);
 
     if (typeof createRouteApp !== "function") {
       throw new Error("API routeApp module missing createRouteApp export.");
@@ -210,6 +208,9 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       throw new Error(
         "API session module missing createSessionTokenIssuer export.",
       );
+    }
+    if (!db) {
+      throw new Error("API app test runtime module missing db export.");
     }
 
     const keyValueStore = createInMemoryKeyValueStore();

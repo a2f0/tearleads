@@ -3,22 +3,11 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { assignIfDefined } from "../../utils/object";
-import { challenge, createChallengeRoute } from "./challenge";
-import {
-  createEncapsulationKeyRoute,
-  encapsulationKeyRoute,
-} from "./encapsulationKey";
-import { createLogoutRoute, type LogoutRouteDeps, logoutRoute } from "./logout";
-import { createRegisterRoute, registerRoute } from "./register";
-import { createVerifyRoute, verifyRoute } from "./verify";
-
-export const auth = new Hono();
-
-auth.route("/", challenge);
-auth.route("/", encapsulationKeyRoute);
-auth.route("/", registerRoute);
-auth.route("/", verifyRoute);
-auth.route("/", logoutRoute);
+import { createChallengeRoute } from "./challenge";
+import { createEncapsulationKeyRoute } from "./encapsulationKey";
+import { createLogoutRoute, type LogoutRouteDeps } from "./logout";
+import { createRegisterRoute } from "./register";
+import { createVerifyRoute } from "./verify";
 
 interface AuthRouterDeps {
   readonly destroySession?: LogoutRouteDeps["destroySession"];

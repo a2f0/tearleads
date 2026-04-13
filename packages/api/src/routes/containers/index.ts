@@ -3,31 +3,11 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { assignIfDefined } from "../../utils/object";
-import {
-  createContainerRoute,
-  createCreateContainerRoute,
-} from "./createContainer";
-import {
-  createListContainerDocumentsRoute,
-  listContainerDocumentsRoute,
-} from "./listContainerDocuments";
-import {
-  createListContainersRoute,
-  listContainersRoute,
-} from "./listContainers";
-import { createMoveContainerRoute, moveContainerRoute } from "./moveContainer";
-import {
-  createShareContainerRoute,
-  shareContainerRoute,
-} from "./shareContainer";
-
-export const containersRouter = new Hono();
-
-containersRouter.route("/", createContainerRoute);
-containersRouter.route("/", listContainerDocumentsRoute);
-containersRouter.route("/", listContainersRoute);
-containersRouter.route("/", moveContainerRoute);
-containersRouter.route("/", shareContainerRoute);
+import { createCreateContainerRoute } from "./createContainer";
+import { createListContainerDocumentsRoute } from "./listContainerDocuments";
+import { createListContainersRoute } from "./listContainers";
+import { createMoveContainerRoute } from "./moveContainer";
+import { createShareContainerRoute } from "./shareContainer";
 
 interface ContainersRouterDeps {
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;

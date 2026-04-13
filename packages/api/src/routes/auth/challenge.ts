@@ -44,5 +44,3 @@ export function createChallengeRoute(
 
   return challenge;
 }
-
-export const challenge = createChallengeRoute();

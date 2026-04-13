@@ -52,5 +52,3 @@ export function createVerifyRoute(
 
   return verifyRoute;
 }
-
-export const verifyRoute = createVerifyRoute();

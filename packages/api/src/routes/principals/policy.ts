@@ -177,5 +177,3 @@ export function createPrincipalPolicyRoute({
 
   return principalPolicyRoute;
 }
-
-export const principalPolicyRoute = createPrincipalPolicyRoute();

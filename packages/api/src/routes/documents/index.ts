@@ -194,5 +194,3 @@ export function createDocumentsRouter({
 
   return documentsRouter;
 }
-
-export const documentsRouter = createDocumentsRouter();

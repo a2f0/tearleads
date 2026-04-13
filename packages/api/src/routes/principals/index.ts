@@ -3,11 +3,7 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { assignIfDefined } from "../../utils/object";
-import { createPrincipalPolicyRoute, principalPolicyRoute } from "./policy";
-
-export const principalsRouter = new Hono();
-
-principalsRouter.route("/", principalPolicyRoute);
+import { createPrincipalPolicyRoute } from "./policy";
 
 interface PrincipalsRouterDeps {
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;

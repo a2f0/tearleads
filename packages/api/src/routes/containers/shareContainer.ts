@@ -61,5 +61,3 @@ export function createShareContainerRoute({
 
   return shareContainerRoute;
 }
-
-export const shareContainerRoute = createShareContainerRoute();
