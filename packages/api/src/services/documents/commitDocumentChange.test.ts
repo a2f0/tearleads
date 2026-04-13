@@ -3,8 +3,16 @@ import {
   encryptForRecipients,
   serializeBlobEnvelope,
   toFingerprint,
+  unwrapDek,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import {
+  createDocument as createLoroDocument,
+  encodeVersionVector,
+  encryptLoroUpdate,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
 import { eq } from "drizzle-orm";
 import { createTestUser } from "../../../test/helpers/createTestUser";
 import {
@@ -13,7 +21,12 @@ import {
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
 import { db } from "../../adapters/postgres";
-import { attachmentBindings, blobStages, blobs } from "../../schema";
+import {
+  attachmentBindings,
+  blobStages,
+  blobs,
+  documentAuditCheckpoints,
+} from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import { registerPublicKey } from "../auth/registerPublicKey";
 import {
@@ -49,6 +62,27 @@ async function createServiceDocument() {
   }
 
   return { created, fingerprint, registration, user };
+}
+
+async function readDocumentEncryption(input: {
+  documentRecipientEnvelopes: Array<{
+    keyFingerprint: string;
+    kemCipherText: string;
+    wrappedKey: string;
+  }>;
+  secretKey: Uint8Array;
+}) {
+  return {
+    documentKey: await unwrapDek(
+      input.documentRecipientEnvelopes.map((recipient) => ({
+        keyFingerprint: recipient.keyFingerprint,
+        kemCipherText: base64ToBytes(recipient.kemCipherText),
+        wrappedKey: base64ToBytes(recipient.wrappedKey),
+      })),
+      input.secretKey,
+    ),
+    documentRecipientEnvelopes: input.documentRecipientEnvelopes,
+  };
 }
 
 async function createEncryptedBlobBytes(
@@ -177,6 +211,78 @@ test("commitDocumentChange promotes staged blobs into active attachment bindings
     .where(eq(blobStages.id, stage.stageId))
     .limit(1);
   expect(remainingStage).toBeUndefined();
+});
+
+test("commitDocumentChange persists explicit baseline checkpoints", async () => {
+  const { created, fingerprint, registration, user } =
+    await createServiceDocument();
+  const currentDocumentRecipientEnvelopes = created.documentRecipientEnvelopes;
+  if (!currentDocumentRecipientEnvelopes) {
+    throw new Error("Expected service test document recipient envelopes");
+  }
+
+  const { documentKey } = await readDocumentEncryption({
+    documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
+    secretKey: user.kem.secretKey,
+  });
+  const loroDoc = await createLoroDocument("service-commit-baseline");
+  loroDoc.getText("text").update("baseline checkpoint");
+  const baselineUpdate = exportUpdatesSince(loroDoc, null);
+  const baselineVectors = getUpdateVersionVectors(baselineUpdate);
+  const sourceVersionVector = encodeVersionVector(loroDoc);
+  const updateId = crypto.randomUUID();
+
+  const result = await commitDocumentChange(createServiceTestRuntime(), {
+    documentId: created.document.id,
+    request: {
+      accessEpoch: created.currentAccessEpoch,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: {
+        checkpointKind: "fresh_baseline",
+        id: updateId,
+        encryptedData: await encryptLoroUpdate(
+          baselineUpdate,
+          created.currentAccessEpoch,
+          documentKey,
+        ),
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        partialEndVersionVector: baselineVectors.partialEndVersionVector,
+        referencedSlotIds: [],
+        sourceVersionVector,
+      },
+    },
+    session: {
+      fingerprint,
+      userId: registration.userId,
+    },
+  });
+
+  expect(result.acceptedOutgoingUpdateIds).toEqual([updateId]);
+
+  const [checkpointRow] = await db
+    .select({
+      accessEpoch: documentAuditCheckpoints.accessEpoch,
+      actorFingerprint: documentAuditCheckpoints.actorFingerprint,
+      actorUserId: documentAuditCheckpoints.actorUserId,
+      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+      checkpointKind: documentAuditCheckpoints.checkpointKind,
+      previousCheckpointHash: documentAuditCheckpoints.previousCheckpointHash,
+      sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
+    })
+    .from(documentAuditCheckpoints)
+    .where(eq(documentAuditCheckpoints.baselineUpdateId, updateId))
+    .limit(1);
+  expect(checkpointRow).toEqual({
+    accessEpoch: created.currentAccessEpoch,
+    actorFingerprint: fingerprint,
+    actorUserId: registration.userId,
+    baselineUpdateId: updateId,
+    checkpointKind: "fresh_baseline",
+    previousCheckpointHash: null,
+    sourceVersionVector,
+  });
 });
 
 test("commitDocumentChange reports missing, forbidden, and stale access cases", async () => {

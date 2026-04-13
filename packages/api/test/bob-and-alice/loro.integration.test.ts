@@ -1120,6 +1120,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
       localVersionVector: encodeVersionVector(aliceDoc),
       outgoingUpdates: [
         {
+          checkpointKind: "rotate_baseline",
           id: crypto.randomUUID(),
           encryptedData: rotateBaseline,
           partialStartVersionVector: initialVectors.partialStartVersionVector,
@@ -1143,6 +1144,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
       localVersionVector: encodeVersionVector(aliceDoc),
       outgoingUpdates: [
         {
+          checkpointKind: "rotate_baseline",
           id: crypto.randomUUID(),
           encryptedData: rotateBaseline,
           partialStartVersionVector: initialVectors.partialStartVersionVector,
@@ -1167,6 +1169,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
       localVersionVector: encodeVersionVector(aliceDoc),
       outgoingUpdates: [
         {
+          checkpointKind: "rotate_baseline",
           id: crypto.randomUUID(),
           encryptedData: rotateBaseline,
           partialStartVersionVector: initialVectors.partialStartVersionVector,
@@ -1191,6 +1194,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
       localVersionVector: encodeVersionVector(aliceDoc),
       outgoingUpdates: [
         {
+          checkpointKind: "rotate_baseline",
           id: crypto.randomUUID(),
           encryptedData: rotateBaseline,
           partialStartVersionVector: initialVectors.partialStartVersionVector,

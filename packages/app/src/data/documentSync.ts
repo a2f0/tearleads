@@ -441,7 +441,10 @@ export async function encryptPendingUpdates(
         partialStartVersionVector: versionVectors.partialStartVersionVector,
         partialEndVersionVector: versionVectors.partialEndVersionVector,
         ...(pendingUpdate.sourceVersionVector
-          ? { sourceVersionVector: pendingUpdate.sourceVersionVector }
+          ? {
+              checkpointKind: "rotate_baseline" as const,
+              sourceVersionVector: pendingUpdate.sourceVersionVector,
+            }
           : {}),
       };
     }),

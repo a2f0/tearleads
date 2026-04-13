@@ -65,6 +65,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
       userId: string;
     }): Promise<DocumentAccessState | null>;
     appendDocumentUpdates(input: {
+      authorUserId: string;
       documentId: string;
       authorFingerprint: string;
       documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
@@ -175,6 +176,7 @@ async function appendOutgoingDocumentUpdates<TSession extends SessionLike>(
   store: LoroRouterDeps<TSession>["store"],
   input: {
     authorFingerprint: string;
+    authorUserId: string;
     documentId: string;
     documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
     outgoingUpdates: SyncDocumentOutgoingUpdate[];
@@ -192,6 +194,7 @@ async function appendOutgoingDocumentUpdates<TSession extends SessionLike>(
   }
 
   return store.appendDocumentUpdates({
+    authorUserId: input.authorUserId,
     documentId: input.documentId,
     authorFingerprint: input.authorFingerprint,
     updates: input.outgoingUpdates,
@@ -205,6 +208,7 @@ async function tryAppendOutgoingDocumentUpdates<TSession extends SessionLike>(
   store: LoroRouterDeps<TSession>["store"],
   input: {
     authorFingerprint: string;
+    authorUserId: string;
     documentId: string;
     documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
     outgoingUpdates: SyncDocumentOutgoingUpdate[];
@@ -329,6 +333,7 @@ async function appendCurrentEpochOutgoingUpdates<TSession extends SessionLike>(
 
   const appendAttempt = await tryAppendOutgoingDocumentUpdates(store, {
     authorFingerprint: input.session.fingerprint,
+    authorUserId: input.session.userId,
     documentId: input.documentId,
     documentRecipientEnvelopes: input.documentRecipientEnvelopes,
     outgoingUpdates: input.outgoingUpdates,

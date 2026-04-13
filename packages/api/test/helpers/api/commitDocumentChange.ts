@@ -21,6 +21,7 @@ export async function commitDocumentChange(
     }>;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     loroUpdate: {
+      checkpointKind?: "fresh_baseline" | "rotate_baseline";
       id: string;
       encryptedData: string;
       partialStartVersionVector: string;

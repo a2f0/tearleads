@@ -12,7 +12,10 @@ import {
   type SerializedRecipientEnvelope,
 } from "@tearleads/validators/util";
 
+export type DocumentCheckpointKind = "fresh_baseline" | "rotate_baseline";
+
 export interface SyncDocumentOutgoingUpdate {
+  checkpointKind?: DocumentCheckpointKind;
   id: string;
   encryptedData: string;
   partialStartVersionVector: string;
@@ -112,6 +115,12 @@ function isDocumentRecipientEnvelopeAction(
   return value === "none" || value === "rewrap" || value === "rotate";
 }
 
+function isDocumentCheckpointKind(
+  value: unknown,
+): value is DocumentCheckpointKind {
+  return value === "fresh_baseline" || value === "rotate_baseline";
+}
+
 function isSyncDocumentMissingUpdateEpoch(
   value: unknown,
 ): value is SyncDocumentMissingUpdateEpoch {
@@ -127,6 +136,8 @@ export function isSyncDocumentOutgoingUpdate(
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector") &&
+    (Reflect.get(value, "checkpointKind") === undefined ||
+      isDocumentCheckpointKind(Reflect.get(value, "checkpointKind"))) &&
     (Reflect.get(value, "sourceVersionVector") === undefined ||
       hasStringProperty(value, "sourceVersionVector"))
   );

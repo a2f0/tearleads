@@ -17,6 +17,7 @@ import {
 } from "../../../test/helpers/serviceRuntime";
 import { db } from "../../adapters/postgres";
 import {
+  documentAuditCheckpoints,
   documentContainerLinks,
   documentUpdateSpans,
   documentUpdates,
@@ -120,7 +121,7 @@ test("document sync store creates documents and resolves access through the runt
 });
 
 test("document sync store appends missing document updates idempotently", async () => {
-  const { created, store, user } = await createServiceDocument();
+  const { created, registration, store, user } = await createServiceDocument();
   const peerSeed = "document-sync-store-span-peer";
   const doc = await createDocument(peerSeed);
   const startVersion = encodeVersionVector(doc);
@@ -141,6 +142,7 @@ test("document sync store appends missing document updates idempotently", async 
   }
 
   const firstAppend = await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
     documentId: created.document.id,
     authorFingerprint: await toFingerprint(user.signing.signingPublicKey),
     documentRecipientEnvelopes,
@@ -153,6 +155,7 @@ test("document sync store appends missing document updates idempotently", async 
   );
 
   const retryAppend = await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
     documentId: created.document.id,
     authorFingerprint: await toFingerprint(user.signing.signingPublicKey),
     documentRecipientEnvelopes,
@@ -184,8 +187,101 @@ test("document sync store appends missing document updates idempotently", async 
   expect(spanRows[0]?.endCounter).toBeGreaterThan(0);
 });
 
+test("document sync store persists explicit baseline checkpoints", async () => {
+  const { created, registration, store, user } = await createServiceDocument();
+  const authorFingerprint = await toFingerprint(user.signing.signingPublicKey);
+  const documentRecipientEnvelopes = created.documentRecipientEnvelopes;
+  if (!documentRecipientEnvelopes) {
+    throw new Error("Expected service test document recipient envelopes");
+  }
+
+  const firstDoc = await createDocument("document-sync-store-checkpoint-1");
+  firstDoc.getText("text").update("baseline one");
+  const firstUpdate = exportUpdatesSince(firstDoc, null);
+  const firstVectors = getUpdateVersionVectors(firstUpdate);
+  const firstSourceVersionVector = encodeVersionVector(firstDoc);
+  const firstUpdateId = crypto.randomUUID();
+
+  await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
+    documentId: created.document.id,
+    authorFingerprint,
+    documentRecipientEnvelopes,
+    updates: [
+      {
+        checkpointKind: "fresh_baseline",
+        id: firstUpdateId,
+        encryptedData: "encrypted-checkpoint-update-1",
+        partialStartVersionVector: firstVectors.partialStartVersionVector,
+        partialEndVersionVector: firstVectors.partialEndVersionVector,
+        sourceVersionVector: firstSourceVersionVector,
+      },
+    ],
+  });
+
+  const secondDoc = await createDocument("document-sync-store-checkpoint-2");
+  secondDoc.getText("text").update("baseline two");
+  const secondUpdate = exportUpdatesSince(secondDoc, null);
+  const secondVectors = getUpdateVersionVectors(secondUpdate);
+  const secondSourceVersionVector = encodeVersionVector(secondDoc);
+  const secondUpdateId = crypto.randomUUID();
+
+  await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
+    documentId: created.document.id,
+    authorFingerprint,
+    documentRecipientEnvelopes,
+    updates: [
+      {
+        checkpointKind: "fresh_baseline",
+        id: secondUpdateId,
+        encryptedData: "encrypted-checkpoint-update-2",
+        partialStartVersionVector: secondVectors.partialStartVersionVector,
+        partialEndVersionVector: secondVectors.partialEndVersionVector,
+        sourceVersionVector: secondSourceVersionVector,
+      },
+    ],
+  });
+
+  const checkpointRows = await db
+    .select({
+      accessEpoch: documentAuditCheckpoints.accessEpoch,
+      actorFingerprint: documentAuditCheckpoints.actorFingerprint,
+      actorUserId: documentAuditCheckpoints.actorUserId,
+      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+      checkpointHash: documentAuditCheckpoints.checkpointHash,
+      checkpointKind: documentAuditCheckpoints.checkpointKind,
+      previousCheckpointHash: documentAuditCheckpoints.previousCheckpointHash,
+      sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
+    })
+    .from(documentAuditCheckpoints)
+    .where(eq(documentAuditCheckpoints.documentId, created.document.id))
+    .orderBy(documentAuditCheckpoints.createdAt);
+  expect(checkpointRows).toHaveLength(2);
+  expect(checkpointRows[0]).toEqual({
+    accessEpoch: created.currentAccessEpoch,
+    actorFingerprint: authorFingerprint,
+    actorUserId: registration.userId,
+    baselineUpdateId: firstUpdateId,
+    checkpointHash: expect.any(String),
+    checkpointKind: "fresh_baseline",
+    previousCheckpointHash: null,
+    sourceVersionVector: firstSourceVersionVector,
+  });
+  expect(checkpointRows[1]).toEqual({
+    accessEpoch: created.currentAccessEpoch,
+    actorFingerprint: authorFingerprint,
+    actorUserId: registration.userId,
+    baselineUpdateId: secondUpdateId,
+    checkpointHash: expect.any(String),
+    checkpointKind: "fresh_baseline",
+    previousCheckpointHash: checkpointRows[0]?.checkpointHash ?? null,
+    sourceVersionVector: secondSourceVersionVector,
+  });
+});
+
 test("document sync store lists only causally missing document updates", async () => {
-  const { created, store, user } = await createServiceDocument();
+  const { created, registration, store, user } = await createServiceDocument();
   const aliceDoc = await createDocument("document-sync-store-missing-alice");
   const aliceStartVersion = encodeVersionVector(aliceDoc);
   aliceDoc.getText("text").update("Hello from Alice");
@@ -206,6 +302,7 @@ test("document sync store lists only causally missing document updates", async (
   const firstUpdateId = crypto.randomUUID();
   const secondUpdateId = crypto.randomUUID();
   await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
     documentId: created.document.id,
     authorFingerprint,
     documentRecipientEnvelopes,
@@ -219,6 +316,7 @@ test("document sync store lists only causally missing document updates", async (
     ],
   });
   await store.appendDocumentUpdates({
+    authorUserId: registration.userId,
     documentId: created.document.id,
     authorFingerprint,
     documentRecipientEnvelopes,
@@ -317,6 +415,7 @@ test("document sync store reports create and append errors", async () => {
 
   const missingDocument = await expectDocumentSyncStoreError(
     store.appendDocumentUpdates({
+      authorUserId: registration.userId,
       documentId: crypto.randomUUID(),
       authorFingerprint: await toFingerprint(user.signing.signingPublicKey),
       updates: [],

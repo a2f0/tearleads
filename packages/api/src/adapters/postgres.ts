@@ -136,6 +136,21 @@ await client.exec(`
     document_id UUID NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS document_audit_checkpoints (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID NOT NULL,
+    baseline_update_id UUID NOT NULL UNIQUE,
+    checkpoint_kind TEXT NOT NULL,
+    source_version_vector TEXT NOT NULL,
+    covered_audit_entry_hash TEXT,
+    previous_checkpoint_hash TEXT,
+    checkpoint_hash TEXT NOT NULL,
+    access_epoch INTEGER NOT NULL,
+    access_fingerprint TEXT NOT NULL,
+    actor_user_id UUID NOT NULL,
+    actor_fingerprint TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_key TEXT NOT NULL,
@@ -205,6 +220,10 @@ await client.exec(`
     ON document_container_links (document_id, container_id);
   CREATE INDEX IF NOT EXISTS document_container_links_container_idx
     ON document_container_links (container_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_audit_checkpoints_document_hash_idx
+    ON document_audit_checkpoints (document_id, checkpoint_hash);
+  CREATE INDEX IF NOT EXISTS document_audit_checkpoints_document_created_idx
+    ON document_audit_checkpoints (document_id, created_at);
   CREATE INDEX IF NOT EXISTS attachment_bindings_document_idx
     ON attachment_bindings (document_id);
   CREATE INDEX IF NOT EXISTS attachment_bindings_blob_idx

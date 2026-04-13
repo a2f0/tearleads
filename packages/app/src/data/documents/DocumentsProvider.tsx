@@ -1397,6 +1397,9 @@ async function commitBaselineChange(
       attachmentRewraps,
       documentRecipientEnvelopes,
       loroUpdate: {
+        checkpointKind: sourceVersionVector
+          ? "rotate_baseline"
+          : "fresh_baseline",
         encryptedData: encryptedBaseline,
         id: crypto.randomUUID(),
         partialEndVersionVector: baselineUpdateFields.partialEndVersionVector,
@@ -1405,7 +1408,8 @@ async function commitBaselineChange(
         referencedSlotIds: getDocumentAttachments(currentDoc).map(
           (attachment) => attachment.slotId,
         ),
-        ...(sourceVersionVector ? { sourceVersionVector } : {}),
+        sourceVersionVector:
+          sourceVersionVector ?? encodeVersionVector(currentDoc),
       },
     },
   );

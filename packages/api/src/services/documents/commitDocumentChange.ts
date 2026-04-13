@@ -34,6 +34,10 @@ import {
   readLoroUpdateAccessEpoch,
 } from "../../utils/recipientEnvelopes";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  getDocumentCheckpointInputError,
+  maybeWriteDocumentAuditCheckpoint,
+} from "./documentAuditCheckpoints";
 import { getRotateBaselineSourceError } from "./documentSyncStore";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
@@ -544,6 +548,88 @@ function validateReferencedSlots(
   }
 }
 
+async function validateCommitDocumentLoroCheckpoint(input: {
+  currentAccessEpoch: number;
+  currentDocumentRecipientEnvelopes: ReadonlyArray<unknown> | null;
+  documentId: string;
+  documentRecipientEnvelopeAction: "none" | "rewrap" | "rotate";
+  documentRecipientEnvelopes:
+    | CommitDocumentChangeRequest["documentRecipientEnvelopes"]
+    | undefined;
+  executor: CommitChangeExecutor;
+  loroUpdate: NonNullable<CommitDocumentChangeRequest["loroUpdate"]>;
+}) {
+  const rotateBaselineSourceError = await getRotateBaselineSourceError({
+    currentAccessEpoch: input.currentAccessEpoch,
+    currentDocumentRecipientEnvelopes: input.currentDocumentRecipientEnvelopes,
+    documentId: input.documentId,
+    documentRecipientEnvelopeAction: input.documentRecipientEnvelopeAction,
+    documentRecipientEnvelopes: input.documentRecipientEnvelopes,
+    executor: input.executor,
+    updates: [input.loroUpdate],
+  });
+  if (rotateBaselineSourceError) {
+    throw new CommitDocumentChangeError(
+      rotateBaselineSourceError.message,
+      rotateBaselineSourceError.status,
+    );
+  }
+
+  const checkpointError = getDocumentCheckpointInputError({
+    documentRecipientEnvelopeAction: input.documentRecipientEnvelopeAction,
+    updates: [input.loroUpdate],
+  });
+  if (checkpointError) {
+    throw new CommitDocumentChangeError(
+      checkpointError.message,
+      checkpointError.status,
+    );
+  }
+}
+
+async function resolveCommitDocumentRecipientEnvelopes(input: {
+  access: CommitChangeAccess;
+  currentDocumentRecipientEnvelopes: Awaited<
+    ReturnType<typeof listDocumentRecipientEnvelopes>
+  >;
+  documentId: string;
+  documentRecipientEnvelopes:
+    | CommitDocumentChangeRequest["documentRecipientEnvelopes"]
+    | undefined;
+  executor: CommitChangeExecutor;
+}) {
+  let currentDocumentRecipientEnvelopes =
+    input.currentDocumentRecipientEnvelopes;
+
+  if (input.documentRecipientEnvelopes) {
+    try {
+      currentDocumentRecipientEnvelopes = await putDocumentRecipientEnvelopes(
+        input.documentId,
+        input.access.currentAccessEpoch,
+        input.access,
+        input.documentRecipientEnvelopes,
+        input.executor,
+      );
+    } catch (error) {
+      if (error instanceof DocumentRecipientEnvelopeConflictError) {
+        throw new CommitDocumentChangeError(error.message, 409);
+      }
+      throw error;
+    }
+  }
+
+  if (
+    !currentDocumentRecipientEnvelopes ||
+    currentDocumentRecipientEnvelopes.length === 0
+  ) {
+    throw new CommitDocumentChangeError(
+      "Missing document recipient envelopes for current epoch",
+    );
+  }
+
+  return currentDocumentRecipientEnvelopes;
+}
+
 async function commitDocumentLoroUpdate(
   tx: CommitChangeExecutor,
   input: CommitDocumentChangeRequest,
@@ -564,47 +650,23 @@ async function commitDocumentLoroUpdate(
 
   const documentRecipientEnvelopeAction =
     await getDocumentRecipientEnvelopeAction(documentId, access, tx);
-  const rotateBaselineSourceError = await getRotateBaselineSourceError({
+  await validateCommitDocumentLoroCheckpoint({
     currentAccessEpoch: access.currentAccessEpoch,
     currentDocumentRecipientEnvelopes,
     documentId,
     documentRecipientEnvelopeAction,
     documentRecipientEnvelopes: input.documentRecipientEnvelopes,
     executor: tx,
-    updates: [input.loroUpdate],
+    loroUpdate: input.loroUpdate,
   });
-  if (rotateBaselineSourceError) {
-    throw new CommitDocumentChangeError(
-      rotateBaselineSourceError.message,
-      rotateBaselineSourceError.status,
-    );
-  }
-
-  if (input.documentRecipientEnvelopes) {
-    try {
-      currentDocumentRecipientEnvelopes = await putDocumentRecipientEnvelopes(
-        documentId,
-        access.currentAccessEpoch,
-        access,
-        input.documentRecipientEnvelopes,
-        tx,
-      );
-    } catch (error) {
-      if (error instanceof DocumentRecipientEnvelopeConflictError) {
-        throw new CommitDocumentChangeError(error.message, 409);
-      }
-      throw error;
-    }
-  }
-
-  if (
-    !currentDocumentRecipientEnvelopes ||
-    currentDocumentRecipientEnvelopes.length === 0
-  ) {
-    throw new CommitDocumentChangeError(
-      "Missing document recipient envelopes for current epoch",
-    );
-  }
+  currentDocumentRecipientEnvelopes =
+    await resolveCommitDocumentRecipientEnvelopes({
+      access,
+      currentDocumentRecipientEnvelopes,
+      documentId,
+      documentRecipientEnvelopes: input.documentRecipientEnvelopes,
+      executor: tx,
+    });
 
   const [existing] = await tx
     .select({ id: documentUpdates.id })
@@ -632,6 +694,14 @@ async function commitDocumentLoroUpdate(
     await insertDocumentUpdateSpans(tx, {
       documentId,
       updates: [input.loroUpdate],
+    });
+    await maybeWriteDocumentAuditCheckpoint(tx, {
+      accessEpoch: access.currentAccessEpoch,
+      accessFingerprint: access.accessFingerprint,
+      actorFingerprint: session.fingerprint,
+      actorUserId: session.userId,
+      checkpointUpdate: input.loroUpdate,
+      documentId,
     });
     acceptedOutgoingUpdateIds.push(inserted.id);
   }
