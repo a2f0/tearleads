@@ -324,7 +324,8 @@ async function waitForDualPaneProvisioning(
       !leftPane.textContent?.includes("session: none") &&
       !rightPane.textContent?.includes("userId: none") &&
       !rightPane.textContent?.includes("session: none") &&
-      !leftPane.textContent?.includes("peerUserId: none"),
+      !leftPane.textContent?.includes("peerUserId: none") &&
+      !rightPane.textContent?.includes("peerUserId: none"),
     "Dual pane identities did not finish provisioning.",
   );
 }
