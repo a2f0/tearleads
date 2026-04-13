@@ -35,6 +35,11 @@ import {
 } from "../../utils/recipientEnvelopes";
 import type { ApiServiceRuntime } from "../runtime";
 import {
+  appendDocumentAttachmentAuditEntries,
+  type DocumentAttachmentAuditEventInput,
+  markPrunedBlobAuditObjects,
+} from "./documentAttachmentAuditEvents";
+import {
   getDocumentCheckpointInputError,
   maybeWriteDocumentAuditCheckpoint,
 } from "./documentAuditCheckpoints";
@@ -61,6 +66,7 @@ interface CommitDocumentChangeInput {
 interface ActiveAttachmentBinding {
   blobId: string;
   id: string;
+  previousBindingId: string | null;
   slotId: string;
 }
 
@@ -113,11 +119,14 @@ function hasDuplicateValues(values: string[]): boolean {
 async function pruneUnreachableAttachmentBlobs(
   blobIds: string[],
   executor: CommitChangeExecutor,
-): Promise<string[]> {
+): Promise<{ activeBlobIds: string[]; prunedBlobIds: string[] }> {
   const uniqueBlobIds = uniqueSortedStrings(blobIds);
 
   if (uniqueBlobIds.length === 0) {
-    return [];
+    return {
+      activeBlobIds: [],
+      prunedBlobIds: [],
+    };
   }
 
   const activeRows = await executor
@@ -138,7 +147,10 @@ async function pruneUnreachableAttachmentBlobs(
   );
 
   if (orphanedBlobIds.length === 0) {
-    return activeBlobIds;
+    return {
+      activeBlobIds,
+      prunedBlobIds: [],
+    };
   }
 
   // V1 attachment retention is live-only: once no active binding references a
@@ -185,7 +197,10 @@ async function pruneUnreachableAttachmentBlobs(
     );
   await executor.delete(blobs).where(inArray(blobs.id, orphanedBlobIds));
 
-  return activeBlobIds;
+  return {
+    activeBlobIds,
+    prunedBlobIds: orphanedBlobIds,
+  };
 }
 
 async function ensureDocumentExists(
@@ -293,6 +308,7 @@ async function loadActiveAttachmentBindings(
   const activeBindings = await tx
     .select({
       id: attachmentBindings.id,
+      previousBindingId: attachmentBindings.previousBindingId,
       slotId: attachmentBindings.slotId,
       blobId: attachmentBindings.blobId,
     })
@@ -439,6 +455,7 @@ async function applyAttachmentDetaches(
   activeBindingBySlotId: Map<string, ActiveAttachmentBinding>,
   affectedBlobIds: Set<string>,
 ) {
+  const auditEvents: DocumentAttachmentAuditEventInput[] = [];
   const detachedBindingIds: string[] = [];
 
   for (const detach of detaches) {
@@ -454,10 +471,18 @@ async function applyAttachmentDetaches(
 
     detachedBindingIds.push(currentBinding.id);
     affectedBlobIds.add(currentBinding.blobId);
+    auditEvents.push({
+      action: "detach",
+      bindingId: currentBinding.id,
+      blobId: currentBinding.blobId,
+      previousBindingId: currentBinding.previousBindingId,
+      previousBlobId: null,
+      slotId: detach.slotId,
+    });
     activeBindingBySlotId.delete(detach.slotId);
   }
 
-  return detachedBindingIds;
+  return { auditEvents, detachedBindingIds };
 }
 
 async function applyAttachmentCommits(input: {
@@ -468,6 +493,7 @@ async function applyAttachmentCommits(input: {
   activeBindingBySlotId: Map<string, ActiveAttachmentBinding>;
   affectedBlobIds: Set<string>;
 }) {
+  const auditEvents: DocumentAttachmentAuditEventInput[] = [];
   const committedBindings: CommitDocumentChangeResponse["committedBindings"] =
     [];
   const detachedBindingIds: string[] = [];
@@ -524,16 +550,38 @@ async function applyAttachmentCommits(input: {
       bindingId: binding.id,
       blobId: blob.id,
     });
+    auditEvents.push({
+      action: currentBinding ? "replace" : "attach",
+      bindingId: binding.id,
+      blobId: blob.id,
+      previousBindingId: currentBinding?.id ?? null,
+      previousBlobId: currentBinding?.blobId ?? null,
+      slotId: commit.slotId,
+    });
     input.affectedBlobIds.add(blob.id);
     input.activeBindingBySlotId.set(commit.slotId, {
       id: binding.id,
+      previousBindingId: currentBinding?.id ?? null,
       slotId: commit.slotId,
       blobId: blob.id,
     });
     await input.tx.delete(blobStages).where(eq(blobStages.id, stage.id));
   }
 
-  return { committedBindings, detachedBindingIds };
+  return { auditEvents, committedBindings, detachedBindingIds };
+}
+
+function buildAttachmentRewrapAuditEvents(
+  validatedRewraps: ReadonlyArray<ValidatedAttachmentRewrap>,
+): DocumentAttachmentAuditEventInput[] {
+  return validatedRewraps.map(({ currentBinding, rewrap }) => ({
+    action: "rewrap",
+    bindingId: currentBinding.id,
+    blobId: currentBinding.blobId,
+    previousBindingId: currentBinding.previousBindingId,
+    previousBlobId: null,
+    slotId: rewrap.slotId,
+  }));
 }
 
 function validateReferencedSlots(
@@ -762,6 +810,137 @@ async function applyAttachmentRewraps(
   }
 }
 
+async function prepareCommitChangeAttachmentInputs(
+  tx: CommitChangeExecutor,
+  input: {
+    access: CommitChangeAccess;
+    documentId: string;
+    expectedRecipientKeyFingerprints: string[];
+    request: CommitDocumentChangeRequest;
+    session: CommitDocumentChangeSession;
+    touchedSlotIds: string[];
+    referencedSlotIds: string[];
+  },
+) {
+  const activeBindingSlotIds = uniqueSortedStrings([
+    ...input.touchedSlotIds,
+    ...input.referencedSlotIds,
+  ]);
+  const activeBindingBySlotId = await loadActiveAttachmentBindings(
+    tx,
+    input.documentId,
+    activeBindingSlotIds,
+  );
+
+  validateAttachmentDetaches(
+    input.request.attachmentDetaches,
+    activeBindingBySlotId,
+  );
+  const validatedRewraps = validateAttachmentRewraps(
+    input.request.attachmentRewraps,
+    input.access,
+    activeBindingBySlotId,
+  );
+  const stageById = await loadBlobStagesById(
+    tx,
+    input.request.attachmentCommits,
+  );
+  validateAttachmentCommits({
+    commits: input.request.attachmentCommits,
+    stageById,
+    activeBindingBySlotId,
+    expectedRecipientKeyFingerprints: input.expectedRecipientKeyFingerprints,
+    session: input.session,
+  });
+
+  return {
+    activeBindingBySlotId,
+    stageById,
+    validatedRewraps,
+  };
+}
+
+async function executeCommitChangeTransaction(
+  tx: CommitChangeExecutor,
+  input: {
+    access: CommitChangeAccess;
+    documentId: string;
+    expectedRecipientKeyFingerprints: string[];
+    referencedSlotIds: string[];
+    request: CommitDocumentChangeRequest;
+    session: CommitDocumentChangeSession;
+    touchedSlotIds: string[];
+  },
+): Promise<CommitChangeTransactionResult> {
+  const { activeBindingBySlotId, stageById, validatedRewraps } =
+    await prepareCommitChangeAttachmentInputs(tx, {
+      access: input.access,
+      documentId: input.documentId,
+      expectedRecipientKeyFingerprints: input.expectedRecipientKeyFingerprints,
+      referencedSlotIds: input.referencedSlotIds,
+      request: input.request,
+      session: input.session,
+      touchedSlotIds: input.touchedSlotIds,
+    });
+
+  const affectedBlobIds = new Set<string>();
+  const detached = await applyAttachmentDetaches(
+    tx,
+    input.request.attachmentDetaches,
+    activeBindingBySlotId,
+    affectedBlobIds,
+  );
+  for (const { currentBinding } of validatedRewraps) {
+    affectedBlobIds.add(currentBinding.blobId);
+  }
+
+  const committed = await applyAttachmentCommits({
+    tx,
+    documentId: input.documentId,
+    commits: input.request.attachmentCommits,
+    stageById,
+    activeBindingBySlotId,
+    affectedBlobIds,
+  });
+  validateReferencedSlots(input.referencedSlotIds, activeBindingBySlotId);
+  await applyAttachmentRewraps(tx, validatedRewraps);
+  await appendDocumentAttachmentAuditEntries(tx, {
+    accessEpoch: input.access.currentAccessEpoch,
+    accessFingerprint: input.access.accessFingerprint,
+    actorFingerprint: input.session.fingerprint,
+    actorUserId: input.session.userId,
+    documentId: input.documentId,
+    events: [
+      ...detached.auditEvents,
+      ...committed.auditEvents,
+      ...buildAttachmentRewrapAuditEvents(validatedRewraps),
+    ],
+  });
+  const loroUpdateResult = await commitDocumentLoroUpdate(
+    tx,
+    input.request,
+    input.documentId,
+    input.access,
+    input.session,
+  );
+
+  const { activeBlobIds, prunedBlobIds } =
+    await pruneUnreachableAttachmentBlobs(Array.from(affectedBlobIds), tx);
+  await markPrunedBlobAuditObjects(tx, prunedBlobIds);
+  await refreshBlobAccesses(activeBlobIds, tx);
+
+  return {
+    acceptedOutgoingUpdateIds: loroUpdateResult.acceptedOutgoingUpdateIds,
+    committedBindings: committed.committedBindings,
+    detachedBindingIds: [
+      ...detached.detachedBindingIds,
+      ...committed.detachedBindingIds,
+    ],
+    documentRecipientEnvelopes:
+      loroUpdateResult.currentDocumentRecipientEnvelopes,
+  };
+}
+
 async function runCommitChangeTransaction(input: {
   runtime: ApiServiceRuntime;
   request: CommitDocumentChangeRequest;
@@ -772,84 +951,17 @@ async function runCommitChangeTransaction(input: {
   session: CommitDocumentChangeSession;
   touchedSlotIds: string[];
 }): Promise<CommitChangeTransactionResult> {
-  return input.runtime.db.transaction(async (tx) => {
-    const activeBindingSlotIds = uniqueSortedStrings([
-      ...input.touchedSlotIds,
-      ...input.referencedSlotIds,
-    ]);
-    const activeBindingBySlotId = await loadActiveAttachmentBindings(
-      tx,
-      input.documentId,
-      activeBindingSlotIds,
-    );
-
-    validateAttachmentDetaches(
-      input.request.attachmentDetaches,
-      activeBindingBySlotId,
-    );
-    const validatedRewraps = validateAttachmentRewraps(
-      input.request.attachmentRewraps,
-      input.access,
-      activeBindingBySlotId,
-    );
-    const stageById = await loadBlobStagesById(
-      tx,
-      input.request.attachmentCommits,
-    );
-    validateAttachmentCommits({
-      commits: input.request.attachmentCommits,
-      stageById,
-      activeBindingBySlotId,
-      expectedRecipientKeyFingerprints: input.expectedRecipientKeyFingerprints,
-      session: input.session,
-    });
-
-    const affectedBlobIds = new Set<string>();
-    const detachedBindingIds = await applyAttachmentDetaches(
-      tx,
-      input.request.attachmentDetaches,
-      activeBindingBySlotId,
-      affectedBlobIds,
-    );
-    for (const { currentBinding } of validatedRewraps) {
-      affectedBlobIds.add(currentBinding.blobId);
-    }
-
-    const committed = await applyAttachmentCommits({
-      tx,
+  return input.runtime.db.transaction((tx) =>
+    executeCommitChangeTransaction(tx, {
+      access: input.access,
       documentId: input.documentId,
-      commits: input.request.attachmentCommits,
-      stageById,
-      activeBindingBySlotId,
-      affectedBlobIds,
-    });
-    validateReferencedSlots(input.referencedSlotIds, activeBindingBySlotId);
-    const loroUpdateResult = await commitDocumentLoroUpdate(
-      tx,
-      input.request,
-      input.documentId,
-      input.access,
-      input.session,
-    );
-
-    const activeBlobIds = await pruneUnreachableAttachmentBlobs(
-      Array.from(affectedBlobIds),
-      tx,
-    );
-    await refreshBlobAccesses(activeBlobIds, tx);
-    await applyAttachmentRewraps(tx, validatedRewraps);
-
-    return {
-      acceptedOutgoingUpdateIds: loroUpdateResult.acceptedOutgoingUpdateIds,
-      committedBindings: committed.committedBindings,
-      detachedBindingIds: [
-        ...detachedBindingIds,
-        ...committed.detachedBindingIds,
-      ],
-      documentRecipientEnvelopes:
-        loroUpdateResult.currentDocumentRecipientEnvelopes,
-    };
-  });
+      expectedRecipientKeyFingerprints: input.expectedRecipientKeyFingerprints,
+      referencedSlotIds: input.referencedSlotIds,
+      request: input.request,
+      session: input.session,
+      touchedSlotIds: input.touchedSlotIds,
+    }),
+  );
 }
 
 export async function commitDocumentChange(

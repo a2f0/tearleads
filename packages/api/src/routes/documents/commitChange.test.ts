@@ -19,7 +19,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE } from "@tearleads/loro/shared";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   commitDocumentChange,
   createDocument,
@@ -35,10 +35,13 @@ import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
 import {
   attachmentBindings,
+  blobAuditObjects,
   blobStages,
   blobs,
   containers,
+  documentAttachmentAuditEvents,
   documentAuditCheckpoints,
+  documentAuditEntries,
   documentUpdateSpans,
   documentUpdates,
   objectAccessEpochs,
@@ -212,6 +215,29 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
   }
 
   return rootContainer.id;
+}
+
+async function listDocumentAttachmentAuditRows(documentId: string) {
+  return db
+    .select({
+      action: documentAttachmentAuditEvents.action,
+      bindingId: documentAttachmentAuditEvents.bindingId,
+      blobId: documentAttachmentAuditEvents.blobId,
+      entryHash: documentAuditEntries.entryHash,
+      eventType: documentAuditEntries.eventType,
+      previousBindingId: documentAttachmentAuditEvents.previousBindingId,
+      previousBlobId: documentAttachmentAuditEvents.previousBlobId,
+      prevEntryHash: documentAuditEntries.prevEntryHash,
+      sequence: documentAuditEntries.sequence,
+      slotId: documentAttachmentAuditEvents.slotId,
+    })
+    .from(documentAuditEntries)
+    .innerJoin(
+      documentAttachmentAuditEvents,
+      eq(documentAttachmentAuditEvents.auditEntryId, documentAuditEntries.id),
+    )
+    .where(eq(documentAuditEntries.documentId, documentId))
+    .orderBy(documentAuditEntries.sequence);
 }
 
 async function createContainerForUser(input: {
@@ -948,6 +974,52 @@ test("POST /documents/:documentId/commit-change rewraps an existing blob without
     .where(eq(blobs.id, blobId))
     .limit(1);
   expect(storedBlob?.id).toBe(blobId);
+
+  const [blobAuditRow] = await db
+    .select({
+      blobId: blobAuditObjects.blobId,
+      historicalBytesRetained: blobAuditObjects.historicalBytesRetained,
+      liveStorageKey: blobAuditObjects.liveStorageKey,
+      prunedAt: blobAuditObjects.prunedAt,
+      retentionMode: blobAuditObjects.retentionMode,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, blobId))
+    .limit(1);
+  expect(blobAuditRow).toEqual({
+    blobId,
+    historicalBytesRetained: false,
+    liveStorageKey: String(stage.stageId ?? ""),
+    prunedAt: null,
+    retentionMode: "live_only",
+  });
+
+  const attachmentAuditRows = await listDocumentAttachmentAuditRows(documentId);
+  expect(attachmentAuditRows).toHaveLength(2);
+  expect(attachmentAuditRows[0]).toEqual({
+    action: "attach",
+    bindingId,
+    blobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: null,
+    previousBlobId: null,
+    prevEntryHash: null,
+    sequence: expect.any(Number),
+    slotId: "slot_rewrap",
+  });
+  expect(attachmentAuditRows[1]).toEqual({
+    action: "rewrap",
+    bindingId,
+    blobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: null,
+    previousBlobId: null,
+    prevEntryHash: attachmentAuditRows[0]?.entryHash ?? null,
+    sequence: expect.any(Number),
+    slotId: "slot_rewrap",
+  });
 });
 
 test("POST /documents/:documentId/commit-change rejects blob rewraps after recipient shrink requires rotation", async () => {
@@ -1334,6 +1406,56 @@ test("POST /documents/:documentId/commit-change prunes a detached blob with no a
     blobId,
   });
 
+  const [blobAuditRow] = await db
+    .select({
+      blobId: blobAuditObjects.blobId,
+      byteLength: blobAuditObjects.byteLength,
+      historicalBytesRetained: blobAuditObjects.historicalBytesRetained,
+      liveStorageKey: blobAuditObjects.liveStorageKey,
+      prunedAt: blobAuditObjects.prunedAt,
+      retentionMode: blobAuditObjects.retentionMode,
+      sha256: blobAuditObjects.sha256,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, blobId))
+    .limit(1);
+  expect(blobAuditRow).toEqual({
+    blobId,
+    byteLength: expect.any(Number),
+    historicalBytesRetained: false,
+    liveStorageKey: null,
+    prunedAt: expect.any(Date),
+    retentionMode: "live_only",
+    sha256: expect.any(String),
+  });
+
+  const attachmentAuditRows = await listDocumentAttachmentAuditRows(documentId);
+  expect(attachmentAuditRows).toHaveLength(2);
+  expect(attachmentAuditRows[0]).toEqual({
+    action: "attach",
+    bindingId,
+    blobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: null,
+    previousBlobId: null,
+    prevEntryHash: null,
+    sequence: expect.any(Number),
+    slotId: "slot_detach",
+  });
+  expect(attachmentAuditRows[1]).toEqual({
+    action: "detach",
+    bindingId,
+    blobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: null,
+    previousBlobId: null,
+    prevEntryHash: attachmentAuditRows[0]?.entryHash ?? null,
+    sequence: expect.any(Number),
+    slotId: "slot_detach",
+  });
+
   const staleBlobResponse = await routeApp.request(`/blobs/${blobId}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
@@ -1592,6 +1714,59 @@ test("POST /documents/:documentId/commit-change deletes the replaced blob when a
     .limit(1);
   expect(currentBinding?.id).toBe(secondBindingId);
   expect(currentBinding?.previousBindingId).toBeNull();
+
+  const blobAuditRows = await db
+    .select({
+      blobId: blobAuditObjects.blobId,
+      historicalBytesRetained: blobAuditObjects.historicalBytesRetained,
+      liveStorageKey: blobAuditObjects.liveStorageKey,
+      prunedAt: blobAuditObjects.prunedAt,
+      retentionMode: blobAuditObjects.retentionMode,
+    })
+    .from(blobAuditObjects)
+    .where(inArray(blobAuditObjects.blobId, [firstBlobId, secondBlobId]));
+  expect(blobAuditRows).toHaveLength(2);
+  expect(blobAuditRows.find((row) => row.blobId === firstBlobId)).toEqual({
+    blobId: firstBlobId,
+    historicalBytesRetained: false,
+    liveStorageKey: null,
+    prunedAt: expect.any(Date),
+    retentionMode: "live_only",
+  });
+  expect(blobAuditRows.find((row) => row.blobId === secondBlobId)).toEqual({
+    blobId: secondBlobId,
+    historicalBytesRetained: false,
+    liveStorageKey: String(secondStage.stageId ?? ""),
+    prunedAt: null,
+    retentionMode: "live_only",
+  });
+
+  const attachmentAuditRows = await listDocumentAttachmentAuditRows(documentId);
+  expect(attachmentAuditRows).toHaveLength(2);
+  expect(attachmentAuditRows[0]).toEqual({
+    action: "attach",
+    bindingId: firstBindingId,
+    blobId: firstBlobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: null,
+    previousBlobId: null,
+    prevEntryHash: null,
+    sequence: expect.any(Number),
+    slotId: "slot_replace",
+  });
+  expect(attachmentAuditRows[1]).toEqual({
+    action: "replace",
+    bindingId: secondBindingId,
+    blobId: secondBlobId,
+    entryHash: expect.any(String),
+    eventType: "attachment_event",
+    previousBindingId: firstBindingId,
+    previousBlobId: firstBlobId,
+    prevEntryHash: attachmentAuditRows[0]?.entryHash ?? null,
+    sequence: expect.any(Number),
+    slotId: "slot_replace",
+  });
 
   const staleBlobResponse = await routeApp.request(`/blobs/${firstBlobId}`, {
     headers: {
