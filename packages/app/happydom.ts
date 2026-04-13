@@ -1,6 +1,37 @@
+import { afterAll } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 GlobalRegistrator.register();
+
+interface AppTestProcessState {
+  hasLoadedApiRuntimeModule: boolean;
+}
+
+const appTestProcessState = globalThis as typeof globalThis & {
+  __tearleadsAppTestProcessState?: AppTestProcessState;
+};
+
+if (!appTestProcessState.__tearleadsAppTestProcessState) {
+  appTestProcessState.__tearleadsAppTestProcessState = {
+    hasLoadedApiRuntimeModule: false,
+  };
+}
+
+afterAll(async () => {
+  if (
+    !appTestProcessState.__tearleadsAppTestProcessState
+      .hasLoadedApiRuntimeModule
+  ) {
+    return;
+  }
+
+  const postgresModuleUrl = new URL(
+    "../api/src/adapters/postgres.ts",
+    import.meta.url,
+  ).href;
+  const { default: postgresClient } = await import(postgresModuleUrl);
+  await postgresClient.close();
+});
 
 const broadcastChannelPrototype = globalThis.BroadcastChannel?.prototype;
 

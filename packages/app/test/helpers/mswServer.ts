@@ -20,8 +20,11 @@ const proxiedApiRequests: Array<{
   url: string;
 }> = [];
 let activeProxiedApiRequestCount = 0;
-let hasLoadedApiRuntimeModule = false;
 let testApiAppPromise: Promise<TestApiApp> | null = null;
+
+interface AppTestProcessState {
+  hasLoadedApiRuntimeModule: boolean;
+}
 
 function createApiModuleUrl(relativePath: string): string {
   return new URL(`../../../api/src/${relativePath}`, import.meta.url).href;
@@ -30,6 +33,16 @@ function createApiModuleUrl(relativePath: string): string {
 const routeAppModuleUrl = createApiModuleUrl("routeApp.ts");
 const sessionModuleUrl = createApiModuleUrl("middleware/session.ts");
 const postgresModuleUrl = createApiModuleUrl("adapters/postgres.ts");
+
+const appTestProcessState = globalThis as typeof globalThis & {
+  __tearleadsAppTestProcessState?: AppTestProcessState;
+};
+
+if (!appTestProcessState.__tearleadsAppTestProcessState) {
+  appTestProcessState.__tearleadsAppTestProcessState = {
+    hasLoadedApiRuntimeModule: false,
+  };
+}
 
 interface TestApiApp {
   fetch: (request: Request) => Promise<Response>;
@@ -83,20 +96,7 @@ interface ClosableConnection {
   close: (code?: number, reason?: string) => void;
 }
 
-interface AsyncClosable {
-  close: () => Promise<void> | void;
-}
-
 function isClosableConnection(value: unknown): value is ClosableConnection {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "close" in value &&
-    typeof value.close === "function"
-  );
-}
-
-function isAsyncClosable(value: unknown): value is AsyncClosable {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -169,7 +169,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     return testApiAppPromise;
   }
 
-  hasLoadedApiRuntimeModule = true;
+  appTestProcessState.__tearleadsAppTestProcessState.hasLoadedApiRuntimeModule = true;
   testApiAppPromise = (async () => {
     const [
       { createRouteApp },
@@ -311,7 +311,7 @@ async function proxyRequestToApiApp(request: Request): Promise<Response> {
   }
 }
 
-export function useRealApiHandlers() {
+export function useTestApiAppHandlers() {
   server.use(
     http.all("http://localhost:3001/*", async ({ request }) =>
       proxyRequestToApiApp(request),
@@ -321,13 +321,4 @@ export function useRealApiHandlers() {
 
 afterAll(async () => {
   await resetMockServer();
-
-  if (!hasLoadedApiRuntimeModule) {
-    return;
-  }
-
-  const { default: postgresClient } = await import(postgresModuleUrl);
-  if (isAsyncClosable(postgresClient)) {
-    await postgresClient.close();
-  }
 });
