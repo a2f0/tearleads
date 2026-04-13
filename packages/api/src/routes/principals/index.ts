@@ -21,8 +21,8 @@ export function createPrincipalsRouter({
   principalsRouter.route(
     "/",
     createPrincipalPolicyRoute({
-      requireAuth,
-      runtime,
+      ...(requireAuth ? { requireAuth } : {}),
+      ...(runtime ? { runtime } : {}),
     }),
   );
   return principalsRouter;

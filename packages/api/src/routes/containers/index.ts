@@ -38,42 +38,16 @@ export function createContainersRouter({
   runtime,
 }: ContainersRouterDeps = {}) {
   const containersRouter = new Hono();
+  const routeDeps = {
+    ...(requireAuth ? { requireAuth } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
 
-  containersRouter.route(
-    "/",
-    createCreateContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createListContainerDocumentsRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createListContainersRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createMoveContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
-  containersRouter.route(
-    "/",
-    createShareContainerRoute({
-      requireAuth,
-      runtime,
-    }),
-  );
+  containersRouter.route("/", createCreateContainerRoute(routeDeps));
+  containersRouter.route("/", createListContainerDocumentsRoute(routeDeps));
+  containersRouter.route("/", createListContainersRoute(routeDeps));
+  containersRouter.route("/", createMoveContainerRoute(routeDeps));
+  containersRouter.route("/", createShareContainerRoute(routeDeps));
 
   return containersRouter;
 }

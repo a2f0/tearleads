@@ -36,8 +36,8 @@ export function createAuthRouter({
   auth.route(
     "/",
     createEncapsulationKeyRoute({
-      requireAuth,
-      runtime,
+      ...(requireAuth ? { requireAuth } : {}),
+      ...(runtime ? { runtime } : {}),
     }),
   );
   auth.route("/", createRegisterRoute(runtime));
@@ -45,8 +45,8 @@ export function createAuthRouter({
   auth.route(
     "/",
     createLogoutRoute({
-      destroySession,
-      requireAuth,
+      ...(destroySession ? { destroySession } : {}),
+      ...(requireAuth ? { requireAuth } : {}),
     }),
   );
 

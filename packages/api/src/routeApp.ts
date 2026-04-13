@@ -24,47 +24,39 @@ export function createRouteApp({
   runtime,
 }: RouteAppDeps = {}) {
   const routeApp = new Hono();
+  const authRouterDeps = {
+    ...(destroySession ? { destroySession } : {}),
+    ...(requireAuth ? { requireAuth } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
+  const containersRouterDeps = {
+    ...(requireAuth ? { requireAuth } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
+  const documentsRouterDeps = {
+    ...(publish ? { publish } : {}),
+    ...(requireAuth ? { requireAuth } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
+  const principalsRouterDeps = {
+    ...(requireAuth ? { requireAuth } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
 
   routeApp.use("*", cors());
 
-  routeApp.route(
-    "/",
-    createAuthRouter({
-      destroySession,
-      requireAuth,
-      runtime,
-    }),
-  );
-  routeApp.route(
-    "/",
-    createContainersRouter({
-      requireAuth,
-      runtime,
-    }),
-  );
-  routeApp.route(
-    "/",
-    createDocumentsRouter({
-      publish,
-      requireAuth,
-      runtime,
-    }),
-  );
+  routeApp.route("/", createAuthRouter(authRouterDeps));
+  routeApp.route("/", createContainersRouter(containersRouterDeps));
+  routeApp.route("/", createDocumentsRouter(documentsRouterDeps));
   routeApp.route(
     "/",
     createStructuralDocumentsRoute({
-      requireAuth,
-      runtime,
+      ...(requireAuth ? { requireAuth } : {}),
+      ...(runtime ? { runtime } : {}),
     }),
   );
   routeApp.route("/", createHealthRoute());
-  routeApp.route(
-    "/",
-    createPrincipalsRouter({
-      requireAuth,
-      runtime,
-    }),
-  );
+  routeApp.route("/", createPrincipalsRouter(principalsRouterDeps));
 
   return routeApp;
 }

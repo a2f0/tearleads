@@ -30,6 +30,7 @@ import {
   type ApiServiceRuntime,
   defaultApiServiceRuntime,
 } from "../../services/runtime";
+import type { SessionData } from "../../validators/session";
 
 interface DocumentsRouterDeps {
   readonly publish?: (event: Record<string, unknown>) => Promise<void>;
@@ -37,7 +38,7 @@ interface DocumentsRouterDeps {
   readonly runtime?: ApiServiceRuntime;
 }
 
-type DocumentsRouteApp = ReturnType<typeof createLoroRouter>;
+type DocumentsRouteApp = ReturnType<typeof createLoroRouter<SessionData>>;
 
 function addStageBlobRoute(
   documentsRouter: DocumentsRouteApp,
