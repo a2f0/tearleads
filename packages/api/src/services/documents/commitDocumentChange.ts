@@ -38,6 +38,7 @@ import {
   getDocumentCheckpointInputError,
   maybeWriteDocumentAuditCheckpoint,
 } from "./documentAuditCheckpoints";
+import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { getRotateBaselineSourceError } from "./documentSyncStore";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
@@ -695,12 +696,32 @@ async function commitDocumentLoroUpdate(
       documentId,
       updates: [input.loroUpdate],
     });
+    const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(
+      tx,
+      {
+        accessEpoch: access.currentAccessEpoch,
+        accessFingerprint: access.accessFingerprint,
+        actorFingerprint: session.fingerprint,
+        actorUserId: session.userId,
+        documentId,
+        updates: [input.loroUpdate],
+      },
+    );
+    const coveredAuditEntryHash = auditEntryHashByUpdateId.get(
+      input.loroUpdate.id,
+    );
+    if (!coveredAuditEntryHash) {
+      throw new Error(
+        `Missing audit entry hash for checkpoint update ${input.loroUpdate.id}`,
+      );
+    }
     await maybeWriteDocumentAuditCheckpoint(tx, {
       accessEpoch: access.currentAccessEpoch,
       accessFingerprint: access.accessFingerprint,
       actorFingerprint: session.fingerprint,
       actorUserId: session.userId,
       checkpointUpdate: input.loroUpdate,
+      coveredAuditEntryHash,
       documentId,
     });
     acceptedOutgoingUpdateIds.push(inserted.id);
