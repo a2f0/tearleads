@@ -18,6 +18,14 @@ interface RouteAppDeps {
   readonly runtime?: ApiServiceRuntime;
 }
 
+type AuthRouterDeps = NonNullable<Parameters<typeof createAuthRouter>[0]>;
+type ContainersRouterDeps = NonNullable<
+  Parameters<typeof createContainersRouter>[0]
+>;
+type DocumentsRouterDeps = NonNullable<
+  Parameters<typeof createDocumentsRouter>[0]
+>;
+
 export function createRouteApp({
   destroySession,
   publish,
@@ -25,16 +33,16 @@ export function createRouteApp({
   runtime,
 }: RouteAppDeps = {}) {
   const routeApp = new Hono();
-  const authRouterDeps: Parameters<typeof createAuthRouter>[0] = {};
+  const authRouterDeps: AuthRouterDeps = {};
   assignIfDefined(authRouterDeps, "destroySession", destroySession);
   assignIfDefined(authRouterDeps, "requireAuth", requireAuth);
   assignIfDefined(authRouterDeps, "runtime", runtime);
 
-  const protectedRouterDeps: Parameters<typeof createContainersRouter>[0] = {};
+  const protectedRouterDeps: ContainersRouterDeps = {};
   assignIfDefined(protectedRouterDeps, "requireAuth", requireAuth);
   assignIfDefined(protectedRouterDeps, "runtime", runtime);
 
-  const documentsRouterDeps: Parameters<typeof createDocumentsRouter>[0] = {};
+  const documentsRouterDeps: DocumentsRouterDeps = {};
   assignIfDefined(documentsRouterDeps, "publish", publish);
   assignIfDefined(documentsRouterDeps, "requireAuth", requireAuth);
   assignIfDefined(documentsRouterDeps, "runtime", runtime);

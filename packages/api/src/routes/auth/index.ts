@@ -26,15 +26,17 @@ interface AuthRouterDeps {
   readonly runtime?: ApiServiceRuntime;
 }
 
+type EncapsulationKeyRouteDeps = NonNullable<
+  Parameters<typeof createEncapsulationKeyRoute>[0]
+>;
+
 export function createAuthRouter({
   destroySession,
   requireAuth,
   runtime,
 }: AuthRouterDeps = {}) {
   const auth = new Hono();
-  const encapsulationKeyRouteDeps: Parameters<
-    typeof createEncapsulationKeyRoute
-  >[0] = {};
+  const encapsulationKeyRouteDeps: EncapsulationKeyRouteDeps = {};
   assignIfDefined(encapsulationKeyRouteDeps, "requireAuth", requireAuth);
   assignIfDefined(encapsulationKeyRouteDeps, "runtime", runtime);
 
