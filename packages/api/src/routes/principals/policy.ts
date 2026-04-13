@@ -8,9 +8,13 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { requireAuth } from "../../middleware/session";
+import {
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "../../middleware/session";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
 import { putPrincipalMemberEnvelopes } from "../../services/principals/putPrincipalMemberEnvelopes";
 import { putPrincipalState } from "../../services/principals/putPrincipalState";
@@ -18,9 +22,15 @@ import {
   PrincipalPolicyError,
   parseManagedPrincipalType,
 } from "../../services/principals/shared";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const principalPolicyRoute = new Hono();
+interface PrincipalPolicyRouteDeps {
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
 
 function getPrincipalRouteParams(input: {
   principalId: string;
@@ -49,112 +59,123 @@ function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
   return null;
 }
 
-principalPolicyRoute.get(
-  "/principals/:principalType/:principalId/policy",
-  requireAuth,
-  async (c) => {
-    const principalParams = getPrincipalRouteParams({
-      principalType: c.req.param("principalType"),
-      principalId: c.req.param("principalId"),
-    });
+export function createPrincipalPolicyRoute({
+  requireAuth = defaultRequireAuth,
+  runtime = defaultApiServiceRuntime,
+}: PrincipalPolicyRouteDeps = {}) {
+  const principalPolicyRoute = new Hono();
 
-    if (!principalParams) {
-      return c.json({ error: "Invalid principal route" }, 400);
-    }
+  principalPolicyRoute.get(
+    "/principals/:principalType/:principalId/policy",
+    requireAuth,
+    async (c) => {
+      const principalParams = getPrincipalRouteParams({
+        principalType: c.req.param("principalType"),
+        principalId: c.req.param("principalId"),
+      });
 
-    try {
-      return c.json<PrincipalPolicyBundleResponse>(
-        await getCurrentPrincipalPolicy(
-          defaultApiServiceRuntime,
-          principalParams.principalType,
-          principalParams.principalId,
-        ),
-      );
-    } catch (error) {
-      const response = toPrincipalPolicyErrorResponse(error);
-      if (response) {
-        return response;
+      if (!principalParams) {
+        return c.json({ error: "Invalid principal route" }, 400);
       }
 
-      throw error;
-    }
-  },
-);
+      try {
+        return c.json<PrincipalPolicyBundleResponse>(
+          await getCurrentPrincipalPolicy(
+            runtime,
+            principalParams.principalType,
+            principalParams.principalId,
+          ),
+        );
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) {
+          return response;
+        }
 
-principalPolicyRoute.put(
-  "/principals/:principalType/:principalId/state",
-  requireAuth,
-  validator("json", (value, c) => {
-    if (!isPutPrincipalStateRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
+        throw error;
+      }
+    },
+  );
 
-    return value;
-  }),
-  async (c) => {
-    const principalParams = getPrincipalRouteParams({
-      principalType: c.req.param("principalType"),
-      principalId: c.req.param("principalId"),
-    });
-
-    if (!principalParams) {
-      return c.json({ error: "Invalid principal route" }, 400);
-    }
-
-    try {
-      return c.json<PrincipalStateResponse>(
-        await putPrincipalState(defaultApiServiceRuntime, {
-          ...c.req.valid("json"),
-          expectedPrincipalType: principalParams.principalType,
-          expectedPrincipalId: principalParams.principalId,
-        }),
-      );
-    } catch (error) {
-      const response = toPrincipalPolicyErrorResponse(error);
-      if (response) {
-        return response;
+  principalPolicyRoute.put(
+    "/principals/:principalType/:principalId/state",
+    requireAuth,
+    validator("json", (value, c) => {
+      if (!isPutPrincipalStateRequest(value)) {
+        return c.json({ error: "Invalid request" }, 400);
       }
 
-      throw error;
-    }
-  },
-);
+      return value;
+    }),
+    async (c) => {
+      const principalParams = getPrincipalRouteParams({
+        principalType: c.req.param("principalType"),
+        principalId: c.req.param("principalId"),
+      });
 
-principalPolicyRoute.put(
-  "/principals/:principalType/:principalId/member-envelopes",
-  requireAuth,
-  validator("json", (value, c) => {
-    if (!isPutPrincipalMemberEnvelopesRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
-
-    return value;
-  }),
-  async (c) => {
-    const principalParams = getPrincipalRouteParams({
-      principalType: c.req.param("principalType"),
-      principalId: c.req.param("principalId"),
-    });
-
-    if (!principalParams) {
-      return c.json({ error: "Invalid principal route" }, 400);
-    }
-
-    try {
-      return c.json<CurrentPrincipalMemberEnvelopesResponse>(
-        await putPrincipalMemberEnvelopes(defaultApiServiceRuntime, {
-          ...c.req.valid("json"),
-          principalType: principalParams.principalType,
-          principalId: principalParams.principalId,
-        }),
-      );
-    } catch (error) {
-      const response = toPrincipalPolicyErrorResponse(error);
-      if (response) {
-        return response;
+      if (!principalParams) {
+        return c.json({ error: "Invalid principal route" }, 400);
       }
 
-      throw error;
-    }
-  },
-);
+      try {
+        return c.json<PrincipalStateResponse>(
+          await putPrincipalState(runtime, {
+            ...c.req.valid("json"),
+            expectedPrincipalType: principalParams.principalType,
+            expectedPrincipalId: principalParams.principalId,
+          }),
+        );
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) {
+          return response;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  principalPolicyRoute.put(
+    "/principals/:principalType/:principalId/member-envelopes",
+    requireAuth,
+    validator("json", (value, c) => {
+      if (!isPutPrincipalMemberEnvelopesRequest(value)) {
+        return c.json({ error: "Invalid request" }, 400);
+      }
+
+      return value;
+    }),
+    async (c) => {
+      const principalParams = getPrincipalRouteParams({
+        principalType: c.req.param("principalType"),
+        principalId: c.req.param("principalId"),
+      });
+
+      if (!principalParams) {
+        return c.json({ error: "Invalid principal route" }, 400);
+      }
+
+      try {
+        return c.json<CurrentPrincipalMemberEnvelopesResponse>(
+          await putPrincipalMemberEnvelopes(runtime, {
+            ...c.req.valid("json"),
+            principalType: principalParams.principalType,
+            principalId: principalParams.principalId,
+          }),
+        );
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) {
+          return response;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  return principalPolicyRoute;
+}
+
+export const principalPolicyRoute = createPrincipalPolicyRoute();

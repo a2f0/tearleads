@@ -8,37 +8,48 @@ import {
   RegisterPublicKeyError,
   registerPublicKey,
 } from "../../services/auth/registerPublicKey";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const registerRoute = new Hono();
+export function createRegisterRoute(
+  runtime: ApiServiceRuntime = defaultApiServiceRuntime,
+) {
+  const registerRoute = new Hono();
 
-registerRoute.post(
-  "/auth/register",
-  validator("json", (value, c) => {
-    if (!isPublicKeyRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
-    return value;
-  }),
-  async (c) => {
-    try {
-      return c.json<PublicKeyResponse>(
-        await registerPublicKey(defaultApiServiceRuntime, c.req.valid("json")),
-      );
-    } catch (error) {
-      if (isDuplicateRegisterFingerprintError(error)) {
-        return c.json({ error: "Key already exists" }, 409);
+  registerRoute.post(
+    "/auth/register",
+    validator("json", (value, c) => {
+      if (!isPublicKeyRequest(value)) {
+        return c.json({ error: "Invalid request" }, 400);
       }
+      return value;
+    }),
+    async (c) => {
+      try {
+        return c.json<PublicKeyResponse>(
+          await registerPublicKey(runtime, c.req.valid("json")),
+        );
+      } catch (error) {
+        if (isDuplicateRegisterFingerprintError(error)) {
+          return c.json({ error: "Key already exists" }, 409);
+        }
 
-      if (error instanceof RegisterPublicKeyError) {
-        return c.json({ error: error.message }, error.status);
+        if (error instanceof RegisterPublicKeyError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        if (error instanceof ContainerMetadataError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        throw error;
       }
+    },
+  );
 
-      if (error instanceof ContainerMetadataError) {
-        return c.json({ error: error.message }, error.status);
-      }
+  return registerRoute;
+}
 
-      throw error;
-    }
-  },
-);
+export const registerRoute = createRegisterRoute();

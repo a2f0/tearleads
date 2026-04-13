@@ -1,15 +1,36 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { requireAuth } from "../../middleware/session";
+import {
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "../../middleware/session";
 import { listContainers } from "../../services/containers/listContainers";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const listContainersRoute = new Hono();
+interface ListContainersRouteDeps {
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
 
-listContainersRoute.get("/containers", requireAuth, async (c) => {
-  const session = c.get("session");
+export function createListContainersRoute({
+  requireAuth = defaultRequireAuth,
+  runtime = defaultApiServiceRuntime,
+}: ListContainersRouteDeps = {}) {
+  const listContainersRoute = new Hono();
 
-  return c.json<ListContainersResponse>(
-    await listContainers(defaultApiServiceRuntime, session.userId),
-  );
-});
+  listContainersRoute.get("/containers", requireAuth, async (c) => {
+    const session = c.get("session");
+
+    return c.json<ListContainersResponse>(
+      await listContainers(runtime, session.userId),
+    );
+  });
+
+  return listContainersRoute;
+}
+
+export const listContainersRoute = createListContainersRoute();

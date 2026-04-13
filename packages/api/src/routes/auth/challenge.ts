@@ -9,32 +9,40 @@ import {
   CreateChallengeError,
   createChallenge,
 } from "../../services/auth/createChallenge";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "../../services/runtime";
 
-export const challenge = new Hono();
+export function createChallengeRoute(
+  runtime: ApiServiceRuntime = defaultApiServiceRuntime,
+) {
+  const challenge = new Hono();
 
-challenge.post(
-  "/auth/challenge",
-  validator("json", (value, c) => {
-    if (!isChallengeRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
-    return value;
-  }),
-  async (c) => {
-    try {
-      const result = await createChallenge(
-        defaultApiServiceRuntime,
-        c.req.valid("json"),
-      );
-
-      return c.json<ChallengeResponse>({ challenge: result.challenge });
-    } catch (error) {
-      if (error instanceof CreateChallengeError) {
-        return c.json<ChallengeErrorResponse>({ error: error.message }, 404);
+  challenge.post(
+    "/auth/challenge",
+    validator("json", (value, c) => {
+      if (!isChallengeRequest(value)) {
+        return c.json({ error: "Invalid request" }, 400);
       }
+      return value;
+    }),
+    async (c) => {
+      try {
+        const result = await createChallenge(runtime, c.req.valid("json"));
 
-      throw error;
-    }
-  },
-);
+        return c.json<ChallengeResponse>({ challenge: result.challenge });
+      } catch (error) {
+        if (error instanceof CreateChallengeError) {
+          return c.json<ChallengeErrorResponse>({ error: error.message }, 404);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  return challenge;
+}
+
+export const challenge = createChallengeRoute();

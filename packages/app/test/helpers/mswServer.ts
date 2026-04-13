@@ -1,34 +1,12 @@
 import { afterAll } from "bun:test";
-import {
-  isChallengeRequest,
-  isCreateContainerRequest,
-  isPublicKeyRequest,
-  isShareContainerRequest,
-  isVerifyRequest,
-} from "@tearleads/validators/request";
 import type {
-  ChallengeErrorResponse,
-  ChallengeResponse,
-  CreateContainerResponse,
   EncapsulationKeyResponse,
-  ListContainerDocumentsResponse,
-  ListContainersResponse,
   PublicKeyResponse,
-  ShareContainerResponse,
   VerifyResponse,
-} from "@tearleads/validators/response";
-import {
-  isChallengeResponse,
-  isCreateContainerResponse,
-  isEncapsulationKeyResponse,
-  isListContainerDocumentsResponse,
-  isListContainersResponse,
-  isPublicKeyResponse,
-  isShareContainerResponse,
-  isVerifyResponse,
 } from "@tearleads/validators/response";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
+import type { ApiServiceRuntime } from "../../../api/src/services/runtime";
 
 export const wsUrl = "ws://localhost:3002";
 
@@ -43,14 +21,33 @@ const proxiedApiRequests: Array<{
 }> = [];
 let activeProxiedApiRequestCount = 0;
 let hasLoadedApiRuntimeModule = false;
-const inMemoryKeyValueEntries = new Map<
-  string,
-  { expiresAt: number | null; value: string }
->();
-const inMemorySessions = new Map<
-  string,
-  { createdAt: number; fingerprint: string; userId: string }
->();
+let testApiAppPromise: Promise<TestApiApp> | null = null;
+
+const routeAppModulePath = ["..", "..", "..", "api", "src", "routeApp"].join(
+  "/",
+);
+const sessionModulePath = [
+  "..",
+  "..",
+  "..",
+  "api",
+  "src",
+  "middleware",
+  "session",
+].join("/");
+const postgresModulePath = [
+  "..",
+  "..",
+  "..",
+  "api",
+  "src",
+  "adapters",
+  "postgres",
+].join("/");
+
+interface TestApiApp {
+  fetch: (request: Request) => Promise<Response>;
+}
 
 function randomHex(bytes: number): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(bytes)))
@@ -148,189 +145,104 @@ async function drainSocketClients(): Promise<void> {
   await waitForSocketClientsToDrain();
 }
 
-async function closeApiRuntimeConnections(): Promise<void> {
-  const redisModulePath = [
-    "..",
-    "..",
-    "..",
-    "api",
-    "src",
-    "adapters",
-    "redis",
-  ].join("/");
-  const redisPubSubModulePath = [
-    "..",
-    "..",
-    "..",
-    "api",
-    "src",
-    "adapters",
-    "redisPubSub",
-  ].join("/");
-  const [{ closeRedisClient }, { closeRedisPubSub }] = await Promise.all([
-    import(redisModulePath),
-    import(redisPubSubModulePath),
-  ]);
-
-  await closeRedisPubSub();
-  await closeRedisClient();
-}
-
-function clearInMemoryServiceRuntime(): void {
-  inMemoryKeyValueEntries.clear();
-  inMemorySessions.clear();
-}
-
-function getInMemoryValue(key: string): string | null {
-  const entry = inMemoryKeyValueEntries.get(key);
-  if (!entry) {
-    return null;
-  }
-
-  if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
-    inMemoryKeyValueEntries.delete(key);
-    return null;
-  }
-
-  return entry.value;
-}
-
-async function loadApiModule(pathParts: string[]): Promise<unknown> {
-  hasLoadedApiRuntimeModule = true;
-  return import(pathParts.join("/"));
-}
-
-function getErrorStatus(error: unknown): number | null {
-  if (typeof error !== "object" || error === null) {
-    return null;
-  }
-
-  const status = Reflect.get(error, "status");
-  return typeof status === "number" ? status : null;
-}
-
-function getFunctionFromModule(
-  moduleValue: unknown,
-  exportName: string,
-): ((...args: unknown[]) => Promise<unknown>) | null {
-  if (typeof moduleValue !== "object" || moduleValue === null) {
-    return null;
-  }
-
-  const exportValue = Reflect.get(moduleValue, exportName);
-  return typeof exportValue === "function" ? exportValue : null;
-}
-
-function getStringParam(
-  params: Record<string, string | readonly string[] | undefined>,
-  key: string,
-): string | null {
-  const value = Reflect.get(params, key);
-  return typeof value === "string" ? value : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function getUnknownProperty(
-  value: Record<string, unknown>,
-  key: string,
-): unknown {
-  return Reflect.get(value, key);
-}
-
-function isVerifyChallengeResult(value: unknown): value is { token: string } {
-  return (
-    isRecord(value) && typeof getUnknownProperty(value, "token") === "string"
-  );
-}
-
-function getValidatedResponseBody<T>(
-  result: unknown,
-  guard: (value: unknown) => value is T,
-  context: string,
-): T {
-  if (!guard(result)) {
-    throw new Error(`${context} returned invalid response body.`);
-  }
-
-  return result;
-}
-
-async function createInMemoryApiServiceRuntime() {
-  const [postgresModule, sessionModule] = await Promise.all([
-    loadApiModule(["..", "..", "..", "api", "src", "adapters", "postgres"]),
-    loadApiModule(["..", "..", "..", "api", "src", "middleware", "session"]),
-  ]);
-  if (!isRecord(postgresModule) || !("db" in postgresModule)) {
-    throw new Error("API postgres module missing db export.");
-  }
-  const createSession = getFunctionFromModule(sessionModule, "createSession");
-  if (!createSession) {
-    throw new Error("API session module missing createSession export.");
-  }
-  const db = Reflect.get(postgresModule, "db");
+function createInMemoryKeyValueStore(): ApiServiceRuntime["keyValueStore"] {
+  const entries = new Map<
+    string,
+    { expiresAt: number | null; value: string }
+  >();
 
   return {
-    db,
-    eventPublisher: {
-      publish: async (event: Record<string, unknown>) => {
-        eventsSocket.broadcast(JSON.stringify(event));
-      },
+    del: async (key: string) => {
+      entries.delete(key);
     },
-    keyValueStore: {
-      del: async (key: string) => {
-        inMemoryKeyValueEntries.delete(key);
-      },
-      get: async (key: string) => getInMemoryValue(key),
-      set: async (key: string, value: string, ttlSeconds?: number) => {
-        inMemoryKeyValueEntries.set(key, {
-          expiresAt:
-            ttlSeconds === undefined ? null : Date.now() + ttlSeconds * 1000,
-          value,
-        });
-      },
+    get: async (key: string) => {
+      const entry = entries.get(key);
+      if (!entry) {
+        return null;
+      }
+
+      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+        entries.delete(key);
+        return null;
+      }
+
+      return entry.value;
     },
-    sessionTokenIssuer: {
-      createSession: async (data: {
-        createdAt: number;
-        fingerprint: string;
-        userId: string;
-      }) => {
-        const issuedToken = await createSession(data);
-        if (typeof issuedToken !== "string") {
-          throw new Error("API createSession returned invalid token.");
-        }
-        const token = issuedToken;
-        inMemorySessions.set(token, data);
-        return token;
-      },
-    },
-    principalSignerTrustStore: {
-      getTrustedSignerPublicKey: async () => null,
+    set: async (key: string, value: string, ttlSeconds?: number) => {
+      entries.set(key, {
+        expiresAt:
+          ttlSeconds === undefined ? null : Date.now() + ttlSeconds * 1000,
+        value,
+      });
     },
   };
 }
 
-function extractBearerToken(request: Request): string | null {
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) {
-    return null;
+async function ensureTestApiApp(): Promise<TestApiApp> {
+  if (testApiAppPromise) {
+    return testApiAppPromise;
   }
 
-  return header.slice(7);
-}
+  hasLoadedApiRuntimeModule = true;
+  testApiAppPromise = (async () => {
+    const [
+      { createRouteApp },
+      { createDestroySession, createRequireAuth, createSessionTokenIssuer },
+      { db },
+    ] = await Promise.all([
+      import(routeAppModulePath),
+      import(sessionModulePath),
+      import(postgresModulePath),
+    ]);
 
-function getAuthenticatedSession(
-  request: Request,
-): { createdAt: number; fingerprint: string; userId: string } | null {
-  const token = extractBearerToken(request);
-  if (!token) {
-    return null;
-  }
+    if (typeof createRouteApp !== "function") {
+      throw new Error("API routeApp module missing createRouteApp export.");
+    }
+    if (typeof createDestroySession !== "function") {
+      throw new Error(
+        "API session module missing createDestroySession export.",
+      );
+    }
+    if (typeof createRequireAuth !== "function") {
+      throw new Error("API session module missing createRequireAuth export.");
+    }
+    if (typeof createSessionTokenIssuer !== "function") {
+      throw new Error(
+        "API session module missing createSessionTokenIssuer export.",
+      );
+    }
 
-  return inMemorySessions.get(token) ?? null;
+    const keyValueStore = createInMemoryKeyValueStore();
+    const eventPublisher: ApiServiceRuntime["eventPublisher"] = {
+      publish: async (event: Record<string, unknown>) => {
+        eventsSocket.broadcast(JSON.stringify(event));
+      },
+    };
+    const runtime: ApiServiceRuntime = {
+      db,
+      eventPublisher,
+      keyValueStore,
+      principalSignerTrustStore: {
+        getTrustedSignerPublicKey: async () => null,
+      },
+      sessionTokenIssuer: {
+        createSession: createSessionTokenIssuer(keyValueStore.set),
+      },
+    };
+    const routeApp = createRouteApp({
+      destroySession: createDestroySession(keyValueStore.del),
+      publish: (event: Record<string, unknown>) =>
+        eventPublisher.publish(event),
+      requireAuth: createRequireAuth(keyValueStore.get),
+      runtime,
+    });
+
+    return {
+      fetch: (request: Request) => routeApp.fetch(request),
+    };
+  })();
+
+  return testApiAppPromise;
 }
 
 async function waitForProxiedApiRequestsToDrain(
@@ -346,8 +258,7 @@ async function waitForProxiedApiRequestsToDrain(
 export async function resetMockServer(): Promise<void> {
   await drainSocketClients();
   await waitForProxiedApiRequestsToDrain();
-  await closeApiRuntimeConnections();
-  clearInMemoryServiceRuntime();
+  testApiAppPromise = null;
   activeProxiedApiRequestCount = 0;
   proxiedApiRequests.length = 0;
   server.resetHandlers();
@@ -373,8 +284,7 @@ function toHeadersObject(headers: Headers): Record<string, string> {
 }
 
 async function proxyRequestToApiApp(request: Request): Promise<Response> {
-  const apiModulePath = ["..", "..", "..", "api", "src", "routeApp"].join("/");
-  const apiModule = await import(apiModulePath);
+  const apiApp = await ensureTestApiApp();
   activeProxiedApiRequestCount += 1;
   try {
     const requestBody =
@@ -392,7 +302,7 @@ async function proxyRequestToApiApp(request: Request): Promise<Response> {
             headers: request.headers,
             body: requestBody,
           });
-    const response = await apiModule.routeApp.fetch(proxiedRequest);
+    const response = await apiApp.fetch(proxiedRequest);
     const responseBody = await response.text();
     proxiedApiRequests.push({
       authorization: request.headers.get("authorization"),
@@ -417,415 +327,6 @@ async function proxyRequestToApiApp(request: Request): Promise<Response> {
 
 export function useRealApiHandlers() {
   server.use(
-    http.post("http://localhost:3001/auth/register", async ({ request }) => {
-      const body: unknown = await request.json();
-      if (!isPublicKeyRequest(body)) {
-        return HttpResponse.json({ error: "Invalid request" }, { status: 400 });
-      }
-
-      const runtime = await createInMemoryApiServiceRuntime();
-      const moduleValue = await loadApiModule([
-        "..",
-        "..",
-        "..",
-        "api",
-        "src",
-        "services",
-        "auth",
-        "registerPublicKey",
-      ]);
-      const registerPublicKey = getFunctionFromModule(
-        moduleValue,
-        "registerPublicKey",
-      );
-      if (!registerPublicKey) {
-        throw new Error("registerPublicKey export not found.");
-      }
-
-      try {
-        const response = await registerPublicKey(runtime, body);
-        return HttpResponse.json<PublicKeyResponse>(
-          getValidatedResponseBody(
-            response,
-            isPublicKeyResponse,
-            "registerPublicKey",
-          ),
-        );
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === "REGISTER_DUPLICATE_FINGERPRINT"
-        ) {
-          return HttpResponse.json(
-            { error: "Key already exists" },
-            { status: 409 },
-          );
-        }
-        const status = getErrorStatus(error);
-        if (error instanceof Error && status !== null) {
-          return HttpResponse.json({ error: error.message }, { status });
-        }
-
-        throw error;
-      }
-    }),
-    http.post("http://localhost:3001/auth/challenge", async ({ request }) => {
-      const body: unknown = await request.json();
-      if (!isChallengeRequest(body)) {
-        return HttpResponse.json({ error: "Invalid request" }, { status: 400 });
-      }
-
-      const runtime = await createInMemoryApiServiceRuntime();
-      const moduleValue = await loadApiModule([
-        "..",
-        "..",
-        "..",
-        "api",
-        "src",
-        "services",
-        "auth",
-        "createChallenge",
-      ]);
-      const createChallenge = getFunctionFromModule(
-        moduleValue,
-        "createChallenge",
-      );
-      if (!createChallenge) {
-        throw new Error("createChallenge export not found.");
-      }
-
-      try {
-        return HttpResponse.json<ChallengeResponse>(
-          getValidatedResponseBody(
-            await createChallenge(runtime, body),
-            isChallengeResponse,
-            "createChallenge",
-          ),
-        );
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          isRecord(error) &&
-          getUnknownProperty(error, "reason") === "unknown_fingerprint"
-        ) {
-          return HttpResponse.json<ChallengeErrorResponse>(
-            { error: error.message },
-            { status: 404 },
-          );
-        }
-
-        throw error;
-      }
-    }),
-    http.post("http://localhost:3001/auth/verify", async ({ request }) => {
-      const body: unknown = await request.json();
-      if (!isVerifyRequest(body)) {
-        return HttpResponse.json({ error: "Invalid request" }, { status: 400 });
-      }
-
-      const runtime = await createInMemoryApiServiceRuntime();
-      const moduleValue = await loadApiModule([
-        "..",
-        "..",
-        "..",
-        "api",
-        "src",
-        "services",
-        "auth",
-        "verifyChallenge",
-      ]);
-      const verifyChallenge = getFunctionFromModule(
-        moduleValue,
-        "verifyChallenge",
-      );
-      if (!verifyChallenge) {
-        throw new Error("verifyChallenge export not found.");
-      }
-
-      try {
-        const result = await verifyChallenge(runtime, body);
-        if (!isVerifyChallengeResult(result)) {
-          throw new Error("verifyChallenge returned invalid response body.");
-        }
-        return HttpResponse.json<VerifyResponse>(
-          getValidatedResponseBody(
-            {
-              authenticated: true,
-              token: result.token,
-            },
-            isVerifyResponse,
-            "verifyChallenge",
-          ),
-        );
-      } catch (error) {
-        if (error instanceof Error && isRecord(error)) {
-          const reason = getUnknownProperty(error, "reason");
-          if (
-            reason === "challenge_not_found" ||
-            reason === "invalid_signature" ||
-            reason === "unknown_fingerprint"
-          ) {
-            return HttpResponse.json<VerifyResponse>(
-              {
-                authenticated: false,
-                error: error.message,
-              },
-              { status: reason === "unknown_fingerprint" ? 404 : 401 },
-            );
-          }
-        }
-
-        throw error;
-      }
-    }),
-    http.get(
-      "http://localhost:3001/auth/encapsulation-key/:userId",
-      async ({ params, request }) => {
-        const session = getAuthenticatedSession(request);
-        if (!session) {
-          return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const runtime = await createInMemoryApiServiceRuntime();
-        const userId = getStringParam(params, "userId");
-        if (!userId) {
-          return HttpResponse.json(
-            { error: "User not found" },
-            { status: 404 },
-          );
-        }
-        const moduleValue = await loadApiModule([
-          "..",
-          "..",
-          "..",
-          "api",
-          "src",
-          "services",
-          "auth",
-          "getEncapsulationKey",
-        ]);
-        const getEncapsulationKey = getFunctionFromModule(
-          moduleValue,
-          "getEncapsulationKey",
-        );
-        if (!getEncapsulationKey) {
-          throw new Error("getEncapsulationKey export not found.");
-        }
-
-        try {
-          const response = getValidatedResponseBody(
-            await getEncapsulationKey(runtime, userId),
-            isEncapsulationKeyResponse,
-            "getEncapsulationKey",
-          );
-          return HttpResponse.json<EncapsulationKeyResponse>(response);
-        } catch (error) {
-          const status = getErrorStatus(error);
-          if (error instanceof Error && status !== null) {
-            return HttpResponse.json({ error: error.message }, { status });
-          }
-
-          throw error;
-        }
-      },
-    ),
-    http.post("http://localhost:3001/containers", async ({ request }) => {
-      const session = getAuthenticatedSession(request);
-      if (!session) {
-        return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      const body: unknown = await request.json();
-      if (!isCreateContainerRequest(body)) {
-        return HttpResponse.json({ error: "Invalid request" }, { status: 400 });
-      }
-
-      const runtime = await createInMemoryApiServiceRuntime();
-      const moduleValue = await loadApiModule([
-        "..",
-        "..",
-        "..",
-        "api",
-        "src",
-        "services",
-        "containers",
-        "createContainer",
-      ]);
-      const createContainer = getFunctionFromModule(
-        moduleValue,
-        "createContainer",
-      );
-      if (!createContainer) {
-        throw new Error("createContainer export not found.");
-      }
-
-      try {
-        const response = getValidatedResponseBody(
-          await createContainer(runtime, {
-            ...body,
-            createdByFingerprint: session.fingerprint,
-            userId: session.userId,
-          }),
-          isCreateContainerResponse,
-          "createContainer",
-        );
-        return HttpResponse.json<CreateContainerResponse>(response);
-      } catch (error) {
-        const status = getErrorStatus(error);
-        if (error instanceof Error && status !== null) {
-          return HttpResponse.json({ error: error.message }, { status });
-        }
-
-        throw error;
-      }
-    }),
-    http.get("http://localhost:3001/containers", async ({ request }) => {
-      const session = getAuthenticatedSession(request);
-      if (!session) {
-        return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      const runtime = await createInMemoryApiServiceRuntime();
-      const moduleValue = await loadApiModule([
-        "..",
-        "..",
-        "..",
-        "api",
-        "src",
-        "services",
-        "containers",
-        "listContainers",
-      ]);
-      const listContainers = getFunctionFromModule(
-        moduleValue,
-        "listContainers",
-      );
-      if (!listContainers) {
-        throw new Error("listContainers export not found.");
-      }
-
-      return HttpResponse.json<ListContainersResponse>(
-        getValidatedResponseBody(
-          await listContainers(runtime, session.userId),
-          isListContainersResponse,
-          "listContainers",
-        ),
-      );
-    }),
-    http.post(
-      "http://localhost:3001/containers/:containerId/share",
-      async ({ params, request }) => {
-        const session = getAuthenticatedSession(request);
-        if (!session) {
-          return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body: unknown = await request.json();
-        if (!isShareContainerRequest(body)) {
-          return HttpResponse.json(
-            { error: "Invalid request" },
-            { status: 400 },
-          );
-        }
-
-        const runtime = await createInMemoryApiServiceRuntime();
-        const containerId = getStringParam(params, "containerId");
-        if (!containerId) {
-          return HttpResponse.json(
-            { error: "Container not found" },
-            { status: 404 },
-          );
-        }
-        const moduleValue = await loadApiModule([
-          "..",
-          "..",
-          "..",
-          "api",
-          "src",
-          "services",
-          "containers",
-          "shareContainer",
-        ]);
-        const shareContainer = getFunctionFromModule(
-          moduleValue,
-          "shareContainer",
-        );
-        if (!shareContainer) {
-          throw new Error("shareContainer export not found.");
-        }
-
-        try {
-          const response = getValidatedResponseBody(
-            await shareContainer(runtime, {
-              ...body,
-              containerId,
-              userId: session.userId,
-            }),
-            isShareContainerResponse,
-            "shareContainer",
-          );
-          return HttpResponse.json<ShareContainerResponse>(response);
-        } catch (error) {
-          const status = getErrorStatus(error);
-          if (error instanceof Error && status !== null) {
-            return HttpResponse.json({ error: error.message }, { status });
-          }
-
-          throw error;
-        }
-      },
-    ),
-    http.get(
-      "http://localhost:3001/containers/:containerId/documents",
-      async ({ params, request }) => {
-        const session = getAuthenticatedSession(request);
-        if (!session) {
-          return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const runtime = await createInMemoryApiServiceRuntime();
-        const containerId = getStringParam(params, "containerId");
-        if (!containerId) {
-          return HttpResponse.json(
-            { error: "Container not found" },
-            { status: 404 },
-          );
-        }
-        const moduleValue = await loadApiModule([
-          "..",
-          "..",
-          "..",
-          "api",
-          "src",
-          "services",
-          "containers",
-          "listContainerDocuments",
-        ]);
-        const listContainerDocuments = getFunctionFromModule(
-          moduleValue,
-          "listContainerDocuments",
-        );
-        if (!listContainerDocuments) {
-          throw new Error("listContainerDocuments export not found.");
-        }
-
-        try {
-          const response = getValidatedResponseBody(
-            await listContainerDocuments(runtime, containerId, session.userId),
-            isListContainerDocumentsResponse,
-            "listContainerDocuments",
-          );
-          return HttpResponse.json<ListContainerDocumentsResponse>(response);
-        } catch (error) {
-          const status = getErrorStatus(error);
-          if (error instanceof Error && status !== null) {
-            return HttpResponse.json({ error: error.message }, { status });
-          }
-
-          throw error;
-        }
-      },
-    ),
     http.all("http://localhost:3001/*", async ({ request }) =>
       proxyRequestToApiApp(request),
     ),
@@ -839,20 +340,7 @@ afterAll(async () => {
     return;
   }
 
-  const postgresModule = await loadApiModule([
-    "..",
-    "..",
-    "..",
-    "api",
-    "src",
-    "adapters",
-    "postgres",
-  ]);
-  if (!isRecord(postgresModule)) {
-    return;
-  }
-
-  const postgresClient = Reflect.get(postgresModule, "default");
+  const { default: postgresClient } = await import(postgresModulePath);
   if (isAsyncClosable(postgresClient)) {
     await postgresClient.close();
   }
