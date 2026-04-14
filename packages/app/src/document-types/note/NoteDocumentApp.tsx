@@ -2,11 +2,10 @@ import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../data/documents/DocumentsProvider";
+import { Notes } from "../../mini-apps/notes/Notes";
 import type { DocumentTypeAppProps } from "../types";
-import { DriverLicense } from "./DriverLicense";
-import { createEmptyDriverLicenseDocument } from "./driverLicenseDocument";
 
-export function DriverLicenseDocumentApp({
+export function NoteDocumentApp({
   containerId,
   documentId,
   localId = DEFAULT_DOCUMENT_ID,
@@ -17,10 +16,9 @@ export function DriverLicenseDocumentApp({
       localId={localId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      initialText={createEmptyDriverLicenseDocument()}
       {...(onPersistedDocument === undefined ? {} : { onPersistedDocument })}
     >
-      <DriverLicense />
+      <Notes />
     </DocumentsProvider>
   );
 }

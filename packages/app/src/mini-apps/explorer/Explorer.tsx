@@ -29,8 +29,10 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/documents/documentsPersistence";
-import { DriverLicenseApp } from "../../document-types/drivers-license/DriverLicenseApp";
-import { NotesApp } from "../notes/NotesApp";
+import {
+  DOCUMENT_TYPE_DEFINITIONS,
+  getDocumentTypeDefinition,
+} from "../../document-types/registry";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
@@ -65,6 +67,12 @@ interface DocumentContainerProjection {
   title: string;
   updatedAt: string;
 }
+
+type OpenInlineDocument = (
+  containerId: string,
+  documentKind: StoredDocumentKind,
+  localId?: string,
+) => void;
 
 function getDocumentSummaryKind(
   documentSummary: Pick<DocumentSummary, "documentKind">,
@@ -2265,20 +2273,20 @@ function useInlineDocumentAction(params: {
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   setSelectedId: (id: string | null) => void;
-}) {
+}): OpenInlineDocument {
   const { expandNode, mergeDocumentSummary, setSelectedId } = params;
 
   return useCallback(
     (
       containerId: string,
       documentKind: StoredDocumentKind,
-      noteId?: string,
+      localId?: string,
     ) => {
-      const nextNoteId = noteId ?? crypto.randomUUID();
+      const nextLocalId = localId ?? crypto.randomUUID();
 
-      if (!noteId) {
+      if (!localId) {
         mergeDocumentSummary({
-          id: nextNoteId,
+          id: nextLocalId,
           containerId,
           documentKind,
           documentId: null,
@@ -2287,32 +2295,11 @@ function useInlineDocumentAction(params: {
         });
       }
 
-      setSelectedId(nextNoteId);
+      setSelectedId(nextLocalId);
       expandNode(containerId);
     },
     [expandNode, mergeDocumentSummary, setSelectedId],
   );
-}
-
-function useInlineDocumentOpeners(params: {
-  expandNode: (nodeId: string) => void;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
-  setSelectedId: (id: string | null) => void;
-}) {
-  const openInlineDocument = useInlineDocumentAction(params);
-
-  return {
-    openInlineDriverLicense: useCallback(
-      (containerId: string, noteId?: string) =>
-        openInlineDocument(containerId, "drivers_license", noteId),
-      [openInlineDocument],
-    ),
-    openInlineNote: useCallback(
-      (containerId: string, noteId?: string) =>
-        openInlineDocument(containerId, "note", noteId),
-      [openInlineDocument],
-    ),
-  };
 }
 
 function useExplorerDocumentModalState(params: {
@@ -3262,6 +3249,8 @@ function ExplorerDocumentDetail(params: {
         (node) => node.id === params.selectedDocument.containerId,
       )
     : null;
+  const SelectedDocumentApp =
+    getDocumentTypeDefinition(selectedDocumentKind).App;
 
   return (
     <div
@@ -3304,29 +3293,16 @@ function ExplorerDocumentDetail(params: {
         unlinkDocument={params.unlinkDocument}
       />
       <div className="explorer-inline-note">
-        {selectedDocumentKind === "drivers_license" ? (
-          <DriverLicenseApp
-            noteId={params.selectedDocument.id}
-            {...(params.selectedDocument.containerId === undefined
-              ? {}
-              : { containerId: params.selectedDocument.containerId })}
-            {...(params.selectedDocument.documentId === undefined
-              ? {}
-              : { documentId: params.selectedDocument.documentId })}
-            onPersistedNote={params.mergeDocumentSummary}
-          />
-        ) : (
-          <NotesApp
-            noteId={params.selectedDocument.id}
-            {...(params.selectedDocument.containerId === undefined
-              ? {}
-              : { containerId: params.selectedDocument.containerId })}
-            {...(params.selectedDocument.documentId === undefined
-              ? {}
-              : { documentId: params.selectedDocument.documentId })}
-            onPersistedNote={params.mergeDocumentSummary}
-          />
-        )}
+        <SelectedDocumentApp
+          localId={params.selectedDocument.id}
+          {...(params.selectedDocument.containerId === undefined
+            ? {}
+            : { containerId: params.selectedDocument.containerId })}
+          {...(params.selectedDocument.documentId === undefined
+            ? {}
+            : { documentId: params.selectedDocument.documentId })}
+          onPersistedDocument={params.mergeDocumentSummary}
+        />
       </div>
     </div>
   );
@@ -3335,8 +3311,7 @@ function ExplorerDocumentDetail(params: {
 function ExplorerContainerDetail(params: {
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
-  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
-  openInlineNote: (containerId: string, noteId?: string) => void;
+  openInlineDocument: OpenInlineDocument;
   ready: boolean;
   refreshError: string | null;
   selectedNode: ContainerNode;
@@ -3344,8 +3319,7 @@ function ExplorerContainerDetail(params: {
   const {
     handleRefresh,
     isRefreshing,
-    openInlineDriverLicense,
-    openInlineNote,
+    openInlineDocument,
     ready,
     refreshError,
     selectedNode,
@@ -3359,24 +3333,18 @@ function ExplorerContainerDetail(params: {
           <span>{selectedNode.kind}</span>
         </div>
         <div className="explorer-detail-actions">
-          <button
-            type="button"
-            className="explorer-action-button"
-            onClick={() => {
-              openInlineNote(selectedNode.id);
-            }}
-          >
-            New Note
-          </button>
-          <button
-            type="button"
-            className="explorer-action-button"
-            onClick={() => {
-              openInlineDriverLicense(selectedNode.id);
-            }}
-          >
-            New Driver&apos;s License
-          </button>
+          {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
+            <button
+              type="button"
+              key={definition.kind}
+              className="explorer-action-button"
+              onClick={() => {
+                openInlineDocument(selectedNode.id, definition.kind);
+              }}
+            >
+              {definition.createLabel}
+            </button>
+          ))}
           <button
             type="button"
             className="explorer-action-button"
@@ -3430,8 +3398,7 @@ function ExplorerDetailPanel(params: {
   linkedContainerIds: ReadonlyArray<string>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
-  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
-  openInlineNote: (containerId: string, noteId?: string) => void;
+  openInlineDocument: OpenInlineDocument;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
   ready: boolean;
@@ -3467,8 +3434,7 @@ function ExplorerContextMenuLayer(params: {
   contextMenuNode: ContainerNode | undefined;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
-  openInlineDriverLicense: (containerId: string, noteId?: string) => void;
-  openInlineNote: (containerId: string, noteId?: string) => void;
+  openInlineDocument: OpenInlineDocument;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   openSharePeerModal: (containerId: string) => void;
@@ -3482,8 +3448,7 @@ function ExplorerContextMenuLayer(params: {
     contextMenuNode,
     openCreateChildModal,
     openDeleteModal,
-    openInlineDriverLicense,
-    openInlineNote,
+    openInlineDocument,
     openMoveModal,
     openRenameModal,
     openSharePeerModal,
@@ -3507,24 +3472,18 @@ function ExplorerContextMenuLayer(params: {
           openCreateChildModal(contextMenu.nodeId);
         }}
       />
-      <MenuItem
-        label="New Note"
-        onClick={() => {
-          if (contextMenuNode) {
-            openInlineNote(contextMenuNode.id);
-          }
-          closeContextMenu();
-        }}
-      />
-      <MenuItem
-        label="New Driver's License"
-        onClick={() => {
-          if (contextMenuNode) {
-            openInlineDriverLicense(contextMenuNode.id);
-          }
-          closeContextMenu();
-        }}
-      />
+      {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
+        <MenuItem
+          key={definition.kind}
+          label={definition.createLabel}
+          onClick={() => {
+            if (contextMenuNode) {
+              openInlineDocument(contextMenuNode.id, definition.kind);
+            }
+            closeContextMenu();
+          }}
+        />
+      ))}
       <MenuItem
         label="Rename"
         onClick={() => {
@@ -4161,7 +4120,7 @@ function useExplorerPanelState(params: {
     selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,
   });
-  const { openInlineDriverLicense, openInlineNote } = useInlineDocumentOpeners({
+  const openInlineDocument = useInlineDocumentAction({
     expandNode: selection.expandNode,
     mergeDocumentSummary,
     setSelectedId: selection.setSelectedId,
@@ -4170,8 +4129,7 @@ function useExplorerPanelState(params: {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     contextMenuState,
     modalState,
-    openInlineDriverLicense,
-    openInlineNote,
+    openInlineDocument,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions:
@@ -4266,8 +4224,7 @@ function useExplorerModel(
     activateLinkedContainer,
     contextMenuState,
     modalState,
-    openInlineDriverLicense,
-    openInlineNote,
+    openInlineDocument,
     selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions,
@@ -4304,8 +4261,7 @@ function useExplorerModel(
     linkedContainerIds: selectedDocumentLinkedContainerIds,
     mergeDocumentSummary,
     modalState,
-    openInlineDriverLicense,
-    openInlineNote,
+    openInlineDocument,
     peerUserId,
     refreshError,
     selection,
@@ -4333,8 +4289,7 @@ export function Explorer() {
         linkedContainerIds={model.linkedContainerIds}
         mergeDocumentSummary={model.mergeDocumentSummary}
         nodes={model.explorer.nodes}
-        openInlineDriverLicense={model.openInlineDriverLicense}
-        openInlineNote={model.openInlineNote}
+        openInlineDocument={model.openInlineDocument}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         ready={model.explorer.ready}
@@ -4354,8 +4309,7 @@ export function Explorer() {
         contextMenuNode={model.contextMenuState.contextMenuNode}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
-        openInlineDriverLicense={model.openInlineDriverLicense}
-        openInlineNote={model.openInlineNote}
+        openInlineDocument={model.openInlineDocument}
         openMoveModal={model.modalState.openMoveModal}
         openRenameModal={model.modalState.openRenameModal}
         openSharePeerModal={model.modalState.openSharePeerModal}
