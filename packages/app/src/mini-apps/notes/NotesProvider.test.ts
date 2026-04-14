@@ -25,7 +25,7 @@ import { DOCUMENTS_APP_KIND } from "../../data/documents/documentsPersistence";
 import {
   createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
-} from "../drivers-license/driverLicenseDocument";
+} from "../../document-types/drivers-license/driverLicenseDocument";
 import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 import {
   addNoteAttachments,
