@@ -9,6 +9,7 @@ import {
 import { useAppData } from "../../data/AppDataProvider";
 import type { BlobBytes } from "../../data/blob-store";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
+import { formatByteLength } from "../../utils/formatByteLength";
 import { type NoteAttachmentStatus, useNotes } from "./NotesProvider";
 import type { NoteAttachment } from "./noteDocument";
 import "./Notes.css";
@@ -16,18 +17,6 @@ import "./Notes.css";
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
 type AttachmentStatusBySlotId = Readonly<Record<string, NoteAttachmentStatus>>;
 type HandleSelectedFiles = (fileList: FileList | null) => Promise<void>;
-
-function formatByteLength(byteLength: number): string {
-  if (byteLength < 1024) {
-    return `${byteLength} B`;
-  }
-
-  if (byteLength < 1024 * 1024) {
-    return `${(byteLength / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(byteLength / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function useAttachmentDropzone(
   canAttach: boolean,

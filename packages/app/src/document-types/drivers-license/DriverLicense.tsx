@@ -6,6 +6,7 @@ import {
   useDocument,
 } from "../../data/documents/DocumentsProvider";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
+import { formatByteLength } from "../../utils/formatByteLength";
 import {
   createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_ATTACHMENT_SLOTS,
@@ -19,18 +20,6 @@ interface DriverLicenseAttachmentUpload {
   bytes: BlobBytes;
   mimeType: string | null;
   name: string;
-}
-
-function formatByteLength(byteLength: number): string {
-  if (byteLength < 1024) {
-    return `${byteLength} B`;
-  }
-
-  if (byteLength < 1024 * 1024) {
-    return `${(byteLength / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(byteLength / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function readAttachmentUpload(

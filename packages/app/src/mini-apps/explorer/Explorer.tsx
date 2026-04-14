@@ -29,7 +29,7 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/documents/documentsPersistence";
-import { DriverLicenseApp } from "../drivers-license/DriverLicenseApp";
+import { DriverLicenseApp } from "../../document-types/drivers-license/DriverLicenseApp";
 import { NotesApp } from "../notes/NotesApp";
 import {
   discoverAllContainerDocuments,
