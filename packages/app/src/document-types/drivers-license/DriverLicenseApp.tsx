@@ -2,32 +2,23 @@ import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../data/documents/DocumentsProvider";
-import type { DocumentSummary } from "../../data/documents/documentsPersistence";
+import type { DocumentTypeAppProps } from "../types";
 import { DriverLicense } from "./DriverLicense";
 import { createEmptyDriverLicenseDocument } from "./driverLicenseDocument";
 
-interface DriverLicenseAppProps {
-  containerId?: string | null;
-  documentId?: string | null;
-  noteId?: string;
-  onPersistedNote?: (note: DocumentSummary) => void;
-}
-
-export function DriverLicenseApp({
+export function DriverLicenseDocumentApp({
   containerId,
   documentId,
-  noteId = DEFAULT_DOCUMENT_ID,
-  onPersistedNote,
-}: DriverLicenseAppProps) {
+  localId = DEFAULT_DOCUMENT_ID,
+  onPersistedDocument,
+}: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
-      localId={noteId}
+      localId={localId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialText={createEmptyDriverLicenseDocument()}
-      {...(onPersistedNote === undefined
-        ? {}
-        : { onPersistedDocument: onPersistedNote })}
+      {...(onPersistedDocument === undefined ? {} : { onPersistedDocument })}
     >
       <DriverLicense />
     </DocumentsProvider>
