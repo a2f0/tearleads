@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import {
   encryptForRecipients,
   serializeBlobEnvelope,
-  toFingerprint,
   unwrapDek,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
@@ -14,9 +13,8 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { eq } from "drizzle-orm";
-import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
-  createPublicKeyRequest,
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
@@ -30,25 +28,12 @@ import {
   documentUpdateAuditEvents,
 } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
-import { registerPublicKey } from "../auth/registerPublicKey";
 import {
   CommitDocumentChangeError,
   commitDocumentChange,
 } from "./commitDocumentChange";
 import { createDocumentSyncStore } from "./documentSyncStore";
 import { stageBlob } from "./stageBlob";
-
-async function registerServiceUser() {
-  const runtime = createServiceTestRuntime();
-  const user = createTestUser();
-  const registration = await registerPublicKey(
-    runtime,
-    await createPublicKeyRequest(user),
-  );
-  const fingerprint = await toFingerprint(user.signing.signingPublicKey);
-
-  return { fingerprint, registration, user };
-}
 
 async function createServiceDocument() {
   const { fingerprint, registration, user } = await registerServiceUser();

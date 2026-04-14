@@ -1,28 +1,15 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
-import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
-  createPublicKeyRequest,
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
 import { initializeDocumentAccess } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { documentContainerLinks, documents } from "../../schema";
-import { registerPublicKey } from "../auth/registerPublicKey";
 import { listContainerDocuments } from "./listContainerDocuments";
 import { listContainers } from "./listContainers";
-
-async function registerServiceUser() {
-  const runtime = createServiceTestRuntime();
-  const user = createTestUser();
-  const registration = await registerPublicKey(
-    runtime,
-    await createPublicKeyRequest(user),
-  );
-
-  return { registration, user };
-}
 
 async function createLinkedDocument(input: {
   containerId: string;

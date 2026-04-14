@@ -5,9 +5,8 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
-  createPublicKeyRequest,
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
@@ -16,19 +15,7 @@ import { initializeDocumentAccess } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { blobs, documentContainerLinks, documents } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
-import { registerPublicKey } from "../auth/registerPublicKey";
 import { GetBlobError, getBlob } from "./getBlob";
-
-async function registerServiceUser() {
-  const runtime = createServiceTestRuntime();
-  const user = createTestUser();
-  const registration = await registerPublicKey(
-    runtime,
-    await createPublicKeyRequest(user),
-  );
-
-  return { registration, user };
-}
 
 async function createReadableDocument(input: {
   containerId: string;
