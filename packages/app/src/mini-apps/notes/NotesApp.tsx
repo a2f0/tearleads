@@ -30,7 +30,7 @@ export function createNotesWindowComponent({
   return NotesWindowComponent;
 }
 
-export function NotesApp({
+function NotesApp({
   noteId = DEFAULT_NOTE_ID,
   containerId,
   documentId,

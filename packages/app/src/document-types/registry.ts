@@ -4,7 +4,7 @@ import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
 import type { DocumentTypeAppProps } from "./types";
 
-export interface DocumentTypeDefinition {
+interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
   createLabel: string;
   kind: StoredDocumentKind;
