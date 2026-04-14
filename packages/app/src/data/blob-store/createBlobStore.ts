@@ -5,26 +5,26 @@ import type { BlobStore } from "./types";
 const memoryStoreByNamespace = new Map<string, BlobStore>();
 const opfsStoreByNamespace = new Map<string, BlobStore>();
 
-export function createBlobStore(namespace: string | null): BlobStore {
-  const normalizedNamespace = namespace ?? "anonymous";
-
+// namespace is a 64-character hex SHA-256 fingerprint of the
+// signing public key bytes.
+export function createBlobStore(namespace: string): BlobStore {
   if (isOpfsBlobStoreSupported()) {
-    const existingOpfsStore = opfsStoreByNamespace.get(normalizedNamespace);
+    const existingOpfsStore = opfsStoreByNamespace.get(namespace);
     if (existingOpfsStore) {
       return existingOpfsStore;
     }
 
-    const nextOpfsStore = createOpfsBlobStore(normalizedNamespace);
-    opfsStoreByNamespace.set(normalizedNamespace, nextOpfsStore);
+    const nextOpfsStore = createOpfsBlobStore(namespace);
+    opfsStoreByNamespace.set(namespace, nextOpfsStore);
     return nextOpfsStore;
   }
 
-  const existingMemoryStore = memoryStoreByNamespace.get(normalizedNamespace);
+  const existingMemoryStore = memoryStoreByNamespace.get(namespace);
   if (existingMemoryStore) {
     return existingMemoryStore;
   }
 
   const nextMemoryStore = createMemoryBlobStore();
-  memoryStoreByNamespace.set(normalizedNamespace, nextMemoryStore);
+  memoryStoreByNamespace.set(namespace, nextMemoryStore);
   return nextMemoryStore;
 }
