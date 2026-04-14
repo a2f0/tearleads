@@ -1,24 +1,24 @@
-import { NotesApp } from "../../mini-apps/notes/NotesApp";
+import {
+  DEFAULT_DOCUMENT_ID,
+  DocumentsProvider,
+} from "../../data/documents/DocumentsProvider";
+import { Notes } from "../../mini-apps/notes/Notes";
 import type { DocumentTypeAppProps } from "../types";
 
 export function NoteDocumentApp({
   containerId,
   documentId,
-  localId,
+  localId = DEFAULT_DOCUMENT_ID,
   onPersistedDocument,
 }: DocumentTypeAppProps) {
   return (
-    <NotesApp
-      {...(localId === undefined ? {} : { noteId: localId })}
+    <DocumentsProvider
+      localId={localId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      {...(onPersistedDocument === undefined
-        ? {}
-        : {
-            onPersistedNote(note) {
-              onPersistedDocument(note);
-            },
-          })}
-    />
+      {...(onPersistedDocument === undefined ? {} : { onPersistedDocument })}
+    >
+      <Notes />
+    </DocumentsProvider>
   );
 }
