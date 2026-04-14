@@ -71,7 +71,7 @@ interface DocumentContainerProjection {
 type OpenInlineDocument = (
   containerId: string,
   documentKind: StoredDocumentKind,
-  documentLocalId?: string,
+  localId?: string,
 ) => void;
 
 function getDocumentSummaryKind(
@@ -2280,13 +2280,13 @@ function useInlineDocumentAction(params: {
     (
       containerId: string,
       documentKind: StoredDocumentKind,
-      documentLocalId?: string,
+      localId?: string,
     ) => {
-      const nextDocumentLocalId = documentLocalId ?? crypto.randomUUID();
+      const nextLocalId = localId ?? crypto.randomUUID();
 
-      if (!documentLocalId) {
+      if (!localId) {
         mergeDocumentSummary({
-          id: nextDocumentLocalId,
+          id: nextLocalId,
           containerId,
           documentKind,
           documentId: null,
@@ -2295,7 +2295,7 @@ function useInlineDocumentAction(params: {
         });
       }
 
-      setSelectedId(nextDocumentLocalId);
+      setSelectedId(nextLocalId);
       expandNode(containerId);
     },
     [expandNode, mergeDocumentSummary, setSelectedId],
