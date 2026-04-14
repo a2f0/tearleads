@@ -206,7 +206,6 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
   synced: SyncDocumentResponse;
 }): Promise<SyncDocumentResponse> {
   const {
-    currentAccessEpoch,
     currentDocumentRecipientEnvelopes,
     documentId,
     execSql,
@@ -219,7 +218,6 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
   } = input;
 
   if (
-    synced.currentAccessEpoch === currentAccessEpoch ||
     synced.documentRecipientEnvelopeAction !== "rewrap" ||
     synced.documentRecipientEnvelopes !== null ||
     !currentDocumentRecipientEnvelopes
@@ -227,11 +225,15 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     return synced;
   }
 
+  const rewrapRecipientPublicKeys =
+    synced.recipientEncapsulationPublicKeys.length > 0
+      ? resolveRecipientPublicKeys(synced.recipientEncapsulationPublicKeys)
+      : recipientPublicKeys;
   const rewrappedDocumentRecipientEnvelopes =
     await rewrapDocumentRecipientEnvelopes({
       documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
       execSql,
-      recipientPublicKeys,
+      recipientPublicKeys: rewrapRecipientPublicKeys,
       secretKey,
     });
   const rewrappedSync = await syncDocument(

@@ -66,6 +66,37 @@ export class ApiClient {
     };
   }
 
+  private async describeErrorResponse(response: Response): Promise<string> {
+    let responseText = "";
+
+    try {
+      responseText = (await response.text()).trim();
+    } catch {
+      return "";
+    }
+
+    if (responseText.length === 0) {
+      return "";
+    }
+
+    try {
+      const parsed = JSON.parse(responseText);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "error" in parsed &&
+        typeof parsed.error === "string" &&
+        parsed.error.trim().length > 0
+      ) {
+        return `: ${parsed.error.trim()}`;
+      }
+    } catch {
+      // Fall back to the raw response body when the error payload is not JSON.
+    }
+
+    return `: ${responseText}`;
+  }
+
   private async makeRequest<T>(
     path: string,
     validator: (value: unknown) => value is T,
@@ -90,8 +121,9 @@ export class ApiClient {
     this.onNetworkSuccess?.();
 
     if (!response.ok) {
+      const detail = await this.describeErrorResponse(response);
       this.onError?.(
-        `${method} ${path}: ${response.status} ${response.statusText}`,
+        `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
       );
       return null;
     }

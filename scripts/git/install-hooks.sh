@@ -14,3 +14,6 @@ for hook in "$HOOKS_SRC"/*; do
     echo "Installed $hook_name hook"
   fi
 done
+
+git config core.hooksPath "$HOOKS_DST"
+echo "Configured core.hooksPath to $HOOKS_DST"

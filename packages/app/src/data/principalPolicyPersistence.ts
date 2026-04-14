@@ -103,6 +103,7 @@ export async function loadPrincipalPolicyBundle(
   principalType: PrincipalStateResponse["principalType"],
   principalId: string,
 ): Promise<PrincipalPolicyBundleResponse | null> {
+  await ensurePrincipalPolicyTables(execSql);
   const rows = await execSql(
     `
       SELECT
@@ -128,6 +129,7 @@ export async function loadPrincipalPolicyBundle(
 export async function loadAllPrincipalPolicyBundles(
   execSql: ExecSql,
 ): Promise<PrincipalPolicyBundleResponse[]> {
+  await ensurePrincipalPolicyTables(execSql);
   const rows = await execSql(
     `
       SELECT
@@ -161,6 +163,7 @@ export async function loadPrincipalPolicyStateHash(
   principalType: PrincipalStateResponse["principalType"],
   principalId: string,
 ): Promise<string | null> {
+  await ensurePrincipalPolicyTables(execSql);
   const rows = await execSql(
     `
       SELECT state_hash

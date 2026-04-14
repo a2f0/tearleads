@@ -14,6 +14,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   ensurePrincipalPolicyTables,
+  loadAllPrincipalPolicyBundles,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
@@ -115,6 +116,22 @@ test("principal policy persistence stores and reloads the current verified bundl
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy persistence reads from a fresh database before any bundle is cached", async () => {
+  const { close, execSql } = await createExecSql();
+
+  try {
+    await expect(loadAllPrincipalPolicyBundles(execSql)).resolves.toEqual([]);
+    await expect(
+      loadPrincipalPolicyStateHash(execSql, "group", "missing-group"),
+    ).resolves.toBeNull();
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "missing-group"),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

@@ -5,7 +5,6 @@ export default {
     ".": {
       entry: [],
       project: [],
-      ignoreBinaries: ["commitlint"],
       ignoreDependencies: [
         "@commitlint/cli",
         "@commitlint/config-conventional",

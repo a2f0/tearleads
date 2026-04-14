@@ -542,9 +542,10 @@ test("explorer store moves an authenticated child container through the API and 
   }
 });
 
-test("explorer store shares an authenticated container and enqueues a full metadata baseline", async () => {
+test("explorer store shares an authenticated container and seeds metadata rewrap envelopes without a new baseline", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
+  const peerKeyPair = generateKemSeedAndKeyPair();
   const shareContainerCalls: Array<{
     accessLevel: "read" | "write" | "admin";
     containerId: string;
@@ -553,9 +554,14 @@ test("explorer store shares an authenticated container and enqueues a full metad
   }> = [];
   const syncCalls: Array<{
     accessEpoch: number;
+    documentRecipientEnvelopeCount: number;
     documentId: string;
     outgoingUpdateCount: number;
   }> = [];
+  let sharedMetadataSyncCallCount = 0;
+  let initialMetadataDocumentRecipientEnvelopes:
+    | SyncDocumentResponse["documentRecipientEnvelopes"]
+    | null = null;
 
   runtime.isAuthenticated = true;
   runtime.online = true;
@@ -582,6 +588,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
         metadataDocumentId: "metadata-document-1",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
+          bytesToBase64(peerKeyPair.publicKey),
         ],
       };
     },
@@ -590,19 +597,43 @@ test("explorer store shares an authenticated container and enqueues a full metad
       accessEpoch,
       _localVersionVector,
       updates,
-      _documentRecipientEnvelopes,
+      documentRecipientEnvelopes,
     ) => {
       syncCalls.push({
         accessEpoch,
+        documentRecipientEnvelopeCount: documentRecipientEnvelopes?.length ?? 0,
         documentId,
         outgoingUpdateCount: updates.length,
       });
+      if (documentId === "metadata-document-1" && accessEpoch === 2) {
+        sharedMetadataSyncCallCount += 1;
+      }
+      if (
+        documentId === "metadata-document-1" &&
+        accessEpoch === 2 &&
+        sharedMetadataSyncCallCount === 1
+      ) {
+        return createSyncDocumentResponse({
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopeAction: "rewrap",
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(localKeyPair.publicKey),
+            bytesToBase64(peerKeyPair.publicKey),
+          ],
+        });
+      }
       return createSyncDocumentResponse({
         acceptedOutgoingUpdateIds: updates.map((update) => update.id),
         accessEpoch,
         documentId,
+        documentRecipientEnvelopes:
+          documentId === "metadata-document-1" && accessEpoch === 1
+            ? initialMetadataDocumentRecipientEnvelopes
+            : (documentRecipientEnvelopes ?? null),
         recipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
+          bytesToBase64(peerKeyPair.publicKey),
         ],
       });
     },
@@ -611,6 +642,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
 
   try {
     await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
     await saveContainer(runtime.execSql, {
       id: "root-container",
       organizationId: "org-1",
@@ -627,6 +659,35 @@ test("explorer store shares an authenticated container and enqueues a full metad
       name: "Docs",
       icon: null,
     });
+    const { initialUpdate } = await createInitializedContainerMetadataDocument(
+      "child-container",
+      {
+        icon: null,
+        name: "Docs",
+      },
+    );
+    const initialEncryption = await createDocumentEncryptionMaterial([
+      localKeyPair.publicKey,
+    ]);
+    initialMetadataDocumentRecipientEnvelopes =
+      initialEncryption.documentRecipientEnvelopes;
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: "child-container",
+      },
+      {
+        accessEpoch: 1,
+        documentId: "metadata-document-1",
+        documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+          initialEncryption.documentRecipientEnvelopes,
+        ),
+        id: "child-container",
+        loroSnapshot: bytesToBase64(initialUpdate),
+      },
+      new Date("2026-04-09T12:00:00.000Z").toISOString(),
+    );
 
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
@@ -650,9 +711,12 @@ test("explorer store shares an authenticated container and enqueues a full metad
           (call) =>
             call.accessEpoch === 2 &&
             call.documentId === "metadata-document-1" &&
-            call.outgoingUpdateCount === 1,
+            call.documentRecipientEnvelopeCount === 2 &&
+            call.outgoingUpdateCount === 0,
         ),
-      "Explorer store did not sync shared metadata baseline.",
+      `Explorer store did not seed current-epoch metadata envelopes after share.\nsyncCalls=${JSON.stringify(
+        syncCalls,
+      )}`,
     );
 
     expect(shareContainerCalls).toEqual([
@@ -663,14 +727,27 @@ test("explorer store shares an authenticated container and enqueues a full metad
         subjectType: "user",
       },
     ]);
-    expect(
-      syncCalls.some(
-        (call) =>
-          call.accessEpoch === 2 &&
-          call.documentId === "metadata-document-1" &&
-          call.outgoingUpdateCount === 1,
-      ),
-    ).toBe(true);
+    const metadataSyncCalls = syncCalls.filter(
+      (call) => call.documentId === "metadata-document-1",
+    );
+    expect(metadataSyncCalls).toContainEqual({
+      accessEpoch: 1,
+      documentRecipientEnvelopeCount: 0,
+      documentId: "metadata-document-1",
+      outgoingUpdateCount: 0,
+    });
+    expect(metadataSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 0,
+      documentId: "metadata-document-1",
+      outgoingUpdateCount: 0,
+    });
+    expect(metadataSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 2,
+      documentId: "metadata-document-1",
+      outgoingUpdateCount: 0,
+    });
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
@@ -678,7 +755,7 @@ test("explorer store shares an authenticated container and enqueues a full metad
     }
     runtime.close();
   }
-});
+}, 20_000);
 
 test("explorer store persists commitLsn and reuses it as minLsn on the next metadata sync", async () => {
   const runtime = await createSqlRuntime();

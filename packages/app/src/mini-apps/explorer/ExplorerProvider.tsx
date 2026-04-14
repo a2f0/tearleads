@@ -1475,14 +1475,9 @@ async function shareExplorerContainerWithUser(
   await persistContainerState(state, existingState, {
     accessEpoch: shared.metadataAccessEpoch,
     documentId: shared.metadataDocumentId,
+    documentRecipientEnvelopes: existingState.record.documentRecipientEnvelopes,
     metadataDocumentId: shared.metadataDocumentId,
   });
-
-  await enqueuePendingContainerUpdate(
-    state,
-    containerId,
-    exportAllUpdates(existingState.doc),
-  );
   await primeDocumentsForSharedSubtree(state, containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   scheduleExplorerSync(state);
