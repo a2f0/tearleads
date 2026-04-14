@@ -63,6 +63,10 @@ function toPrincipalMemberEnvelopeError(
   return null;
 }
 
+/**
+ * Stores the current member key envelopes for a principal's active state and
+ * returns them in the current-state response shape.
+ */
 export async function putPrincipalMemberEnvelopes(
   runtime: ApiServiceRuntime,
   input: PutPrincipalMemberEnvelopesRequest & {

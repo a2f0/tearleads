@@ -5,6 +5,9 @@ import type { DatabaseTransaction } from "../../adapters/postgres";
 import { attachmentBindings, documentContainerLinks } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
 
+/**
+ * Returns the unique sorted document IDs linked to the given containers.
+ */
 async function listLinkedDocumentIdsForContainers(
   containerIds: ReadonlyArray<string>,
   tx: DatabaseTransaction,
