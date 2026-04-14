@@ -17,7 +17,11 @@ import {
   useWindowSidebar,
   WindowSidebarProvider,
 } from "./WindowSidebarContext";
-import { useWindowState, type WindowEntry } from "./WindowStateProvider";
+import {
+  useWindowActions as useWindowStateActions,
+  useWindowStateData,
+  type WindowEntry,
+} from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 
@@ -63,14 +67,9 @@ interface WindowResizeState {
 }
 
 export function Window({ windowId }: WindowProps) {
-  const {
-    windowMap,
-    close,
-    minimize,
-    moveForward,
-    moveBackward,
-    bringToFront,
-  } = useWindowState();
+  const { close, minimize, moveForward, moveBackward, bringToFront } =
+    useWindowStateActions();
+  const { windowMap } = useWindowStateData();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
