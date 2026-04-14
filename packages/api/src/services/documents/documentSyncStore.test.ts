@@ -9,9 +9,8 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { eq, inArray } from "drizzle-orm";
-import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
-  createPublicKeyRequest,
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
@@ -25,29 +24,17 @@ import {
   documentUpdates,
 } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
-import { registerPublicKey } from "../auth/registerPublicKey";
 import {
   CreateDocumentError,
   createDocumentSyncStore,
   DocumentUpdateError,
 } from "./documentSyncStore";
 
-async function registerServiceUser() {
-  const runtime = createServiceTestRuntime();
-  const user = createTestUser();
-  const registration = await registerPublicKey(
-    runtime,
-    await createPublicKeyRequest(user),
-  );
-
-  return { registration, user };
-}
-
 async function createServiceDocument() {
-  const { registration, user } = await registerServiceUser();
+  const { fingerprint, registration, user } = await registerServiceUser();
   const store = createDocumentSyncStore(createServiceTestRuntime());
   const created = await store.createDocument({
-    createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    createdByFingerprint: fingerprint,
     createdByUserId: registration.userId,
     linkedContainerIds: [registration.rootContainerId],
   });

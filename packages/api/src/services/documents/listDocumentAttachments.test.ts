@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
-import { createTestUser } from "../../../test/helpers/createTestUser";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
-  createPublicKeyRequest,
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
@@ -14,22 +13,10 @@ import {
   documentContainerLinks,
   documents,
 } from "../../schema";
-import { registerPublicKey } from "../auth/registerPublicKey";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
 } from "./listDocumentAttachments";
-
-async function registerServiceUser() {
-  const runtime = createServiceTestRuntime();
-  const user = createTestUser();
-  const registration = await registerPublicKey(
-    runtime,
-    await createPublicKeyRequest(user),
-  );
-
-  return { registration, user };
-}
 
 async function createReadableDocument(input: {
   containerId: string;
