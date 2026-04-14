@@ -12,12 +12,15 @@ export interface WindowEntry {
   component?: ComponentType;
 }
 
-export interface WindowStateContextValue {
+export interface WindowStateData {
   // windows is the raw useState array — stable and cheap to iterate for
   // rendering lists. windowMap is derived via useMemo for O(1) lookups by ID.
   // Both are already memoized so neither adds redundant computation.
   windows: WindowEntry[];
   windowMap: Map<string, WindowEntry>;
+}
+
+export interface WindowStateActions {
   create: (
     title: string,
     x: number,

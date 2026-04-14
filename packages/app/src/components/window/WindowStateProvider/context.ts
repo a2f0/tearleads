@@ -1,6 +1,8 @@
 import { createContext } from "react";
-import type { WindowStateContextValue } from "./types";
+import type { WindowStateActions, WindowStateData } from "./types";
 
-export const WindowStateContext = createContext<WindowStateContextValue | null>(
+export const WindowStateContext = createContext<WindowStateData | null>(null);
+
+export const WindowActionsContext = createContext<WindowStateActions | null>(
   null,
 );

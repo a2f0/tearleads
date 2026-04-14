@@ -4,8 +4,8 @@ import type {
   MutableRefObject,
   SetStateAction,
 } from "react";
-import { useCallback } from "react";
-import type { WindowEntry } from "./types";
+import { useCallback, useMemo } from "react";
+import type { WindowEntry, WindowStateActions } from "./types";
 import {
   bringWindowToFront,
   createWindowEntry,
@@ -103,7 +103,7 @@ export function useWindowStateActions({
     [setWindows],
   );
 
-  return {
+  return useMemoizedWindowActions({
     bringToFront,
     close,
     create,
@@ -112,5 +112,41 @@ export function useWindowStateActions({
     moveForward,
     restore,
     updateTitle,
-  };
+  });
+}
+
+function useMemoizedWindowActions(actions: WindowStateActions) {
+  const {
+    bringToFront,
+    close,
+    create,
+    minimize,
+    moveBackward,
+    moveForward,
+    restore,
+    updateTitle,
+  } = actions;
+
+  return useMemo(
+    () => ({
+      bringToFront,
+      close,
+      create,
+      minimize,
+      moveBackward,
+      moveForward,
+      restore,
+      updateTitle,
+    }),
+    [
+      bringToFront,
+      close,
+      create,
+      minimize,
+      moveBackward,
+      moveForward,
+      restore,
+      updateTitle,
+    ],
+  );
 }

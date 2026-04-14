@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { act, render, renderHook } from "@testing-library/react";
-import { useWindowState, WindowStateProvider } from "./index";
+import {
+  useWindowActions,
+  useWindowState,
+  useWindowStateData,
+  WindowStateProvider,
+} from "./index";
 import { at, byTitle, wrapper } from "./testUtils";
 
 test("create assigns incrementing zIndex values", () => {
@@ -79,4 +84,47 @@ test("zIndex change triggers re-render in consuming component", () => {
   expect(zIndices.at(-1)).toEqual([2, 1]);
   expect(view.getByTestId("z-1").textContent).toBe("2");
   expect(view.getByTestId("z-2").textContent).toBe("1");
+});
+
+test("action-only consumers do not re-render when window state changes", () => {
+  let actionRenderCount = 0;
+  let stateRenderCount = 0;
+
+  function ActionConsumer() {
+    actionRenderCount += 1;
+    const { create } = useWindowActions();
+
+    return (
+      <button
+        type="button"
+        data-testid="add-action-only"
+        onClick={() => create("Win", 0, 0)}
+      >
+        Add
+      </button>
+    );
+  }
+
+  function StateConsumer() {
+    stateRenderCount += 1;
+    const { windows } = useWindowStateData();
+
+    return <div data-testid="count">{windows.length}</div>;
+  }
+
+  const view = render(
+    <WindowStateProvider>
+      <ActionConsumer />
+      <StateConsumer />
+    </WindowStateProvider>,
+  );
+
+  expect(actionRenderCount).toBe(1);
+  expect(stateRenderCount).toBe(1);
+
+  act(() => view.getByTestId("add-action-only").click());
+
+  expect(view.getByTestId("count").textContent).toBe("1");
+  expect(actionRenderCount).toBe(1);
+  expect(stateRenderCount).toBe(2);
 });

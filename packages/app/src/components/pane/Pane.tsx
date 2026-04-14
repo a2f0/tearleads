@@ -9,7 +9,8 @@ import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
 import { Window } from "../window/Window";
 import {
-  useWindowState,
+  useWindowActions,
+  useWindowStateData,
   WindowStateProvider,
 } from "../window/WindowStateProvider";
 import { useRegisterUserId } from "./DualPaneProvider";
@@ -22,7 +23,8 @@ function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
   const { signingKeyPair } = usePersona();
   useRegisterUserId(userId);
-  const { windows, create } = useWindowState();
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
 
   const handleContextMenu = useCallback(

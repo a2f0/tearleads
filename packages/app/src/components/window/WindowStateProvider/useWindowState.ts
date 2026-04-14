@@ -1,10 +1,16 @@
-import { useContext } from "react";
-import { WindowStateContext } from "./context";
+import { useMemo } from "react";
+import { useWindowActions } from "./useWindowActions";
+import { useWindowStateData } from "./useWindowStateData";
 
 export function useWindowState() {
-  const ctx = useContext(WindowStateContext);
-  if (!ctx) {
-    throw new Error("useWindowState requires WindowStateProvider");
-  }
-  return ctx;
+  const state = useWindowStateData();
+  const actions = useWindowActions();
+
+  return useMemo(
+    () => ({
+      ...state,
+      ...actions,
+    }),
+    [state, actions],
+  );
 }
