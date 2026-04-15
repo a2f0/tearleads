@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../../test/helpers/api/createDocument";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   attachBlobToDocument,

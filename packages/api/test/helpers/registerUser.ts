@@ -1,8 +1,8 @@
+import type { TestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { uploadKey } from "./api";
-import type { TestUser } from "./createTestUser";
 
 export async function registerUser(user: TestUser): Promise<string> {
   user.fingerprint = await toFingerprint(user.signing.signingPublicKey);

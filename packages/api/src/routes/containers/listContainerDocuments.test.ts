@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -10,7 +11,6 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";

@@ -1,7 +1,7 @@
+import type { TestUser } from "@tearleads/bob-and-alice";
 import { hexToBytes, sign } from "@tearleads/crypto";
 import invariant from "invariant";
 import { requestChallenge, submitVerify } from "./api";
-import type { TestUser } from "./createTestUser";
 
 async function authenticateWithChallenge(
   user: TestUser,

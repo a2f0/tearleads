@@ -38,6 +38,7 @@
         "redis": "5.11.0",
       },
       "devDependencies": {
+        "@tearleads/bob-and-alice": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
@@ -106,6 +107,16 @@
         "@playwright/test": "1.58.2",
         "@types/bun": "catalog:",
         "@types/react-dom": "catalog:react",
+      },
+    },
+    "packages/bob-and-alice": {
+      "name": "@tearleads/bob-and-alice",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/crypto": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/crypto": {
@@ -411,6 +422,8 @@
     "@tearleads/api": ["@tearleads/api@workspace:packages/api"],
 
     "@tearleads/api-client": ["@tearleads/api-client@workspace:packages/api-client"],
+
+    "@tearleads/bob-and-alice": ["@tearleads/bob-and-alice@workspace:packages/bob-and-alice"],
 
     "@tearleads/crypto": ["@tearleads/crypto@workspace:packages/crypto"],
 

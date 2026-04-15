@@ -6,6 +6,7 @@
     { "path": "packages/app" },
     { "path": "packages/app-web" },
     { "path": "packages/app-electrobun" },
+    { "path": "packages/bob-and-alice" },
     { "path": "packages/crypto" },
     { "path": "packages/encoding" },
     { "path": "packages/loro" },

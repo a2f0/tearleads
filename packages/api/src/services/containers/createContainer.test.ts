@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import {
   createPublicKeyRequest,
   createServiceTestRuntime,

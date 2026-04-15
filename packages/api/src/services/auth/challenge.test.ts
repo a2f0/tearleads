@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { hexToBytes, sign, toFingerprint } from "@tearleads/crypto";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import {
   createPublicKeyRequest,
   createServiceTestRuntime,

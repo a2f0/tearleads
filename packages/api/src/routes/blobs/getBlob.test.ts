@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import {
@@ -7,7 +8,6 @@ import {
   stageBlob,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";

@@ -1,8 +1,8 @@
+import type { TestUser } from "@tearleads/bob-and-alice";
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
-import type { TestUser } from "./createTestUser";
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
