@@ -14,7 +14,7 @@ import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../data/AppDataProvider";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/containers";
 import {
   primeDocumentStore,
   subscribeToPersistedDocuments,

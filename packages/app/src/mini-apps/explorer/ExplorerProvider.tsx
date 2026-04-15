@@ -16,13 +16,13 @@ import {
 import { useAppData } from "../../data/AppDataProvider";
 import type { BlobStore } from "../../data/blobs";
 import {
+  type ContainerRecord,
   createContainerMetadataDocument,
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,
+  sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
-} from "../../data/containerMetadataDocument";
-import type { ContainerRecord } from "../../data/containerPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+} from "../../data/containers";
 import type {
   DocumentRecord,
   PendingUpdateRecord,

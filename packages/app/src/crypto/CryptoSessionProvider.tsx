@@ -14,7 +14,7 @@ import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../data/containerPersistence";
+} from "../data/containers";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
