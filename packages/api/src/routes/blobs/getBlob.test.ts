@@ -101,3 +101,17 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
     sha256: stagedBlobInput.sha256,
   });
 });
+
+test("GET /blobs/:blobId rejects malformed blob ids", async () => {
+  const blobResponse = await routeApp.request("/blobs/not-a-uuid", {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+
+  expect(blobResponse.status).toBe(400);
+  expect(await blobResponse.json()).toEqual({
+    error: "Invalid request",
+  });
+});
