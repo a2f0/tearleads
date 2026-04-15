@@ -1,36 +1,11 @@
 import { expect, test } from "bun:test";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+import { createExecSql } from "../../test/helpers/createExecSql";
 import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
 
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "document-container-projection-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
-
 test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents with no links", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "document-container-projection-test",
+  );
 
   try {
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
@@ -60,7 +35,9 @@ test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents wit
 });
 
 test("listDocumentIdsByContainerIds returns unique document ids linked to containers", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "document-container-projection-test",
+  );
 
   try {
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(

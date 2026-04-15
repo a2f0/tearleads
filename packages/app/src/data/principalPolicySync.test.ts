@@ -7,41 +7,14 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createExecSql } from "../../test/helpers/createExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
 } from "./principalPolicyPersistence";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
-
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "principal-policy-sync-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
 
 async function createPrincipalPolicyBundle(): Promise<{
   bundle: PrincipalPolicyBundleResponse;
@@ -102,7 +75,7 @@ async function createPrincipalPolicyBundle(): Promise<{
 }
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("principal-policy-sync-test");
 
   try {
     const { bundle, signerPublicKey } = await createPrincipalPolicyBundle();
@@ -158,7 +131,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
 });
 
 test("principal policy sync skips untrusted bundles without persisting them", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("principal-policy-sync-test");
 
   try {
     const { bundle } = await createPrincipalPolicyBundle();

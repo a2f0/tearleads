@@ -9,41 +9,14 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createExecSql } from "../../test/helpers/createExecSql";
 import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "./principalPolicyPersistence";
-
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "principal-policy-crypto-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
 
 async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;
@@ -118,7 +91,9 @@ async function createPrincipalPolicyBundle(input: {
 test("principal policy crypto unwraps a blob envelope addressed to a cached group principal", async () => {
   const aliceKem = generateKemSeedAndKeyPair();
   const groupKem = generateKemSeedAndKeyPair();
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "principal-policy-crypto-test",
+  );
 
   try {
     const bundle = await createPrincipalPolicyBundle({
@@ -161,7 +136,9 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
   const nestedGroupKem = generateKemSeedAndKeyPair();
   const outerGroupKem = generateKemSeedAndKeyPair();
   const objectKey = crypto.getRandomValues(new Uint8Array(32));
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "principal-policy-crypto-test",
+  );
 
   try {
     const nestedBundle = await createPrincipalPolicyBundle({

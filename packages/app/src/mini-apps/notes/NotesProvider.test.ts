@@ -496,19 +496,11 @@ async function createSqlRuntime(): Promise<
     close: () => void;
   }
 > {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "notes-provider-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
+  const db = await initDatabase({
+    dbName: `/${crypto.randomUUID()}.db`,
+    cipher: "chacha20",
+    key: "notes-provider-test",
+  });
 
   return {
     apiClient: {

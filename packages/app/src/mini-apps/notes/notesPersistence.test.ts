@@ -1,40 +1,13 @@
 import { expect, test } from "bun:test";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+import { createExecSql } from "../../../test/helpers/createExecSql";
 import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
 } from "./notesPersistence";
 
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "notes-persistence-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
-
 test("concurrent note saves are serialized on a shared SQLite connection", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -80,7 +53,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
 });
 
 test("upsertDiscoveredNote reuses an existing local note bound to the remote document id", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -140,7 +113,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
 });
 
 test("upsertDiscoveredNote preserves the active local container when another linked container rediscovers the document", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -196,7 +169,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
 });
 
 test("relinkPersistedNote updates the stored container and clears stale bundles on epoch change", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -251,7 +224,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
 });
 
 test("listNotesByContainerIds only returns notes for the requested containers", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -310,7 +283,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
 });
 
 test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -372,7 +345,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
 });
 
 test("listNotes derives driver license titles and document kinds from structured text", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -406,7 +379,7 @@ test("listNotes derives driver license titles and document kinds from structured
 });
 
 test("upsertDiscoveredNote uses the remote createdAt for a newly discovered document", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);

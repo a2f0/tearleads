@@ -1,40 +1,13 @@
 import { expect, test } from "bun:test";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+import { createExecSql } from "../../test/helpers/createExecSql";
 import {
   ensureDocumentTables,
   loadDocumentRecord,
   saveDocumentRecord,
 } from "./documentPersistence";
 
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "document-persistence-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
-
 test("ensureDocumentTables adds last_commit_lsn for existing local documents tables", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql("document-persistence-test");
 
   try {
     await execSql(`
