@@ -5,11 +5,8 @@ import * as schema from "../schema";
 
 const client = new PGlite({ debug: 0 });
 export const db = drizzle({ client, schema });
-export type DatabaseTransaction = Parameters<
-  (typeof db)["transaction"]
->[0] extends (tx: infer T) => Promise<unknown>
-  ? T
-  : never;
+type TransactionCallback = Parameters<(typeof db)["transaction"]>[0];
+export type DatabaseTransaction = Parameters<TransactionCallback>[0];
 export type DatabaseExecutor = typeof db | DatabaseTransaction;
 
 await client.exec(`
