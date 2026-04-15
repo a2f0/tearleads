@@ -25,6 +25,9 @@ bun run test:turbo
 
 # Run only changed/impacted Bun workspace tests through Turborepo
 bun run test:turbo:affected
+
+# Run a specific test
+bun test packages/bob-and-alice/src/bobAndAlice.test.ts
 ```
 
 ## Bun Catalogs
