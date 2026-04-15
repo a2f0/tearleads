@@ -23,10 +23,6 @@ import {
   sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
 } from "../../data/containers";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/documentPersistence";
 import {
   createDocumentEncryptionMaterial,
   createPendingUpdateFields,
@@ -48,7 +44,11 @@ import {
   requestDomainDocumentSync,
 } from "../../data/documents/DocumentsProvider";
 import { sqlDocumentsPersistence } from "../../data/documents/documentsPersistence";
-import type { ExecSql } from "../../data/sqlSchema";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/persistence/documentPersistence";
+import type { ExecSql } from "../../data/persistence/sqlSchema";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,

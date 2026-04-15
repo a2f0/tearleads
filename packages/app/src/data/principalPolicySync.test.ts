@@ -13,7 +13,7 @@ import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
-} from "./principalPolicyPersistence";
+} from "./persistence/principalPolicyPersistence";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
 async function createPrincipalPolicyBundle(): Promise<{

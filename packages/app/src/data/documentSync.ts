@@ -11,9 +11,9 @@ import {
 import type {
   PendingUpdateFields,
   PendingUpdateRecord,
-} from "./documentPersistence";
+} from "./persistence/documentPersistence";
+import type { ExecSql } from "./persistence/sqlSchema";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
-import type { ExecSql } from "./sqlSchema";
 
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";

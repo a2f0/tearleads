@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createExecSql } from "../../test/helpers/createExecSql";
+import { createExecSql } from "../../../test/helpers/createExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadAllPrincipalPolicyBundles,

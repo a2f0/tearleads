@@ -8,8 +8,8 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { SerializedRecipientEnvelope } from "@tearleads/loro";
 import type { BlobBytes } from "./blobs";
+import type { ExecSql } from "./persistence/sqlSchema";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
-import type { ExecSql } from "./sqlSchema";
 
 export { serializeBlobEnvelope } from "@tearleads/crypto";
 

@@ -11,8 +11,8 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
   saveDocumentRecord,
-} from "../documentPersistence";
-import type { SqlRow } from "../sqlSchema";
+} from "../persistence/documentPersistence";
+import type { SqlRow } from "../persistence/sqlSchema";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -20,14 +20,14 @@ import {
   runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
-} from "../sqlSchema";
+} from "../persistence/sqlSchema";
 import {
   deriveStoredDocumentKind,
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "./documentKinds";
 
-export type { PendingUpdateRecord } from "../documentPersistence";
+export type { PendingUpdateRecord } from "../persistence/documentPersistence";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;

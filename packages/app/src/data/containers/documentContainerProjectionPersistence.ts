@@ -5,7 +5,7 @@ import {
   runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
-} from "../sqlSchema";
+} from "../persistence/sqlSchema";
 
 const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {

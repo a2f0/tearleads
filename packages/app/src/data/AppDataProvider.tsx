@@ -15,8 +15,8 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
 import { useBlobStore } from "./blobs";
+import type { SqlRow, SqlRowValue } from "./persistence/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
-import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
 interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;

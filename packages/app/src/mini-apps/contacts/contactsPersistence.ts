@@ -11,8 +11,8 @@ import {
   type PendingUpdateRecord,
   parseDocumentRecord,
   saveDocumentRecord,
-} from "../../data/documentPersistence";
-import type { SqlRow } from "../../data/sqlSchema";
+} from "../../data/persistence/documentPersistence";
+import type { SqlRow } from "../../data/persistence/sqlSchema";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -20,7 +20,7 @@ import {
   runSerializedSqlMutation,
   runSqlTransaction,
   type SqlTableSchema,
-} from "../../data/sqlSchema";
+} from "../../data/persistence/sqlSchema";
 import type { AddressBookEntry } from "./types";
 
 export interface ContactPendingUpdateInsert extends PendingUpdateFields {
