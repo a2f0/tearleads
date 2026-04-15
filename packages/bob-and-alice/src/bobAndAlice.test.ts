@@ -1,7 +1,15 @@
 import { expect, test } from "bun:test";
+import {
+  bytesToHex,
+  decryptAsRecipient,
+  encryptForRecipients,
+  hexToBytes,
+  sign,
+  verify,
+} from "@tearleads/crypto";
 import { createTestUser } from "./createTestUser";
 
-test("creates bob and alice", () => {
+test("bob can write a message to alice", async () => {
   const alice = createTestUser();
   const bob = createTestUser();
 
@@ -14,4 +22,39 @@ test("creates bob and alice", () => {
     bob.signing.signingPublicKey,
   );
   expect(alice.kem.publicKey).not.toEqual(bob.kem.publicKey);
+
+  const messageToAlice = "Hello, Alice";
+  const messageBytes = new TextEncoder().encode(messageToAlice);
+  const signature = sign(messageBytes, bob.signing.signingPrivateKey);
+
+  const signedPayload = new TextEncoder().encode(
+    JSON.stringify({
+      message: messageToAlice,
+      signature: bytesToHex(signature),
+    }),
+  );
+
+  const envelope = await encryptForRecipients(signedPayload, [
+    alice.kem.publicKey,
+  ]);
+  const decryptedPayload = await decryptAsRecipient(
+    envelope,
+    alice.kem.secretKey,
+  );
+
+  const { message, signature: signatureHex } = JSON.parse(
+    new TextDecoder().decode(decryptedPayload),
+  ) as {
+    message: string;
+    signature: string;
+  };
+
+  expect(
+    verify(
+      hexToBytes(signatureHex),
+      new TextEncoder().encode(message),
+      bob.signing.signingPublicKey,
+    ),
+  ).toBe(true);
+  expect(message).toBe(messageToAlice);
 });

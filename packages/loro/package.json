@@ -18,7 +18,7 @@
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "hono": "4.7.11",
-    "loro-crdt": "1.10.8"
+    "loro-crdt": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:"
