@@ -7,11 +7,8 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createExecSql } from "../../test/helpers/createExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadAllPrincipalPolicyBundles,
@@ -19,30 +16,6 @@ import {
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
 } from "./principalPolicyPersistence";
-
-async function createExecSql() {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
-
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "principal-policy-persistence-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-
-  return {
-    close: () => db.close(),
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-  };
-}
 
 async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();
@@ -98,7 +71,9 @@ async function createPrincipalPolicyBundle() {
 }
 
 test("principal policy persistence stores and reloads the current verified bundle", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "principal-policy-persistence-test",
+  );
 
   try {
     const { bundle, stateHash } = await createPrincipalPolicyBundle();
@@ -122,7 +97,9 @@ test("principal policy persistence stores and reloads the current verified bundl
 });
 
 test("principal policy persistence reads from a fresh database before any bundle is cached", async () => {
-  const { close, execSql } = await createExecSql();
+  const { close, execSql } = await createExecSql(
+    "principal-policy-persistence-test",
+  );
 
   try {
     await expect(loadAllPrincipalPolicyBundles(execSql)).resolves.toEqual([]);
