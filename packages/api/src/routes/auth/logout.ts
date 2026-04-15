@@ -1,20 +1,16 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import {
-  destroySession as defaultDestroySession,
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 
 export interface LogoutRouteDeps {
-  readonly destroySession?: (c: Context) => Promise<void>;
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly destroySession: (c: Context) => Promise<void>;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
 }
 
 export function createLogoutRoute({
-  destroySession = defaultDestroySession,
-  requireAuth = defaultRequireAuth,
-}: LogoutRouteDeps = {}) {
+  destroySession,
+  requireAuth,
+}: LogoutRouteDeps) {
   const logoutRoute = new Hono();
 
   logoutRoute.post("/auth/logout", requireAuth, async (c) => {

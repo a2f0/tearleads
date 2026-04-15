@@ -1,27 +1,21 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import {
   GetEncapsulationKeyError,
   getEncapsulationKey,
 } from "../../services/auth/getEncapsulationKey";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface EncapsulationKeyRouteDeps {
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 export function createEncapsulationKeyRoute({
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: EncapsulationKeyRouteDeps = {}) {
+  requireAuth,
+  runtime,
+}: EncapsulationKeyRouteDeps) {
   const encapsulationKeyRoute = new Hono();
 
   encapsulationKeyRoute.get(

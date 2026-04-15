@@ -1,28 +1,22 @@
 import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import {
   ListContainerDocumentsError,
   listContainerDocuments,
 } from "../../services/containers/listContainerDocuments";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface ListContainerDocumentsRouteDeps {
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 export function createListContainerDocumentsRoute({
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: ListContainerDocumentsRouteDeps = {}) {
+  requireAuth,
+  runtime,
+}: ListContainerDocumentsRouteDeps) {
   const listContainerDocumentsRoute = new Hono();
 
   listContainerDocumentsRoute.get(

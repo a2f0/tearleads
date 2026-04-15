@@ -11,10 +11,7 @@ import { isUuidV4String } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
 import { putPrincipalMemberEnvelopes } from "../../services/principals/putPrincipalMemberEnvelopes";
 import { putPrincipalState } from "../../services/principals/putPrincipalState";
@@ -22,14 +19,11 @@ import {
   PrincipalPolicyError,
   parseManagedPrincipalType,
 } from "../../services/principals/shared";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface PrincipalPolicyRouteDeps {
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 function getPrincipalRouteParams(input: {
@@ -60,9 +54,9 @@ function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
 }
 
 export function createPrincipalPolicyRoute({
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: PrincipalPolicyRouteDeps = {}) {
+  requireAuth,
+  runtime,
+}: PrincipalPolicyRouteDeps) {
   const principalPolicyRoute = new Hono();
 
   principalPolicyRoute.get(

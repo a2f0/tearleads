@@ -8,14 +8,9 @@ import {
   RegisterPublicKeyError,
   registerPublicKey,
 } from "../../services/auth/registerPublicKey";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
-export function createRegisterRoute(
-  runtime: ApiServiceRuntime = defaultApiServiceRuntime,
-) {
+export function createRegisterRoute(runtime: ApiServiceRuntime) {
   const registerRoute = new Hono();
 
   registerRoute.post(

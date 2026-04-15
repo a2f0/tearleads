@@ -6,14 +6,9 @@ import {
   VerifyChallengeError,
   verifyChallenge,
 } from "../../services/auth/verifyChallenge";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
-export function createVerifyRoute(
-  runtime: ApiServiceRuntime = defaultApiServiceRuntime,
-) {
+export function createVerifyRoute(runtime: ApiServiceRuntime) {
   const verifyRoute = new Hono();
 
   verifyRoute.post(
