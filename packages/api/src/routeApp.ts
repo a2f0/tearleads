@@ -17,29 +17,49 @@ import {
   defaultApiServiceRuntime,
 } from "./services/runtime";
 
-interface RouteAppDeps {
+// Test seam
+interface RouteAppOverrides {
   readonly destroySession?: (c: Context) => Promise<void>;
   readonly publish?: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }
 
-const productionRouteAppDeps: RouteAppDeps = {
+interface ResolvedRouteAppDeps {
+  readonly destroySession: (c: Context) => Promise<void>;
+  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
+}
+
+const productionRouteAppOverrides: RouteAppOverrides = {
   destroySession: defaultDestroySession,
   requireAuth: defaultRequireAuth,
   runtime: defaultApiServiceRuntime,
 };
 
-export function createRouteApp({
+function resolveRouteAppDeps({
   destroySession,
   publish,
   requireAuth,
   runtime,
-}: RouteAppDeps) {
+}: RouteAppOverrides): ResolvedRouteAppDeps {
   const resolvedRuntime = runtime ?? defaultApiServiceRuntime;
-  const resolvedDestroySession = destroySession ?? defaultDestroySession;
-  const resolvedRequireAuth = requireAuth ?? defaultRequireAuth;
-  const resolvedPublish = publish ?? resolvedRuntime.eventPublisher.publish;
+  return {
+    destroySession: destroySession ?? defaultDestroySession,
+    publish: publish ?? resolvedRuntime.eventPublisher.publish,
+    requireAuth: requireAuth ?? defaultRequireAuth,
+    runtime: resolvedRuntime,
+  };
+}
+
+export function createRouteApp(overrides: RouteAppOverrides) {
+  const {
+    destroySession: resolvedDestroySession,
+    publish: resolvedPublish,
+    requireAuth: resolvedRequireAuth,
+    runtime: resolvedRuntime,
+  } = resolveRouteAppDeps(overrides);
   const routeApp = new Hono();
 
   routeApp.use("*", cors());
@@ -86,4 +106,4 @@ export function createRouteApp({
   return routeApp;
 }
 
-export const routeApp = createRouteApp(productionRouteAppDeps);
+export const routeApp = createRouteApp(productionRouteAppOverrides);
