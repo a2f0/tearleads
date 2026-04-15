@@ -7,6 +7,7 @@ import {
   type SessionEnv,
 } from "./middleware/session";
 import { createAuthRouter } from "./routes/auth";
+import { createBlobsRouter } from "./routes/blobs";
 import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createStructuralDocumentsRoute } from "./routes/documents/structural";
@@ -75,6 +76,13 @@ export function createRouteApp(overrides: RouteAppOverrides) {
   routeApp.route(
     "/",
     createContainersRouter({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createBlobsRouter({
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),

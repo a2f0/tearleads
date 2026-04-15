@@ -1,4 +1,4 @@
-import { routeApp } from "../../../src/routeApp";
+import { routeApp } from "../../../../src/routeApp";
 
 export async function stageBlob(
   input: {

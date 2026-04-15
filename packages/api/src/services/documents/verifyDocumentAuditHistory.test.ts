@@ -22,9 +22,9 @@ import {
   documentAuditEntries,
   documentUpdateAuditEvents,
 } from "../../schema";
+import { stageBlob } from "../blobs/stageBlob";
 import { commitDocumentChange } from "./commitDocumentChange";
 import { createDocumentSyncStore } from "./documentSyncStore";
-import { stageBlob } from "./stageBlob";
 import { verifyDocumentAuditHistory } from "./verifyDocumentAuditHistory";
 
 async function createServiceDocument() {

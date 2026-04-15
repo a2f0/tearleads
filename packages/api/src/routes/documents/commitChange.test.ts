@@ -377,46 +377,6 @@ async function expectAttachmentBlobPruned(input: {
   }
 }
 
-test("POST /blobs/stage rejects mismatched blob digests", async () => {
-  const validInput = await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz");
-  const response = await stageBlob(
-    {
-      encryptedBytes: validInput.encryptedBytes,
-      byteLength: validInput.byteLength,
-      sha256: "not-the-real-digest",
-    },
-    alice.token,
-  );
-
-  expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({
-    error: "Blob sha256 does not match encryptedBytes",
-  });
-});
-
-test("POST /blobs/stage stores a staged encrypted blob for the authenticated user", async () => {
-  const response = await stageBlob(
-    await createStagedBlobInput("ZW5jcnlwdGVkLWJ5dGVz"),
-    alice.token,
-  );
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  expect(typeof body.stageId).toBe("string");
-  expect(typeof body.expiresAt).toBe("string");
-
-  const [storedStage] = await db
-    .select({
-      id: blobStages.id,
-      ownerUserId: blobStages.ownerUserId,
-    })
-    .from(blobStages)
-    .where(eq(blobStages.id, body.stageId))
-    .limit(1);
-
-  expect(storedStage?.ownerUserId).toBe(alice.userId);
-});
-
 test("POST /documents/:documentId/commit-change atomically commits a blob attachment and document update", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,
@@ -817,58 +777,6 @@ test("POST /documents/:documentId/commit-change allows a new update to reference
       }),
     ]),
   );
-});
-
-test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blobs", async () => {
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
-  const documentId = String(createdDocument.id ?? "");
-  const stagedBlobInput = await createEncryptedBlobInput(
-    "encrypted-image-bytes",
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
-
-  const stageResponse = await stageBlob(stagedBlobInput, alice.token);
-  expect(stageResponse.status).toBe(200);
-  const stage = await stageResponse.json();
-
-  const commitResponse = await commitDocumentChange(
-    documentId,
-    {
-      accessEpoch: createdDocument.currentAccessEpoch,
-      attachmentCommits: [
-        {
-          slotId: "slot_image",
-          stageId: stage.stageId,
-          expectedBindingId: null,
-        },
-      ],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: null,
-    },
-    alice.token,
-  );
-  expect(commitResponse.status).toBe(200);
-  const commitBody = await commitResponse.json();
-  const blobId = String(commitBody.committedBindings[0]?.blobId ?? "");
-
-  const blobResponse = await routeApp.request(`/blobs/${blobId}`, {
-    headers: {
-      Authorization: `Bearer ${alice.token}`,
-    },
-    method: "GET",
-  });
-
-  expect(blobResponse.status).toBe(200);
-  expect(await blobResponse.json()).toEqual({
-    blobId,
-    encryptedBytes: stagedBlobInput.encryptedBytes,
-    sha256: stagedBlobInput.sha256,
-  });
 });
 
 test("POST /documents/:documentId/commit-change rewraps an existing blob without creating a new blob row", async () => {
