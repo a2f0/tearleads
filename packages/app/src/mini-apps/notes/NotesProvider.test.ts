@@ -9,12 +9,9 @@ import {
   type SyncDocumentResponse,
   satisfiesVersionVector,
 } from "@tearleads/loro";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
 import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../data/blob-store";
 import {
@@ -496,13 +493,10 @@ async function createSqlRuntime(): Promise<
     close: () => void;
   }
 > {
-  const db = await initDatabase({
-    dbName: `/${crypto.randomUUID()}.db`,
-    cipher: "chacha20",
-    key: "notes-provider-test",
-  });
+  const runtimeBase = await createSqlRuntimeBase("notes-provider-test");
 
   return {
+    ...runtimeBase,
     apiClient: {
       commitDocumentChange: async () => null,
       createDocument: async (_linkedContainerIds) => null,
@@ -511,19 +505,7 @@ async function createSqlRuntime(): Promise<
       stageBlob: async () => null,
       syncDocument: async () => null,
     },
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    close: () => db.close(),
     containerId: "root-container",
-    dbStatus: "ready",
-    domainScope: {},
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async (sql, bind) =>
-      execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
   };
 }
 
