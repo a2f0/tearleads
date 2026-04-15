@@ -1,13 +1,8 @@
 import { createLoroRouter } from "@tearleads/loro/server";
-import {
-  isCommitDocumentChangeRequest,
-  isStageBlobRequest,
-} from "@tearleads/validators/request";
+import { isCommitDocumentChangeRequest } from "@tearleads/validators/request";
 import type {
-  BlobResponse,
   CommitDocumentChangeResponse,
   ListDocumentAttachmentsResponse,
-  StageBlobResponse,
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
@@ -17,12 +12,10 @@ import {
   commitDocumentChange,
 } from "../../services/documents/commitDocumentChange";
 import { createDocumentSyncStore } from "../../services/documents/documentSyncStore";
-import { GetBlobError, getBlob } from "../../services/documents/getBlob";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
 } from "../../services/documents/listDocumentAttachments";
-import { StageBlobError, stageBlob } from "../../services/documents/stageBlob";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import type { SessionData } from "../../validators/session";
 
@@ -33,42 +26,6 @@ interface DocumentsRouterDeps {
 }
 
 type DocumentsRouteApp = ReturnType<typeof createLoroRouter<SessionData>>;
-
-function addStageBlobRoute(
-  documentsRouter: DocumentsRouteApp,
-  requireAuth: MiddlewareHandler<SessionEnv>,
-  runtime: ApiServiceRuntime,
-) {
-  documentsRouter.post(
-    "/blobs/stage",
-    requireAuth,
-    validator("json", (value, c) => {
-      if (!isStageBlobRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
-    async (c) => {
-      const session = c.get("session");
-
-      try {
-        return c.json<StageBlobResponse>(
-          await stageBlob(runtime, {
-            ...c.req.valid("json"),
-            userId: session.userId,
-          }),
-        );
-      } catch (error) {
-        if (error instanceof StageBlobError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
-      }
-    },
-  );
-}
 
 function addCommitChangeRoute(
   documentsRouter: DocumentsRouteApp,
@@ -146,26 +103,6 @@ function addDocumentReadRoutes(
       }
     },
   );
-
-  documentsRouter.get("/blobs/:blobId", requireAuth, async (c) => {
-    const blobId = c.req.param("blobId");
-    const session = c.get("session");
-
-    try {
-      return c.json<BlobResponse>(
-        await getBlob(runtime, {
-          blobId,
-          userId: session.userId,
-        }),
-      );
-    } catch (error) {
-      if (error instanceof GetBlobError) {
-        return c.json({ error: error.message }, error.status);
-      }
-
-      throw error;
-    }
-  });
 }
 
 export function createDocumentsRouter({
@@ -179,7 +116,6 @@ export function createDocumentsRouter({
     requireAuth,
   });
 
-  addStageBlobRoute(documentsRouter, requireAuth, runtime);
   addCommitChangeRoute(documentsRouter, publish, requireAuth, runtime);
   addDocumentReadRoutes(documentsRouter, requireAuth, runtime);
 

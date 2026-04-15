@@ -28,12 +28,12 @@ import {
   documentUpdateAuditEvents,
 } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
+import { stageBlob } from "../blobs/stageBlob";
 import {
   CommitDocumentChangeError,
   commitDocumentChange,
 } from "./commitDocumentChange";
 import { createDocumentSyncStore } from "./documentSyncStore";
-import { stageBlob } from "./stageBlob";
 
 async function createServiceDocument() {
   const { fingerprint, registration, user } = await registerServiceUser();
