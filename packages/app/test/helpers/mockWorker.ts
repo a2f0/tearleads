@@ -8,46 +8,12 @@ import type {
 } from "@tearleads/sqlite-worker/types";
 import { handleRequest } from "@tearleads/sqlite-worker/worker-core";
 
-let sqliteInitQueue = Promise.resolve();
-let sqlite3Promise: Promise<Awaited<ReturnType<typeof loadSqlite3>>> | null =
-  null;
-
 type TestDatabase = InstanceType<
   Awaited<ReturnType<typeof loadSqlite3>>["oo1"]["DB"]
 >;
 
-function runWithBunFetchLock<T>(operation: () => Promise<T>): Promise<T> {
-  const nextOperation = sqliteInitQueue.then(async () => {
-    const previousFetch = globalThis.fetch;
-    globalThis.fetch = Bun.fetch;
-
-    try {
-      return await operation();
-    } finally {
-      globalThis.fetch = previousFetch;
-    }
-  });
-
-  sqliteInitQueue = nextOperation.then(
-    () => undefined,
-    () => undefined,
-  );
-
-  return nextOperation;
-}
-
-async function loadSqlite3WithBunFetch(): Promise<
-  Awaited<ReturnType<typeof loadSqlite3>>
-> {
-  if (!sqlite3Promise) {
-    sqlite3Promise = runWithBunFetchLock(() => loadSqlite3());
-  }
-
-  return sqlite3Promise;
-}
-
 async function initTestDatabase(): Promise<TestDatabase> {
-  const sqlite3 = await loadSqlite3WithBunFetch();
+  const sqlite3 = await loadSqlite3();
 
   // App integration tests exercise worker protocol and SQL behavior, not
   // encrypted on-disk persistence, so an isolated in-memory database is enough.

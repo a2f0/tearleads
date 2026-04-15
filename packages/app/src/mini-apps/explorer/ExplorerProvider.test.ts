@@ -63,20 +63,13 @@ function createSyncDocumentResponse(input: {
 }
 
 async function createSqlRuntime(): Promise<TestRuntime> {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = Bun.fetch;
   const dbStatus: ExplorerRuntime["dbStatus"] = "ready";
 
-  let db: Awaited<ReturnType<typeof initDatabase>>;
-  try {
-    db = await initDatabase({
-      dbName: `/${crypto.randomUUID()}.db`,
-      cipher: "chacha20",
-      key: "explorer-provider-test",
-    });
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
+  const db = await initDatabase({
+    dbName: `/${crypto.randomUUID()}.db`,
+    cipher: "chacha20",
+    key: "explorer-provider-test",
+  });
 
   return {
     apiClient: {
