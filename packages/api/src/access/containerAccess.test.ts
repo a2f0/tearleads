@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -8,7 +9,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, sql } from "drizzle-orm";
 import invariant from "invariant";
-import { createTestUser } from "../../test/helpers/createTestUser";
 import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
 import {

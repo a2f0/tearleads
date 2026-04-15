@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -13,7 +14,6 @@ import {
 } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 import { TRUSTED_POLICY_SIGNERS_ENV_VAR } from "../../services/runtime";

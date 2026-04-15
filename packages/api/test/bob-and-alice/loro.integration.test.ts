@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   decryptAsRecipient,
   encryptForRecipients,
@@ -32,7 +33,6 @@ import {
   syncDocument,
 } from "../helpers/api";
 import { authenticate } from "../helpers/authenticate";
-import { createTestUser } from "../helpers/createTestUser";
 import { grantRootContainerWriteAccessToUser } from "../helpers/grantContainerAccess";
 import { registerUser } from "../helpers/registerUser";
 

@@ -19,6 +19,7 @@
     "redis": "5.11.0"
   },
   "devDependencies": {
+    "@tearleads/bob-and-alice": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }

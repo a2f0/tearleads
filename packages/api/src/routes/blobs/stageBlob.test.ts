@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import { stageBlob } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";

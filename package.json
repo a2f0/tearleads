@@ -37,6 +37,7 @@
     "packages/app",
     "packages/app-web",
     "packages/app-electrobun",
+    "packages/bob-and-alice",
     "packages/crypto",
     "packages/encoding",
     "packages/loro",

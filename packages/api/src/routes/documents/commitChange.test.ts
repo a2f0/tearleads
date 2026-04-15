@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   decryptAsRecipient,
   encryptForRecipients,
@@ -26,7 +27,6 @@ import {
   stageBlob,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestUser } from "../../../test/helpers/createTestUser";
 import { grantRootContainerWriteAccessToUser } from "../../../test/helpers/grantContainerAccess";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { attachBlobToDocument } from "../../access/blobAccess";

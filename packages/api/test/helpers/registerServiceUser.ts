@@ -1,6 +1,6 @@
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { registerPublicKey } from "../../src/services/auth/registerPublicKey";
-import { createTestUser } from "./createTestUser";
 import {
   createPublicKeyRequest,
   createServiceTestRuntime,
