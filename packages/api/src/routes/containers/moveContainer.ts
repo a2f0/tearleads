@@ -3,28 +3,22 @@ import type { MoveContainerResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import {
   MoveContainerError,
   moveContainer,
 } from "../../services/containers/moveContainer";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface MoveContainerRouteDeps {
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 export function createMoveContainerRoute({
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: MoveContainerRouteDeps = {}) {
+  requireAuth,
+  runtime,
+}: MoveContainerRouteDeps) {
   const moveContainerRoute = new Hono();
 
   moveContainerRoute.post(

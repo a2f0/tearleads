@@ -6,27 +6,21 @@ import type {
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import { linkDocumentToContainer } from "../../services/documents/linkDocumentToContainer";
 import { StructuralDocumentMutationError } from "../../services/documents/shared";
 import { unlinkDocumentFromContainer } from "../../services/documents/unlinkDocumentFromContainer";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface StructuralDocumentsRouteDeps {
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 export function createStructuralDocumentsRoute({
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: StructuralDocumentsRouteDeps = {}) {
+  requireAuth,
+  runtime,
+}: StructuralDocumentsRouteDeps) {
   const structuralDocumentsRoute = new Hono();
 
   structuralDocumentsRoute.post(

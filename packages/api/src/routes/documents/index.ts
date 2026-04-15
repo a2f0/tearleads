@@ -11,10 +11,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
-import {
-  requireAuth as defaultRequireAuth,
-  type SessionEnv,
-} from "../../middleware/session";
+import type { SessionEnv } from "../../middleware/session";
 import {
   CommitDocumentChangeError,
   commitDocumentChange,
@@ -26,16 +23,13 @@ import {
   listDocumentAttachments,
 } from "../../services/documents/listDocumentAttachments";
 import { StageBlobError, stageBlob } from "../../services/documents/stageBlob";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 import type { SessionData } from "../../validators/session";
 
 interface DocumentsRouterDeps {
-  readonly publish?: (event: Record<string, unknown>) => Promise<void>;
-  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly runtime?: ApiServiceRuntime;
+  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 type DocumentsRouteApp = ReturnType<typeof createLoroRouter<SessionData>>;
@@ -176,20 +170,17 @@ function addDocumentReadRoutes(
 
 export function createDocumentsRouter({
   publish,
-  requireAuth = defaultRequireAuth,
-  runtime = defaultApiServiceRuntime,
-}: DocumentsRouterDeps = {}) {
-  const publishEvent =
-    publish ??
-    ((event: Record<string, unknown>) => runtime.eventPublisher.publish(event));
+  requireAuth,
+  runtime,
+}: DocumentsRouterDeps) {
   const documentsRouter = createLoroRouter({
     store: createDocumentSyncStore(runtime),
-    publish: publishEvent,
+    publish,
     requireAuth,
   });
 
   addStageBlobRoute(documentsRouter, requireAuth, runtime);
-  addCommitChangeRoute(documentsRouter, publishEvent, requireAuth, runtime);
+  addCommitChangeRoute(documentsRouter, publish, requireAuth, runtime);
   addDocumentReadRoutes(documentsRouter, requireAuth, runtime);
 
   return documentsRouter;

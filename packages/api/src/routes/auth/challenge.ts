@@ -9,14 +9,9 @@ import {
   CreateChallengeError,
   createChallenge,
 } from "../../services/auth/createChallenge";
-import {
-  type ApiServiceRuntime,
-  defaultApiServiceRuntime,
-} from "../../services/runtime";
+import type { ApiServiceRuntime } from "../../services/runtime";
 
-export function createChallengeRoute(
-  runtime: ApiServiceRuntime = defaultApiServiceRuntime,
-) {
+export function createChallengeRoute(runtime: ApiServiceRuntime) {
   const challenge = new Hono();
 
   challenge.post(

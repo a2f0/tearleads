@@ -1,15 +1,21 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { SessionEnv } from "./middleware/session";
+import {
+  destroySession as defaultDestroySession,
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "./middleware/session";
 import { createAuthRouter } from "./routes/auth";
 import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createStructuralDocumentsRoute } from "./routes/documents/structural";
 import { createHealthRoute } from "./routes/health";
 import { createPrincipalsRouter } from "./routes/principals";
-import type { ApiServiceRuntime } from "./services/runtime";
-import { assignIfDefined } from "./utils/object";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "./services/runtime";
 
 interface RouteAppDeps {
   readonly destroySession?: (c: Context) => Promise<void>;
@@ -18,45 +24,66 @@ interface RouteAppDeps {
   readonly runtime?: ApiServiceRuntime;
 }
 
-type AuthRouterDeps = NonNullable<Parameters<typeof createAuthRouter>[0]>;
-type ContainersRouterDeps = NonNullable<
-  Parameters<typeof createContainersRouter>[0]
->;
-type DocumentsRouterDeps = NonNullable<
-  Parameters<typeof createDocumentsRouter>[0]
->;
+const productionRouteAppDeps: RouteAppDeps = {
+  destroySession: defaultDestroySession,
+  requireAuth: defaultRequireAuth,
+  runtime: defaultApiServiceRuntime,
+};
 
 export function createRouteApp({
   destroySession,
   publish,
   requireAuth,
   runtime,
-}: RouteAppDeps = {}) {
+}: RouteAppDeps) {
+  const resolvedRuntime = runtime ?? defaultApiServiceRuntime;
+  const resolvedDestroySession = destroySession ?? defaultDestroySession;
+  const resolvedRequireAuth = requireAuth ?? defaultRequireAuth;
+  const resolvedPublish = publish ?? resolvedRuntime.eventPublisher.publish;
   const routeApp = new Hono();
-  const authRouterDeps: AuthRouterDeps = {};
-  assignIfDefined(authRouterDeps, "destroySession", destroySession);
-  assignIfDefined(authRouterDeps, "requireAuth", requireAuth);
-  assignIfDefined(authRouterDeps, "runtime", runtime);
-
-  const protectedRouterDeps: ContainersRouterDeps = {};
-  assignIfDefined(protectedRouterDeps, "requireAuth", requireAuth);
-  assignIfDefined(protectedRouterDeps, "runtime", runtime);
-
-  const documentsRouterDeps: DocumentsRouterDeps = {};
-  assignIfDefined(documentsRouterDeps, "publish", publish);
-  assignIfDefined(documentsRouterDeps, "requireAuth", requireAuth);
-  assignIfDefined(documentsRouterDeps, "runtime", runtime);
 
   routeApp.use("*", cors());
 
-  routeApp.route("/", createAuthRouter(authRouterDeps));
-  routeApp.route("/", createContainersRouter(protectedRouterDeps));
-  routeApp.route("/", createDocumentsRouter(documentsRouterDeps));
-  routeApp.route("/", createStructuralDocumentsRoute(protectedRouterDeps));
+  routeApp.route(
+    "/",
+    createAuthRouter({
+      destroySession: resolvedDestroySession,
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createContainersRouter({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createDocumentsRouter({
+      publish: resolvedPublish,
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createStructuralDocumentsRoute({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
   routeApp.route("/", createHealthRoute());
-  routeApp.route("/", createPrincipalsRouter(protectedRouterDeps));
+  routeApp.route(
+    "/",
+    createPrincipalsRouter({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
 
   return routeApp;
 }
 
-export const routeApp = createRouteApp();
+export const routeApp = createRouteApp(productionRouteAppDeps);
