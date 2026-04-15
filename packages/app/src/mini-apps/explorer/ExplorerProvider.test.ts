@@ -2,12 +2,8 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { SyncDocumentResponse } from "@tearleads/loro";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../data/blob-store";
 import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
 import {
   ensureContainerTables,
@@ -63,15 +59,10 @@ function createSyncDocumentResponse(input: {
 }
 
 async function createSqlRuntime(): Promise<TestRuntime> {
-  const dbStatus: ExplorerRuntime["dbStatus"] = "ready";
-
-  const db = await initDatabase({
-    dbName: `/${crypto.randomUUID()}.db`,
-    cipher: "chacha20",
-    key: "explorer-provider-test",
-  });
+  const runtimeBase = await createSqlRuntimeBase("explorer-provider-test");
 
   return {
+    ...runtimeBase,
     apiClient: {
       commitDocumentChange: async () => null,
       createContainer: async (
@@ -93,20 +84,6 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       stageBlob: async () => null,
       syncDocument: async () => null,
     },
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    close: () => db.close(),
-    dbStatus,
-    domainScope: {},
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async (
-      sql: string,
-      bind?: Record<string, string | number | null>,
-    ) => execDatabaseStatement(db, bind ? { bind, sql } : { sql }),
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
   };
 }
 
