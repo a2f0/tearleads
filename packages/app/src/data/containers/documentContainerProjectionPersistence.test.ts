@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createExecSql } from "../../test/helpers/createExecSql";
+import { createExecSql } from "../../../test/helpers/createExecSql";
 import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
 
 test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents with no links", async () => {

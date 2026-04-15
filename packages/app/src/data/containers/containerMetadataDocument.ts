@@ -1,5 +1,5 @@
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import { getScopedPeerSeed } from "./crdtPeerSeed";
+import { getScopedPeerSeed } from "../crdtPeerSeed";
 
 interface ContainerMetadataValue {
   icon: string | null;

@@ -4,13 +4,13 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { SyncDocumentResponse } from "@tearleads/loro";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createInitializedContainerMetadataDocument } from "../../data/containerMetadataDocument";
 import {
+  createInitializedContainerMetadataDocument,
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../data/containerPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/documentContainerProjectionPersistence";
+  sqlDocumentContainerProjectionPersistence,
+} from "../../data/containers";
 import {
   ensureDocumentTables,
   saveDocumentRecord,

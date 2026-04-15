@@ -6,7 +6,7 @@ import {
   runSqlTransaction,
   type SqlRow,
   type SqlTableSchema,
-} from "./sqlSchema";
+} from "../sqlSchema";
 
 export interface ContainerRecord {
   id: string;

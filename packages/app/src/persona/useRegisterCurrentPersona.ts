@@ -4,7 +4,7 @@ import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
-import { createInitializedContainerMetadataDocument } from "../data/containerMetadataDocument";
+import { createInitializedContainerMetadataDocument } from "../data/containers";
 import {
   createDocumentEncryptionMaterial,
   createPendingUpdateFields,
