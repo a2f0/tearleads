@@ -10,8 +10,7 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@tearleads/crypto": "workspace:*",
-    "loro-crdt": "catalog:"
+    "@tearleads/crypto": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"
