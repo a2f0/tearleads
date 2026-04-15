@@ -1,6 +1,6 @@
 import { type ChangeEvent, useEffect, useId, useMemo, useRef } from "react";
 import { useAppData } from "../../data/AppDataProvider";
-import type { BlobBytes } from "../../data/blob-store";
+import type { BlobBytes } from "../../data/blobs";
 import {
   type DocumentAttachmentStatus,
   useDocument,

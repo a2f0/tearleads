@@ -1,4 +1,4 @@
-import { createMemoryBlobStore } from "../../src/data/blob-store";
+import { createMemoryBlobStore } from "../../src/data/blobs";
 import type { DocumentsRuntime } from "../../src/data/documents/DocumentsProvider";
 import { createExecSql } from "./createExecSql";
 

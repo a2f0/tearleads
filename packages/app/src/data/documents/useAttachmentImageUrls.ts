@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import type { BlobStore } from "../blob-store";
+import type { BlobStore } from "../blobs";
 import type { DocumentAttachment } from "./documentContent";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;

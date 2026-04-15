@@ -4,12 +4,10 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { usePersona } from "../persona/PersonaProvider";
-import {
-  type BlobStore,
-  createBlobStore,
-  createMemoryBlobStore,
-} from "./blob-store";
+import { usePersona } from "../../persona/PersonaProvider";
+import { createBlobStore } from "./createBlobStore";
+import { createMemoryBlobStore } from "./memoryBlobStore";
+import type { BlobStore } from "./types";
 
 const BlobContext = createContext<BlobStore | null>(null);
 
