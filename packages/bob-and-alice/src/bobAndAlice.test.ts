@@ -10,10 +10,8 @@ test("creates bob and alice", () => {
   expect(alice.kem.publicKey.length).toBeGreaterThan(0);
   expect(bob.signing.signingPublicKey.length).toBeGreaterThan(0);
   expect(bob.kem.publicKey.length).toBeGreaterThan(0);
-  expect(Array.from(alice.signing.signingPublicKey)).not.toEqual(
-    Array.from(bob.signing.signingPublicKey),
+  expect(alice.signing.signingPublicKey).not.toEqual(
+    bob.signing.signingPublicKey,
   );
-  expect(Array.from(alice.kem.publicKey)).not.toEqual(
-    Array.from(bob.kem.publicKey),
-  );
+  expect(alice.kem.publicKey).not.toEqual(bob.kem.publicKey);
 });
