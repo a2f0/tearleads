@@ -7,7 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { SerializedRecipientEnvelope } from "@tearleads/loro";
-import type { BlobBytes } from "./blob-store";
+import type { BlobBytes } from "./blobs";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 import type { ExecSql } from "./sqlSchema";
 

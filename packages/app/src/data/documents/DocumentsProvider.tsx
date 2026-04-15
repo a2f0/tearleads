@@ -18,12 +18,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../AppDataProvider";
-import type { BlobBytes, BlobStore } from "../blob-store";
 import {
   decryptBlobEnvelope,
   rewrapBlobRecipientEnvelopes,
   serializeBlobEnvelope,
 } from "../blobEnvelope";
+import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {
   createPendingUpdateFields,

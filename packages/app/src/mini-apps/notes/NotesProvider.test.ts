@@ -13,7 +13,7 @@ import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../data/blob-store";
+import { createMemoryBlobStore } from "../../data/blobs";
 import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,

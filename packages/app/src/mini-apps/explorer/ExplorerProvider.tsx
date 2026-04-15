@@ -14,7 +14,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
-import type { BlobStore } from "../../data/blob-store";
+import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
   createInitializedContainerMetadataDocument,

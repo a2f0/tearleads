@@ -14,7 +14,7 @@ import { useEvents } from "../events/EventsProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
-import { useBlobStore } from "./BlobProvider";
+import { useBlobStore } from "./blobs";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 import type { SqlRow, SqlRowValue } from "./sqlSchema";
 
