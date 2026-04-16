@@ -8,8 +8,8 @@ import { DatabaseProvider } from "../../db/DatabaseProvider";
 import { EventsProvider } from "../../events/EventsProvider";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../host/AppHostConfigProvider";
+import { IdentityProvider } from "../../identity/IdentityProvider";
 import { LogProvider } from "../../logging/LogProvider";
-import { PersonaProvider } from "../../persona/PersonaProvider";
 
 interface PaneProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;
@@ -21,7 +21,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
       <LogProvider>
         <ApiClientProvider>
           <NetworkStateProvider>
-            <PersonaProvider>
+            <IdentityProvider>
               <BlobProvider>
                 <DatabaseProvider>
                   <CryptoSessionProvider>
@@ -31,7 +31,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
                   </CryptoSessionProvider>
                 </DatabaseProvider>
               </BlobProvider>
-            </PersonaProvider>
+            </IdentityProvider>
           </NetworkStateProvider>
         </ApiClientProvider>
       </LogProvider>

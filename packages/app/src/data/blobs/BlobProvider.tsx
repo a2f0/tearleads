@@ -4,7 +4,7 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { usePersona } from "../../persona/PersonaProvider";
+import { useIdentity } from "../../identity/IdentityProvider";
 import { createBlobStore } from "./createBlobStore";
 import { createMemoryBlobStore } from "./memoryBlobStore";
 import type { BlobStore } from "./types";
@@ -12,7 +12,7 @@ import type { BlobStore } from "./types";
 const BlobContext = createContext<BlobStore | null>(null);
 
 export function BlobProvider({ children }: PropsWithChildren) {
-  const { signingFingerprint } = usePersona();
+  const { signingFingerprint } = useIdentity();
   const ephemeralBlobStore = useMemo(() => createMemoryBlobStore(), []);
   const blobStore = useMemo(
     () =>

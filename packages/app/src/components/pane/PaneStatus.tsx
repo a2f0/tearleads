@@ -3,13 +3,13 @@ import { useNetworkState } from "../../api/NetworkStateProvider";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { useEvents } from "../../events/EventsProvider";
-import { usePersona } from "../../persona/PersonaProvider";
+import { useIdentity } from "../../identity/IdentityProvider";
 import { usePeerUserId } from "./DualPaneProvider";
 
 export function PaneStatus() {
   const { id, status } = useDatabase();
   const { userId, authToken } = useCryptoSession();
-  const { signingFingerprint } = usePersona();
+  const { signingFingerprint } = useIdentity();
   const { events, connected } = useEvents();
   const { online } = useNetworkState();
   const peerUserId = usePeerUserId();

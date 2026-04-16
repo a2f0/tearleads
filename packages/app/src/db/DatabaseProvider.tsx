@@ -14,8 +14,8 @@ import {
   useState,
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
-import { usePersona } from "../persona/PersonaProvider";
 
 type DatabaseRuntimeStatus = "idle" | "ready" | "error" | "terminated";
 
@@ -214,11 +214,11 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   const { createDatabaseRuntime = createModuleDatabaseRuntime } =
     useAppHostConfig();
   const { log } = useLog();
-  const { signingFingerprint } = usePersona();
+  const { signingFingerprint } = useIdentity();
   const dbName =
     signingFingerprint === null
       ? null
-      : `/app-persona-${signingFingerprint}.db`;
+      : `/app-identity-${signingFingerprint}.db`;
   const value = useManagedDatabaseRuntime(createDatabaseRuntime, dbName, log);
 
   return (

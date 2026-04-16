@@ -17,8 +17,8 @@ import {
 } from "../data/containers";
 import { createExecSql } from "../data/persistence/sqlSchema";
 import { useDatabase } from "../db/DatabaseProvider";
+import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
-import { usePersona } from "../persona/PersonaProvider";
 
 interface CryptoSessionContextValue {
   userId: string | null;
@@ -85,7 +85,7 @@ async function bootstrapRootContainer(
   };
 }
 
-async function authenticateCurrentPersona(
+async function authenticateCurrentIdentity(
   apiClient: ReturnType<typeof useApiClient>,
   fingerprint: string,
   signingPrivateKey: Uint8Array,
@@ -113,7 +113,7 @@ async function authenticateCurrentPersona(
 
 function useResetCryptoSession(
   containerBootstrapped: MutableRefObject<string | null>,
-  signingKeyPair: ReturnType<typeof usePersona>["signingKeyPair"],
+  signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   apiClient: ReturnType<typeof useApiClient>,
   setUserId: (value: string | null) => void,
   setOrganizationId: (value: string | null) => void,
@@ -180,7 +180,7 @@ function useBootstrapCryptoSessionContainer(
 
 function useCryptoAuthActions(
   apiClient: ReturnType<typeof useApiClient>,
-  signingKeyPair: ReturnType<typeof usePersona>["signingKeyPair"],
+  signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   log: (message: string) => void,
   setStoredAuthToken: (value: string | null) => void,
   setIsAuthenticated: (value: boolean) => void,
@@ -197,7 +197,7 @@ function useCryptoAuthActions(
         return false;
       }
       const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
-      const token = await authenticateCurrentPersona(
+      const token = await authenticateCurrentIdentity(
         apiClient,
         fingerprint,
         signingKeyPair.signingPrivateKey,
@@ -238,7 +238,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const { log, logError } = useLog();
   const apiClient = useApiClient();
   const { client: dbClient, status: dbStatus } = useDatabase();
-  const { signingFingerprint, signingKeyPair } = usePersona();
+  const { signingFingerprint, signingKeyPair } = useIdentity();
   const containerBootstrapped = useRef<string | null>(null);
 
   useResetCryptoSession(

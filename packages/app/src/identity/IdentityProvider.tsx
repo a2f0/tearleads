@@ -24,7 +24,7 @@ interface EncapsulationKeyPair {
   secretKey: Uint8Array;
 }
 
-interface PersonaContextValue {
+interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
   generateKey: () => void;
@@ -32,9 +32,9 @@ interface PersonaContextValue {
   signingKeyPair: SigningKeyPair | null;
 }
 
-const PersonaContext = createContext<PersonaContextValue | null>(null);
+const IdentityContext = createContext<IdentityContextValue | null>(null);
 
-export function PersonaProvider({ children }: PropsWithChildren) {
+export function IdentityProvider({ children }: PropsWithChildren) {
   const [signingKeyPair, setSigningKeyPair] = useState<SigningKeyPair | null>(
     null,
   );
@@ -99,14 +99,16 @@ export function PersonaProvider({ children }: PropsWithChildren) {
   );
 
   return (
-    <PersonaContext.Provider value={value}>{children}</PersonaContext.Provider>
+    <IdentityContext.Provider value={value}>
+      {children}
+    </IdentityContext.Provider>
   );
 }
 
-export function usePersona(): PersonaContextValue {
-  const context = useContext(PersonaContext);
+export function useIdentity(): IdentityContextValue {
+  const context = useContext(IdentityContext);
   if (!context) {
-    throw new Error("usePersona must be used within a PersonaProvider.");
+    throw new Error("useIdentity must be used within an IdentityProvider.");
   }
 
   return context;
