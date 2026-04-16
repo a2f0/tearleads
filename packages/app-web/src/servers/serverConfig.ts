@@ -1,12 +1,7 @@
 import index from "../index.html";
 
 const workerBuild = await Bun.build({
-  entrypoints: [
-    new URL(
-      "../../../app/src/db/worker/databaseWorkerThread.ts",
-      import.meta.url,
-    ).pathname,
-  ],
+  entrypoints: [new URL("../databaseWorker.ts", import.meta.url).pathname],
   target: "browser",
   format: "esm",
 });

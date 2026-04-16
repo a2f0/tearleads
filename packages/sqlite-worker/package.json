@@ -4,7 +4,9 @@
   "type": "module",
   "exports": {
     "./client": "./src/client.ts",
+    "./default-thread": "./src/defaultThread.ts",
     "./load-sqlite3": "./src/loadSqlite3.ts",
+    "./runtime": "./src/runtime.ts",
     "./types": "./src/types.ts",
     "./worker": "./src/worker.ts",
     "./worker-core": "./src/workerCore.ts"

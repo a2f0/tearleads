@@ -20,7 +20,7 @@ function getRepoRoot() {
 
 async function createDevServerConfig() {
   const repoRoot = getRepoRoot();
-  const workerEntrypoint = `${repoRoot}/packages/app/src/db/worker/databaseWorkerThread.ts`;
+  const workerEntrypoint = `${repoRoot}/packages/app-electrobun/src/renderer/databaseWorker.ts`;
   const webEntrypoint = `${repoRoot}/packages/app-web/src/index.html`;
 
   const webBuild = await Bun.build({

@@ -1,7 +1,5 @@
-import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
+import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
 import { renderApp } from "app/client";
-import { createModuleWorker } from "app/db/worker/createModuleWorker";
-import type { AppDatabaseWorker } from "app/db/worker/types";
 import { AppHostConfig } from "app/host/AppHostConfig";
 import {
   parseTrustedPolicySigners,
@@ -9,18 +7,13 @@ import {
 } from "app/host/trustedPolicySigners";
 import { createRoot } from "react-dom/client";
 
-function createElectrobunDatabaseWorker(): AppDatabaseWorker {
+function createElectrobunDatabaseRuntime() {
   const workerUrl =
     location.protocol === "http:"
       ? "/worker.js"
       : new URL("./databaseWorker.ts", import.meta.url);
-  const worker = createModuleWorker(workerUrl);
 
-  return {
-    id: crypto.randomUUID(),
-    client: createDatabaseWorkerClient(worker),
-    worker,
-  };
+  return createModuleDatabaseRuntime({ workerUrl });
 }
 
 const elem = document.getElementById("root");
@@ -32,7 +25,7 @@ renderApp(createRoot(elem), {
   hostConfig: new AppHostConfig(
     "http://localhost:3001",
     "ws://localhost:3001",
-    createElectrobunDatabaseWorker,
+    createElectrobunDatabaseRuntime,
     parseTrustedPolicySigners(readTrustedPolicySignersPublicEnv(import.meta)),
   ),
 });

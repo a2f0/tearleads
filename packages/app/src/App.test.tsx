@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
+import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
 import { cleanup, render } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
-import { createAppDatabaseWorker } from "./db/worker/createAppDatabaseWorker";
 import { AppHostConfig } from "./host/AppHostConfig";
 
 afterEach(() => {
@@ -29,7 +29,8 @@ test("renders App", async () => {
           new AppHostConfig(
             "http://localhost:3001",
             "ws://localhost:3002",
-            () => createAppDatabaseWorker(MockWorker),
+            () =>
+              createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
           )
         }
       />,

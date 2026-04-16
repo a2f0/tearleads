@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
 import {
   act,
   cleanup,
@@ -20,7 +21,6 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
-import { createAppDatabaseWorker } from "../../db/worker/createAppDatabaseWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { usePersona } from "../../persona/PersonaProvider";
 import { useRegisterCurrentPersona } from "../../persona/useRegisterCurrentPersona";
@@ -83,7 +83,7 @@ function PaneAutoProvisioner() {
 
 function renderDualPane() {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createAppDatabaseWorker(MockWorker),
+    createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
   );
 
   return render(
@@ -106,7 +106,7 @@ function renderDualPane() {
 
 function renderSinglePane() {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createAppDatabaseWorker(MockWorker),
+    createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
   );
 
   return render(
