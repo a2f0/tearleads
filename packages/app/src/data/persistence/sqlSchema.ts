@@ -6,7 +6,7 @@ export type ExecSql = (
   bind?: Record<string, SqlRowValue>,
 ) => Promise<SqlRow[]>;
 
-export interface ExecSqlClientLike {
+interface ExecSqlClientLike {
   exec(options: {
     sql: string;
     bind?: Record<string, SqlRowValue>;
