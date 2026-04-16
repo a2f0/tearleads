@@ -8,7 +8,7 @@ import {
 
 export const WORKSPACE_IDS = [1, 2] as const;
 
-export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
+type WorkspaceId = (typeof WORKSPACE_IDS)[number];
 
 interface WorkspaceContextValue {
   activeWorkspace: WorkspaceId;
