@@ -11,15 +11,16 @@ import {
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
-import {
-  type AppDatabaseWorker,
-  createAppDatabaseWorker,
-  type WorkerStatus,
-} from "./sqliteWorker";
+import { createAppDatabaseWorker } from "./worker/createAppDatabaseWorker";
+import type {
+  AppDatabaseClient,
+  AppDatabaseWorker,
+  WorkerStatus,
+} from "./worker/types";
 
 interface DatabaseContextValue {
   id: string | null;
-  client: ReturnType<typeof createAppDatabaseWorker>["client"] | null;
+  client: AppDatabaseClient | null;
   status: WorkerStatus;
   killWorker: () => void;
   spawnWorker: () => void;

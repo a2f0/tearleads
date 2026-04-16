@@ -1,7 +1,7 @@
 import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
 import { renderApp } from "app/client";
-import { createModuleWorker } from "app/db/createModuleWorker";
-import type { AppDatabaseWorker } from "app/db/sqliteWorker";
+import { createModuleWorker } from "app/db/worker/createModuleWorker";
+import type { AppDatabaseWorker } from "app/db/worker/types";
 import { AppHostConfig } from "app/host/AppHostConfig";
 import {
   parseTrustedPolicySigners,
@@ -13,7 +13,7 @@ function createElectrobunDatabaseWorker(): AppDatabaseWorker {
   const workerUrl =
     location.protocol === "http:"
       ? "/worker.js"
-      : new URL("./sqliteWorker.ts", import.meta.url);
+      : new URL("./databaseWorker.ts", import.meta.url);
   const worker = createModuleWorker(workerUrl);
 
   return {
