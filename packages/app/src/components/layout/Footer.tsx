@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
-import type { MenuPosition } from "./components/shared/Menu";
-import { StartMenu } from "./components/shared/StartMenu";
+import type { MenuPosition } from "../shared/Menu";
+import { StartMenu } from "../shared/StartMenu";
 import "./Footer.css";
-import "./Workspace.css";
-import { useWorkspace } from "./WorkspaceProvider";
+import "./workspace/Workspace.css";
+import { useWorkspace } from "./workspace/WorkspaceProvider";
 
 export function Footer() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
