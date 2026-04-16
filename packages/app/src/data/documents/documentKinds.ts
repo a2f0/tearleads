@@ -22,6 +22,13 @@ interface SerializedCreditCardDocument extends CreditCardDocumentFields {
   version: number;
 }
 
+type DriverLicenseRecord = Partial<
+  Record<keyof SerializedDriverLicenseDocument, unknown>
+>;
+type CreditCardRecord = Partial<
+  Record<keyof SerializedCreditCardDocument, unknown>
+>;
+
 const DRIVER_LICENSE_VERSION = 1;
 const CREDIT_CARD_VERSION = 1;
 
@@ -45,66 +52,34 @@ function parseStructuredRecord(text: string): Record<string, unknown> | null {
   return isRecord(parsed) ? parsed : null;
 }
 
-function getDriverLicenseRecord(
-  text: string,
-): Partial<
-  Record<"expirationDate" | "kind" | "licenseId" | "version", unknown>
-> | null {
-  const parsed = parseStructuredRecord(text);
-  if (!parsed) {
+function getParsedRecordByKind<TRecord extends Record<string, unknown>>(
+  parsed: Record<string, unknown> | null,
+  kind: StoredDocumentKind,
+): Partial<TRecord> | null {
+  if (!parsed || parsed.kind !== kind) {
     return null;
   }
 
-  const record = parsed as Partial<
-    Record<"expirationDate" | "kind" | "licenseId" | "version", unknown>
-  >;
-  if (record.kind !== "drivers_license") {
-    return null;
-  }
-
-  return record;
+  return parsed as Partial<TRecord>;
 }
 
-function getCreditCardRecord(
-  text: string,
-): Partial<
-  Record<
-    | "cardNumber"
-    | "cvvCode"
-    | "expirationDate"
-    | "kind"
-    | "nameOnCard"
-    | "version",
-    unknown
-  >
-> | null {
-  const parsed = parseStructuredRecord(text);
-  if (!parsed) {
-    return null;
-  }
-
-  const record = parsed as Partial<
-    Record<
-      | "cardNumber"
-      | "cvvCode"
-      | "expirationDate"
-      | "kind"
-      | "nameOnCard"
-      | "version",
-      unknown
-    >
-  >;
-  if (record.kind !== "credit_card") {
-    return null;
-  }
-
-  return record;
+function getDriverLicenseRecord(text: string): DriverLicenseRecord | null {
+  return getParsedRecordByKind<SerializedDriverLicenseDocument>(
+    parseStructuredRecord(text),
+    "drivers_license",
+  );
 }
 
-function parseDriverLicensePayload(
-  text: string,
+function getCreditCardRecord(text: string): CreditCardRecord | null {
+  return getParsedRecordByKind<SerializedCreditCardDocument>(
+    parseStructuredRecord(text),
+    "credit_card",
+  );
+}
+
+function parseDriverLicensePayloadRecord(
+  record: DriverLicenseRecord | null,
 ): SerializedDriverLicenseDocument | null {
-  const record = getDriverLicenseRecord(text);
   if (!record) {
     return null;
   }
@@ -127,10 +102,9 @@ function parseDriverLicensePayload(
   };
 }
 
-function parseCreditCardPayload(
-  text: string,
+function parseCreditCardPayloadRecord(
+  record: CreditCardRecord | null,
 ): SerializedCreditCardDocument | null {
-  const record = getCreditCardRecord(text);
   if (!record) {
     return null;
   }
@@ -153,6 +127,18 @@ function parseCreditCardPayload(
     nameOnCard: typeof record.nameOnCard === "string" ? record.nameOnCard : "",
     version,
   };
+}
+
+function parseDriverLicensePayload(
+  text: string,
+): SerializedDriverLicenseDocument | null {
+  return parseDriverLicensePayloadRecord(getDriverLicenseRecord(text));
+}
+
+function parseCreditCardPayload(
+  text: string,
+): SerializedCreditCardDocument | null {
+  return parseCreditCardPayloadRecord(getCreditCardRecord(text));
 }
 
 export function getUntitledDocumentTitle(kind: StoredDocumentKind): string {
@@ -180,11 +166,19 @@ export function getStoredDocumentTypeLabel(kind: StoredDocumentKind): string {
 }
 
 export function deriveStoredDocumentKind(text: string): StoredDocumentKind {
-  if (getCreditCardRecord(text)) {
+  const parsed = parseStructuredRecord(text);
+  if (
+    getParsedRecordByKind<SerializedCreditCardDocument>(parsed, "credit_card")
+  ) {
     return "credit_card";
   }
 
-  return getDriverLicenseRecord(text) ? "drivers_license" : "note";
+  return getParsedRecordByKind<SerializedDriverLicenseDocument>(
+    parsed,
+    "drivers_license",
+  )
+    ? "drivers_license"
+    : "note";
 }
 
 export function parseDriverLicenseDocument(
@@ -262,16 +256,26 @@ function deriveCreditCardTitle(fields: CreditCardDocumentFields): string {
 }
 
 export function deriveStoredDocumentTitle(text: string): string {
-  const creditCard = parseCreditCardDocument(text);
+  const parsed = parseStructuredRecord(text);
+  const creditCardRecord = getParsedRecordByKind<SerializedCreditCardDocument>(
+    parsed,
+    "credit_card",
+  );
+  const creditCard = parseCreditCardPayloadRecord(creditCardRecord);
   if (creditCard) {
     return deriveCreditCardTitle(creditCard);
   }
 
-  if (getCreditCardRecord(text)) {
+  if (creditCardRecord) {
     return "Unsupported credit card";
   }
 
-  const driverLicense = parseDriverLicenseDocument(text);
+  const driverLicenseRecord =
+    getParsedRecordByKind<SerializedDriverLicenseDocument>(
+      parsed,
+      "drivers_license",
+    );
+  const driverLicense = parseDriverLicensePayloadRecord(driverLicenseRecord);
   if (driverLicense) {
     const trimmedLicenseId = driverLicense.licenseId.trim();
     return trimmedLicenseId.length > 0
@@ -279,7 +283,7 @@ export function deriveStoredDocumentTitle(text: string): string {
       : getUntitledDocumentTitle("drivers_license");
   }
 
-  if (getDriverLicenseRecord(text)) {
+  if (driverLicenseRecord) {
     return "Unsupported driver's license";
   }
 

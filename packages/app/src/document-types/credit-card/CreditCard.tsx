@@ -7,6 +7,7 @@ import {
 } from "../../data/documents/DocumentsProvider";
 import type { CreditCardDocumentFields } from "../../data/documents/documentKinds";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
+import { useLog } from "../../logging/LogProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import {
   CREDIT_CARD_ATTACHMENT_SLOTS,
@@ -166,6 +167,7 @@ function CreditCardFields(params: {
         Card Number
         <input
           aria-label="Credit card number"
+          type="password"
           value={fields.cardNumber}
           onChange={(event) => onChange({ cardNumber: event.target.value })}
           placeholder={ready ? "4111 1111 1111 1111" : "Loading..."}
@@ -259,6 +261,7 @@ function CreditCardAttachments(params: {
 
 export function CreditCard() {
   const { blobStore, isAuthenticated, online } = useAppData();
+  const { logError } = useLog();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -321,7 +324,12 @@ export function CreditCard() {
         canAttach={canAttach}
         imageUrlBySlotId={imageUrlBySlotId}
         onSelectedAttachment={(slotId, fileList) => {
-          void handleSelectedAttachment(slotId, fileList);
+          void handleSelectedAttachment(slotId, fileList).catch((error) => {
+            logError(
+              "Failed to handle credit card attachment selection",
+              error,
+            );
+          });
         }}
       />
     </div>
