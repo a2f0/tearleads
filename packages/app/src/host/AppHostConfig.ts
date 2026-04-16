@@ -1,12 +1,12 @@
-import type { AppDatabaseWorker } from "../db/worker/types";
+import type { DatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
 
-export type CreateWorkerFn = () => AppDatabaseWorker;
+export type CreateDatabaseRuntimeFn = () => DatabaseRuntime;
 
 export class AppHostConfig {
   constructor(
     readonly apiBaseUrl: string,
     readonly wsUrl: string,
-    readonly createWorker?: CreateWorkerFn,
+    readonly createDatabaseRuntime?: CreateDatabaseRuntimeFn,
     readonly trustedPolicySigners: ReadonlyMap<string, Uint8Array> = new Map(),
   ) {}
 }

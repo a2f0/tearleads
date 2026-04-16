@@ -1,27 +1,17 @@
+import { fileURLToPath } from "node:url";
+import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow } from "electrobun/bun";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-function getRepoRoot() {
-  const result = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  if (result.exitCode !== 0) {
-    throw new Error("Failed to determine repository root", {
-      cause: Buffer.from(result.stderr).toString(),
-    });
-  }
-
-  return Buffer.from(result.stdout).toString().trim();
-}
-
 async function createDevServerConfig() {
-  const repoRoot = getRepoRoot();
-  const workerEntrypoint = `${repoRoot}/packages/app/src/db/worker/databaseWorkerThread.ts`;
-  const webEntrypoint = `${repoRoot}/packages/app-web/src/index.html`;
+  const workerEntrypoint = fileURLToPath(
+    new URL("../renderer/databaseWorker.ts", import.meta.url),
+  );
+  const webEntrypoint = fileURLToPath(
+    new URL("../../../app-web/src/index.html", import.meta.url),
+  );
 
   const webBuild = await Bun.build({
     entrypoints: [webEntrypoint],
@@ -45,9 +35,7 @@ async function createDevServerConfig() {
 
   const workerScript = workerBuild.outputs[0];
 
-  const sqliteWasm = Bun.file(
-    `${repoRoot}/packages/sqlite-instance/dist/jswasm/sqlite3.wasm`,
-  );
+  const sqliteWasm = Bun.file(getSqliteWasmAssetUrl());
 
   const webOutputs = new Map(
     webBuild.outputs.map((output) => [

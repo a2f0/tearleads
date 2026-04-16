@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
+import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
 import {
   cleanup,
@@ -11,7 +12,6 @@ import {
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
-import { createAppDatabaseWorker } from "../../db/worker/createAppDatabaseWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
@@ -29,7 +29,7 @@ function renderPane() {
         <PaneProvider
           hostConfig={
             new AppHostConfig("http://localhost:3001", wsUrl, () =>
-              createAppDatabaseWorker(MockWorker),
+              createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
             )
           }
         >

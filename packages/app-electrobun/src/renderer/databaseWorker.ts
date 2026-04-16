@@ -1,1 +1,1 @@
-import "app/db/worker/databaseWorkerThread";
+import "@tearleads/sqlite-worker/default-thread";

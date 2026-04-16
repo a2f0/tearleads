@@ -1,12 +1,12 @@
+import { fileURLToPath } from "node:url";
+import {
+  getDefaultDatabaseWorkerEntrypointUrl,
+  getSqliteWasmAssetUrl,
+} from "@tearleads/sqlite-worker/assets";
 import index from "../index.html";
 
 const workerBuild = await Bun.build({
-  entrypoints: [
-    new URL(
-      "../../../app/src/db/worker/databaseWorkerThread.ts",
-      import.meta.url,
-    ).pathname,
-  ],
+  entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
   target: "browser",
   format: "esm",
 });
@@ -17,9 +17,7 @@ if (!workerBuild.success || workerBuild.outputs.length === 0) {
 
 const workerScript = workerBuild.outputs[0];
 
-const sqliteWasm = Bun.file(
-  new URL("../../../sqlite-instance/dist/jswasm/sqlite3.wasm", import.meta.url),
-);
+const sqliteWasm = Bun.file(getSqliteWasmAssetUrl());
 
 export const serverConfig = {
   routes: {

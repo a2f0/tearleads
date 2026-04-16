@@ -1,3 +1,8 @@
+import type { DatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
+import {
+  createModuleDatabaseRuntime,
+  type DatabaseRuntime,
+} from "@tearleads/sqlite-worker/runtime";
 import {
   createContext,
   type PropsWithChildren,
@@ -11,36 +16,31 @@ import {
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
-import { createAppDatabaseWorker } from "./worker/createAppDatabaseWorker";
-import type {
-  AppDatabaseClient,
-  AppDatabaseWorker,
-  WorkerStatus,
-} from "./worker/types";
+
+type DatabaseRuntimeStatus = "idle" | "ready" | "error" | "terminated";
 
 interface DatabaseContextValue {
   id: string | null;
-  client: AppDatabaseClient | null;
-  status: WorkerStatus;
+  client: DatabaseWorkerClient | null;
+  status: DatabaseRuntimeStatus;
   killWorker: () => void;
   spawnWorker: () => void;
 }
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
-function destroyWorker(
-  workerRef: RefObject<AppDatabaseWorker | null>,
+function destroyRuntime(
+  runtimeRef: RefObject<DatabaseRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   setId: (value: string | null) => void,
   setClient: (value: DatabaseContextValue["client"]) => void,
-  setStatus: (value: WorkerStatus) => void,
-  nextStatus: WorkerStatus,
+  setStatus: (value: DatabaseRuntimeStatus) => void,
+  nextStatus: DatabaseRuntimeStatus,
 ) {
-  if (workerRef.current) {
-    workerRef.current.client.destroy();
-    workerRef.current.worker.terminate();
-    workerRef.current = null;
+  if (runtimeRef.current) {
+    runtimeRef.current.destroy();
+    runtimeRef.current = null;
   }
 
   bootingRef.current = false;
@@ -50,82 +50,82 @@ function destroyWorker(
   setStatus(nextStatus);
 }
 
-async function bootDatabaseWorker(
-  appWorker: AppDatabaseWorker,
+async function bootDatabaseRuntime(
+  runtime: DatabaseRuntime,
   dbName: string,
   log: (message: string) => void,
 ) {
   log("Loading SQLite3 WASM module...");
   log(`Initializing database: ${dbName}`);
-  await appWorker.client.init({
+  await runtime.client.init({
     dbName,
     cipher: "chacha20",
     key: "development-key",
   });
 }
 
-function useDatabaseWorkerLifecycle(
+function useDatabaseRuntimeLifecycle(
   dbName: string | null,
-  status: WorkerStatus,
-  workerRef: RefObject<AppDatabaseWorker | null>,
+  status: DatabaseRuntimeStatus,
+  runtimeRef: RefObject<DatabaseRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   killedRef: RefObject<boolean>,
-  destroyCurrentWorker: (nextStatus: WorkerStatus) => void,
-  spawnWorker: () => void,
+  destroyCurrentRuntime: (nextStatus: DatabaseRuntimeStatus) => void,
+  spawnRuntime: () => void,
 ) {
   useEffect(() => {
     if (!dbName) {
-      if (workerRef.current || status !== "idle") {
-        destroyCurrentWorker("idle");
+      if (runtimeRef.current || status !== "idle") {
+        destroyCurrentRuntime("idle");
       }
       return;
     }
 
     if (currentDbNameRef.current !== dbName) {
       killedRef.current = false;
-      destroyCurrentWorker("idle");
-      spawnWorker();
+      destroyCurrentRuntime("idle");
+      spawnRuntime();
       return;
     }
 
-    if (!killedRef.current && !workerRef.current && !bootingRef.current) {
-      spawnWorker();
+    if (!killedRef.current && !runtimeRef.current && !bootingRef.current) {
+      spawnRuntime();
     }
   }, [
     bootingRef,
     currentDbNameRef,
     dbName,
-    destroyCurrentWorker,
+    destroyCurrentRuntime,
     killedRef,
-    spawnWorker,
+    runtimeRef,
+    spawnRuntime,
     status,
-    workerRef,
   ]);
 
   useEffect(() => {
     return () => {
-      destroyCurrentWorker("idle");
+      destroyCurrentRuntime("idle");
     };
-  }, [destroyCurrentWorker]);
+  }, [destroyCurrentRuntime]);
 }
 
-function useManagedDatabaseWorker(
-  createWorker: () => AppDatabaseWorker,
+function useManagedDatabaseRuntime(
+  createDatabaseRuntime: () => DatabaseRuntime,
   dbName: string | null,
   log: (message: string) => void,
 ): DatabaseContextValue {
-  const [status, setStatus] = useState<WorkerStatus>("idle");
+  const [status, setStatus] = useState<DatabaseRuntimeStatus>("idle");
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
-  const workerRef = useRef<AppDatabaseWorker | null>(null);
+  const runtimeRef = useRef<DatabaseRuntime | null>(null);
   const bootingRef = useRef(false);
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
-  const destroyCurrentWorker = useCallback(
-    (nextStatus: WorkerStatus) => {
-      destroyWorker(
-        workerRef,
+  const destroyCurrentRuntime = useCallback(
+    (nextStatus: DatabaseRuntimeStatus) => {
+      destroyRuntime(
+        runtimeRef,
         bootingRef,
         currentDbNameRef,
         setId,
@@ -137,62 +137,68 @@ function useManagedDatabaseWorker(
     [setClient, setId, setStatus],
   );
 
-  const spawnWorker = useCallback(() => {
-    if (!dbName || workerRef.current || bootingRef.current) {
+  const spawnRuntime = useCallback(() => {
+    if (!dbName || runtimeRef.current || bootingRef.current) {
       return;
     }
+
     killedRef.current = false;
     bootingRef.current = true;
     currentDbNameRef.current = dbName;
 
     try {
-      const appWorker = createWorker();
-      workerRef.current = appWorker;
-      setId(appWorker.id);
-      setClient(appWorker.client);
+      const runtime = createDatabaseRuntime();
+      runtimeRef.current = runtime;
+      setId(runtime.id);
+      setClient(runtime.client);
       setStatus("idle");
 
-      void bootDatabaseWorker(appWorker, dbName, log)
+      void bootDatabaseRuntime(runtime, dbName, log)
         .then(() => {
-          if (workerRef.current !== appWorker) return;
+          if (runtimeRef.current !== runtime) {
+            return;
+          }
+
           bootingRef.current = false;
           setStatus("ready");
           log(`Database initialized successfully: ${dbName}`);
           log("Worker spawned");
         })
         .catch((error) => {
-          if (workerRef.current === appWorker) {
-            bootingRef.current = false;
-            console.error("Failed to initialize database worker:", error);
-            setStatus("error");
+          if (runtimeRef.current !== runtime) {
+            return;
           }
+
+          bootingRef.current = false;
+          console.error("Failed to initialize database worker:", error);
+          setStatus("error");
         });
     } catch (error) {
       bootingRef.current = false;
       console.error("Failed to create database worker:", error);
       setStatus("error");
     }
-  }, [createWorker, dbName, log]);
+  }, [createDatabaseRuntime, dbName, log]);
 
   const killWorker = useCallback(() => {
-    if (!workerRef.current) {
+    if (!runtimeRef.current) {
       return;
     }
 
     killedRef.current = true;
-    destroyCurrentWorker("terminated");
+    destroyCurrentRuntime("terminated");
     log("Worker killed");
-  }, [destroyCurrentWorker, log]);
+  }, [destroyCurrentRuntime, log]);
 
-  useDatabaseWorkerLifecycle(
+  useDatabaseRuntimeLifecycle(
     dbName,
     status,
-    workerRef,
+    runtimeRef,
     bootingRef,
     currentDbNameRef,
     killedRef,
-    destroyCurrentWorker,
-    spawnWorker,
+    destroyCurrentRuntime,
+    spawnRuntime,
   );
 
   return {
@@ -200,19 +206,20 @@ function useManagedDatabaseWorker(
     client,
     status,
     killWorker,
-    spawnWorker,
+    spawnWorker: spawnRuntime,
   };
 }
 
 export function DatabaseProvider({ children }: PropsWithChildren) {
-  const { createWorker = createAppDatabaseWorker } = useAppHostConfig();
+  const { createDatabaseRuntime = createModuleDatabaseRuntime } =
+    useAppHostConfig();
   const { log } = useLog();
   const { signingFingerprint } = usePersona();
   const dbName =
     signingFingerprint === null
       ? null
       : `/app-persona-${signingFingerprint}.db`;
-  const value = useManagedDatabaseWorker(createWorker, dbName, log);
+  const value = useManagedDatabaseRuntime(createDatabaseRuntime, dbName, log);
 
   return (
     <DatabaseContext.Provider value={value}>
