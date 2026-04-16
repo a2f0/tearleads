@@ -81,7 +81,10 @@ test("serialized mutations share a queue across adapters for the same client", a
   const firstStarted = new Promise<void>((resolve) => {
     releaseFirst = resolve;
   });
-  let firstReleased = false;
+  let finishFirstMutation = () => {};
+  const firstMayFinish = new Promise<void>((resolve) => {
+    finishFirstMutation = resolve;
+  });
 
   const client = {
     exec: async ({
@@ -91,21 +94,6 @@ test("serialized mutations share a queue across adapters for the same client", a
       bind?: Record<string, SqlRowValue>;
     }): Promise<{ rows: SqlRow[] }> => {
       statements.push(sql);
-
-      if (sql === "first") {
-        releaseFirst();
-        await new Promise<void>((resolve) => {
-          const poll = () => {
-            if (firstReleased) {
-              resolve();
-              return;
-            }
-            queueMicrotask(poll);
-          };
-          poll();
-        });
-      }
-
       return { rows: [] };
     },
   };
@@ -117,7 +105,8 @@ test("serialized mutations share a queue across adapters for the same client", a
     firstExecSql,
     async (lockedExecSql) => {
       await lockedExecSql("first");
-      firstReleased = true;
+      releaseFirst();
+      await firstMayFinish;
     },
   );
 
@@ -130,6 +119,10 @@ test("serialized mutations share a queue across adapters for the same client", a
     },
   );
 
+  await Promise.resolve();
+  expect(statements).toEqual(["first"]);
+
+  finishFirstMutation();
   await expect(firstMutation).resolves.toBeUndefined();
   await expect(secondMutation).resolves.toBeUndefined();
   expect(statements).toEqual(["first", "second"]);
