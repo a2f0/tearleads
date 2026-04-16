@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./assets": "./src/assets.ts",
     "./jswasm/sqlite3.mjs": {
       "types": "./src/sqlite3.d.ts",
       "default": "./dist/jswasm/sqlite3.mjs"

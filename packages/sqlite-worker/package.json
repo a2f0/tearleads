@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./assets": "./src/assets.ts",
     "./client": "./src/client.ts",
     "./default-thread": "./src/defaultThread.ts",
     "./load-sqlite3": "./src/loadSqlite3.ts",
