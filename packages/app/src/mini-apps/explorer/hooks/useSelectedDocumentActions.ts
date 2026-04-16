@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
@@ -19,13 +20,6 @@ function canMutateSelectedDocument(appData: ExplorerDocumentsRuntimeAppData) {
   return (
     appData.dbStatus === "ready" && appData.isAuthenticated && appData.online
   );
-}
-
-function getDocumentByLocalId(
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-  noteId: string,
-) {
-  return documentSummaries.find((note) => note.id === noteId);
 }
 
 function getMovedDocumentContainerId(

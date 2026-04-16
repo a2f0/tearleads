@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import { getDocumentByLocalId } from "../documentSummaries";
 import type { ExplorerDocumentsRuntimeAppData } from "../explorerRuntime";
 import {
   createExplorerTargetLookups,
@@ -8,13 +9,6 @@ import {
 } from "../targetOptions";
 import type { ContainerNode } from "../types";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
-
-function getDocumentByLocalId(
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-  noteId: string,
-) {
-  return documentSummaries.find((note) => note.id === noteId);
-}
 
 function getSelectedDocumentLinkedContainerIds(params: {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;

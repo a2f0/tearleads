@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { AppDataContextValue } from "../../../data/AppDataProvider";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import {
@@ -191,6 +191,32 @@ function usePrimeDiscoveredDocuments(params: {
     log,
     online,
   } = appData;
+  const runtimeAppData = useMemo<ExplorerDocumentsRuntimeAppData>(
+    () => ({
+      apiClient,
+      blobStore,
+      cacheReferencedPrincipalPolicies,
+      dbStatus,
+      domainScope,
+      encapsulationKeyPair,
+      execSql,
+      isAuthenticated,
+      log,
+      online,
+    }),
+    [
+      apiClient,
+      blobStore,
+      cacheReferencedPrincipalPolicies,
+      dbStatus,
+      domainScope,
+      encapsulationKeyPair,
+      execSql,
+      isAuthenticated,
+      log,
+      online,
+    ],
+  );
 
   const primeDiscoveredDocuments = useCallback(
     (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
@@ -203,18 +229,7 @@ function usePrimeDiscoveredDocuments(params: {
           domainScope,
           documentSummary.id,
           createExplorerDocumentsRuntime(
-            {
-              apiClient,
-              blobStore,
-              cacheReferencedPrincipalPolicies,
-              dbStatus,
-              domainScope,
-              encapsulationKeyPair,
-              execSql,
-              isAuthenticated,
-              log,
-              online,
-            },
+            runtimeAppData,
             documentSummary.containerId,
           ),
           mergeDocumentSummary,
@@ -223,19 +238,7 @@ function usePrimeDiscoveredDocuments(params: {
         documentStore.requestSync();
       }
     },
-    [
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      execSql,
-      isAuthenticated,
-      log,
-      mergeDocumentSummary,
-      online,
-    ],
+    [domainScope, mergeDocumentSummary, runtimeAppData],
   );
 
   return { primeDiscoveredDocuments };
