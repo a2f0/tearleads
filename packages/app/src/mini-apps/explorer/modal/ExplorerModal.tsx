@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
 import type { ContainerNode } from "../types";
 
-export type ExplorerModalState =
+type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
   | { mode: "link-document"; documentLocalId: string }
