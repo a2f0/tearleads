@@ -11,7 +11,7 @@ interface CreditCardAttachmentSlot {
   slotId: string;
 }
 
-export const CREDIT_CARD_FRONT_IMAGE_SLOT_ID = "credit-card-front-image";
+const CREDIT_CARD_FRONT_IMAGE_SLOT_ID = "credit-card-front-image";
 const CREDIT_CARD_BACK_IMAGE_SLOT_ID = "credit-card-back-image";
 
 export const CREDIT_CARD_ATTACHMENT_SLOTS: ReadonlyArray<CreditCardAttachmentSlot> =
